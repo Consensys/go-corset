@@ -140,7 +140,7 @@ func expandColumns(tf lt.TraceFile, schema sc.AnySchema, builder ir.TraceBuilder
 	var (
 		rcols []trace.BigEndianColumn
 		// Construct expanded tr
-		tr, errs = builder.Build(schema, tf.Columns)
+		tr, errs = builder.Build(schema, tf)
 	)
 	// Handle errors
 	if len(errs) > 0 {

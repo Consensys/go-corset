@@ -19,46 +19,47 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Add represents the addition of zero or more expressions.
-type Add[T Term[T]] struct{ Args []T }
+type Add[F field.Element[F], T Term[T]] struct{ Args []T }
 
 // Sum zero or more expressions together.
-func Sum[T Term[T]](terms ...T) T {
+func Sum[F field.Element[F], T Term[T]](terms ...T) T {
 	// Flatten any nested sums
-	terms = array.Flatten(terms, flatternAdd)
+	terms = array.Flatten(terms, flatternAdd[F, T])
 	// Remove any zeros
 	terms = array.RemoveMatching(terms, isZero)
 	// Final simplifications
 	switch len(terms) {
 	case 0:
-		return Const64[T](0)
+		return Const64[F, T](0)
 	case 1:
 		return terms[0]
 	default:
-		var term Term[T] = &Add[T]{terms}
+		var term Term[T] = &Add[F, T]{terms}
 		//
 		return term.(T)
 	}
 }
 
 // Air indicates this term can be used at the AIR level.
-func (p *Add[T]) Air() {}
+func (p *Add[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *Add[T]) ApplyShift(shift int) T {
-	var term Term[T] = &Add[T]{applyShiftOfTerms(p.Args, shift)}
+func (p *Add[F, T]) ApplyShift(shift int) T {
+	var term Term[T] = &Add[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Add[T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+func (p *Add[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Add[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *Add[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
@@ -73,44 +74,44 @@ func (p *Add[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, e
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *Add[T]) IsDefined() bool {
+func (p *Add[F, T]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Add[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Add[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	return lispOfTerms(global, mapping, "+", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Add[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Add[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return requiredRegistersOfTerms(p.Args)
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Add[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Add[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Args, row, mid)
 }
 
 // ShiftRange implementation for Term interface.
-func (p *Add[T]) ShiftRange() (int, int) {
+func (p *Add[F, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args...)
 }
 
 // Simplify implementation for Term interface.
-func (p *Add[T]) Simplify(casts bool) T {
-	return simplifySum(p.Args, casts)
+func (p *Add[F, T]) Simplify(casts bool) T {
+	return simplifySum[F, T](p.Args, casts)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Add[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Add[F, T]) Substitute(mapping map[string]fr.Element) {
 	substituteTerms(mapping, p.Args...)
 }
 
 // ValueRange implementation for Term interface.
-func (p *Add[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Add[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
@@ -125,31 +126,31 @@ func (p *Add[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	return res
 }
 
-func simplifySum[T Term[T]](args []T, casts bool) T {
+func simplifySum[F field.Element[F], T Term[T]](args []T, casts bool) T {
 	var (
 		terms = simplifyTerms(args, addBinOp, frZERO, casts)
 		tmp   Term[T]
 	)
 	// Flatten any nested sums
-	terms = array.Flatten(terms, flatternAdd)
+	terms = array.Flatten(terms, flatternAdd[F, T])
 	// Remove any zeros
 	terms = array.RemoveMatching(terms, isZero)
 	// Check anything left
 	switch len(terms) {
 	case 0:
-		tmp = &Constant[T]{frZERO}
+		tmp = &Constant[F, T]{frZERO}
 	case 1:
 		return terms[0]
 	default:
-		tmp = &Add[T]{terms}
+		tmp = &Add[F, T]{terms}
 	}
 	// Done
 	return tmp.(T)
 }
 
-func flatternAdd[T Term[T]](term T) []T {
+func flatternAdd[F field.Element[F], T Term[T]](term T) []T {
 	var e Term[T] = term
-	if t, ok := e.(*Add[T]); ok {
+	if t, ok := e.(*Add[F, T]); ok {
 		return t.Args
 	}
 	//

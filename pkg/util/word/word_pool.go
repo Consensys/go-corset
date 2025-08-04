@@ -30,7 +30,7 @@ const HEAP_POOL_LOADING = 75
 // value.  The pool stores the actual word data, and provides fast access via an
 // index.  This makes sense when we have a relatively small number of values
 // which can be referred to many times over.
-type Pool[K any, T Word[T]] interface {
+type Pool[K any, T any] interface {
 	// Lookup a given word in the pool using an index.
 	Get(K) T
 	// Allocate word into pool, returning its index.

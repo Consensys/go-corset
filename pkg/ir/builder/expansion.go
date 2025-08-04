@@ -20,6 +20,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // TraceExpansion expands a given trace according to a given schema. More
@@ -73,11 +74,11 @@ func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace) erro
 // continuous approach.  This is for two reasons: firstly, the latter would
 // require locks that would slow down evaluation performance; secondly, the vast
 // majority of jobs are run in the very first wave.
-func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace) error {
+func ParallelTraceExpansion[F field.Element[F]](batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[F]) error {
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
-		ch = make(chan columnBatch, batchsize)
+		ch = make(chan columnBatch[F], batchsize)
 		//
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
@@ -90,7 +91,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 		// Dispatch next batch of assignments.
 		dispatchReadyAssignments(batch, schema, trace, ch)
 		//
-		batches := make([]columnBatch, len(batch))
+		batches := make([]columnBatch[F], len(batch))
 		// Collect all the results
 		for i := range len(batch) {
 			batches[i] = <-ch
@@ -103,7 +104,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 		// Once we get here, all go rountines are complete and we are sequential
 		// again.
 		for _, r := range batches {
-			fillComputedColumns(r.targets, r.columns, trace)
+			fillComputedColumns[F](r.targets, r.columns, trace)
 		}
 		// Log stats about this batch
 		stats.Log(fmt.Sprintf("Expansion batch %d (remaining %d)", batchNum, expander.Count()))
@@ -116,14 +117,14 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 
 // Dispatch the given set of assignments with results being fed back into the
 // shared channel.
-func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema, trace *tr.ArrayTrace, ch chan columnBatch) {
+func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment, schema sc.AnySchema, trace *tr.ArrayTrace[F], ch chan columnBatch[F]) {
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {
 		// Dispatch!
 		go func(targets []sc.RegisterRef) {
 			cols, err := ith.Compute(trace, schema)
 			// Send outcome back
-			ch <- columnBatch{targets, cols, err}
+			ch <- columnBatch[F]{targets, cols, err}
 		}(ith.RegistersWritten())
 	}
 }
@@ -131,7 +132,7 @@ func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema, trace 
 // Fill a set of columns with their computed results.  The column index is that
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
-func fillComputedColumns(refs []sc.RegisterRef, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
+func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []tr.ArrayColumn[F], trace *tr.ArrayTrace[F]) {
 	var resized bit.Set
 	// Add all columns
 	for i, ref := range refs {
@@ -160,11 +161,11 @@ func fillComputedColumns(refs []sc.RegisterRef, cols []tr.ArrayColumn, trace *tr
 }
 
 // Result from given computation.
-type columnBatch struct {
+type columnBatch[F field.Element[F]] struct {
 	// Target registers for this batch
 	targets []sc.RegisterRef
 	// The computed columns in this batch.
-	columns []trace.ArrayColumn
+	columns []trace.ArrayColumn[F]
 	// An error (should one arise)
 	err error
 }

@@ -1,9 +1,16 @@
 package field
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/util/word"
+)
 
 // An Element of a prime-order field.
 type Element[Operand any] interface {
+	// Field elements are always words
+	word.Word[Operand]
+	//
 	Add(y Operand) Operand      // Add x+y
 	Sub(y Operand) Operand      // Sub x-y
 	AddUint32(y uint32) Operand // AddUint32 x+y. It's the canonical way to create a new element with value y.

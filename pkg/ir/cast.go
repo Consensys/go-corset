@@ -27,7 +27,7 @@ import (
 )
 
 // Cast attempts to narrow the width a given expression.
-type Cast[T Term[T]] struct {
+type Cast[F field.Element[F], T Term[T]] struct {
 	Arg      T
 	BitWidth uint
 	Bound    fr.Element
@@ -35,27 +35,27 @@ type Cast[T Term[T]] struct {
 
 // CastOf constructs a new expression which has been annotated by the user to be
 // within a given range.
-func CastOf[T Term[T]](arg T, bitwidth uint) T {
+func CastOf[F field.Element[F], T Term[T]](arg T, bitwidth uint) T {
 	bound := fr.NewElement(2)
 	field.Pow(&bound, uint64(bitwidth))
 	// Construct term
-	var term Term[T] = &Cast[T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
+	var term Term[T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
 	// Done
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
-func (p *Cast[T]) ApplyShift(shift int) T {
-	return CastOf(p.Arg.ApplyShift(shift), p.BitWidth)
+func (p *Cast[F, T]) ApplyShift(shift int) T {
+	return CastOf[F, T](p.Arg.ApplyShift(shift), p.BitWidth)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Cast[T]) Bounds() util.Bounds {
+func (p *Cast[F, T]) Bounds() util.Bounds {
 	return p.Arg.Bounds()
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Cast[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Dynamic cast check
@@ -68,14 +68,14 @@ func (p *Cast[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, 
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *Cast[T]) IsDefined() bool {
+func (p *Cast[F, T]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Cast[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Cast[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	arg := p.Arg.Lisp(global, mapping)
 	name := sexp.NewSymbol(fmt.Sprintf(":u%d", p.BitWidth))
 
@@ -83,17 +83,17 @@ func (p *Cast[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Cast[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Cast[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return p.Arg.RequiredRegisters()
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Cast[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Cast[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, mid)
 }
 
 // Range returns the range of values which this cast represents.
-func (p *Cast[T]) Range() math.Interval {
+func (p *Cast[F, T]) Range() math.Interval {
 	var bound = big.NewInt(2)
 	// Determine bound for static type check
 	bound.Exp(bound, big.NewInt(int64(p.BitWidth)), nil)
@@ -104,12 +104,12 @@ func (p *Cast[T]) Range() math.Interval {
 }
 
 // ShiftRange implementation for Term interface.
-func (p *Cast[T]) ShiftRange() (int, int) {
+func (p *Cast[F, T]) ShiftRange() (int, int) {
 	return p.Arg.ShiftRange()
 }
 
 // Simplify implementation for Term interface.
-func (p *Cast[T]) Simplify(casts bool) T {
+func (p *Cast[F, T]) Simplify(casts bool) T {
 	var bound fr.Element = fr.NewElement(2)
 	// Determine bound for static type check
 	field.Pow(&bound, uint64(p.BitWidth))
@@ -120,14 +120,14 @@ func (p *Cast[T]) Simplify(casts bool) T {
 		targ Term[T] = arg
 	)
 	//
-	if c, ok := targ.(*Constant[T]); ok && c.Value.Cmp(&bound) < 0 {
+	if c, ok := targ.(*Constant[F, T]); ok && c.Value.Cmp(&bound) < 0 {
 		// Done
 		return arg
 	} else if ok {
 		// Type failure
 		panic(fmt.Sprintf("type cast failure (have %s with expected bitwidth %d)", c.Value.String(), p.BitWidth))
 	} else if casts {
-		targ = CastOf(arg, p.BitWidth)
+		targ = CastOf[F, T](arg, p.BitWidth)
 		arg = targ.(T)
 	}
 	// elide cast
@@ -135,12 +135,12 @@ func (p *Cast[T]) Simplify(casts bool) T {
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Cast[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Cast[F, T]) Substitute(mapping map[string]fr.Element) {
 	p.Arg.Substitute(mapping)
 }
 
 // ValueRange implementation for Term interface.
-func (p *Cast[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Cast[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	cast := p.Range()
 	// Compute actual interval
 	res := p.Arg.ValueRange(mapping)

@@ -59,7 +59,7 @@ var inspectCmd = &cobra.Command{
 		//
 		stats.Log("Reading trace file")
 		// Build the trace
-		trace, errors := schemas.TraceBuilder().Build(schemas.UniqueSchema(), tracefile.Columns)
+		trace, errors := schemas.TraceBuilder().Build(schemas.UniqueSchema(), tracefile)
 		//
 		if len(errors) == 0 {
 			// Run the inspector.

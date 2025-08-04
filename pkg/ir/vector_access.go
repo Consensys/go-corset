@@ -26,34 +26,34 @@ import (
 // VectorAccess represents the bitwise concatenation of one or more registers.
 // Registers are organised in little endian form.  That is, the least
 // significant register comes first (i.e. has index 0 in the array).
-type VectorAccess[T Term[T]] struct{ Vars []*RegisterAccess[T] }
+type VectorAccess[F field.Element[F], T Term[T]] struct{ Vars []*RegisterAccess[F, T] }
 
 // NewVectorAccess constructs a new vector access for a given set of registers.
-func NewVectorAccess[T Term[T]](vars []*RegisterAccess[T]) T {
-	var term Term[T] = &VectorAccess[T]{vars}
+func NewVectorAccess[F field.Element[F], T Term[T]](vars []*RegisterAccess[F, T]) T {
+	var term Term[T] = &VectorAccess[F, T]{vars}
 	//
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
-func (p *VectorAccess[T]) ApplyShift(shift int) T {
-	nterms := make([]*RegisterAccess[T], len(p.Vars))
+func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
+	nterms := make([]*RegisterAccess[F, T], len(p.Vars))
 	//
 	for i := range p.Vars {
 		var ith Term[T] = p.Vars[i].ApplyShift(shift)
-		nterms[i] = ith.(*RegisterAccess[T])
+		nterms[i] = ith.(*RegisterAccess[F, T])
 	}
 	//
-	var term Term[T] = &VectorAccess[T]{nterms}
+	var term Term[T] = &VectorAccess[F, T]{nterms}
 	//
 	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *VectorAccess[T]) Bounds() util.Bounds { return util.BoundsForArray(p.Vars) }
+func (p *VectorAccess[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Vars) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *VectorAccess[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
 	var shift = sc.Register(p.Vars[0].Register).Width
 	// Evaluate first argument
 	val, err := p.Vars[0].EvalAt(k, tr, sc)
@@ -75,45 +75,45 @@ func (p *VectorAccess[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.E
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *VectorAccess[T]) IsDefined() bool {
+func (p *VectorAccess[F, T]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *VectorAccess[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *VectorAccess[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	return lispOfTerms(global, mapping, "::", p.Vars)
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *VectorAccess[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *VectorAccess[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return requiredRegistersOfTerms(p.Vars)
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *VectorAccess[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *VectorAccess[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Vars, row, mid)
 }
 
 // ShiftRange implementation for Term interface.
-func (p *VectorAccess[T]) ShiftRange() (int, int) {
+func (p *VectorAccess[F, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Vars...)
 }
 
 // Simplify implementation for Term interface.
-func (p *VectorAccess[T]) Simplify(casts bool) T {
+func (p *VectorAccess[F, T]) Simplify(casts bool) T {
 	var term Term[T] = p
 	return term.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *VectorAccess[T]) Substitute(mapping map[string]fr.Element) {
+func (p *VectorAccess[F, T]) Substitute(mapping map[string]fr.Element) {
 	substituteTerms(mapping, p.Vars...)
 }
 
 // ValueRange implementation for Term interface.
-func (p *VectorAccess[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *VectorAccess[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var width = uint(0)
 	// Determine total bitwidth of the vector
 	for _, arg := range p.Vars {

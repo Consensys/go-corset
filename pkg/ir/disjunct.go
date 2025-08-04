@@ -19,26 +19,27 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Disjunct erpresents the logical OR of zero or more terms.  Observe that if
 // there are no terms, then this is equivalent to logical falsehood.
-type Disjunct[T LogicalTerm[T]] struct {
+type Disjunct[F field.Element[F], T LogicalTerm[T]] struct {
 	Args []T
 }
 
 // False constructs a logical falsehood
-func False[T LogicalTerm[T]]() T {
-	return Disjunction[T]()
+func False[F field.Element[F], T LogicalTerm[T]]() T {
+	return Disjunction[F, T]()
 }
 
 // IsFalse Check whether a given term corresponds to logical falsehood which, in
 // this system, corresponds to an empty disjunct.
-func IsFalse[T LogicalTerm[T]](term T) bool {
+func IsFalse[F field.Element[F], T LogicalTerm[T]](term T) bool {
 	var t LogicalTerm[T] = term
 	//
-	if t, ok := t.(*Disjunct[T]); ok {
+	if t, ok := t.(*Disjunct[F, T]); ok {
 		return len(t.Args) == 0
 	}
 	//
@@ -47,28 +48,28 @@ func IsFalse[T LogicalTerm[T]](term T) bool {
 
 // Disjunction creates a constraint representing the disjunction of a given set of
 // constraints.
-func Disjunction[T LogicalTerm[T]](terms ...T) T {
-	var term LogicalTerm[T] = &Disjunct[T]{terms}
+func Disjunction[F field.Element[F], T LogicalTerm[T]](terms ...T) T {
+	var term LogicalTerm[T] = &Disjunct[F, T]{terms}
 	return term.(T)
 }
 
 // ApplyShift implementation for LogicalTerm interface.
-func (p *Disjunct[T]) ApplyShift(shift int) T {
-	return Disjunction(applyShiftOfTerms(p.Args, shift)...)
+func (p *Disjunct[F, T]) ApplyShift(shift int) T {
+	return Disjunction[F, T](applyShiftOfTerms(p.Args, shift)...)
 }
 
 // ShiftRange implementation for LogicalTerm interface.
-func (p *Disjunct[T]) ShiftRange() (int, int) {
+func (p *Disjunct[F, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args...)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Disjunct[T]) Bounds() util.Bounds {
+func (p *Disjunct[F, T]) Bounds() util.Bounds {
 	return util.BoundsForArray(p.Args)
 }
 
 // TestAt implementation for Testable interface.
-func (p *Disjunct[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
+func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
 	//
 	for _, disjunct := range p.Args {
 		val, _, err := disjunct.TestAt(k, tr, sc)
@@ -86,7 +87,7 @@ func (p *Disjunct[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, ui
 
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
-func (p *Disjunct[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Disjunct[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	if len(p.Args) == 0 {
 		return sexp.NewSymbol("⊥")
 	}
@@ -95,46 +96,46 @@ func (p *Disjunct[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Disjunct[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Disjunct[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return requiredRegistersOfTerms(p.Args)
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Disjunct[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Disjunct[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Args, row, mid)
 }
 
 // Simplify this term as much as reasonably possible.
-func (p *Disjunct[T]) Simplify(casts bool) T {
+func (p *Disjunct[F, T]) Simplify(casts bool) T {
 	// Simplify terms
 	terms := simplifyLogicalTerms(p.Args, casts)
 	// Flatten any nested disjuncts
-	terms = array.Flatten(terms, flatternDisjunct)
+	terms = array.Flatten(terms, flatternDisjunct[F, T])
 	// True if contains True
-	if array.ContainsMatching(terms, IsTrue) {
-		return True[T]()
+	if array.ContainsMatching(terms, IsTrue[F, T]) {
+		return True[F, T]()
 	}
 	// Remove false values
-	terms = array.RemoveMatching(terms, IsFalse)
+	terms = array.RemoveMatching(terms, IsFalse[F, T])
 	// Final checks
 	switch len(terms) {
 	case 0:
-		return False[T]()
+		return False[F, T]()
 	case 1:
 		return terms[0]
 	default:
-		return Disjunction(terms...)
+		return Disjunction[F, T](terms...)
 	}
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Disjunct[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Disjunct[F, T]) Substitute(mapping map[string]fr.Element) {
 	substituteTerms(mapping, p.Args...)
 }
 
-func flatternDisjunct[T LogicalTerm[T]](term T) []T {
+func flatternDisjunct[F field.Element[F], T LogicalTerm[T]](term T) []T {
 	var e LogicalTerm[T] = term
-	if t, ok := e.(*Disjunct[T]); ok {
+	if t, ok := e.(*Disjunct[F, T]); ok {
 		return t.Args
 	}
 	//

@@ -181,7 +181,7 @@ func checkTrace(ir string, traces []lt.TraceFile, schema sc.AnySchema,
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
 			//
 			stats := util.NewPerfStats()
-			trace, errs := builder.WithPadding(n).Build(schema, tf.Columns)
+			trace, errs := builder.WithPadding(n).Build(schema, tf)
 			// Log cost of expansion
 			stats.Log("Expanding trace columns")
 			// Report any errors

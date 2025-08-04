@@ -78,8 +78,7 @@ func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace[bls12_377.Ele
 // ParallelTraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Element]) []error {
-	//
+func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema, trace tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Construct a communication channel for errors.
@@ -97,7 +96,7 @@ func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Eleme
 		for i := uint(0); i < trMod.Width(); i++ {
 			rid := sc.NewRegisterId(i)
 			// Check elements
-			go func(reg sc.Register, data tr.Column) {
+			go func(reg sc.Register, data tr.Column[F]) {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
 			}(scMod.Register(rid), trMod.Column(i))
@@ -116,7 +115,7 @@ func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Eleme
 	return errors
 }
 
-func sequentialModuleValidation(scMod sc.Module, trMod trace.Module) []error {
+func sequentialModuleValidation[F field.Element[F]](scMod sc.Module, trMod trace.Module[F]) []error {
 	var (
 		errors []error
 		// Extract module registers
@@ -137,9 +136,9 @@ func sequentialModuleValidation(scMod sc.Module, trMod trace.Module) []error {
 				errors = append(errors, err)
 			} else {
 				var (
-					rid               = sc.NewRegisterId(i)
-					reg  sc.Register  = scMod.Register(rid)
-					data trace.Column = trMod.Column(i)
+					rid  = sc.NewRegisterId(i)
+					reg  = scMod.Register(rid)
+					data = trMod.Column(i)
 				)
 				// Sanity check data has expected bitwidth
 				if err := validateColumnBitWidth(reg.Width, data, scMod); err != nil {
@@ -153,7 +152,7 @@ func sequentialModuleValidation(scMod sc.Module, trMod trace.Module) []error {
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.
-func validateColumnBitWidth(bitwidth uint, col tr.Column, mod sc.Module) error {
+func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F], mod sc.Module) error {
 	// Sanity check bitwidth can be checked.
 	if bitwidth == math.MaxUint {
 		// This indicates a column which has no fixed bitwidth but, rather, uses

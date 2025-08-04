@@ -20,8 +20,9 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -168,27 +169,25 @@ func (tb TraceBuilder) BatchSize() uint {
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(
-	schema sc.AnySchema,
-	rawCols []trace.BigEndianColumn,
-) (trace.Trace[bls12_377.Element], []error) {
+func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[bls12_377.Element], []error) {
 	var (
-		cols   []trace.RawFrColumn
+		pool   word.Pool[uint, bls12_377.Element]
+		cols   []trace.RawColumn[bls12_377.Element]
 		errors []error
 	)
 	// If expansion is enabled, then we must split the trace according to the
 	// given mapping; otherwise, we simply lower the trace as is.
 	if tb.mapping != nil && tb.expand {
 		// Split raw columns, and handle any errors arising.
-		if cols, errors = builder.TraceSplitting(tb.parallel, rawCols, tb.mapping); len(errors) > 0 {
+		if pool, cols, errors = builder.TraceSplitting[bls12_377.Element](tb.parallel, tf, tb.mapping); len(errors) > 0 {
 			return nil, errors
 		}
 	} else {
 		// Lower raw columns
-		cols = builder.TraceLowering(tb.parallel, rawCols)
+		pool, cols = builder.TraceLowering[bls12_377.Element](tb.parallel, tf)
 	}
 	// Initialise the actual trace object
-	tr, errors := initialiseTrace(!tb.expand, schema, cols)
+	tr, errors := initialiseTrace(!tb.expand, schema, pool, cols)
 	//
 	if len(errors) > 0 {
 		// Critical failure
@@ -224,7 +223,7 @@ func (tb TraceBuilder) Build(
 	return tr, errors
 }
 
-func initialiseTrace(expanded bool, schema sc.AnySchema, cols []trace.RawFrColumn) (*trace.ArrayTrace, []error) {
+func initialiseTrace(expanded bool, schema sc.AnySchema, pool word.Pool[uint, bls12_377.Element], cols []trace.RawColumn[bls12_377.Element]) (*trace.ArrayTrace, []error) {
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
@@ -258,8 +257,8 @@ func initialiseModuleMap(schema sc.AnySchema) map[string]uint {
 	return modmap
 }
 
-func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uint,
-	cols []trace.RawFrColumn) ([][]trace.RawFrColumn, []error) {
+func splitTraceColumns[T word.Word[T]](expanded bool, schema sc.AnySchema, modmap map[string]uint,
+	cols []trace.RawColumn[T]) ([][]trace.RawColumn[T], []error) {
 	//
 	var (
 		// Errs contains the set of filling errors which are accumulated
@@ -268,7 +267,7 @@ func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uin
 		seen map[columnKey]bool = make(map[columnKey]bool, 0)
 	)
 	//
-	colmap, modules := initialiseColumnMap(expanded, schema)
+	colmap, modules := initialiseColumnMap[T](expanded, schema)
 	// Assign data from each input column given
 	for _, col := range cols {
 		// Lookup the module
@@ -308,15 +307,15 @@ func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uin
 	return modules, errs
 }
 
-func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]columnId, [][]trace.RawFrColumn) {
+func initialiseColumnMap[T word.Word[T]](expanded bool, schema sc.AnySchema) (map[columnKey]columnId, [][]trace.RawColumn[T]) {
 	var (
 		colmap  = make(map[columnKey]columnId, 100)
-		modules = make([][]trace.RawFrColumn, schema.Width())
+		modules = make([][]trace.RawColumn[T], schema.Width())
 	)
 	// Initialise modules
 	for i := uint(0); i != schema.Width(); i++ {
 		m := schema.Module(i)
-		columns := make([]trace.RawFrColumn, m.Width())
+		columns := make([]trace.RawColumn[T], m.Width())
 		//
 		for j := uint(0); j != m.Width(); j++ {
 			var (
@@ -330,7 +329,7 @@ func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]colu
 				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
 			}
 			// Add initially empty column
-			columns[j] = trace.RawFrColumn{
+			columns[j] = trace.RawColumn[T]{
 				Module: m.Name(),
 				Name:   col.Name,
 				Data:   nil,
@@ -347,25 +346,16 @@ func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]colu
 	return colmap, modules
 }
 
-func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawFrColumn) trace.ArrayModule {
+func fillTraceModule(name string, multiplier uint, rawColumns []trace.RawColumn[bls12_377.Element]) trace.ArrayModule {
 	var (
 		traceColumns = make([]trace.ArrayColumn, len(rawColumns))
 		zero         = fr.NewElement(0)
 	)
 	//
 	for i := range traceColumns {
-		var (
-			ith  = rawColumns[i]
-			data field.FrArray
-		)
+		var ith = rawColumns[i]
 		//
-		if ith.Data != nil {
-			// NOTE: the following case is used whilst we transition away from using
-			// MutArray in columns.  For now it is necessary only to bridge the gap.
-			data = ith.Data.(field.FrArray)
-		}
-		//
-		traceColumns[i] = trace.NewArrayColumn(ith.Name, data, zero)
+		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, zero)
 	}
 	//
 	return trace.NewArrayModule(name, multiplier, traceColumns)

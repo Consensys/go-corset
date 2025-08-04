@@ -19,50 +19,51 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Mul represents the product over zero or more expressions.
-type Mul[T Term[T]] struct{ Args []T }
+type Mul[F field.Element[F], T Term[T]] struct{ Args []T }
 
 // Product returns the product of zero or more multiplications.
-func Product[T Term[T]](terms ...T) T {
+func Product[F field.Element[F], T Term[T]](terms ...T) T {
 	// flatten any nested products
-	terms = array.Flatten(terms, flatternMul)
+	terms = array.Flatten(terms, flatternMul[F])
 	// Remove all multiplications by one
 	terms = array.RemoveMatching(terms, isOne)
 	// Check for zero
 	if array.ContainsMatching(terms, isZero) {
-		return Const64[T](0)
+		return Const64[F, T](0)
 	}
 	// Final optimisation
 	switch len(terms) {
 	case 0:
-		return Const64[T](1)
+		return Const64[F, T](1)
 	case 1:
 		return terms[0]
 	default:
-		var term Term[T] = &Mul[T]{terms}
+		var term Term[T] = &Mul[F, T]{terms}
 		//
 		return term.(T)
 	}
 }
 
 // Air indicates this term can be used at the AIR level.
-func (p *Mul[T]) Air() {}
+func (p *Mul[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *Mul[T]) ApplyShift(shift int) T {
-	var term Term[T] = &Mul[T]{applyShiftOfTerms(p.Args, shift)}
+func (p *Mul[F, T]) ApplyShift(shift int) T {
+	var term Term[T] = &Mul[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Mul[T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+func (p *Mul[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Mul[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *Mul[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (fr.Element, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
@@ -81,61 +82,61 @@ func (p *Mul[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, e
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *Mul[T]) IsDefined() bool {
+func (p *Mul[F, T]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Mul[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Mul[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	return lispOfTerms(global, mapping, "*", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Mul[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Mul[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return requiredRegistersOfTerms(p.Args)
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Mul[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Mul[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Args, row, mid)
 }
 
 // ShiftRange implementation for Term interface.
-func (p *Mul[T]) ShiftRange() (int, int) {
+func (p *Mul[F, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args...)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Mul[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Mul[F, T]) Substitute(mapping map[string]fr.Element) {
 	substituteTerms(mapping, p.Args...)
 }
 
 // Simplify implementation for Term interface.
-func (p *Mul[T]) Simplify(casts bool) T {
+func (p *Mul[F, T]) Simplify(casts bool) T {
 	var (
 		terms = simplifyTerms(p.Args, mulBinOp, frONE, casts)
 		targ  Term[T]
 	)
 	// Flatten any nested products
-	terms = array.Flatten(terms, flatternMul)
+	terms = array.Flatten(terms, flatternMul[F])
 	// Check for zero
 	if array.ContainsMatching(terms, isZero) {
 		// Yes, is zero
-		targ = &Constant[T]{fr.NewElement(0)}
+		targ = &Constant[F, T]{fr.NewElement(0)}
 	} else {
 		// Remove any ones
 		terms = array.RemoveMatching(terms, isOne)
 		// Check whats left
 		switch len(terms) {
 		case 0:
-			targ = &Constant[T]{frONE}
+			targ = &Constant[F, T]{frONE}
 		case 1:
 			return terms[0]
 		default:
 			// Done
-			targ = &Mul[T]{terms}
+			targ = &Mul[F, T]{terms}
 		}
 	}
 	//
@@ -143,7 +144,7 @@ func (p *Mul[T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Mul[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Mul[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
@@ -158,9 +159,9 @@ func (p *Mul[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	return res
 }
 
-func flatternMul[T Term[T]](term T) []T {
+func flatternMul[F field.Element[F], T Term[T]](term T) []T {
 	var e Term[T] = term
-	if t, ok := e.(*Mul[T]); ok {
+	if t, ok := e.(*Mul[F, T]); ok {
 		return t.Args
 	}
 	//
