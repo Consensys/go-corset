@@ -59,14 +59,14 @@ func NewSchemaBuilder[C schema.Constraint, T Term[T], E schema.Module](externs .
 
 // NewModule constructs a new, empty module and returns its unique module
 // identifier.
-func (p *SchemaBuilder[C, T]) NewModule(name string, multiplier uint) uint {
+func (p *SchemaBuilder[C, T]) NewModule(name string, multiplier uint, padding bool) uint {
 	var mid = uint(len(p.externs) + len(p.modules))
 	// Sanity check this module is not already declared
 	if _, ok := p.modmap[name]; ok {
 		panic(fmt.Sprintf("module \"%s\" already declared", name))
 	}
 	//
-	p.modules = append(p.modules, NewModuleBuilder[C, T](name, mid, multiplier))
+	p.modules = append(p.modules, NewModuleBuilder[C, T](name, mid, multiplier, padding))
 	p.modmap[name] = mid
 	//
 	return mid
@@ -120,6 +120,8 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 	moduleId schema.ModuleId
 	// Length multiplier for this module
 	multiplier uint
+	// Indicates whether padding supported for this module
+	padding bool
 	// Maps register names (including aliases) to the register number.
 	regmap map[string]uint
 	// Registers declared for this module
@@ -132,13 +134,14 @@ type ModuleBuilder[C schema.Constraint, T Term[T]] struct {
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
 func NewModuleBuilder[C schema.Constraint, T Term[T]](name string, mid schema.ModuleId,
-	multiplier uint) *ModuleBuilder[C, T] {
+	multiplier uint, padding bool) *ModuleBuilder[C, T] {
 	//
 	regmap := make(map[string]uint, 0)
-	return &ModuleBuilder[C, T]{false, name, mid, multiplier, regmap, nil, nil, nil}
+	return &ModuleBuilder[C, T]{false, name, mid, multiplier, padding, regmap, nil, nil, nil}
 }
 
-// NewExternModuleBuilder constructs a new builder suitable for external modules.
+// NewExternModuleBuilder constructs a new builder suitable for external
+// modules.  These are just used for linking purposes.
 func NewExternModuleBuilder[C schema.Constraint, T Term[T]](mid schema.ModuleId,
 	module schema.Module) *ModuleBuilder[C, T] {
 	//
@@ -148,7 +151,7 @@ func NewExternModuleBuilder[C schema.Constraint, T Term[T]](mid schema.ModuleId,
 		regmap[r.Name] = uint(i)
 	}
 	// Done
-	return &ModuleBuilder[C, T]{true, module.Name(), mid, 1, regmap, module.Registers(), nil, nil}
+	return &ModuleBuilder[C, T]{true, module.Name(), mid, 1, false, regmap, module.Registers(), nil, nil}
 }
 
 // AddAssignment adds a new assignment to this module.  Assignments are
@@ -211,6 +214,13 @@ func (p *ModuleBuilder[C, T]) Id() uint {
 // This is used specifically to support interleaving constraints.
 func (p *ModuleBuilder[C, T]) LengthMultiplier() uint {
 	return p.multiplier
+}
+
+// AllowPadding determines the minimum amount of padding requested at the
+// beginning of the module.  This is necessary because legacy modules expect an
+// initial padding row.
+func (p *ModuleBuilder[C, T]) AllowPadding() bool {
+	return p.padding
 }
 
 // Width returns the number of registers in this module.
@@ -287,7 +297,7 @@ func (p *ModuleBuilder[C, T]) BuildTable() *schema.Table[C] {
 		panic("cannot build externally defined module")
 	}
 	//
-	table := schema.NewTable[C](p.name, p.multiplier)
+	table := schema.NewTable[C](p.name, p.multiplier, p.padding)
 	table.AddRegisters(p.registers...)
 	table.AddConstraints(p.constraints...)
 	table.AddAssignments(p.assignments...)

@@ -35,7 +35,8 @@ type MirModule struct {
 
 // Initialise this module
 func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
-	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](fn.Name(), mid, 1)
+	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](fn.Name(), mid,
+		fn.LengthMultiplier(), fn.AllowPadding())
 	// Add any assignments defined for this function.  Observe that, generally
 	// speaking, function's consist of exactly one assignment and this is what
 	// is being added here.
@@ -127,6 +128,7 @@ func (p MirExpr) Equals(rhs MirExpr) MirExpr {
 	}
 	//
 	logical := ir.Equals[mir.LogicalTerm](p.expr, rhs.expr)
+	//
 	return MirExpr{nil, logical}
 }
 

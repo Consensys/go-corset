@@ -59,7 +59,7 @@ func NewAirLowering(mirSchema Schema) AirLowering {
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {
-		airSchema.NewModule(m.Name(), m.LengthMultiplier())
+		airSchema.NewModule(m.Name(), m.LengthMultiplier(), m.AllowPadding())
 	}
 	//
 	return AirLowering{

@@ -167,30 +167,29 @@ func (p *Compiler[T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunc
 	var (
 		module = p.modules[busId]
 		// determine suitable width of PC register
-		pcWidth = bit.Width(uint(len(fn.Code())))
+		pcWidth = bit.Width(uint(1 + len(fn.Code())))
 		// allocate PC register
 		pc = module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth)
 		// allocate return line
 		ret = module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1)
 	)
-	//
-	// stamp_i := Variable[T, E](stamp, 0)
-	// stamp_im1 := Variable[T, E](stamp, -1)
-	// pc_i := Variable[T, E](pc, 0)
-	// zero := Number[T, E](0)
-	// one := Number[T, E](1)
-	// // stamp[0] == 0
-	// module.NewConstraint("first", util.Some(0), stamp_i.Equals(zero))
-	// // stamp[i] == 0 || pc[i] == ... [BROKEN]
-	// // module.NewConstraint("last", util.Some(-1),
-	// //	If(stamp_i.NotEquals(zero), terminators(pc_i, fn)))
-	// // stamp[i-1] != stamp[i] ==> stamp[i-1]+1 == stamp[i]
-	// module.NewConstraint("increment", util.None[int](),
-	// 	If(stamp_im1.NotEquals(stamp_i), one.Add(stamp_im1).Equals(stamp_i)))
-	// // stamp[i-1] != stamp[i] ==> pc[i] == 0
-	// module.NewConstraint("reset", util.None[int](),
-	// 	If(stamp_im1.NotEquals(stamp_i), pc_i.Equals(zero)))
-
+	// NOTE: a key requirement for the following constraints is that they don't
+	// need an inverse computation for a shifted row (i.e. no spillage is
+	// required).  In fact, this is only true because of shift normalisation.
+	pc_i := Variable[T, E](pc, 0)
+	pc_im1 := Variable[T, E](pc, -1)
+	ret_i := Variable[T, E](ret, 0)
+	zero := Number[T, E](0)
+	one := Number[T, E](1)
+	// PC[i]==0 ==> RET[i]==0 (prevents lookup in padding)
+	module.NewConstraint("padding", util.None[int](),
+		If(pc_i.Equals(zero), ret_i.Equals(zero)))
+	// PC[i-1]==0 && PC[i]!=0 ==> PC[i]==1
+	module.NewConstraint("reset", util.None[int](),
+		If(pc_im1.Equals(zero), If(pc_i.NotEquals(zero), pc_i.Equals(one))))
+	// PC[0] != 0 ==> PC[0] == 1
+	module.NewConstraint("first", util.Some(0),
+		If(pc_i.NotEquals(zero), pc_i.Equals(one)))
 	// Add constancies for all input registers (if applicable)
 	p.addInputConstancies(busId, fn)
 	//
@@ -208,9 +207,9 @@ func (p *Compiler[T, E, M]) addInputConstancies(busId uint, fn MicroFunction) {
 		pc     = Bus.columns[0]
 		pc_i   = Variable[T, E](pc, 0)
 		zero   = Number[T, E](0)
+		one    = Number[T, E](1)
 	)
-	// Constancies only required when there is more than one instruction
-	// since otherwise pc==0 always.
+	// Constancies not required in padding region or for first instruction.
 	for i, r := range fn.Registers() {
 		if r.IsInput() {
 			name := fmt.Sprintf("const_%s", r.Name)
@@ -218,7 +217,7 @@ func (p *Compiler[T, E, M]) addInputConstancies(busId uint, fn MicroFunction) {
 			reg_im1 := Variable[T, E](Bus.columns[i], -1)
 			//
 			module.NewConstraint(name, util.None[int](),
-				If(pc_i.NotEquals(zero), reg_im1.Equals(reg_i)))
+				If(pc_i.NotEquals(zero), If(pc_i.NotEquals(one), reg_im1.Equals(reg_i))))
 		}
 	}
 }

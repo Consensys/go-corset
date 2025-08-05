@@ -85,7 +85,6 @@ func (p *StateTranslator[T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
 
 func (p *StateTranslator[T, E, M]) translateRet() E {
 	return p.Terminate()
-
 }
 
 func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E {

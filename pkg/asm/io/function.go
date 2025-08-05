@@ -156,6 +156,13 @@ func (p *Function[T]) LengthMultiplier() uint {
 	return 1
 }
 
+// AllowPadding determines whether the given module supports padding at the
+// beginning of the module.  Assembly modules do not support padding, as this
+// causes various problems of its own.
+func (p *Function[T]) AllowPadding() bool {
+	return false
+}
+
 // Name returns the name of this function.
 func (p *Function[T]) Name() string {
 	return p.name

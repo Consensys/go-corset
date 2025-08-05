@@ -195,15 +195,16 @@ func (p Assignment[T]) assignControlRegisters(cols []tr.ArrayColumn, states []St
 		nrows = uint(len(states))
 		pc    = uint(len(p.registers))
 		ret   = pc + 1
-		// Calculate minimum size of PC
-		pcWidth = bit.Width(uint(len(p.code)))
+		// Calculate minimum size of PC; NOTE: +1 because PC==0 is reserved for padding.
+		pcWidth = bit.Width(uint(len(p.code) + 1))
 	)
 	// Initialise columns
 	cols[pc] = tr.NewArrayColumn(PC_NAME, field.NewFrArray(nrows, pcWidth), zero)
 	cols[ret] = tr.NewArrayColumn(RET_NAME, field.NewFrArray(nrows, 1), zero)
 	// Assign values
 	for row, st := range states {
-		cols[pc].Data().Set(uint(row), fr.NewElement(uint64(st.Pc())))
+		// NOTE: +1 because PC==0 reserved for padding.
+		cols[pc].Data().Set(uint(row), fr.NewElement(uint64(st.Pc()+1)))
 		// Check whether this is a terminating state, or not.
 		if st.IsTerminal() {
 			cols[ret].Data().Set(uint(row), one)

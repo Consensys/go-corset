@@ -81,15 +81,16 @@ func (p *MultiLineFraming[T, E]) Goto(pc uint) E {
 		pc_ip1 = Variable[T, E](p.pc, 1)
 		ret    = Variable[T, E](p.ret, 0)
 	)
-	// Next pc is target of this jump
-	eq := pc_ip1.Equals(Number[T, E](pc))
+	// Next pc is target of this jump. NOTE: pc+1 as pc==0 is for padding
+	eq := pc_ip1.Equals(Number[T, E](pc + 1))
 	// Return flag cannot be set
 	return eq.And(ret.Equals(zero))
 }
 
 // Guard implementation for Framing interface.
 func (p *MultiLineFraming[T, E]) Guard(pc uint) E {
-	return Variable[T, E](p.pc, 0).Equals(Number[T, E](pc))
+	// NOTE: pc+1 as pc==0 is for padding
+	return Variable[T, E](p.pc, 0).Equals(Number[T, E](pc + 1))
 }
 
 // Return implementation for Framing interface.
