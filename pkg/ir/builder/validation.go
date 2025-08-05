@@ -79,6 +79,7 @@ func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace[bls12_377.Ele
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
 func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Element]) []error {
+	//
 	var (
 		errors []error
 		// Construct a communication channel for errors.

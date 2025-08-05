@@ -284,8 +284,8 @@ type ArrayColumn struct {
 
 // NewArrayColumn constructs a with the give name, data and padding.  The given
 // data is permitted to be nil, and this is used to signal a computed column.
-func NewArrayColumn(name string, data field.FrArray,
-	padding fr.Element) ArrayColumn {
+func NewArrayColumn(name string, data field.FrArray, padding fr.Element) ArrayColumn {
+	//
 	col := EmptyArrayColumn(name)
 	// Data is permitted to be nil for computed columns.
 	if data != nil {

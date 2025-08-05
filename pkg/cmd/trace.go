@@ -58,12 +58,13 @@ var traceCmd = &cobra.Command{
 		start := GetUint(cmd, "start")
 		end := GetUint(cmd, "end")
 		max_width := GetUint(cmd, "max-width")
+		padding := GetUint(cmd, "padding")
 		filter := GetString(cmd, "filter")
 		output := GetString(cmd, "out")
 		metadata := GetFlag(cmd, "metadata")
 		// Read in constraint files
 		schemas := *getSchemaStack(cmd, SCHEMA_OPTIONAL, args[1:]...)
-		builder := schemas.TraceBuilder()
+		builder := schemas.TraceBuilder().WithPadding(padding)
 		// Parse trace file(s)
 		if batched {
 			// batched mode
@@ -128,6 +129,7 @@ func init() {
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
+	traceCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
 	traceCmd.Flags().Bool("batched", false,

@@ -35,7 +35,8 @@ type MirModule struct {
 
 // Initialise this module
 func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
-	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](fn.Name(), mid, 1)
+	builder := ir.NewModuleBuilder[mir.Constraint, mir.Term](fn.Name(), mid,
+		fn.LengthMultiplier(), fn.AllowPadding())
 	// Add any assignments defined for this function.  Observe that, generally
 	// speaking, function's consist of exactly one assignment and this is what
 	// is being added here.
@@ -63,6 +64,11 @@ func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uin
 		mir.NewRangeConstraint(name, p.Module.Id(), ir.NewRegisterAccess[mir.Term](rid, 0), bitwidth))
 	// Done
 	return rid
+}
+
+// NewUnusedColumn constructs an empty (i.e. unused) column identifier.
+func (p MirModule) NewUnusedColumn() schema.RegisterId {
+	return schema.NewUnusedRegisterId()
 }
 
 // NewConstraint constructs a new vanishing constraint with the given name
@@ -117,7 +123,12 @@ func (p MirExpr) And(exprs ...MirExpr) MirExpr {
 
 // Equals constructs an equality between two expressions.
 func (p MirExpr) Equals(rhs MirExpr) MirExpr {
+	if p.expr == nil || rhs.expr == nil {
+		panic("invalid arguments")
+	}
+	//
 	logical := ir.Equals[mir.LogicalTerm](p.expr, rhs.expr)
+	//
 	return MirExpr{nil, logical}
 }
 
@@ -147,6 +158,16 @@ func (p MirExpr) NotEquals(rhs MirExpr) MirExpr {
 	return MirExpr{nil, logical}
 }
 
+// Bool constructs a truth or falsehood
+func (p MirExpr) Bool(val bool) MirExpr {
+	if val {
+		// empty conjunction is true
+		return MirExpr{nil, ir.Conjunction[mir.LogicalTerm]()}
+	}
+	// empty disjunction is false
+	return MirExpr{nil, ir.Disjunction[mir.LogicalTerm]()}
+}
+
 // BigInt constructs a constant expression from a big integer.
 func (p MirExpr) BigInt(number big.Int) MirExpr {
 	// Not power of 2
@@ -167,6 +188,16 @@ func (p MirExpr) Or(exprs ...MirExpr) MirExpr {
 // Variable constructs a variable with a given shift.
 func (p MirExpr) Variable(index schema.RegisterId, shift int) MirExpr {
 	return MirExpr{ir.NewRegisterAccess[mir.Term](index, shift), nil}
+}
+
+func (p MirExpr) String(func(schema.RegisterId) string) string {
+	if p.expr != nil {
+		return p.expr.Lisp(false, nil).String(false)
+	} else if p.logical != nil {
+		return p.logical.Lisp(false, nil).String(false)
+	} else {
+		return "nil"
+	}
 }
 
 func unwrapSplitMirExpr(head MirExpr, tail ...MirExpr) []mir.Term {

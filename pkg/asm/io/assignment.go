@@ -20,6 +20,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -46,7 +47,7 @@ func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnyS
 		states = append(states, sts...)
 	}
 	//
-	return states2columns(trModule.Width(), p.registers, states), nil
+	return p.states2columns(trModule.Width(), states), nil
 }
 
 // Consistent implementation for schema.Assignment interface.
@@ -84,11 +85,18 @@ func (p Assignment[T]) RegistersRead() []sc.RegisterRef {
 
 // RegistersWritten implementation for schema.Assignment interface.
 func (p Assignment[T]) RegistersWritten() []sc.RegisterRef {
-	var regs []sc.RegisterRef
-	//
-	for i := range p.registers {
-		// Trace expansion writes to all registers, including input/outputs.
-		// This is because it may expand the I/O registers.
+	var (
+		regs       []sc.RegisterRef
+		nRegisters = len(p.registers)
+		multiLine  = len(p.code) > 1
+	)
+	// Include control registers for multi-line functions.
+	if multiLine {
+		nRegisters += 2
+	}
+	// Trace expansion writes to all registers, including input/outputs.
+	// This is because it may expand the I/O registers.
+	for i := range nRegisters {
 		rid := sc.NewRegisterId(uint(i))
 		regs = append(regs, sc.NewRegisterRef(p.id, rid))
 	}
@@ -136,14 +144,74 @@ func (p Assignment[T]) initialState(row uint, trace tr.Module, io Map) State {
 			)
 			// Clone big int.
 			val.BigInt(&ith)
-			// NOTE: following safe because PC is always at index 0, and is a
-			// computed register.
-			state[i-1] = ith
+			// Assign to ith register
+			state[i] = ith
 			index = index + 1
 		}
 	}
 	// Construct state
-	return State{0, state, p.registers, io}
+	return State{0, false, state, p.registers, io}
+}
+
+// Convert a given set of states into a corresponding set of array columns.
+func (p Assignment[T]) states2columns(width uint, states []State) []tr.ArrayColumn {
+	var (
+		cols      = make([]tr.ArrayColumn, width)
+		zero      = fr.NewElement(0)
+		nrows     = uint(len(states))
+		multiLine = len(p.code) > 1
+	)
+	// Initialise register columns
+	for i, r := range p.registers {
+		arr := field.NewFrArray(nrows, r.Width)
+		cols[i] = tr.NewArrayColumn(r.Name, arr, zero)
+	}
+	// Initialise control columns (if applicable)
+	// transcribe values
+	for row, st := range states {
+		for i := range p.registers {
+			var (
+				val fr.Element
+				rid = schema.NewRegisterId(uint(i))
+			)
+			//
+			val.SetBigInt(st.Load(rid))
+			//
+			cols[i].Data().Set(uint(row), val)
+		}
+	}
+	// Set control registers for multi-line functions
+	if multiLine {
+		p.assignControlRegisters(cols, states)
+	}
+	// Done
+	return cols
+}
+
+func (p Assignment[T]) assignControlRegisters(cols []tr.ArrayColumn, states []State) {
+	var (
+		zero  = fr.NewElement(0)
+		one   = fr.NewElement(1)
+		nrows = uint(len(states))
+		pc    = uint(len(p.registers))
+		ret   = pc + 1
+		// Calculate minimum size of PC; NOTE: +1 because PC==0 is reserved for padding.
+		pcWidth = bit.Width(uint(len(p.code) + 1))
+	)
+	// Initialise columns
+	cols[pc] = tr.NewArrayColumn(PC_NAME, field.NewFrArray(nrows, pcWidth), zero)
+	cols[ret] = tr.NewArrayColumn(RET_NAME, field.NewFrArray(nrows, 1), zero)
+	// Assign values
+	for row, st := range states {
+		// NOTE: +1 because PC==0 reserved for padding.
+		cols[pc].Data().Set(uint(row), fr.NewElement(uint64(st.Pc()+1)))
+		// Check whether this is a terminating state, or not.
+		if st.IsTerminal() {
+			cols[ret].Data().Set(uint(row), one)
+		} else {
+			cols[ret].Data().Set(uint(row), zero)
+		}
+	}
 }
 
 // Finalising a given state does two things: firstly, it clones the state;
@@ -168,36 +236,9 @@ func finaliseState(row uint, terminated bool, state State, trace tr.Module) Stat
 				nstate.Store(rid, ith)
 			}
 		}
+		// Mark state as terminated
+		nstate.Terminate()
 	}
 	//
 	return nstate
-}
-
-// Convert a given set of states into a corresponding set of array columns.
-func states2columns(width uint, registers []Register, states []State) []tr.ArrayColumn {
-	var (
-		cols  = make([]tr.ArrayColumn, width)
-		zero  = fr.NewElement(0)
-		nrows = uint(len(states))
-	)
-	// Initialise register columns
-	for i, r := range registers {
-		arr := field.NewFrArray(nrows, r.Width)
-		cols[i] = tr.NewArrayColumn(r.Name, arr, zero)
-	}
-	// transcribe values
-	for row, st := range states {
-		for i := range registers {
-			var (
-				val fr.Element
-				rid = schema.NewRegisterId(uint(i))
-			)
-			//
-			val.SetBigInt(st.Load(rid))
-			//
-			cols[i].Data().Set(uint(row), val)
-		}
-	}
-	//
-	return cols
 }

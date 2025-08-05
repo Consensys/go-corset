@@ -32,6 +32,9 @@ type Module[T any, E Expr[T, E], M any] interface {
 	// this module.
 	NewColumn(kind schema.RegisterType, name string, bitwidth uint) T
 
+	// NewUnusedColumn constructs an empty (i.e. unused) column identifier.
+	NewUnusedColumn() T
+
 	// NewConstraint constructs a new vanishing constraint with the given name
 	// within this module.  An optional "domain" can be given which determines
 	// whether or not this is a "local" or "global" constraint.  Specifically, a
@@ -60,6 +63,9 @@ type Expr[T, E any] interface {
 	// expressions.
 	And(...E) E
 
+	// Bool constructs a logical truth or falsehood
+	Bool(bool) E
+
 	// Equals constructs an equality between two expressions.
 	Equals(rhs E) E
 
@@ -86,6 +92,9 @@ type Expr[T, E any] interface {
 
 	// Variable constructs a variable with a given shift.
 	Variable(name T, shift int) E
+
+	// String returns a suitable string representation
+	String(func(T) string) string
 }
 
 // BigNumber constructs a constant expression from a big integer.
@@ -131,6 +140,13 @@ func Product[T any, E Expr[T, E]](exprs []E) E {
 	}
 	//
 	return exprs[0].Multiply(exprs[1:]...)
+}
+
+// True constructs an expression which always holds.
+func True[T any, E Expr[T, E]]() E {
+	var empty E
+	//
+	return empty.Bool(true)
 }
 
 // Variable is just a convenient wrapper for creating abstract expressions

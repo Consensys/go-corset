@@ -57,6 +57,8 @@ type Module interface {
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
 	LengthMultiplier() uint
+	// AllowPadding determines the amount of initial padding a module expects.
+	AllowPadding() bool
 	// Module name
 	Name() string
 	// Returns the number of registers in this module.
@@ -84,14 +86,15 @@ type FieldAgnosticModule[M Module] interface {
 type Table[C Constraint] struct {
 	name        string
 	multiplier  uint
+	padding     bool
 	registers   []Register
 	constraints []C
 	assignments []Assignment
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[C Constraint](name string, multiplier uint) *Table[C] {
-	return &Table[C]{name, multiplier, nil, nil, nil}
+func NewTable[C Constraint](name string, multiplier uint, padding bool) *Table[C] {
+	return &Table[C]{name, multiplier, padding, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -148,6 +151,13 @@ func (p *Table[C]) LengthMultiplier() uint {
 	return p.multiplier
 }
 
+// AllowPadding determines whether the given module supports padding at the
+// beginning of the module.  This is necessary because legacy modules expect an
+// initial padding row, and allow defensive padding as well.
+func (p *Table[C]) AllowPadding() bool {
+	return p.padding
+}
+
 // Register returns the given register in this table.
 func (p *Table[C]) Register(id RegisterId) Register {
 	return p.registers[id.Unwrap()]
@@ -196,7 +206,7 @@ func (p *Table[C]) Subdivide(mapping LimbsMap) *Table[C] {
 		}
 	}
 	//
-	return &Table[C]{p.name, p.multiplier, registers, constraints, assignments}
+	return &Table[C]{p.name, p.multiplier, p.padding, registers, constraints, assignments}
 }
 
 // Width returns the number of registers in this Table.
@@ -240,6 +250,10 @@ func (p *Table[M]) GobEncode() (data []byte, err error) {
 	if err := gobEncoder.Encode(p.multiplier); err != nil {
 		return nil, err
 	}
+	// Padding
+	if err := gobEncoder.Encode(p.padding); err != nil {
+		return nil, err
+	}
 	// registers
 	if err := gobEncoder.Encode(p.registers); err != nil {
 		return nil, err
@@ -266,6 +280,10 @@ func (p *Table[M]) GobDecode(data []byte) error {
 	}
 	// Multiplier
 	if err := gobDecoder.Decode(&p.multiplier); err != nil {
+		return err
+	}
+	// Padding
+	if err := gobDecoder.Decode(&p.padding); err != nil {
 		return err
 	}
 	// Registers

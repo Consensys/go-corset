@@ -92,7 +92,7 @@ func (t *translator) translateModules(circuit *ast.Circuit) {
 // one MIR module.
 func (t *translator) translateModule(name string) {
 	// Always include module with base multiplier (even if empty).
-	t.schema.NewModule(name, 1)
+	t.schema.NewModule(name, 1, true)
 	// Initialise the corresponding family of MIR modules.
 	for _, regIndex := range t.env.RegistersOf(name) {
 		var (
@@ -104,7 +104,7 @@ func (t *translator) translateModule(name string) {
 		// Check whether module created this already (or not)
 		if _, ok := t.schema.HasModule(moduleName); !ok {
 			// No, therefore create new module.
-			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier())
+			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier(), true)
 		}
 	}
 	// Translate all corset registers in this module into MIR registers across
