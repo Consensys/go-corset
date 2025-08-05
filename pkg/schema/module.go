@@ -250,6 +250,10 @@ func (p *Table[M]) GobEncode() (data []byte, err error) {
 	if err := gobEncoder.Encode(p.multiplier); err != nil {
 		return nil, err
 	}
+	// Padding
+	if err := gobEncoder.Encode(p.padding); err != nil {
+		return nil, err
+	}
 	// registers
 	if err := gobEncoder.Encode(p.registers); err != nil {
 		return nil, err
@@ -276,6 +280,10 @@ func (p *Table[M]) GobDecode(data []byte) error {
 	}
 	// Multiplier
 	if err := gobDecoder.Decode(&p.multiplier); err != nil {
+		return err
+	}
+	// Padding
+	if err := gobDecoder.Decode(&p.padding); err != nil {
 		return err
 	}
 	// Registers
