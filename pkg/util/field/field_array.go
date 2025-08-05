@@ -165,3 +165,27 @@ func (p *FrElementArray) String() string {
 
 	return sb.String()
 }
+
+// BatchInvert efficiently inverts the list of elements s, in place.
+func BatchInvert[T Element[T]](s []T) {
+	if len(s) == 0 {
+		return
+	}
+
+	m := make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
+	m[len(m)-1] = s[len(s)-1]
+
+	for i := len(m) - 2; i >= 0; i-- {
+		m[i] = m[i+1].Mul(s[i])
+	}
+
+	inv := m[0].Inverse() // inv = s[0]⁻¹ * s[1]⁻¹ * ...
+
+	for i := range len(s) - 1 {
+		// inv = s[i]⁻¹ * s[i+1]⁻¹ * ...
+		s[i], inv = inv.Mul(m[i+1]), inv.Mul(m[i])
+		// inv = s[i+1]⁻¹ * s[i+2]⁻¹ * ...
+	}
+
+	s[len(s)-1] = inv
+}
