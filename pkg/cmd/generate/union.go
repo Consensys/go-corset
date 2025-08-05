@@ -13,6 +13,7 @@
 package generate
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -35,7 +36,7 @@ func unionModules(left corset.SourceModule, right corset.SourceModule) *corset.S
 		Virtual:    left.Virtual,
 		Selector:   util.None[string](),
 		Submodules: unionSubmodules(left.Submodules, right.Submodules),
-		Columns:    unionColumns(left.Columns, right.Columns),
+		Columns:    unionColumns(left.Name, left.Columns, right.Columns),
 		Constants:  unionConstants(left.Constants, right.Constants),
 	}
 }
@@ -84,7 +85,7 @@ func unionSubmodules(left []corset.SourceModule, right []corset.SourceModule) []
 	return modules
 }
 
-func unionColumns(left []corset.SourceColumn, right []corset.SourceColumn) []corset.SourceColumn {
+func unionColumns(module string, left []corset.SourceColumn, right []corset.SourceColumn) []corset.SourceColumn {
 	var (
 		columns []corset.SourceColumn
 		// Construct suitable name comparator
@@ -112,7 +113,7 @@ func unionColumns(left []corset.SourceColumn, right []corset.SourceColumn) []cor
 			r++
 		case c == 0:
 			// Identical, so include only one.
-			if col := unionColumn(leftColumn, rightColumn); col != nil {
+			if col := unionColumn(module, leftColumn, rightColumn); col != nil {
 				columns = append(columns, *col)
 			}
 
@@ -128,14 +129,15 @@ func unionColumns(left []corset.SourceColumn, right []corset.SourceColumn) []cor
 	return columns
 }
 
-func unionColumn(left corset.SourceColumn, right corset.SourceColumn) *corset.SourceColumn {
+func unionColumn(module string, left corset.SourceColumn, right corset.SourceColumn) *corset.SourceColumn {
 	//
 	if left.Name != right.Name {
 		panic("unreachable")
 	} else if left.Multiplier != right.Multiplier {
-		panic("inconsistent multipliers")
+		panic(fmt.Sprintf("inconsistent multiplier for column %s.%s (%d vs %d)",
+			module, left.Name, left.Multiplier, right.Multiplier))
 	} else if left.Computed != right.Computed {
-		panic("inconsistent column type")
+		panic(fmt.Sprintf("inconsistent kind for column %s.%s (computed vs not computed)", module, left.Name))
 	}
 	//
 	if left.Bitwidth >= right.Bitwidth {
