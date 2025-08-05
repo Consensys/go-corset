@@ -18,18 +18,9 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
-
-// STAMP_NAME determines the name used in the underlying constraint system for
-// stamp column.
-const STAMP_NAME = "$stamp"
-
-// PC_NAME determines the name used in the underlying constraint system for the
-// Program Counter (PC) column.
-const PC_NAME = "$pc"
 
 // MicroFunction is a function composed entirely of micro instructions.
 type MicroFunction = io.Function[micro.Instruction]
@@ -122,16 +113,15 @@ func (p *Compiler[T, E, M]) Compile(fns ...*MicroFunction) {
 func (p *Compiler[T, E, M]) compileFunction(fn MicroFunction) {
 	busId := p.busMap[fn.Name()]
 	// Setup framing columns / constraints
-	stamp, pc := p.initFunctionFraming(busId, fn)
+	framing := p.initFunctionFraming(busId, fn)
 	// Initialise buses required for this code sequence
 	p.initBuses(busId, fn)
 	// Construct appropriate mapping
 	mapping := Translator[T, E, M]{
-		Module:         p.modules[busId],
-		Stamp:          stamp,
-		ProgramCounter: pc,
-		Registers:      fn.Registers(),
-		Columns:        p.buses[busId].columns,
+		Module:    p.modules[busId],
+		Framing:   framing,
+		Registers: fn.Registers(),
+		Columns:   p.buses[busId].columns,
 	}
 	// Compile each instruction in turn
 	for pc, inst := range fn.Code() {
@@ -163,55 +153,72 @@ func (p *Compiler[T, E, M]) initModule(busId uint, fn MicroFunction) {
 	p.busMap[bus.name] = busId
 }
 
-func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) (stamp T, pc T) {
+func (p *Compiler[T, E, M]) initFunctionFraming(busId uint, fn MicroFunction) Framing[T, E] {
+	// One line (i.e. atomic functions doen't require any framing.  They don't
+	// even require a program counter!!
+	if fn.IsAtomic() {
+		return NewAtomicFraming[T, E]()
+	}
+	// Multi-line functions require proper framing.
+	return p.initMultLineFunctionFraming(busId, fn)
+}
+
+func (p *Compiler[T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction) Framing[T, E] {
 	var (
-		//
-		Bus    = p.buses[busId]
 		module = p.modules[busId]
+		// determine suitable width of PC register
+		pcWidth = bit.Width(uint(1 + len(fn.Code())))
+		// allocate PC register
+		pc = module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth)
+		// allocate return line
+		ret = module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1)
 	)
-	// Allocate book keeping columns
-	stamp = module.NewColumn(schema.COMPUTED_REGISTER, STAMP_NAME, p.maxInstances)
-	// FIXME: the following reliance on the length of registers is something of
-	// a kludge.
-	stampRef := sc.NewRegisterRef(busId, sc.NewRegisterId(uint(len(fn.Registers()))))
-	module.NewAssignment(&StampAssignment{stampRef})
-	// PC is always first register, therefore no need to create a new column for
-	// it.
-	pc = Bus.columns[0]
-	//
-	stamp_i := Variable[T, E](stamp, 0)
-	stamp_im1 := Variable[T, E](stamp, -1)
+	// NOTE: a key requirement for the following constraints is that they don't
+	// need an inverse computation for a shifted row (i.e. no spillage is
+	// required).  In fact, this is only true because of shift normalisation.
 	pc_i := Variable[T, E](pc, 0)
+	pc_im1 := Variable[T, E](pc, -1)
+	ret_i := Variable[T, E](ret, 0)
 	zero := Number[T, E](0)
 	one := Number[T, E](1)
-	// stamp[0] == 0
-	module.NewConstraint("first", util.Some(0), stamp_i.Equals(zero))
-	// stamp[i] == 0 || pc[i] == ... [BROKEN]
-	// module.NewConstraint("last", util.Some(-1),
-	//	If(stamp_i.NotEquals(zero), terminators(pc_i, fn)))
-	// stamp[i-1] != stamp[i] ==> stamp[i-1]+1 == stamp[i]
-	module.NewConstraint("increment", util.None[int](),
-		If(stamp_im1.NotEquals(stamp_i), one.Add(stamp_im1).Equals(stamp_i)))
-	// stamp[i-1] != stamp[i] ==> pc[i] == 0
+	// PC[i]==0 ==> RET[i]==0 (prevents lookup in padding)
+	module.NewConstraint("padding", util.None[int](),
+		If(pc_i.Equals(zero), ret_i.Equals(zero)))
+	// PC[i-1]==0 && PC[i]!=0 ==> PC[i]==1
 	module.NewConstraint("reset", util.None[int](),
-		If(stamp_im1.NotEquals(stamp_i), pc_i.Equals(zero)))
+		If(pc_im1.Equals(zero), If(pc_i.NotEquals(zero), pc_i.Equals(one))))
+	// PC[0] != 0 ==> PC[0] == 1
+	module.NewConstraint("first", util.Some(0),
+		If(pc_i.NotEquals(zero), pc_i.Equals(one)))
 	// Add constancies for all input registers (if applicable)
-	if len(fn.Code()) > 1 {
-		// Constancies only required when there is more than one instruction
-		// since otherwise pc==0 always.
-		for i, r := range fn.Registers() {
-			if r.IsInput() {
-				name := fmt.Sprintf("const_%s", r.Name)
-				reg_i := Variable[T, E](Bus.columns[i], 0)
-				reg_im1 := Variable[T, E](Bus.columns[i], -1)
-				//
-				module.NewConstraint(name, util.None[int](),
-					If(pc_i.NotEquals(zero), reg_im1.Equals(reg_i)))
-			}
+	p.addInputConstancies(pc, busId, fn)
+	//
+	return NewMultiLineFraming[T, E](pc, ret)
+}
+
+// Add input constancies for the given function.  That is, constraints which
+// ensure the inputs don't change within a given frame.  Observe that this only
+// applies for multi-line functions, as one-line functions don't have internal
+// states.
+func (p *Compiler[T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFunction) {
+	var (
+		Bus    = p.buses[busId]
+		module = p.modules[busId]
+		pc_i   = Variable[T, E](pc, 0)
+		zero   = Number[T, E](0)
+		one    = Number[T, E](1)
+	)
+	// Constancies not required in padding region or for first instruction.
+	for i, r := range fn.Registers() {
+		if r.IsInput() {
+			name := fmt.Sprintf("const_%s", r.Name)
+			reg_i := Variable[T, E](Bus.columns[i], 0)
+			reg_im1 := Variable[T, E](Bus.columns[i], -1)
+			//
+			module.NewConstraint(name, util.None[int](),
+				If(pc_i.NotEquals(zero), If(pc_i.NotEquals(one), reg_im1.Equals(reg_i))))
 		}
 	}
-	//
-	return stamp, pc
 }
 
 // Initialise the buses linked in a given function.

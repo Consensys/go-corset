@@ -33,6 +33,8 @@ const RETURN uint = math.MaxUint
 type State struct {
 	// Program Counter position.
 	pc uint
+	// Terminate indicates this is a terminating state
+	terminal bool
 	// Values for each register in this state excluding the program counter
 	// (since this is held above).  Thus, this array has one less item than
 	// registers.
@@ -47,9 +49,9 @@ type State struct {
 // EmptyState constructs an initially empty state at the given PC value.  One
 // can then set register values as needed via Store.
 func EmptyState(pc uint, registers []schema.Register, io Map) State {
-	var state = make([]big.Int, len(registers)-1)
+	var state = make([]big.Int, len(registers))
 	// Construct state
-	return State{pc, state, registers, io}
+	return State{pc, false, state, registers, io}
 }
 
 // InitialState constructs a suitable initial state for executing a given
@@ -82,10 +84,21 @@ func InitialState[T Instruction[T]](arguments []big.Int, fn Function[T], io Map)
 func (p *State) Clone() State {
 	return State{
 		p.pc,
+		p.terminal,
 		slices.Clone(p.state),
 		p.registers,
 		p.io,
 	}
+}
+
+// IsTerminal checks whether this is a terminating state, or not.
+func (p *State) IsTerminal() bool {
+	return p.terminal
+}
+
+// Terminate marks this state as being terminal.
+func (p *State) Terminate() {
+	p.terminal = true
 }
 
 // Goto updates the program counter for this state to a given value.
@@ -119,13 +132,7 @@ func (p *State) Outputs() []big.Int {
 
 // Load value of a given register from this state.
 func (p *State) Load(reg RegisterId) *big.Int {
-	index := reg.Unwrap()
-	//
-	if index == 0 {
-		return big.NewInt(int64(p.pc))
-	}
-	//
-	return &p.state[index-1]
+	return &p.state[reg.Unwrap()]
 }
 
 // LoadN reads the values of zero or more registers from this state.
@@ -161,12 +168,9 @@ func (p *State) Store(reg RegisterId, value big.Int) {
 	//
 	if value.BitLen() > int(p.registers[index].Width) {
 		panic("write exceeds register width")
-	} else if index == 0 {
-		p.pc = uint(value.Uint64())
-	} else {
-		// Write to normal register
-		p.state[index-1] = value
 	}
+	// Write to normal register
+	p.state[index] = value
 }
 
 // StoreAcross a given value across a set of registers, splitting its bits as
@@ -210,11 +214,12 @@ func (p *State) String() string {
 	var builder strings.Builder
 	//
 	if p.Terminated() {
-		builder.WriteString("(pc=--) ")
+		builder.WriteString("*")
 	} else {
-		pc := fmt.Sprintf("(pc=%02x) ", p.pc)
-		builder.WriteString(pc)
+		builder.WriteString(" ")
 	}
+	//
+	builder.WriteString(fmt.Sprintf(" (pc=%02x) ", p.pc))
 	//
 	for i := range p.registers {
 		if i != 0 {

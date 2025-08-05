@@ -25,9 +25,8 @@ import (
 const (
 	// PC_NAME gives the name used for the program counter in traces.
 	PC_NAME = "$pc"
-	// PC_INDEX gives the register index used for the program counter (which is
-	// currently always be 0).
-	PC_INDEX = uint(0)
+	// RET_NAME gives the name used for the return line in traces.
+	RET_NAME = "$ret"
 )
 
 // Register defines the notion of a register within a function.
@@ -114,6 +113,14 @@ func (p *Function[T]) Id() sc.ModuleId {
 	return p.id
 }
 
+// IsAtomic determines whether or not this is a "one line function".  That is,
+// where every instance of this function occupies exactly one line in the
+// corresponding trace.  This is useful to know, as certain optimisations can be
+// applied for one line functions (e.g. no PC register is required).
+func (p *Function[T]) IsAtomic() bool {
+	return len(p.code) == 1
+}
+
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
@@ -144,6 +151,13 @@ func (p *Function[T]) Inputs() []Register {
 // This is used specifically to support interleaving constraints.
 func (p *Function[T]) LengthMultiplier() uint {
 	return 1
+}
+
+// AllowPadding determines whether the given module supports padding at the
+// beginning of the module.  Assembly modules do not support padding, as this
+// causes various problems of its own.
+func (p *Function[T]) AllowPadding() bool {
+	return false
 }
 
 // Name returns the name of this function.
