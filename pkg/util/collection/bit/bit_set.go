@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
-// Set provides a straightforward bitset implementation.  That is, a set of
+// Set provides a straightforward bitset implementation. That is, a set of
 // (unsigned) integer values implemented as an array of bits.
 type Set struct {
 	words []uint64
@@ -58,7 +58,7 @@ func (p *Set) InsertAll(vals ...uint) {
 func (p *Set) Remove(val uint) {
 	word := val / 64
 	bit := val % 64
-	// Check whether need to do anything.
+	// Check whether we need to do anything.
 	if uint(len(p.words)) > word {
 		// unset bit
 		mask := uint64(1) << bit
@@ -115,6 +115,28 @@ func (p *Set) Count() uint {
 	}
 	//
 	return count
+}
+
+// NewSet creates a Set of the given size.
+func NewSet(size int) *Set {
+	return &Set{make([]uint64, (size+63)/64)}
+}
+
+// Set the iᵗʰ bit to v
+func (p *Set) Set(i int, v bool) {
+	x := uint64(1) << (i % 64)
+	i = i / 64
+
+	if v {
+		p.words[i] |= x
+	} else {
+		p.words[i] &= 0xffffffffffffffff ^ x
+	}
+}
+
+// Get the value of the iᵗʰ bit
+func (p *Set) Get(i int) bool {
+	return p.words[i/64]&(1<<(i%64)) != 0
 }
 
 // Iter returns an iterator over the elements of this bitset.

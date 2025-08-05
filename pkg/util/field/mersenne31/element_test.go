@@ -27,11 +27,11 @@ import (
 func TestMul(t *testing.T) {
 	var i, j, m big.Int
 
-	m.SetUint64(modulus)
+	m.SetUint64(Modulus)
 
 	for range 10000 {
-		a := rand.Uint32N(modulus)
-		b := rand.Uint32N(modulus)
+		a := rand.Uint32N(Modulus)
+		b := rand.Uint32N(Modulus)
 
 		i.SetUint64(uint64(a)).
 			Mul(&i, j.SetUint64(uint64(b))).
@@ -50,10 +50,10 @@ func TestMul(t *testing.T) {
 func TestInverse(t *testing.T) {
 	var i, m big.Int
 
-	m.SetUint64(modulus)
+	m.SetUint64(Modulus)
 
 	for range 1000000 {
-		a := rand.Uint32N(modulus-1) + 1 // avoid 0.
+		a := rand.Uint32N(Modulus-1) + 1 // avoid 0.
 
 		i.SetUint64(uint64(a)).
 			ModInverse(&i, &m).
@@ -70,10 +70,10 @@ func TestInverse(t *testing.T) {
 func TestHalve(t *testing.T) {
 	var i, j, m big.Int
 
-	m.SetUint64(modulus)
+	m.SetUint64(Modulus)
 
 	for range 1000000 {
-		a := rand.Uint32N(modulus)
+		a := rand.Uint32N(Modulus)
 		x := New(a)
 		x = x.Half()
 
@@ -87,11 +87,11 @@ func TestHalve(t *testing.T) {
 func TestSub(t *testing.T) {
 	var i, j, m big.Int
 
-	m.SetUint64(modulus)
+	m.SetUint64(Modulus)
 
 	for range 100000 {
-		a := rand.Uint32N(modulus)
-		b := rand.Uint32N(modulus)
+		a := rand.Uint32N(Modulus)
+		b := rand.Uint32N(Modulus)
 
 		i.SetUint64(uint64(a)).
 			Sub(&i, j.SetUint64(uint64(b))).
@@ -108,7 +108,7 @@ func TestSub(t *testing.T) {
 }
 
 func TestMontgomery(t *testing.T) {
-	m := big.NewInt(modulus)
+	m := big.NewInt(Modulus)
 	i := big.NewInt(1 << 32)
 	i.Mod(i, m)
 
@@ -122,7 +122,7 @@ func TestMontgomery(t *testing.T) {
 func TestByteConversion(t *testing.T) {
 	var i big.Int
 	for range 1000000 {
-		a := rand.Uint32N(modulus)
+		a := rand.Uint32N(Modulus)
 		expectedB := i.SetUint64(uint64(a)).Bytes()
 		expectedB = append(make([]byte, nbBytes-len(expectedB)), expectedB...) // pad to nbBytes
 
