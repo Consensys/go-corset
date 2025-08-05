@@ -27,18 +27,20 @@ type Element [1]uint32 // defined as an array to prevent mistaken use of arithme
 
 const (
 	r                 = 1 << 32 // register size
-	modulus           = 8209
+	Modulus           = 8209
 	rModM             = 2078
 	rSqModM           = 150        // r² (mod m)
-	negModulusInvModR = 1667968783 // -modulus⁻¹ (mod r), used for Montgomery reduction
+	negModulusInvModR = 1667968783 // -Modulus⁻¹ (mod r), used for Montgomery reduction
 	nbBytes           = 2
 )
 
+// In what follows nᵣ is the number of bits in r. Likewise, nₘ is the number of bits in m.
+
 // Add x + y
 func (x Element) Add(y Element) Element {
-	res := x[0] + y[0]
+	res := x[0] + y[0] // nᵣ + 1 bits
 
-	if reduced, borrow := bits.Sub32(res, modulus, 0); borrow == 0 {
+	if reduced, borrow := bits.Sub32(res, Modulus, 0); borrow == 0 {
 		res = reduced
 	}
 
@@ -49,20 +51,23 @@ func (x Element) Add(y Element) Element {
 func (x Element) Sub(y Element) Element {
 	res, borrow := bits.Sub32(x[0], y[0], 0)
 	if borrow != 0 {
-		res += modulus
+		res += Modulus
 	}
 
 	return Element{res}
 }
 
 // montgomeryReduce x -> x.R⁻¹ (mod m)
+// 0 ≤ x < m.R      ( nₘ + nᵣ bits )
 func montgomeryReduce(x uint64) Element {
 	// textbook Montgomery reduction
-	m := (x * uint64(negModulusInvModR)) % r // m = x * (-modulus⁻¹) (mod r)
+	t := (x * uint64(negModulusInvModR)) % r // t = x * (-Modulus⁻¹) (mod r)
+	// The intermediate value consists of nₘ + 2nᵣ bits. The top nₘ bits are discarded, which is okay since
+	// it doesn't change the value mod r.
 
-	res := uint32((x + m*modulus) / r)
+	res := uint32((x + t*Modulus) / r) // The intermediate value is nₘ + nᵣ + 1 bits long.
 
-	diff, borrow := bits.Sub32(res, modulus, 0)
+	diff, borrow := bits.Sub32(res, Modulus, 0)
 	if borrow == 0 {
 		res = diff
 	}
@@ -106,7 +111,7 @@ func (x Element) Half() Element {
 	if x[0]%2 == 0 {
 		return Element{x[0] / 2}
 	} else {
-		return Element{(x[0] + modulus) / 2} // the modulus is less than 2³¹ so this is safe.
+		return Element{(x[0] + Modulus) / 2} // the modulus is less than 2³¹ so this is safe.
 	}
 }
 
@@ -118,7 +123,7 @@ func (x Element) Inverse() Element {
 	}
 
 	u := x[0]
-	v := uint32(modulus)
+	v := uint32(Modulus)
 
 	var c Element
 	// Since x actually contains x.R, we have to multiply the result by R² to get x⁻¹R⁻¹R² = x⁻¹R.

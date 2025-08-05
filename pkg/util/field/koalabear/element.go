@@ -27,10 +27,10 @@ type Element [1]uint32 // defined as an array to prevent mistaken use of arithme
 
 const (
 	r                 = 1 << 32 // register size
-	Modulus = 2130706433
-	rModM   = 33554430
+	Modulus           = 2130706433
+	rModM             = 33554430
 	rSqModM           = 402124772  // r² (mod m)
-	negModulusInvModR = 2130706431 // -modulus⁻¹ (mod r), used for Montgomery reduction
+	negModulusInvModR = 2130706431 // -Modulus⁻¹ (mod r), used for Montgomery reduction
 	nbBytes           = 4
 )
 

@@ -172,10 +172,27 @@ func BatchInvert[T Element[T]](s []T) {
 		return
 	}
 
-	m := make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
-	m[len(m)-1] = s[len(s)-1]
+	var zero T
+	one := zero.AddUint32(1)
 
-	for i := len(m) - 2; i >= 0; i-- {
+	isZero := newBoolSlice(len(s))
+
+	m := make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
+
+	isZero.set(len(s)-1, s[len(s)-1].IsZero())
+
+	if isZero.get(len(s) - 1) {
+		s[len(s)-1] = one
+	}
+
+	m[len(s)-1] = s[len(s)-1]
+
+	for i := len(s) - 2; i >= 0; i-- {
+		isZero.set(i, s[i].IsZero())
+
+		if isZero.get(i) {
+			s[i] = one
+		}
 		m[i] = m[i+1].Mul(s[i])
 	}
 
@@ -183,9 +200,40 @@ func BatchInvert[T Element[T]](s []T) {
 
 	for i := range len(s) - 1 {
 		// inv = s[i]⁻¹ * s[i+1]⁻¹ * ...
-		s[i], inv = inv.Mul(m[i+1]), inv.Mul(m[i])
+		s[i], inv = inv.Mul(m[i+1]), inv.Mul(s[i])
 		// inv = s[i+1]⁻¹ * s[i+2]⁻¹ * ...
+		if isZero.get(i) {
+			s[i] = zero
+		}
 	}
 
 	s[len(s)-1] = inv
+	if isZero.get(len(s) - 1) {
+		s[len(s)-1] = zero
+	}
+}
+
+// boolSlice compactly represents a boolean slice, low bytes and bits first.
+// It does not strictly enforce its size.
+type boolSlice struct {
+	s []uint64
+}
+
+func newBoolSlice(size int) boolSlice {
+	return boolSlice{make([]uint64, (size+63)/64)}
+}
+
+func (s boolSlice) set(i int, v bool) {
+	x := uint64(1) << (i % 64)
+	i = i / 64
+
+	if v {
+		s.s[i] |= x
+	} else {
+		s.s[i] &= 0xffffffffffffffff ^ x
+	}
+}
+
+func (s boolSlice) get(i int) bool {
+	return s.s[i/64]&(1<<(i%64)) != 0
 }
