@@ -36,8 +36,9 @@ fn wcp(INST u8, ARGUMENT_1 u256, ARGUMENT_2 u256) -> (RESULT u1) {
    if INST==18 goto slt
    if INST==19 goto sgt
    if INST==20 goto eq
+   if INST==21 goto isz
    ;; BROKEN: invalid case should fail
-   goto isz
+   goto exit_0
 leq:
    borrow,delta = ARGUMENT_2 - ARGUMENT_1
    if borrow==0 goto exit_1

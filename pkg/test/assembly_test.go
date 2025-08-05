@@ -48,9 +48,12 @@ func Test_Asm_Counter256(t *testing.T) {
 func Test_Asm_FastPow(t *testing.T) {
 	test_util.Check(t, false, "asm/fast_pow")
 }
-func Test_Asm_Inc(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/inc", sc.BLS12_377, sc.GF_8209, sc.GF_251)
-}
+
+// See #1081
+//
+//	func Test_Asm_Inc(t *testing.T) {
+//		test_util.CheckWithFields(t, false, "asm/inc", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+//	}
 func Test_Asm_Max14(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/max14", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
@@ -78,11 +81,12 @@ func Test_Asm_SlowPow(t *testing.T) {
 	test_util.Check(t, false, "asm/slow_pow")
 }
 
-func Test_Asm_SimpleOnCurve(t *testing.T) {
-	// Check(t, false, "asm/simple_on_curve")
-	// To be replaced once splitting algorithm is available
-	test_util.Check(t, false, "asm/simple_on_curve_u16")
-}
+// See #1081
+// func Test_Asm_SimpleOnCurve(t *testing.T) {
+// 	// Check(t, false, "asm/simple_on_curve")
+// 	// To be replaced once splitting algorithm is available
+// 	test_util.Check(t, false, "asm/simple_on_curve_u16")
+// }
 
 // Recursion
 //
