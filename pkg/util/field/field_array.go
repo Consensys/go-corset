@@ -193,6 +193,7 @@ func BatchInvert[T Element[T]](s []T) {
 		if isZero.get(i) {
 			s[i] = one
 		}
+
 		m[i] = m[i+1].Mul(s[i])
 	}
 
