@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 // FrArray represents an array of field elements.
@@ -175,22 +176,22 @@ func BatchInvert[T Element[T]](s []T) {
 	var zero T
 	one := zero.AddUint32(1)
 
-	isZero := newBoolSlice(len(s))
+	isZero := bit.NewSet(len(s))
 
 	m := make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
 
-	isZero.set(len(s)-1, s[len(s)-1].IsZero())
+	isZero.Set(len(s)-1, s[len(s)-1].IsZero())
 
-	if isZero.get(len(s) - 1) {
+	if isZero.Get(len(s) - 1) {
 		s[len(s)-1] = one
 	}
 
 	m[len(s)-1] = s[len(s)-1]
 
 	for i := len(s) - 2; i >= 0; i-- {
-		isZero.set(i, s[i].IsZero())
+		isZero.Set(i, s[i].IsZero())
 
-		if isZero.get(i) {
+		if isZero.Get(i) {
 			s[i] = one
 		}
 
@@ -203,38 +204,13 @@ func BatchInvert[T Element[T]](s []T) {
 		// inv = s[i]⁻¹ * s[i+1]⁻¹ * ...
 		s[i], inv = inv.Mul(m[i+1]), inv.Mul(s[i])
 		// inv = s[i+1]⁻¹ * s[i+2]⁻¹ * ...
-		if isZero.get(i) {
+		if isZero.Get(i) {
 			s[i] = zero
 		}
 	}
 
 	s[len(s)-1] = inv
-	if isZero.get(len(s) - 1) {
+	if isZero.Get(len(s) - 1) {
 		s[len(s)-1] = zero
 	}
-}
-
-// boolSlice compactly represents a boolean slice, low bytes and bits first.
-// It does not strictly enforce its size.
-type boolSlice struct {
-	s []uint64
-}
-
-func newBoolSlice(size int) boolSlice {
-	return boolSlice{make([]uint64, (size+63)/64)}
-}
-
-func (s boolSlice) set(i int, v bool) {
-	x := uint64(1) << (i % 64)
-	i = i / 64
-
-	if v {
-		s.s[i] |= x
-	} else {
-		s.s[i] &= 0xffffffffffffffff ^ x
-	}
-}
-
-func (s boolSlice) get(i int) bool {
-	return s.s[i/64]&(1<<(i%64)) != 0
 }
