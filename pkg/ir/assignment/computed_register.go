@@ -158,8 +158,9 @@ func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 	//
 	return sexp.NewList(
 		[]sexp.SExp{sexp.NewSymbol("compute"),
-			sexp.NewSymbol(target.QualifiedName(module)),
-			sexp.NewSymbol(datatype),
+			sexp.NewList([]sexp.SExp{
+				sexp.NewSymbol(target.QualifiedName(module)),
+				sexp.NewSymbol(datatype)}),
 			p.Expr.Lisp(false, module),
 		})
 }

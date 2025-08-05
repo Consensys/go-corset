@@ -99,6 +99,21 @@ func (p *FunctionSignature) Apply(args []Expr, srcmap *source.Maps[Node]) Expr {
 // ColumnBinding
 // ============================================================================
 
+const (
+	// NOT_COMPUTED signals a column is not a computed column.
+	NOT_COMPUTED = 0
+	// COMPUTED signals a column is a (non-recursive) computed column.
+	COMPUTED = 1
+	// COMPUTED_FWD signals a column is a (forward recursive) computed column.
+	// This means its value is computed starting from the first row (hence it
+	// cannot use a forward shift in its declaration).
+	COMPUTED_FWD = 2
+	// COMPUTED_BWD signals a column is a (backward recursive) computed column.
+	// This means its value is computed starting from the first row (hence it
+	// cannot use a backward shift in its declaration).
+	COMPUTED_BWD = 3
+)
+
 // ColumnBinding represents something bound to a given column.
 type ColumnBinding struct {
 	// Context determines the real (i.e. non-virtual) enclosing module of this
@@ -115,8 +130,8 @@ type ColumnBinding struct {
 	MustProve bool
 	// Column's length Multiplier
 	Multiplier uint
-	// Determines whether this is a Computed column, or not.
-	Computed bool
+	// Determines the kind of this column.
+	Kind uint8
 	// Display modifier
 	Display string
 }
@@ -124,6 +139,11 @@ type ColumnBinding struct {
 // AbsolutePath returns the fully resolved (absolute) path of the column in question.
 func (p *ColumnBinding) AbsolutePath() *util.Path {
 	return &p.Path
+}
+
+// IsComputed checks whether this binding is for a computed column (or not).
+func (p *ColumnBinding) IsComputed() bool {
+	return p.Kind != NOT_COMPUTED
 }
 
 // IsFinalised checks whether this binding has been finalised yet or not.

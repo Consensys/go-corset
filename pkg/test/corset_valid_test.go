@@ -1193,6 +1193,9 @@ func Test_DefComputedColumn_01(t *testing.T) {
 func Test_DefComputedColumn_02(t *testing.T) {
 	test_util.Check(t, false, "basic/computedcolumn_02")
 }
+func Test_DefComputedColumn_03(t *testing.T) {
+	test_util.Check(t, false, "basic/computedcolumn_03")
+}
 
 // ===================================================================
 // Native computations

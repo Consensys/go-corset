@@ -801,23 +801,42 @@ func Test_Invalid_Compute_07(t *testing.T) {
 // ===================================================================
 
 func Test_Invalid_ComputedColumn_01(t *testing.T) {
-	CheckInvalid(t, "invalid/compute_column_invalid_01")
+	CheckInvalid(t, "invalid/computedcolumn_invalid_01")
 }
 
 func Test_Invalid_ComputedColumn_02(t *testing.T) {
-	CheckInvalid(t, "invalid/compute_column_invalid_02")
+	CheckInvalid(t, "invalid/computedcolumn_invalid_02")
 }
 
 func Test_Invalid_ComputedColumn_03(t *testing.T) {
-	CheckInvalid(t, "invalid/compute_column_invalid_03")
+	CheckInvalid(t, "invalid/computedcolumn_invalid_03")
 }
 
 func Test_Invalid_ComputedColumn_04(t *testing.T) {
-	CheckInvalid(t, "invalid/compute_column_invalid_04")
+	CheckInvalid(t, "invalid/computedcolumn_invalid_04")
 }
 
 func Test_Invalid_ComputedColumn_05(t *testing.T) {
-	CheckInvalid(t, "invalid/compute_column_invalid_05")
+	CheckInvalid(t, "invalid/computedcolumn_invalid_05")
+}
+
+func Test_Invalid_ComputedColumn_06(t *testing.T) {
+	CheckInvalid(t, "invalid/computedcolumn_invalid_06")
+}
+func Test_Invalid_ComputedColumn_07(t *testing.T) {
+	CheckInvalid(t, "invalid/computedcolumn_invalid_07")
+}
+func Test_Invalid_ComputedColumn_08(t *testing.T) {
+	CheckInvalid(t, "invalid/computedcolumn_invalid_08")
+}
+func Test_Invalid_ComputedColumn_09(t *testing.T) {
+	CheckInvalid(t, "invalid/computedcolumn_invalid_09")
+}
+func Test_Invalid_ComputedColumn_10(t *testing.T) {
+	CheckInvalid(t, "invalid/computedcolumn_invalid_10")
+}
+func Test_Invalid_ComputedColumn_11(t *testing.T) {
+	CheckInvalid(t, "invalid/computedcolumn_invalid_11")
 }
 
 // ===================================================================
