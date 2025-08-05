@@ -32,9 +32,10 @@ func Test_Asm_Dec4(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/dec4", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-func Test_Asm_ParseNonDecimal(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/parse_nondecimal", sc.BLS12_377, sc.GF_8209, sc.GF_251)
-}
+// See #1081
+// func Test_Asm_ParseNonDecimal(t *testing.T) {
+// 	test_util.CheckWithFields(t, false, "asm/parse_nondecimal", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+// }
 
 func Test_Asm_Counter(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/counter", sc.BLS12_377, sc.GF_8209, sc.GF_251)

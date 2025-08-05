@@ -98,8 +98,6 @@ func (p *StateTranslator[T, E, M]) Terminate() E {
 // Goto returns an expression suitable for ensuring that the given instruction
 // transitions to the state representing the given PC value.
 func (p *StateTranslator[T, E, M]) Goto(pc uint) E {
-	// Mark register as having been written.
-	p.mutated.Insert(io.PC_INDEX)
 	// Apply framing
 	return p.WithLocalConstancies(p.mapping.Framing.Goto(pc))
 }

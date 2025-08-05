@@ -191,7 +191,7 @@ func (p *Compiler[T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunc
 	module.NewConstraint("first", util.Some(0),
 		If(pc_i.NotEquals(zero), pc_i.Equals(one)))
 	// Add constancies for all input registers (if applicable)
-	p.addInputConstancies(busId, fn)
+	p.addInputConstancies(pc, busId, fn)
 	//
 	return NewMultiLineFraming[T, E](pc, ret)
 }
@@ -200,11 +200,10 @@ func (p *Compiler[T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunc
 // ensure the inputs don't change within a given frame.  Observe that this only
 // applies for multi-line functions, as one-line functions don't have internal
 // states.
-func (p *Compiler[T, E, M]) addInputConstancies(busId uint, fn MicroFunction) {
+func (p *Compiler[T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFunction) {
 	var (
 		Bus    = p.buses[busId]
 		module = p.modules[busId]
-		pc     = Bus.columns[0]
 		pc_i   = Variable[T, E](pc, 0)
 		zero   = Number[T, E](0)
 		one    = Number[T, E](1)
