@@ -40,7 +40,7 @@ func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.Registe
 	if !ok {
 		// Add computed column
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
-		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e))
+		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e, true))
 		// Construct v == [e]
 		v := ir.NewRegisterAccess[air.Term](index, 0)
 		// v - e

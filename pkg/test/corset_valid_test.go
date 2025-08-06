@@ -1186,15 +1186,17 @@ func Test_Valid_Compute_02(t *testing.T) {
 // defcomputedcolumn
 // ===================================================================
 
-func Test_DefComputedColumn_01(t *testing.T) {
+func Test_Valid_ComputedColumn_01(t *testing.T) {
 	test_util.Check(t, false, "basic/computedcolumn_01")
 }
-
-func Test_DefComputedColumn_02(t *testing.T) {
+func Test_Valid_ComputedColumn_02(t *testing.T) {
 	test_util.Check(t, false, "basic/computedcolumn_02")
 }
-func Test_DefComputedColumn_03(t *testing.T) {
+func Test_Valid_ComputedColumn_03(t *testing.T) {
 	test_util.Check(t, false, "basic/computedcolumn_03")
+}
+func Test_Valid_ComputedColumn_04(t *testing.T) {
+	test_util.Check(t, false, "basic/computedcolumn_04")
 }
 
 // ===================================================================

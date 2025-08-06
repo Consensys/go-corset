@@ -260,18 +260,23 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 
 // Translate a "defcomputedcolumn" declaration.
 func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path util.Path) []SyntaxError {
-	module := t.moduleOf(d.Computation.Context())
-
-	targetPath := path.Extend(d.Target.Name())
-	target := schema.NewRegisterRef(module.Id(), t.registerIndexOf(targetPath))
-
-	computation, errors := t.translateExpression(d.Computation, module, 0)
-
+	var (
+		// Determine enclosing module
+		module = t.moduleOf(d.Computation.Context())
+		// Determine direction of comptuation
+		direction = d.Target.InnerBinding().Kind != ast.COMPUTED_BWD
+		// Determine MIR identifier for target register
+		targetPath = path.Extend(d.Target.Name())
+		target     = schema.NewRegisterRef(module.Id(), t.registerIndexOf(targetPath))
+		// Translate computation
+		computation, errors = t.translateExpression(d.Computation, module, 0)
+	)
+	// Sanity check any compilation errors
 	if len(errors) != 0 {
 		return errors
 	}
 	// Add assignment
-	module.AddAssignment(assignment.NewComputedRegister(target, computation))
+	module.AddAssignment(assignment.NewComputedRegister(target, computation, direction))
 	// Add constraint (defconstraint target == computation)
 	module.AddConstraint(mir.NewVanishingConstraint(
 		d.Target.Name(), module.Id(),

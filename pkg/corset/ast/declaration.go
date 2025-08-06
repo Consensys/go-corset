@@ -238,6 +238,12 @@ func (e *DefColumn) Binding() Binding {
 	return &e.binding
 }
 
+// InnerBinding returns the allocated binding for this symbol (which may or may
+// not be finalised).
+func (e *DefColumn) InnerBinding() ColumnBinding {
+	return e.binding
+}
+
 // Name returns the (unqualified) name of this symbol.  For example, "X" for
 // a column X defined in a module m1.
 func (e *DefColumn) Name() string {
