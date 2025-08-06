@@ -136,8 +136,6 @@ func unionColumn(module string, left corset.SourceColumn, right corset.SourceCol
 	} else if left.Multiplier != right.Multiplier {
 		panic(fmt.Sprintf("inconsistent multiplier for column %s.%s (%d vs %d)",
 			module, left.Name, left.Multiplier, right.Multiplier))
-	} else if left.Computed != right.Computed {
-		panic(fmt.Sprintf("inconsistent kind for column %s.%s (computed vs not computed)", module, left.Name))
 	}
 	//
 	if left.Bitwidth >= right.Bitwidth {
