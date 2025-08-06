@@ -68,6 +68,11 @@ func (p *IntrinsicDefinition) IsFinalised() bool {
 	return true
 }
 
+// IsRecursive implementation for Binding interface.
+func (p *IntrinsicDefinition) IsRecursive() bool {
+	return false
+}
+
 // Binding returns the binding associated with this intrinsic.
 func (p *IntrinsicDefinition) Binding() ast.Binding {
 	return p

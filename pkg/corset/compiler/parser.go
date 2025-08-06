@@ -388,13 +388,20 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 	e sexp.SExp) (*ast.DefColumn, *SyntaxError) {
 	//
 	var (
-		error      *SyntaxError
-		name       util.Path
-		multiplier uint = 1
-		datatype   ast.Type
-		mustProve  bool
-		display    string
+		error *SyntaxError
+		// Initial binding with defaults
+		binding = ast.ColumnBinding{
+			ColumnContext: context,
+			Kind:          ast.NOT_COMPUTED,
+			Multiplier:    1,
+			MustProve:     false,
+			Display:       "hex",
+		}
 	)
+	// Update computed status
+	if computed {
+		binding.Kind = ast.COMPUTED
+	}
 	// Check whether extended declaration or not.
 	if l := e.AsList(); l != nil {
 		// Check at least the name provided.
@@ -404,43 +411,40 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 			return nil, p.translator.SyntaxError(l.Elements[0], "invalid column name")
 		}
 		// Column name is always first
-		name = *path.Extend(l.Elements[0].String(false))
+		binding.Path = *path.Extend(l.Elements[0].String(false))
 		//	Parse type (if applicable)
-		if datatype, mustProve, display, error = p.parseColumnDeclarationAttributes(e, l.Elements[1:]); error != nil {
+		if binding, error = p.parseColumnDeclarationAttributes(e, binding, l.Elements[1:]); error != nil {
 			return nil, error
 		}
 	} else if computed {
 		// Only computed columns can be given without attributes.
-		name = *path.Extend(e.String(false))
+		binding.Path = *path.Extend(e.String(false))
 	} else {
 		return nil, p.translator.SyntaxError(e, "column is untyped")
 	}
 	// Final sanity checks
-	if computed && datatype == nil {
+	if computed && binding.DataType == nil {
 		// computed columns initially have multiplier 0 in order to signal that
 		// this needs to be subsequently determined from context.
-		multiplier = 0
-		datatype = ast.INT_TYPE
-	} else if !datatype.HasUnderlying() {
+		binding.Multiplier = 0
+		binding.DataType = ast.INT_TYPE
+	} else if !binding.DataType.HasUnderlying() {
 		return nil, p.translator.SyntaxError(e, "invalid column type")
 	}
 	//
-	def := ast.NewDefColumn(context, name, datatype, mustProve, multiplier, computed, display)
+	def := ast.NewDefColumn(binding)
 	// Update source mapping
 	p.mapSourceNode(e, def)
 	//
 	return def, nil
 }
 
-func (p *Parser) parseColumnDeclarationAttributes(node sexp.SExp, attrs []sexp.SExp) (ast.Type, bool, string,
-	*SyntaxError) {
+func (p *Parser) parseColumnDeclarationAttributes(node sexp.SExp, binding ast.ColumnBinding,
+	attrs []sexp.SExp) (ast.ColumnBinding, *SyntaxError) {
 	//
 	var (
-		dataType  ast.Type
-		mustProve bool = false
 		array_min uint
 		array_max uint
-		display   string = "hex"
 		err       *SyntaxError
 	)
 
@@ -449,49 +453,67 @@ func (p *Parser) parseColumnDeclarationAttributes(node sexp.SExp, attrs []sexp.S
 		symbol := ith.AsSymbol()
 		// Sanity check
 		if symbol == nil {
-			return nil, false, "", p.translator.SyntaxError(ith, "unknown column attribute")
+			return binding, p.translator.SyntaxError(ith, "unknown column attribute")
 		}
 		//
 		switch symbol.Value {
 		case ":display":
 			// skip these for now, as they are only relevant to the inspector.
 			if i+1 == len(attrs) {
-				return nil, false, "", p.translator.SyntaxError(ith, "incomplete display definition")
+				return binding, p.translator.SyntaxError(ith, "incomplete display definition")
 			} else if attrs[i+1].AsSymbol() == nil {
-				return nil, false, "", p.translator.SyntaxError(ith, "malformed display definition")
+				return binding, p.translator.SyntaxError(ith, "malformed display definition")
 			}
 			//
-			display = attrs[i+1].AsSymbol().String(false)
+			binding.Display = attrs[i+1].AsSymbol().String(false)
 			// Check what display attribute we have
-			switch display {
+			switch binding.Display {
 			case ":dec", ":hex", ":bytes", ":opcode":
-				display = display[1:]
+				binding.Display = binding.Display[1:]
 				// all good
 				i = i + 1
 			default:
 				// not good
-				return nil, false, "", p.translator.SyntaxError(ith, "unknown display definition")
+				return binding, p.translator.SyntaxError(ith, "unknown display definition")
 			}
 		case ":array":
 			if array_min, array_max, err = p.parseArrayDimension(attrs[i+1]); err != nil {
-				return nil, false, "", err
+				return binding, err
 			}
 			// skip dimension
 			i++
+		case ":fwd":
+			switch binding.Kind {
+			case ast.NOT_COMPUTED:
+				return binding, p.translator.SyntaxError(ith, "input columns cannot be recursive")
+			case ast.COMPUTED_BWD:
+				return binding, p.translator.SyntaxError(ith, "conflicting direction of recursion")
+			default:
+				binding.Kind = ast.COMPUTED_FWD
+			}
+		case ":bwd":
+			switch binding.Kind {
+			case ast.NOT_COMPUTED:
+				return binding, p.translator.SyntaxError(ith, "input columns cannot be recursive")
+			case ast.COMPUTED_FWD:
+				return binding, p.translator.SyntaxError(ith, "conflicting direction of recursion")
+			default:
+				binding.Kind = ast.COMPUTED_BWD
+			}
 		default:
-			if dataType, mustProve, err = p.parseType(ith); err != nil {
-				return nil, false, "", err
+			if binding.DataType, binding.MustProve, err = p.parseType(ith); err != nil {
+				return binding, err
 			}
 		}
 	}
 	// Done
-	if dataType == nil {
-		return nil, false, "", p.translator.SyntaxError(node, "column is untyped")
+	if binding.DataType == nil {
+		return binding, p.translator.SyntaxError(node, "column is untyped")
 	} else if array_max != 0 {
-		return ast.NewArrayType(dataType, array_min, array_max), mustProve, display, nil
+		binding.DataType = ast.NewArrayType(binding.DataType, array_min, array_max)
 	}
-	//
-	return dataType, mustProve, display, nil
+	// Success!
+	return binding, nil
 }
 
 func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {

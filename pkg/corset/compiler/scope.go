@@ -32,8 +32,15 @@ type Scope interface {
 	// Bindings returns all binding identifiers within a given path.
 	Bindings(util.Path) []BindingId
 
-	// Check whether a given path is local to the enclosing module, or not.
-	IsLocal(util.Path) bool
+	// Check whether a given path is within the enclosing module, or not.
+	IsWithin(util.Path) bool
+
+	// Check whether the given symbol is in the process of being defined in the
+	// enclose scope.  Thus, if we encounter an this symbol within e.g. some
+	// expression whilst it is being defined ... we know its a recursive access.
+	// Depending on how the symbol is defined this may (or may not) result in an
+	// error.
+	IsVisible(ast.Symbol) bool
 }
 
 // BindingId is an identifier is used to distinguish different forms of binding,
@@ -54,6 +61,14 @@ func (b BindingId) IsFunction() bool {
 	return b.arity.HasValue()
 }
 
+func (b BindingId) String() string {
+	if b.arity.HasValue() {
+		return fmt.Sprintf("%s(%d)", b.name, b.arity.Unwrap())
+	}
+	//
+	return b.name
+}
+
 // =============================================================================
 // Module Scope
 // =============================================================================
@@ -72,7 +87,7 @@ type ModuleScope struct {
 	// Map identifiers to indices within the bindings array.
 	ids map[BindingId]uint
 	// The set of bindings in the order of declaration.
-	bindings []ast.Binding
+	bindings []boxedBinding
 	// Enclosing scope
 	parent *ModuleScope
 	// Submodules in a map (for efficient lookup)
@@ -113,9 +128,42 @@ func (p *ModuleScope) Virtual() bool {
 	return p.selector.HasValue()
 }
 
-// IsLocal checks whether a given path is local to the enclosing module, or not.
-func (p *ModuleScope) IsLocal(path util.Path) bool {
-	return p.parent != nil && p.path.PrefixOf(path)
+// IsWithin checks whether a given path is local to the enclosing module, or not.
+func (p *ModuleScope) IsWithin(path util.Path) bool {
+	return !path.IsAbsolute() || (p.parent != nil && p.path.PrefixOf(path))
+}
+
+// IsVisible implemention for Scope interface.
+func (p *ModuleScope) IsVisible(symbol ast.Symbol) bool {
+	// Split the two cases: absolute versus relative.
+	if symbol.Path().IsAbsolute() && p.parent != nil {
+		// Absolute path, and this is not the root scope.  Therefore, simply
+		// pass this up to the root scope for further processing.
+		return p.parent.IsVisible(symbol)
+	}
+	// Relative path from this scope, or possibly an absolute path if this is
+	// the root scope.
+	found, visible := p.isVisibleInner(*symbol.Path(), symbol)
+	// If not found, traverse upwards.
+	if !found && p.parent != nil {
+		return p.parent.IsVisible(symbol)
+	}
+	// Given up
+	return visible
+}
+
+func (p *ModuleScope) isVisibleInner(path util.Path, symbol ast.Symbol) (found, visible bool) {
+	var id = BindingId{path.Tail(), symbol.Arity()}
+	//
+	if submod, ok := p.submodmap[path.Head()]; ok && path.Depth() > 1 {
+		// Indicates the symbol could be within submodule, so go look in there.
+		return submod.isVisibleInner(*path.Dehead(), symbol)
+	} else if index, ok := p.ids[id]; ok && path.Depth() == 1 {
+		box := p.bindings[index]
+		return true, !box.open || box.binding.IsRecursive()
+	}
+	// give up
+	return false, false
 }
 
 // IsRoot checks whether or not this is the root of the module tree.
@@ -145,7 +193,7 @@ func (p *ModuleScope) DestructuredColumns() []RegisterSource {
 	)
 	//
 	for _, b := range p.bindings {
-		if binding, ok := b.(*ast.ColumnBinding); ok {
+		if binding, ok := b.binding.(*ast.ColumnBinding); ok {
 			cols := p.destructureColumn(binding, owner, binding.Path, binding.DataType)
 			sources = append(sources, cols...)
 		}
@@ -160,7 +208,7 @@ func (p *ModuleScope) DestructuredConstants() []ast.ConstantBinding {
 	var constants []ast.ConstantBinding
 
 	for _, b := range p.bindings {
-		if binding, ok := b.(*ast.ConstantBinding); ok {
+		if binding, ok := b.binding.(*ast.ConstantBinding); ok {
 			constants = append(constants, *binding)
 		}
 	}
@@ -212,7 +260,7 @@ func (p *ModuleScope) Declare(submodule string, selector util.Option[string]) bo
 func (p *ModuleScope) Binding(name string, arity util.Option[uint]) ast.Binding {
 	// construct binding identifier
 	if bid, ok := p.ids[BindingId{name, arity}]; ok {
-		return p.bindings[bid]
+		return p.bindings[bid].binding
 	}
 	// Failure
 	return nil
@@ -250,9 +298,9 @@ func (p *ModuleScope) innerBind(path *util.Path, symbol ast.Symbol) bool {
 		// Look for it.
 		if bid, ok := p.ids[id]; ok {
 			// Extract binding
-			binding := p.bindings[bid]
+			box := p.bindings[bid]
 			// Resolve symbol
-			return symbol.Resolve(binding)
+			return symbol.Resolve(box.binding)
 		}
 	} else if submod, ok := p.submodmap[path.Head()]; ok {
 		// Looks like this could be in the child scope, so continue searching there.
@@ -362,10 +410,37 @@ func (p *ModuleScope) Define(symbol ast.SymbolDefinition) bool {
 	}
 	// ast.Symbol not previously declared, so no need to consider overloadings.
 	bid := uint(len(p.bindings))
-	p.bindings = append(p.bindings, symbol.Binding())
+	p.bindings = append(p.bindings, boxedBinding{false, symbol.Binding()})
 	p.ids[id] = bid
 	//
 	return true
+}
+
+// OpenDefinition indicates that the given symbol is in the process of being
+// defined.  This allows us to identify recursive uses of the given symbol (i.e.
+// which arise during the period in which it being defined).
+func (p *ModuleScope) OpenDefinition(symbol ast.SymbolDefinition) {
+	p.setDefinition(true, symbol)
+}
+
+// CloseDefinition indicates that the given symbol has now been defined.
+func (p *ModuleScope) CloseDefinition(symbol ast.SymbolDefinition) {
+	p.setDefinition(false, symbol)
+}
+
+func (p *ModuleScope) setDefinition(status bool, symbol ast.SymbolDefinition) {
+	if !symbol.Path().IsAbsolute() && !p.IsWithin(*symbol.Path()) {
+		panic("symbol definition not permitted")
+	}
+	// construct binding identifier
+	id := BindingId{symbol.Name(), symbol.Arity()}
+	// Sanity check not already declared
+	if index, ok := p.ids[id]; ok {
+		p.bindings[index].open = status
+		return
+	}
+	//
+	panic(fmt.Sprintf("unknown symbol definition \"%s\"", symbol.Path().String()))
 }
 
 // Flattern flatterns the tree into a flat array of modules, such that a module
@@ -418,10 +493,19 @@ func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx uti
 		column.Multiplier,
 		bitwidth,
 		column.MustProve,
-		column.Computed,
+		column.IsComputed(),
 		column.Display}
 	//
 	return []RegisterSource{source}
+}
+
+// BoxedBinding simply wraps a given binding with a boolean used to indicate
+// whether its definition is "open" or not.  This is used to detect recursive
+// symbol accesses and (depending on the exact symbol definition) to report
+// errors.
+type boxedBinding struct {
+	open    bool
+	binding ast.Binding
 }
 
 // =============================================================================
@@ -448,6 +532,9 @@ type LocalScope struct {
 	locals map[string]uint
 	// Actual parameter bindings
 	bindings []*ast.LocalVariableBinding
+	// Set of variables being defined in this scope.  This is used to check
+	// recursive definitions.
+	defining map[string]bool
 }
 
 // NewLocalScope constructs a new local scope within a given enclosing scope.  A
@@ -458,8 +545,9 @@ func NewLocalScope(enclosing Scope, global bool, pure bool, constant bool) Local
 	context := ast.VoidContext()
 	locals := make(map[string]uint)
 	bindings := make([]*ast.LocalVariableBinding, 0)
+	defining := make(map[string]bool)
 	//
-	return LocalScope{global, pure, constant, enclosing, &context, locals, bindings}
+	return LocalScope{global, pure, constant, enclosing, &context, locals, bindings, defining}
 }
 
 // NestedScope creates a nested scope within this local scope.
@@ -473,7 +561,7 @@ func (p LocalScope) NestedScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, p.pure, p.constant, p, p.context, nlocals, nbindings}
+	return LocalScope{p.global, p.pure, p.constant, p, p.context, nlocals, nbindings, p.defining}
 }
 
 // NestedConstScope creates a nested scope within this local scope which, in
@@ -488,7 +576,21 @@ func (p LocalScope) NestedConstScope() LocalScope {
 	// Copy over bindings.
 	copy(nbindings, p.bindings)
 	// Done
-	return LocalScope{p.global, true, true, p, p.context, nlocals, nbindings}
+	return LocalScope{p.global, true, true, p, p.context, nlocals, nbindings, p.defining}
+}
+
+// IsVisible implemention for Scope interface.
+func (p LocalScope) IsVisible(symbol ast.Symbol) bool {
+	path := *symbol.Path()
+	// Determine whether this symbol could be a local variable or not.
+	localVar := symbol.Arity().IsEmpty() && !path.IsAbsolute() && path.Depth() == 1
+	// Check whether this is a local variable access.
+	if _, ok := p.locals[path.Head()]; ok && localVar {
+		// Local variables are always visible as they cannot be defined recursively.
+		return true
+	}
+	//
+	return p.enclosing.IsVisible(symbol)
 }
 
 // IsGlobal determines whether symbols can be accessed in modules other than the
@@ -510,9 +612,9 @@ func (p LocalScope) IsConstant() bool {
 	return p.constant
 }
 
-// IsLocal checks whether a given path is local to the enclosing module, or not.
-func (p LocalScope) IsLocal(path util.Path) bool {
-	return p.enclosing.IsLocal(path)
+// IsWithin checks whether a given path is local to the enclosing module, or not.
+func (p LocalScope) IsWithin(path util.Path) bool {
+	return p.enclosing.IsWithin(path)
 }
 
 // FixContext fixes the context for this scope.  Since every scope requires

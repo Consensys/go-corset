@@ -308,11 +308,11 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl ast.Declaration)
 	case *ast.DefInRange:
 		return r.finaliseDefInRangeInModule(scope, d)
 	case *ast.DefInterleaved:
-		return r.finaliseDefInterleavedInModule(d)
+		return r.finaliseDefInterleavedInModule(scope, d)
 	case *ast.DefLookup:
 		return r.finaliseDefLookupInModule(scope, d)
 	case *ast.DefPermutation:
-		return r.finaliseDefPermutationInModule(d)
+		return r.finaliseDefPermutationInModule(scope, d)
 	case *ast.DefPerspective:
 		return r.finaliseDefPerspectiveInModule(scope, d)
 	case *ast.DefProperty:
@@ -437,6 +437,8 @@ func (r *resolver) finaliseDefConstraintInModule(enclosing *ModuleScope, decl *a
 // expressions are well-typed.
 func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope,
 	decl *ast.DefComputedColumn) []SyntaxError {
+	// Open definition
+	enclosing.OpenDefinition(decl.Target)
 	// Construct scope in which to resolve constraint
 	scope := NewLocalScope(enclosing, false, false, false)
 	// Resolve computation body
@@ -445,6 +447,8 @@ func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope,
 	if len(computation_errors) == 0 {
 		decl.Finalise()
 	}
+	// Close definition
+	enclosing.CloseDefinition(decl.Target)
 	// Done
 	return computation_errors
 }
@@ -454,7 +458,7 @@ func (r *resolver) finaliseDefComputedColumnInModule(enclosing *ModuleScope,
 // multiplier for the interleaved column.  This can still result in an error,
 // for example, if the multipliers between interleaved columns are incompatible,
 // etc.
-func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []SyntaxError {
+func (r *resolver) finaliseDefInterleavedInModule(enclosing *ModuleScope, decl *ast.DefInterleaved) []SyntaxError {
 	var (
 		// Length multiplier being determined
 		length_multiplier uint
@@ -463,7 +467,8 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []Sy
 		// Errors discovered
 		errors []SyntaxError
 	)
-
+	//
+	enclosing.OpenDefinition(decl.Target)
 	// Determine type and length multiplier
 	for _, source := range decl.Sources {
 		// Lookup binding of column being interleaved.
@@ -471,6 +476,8 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []Sy
 			// Columns to be interleaved must have the same length multiplier.
 			err := r.srcmap.SyntaxError(source, "invalid source column")
 			errors = append(errors, *err)
+		} else if !enclosing.IsVisible(source) {
+			errors = append(errors, *r.srcmap.SyntaxError(source, "recursive definition"))
 		} else if datatype == nil {
 			length_multiplier = binding.Multiplier
 			datatype = source.Type()
@@ -492,18 +499,22 @@ func (r *resolver) finaliseDefInterleavedInModule(decl *ast.DefInterleaved) []Sy
 		// Finalise column binding
 		binding.Finalise(length_multiplier, datatype)
 	}
+	//
+	enclosing.CloseDefinition(decl.Target)
 	// Done
 	return errors
 }
 
 // Finalise a permutation assignment after all symbols have been resolved.  This
 // requires checking the contexts of all columns is consistent.
-func (r *resolver) finaliseDefPermutationInModule(decl *ast.DefPermutation) []SyntaxError {
+func (r *resolver) finaliseDefPermutationInModule(enclosing *ModuleScope, decl *ast.DefPermutation) []SyntaxError {
 	var (
 		multiplier uint = 0
 		errors     []SyntaxError
 		started    bool
 	)
+	//
+	openDefinitions(enclosing, decl.Targets...)
 	// Finalise each column in turn
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i]
@@ -516,6 +527,8 @@ func (r *resolver) finaliseDefPermutationInModule(decl *ast.DefPermutation) []Sy
 		} else if started && multiplier != source.Multiplier {
 			// Problem
 			errors = append(errors, *r.srcmap.SyntaxError(ith, "incompatible length multiplier"))
+		} else if !enclosing.IsVisible(ith) {
+			errors = append(errors, *r.srcmap.SyntaxError(ith, "recursive definition"))
 		} else {
 			// All good, finalise target column
 			target := decl.Targets[i].Binding().(*ast.ColumnBinding)
@@ -526,6 +539,8 @@ func (r *resolver) finaliseDefPermutationInModule(decl *ast.DefPermutation) []Sy
 			started = true
 		}
 	}
+	//
+	closeDefinitions(enclosing, decl.Targets...)
 	// Done
 	return errors
 }
@@ -563,8 +578,10 @@ func (r *resolver) finaliseDefInRangeInModule(enclosing Scope, decl *ast.DefInRa
 // body is well-typed; (c) for pure functions checking that no columns are
 // accessed; (d) finally, resolving any parameters used within the body of this
 // function.
-func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []SyntaxError {
+func (r *resolver) finaliseDefFunInModule(enclosing *ModuleScope, decl *ast.DefFun) []SyntaxError {
 	var scope = NewLocalScope(enclosing, true, decl.IsPure(), false)
+	//
+	enclosing.OpenDefinition(decl)
 	// Declare parameters in local scope
 	for _, p := range decl.Parameters() {
 		scope.DeclareLocal(p.Binding.Name, &p.Binding)
@@ -575,6 +592,8 @@ func (r *resolver) finaliseDefFunInModule(enclosing Scope, decl *ast.DefFun) []S
 	if len(errors) == 0 {
 		decl.Finalise()
 	}
+	//
+	enclosing.CloseDefinition(decl)
 	// Done
 	return errors
 }
@@ -740,12 +759,15 @@ func (r *resolver) finaliseArrayAccessInModule(scope LocalScope, expr *ast.Array
 // turn, is contained within some module.  Note, qualified accesses are only
 // permitted in a global context.
 func (r *resolver) finaliseInvokeInModule(scope LocalScope, expr *ast.Invoke) []SyntaxError {
-	// Resolve arguments
-	errors := r.finaliseExpressionsInModule(scope, expr.Args)
+	var errors []SyntaxError
 	// Lookup the corresponding function definition.
 	if !expr.Name.IsResolved() && !scope.Bind(expr.Name) {
 		return append(errors, *r.srcmap.SyntaxError(expr.Name, "unknown function"))
+	} else if !scope.IsVisible(expr.Name) {
+		return r.srcmap.SyntaxErrors(expr, "recursion not permitted here")
 	}
+	// Resolve arguments
+	errors = r.finaliseExpressionsInModule(scope, expr.Args)
 	// Following must be true if we get here.
 	binding := expr.Name.Binding().(ast.FunctionBinding)
 	// Check purity
@@ -805,8 +827,10 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *ast.Reduce) []
 // permitted in a global context.
 func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
-	if !scope.IsGlobal() && expr.Path().IsAbsolute() && !scope.IsLocal(*expr.Path()) {
+	if !scope.IsGlobal() && !scope.IsWithin(*expr.Path()) {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
+	} else if !scope.IsVisible(expr) {
+		return r.srcmap.SyntaxErrors(expr, "recursion not permitted here")
 	}
 	// Symbol should be resolved at this point, but we'd better sanity check this.
 	if !expr.IsResolved() && !scope.Bind(expr) {
@@ -903,6 +927,18 @@ func (r *resolver) constructUnknownSymbolError(symbol ast.Symbol, scope Scope) S
 	// Fall back on default.  We actually could do better here by trying to find
 	// the closest match.
 	return *r.srcmap.SyntaxError(symbol, "unknown symbol")
+}
+
+func openDefinitions[T ast.SymbolDefinition](scope *ModuleScope, defs ...T) {
+	for _, def := range defs {
+		scope.OpenDefinition(def)
+	}
+}
+
+func closeDefinitions[T ast.SymbolDefinition](scope *ModuleScope, defs ...T) {
+	for _, def := range defs {
+		scope.CloseDefinition(def)
+	}
 }
 
 // GlobalResolution maintains detailed state about the ongoing attempt to

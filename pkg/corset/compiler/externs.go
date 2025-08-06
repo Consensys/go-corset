@@ -42,6 +42,12 @@ type ExternSymbolDefinition struct {
 // NewExternSymbolDefinition creates a new external symbol definition for a
 // given register in a given module.
 func NewExternSymbolDefinition(path util.Path, reg schema.Register) *ExternSymbolDefinition {
+	var kind uint8 = ast.NOT_COMPUTED
+	//
+	if reg.IsComputed() {
+		kind = ast.COMPUTED
+	}
+	//
 	return &ExternSymbolDefinition{
 		binding: ast.ColumnBinding{
 			ColumnContext: path,
@@ -49,7 +55,7 @@ func NewExternSymbolDefinition(path util.Path, reg schema.Register) *ExternSymbo
 			DataType:      ast.NewUintType(reg.Width),
 			MustProve:     true,
 			Multiplier:    1,
-			Computed:      reg.IsComputed(),
+			Kind:          kind,
 			Display:       "hex", // default
 		},
 	}

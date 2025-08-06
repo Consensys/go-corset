@@ -64,6 +64,11 @@ func (p *NativeDefinition) IsNative() bool {
 	return true
 }
 
+// IsRecursive implementation for Binding interface.
+func (p *NativeDefinition) IsRecursive() bool {
+	return false
+}
+
 // Arity indicates whether or not this is a function and, if so, what arity
 // (i.e. how many arguments) the function has.
 func (p *NativeDefinition) Arity() util.Option[uint] {
