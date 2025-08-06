@@ -418,6 +418,9 @@ func Test_Invalid_Permute_09(t *testing.T) {
 func Test_Invalid_Permute_10(t *testing.T) {
 	CheckInvalid(t, "invalid/permute_invalid_10")
 }
+func Test_Invalid_Permute_11(t *testing.T) {
+	CheckInvalid(t, "invalid/permute_invalid_11")
+}
 
 // ===================================================================
 // Sortings
@@ -544,6 +547,9 @@ func Test_Invalid_Interleave_11(t *testing.T) {
 func Test_Invalid_Interleave_12(t *testing.T) {
 	CheckInvalid(t, "invalid/interleave_invalid_12")
 }
+func Test_Invalid_Interleave_13(t *testing.T) {
+	CheckInvalid(t, "invalid/interleave_invalid_13")
+}
 
 // ===================================================================
 // Functions
@@ -589,11 +595,9 @@ func Test_Invalid_PureFun_05(t *testing.T) {
 	CheckInvalid(t, "invalid/purefun_invalid_05")
 }
 
-/*
-	func Test_Invalid_PureFun_06(t *testing.T) {
-		CheckInvalid(t, "invalid/purefun_invalid_06")
-	}
-*/
+func Test_Invalid_PureFun_06(t *testing.T) {
+	CheckInvalid(t, "invalid/purefun_invalid_06")
+}
 
 func Test_Invalid_PureFun_07(t *testing.T) {
 	CheckInvalid(t, "invalid/purefun_invalid_07")

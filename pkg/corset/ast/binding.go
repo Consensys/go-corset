@@ -24,6 +24,8 @@ import (
 type Binding interface {
 	// Determine whether this binding is finalised or not.
 	IsFinalised() bool
+	// Determine whether this binding can be defined recursively or not.
+	IsRecursive() bool
 }
 
 // FunctionBinding is a special kind of binding which captures the essence of
@@ -151,6 +153,11 @@ func (p *ColumnBinding) IsFinalised() bool {
 	return p.Multiplier != 0
 }
 
+// IsRecursive implementation for Binding interface.
+func (p *ColumnBinding) IsRecursive() bool {
+	return p.Kind == COMPUTED_FWD || p.Kind == COMPUTED_BWD
+}
+
 // Finalise this binding by providing the necessary missing information.
 func (p *ColumnBinding) Finalise(multiplier uint, datatype Type) {
 	p.Multiplier = multiplier
@@ -195,6 +202,12 @@ func (p *ConstantBinding) IsFinalised() bool {
 	return p.finalised
 }
 
+// IsRecursive implementation for Binding interface.
+func (p *ConstantBinding) IsRecursive() bool {
+	// Constants can never be defined recursively
+	return false
+}
+
 // Finalise this binding.
 func (p *ConstantBinding) Finalise() {
 	p.finalised = true
@@ -229,6 +242,11 @@ func NewLocalVariableBinding(name string, datatype Type) LocalVariableBinding {
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *LocalVariableBinding) IsFinalised() bool {
 	return p.Index != math.MaxUint
+}
+
+// IsRecursive implementation for Binding interface.
+func (p *LocalVariableBinding) IsRecursive() bool {
+	return false
 }
 
 // Finalise this local variable binding by allocating it an identifier.
@@ -278,6 +296,12 @@ func (p *DefunBinding) IsFinalised() bool {
 	return p.finalised
 }
 
+// IsRecursive implementation for Binding interface.
+func (p *DefunBinding) IsRecursive() bool {
+	// Functions can never be defined recursively (for now, at least).
+	return false
+}
+
 // Signature returns the corresponding function signature for this user-defined
 // function.
 func (p *DefunBinding) Signature() *FunctionSignature {
@@ -312,6 +336,12 @@ func NewPerspectiveBinding(selector Expr) *PerspectiveBinding {
 // IsFinalised checks whether this binding has been finalised yet or not.
 func (p *PerspectiveBinding) IsFinalised() bool {
 	return p.resolved
+}
+
+// IsRecursive implementation for Binding interface.
+func (p *PerspectiveBinding) IsRecursive() bool {
+	// Recursive perspectives don't make sense!
+	return false
 }
 
 // Finalise this binding, which indicates the selector expression has been

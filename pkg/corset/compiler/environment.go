@@ -170,7 +170,7 @@ func (p *GlobalEnvironment) initColumnsAndRegisters(modules []*ModuleScope) {
 	// Apply aliases
 	for _, m := range modules {
 		for id, binding_id := range m.ids {
-			if binding, ok := m.bindings[binding_id].(*ast.ColumnBinding); ok && !id.IsFunction() {
+			if binding, ok := m.bindings[binding_id].binding.(*ast.ColumnBinding); ok && !id.IsFunction() {
 				orig := binding.Path.String()
 				alias := m.path.Extend(id.name).String()
 				p.columnMap[alias] = p.columnMap[orig]

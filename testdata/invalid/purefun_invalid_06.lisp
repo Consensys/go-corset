@@ -1,6 +1,6 @@
-;;error:2:1-2:blah
+;;error:4:28-37:recursion not permitted here
 (defcolumns (X :i16))
 ;; recursive :)
-(defpurefun (id x) (+ x (id x)))
+(defpurefun (recfn x) (+ x (recfn x)))
 ;; infinite loop?
-(defconstraint c1 () (id X))
+(defconstraint c1 () (== 0 (recfn X)))
