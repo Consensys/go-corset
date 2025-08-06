@@ -130,30 +130,40 @@ func (p *ModuleScope) Virtual() bool {
 
 // IsWithin checks whether a given path is local to the enclosing module, or not.
 func (p *ModuleScope) IsWithin(path util.Path) bool {
-	return p.parent != nil && p.path.PrefixOf(path)
+	return !path.IsAbsolute() || (p.parent != nil && p.path.PrefixOf(path))
 }
 
 // IsVisible implemention for Scope interface.
 func (p *ModuleScope) IsVisible(symbol ast.Symbol) bool {
-	var path = *symbol.Path()
-	//
-	if !p.IsWithin(path) && p.parent != nil {
+	// Split the two cases: absolute versus relative.
+	if symbol.Path().IsAbsolute() && p.parent != nil {
+		// Absolute path, and this is not the root scope.  Therefore, simply
+		// pass this up to the root scope for further processing.
 		return p.parent.IsVisible(symbol)
-	} else if submod, ok := p.submodmap[path.Head()]; ok && path.Depth() > 1 {
-		// Indicates the symbol is actually within a submodule, so we need to go
-		// look in there.
-		return submod.IsVisible(symbol)
 	}
-	// TODO: handle symbols in submodules
-	id := BindingId{path.Tail(), symbol.Arity()}
+	// Relative path from this scope, or possibly an absolute path if this is
+	// the root scope.
+	found, visible := p.isVisibleInner(*symbol.Path(), symbol)
+	// If not found, traverse upwards.
+	if !found && p.parent != nil {
+		return p.parent.IsVisible(symbol)
+	}
+	// Given up
+	return visible
+}
+
+func (p *ModuleScope) isVisibleInner(path util.Path, symbol ast.Symbol) (found, visible bool) {
+	var id = BindingId{path.Tail(), symbol.Arity()}
 	//
-	if index, ok := p.ids[id]; ok {
+	if submod, ok := p.submodmap[path.Head()]; ok && path.Depth() > 1 {
+		// Indicates the symbol could be within submodule, so go look in there.
+		return submod.isVisibleInner(*path.Dehead(), symbol)
+	} else if index, ok := p.ids[id]; ok && path.Depth() == 1 {
 		box := p.bindings[index]
-		return !box.open || box.binding.IsRecursive()
+		return true, !box.open || box.binding.IsRecursive()
 	}
-	// Its better to do this than panic, since it will result in a more useful
-	// error message.
-	return false
+	// give up
+	return false, false
 }
 
 // IsRoot checks whether or not this is the root of the module tree.
@@ -574,8 +584,13 @@ func (p LocalScope) IsVisible(symbol ast.Symbol) bool {
 	path := *symbol.Path()
 	// Determine whether this symbol could be a local variable or not.
 	localVar := symbol.Arity().IsEmpty() && !path.IsAbsolute() && path.Depth() == 1
-	// Local variables are always visible as they cannot be defined recursively.
-	return localVar || p.enclosing.IsVisible(symbol)
+	// Check whether this is a local variable access.
+	if _, ok := p.locals[path.Head()]; ok && localVar {
+		// Local variables are always visible as they cannot be defined recursively.
+		return true
+	}
+	//
+	return p.enclosing.IsVisible(symbol)
 }
 
 // IsGlobal determines whether symbols can be accessed in modules other than the

@@ -827,7 +827,7 @@ func (r *resolver) finaliseReduceInModule(scope LocalScope, expr *ast.Reduce) []
 // permitted in a global context.
 func (r *resolver) finaliseVariableInModule(scope LocalScope, expr *ast.VariableAccess) []SyntaxError {
 	// Check whether this is a qualified access, or not.
-	if !scope.IsGlobal() && expr.Path().IsAbsolute() && !scope.IsWithin(*expr.Path()) {
+	if !scope.IsGlobal() && !scope.IsWithin(*expr.Path()) {
 		return r.srcmap.SyntaxErrors(expr, "qualified access not permitted here")
 	} else if !scope.IsVisible(expr) {
 		return r.srcmap.SyntaxErrors(expr, "recursion not permitted here")
