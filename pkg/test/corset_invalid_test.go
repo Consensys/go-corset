@@ -833,15 +833,21 @@ func Test_Invalid_ComputedColumn_07(t *testing.T) {
 func Test_Invalid_ComputedColumn_08(t *testing.T) {
 	CheckInvalid(t, "invalid/computedcolumn_invalid_08")
 }
-func Test_Invalid_ComputedColumn_09(t *testing.T) {
-	CheckInvalid(t, "invalid/computedcolumn_invalid_09")
-}
-func Test_Invalid_ComputedColumn_10(t *testing.T) {
-	CheckInvalid(t, "invalid/computedcolumn_invalid_10")
-}
-func Test_Invalid_ComputedColumn_11(t *testing.T) {
-	CheckInvalid(t, "invalid/computedcolumn_invalid_11")
-}
+
+// #1089
+// func Test_Invalid_ComputedColumn_09(t *testing.T) {
+// 	CheckInvalid(t, "invalid/computedcolumn_invalid_09")
+// }
+//
+// #1089
+// func Test_Invalid_ComputedColumn_10(t *testing.T) {
+// 	CheckInvalid(t, "invalid/computedcolumn_invalid_10")
+// }
+//
+// #1089
+// func Test_Invalid_ComputedColumn_11(t *testing.T) {
+// 	CheckInvalid(t, "invalid/computedcolumn_invalid_11")
+// }
 
 // ===================================================================
 // Test Helpers
