@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -175,8 +176,10 @@ func (p *BitwidthGadget) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwid
 		// Target Value
 		ir.RawRegisterAccess[bls12_377.Element, air.Term](sc.NewRegisterId(0), 0)}
 	//
-	targets := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredVector(mid, targetAccesses...)}
-	sources := []lookup.Vector[*air.ColumnAccess]{lookup.UnfilteredVector(module.Id(), sourceAccesses...)}
+	targets := []lookup.Vector[bls12_377.Element, *air.ColumnAccess]{
+		lookup.UnfilteredVector(mid, targetAccesses...)}
+	sources := []lookup.Vector[bls12_377.Element, *air.ColumnAccess]{
+		lookup.UnfilteredVector(module.Id(), sourceAccesses...)}
 	//
 	module.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
 	// Add column to assignment so its proof is included
@@ -473,6 +476,7 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 	var (
 		zero F
 		arr  = word.NewIndexArray(0, bitwidth, pool)
+		seen bit.Set
 	)
 	// Always include zero to work around limitations of FrIndexArray.  This is
 	// not actually inefficient, since all columns are subject to an initial
@@ -482,9 +486,15 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 	for _, src := range sources {
 		for i := range src.Len() {
 			ith := src.Get(i)
-			// Add ith item if not already seen.
-			if _, ok := arr.IndexOf(ith); !ok {
+			// Add item if not already seen
+			if index, ok := pool.IndexOf(ith); !ok || !seen.Contains(index) {
+				if !ok {
+					// Never seen anywhere!
+					index = pool.Put(ith)
+				}
+				// append and record
 				arr.Append(src.Get(i))
+				seen.Insert(index)
 			}
 		}
 	}

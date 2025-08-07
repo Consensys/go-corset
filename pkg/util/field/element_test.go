@@ -23,7 +23,7 @@ import (
 
 func init() {
 	// make sure the interface is adhered to.
-	//_ = Element[koalabear.Element](koalabear.Element{})
+	_ = Element[koalabear.Element](koalabear.Element{})
 	_ = Element[bls12_377.Element](bls12_377.Element{})
 }
 
