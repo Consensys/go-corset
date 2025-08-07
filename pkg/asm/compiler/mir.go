@@ -22,11 +22,12 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // ModuleBuilder is used within this translator for building the various modules
 // which are contained within the mixed MIR schema.
-type ModuleBuilder = ir.ModuleBuilder[mir.Constraint, mir.Term]
+type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mir.Constraint, mir.Term]
 
 // MirModule provides a wrapper around a corset-level module declaration.
 type MirModule struct {

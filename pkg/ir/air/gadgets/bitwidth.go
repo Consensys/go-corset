@@ -26,7 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -82,7 +82,7 @@ func (p *BitwidthGadget) Constrain(ref sc.RegisterRef, bitwidth uint) {
 	case bitwidth <= p.maxRangeConstraint:
 		handle := fmt.Sprintf("%s:u%d", register.Name, bitwidth)
 		// Construct access to register
-		access := ir.RawRegisterAccess[air.Term](ref.Register(), 0)
+		access := ir.RawRegisterAccess[bls12_377.Element, air.Term](ref.Register(), 0)
 		// Add range constraint
 		module.AddConstraint(air.NewRangeConstraint(handle, module.Id(), *access, bitwidth))
 		// Done

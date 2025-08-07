@@ -20,6 +20,7 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 const qVAR = 0
@@ -143,11 +144,11 @@ func (p *Query) String() string {
 }
 
 // Eval evaluates the given query in the given environment.
-func (p *Query) Eval(row uint, env map[string]tr.Column) fr.Element {
+func (p *Query) Eval(row uint, env map[string]tr.Column[bls12_377.Element]) fr.Element {
 	switch p.op {
 	case qVAR:
 		if col, ok := env[p.name]; ok {
-			return col.Get(int(row))
+			return col.Get(int(row)).Element
 		}
 		// error
 		panic("unknown column \"%s\"")
@@ -179,7 +180,7 @@ func (p *Query) Eval(row uint, env map[string]tr.Column) fr.Element {
 type binary_op = func(fr.Element, fr.Element) fr.Element
 type nary_op = func([]fr.Element) fr.Element
 
-func eval_binary(row uint, env map[string]tr.Column, lhs Query, rhs Query, fn binary_op) fr.Element {
+func eval_binary(row uint, env map[string]tr.Column[bls12_377.Element], lhs Query, rhs Query, fn binary_op) fr.Element {
 	// Evaluate left-hand side
 	lv := lhs.Eval(row, env)
 	// Evaluate right-hand side
@@ -188,7 +189,7 @@ func eval_binary(row uint, env map[string]tr.Column, lhs Query, rhs Query, fn bi
 	return fn(lv, rv)
 }
 
-func eval_nary(row uint, env map[string]tr.Column, args []Query, fn nary_op) fr.Element {
+func eval_nary(row uint, env map[string]tr.Column[bls12_377.Element], args []Query, fn nary_op) fr.Element {
 	vals := make([]fr.Element, len(args))
 	// Evaluate arguments
 	for i, arg := range args {

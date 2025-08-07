@@ -33,13 +33,13 @@ type Array[T any] interface {
 type MutArray[T any] interface {
 	Array[T]
 	// Clone makes clones of this array producing an otherwise identical copy.
-	Clone() MutArray[T]
+	// Clone() MutArray[T]
 	// Set the element at the given index in this array, overwriting the
 	// original value.
 	Set(uint, T)
 	// Insert n copies of T at start of the array and m copies at the back
 	// producing an updated array.
-	Pad(uint, uint, T) MutArray[T]
+	//Pad(uint, uint, T) MutArray[T]
 }
 
 // Builder represents a general mechanism for construct arrays.  This helps to

@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -200,7 +201,7 @@ func padLookupLimbs(terms [][]Term, geometry lookup.Geometry) []Term {
 		nterms = append(nterms, ith...)
 		// Pad out with zeros to match geometry
 		for m := n - len(ith); m > 0; m-- {
-			nterms = append(nterms, ir.Const64[Term](0))
+			nterms = append(nterms, ir.Const64[bls12_377.Element, Term](0))
 		}
 	}
 

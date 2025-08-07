@@ -17,10 +17,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
-
-type IndexArray[W word.Word[W]] = word.IndexArray[W, word.Pool[uint, W]]
 
 // ReadRegisters a given set of registers from a trace.
 func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef) []array.Array[F] {
@@ -37,7 +34,7 @@ func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef
 }
 
 // WriteRegisters a given set of registers from a trace.
-func WriteRegisters[F field.Element[F]](schema sc.AnySchema, targets []sc.RegisterRef, data []array.Array[F]) []tr.ArrayColumn[F] {
+func WriteRegisters[F field.Element[F], T array.Array[F]](schema sc.AnySchema, targets []sc.RegisterRef, data []T) []tr.ArrayColumn[F] {
 	var (
 		columns = make([]tr.ArrayColumn[F], len(targets))
 		zero    F

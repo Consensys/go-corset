@@ -17,7 +17,8 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/util/assert"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 )
 
 func init() {

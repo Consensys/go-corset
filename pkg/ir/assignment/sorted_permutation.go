@@ -15,16 +15,14 @@ package assignment
 import (
 	"encoding/gob"
 	"fmt"
-	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -69,7 +67,7 @@ func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
+func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn[bls12_377.Element], error) {
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
@@ -167,24 +165,26 @@ func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 // Native Function
 // ============================================================================
 
-func sortedPermutationNativeFunction(sources []field.FrArray, signs []bool) []field.FrArray {
-	// Clone target columns first
-	targets := cloneNativeFunction(sources)
-	// Sort target columns (in place)
-	permutationSort(targets, signs)
-	//
-	return targets
+func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool) []array.Array[F] {
+	// // Clone target columns first
+	// targets := cloneNativeFunction(sources)
+	// // Sort target columns (in place)
+	// permutationSort(targets, signs)
+	// //
+	// return targets
+	panic("todo")
 }
 
-func cloneNativeFunction(sources []field.FrArray) []field.FrArray {
-	var targets = make([]field.FrArray, len(sources))
-	// Clone target columns
-	for i, src := range sources {
-		// Clone it to initialise permutation.
-		targets[i] = src.Clone()
-	}
-	//
-	return targets
+func cloneNativeFunction[F field.Element[F]](sources []array.Array[F]) []field.FrArray {
+	// var targets = make([]field.FrArray, len(sources))
+	// // Clone target columns
+	// for i, src := range sources {
+	// 	// Clone it to initialise permutation.
+	// 	targets[i] = src.Clone()
+	// }
+	// //
+	// return targets
+	panic("todo")
 }
 
 // PermutationSort sorts an array of columns in row-wise fashion.  For
@@ -201,28 +201,28 @@ func cloneNativeFunction(sources []field.FrArray) []field.FrArray {
 // NOTE: the current implementation is not intended to be particularly
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
-func permutationSort[T FrArray](cols []T, signs []bool) {
-	n := cols[0].Len()
-	m := len(cols)
-	// Rotate input matrix
-	rows := rotate(cols, m, n)
-	// Perform the permutation sort
-	slices.SortFunc(rows, func(l []fr.Element, r []fr.Element) int {
-		return permutationSortFunc(l, r, signs)
-	})
-	// Project back
-	for i := uint(0); i < n; i++ {
-		row := rows[i]
-		for j := 0; j < m; j++ {
-			cols[j].Set(i, row[j])
-		}
-	}
-}
+// func permutationSort[T FrArray](cols []T, signs []bool) {
+// 	n := cols[0].Len()
+// 	m := len(cols)
+// 	// Rotate input matrix
+// 	rows := rotate(cols, m, n)
+// 	// Perform the permutation sort
+// 	slices.SortFunc(rows, func(l []fr.Element, r []fr.Element) int {
+// 		return permutationSortFunc(l, r, signs)
+// 	})
+// 	// Project back
+// 	for i := uint(0); i < n; i++ {
+// 		row := rows[i]
+// 		for j := 0; j < m; j++ {
+// 			cols[j].Set(i, row[j])
+// 		}
+// 	}
+// }
 
-func permutationSortFunc(lhs []fr.Element, rhs []fr.Element, signs []bool) int {
+func permutationSortFunc[F field.Element[F]](lhs []F, rhs []F, signs []bool) int {
 	for i := 0; i < len(signs); i++ {
 		// Compare ith elements
-		c := lhs[i].Cmp(&rhs[i])
+		c := lhs[i].Cmp(rhs[i])
 		// Check whether same
 		if c != 0 {
 			if signs[i] {
@@ -238,12 +238,12 @@ func permutationSortFunc(lhs []fr.Element, rhs []fr.Element, signs []bool) int {
 }
 
 // Clone and rotate a 2-dimensional array assuming a given geometry.
-func rotate[T array.MutArray[fr.Element]](src []T, ncols int, nrows uint) [][]fr.Element {
+func rotate[F field.Element[F], T array.MutArray[F]](src []T, ncols int, nrows uint) [][]F {
 	// Copy outer arrays
-	dst := make([][]fr.Element, nrows)
+	dst := make([][]F, nrows)
 	// Copy inner arrays
 	for i := uint(0); i < nrows; i++ {
-		row := make([]fr.Element, ncols)
+		row := make([]F, ncols)
 		for j := 0; j < ncols; j++ {
 			row[j] = src[j].Get(i)
 		}

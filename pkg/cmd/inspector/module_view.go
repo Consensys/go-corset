@@ -20,7 +20,7 @@ import (
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset"
 	tr "github.com/consensys/go-corset/pkg/trace"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -145,7 +145,7 @@ func (p *ModuleView) ValueAt(trace tr.Trace[bls12_377.Element], trCol, trRow uin
 	// Determine underlying register for the given column.
 	ref := p.columns[trCol].Register
 	// Extract cell value from register
-	return trace.Column(ref).Get(int(trRow))
+	return trace.Column(ref).Get(int(trRow)).Element
 }
 
 // IsActive determines whether a given cell is active, or not.  A cell can be

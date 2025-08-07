@@ -17,7 +17,6 @@ import (
 	"math"
 	"reflect"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
@@ -26,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -55,7 +55,7 @@ type AirLowering struct {
 // NewAirLowering constructs an initial state for lowering a given MIR schema.
 func NewAirLowering(mirSchema Schema) AirLowering {
 	var (
-		airSchema = ir.NewSchemaBuilder[air.Constraint, air.Term, schema.Module]()
+		airSchema = ir.NewSchemaBuilder[bls12_377.Element, air.Constraint, air.Term, schema.Module]()
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {
@@ -355,7 +355,7 @@ func (p *AirLowering) expandTerm(context schema.ModuleId, term Term) *air.Column
 	// Expand them
 	source_register = air_gadgets.Expand(sourceBitwidth, source, airModule)
 	//
-	return ir.RawRegisterAccess[air.Term](source_register, 0)
+	return ir.RawRegisterAccess[bls12_377.Element, air.Term](source_register, 0)
 }
 
 func (p *AirLowering) lowerAndSimplifyLogicalTo(term LogicalTerm,
@@ -431,7 +431,7 @@ func (p *AirLowering) lowerEqualityTo(sign bool, left Term, right Term, airModul
 		return []air.Term{eq}
 	}
 	//
-	one := ir.Const64[air.Term](1)
+	one := ir.Const64[bls12_377.Element, air.Term](1)
 	// construct norm(eq)
 	norm_eq := p.normalise(eq, airModule)
 	// construct 1 - norm(eq)
@@ -532,15 +532,15 @@ func (p *AirLowering) lowerTermTo(e Term, airModule *air.ModuleBuilder) air.Term
 	case *Cast:
 		return p.lowerTermTo(e.Arg, airModule)
 	case *Constant:
-		return ir.Const[air.Term](e.Value)
+		return ir.Const[bls12_377.Element, air.Term](e.Value)
 	case *RegisterAccess:
-		return ir.NewRegisterAccess[air.Term](e.Register, e.Shift)
+		return ir.NewRegisterAccess[bls12_377.Element, air.Term](e.Register, e.Shift)
 	case *Exp:
 		return p.lowerExpTo(e, airModule)
 	case *IfZero:
 		return p.lowerIfZeroTo(e, airModule)
 	case *LabelledConst:
-		return ir.Const[air.Term](e.Value)
+		return ir.Const[bls12_377.Element, air.Term](e.Value)
 	case *Mul:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Product(args...)
@@ -612,7 +612,7 @@ func (p *AirLowering) lowerVectorAccess(e *VectorAccess, airModule *air.ModuleBu
 	)
 	//
 	for i, v := range e.Vars {
-		ith := ir.NewRegisterAccess[air.Term](v.Register, v.Shift)
+		ith := ir.NewRegisterAccess[bls12_377.Element, air.Term](v.Register, v.Shift)
 		// Apply shift
 		terms[i] = ir.Product(shiftTerm(ith, shift))
 		//
@@ -623,14 +623,16 @@ func (p *AirLowering) lowerVectorAccess(e *VectorAccess, airModule *air.ModuleBu
 }
 
 func shiftTerm(term air.Term, width uint) air.Term {
+	var elem bls12_377.Element
+	//
 	if width == 0 {
 		return term
 	}
+	// Compute 2^width
+	elem.Set64(2)
+	elem = field.Pow(elem, uint64(width))
 	//
-	elem := fr.NewElement(2)
-	field.Pow(&elem, uint64(width))
-	//
-	return ir.Product(ir.Const[air.Term](elem), term)
+	return ir.Product(ir.Const[bls12_377.Element, air.Term](elem), term)
 }
 
 // Extract condition whilst ensuring it always evaluates to either 0 or 1.  This
@@ -681,7 +683,7 @@ func (p *AirLowering) extractNormalisedConjunction(sign bool, terms []LogicalTer
 	//
 	args := p.extractNormalisedConditions(!sign, terms, airModule)
 	// P && Q ==> !(!P || Q!) ==> 1 - ~(!P || !Q)
-	return ir.Subtract(ir.Const64[air.Term](1),
+	return ir.Subtract(ir.Const64[bls12_377.Element, air.Term](1),
 		p.normalise(ir.Product(args...), airModule))
 }
 
@@ -703,7 +705,7 @@ func (p *AirLowering) extractNormalisedEquality(sign bool, lhs Term, rhs Term,
 		return t
 	}
 	// Invert for not-equals
-	return ir.Subtract(ir.Const64[air.Term](1), t)
+	return ir.Subtract(ir.Const64[bls12_377.Element, air.Term](1), t)
 }
 
 func (p *AirLowering) extractNormalisedConditions(sign bool, es []LogicalTerm,
