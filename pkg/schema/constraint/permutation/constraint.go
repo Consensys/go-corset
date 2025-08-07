@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
@@ -90,7 +91,7 @@ func (p Constraint) Accepts(tr trace.Trace[bls12_377.Element], _ schema.AnySchem
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
 		// Determine enclosing module
-		module trace.Module = tr.Module(p.Context)
+		module = tr.Module(p.Context)
 	)
 	// Slice out data
 	src := sliceColumns(p.Sources, module)
@@ -141,9 +142,9 @@ func (p Constraint) Substitute(map[string]bls12_377.Element) {
 	// nothing to do here
 }
 
-func sliceColumns(columns []schema.RegisterId, tr trace.Module) []field.FrArray {
+func sliceColumns[F any](columns []schema.RegisterId, tr trace.Module[F]) []array.Array[F] {
 	// Allocate return array
-	cols := make([]field.FrArray, len(columns))
+	cols := make([]array.Array[F], len(columns))
 	// Slice out the data
 	for i, n := range columns {
 		nth := tr.Column(n.Unwrap())
@@ -156,7 +157,7 @@ func sliceColumns(columns []schema.RegisterId, tr trace.Module) []field.FrArray 
 
 // QualifiedColumnNamesToCommaSeparatedString produces a suitable string for use
 // in error messages from a list of one or more column identifies.
-func qualifiedColumnNamesToCommaSeparatedString(columns []schema.RegisterId, module trace.Module) string {
+func qualifiedColumnNamesToCommaSeparatedString[F any](columns []schema.RegisterId, module trace.Module[F]) string {
 	var names strings.Builder
 
 	for i, c := range columns {
@@ -178,7 +179,7 @@ func qualifiedColumnNamesToCommaSeparatedString(columns []schema.RegisterId, mod
 //
 // This function operators by cloning the arrays, sorting them and checking they
 // are the same.
-func ArePermutationOf[T FrArray](dst []T, src []T) bool {
+func arePermutationOf[F field.Element[F], T array.Array[F]](dst []T, src []T) bool {
 	if len(dst) != len(src) {
 		return false
 	}
@@ -194,7 +195,7 @@ func ArePermutationOf[T FrArray](dst []T, src []T) bool {
 }
 
 // Check whether two indexed arrays are equal.
-func equalsPermutation[T FrArray](lIndices []uint, rIndices []uint, lhs []T, rhs []T) bool {
+func equalsPermutation[F field.Element[F], T array.Array[F]](lIndices []uint, rIndices []uint, lhs []T, rhs []T) bool {
 	if len(lIndices) != len(rIndices) {
 		return false
 	} else if len(lhs) != len(rhs) {
@@ -215,7 +216,7 @@ func equalsPermutation[T FrArray](lIndices []uint, rIndices []uint, lhs []T, rhs
 			l := lhs_i.Get(lIndices[j])
 			r := rhs_i.Get(rIndices[j])
 			//
-			if l.Cmp(&r) != 0 {
+			if l.Cmp(r) != 0 {
 				return false
 			}
 		}
@@ -224,14 +225,14 @@ func equalsPermutation[T FrArray](lIndices []uint, rIndices []uint, lhs []T, rhs
 	return true
 }
 
-func indexPermutationFunc[T FrArray](elems []T) func(uint, uint) int {
+func indexPermutationFunc[F field.Element[F], T array.Array[F]](elems []T) func(uint, uint) int {
 	return func(lhs uint, rhs uint) int {
 		//
 		for i := range len(elems) {
 			l := elems[i].Get(lhs)
 			r := elems[i].Get(rhs)
 			// Compare ith elements
-			c := l.Cmp(&r)
+			c := l.Cmp(r)
 			// Check whether same
 			if c != 0 {
 				// Positive
@@ -241,4 +242,15 @@ func indexPermutationFunc[T FrArray](elems []T) func(uint, uint) int {
 		// Identical
 		return 0
 	}
+}
+
+// Constuct an array of contiguous integers from 0..n.
+func rangeOf(n uint) []uint {
+	items := make([]uint, n)
+	//
+	for i := range n {
+		items[i] = i
+	}
+	//
+	return items
 }

@@ -26,7 +26,7 @@ import (
 // Constraint declares a constraint that one expression represents the
 // interleaving of one or more expressions.  For example, suppose X=[1,2] and
 // Y=[3,4].  Then Z=[1,3,2,4] is the interleaving of X and Y.
-type Constraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 	Handle string
 	// Context in which all target columns are evaluated.
 	TargetContext schema.ModuleId
@@ -39,7 +39,7 @@ type Constraint[E ir.Evaluable] struct {
 }
 
 // NewConstraint creates a new Interleave
-func NewConstraint[E ir.Evaluable](handle string, targetContext schema.ModuleId,
+func NewConstraint[E ir.Evaluable[bls12_377.Element]](handle string, targetContext schema.ModuleId,
 	sourceContext schema.ModuleId, target E, sources []E) Constraint[E] {
 	//
 	return Constraint[E]{handle, targetContext, sourceContext, target, sources}
@@ -114,7 +114,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 				Term:    p.Sources[row%n],
 				Error:   s_err.Error(),
 			}
-		} else if t.Cmp(&s) != 0 {
+		} else if t.Cmp(s) != 0 {
 			// Evaluation failure
 			return coverage, &Failure{
 				p.Handle,

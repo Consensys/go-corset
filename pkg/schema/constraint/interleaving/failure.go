@@ -29,11 +29,11 @@ type Failure struct {
 	// Relevant context for target expressions.
 	TargetContext schema.ModuleId
 	// Target expression involved
-	Target ir.Evaluable
+	Target ir.Evaluable[bls12_377.Element]
 	// Relevant context for source expressions.
 	SourceContext schema.ModuleId
 	// Source expression which were missing
-	Source ir.Evaluable
+	Source ir.Evaluable[bls12_377.Element]
 	// Target row on which constraint
 	Row uint
 }

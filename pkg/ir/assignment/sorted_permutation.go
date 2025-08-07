@@ -254,17 +254,6 @@ func rotate[F field.Element[F], T array.MutArray[F]](src []T, ncols int, nrows u
 	return dst
 }
 
-// Constuct an array of contiguous integers from 0..n.
-func rangeOf(n uint) []uint {
-	items := make([]uint, n)
-	//
-	for i := range n {
-		items[i] = i
-	}
-	//
-	return items
-}
-
 // ============================================================================
 // Encoding / Decoding
 // ============================================================================

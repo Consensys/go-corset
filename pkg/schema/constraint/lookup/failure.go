@@ -29,7 +29,7 @@ type Failure struct {
 	// Relevant context for source expressions.
 	Context schema.ModuleId
 	// Source expressions which were missing
-	Sources []ir.Evaluable
+	Sources []ir.Evaluable[bls12_377.Element]
 	// Row on which the constraint failed
 	Row uint
 }
