@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package bls12_377
 
-import "hash/fnv"
+import (
+	"encoding/binary"
+	"hash/fnv"
+)
 
 // Bit implementation for the Word interface.
 func (x Element) Bit(uint) bool {
@@ -25,13 +28,23 @@ func (x Element) BitWidth() uint {
 }
 
 // Put implementation for the Word interface.
-func (x Element) Put([]byte) []byte {
-	panic("todo")
+func (x Element) Put(bytes []byte) []byte {
+	if len(bytes) < 32 {
+		return x.Bytes()
+	}
+	// Copy over each element without allocating new array.
+	binary.BigEndian.PutUint64(bytes, x.Element[0])
+	binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
+	binary.BigEndian.PutUint64(bytes[16:], x.Element[2])
+	binary.BigEndian.PutUint64(bytes[24:], x.Element[3])
+	//
+	return bytes
 }
 
 // Set implementation for the Word interface.
-func (x Element) Set([]byte) Element {
-	panic("todo")
+func (x Element) Set(bytes []byte) Element {
+	x.SetBytes(bytes)
+	return x
 }
 
 // Equals implementation for the Word interface.
