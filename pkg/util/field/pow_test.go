@@ -75,7 +75,7 @@ func PowCheck(t *testing.T, base uint, pow uint64) {
 		expected = fr.NewElement(uint64(base))
 	)
 	// Initialise actual value
-	actual.Set64(uint64(base))
+	actual.SetUint64(uint64(base))
 	// Compute actual using our optimised method
 	actual = Pow(actual, pow)
 	// Compute expected using existing gnark function

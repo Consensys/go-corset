@@ -90,7 +90,7 @@ func (x Element) ToUint32() uint32 {
 }
 
 // Set64 implementation for Element.
-func (x Element) Set64(uint64) {
+func (x Element) SetUint64(uint64) Element {
 	panic("todo")
 }
 

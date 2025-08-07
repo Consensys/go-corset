@@ -115,12 +115,10 @@ func (p *Mul[F, T]) Substitute(mapping map[string]F) {
 // Simplify implementation for Term interface.
 func (p *Mul[F, T]) Simplify(casts bool) T {
 	var (
-		zero F
-		one  F
+		zero F = field.Zero[F]()
+		one  F = field.One[F]()
 		targ Term[F, T]
 	)
-	//
-	one.Set64(1)
 	//
 	terms := simplifyTerms(p.Args, mulBinOp, one, casts)
 	// Flatten any nested products

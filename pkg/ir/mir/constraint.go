@@ -13,7 +13,6 @@
 package mir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -153,7 +152,7 @@ func (p Constraint) Subdivide(mapping schema.LimbsMap) Constraint {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint) Substitute(mapping map[string]fr.Element) {
+func (p Constraint) Substitute(mapping map[string]bls12_377.Element) {
 	p.constraint.Substitute(mapping)
 }
 

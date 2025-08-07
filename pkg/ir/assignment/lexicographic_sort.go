@@ -202,11 +202,9 @@ func lexSortNativeFunction[F field.Element[F]](bitwidth uint, sources []array.Ar
 		// column being sorted.
 		targets = make([]array.MutArray[F], 1+nbits)
 		//
-		zero F
-		one  F
+		zero F = field.Uint64[F](0)
+		one  F = field.Uint64[F](1)
 	)
-	//
-	one.Set64(1)
 	// FIXME: using an index array here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce

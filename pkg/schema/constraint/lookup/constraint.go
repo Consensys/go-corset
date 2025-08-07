@@ -15,7 +15,6 @@ package lookup
 import (
 	"encoding/binary"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -42,7 +41,7 @@ import (
 // pairs (and perhaps other constraints to ensure the required relationship) and
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
-type Constraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
@@ -57,7 +56,7 @@ type Constraint[E ir.Evaluable] struct {
 }
 
 // NewConstraint creates a new lookup constraint with a given handle.
-func NewConstraint[E ir.Evaluable](handle string, targets []Vector[E],
+func NewConstraint[E ir.Evaluable[bls12_377.Element]](handle string, targets []Vector[E],
 	sources []Vector[E]) Constraint[E] {
 	var width uint
 	// Check sources
@@ -387,7 +386,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
 	// Sources
 	for _, ith := range p.Sources {
 		ith.Substitute(mapping)

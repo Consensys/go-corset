@@ -39,10 +39,9 @@ func Const[F field.Element[F], T Term[F, T]](val F) T {
 // Const64 construct an AIR expression representing a given constant from a
 // uint64.
 func Const64[F field.Element[F], T Term[F, T]](val uint64) T {
-	var element F
-	//
-	element.Set64(val)
-	var term Term[F, T] = &Constant[F, T]{Value: element}
+	var term Term[F, T] = &Constant[F, T]{
+		Value: field.Uint64[F](val),
+	}
 	//
 	return term.(T)
 }

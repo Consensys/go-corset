@@ -15,7 +15,6 @@ package mir
 import (
 	"encoding/gob"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -127,7 +126,7 @@ type (
 
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.
-func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]fr.Element) {
+func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]bls12_377.Element) {
 	// Constraints
 	for iter := schema.Constraints(); iter.HasNext(); {
 		constraint := iter.Next()

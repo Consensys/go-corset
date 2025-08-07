@@ -51,7 +51,7 @@ func (p *Norm[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, err
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Normalise value (if necessary)
 	if !val.IsZero() {
-		val.Set64(1)
+		val = field.One[F]()
 	}
 	// Done
 	return val, err
@@ -96,7 +96,7 @@ func (p *Norm[F, T]) Simplify(casts bool) T {
 		val := c.Value
 		// Normalise (in place)
 		if !val.IsZero() {
-			val.Set64(1)
+			val = field.One[F]()
 		}
 		// Done
 		targ = &Constant[F, T]{val}

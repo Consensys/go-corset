@@ -41,7 +41,7 @@ func ToBigEndianByteArray[P word.Pool[uint, word.BigEndian]](arr FrArray, pool P
 // Pow takes a given value to the power n.
 func Pow[F Element[F]](val F, n uint64) F {
 	if n == 0 {
-		val.Set64(1)
+		val = val.SetUint64(1)
 	} else if n > 1 {
 		m := n / 2
 		// Check for odd case

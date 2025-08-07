@@ -36,13 +36,11 @@ type Cast[F field.Element[F], T Term[F, T]] struct {
 // within a given range.
 func CastOf[F field.Element[F], T Term[F, T]](arg T, bitwidth uint) T {
 	var (
-		bound F
+		// Compute 2^bitwidth
+		bound F = field.TwoPowN[F](bitwidth)
+		// Construct term
+		term Term[F, T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
 	)
-	// Compute 2^bitwidth
-	bound.Set64(2)
-	bound = field.Pow(bound, uint64(bitwidth))
-	// Construct term
-	var term Term[F, T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
 	// Done
 	return term.(T)
 }

@@ -35,6 +35,9 @@ type Pool[K any, T any] interface {
 	Get(K) T
 	// Allocate word into pool, returning its index.
 	Put(T) K
+	// Lookup the key associated with a given work, return false if it does not
+	// exist in the pool.
+	IndexOf(T) (K, bool)
 }
 
 // HeapPool maintains a heap of bytes representing the words.
@@ -78,6 +81,13 @@ func (p *HeapPool[T]) Get(index uint) T {
 	p.mux.RUnlock()
 	// Initialise word
 	return word
+}
+
+// IndexOf implementation for the Pool interface.
+func (p *HeapPool[T]) IndexOf(word T) (uint, bool) {
+	index, _ := p.has(word)
+	//
+	return index, index != math.MaxUint
 }
 
 // Put implementation for the Pool interface.  This is somewhat challenging

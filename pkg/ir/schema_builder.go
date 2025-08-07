@@ -220,7 +220,7 @@ func (p *ModuleBuilder[F, C, T]) LengthMultiplier() uint {
 // AllowPadding determines the minimum amount of padding requested at the
 // beginning of the module.  This is necessary because legacy modules expect an
 // initial padding row.
-func (p *ModuleBuilder[C, T]) AllowPadding() bool {
+func (p *ModuleBuilder[F, C, T]) AllowPadding() bool {
 	return p.padding
 }
 

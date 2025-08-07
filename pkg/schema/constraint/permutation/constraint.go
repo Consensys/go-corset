@@ -17,7 +17,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -138,7 +137,7 @@ func (p Constraint) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint) Substitute(map[string]fr.Element) {
+func (p Constraint) Substitute(map[string]bls12_377.Element) {
 	// nothing to do here
 }
 

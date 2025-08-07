@@ -29,7 +29,7 @@ type Failure struct {
 	// Enclosing context
 	Context schema.ModuleId
 	// Constraint expression
-	Expr ir.Evaluable
+	Expr ir.Evaluable[bls12_377.Element]
 	// Range restriction
 	Bitwidth uint
 	// Row on which the constraint failed

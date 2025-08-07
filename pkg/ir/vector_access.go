@@ -124,11 +124,8 @@ func (p *VectorAccess[F, T]) ValueRange(mapping schema.RegisterMap) math.Interva
 }
 
 func shiftValue[F field.Element[F]](val F, width uint) F {
-	var coeff F
-	//
-	coeff.Set64(2)
 	// Determine 2^width
-	coeff = field.Pow(coeff, uint64(width))
-	// Determine val & 2^width
+	coeff := field.TwoPowN[F](width)
+	// Determine val * 2^width
 	return val.Mul(coeff)
 }

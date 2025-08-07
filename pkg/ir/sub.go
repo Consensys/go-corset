@@ -162,8 +162,6 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 }
 
 func findConstant[F field.Element[F], T Term[F, T]](terms []T) (F, bool) {
-	var zero F
-	//
 	for _, t := range terms {
 		var ith Term[F, T] = t
 		if c, ok := ith.(*Constant[F, T]); ok {
@@ -171,7 +169,5 @@ func findConstant[F field.Element[F], T Term[F, T]](terms []T) (F, bool) {
 		}
 	}
 	//
-	zero.Set64(0)
-	//
-	return zero, false
+	return field.Zero[F](), false
 }

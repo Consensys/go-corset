@@ -27,7 +27,7 @@ type Failure struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Constraint ir.Testable
+	Constraint ir.Testable[bls12_377.Element]
 	// Module where constraint failed
 	Context schema.ModuleId
 	// Row on which the constraint failed

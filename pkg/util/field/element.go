@@ -35,9 +35,37 @@ type Element[Operand any] interface {
 	// Compute x⁻¹, or 0 if x = 0.
 	Inverse() Operand
 	// Set this element to a uint64 value
-	Set64(uint64)
+	SetUint64(uint64) Operand
 	// Compute x - y
 	Sub(y Operand) Operand
 	// Text returns the numerical value of x in the given base.
 	Text(base int) string
+}
+
+// One constructs a field element representing 0
+func Zero[F Element[F]]() F {
+	var element F
+	//
+	return element.SetUint64(0)
+}
+
+// One constructs a field element representing 1
+func One[F Element[F]]() F {
+	var element F
+	//
+	return element.SetUint64(1)
+}
+
+// Uint64 construct a field element from a given uint64
+func Uint64[F Element[F]](val uint64) F {
+	var element F
+	//
+	return element.SetUint64(val)
+}
+
+// TwoPowN constructs a field element representing 2^n
+func TwoPowN[F Element[F]](n uint) F {
+	var two F
+	//
+	return Pow(two.SetUint64(2), uint64(n))
 }

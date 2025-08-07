@@ -623,16 +623,13 @@ func (p *AirLowering) lowerVectorAccess(e *VectorAccess, airModule *air.ModuleBu
 }
 
 func shiftTerm(term air.Term, width uint) air.Term {
-	var elem bls12_377.Element
-	//
 	if width == 0 {
 		return term
 	}
 	// Compute 2^width
-	elem.Set64(2)
-	elem = field.Pow(elem, uint64(width))
+	n := field.TwoPowN[bls12_377.Element](width)
 	//
-	return ir.Product(ir.Const[bls12_377.Element, air.Term](elem), term)
+	return ir.Product(ir.Const[bls12_377.Element, air.Term](n), term)
 }
 
 // Extract condition whilst ensuring it always evaluates to either 0 or 1.  This
