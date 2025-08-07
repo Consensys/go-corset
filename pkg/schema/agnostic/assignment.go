@@ -415,7 +415,7 @@ func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.Regist
 		// Set of coalesced assignments
 		coalesced []Assignment
 		// Starting index of current sequence
-		start uint
+		start int
 		// Width of current sequence being coalesced
 		width uint
 		// carry being propagated up
@@ -424,19 +424,29 @@ func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.Regist
 		next Assignment
 	)
 	//
-	for i, a := range assignments {
-		var nWidth uint = width + a.Width(env)
-		// FIXME: the nWidth calculation is incorrect in the presence of carry.
-		// Specifically, because any carry being propagated could increase the
-		// required width.
+	for i := 0; i < len(assignments); {
+		a := assignments[i]
+
+		nWidth := width + a.Width(env)
+
+		if carry != nil {
+			// Account for carry width, which may increase the bandwidth
+			// requirement for this group.
+			cWidth, _ := WidthOfPolynomial(carry, env.Limbs())
+			if width+cWidth > nWidth {
+				nWidth = width + cWidth
+			}
+		}
+
 		if nWidth > bandwidth {
 			next, carry = coalesce(false, assignments[start:i], carry, env)
 			// append coalesced group
 			coalesced = append(coalesced, next)
-			// reset for next group
-			start, width = uint(i), 0
+			// reset for next group starting from current assignment
+			start, width = i, 0
 		} else {
 			width = nWidth
+			i++
 		}
 	}
 	// Coalesce final group where carry can be ignored since it is already
