@@ -93,6 +93,10 @@ func Test_Asm_SlowPow(t *testing.T) {
 // 	test_util.Check(t, false, "asm/simple_on_curve_u16")
 // }
 
+func Test_Asm_Trim(t *testing.T) {
+	test_util.Check(t, false, "asm/trim")
+}
+
 // Recursion
 //
 // func Test_Asm_RecPow(t *testing.T) {
