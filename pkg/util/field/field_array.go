@@ -30,14 +30,16 @@ func BatchInvert[T Element[T]](s []T) {
 	if len(s) == 0 {
 		return
 	}
+	//
+	var (
+		zero = Zero[T]()
+		one  = One[T]()
+		// identifies entries which are zero
+		isZero = bit.NewSet(len(s))
 
-	var zero T
-	one := zero.AddUint32(1)
-
-	isZero := bit.NewSet(len(s))
-
-	m := make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
-
+		m = make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
+	)
+	//
 	isZero.Set(len(s)-1, s[len(s)-1].IsZero())
 
 	if isZero.Get(len(s) - 1) {

@@ -244,8 +244,8 @@ func (p *AirLowering) lowerInterleavingConstraintToAir(c InterleavingConstraint,
 // expected value.
 func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *air.ModuleBuilder) {
 	var (
-		sources = make([]lookup.Vector[*air.ColumnAccess], len(c.Sources))
-		targets = make([]lookup.Vector[*air.ColumnAccess], len(c.Targets))
+		sources = make([]lookup.Vector[bls12_377.Element, *air.ColumnAccess], len(c.Sources))
+		targets = make([]lookup.Vector[bls12_377.Element, *air.ColumnAccess], len(c.Targets))
 	)
 	// Lower sources
 	for i, ith := range c.Sources {
@@ -259,7 +259,7 @@ func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *
 	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
 }
 
-func (p *AirLowering) expandLookupVectorToAir(vector lookup.Vector[Term]) lookup.Vector[*air.ColumnAccess] {
+func (p *AirLowering) expandLookupVectorToAir(vector lookup.Vector[bls12_377.Element, Term]) lookup.Vector[bls12_377.Element, *air.ColumnAccess] {
 	var (
 		terms    = p.expandTerms(vector.Module, vector.Terms...)
 		selector util.Option[*air.ColumnAccess]

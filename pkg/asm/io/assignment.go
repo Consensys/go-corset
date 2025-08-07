@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -196,24 +197,20 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 
 func (p Assignment[T]) assignControlRegisters(cols []array.Builder[bls12_377.Element], states []State, pool WordPool) (uint, uint) {
 	var (
-		zero  bls12_377.Element
-		one   bls12_377.Element
+		zero  = field.Zero[bls12_377.Element]()
+		one   = field.One[bls12_377.Element]()
 		nrows = uint(len(states))
 		pc    = uint(len(p.registers))
 		ret   = pc + 1
 		// Calculate minimum size of PC; NOTE: +1 because PC==0 is reserved for padding.
 		pcWidth = bit.Width(uint(len(p.code) + 1))
 	)
-	//
-	one.Set64(1)
 	// Initialise columns
 	cols[pc] = word.NewArray(nrows, pcWidth, pool)
 	cols[ret] = word.NewArray(nrows, 1, pool)
 	// Assign values
 	for row, st := range states {
-		var npc bls12_377.Element
-		//
-		npc.Set64(uint64(st.Pc() + 1))
+		npc := field.Uint64[bls12_377.Element](uint64(st.Pc() + 1))
 		// NOTE: +1 because PC==0 reserved for padding.
 		cols[pc].Set(uint(row), npc)
 		// Check whether this is a terminating state, or not.

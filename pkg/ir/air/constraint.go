@@ -73,8 +73,8 @@ func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
 }
 
 // NewLookupConstraint constructs a new AIR lookup constraint
-func NewLookupConstraint(handle string, targets []lookup.Vector[*ColumnAccess],
-	sources []lookup.Vector[*ColumnAccess]) LookupConstraint {
+func NewLookupConstraint(handle string, targets []lookup.Vector[bls12_377.Element, *ColumnAccess],
+	sources []lookup.Vector[bls12_377.Element, *ColumnAccess]) LookupConstraint {
 	//
 	return newAir(lookup.NewConstraint(handle, targets, sources))
 }

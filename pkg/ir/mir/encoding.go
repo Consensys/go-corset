@@ -163,7 +163,7 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func encode_lookup_vector(vector lookup.Vector[Term], buffer *bytes.Buffer) error {
+func encode_lookup_vector(vector lookup.Vector[bls12_377.Element, Term], buffer *bytes.Buffer) error {
 	var (
 		gobEncoder = gob.NewEncoder(buffer)
 		selector   = vector.HasSelector()
@@ -414,10 +414,10 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 	return lookup, nil
 }
 
-func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[Term], error) {
+func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[bls12_377.Element, Term], error) {
 	var (
 		gobDecoder  = gob.NewDecoder(buf)
-		vector      lookup.Vector[Term]
+		vector      lookup.Vector[bls12_377.Element, Term]
 		hasSelector bool
 		selector    Term
 		err         error

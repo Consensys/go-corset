@@ -13,6 +13,8 @@
 package field
 
 import (
+	"math/big"
+
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -54,6 +56,13 @@ func One[F Element[F]]() F {
 	var element F
 	//
 	return element.SetUint64(1)
+}
+
+// BigInt construct a field element from a given big.Int
+func BigInt[F Element[F]](val big.Int) F {
+	var element F
+	//
+	return element.Set(val.Bytes())
 }
 
 // Uint64 construct a field element from a given uint64

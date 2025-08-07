@@ -30,6 +30,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
 
 	log "github.com/sirupsen/logrus"
@@ -442,7 +443,7 @@ func expandDirectory(dirname string) ([]string, error) {
 func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 	// NOTE: frMapping is to be deprecated and removed.
 	var (
-		frMapping = make(map[string]fr.Element)
+		frMapping = make(map[string]bls12_377.Element)
 		biMapping = make(map[string]big.Int)
 	)
 	// Sanity check debug information is available.
@@ -475,7 +476,7 @@ func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 				os.Exit(2)
 			}
 			//
-			frMapping[split[0]] = frElement
+			frMapping[split[0]] = bls12_377.Element{Element: frElement}
 			biMapping[split[0]] = biElement
 		}
 		// Substitute through constraints

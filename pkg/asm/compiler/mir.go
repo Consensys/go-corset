@@ -91,8 +91,8 @@ func (p MirModule) NewLookup(name string, from []MirExpr, targetMid uint, to []M
 	sources = array.Prepend(unused, sources)
 	targets = array.Prepend(unused, targets)
 	// FIXME: exploit conditional lookups
-	target := []lookup.Vector[mir.Term]{lookup.UnfilteredVector(p.Module.Id(), targets...)}
-	source := []lookup.Vector[mir.Term]{lookup.UnfilteredVector(targetMid, sources...)}
+	target := []lookup.Vector[bls12_377.Element, mir.Term]{lookup.UnfilteredVector(p.Module.Id(), targets...)}
+	source := []lookup.Vector[bls12_377.Element, mir.Term]{lookup.UnfilteredVector(targetMid, sources...)}
 	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
 }
 
