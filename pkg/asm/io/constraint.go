@@ -127,7 +127,7 @@ func (p Constraint[T]) Substitute(map[string]fr.Element) {
 	// employ labelled constants.
 }
 
-func extractState(row int, state State, trace tr.Module) State {
+func extractState(row int, state State, trace tr.Module[bls12_377.Element]) State {
 	//
 	for i := range state.registers {
 		var (
@@ -145,7 +145,7 @@ func extractState(row int, state State, trace tr.Module) State {
 	return state
 }
 
-func checkState(row int, state State, mid sc.ModuleId, trace tr.Module) sc.Failure {
+func checkState(row int, state State, mid sc.ModuleId, trace tr.Module[bls12_377.Element]) sc.Failure {
 	// Check each regsiter in turn
 	for i := range trace.Width() {
 		var (

@@ -21,12 +21,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // TraceExpansion expands a given trace according to a given schema. More
 // specifically, that means computing the actual values for any assignments.
 // This is done using a straightforward sequential algorithm.
-func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace) error {
+func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[bls12_377.Element]) error {
 	var (
 		err error
 		// Start timer
@@ -48,14 +49,14 @@ func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *t
 // SequentialTraceExpansion expands a given trace according to a given schema.
 // More specifically, that means computing the actual values for any
 // assignments.  This is done using a straightforward sequential algorithm.
-func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace) error {
+func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[bls12_377.Element]) error {
 	var (
 		err      error
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
 	// Compute each assignment in turn
 	for !expander.Done() {
-		var cols []tr.ArrayColumn
+		var cols []tr.ArrayColumn[bls12_377.Element]
 		// Get next assignment
 		ith := expander.Next(1)[0]
 		// Compute ith assignment(s)
