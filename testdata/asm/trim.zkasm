@@ -1,0 +1,39 @@
+;; The address trimming module does two things: (i) reduce 256bit
+;; addresses into u160 addresses (i.e. modulo 2^160); (b) identify
+;; addresses of precompiles.
+;;
+;; The need for this function arises as some EVM opcodes take an u256
+;; stack argument requires trimming to be interpreted as an address.
+;; Likewise, when computing a deployment address associated with an
+;; invocation of a CREATE-type, the raw KECCAK hash must be trimmed.
+;;
+;; The following opcodes may trigger it:
+;;
+;; * BALANCE
+;; * EXTCODESIZE / EXTCODECOPY / EXTCODEHASH
+;; * CALL / CALLCODE / STATICCALL
+;; * SELFDESTRUCT
+;; * DELEGATECALL
+;;
+;; NOTE: the function currently only returns the high word of the
+;; trimmed address, since the low word is unchanged.
+fn trm(ADDRESS u256) -> (RESULT_HI u32, IS_PRECOMPILE u1) {
+  var low, tmp u128
+  var high u96
+  var b u1
+  ;; trim off most significant 96 bytes
+  high,RESULT_HI,low = ADDRESS
+  ;; if hi word not zero, cannot be precompile.
+  if RESULT_HI != 0 goto exit_0
+  ;; discount address 0
+  if low == 0 goto exit_0
+  ;; determine low <= 9
+  b,tmp = low - 10
+  ;; done
+  IS_PRECOMPILE=b
+  return
+exit_0:
+  ;; no, not precompile
+  IS_PRECOMPILE=0
+  return
+}
