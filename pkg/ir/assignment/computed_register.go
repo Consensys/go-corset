@@ -277,9 +277,8 @@ func (p *recColumn[F]) Name() string {
 // Get implementation for trace.Column interface.
 func (p *recColumn[F]) Get(row int) F {
 	if row < 0 || uint(row) >= p.data.Len() {
-		var zero F
 		// out-of-bounds access
-		return zero
+		return field.Zero[F]()
 	}
 	//
 	return p.data.Get(uint(row))

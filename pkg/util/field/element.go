@@ -44,11 +44,11 @@ type Element[Operand any] interface {
 	Text(base int) string
 }
 
-// One constructs a field element representing 0
+// Zero constructs a field element representing 0
 func Zero[F Element[F]]() F {
 	var element F
 	//
-	return element.SetUint64(0)
+	return element
 }
 
 // One constructs a field element representing 1

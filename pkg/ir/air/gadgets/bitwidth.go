@@ -196,16 +196,13 @@ func (p *BitwidthGadget) constructTypeProof(handle string, bitwidth uint) sc.Mod
 		module = p.schema.Module(mid)
 		// Determine limb widths.
 		loWidth, hiWidth = determineLimbSplit(bitwidth)
-		//
-		coeff bls12_377.Element
+		// Compute 2^loWidth to use as coefficient
+		coeff = field.TwoPowN[bls12_377.Element](loWidth)
 	)
 	// Construct registers and their decompositions
 	vid := module.NewRegister(sc.NewComputedRegister("V", bitwidth))
 	vidLo := module.NewRegister(sc.NewComputedRegister("V'0", loWidth))
 	vidHi := module.NewRegister(sc.NewComputedRegister("V'1", hiWidth))
-	// Compute 2^loWidth to use as coefficient
-	coeff = coeff.SetUint64(2)
-	coeff = field.Pow(coeff, uint64(loWidth))
 	// Ensure lo/hi are decomposition of original
 	module.AddConstraint(
 		air.NewVanishingConstraint("decomposition", mid, util.None[int](),
@@ -213,7 +210,8 @@ func (p *BitwidthGadget) constructTypeProof(handle string, bitwidth uint) sc.Mod
 				ir.NewRegisterAccess[bls12_377.Element, air.Term](vid, 0),
 				ir.Sum(
 					ir.NewRegisterAccess[bls12_377.Element, air.Term](vidLo, 0),
-					ir.Product(ir.Const[bls12_377.Element, air.Term](coeff), ir.NewRegisterAccess[bls12_377.Element, air.Term](vidHi, 0)),
+					ir.Product(ir.Const[bls12_377.Element, air.Term](coeff),
+						ir.NewRegisterAccess[bls12_377.Element, air.Term](vidHi, 0)),
 				),
 			)))
 	// Recursively proof lo/hi columns
@@ -604,10 +602,9 @@ func buildDecompositionTerm(bitwidth uint, byteRegisters []sc.RegisterRef) air.T
 func splitColumnRanges[F field.Element[F]](nbits uint) []F {
 	var (
 		n      = nbits / 8
-		m      = uint64(nbits % 8)
+		m      = nbits % 8
 		ranges []F
-		two    F = field.Uint64[F](2)
-		// FIXME: following fails for small fields
+		// FIXME: following fails for small fields!
 		two8 F = field.Uint64[F](256)
 	)
 	//
@@ -617,7 +614,7 @@ func splitColumnRanges[F field.Element[F]](nbits uint) []F {
 		// Most significant column has smaller range.
 		ranges = make([]F, n+1)
 		// Determine final range
-		ranges[n] = field.Pow(two, m)
+		ranges[n] = field.TwoPowN[F](m)
 	}
 	//
 	for i := uint(0); i < n; i++ {
