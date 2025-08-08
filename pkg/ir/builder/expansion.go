@@ -106,7 +106,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 		// Once we get here, all go rountines are complete and we are sequential
 		// again.
 		for _, r := range batches {
-			fillComputedColumns[bls12_377.Element](r.targets, r.columns, trace)
+			fillComputedColumns(r.targets, r.columns, trace)
 		}
 		// Log stats about this batch
 		stats.Log(fmt.Sprintf("Expansion batch %d (remaining %d)", batchNum, expander.Count()))
@@ -119,7 +119,8 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 
 // Dispatch the given set of assignments with results being fed back into the
 // shared channel.
-func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema, trace *tr.ArrayTrace[bls12_377.Element], ch chan columnBatch[bls12_377.Element]) {
+func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema,
+	trace *tr.ArrayTrace[bls12_377.Element], ch chan columnBatch[bls12_377.Element]) {
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {
 		// Dispatch!

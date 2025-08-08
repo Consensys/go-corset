@@ -14,6 +14,7 @@ package ast
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -222,7 +223,10 @@ func NewDefColumn(binding ColumnBinding) *DefColumn {
 // column.  Such a column cannot be finalised yet, since its type and multiplier
 // remains to be determined, etc.
 func NewDefComputedColumn(context util.Path, name util.Path) *DefColumn {
-	binding := ColumnBinding{context, name, nil, false, 0, COMPUTED, "hex"}
+	var padding big.Int
+	//
+	binding := ColumnBinding{context, name, nil, false, 0, COMPUTED, padding, "hex"}
+	//
 	return &DefColumn{binding}
 }
 

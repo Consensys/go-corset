@@ -93,6 +93,15 @@ func Test_Invalid_Basic_15(t *testing.T) {
 	CheckInvalid(t, "invalid/basic_invalid_15")
 }
 
+func Test_Invalid_Basic_16(t *testing.T) {
+	CheckInvalid(t, "invalid/basic_invalid_16")
+}
+func Test_Invalid_Basic_17(t *testing.T) {
+	CheckInvalid(t, "invalid/basic_invalid_17")
+}
+func Test_Invalid_Basic_18(t *testing.T) {
+	CheckInvalid(t, "invalid/basic_invalid_18")
+}
 func Test_Invalid_Logic_01(t *testing.T) {
 	CheckInvalid(t, "invalid/logic_invalid_01")
 }

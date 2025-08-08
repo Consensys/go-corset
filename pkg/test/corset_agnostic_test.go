@@ -19,6 +19,10 @@ import (
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
+func Test_Agnostic_Padding_01(t *testing.T) {
+	test_util.CheckWithFields(t, false, "agnostic/padding_01", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
+
 // func Test_Agnostic_Vanish_01(t *testing.T) {
 // 	test_util.Check(t, false, "agnostic/vanish_01")
 // }

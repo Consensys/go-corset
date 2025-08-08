@@ -14,6 +14,7 @@ package assignment
 
 import (
 	"fmt"
+	"math/big"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -42,14 +43,17 @@ type LexicographicSort struct {
 // LexicographicSortRegisters is a helper for allocated the registers needed for
 // a lexicographic sort.
 func LexicographicSortRegisters(n uint, prefix string, bitwidth uint) []sc.Register {
-	//
-	targets := make([]sc.Register, n+1)
+	var (
+		targets = make([]sc.Register, n+1)
+		// Default padding (for now)
+		zero big.Int
+	)
 	// Create delta column
-	targets[0] = sc.NewComputedRegister(fmt.Sprintf("%s:delta", prefix), bitwidth)
+	targets[0] = sc.NewComputedRegister(fmt.Sprintf("%s:delta", prefix), bitwidth, zero)
 	// Create selector columns
 	for i := range n {
 		ithName := fmt.Sprintf("%s:mux:%d", prefix, i)
-		targets[1+i] = sc.NewComputedRegister(ithName, 1)
+		targets[1+i] = sc.NewComputedRegister(ithName, 1, zero)
 	}
 	//
 	return targets

@@ -187,20 +187,21 @@ func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		module = schema.Module(p.Context)
 		name   string
+		vanish string = "vanish"
 	)
 	// Construct qualified name
 	if module.Name() != "" {
-		name = fmt.Sprintf("%s:%s", module.Name(), p.Handle)
+		name = fmt.Sprintf("\"%s:%s\"", module.Name(), p.Handle)
 	} else {
-		name = p.Handle
+		name = fmt.Sprintf("\"%s\"", p.Handle)
 	}
 	// Handle attributes
 	if p.Domain.HasValue() {
 		switch p.Domain.Unwrap() {
 		case 0:
-			name = fmt.Sprintf("%s:first", name)
+			vanish = fmt.Sprintf("%s:first", vanish)
 		case -1:
-			name = fmt.Sprintf("%s:last", name)
+			vanish = fmt.Sprintf("%s:last", vanish)
 		default:
 			domain := p.Domain.Unwrap()
 			panic(fmt.Sprintf("domain value %d not supported for local constraint", domain))
@@ -208,9 +209,8 @@ func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	}
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("vanish"),
-		sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol(name)}),
+		sexp.NewSymbol(vanish),
+		sexp.NewSymbol(name),
 		p.Constraint.Lisp(false, module),
 	})
 }

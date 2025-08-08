@@ -14,6 +14,7 @@ package gadgets
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
@@ -198,11 +199,13 @@ func (p *BitwidthGadget) constructTypeProof(handle string, bitwidth uint) sc.Mod
 		loWidth, hiWidth = determineLimbSplit(bitwidth)
 		// Compute 2^loWidth to use as coefficient
 		coeff = field.TwoPowN[bls12_377.Element](loWidth)
+		// Default padding
+		zero big.Int
 	)
 	// Construct registers and their decompositions
-	vid := module.NewRegister(sc.NewComputedRegister("V", bitwidth))
-	vidLo := module.NewRegister(sc.NewComputedRegister("V'0", loWidth))
-	vidHi := module.NewRegister(sc.NewComputedRegister("V'1", hiWidth))
+	vid := module.NewRegister(sc.NewComputedRegister("V", bitwidth, zero))
+	vidLo := module.NewRegister(sc.NewComputedRegister("V'0", loWidth, zero))
+	vidHi := module.NewRegister(sc.NewComputedRegister("V'1", hiWidth, zero))
 	// Ensure lo/hi are decomposition of original
 	module.AddConstraint(
 		air.NewVanishingConstraint("decomposition", mid, util.None[int](),
@@ -548,7 +551,10 @@ func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
 // Allocate n byte registers, each of which requires a suitable range
 // constraint.
 func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuilder) []sc.RegisterRef {
-	var n = bitwidth / 8
+	var (
+		n    = bitwidth / 8
+		zero big.Int
+	)
 	//
 	if bitwidth == 0 {
 		panic("zero byte decomposition encountered")
@@ -562,7 +568,7 @@ func allocateByteRegisters(prefix string, bitwidth uint, module *air.ModuleBuild
 	// Allocate byte registers
 	for i := uint(0); i < n; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
-		byteRegister := schema.NewComputedRegister(name, min(8, bitwidth))
+		byteRegister := schema.NewComputedRegister(name, min(8, bitwidth), zero)
 		// Allocate byte register
 		rid := module.NewRegister(byteRegister)
 		targets[i] = sc.NewRegisterRef(module.Id(), rid)

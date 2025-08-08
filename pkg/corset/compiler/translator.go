@@ -128,9 +128,9 @@ func (t *translator) translateModuleRegisters(corsetRegisters []uint) {
 		)
 		// Declare corresponding register
 		if regInfo.IsInput() {
-			reg = schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth)
+			reg = schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth, regInfo.Padding)
 		} else {
-			reg = schema.NewComputedRegister(regInfo.Name(), regInfo.Bitwidth)
+			reg = schema.NewComputedRegister(regInfo.Name(), regInfo.Bitwidth, regInfo.Padding)
 		}
 		// Add the register
 		module.NewRegister(reg)

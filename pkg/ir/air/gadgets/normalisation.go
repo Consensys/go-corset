@@ -15,6 +15,7 @@ package gadgets
 import (
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
@@ -47,20 +48,22 @@ func Normalise(e air.Term, module *air.ModuleBuilder) air.Term {
 // column which holds the multiplicative inverse.  Constraints are also added to
 // ensure it really holds the inverted value.
 func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
-	// Construct inverse computation
-	ie := &psuedoInverse{Expr: e}
-	// Determine computed column name
-	name := ie.Lisp(true, module).String(false)
-	// Look up column
-	index, ok := module.HasRegister(name)
+	var (
+		// Construct inverse computation
+		ie = &psuedoInverse{Expr: e}
+		// Determine computed column name
+		name = ie.Lisp(true, module).String(false)
+		// Look up column
+		index, ok = module.HasRegister(name)
+		// Default padding (for now)
+		padding big.Int = ir.PaddingFor(ie, module)
+	)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// FIXME: this hard-coded constant will need to be changed at some point
-		// to properly support field agnosticity.  Currently, this simply
-		// signals that the column has no bitwidth constraint.
+		// Indicate column has "field element width".
 		var bitwidth uint = math.MaxUint
 		// Add computed register.
-		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth))
+		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth, padding))
 		// Add assignment
 		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), ie, true))
 		// Construct proof of 1/e

@@ -151,10 +151,11 @@ func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.Synt
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
 	var (
-		arg   string
-		width uint
-		errs  []source.SyntaxError
-		regs  []io.Register
+		arg     string
+		width   uint
+		errs    []source.SyntaxError
+		regs    []io.Register
+		padding big.Int
 	)
 	// Parse start of list
 	if _, errs = p.expect(LBRACE); len(errs) > 0 {
@@ -175,7 +176,7 @@ func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []sourc
 			return nil, errs
 		}
 		//
-		regs = append(regs, schema.NewRegister(kind, arg, width))
+		regs = append(regs, schema.NewRegister(kind, arg, width, padding))
 	}
 	// Advance past "}"
 	p.match(RBRACE)

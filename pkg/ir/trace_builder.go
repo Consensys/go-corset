@@ -196,7 +196,7 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[
 		// Save original line counts
 		moduleHeights := determineModuleHeights(tr)
 		// Apply spillage
-		applySpillageAndDefensivePadding(tb.defensive, tr, schema)
+		addSpillageAndDefensivePadding(tb.defensive, tr, schema)
 		// Sanity checks
 		if tb.checks {
 			if err := checkModuleHeights(moduleHeights, tb.defensive, tr, schema); err != nil {
@@ -237,7 +237,7 @@ func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema, poo
 	for i := uint(0); i != schema.Width(); i++ {
 		var mod = schema.Module(i)
 		//
-		modules[i] = fillTraceModule(mod.Name(), mod.LengthMultiplier(), columns[i])
+		modules[i] = fillTraceModule(mod, columns[i])
 	}
 	// Done
 	return trace.NewArrayTrace(pool, modules), errors
@@ -348,24 +348,27 @@ func initialiseColumnMap[T word.Word[T]](expanded bool, schema sc.AnySchema) (ma
 	return colmap, modules
 }
 
-func fillTraceModule[F field.Element[F]](name string, multiplier uint, rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
+func fillTraceModule[F field.Element[F]](mod sc.Module, rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
 	var (
 		traceColumns = make([]trace.ArrayColumn[F], len(rawColumns))
-		zero         F
 	)
 	//
 	for i := range traceColumns {
-		var ith = rawColumns[i]
+		var (
+			ith       = rawColumns[i]
+			reg       = mod.Register(sc.NewRegisterId(uint(i)))
+			padding F = field.BigInt[F](reg.Padding)
+		)
 		//
-		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, zero)
+		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, padding)
 	}
 	//
-	return trace.NewArrayModule(name, multiplier, traceColumns)
+	return trace.NewArrayModule(mod.Name(), mod.LengthMultiplier(), traceColumns)
 }
 
 // pad each module with its given level of spillage and (optionally) ensure a
 // given level of defensive padding.
-func applySpillageAndDefensivePadding[F field.Element[F]](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema) {
+func addSpillageAndDefensivePadding[F field.Element[F]](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {

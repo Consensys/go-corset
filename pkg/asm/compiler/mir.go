@@ -57,8 +57,12 @@ func (p MirModule) NewAssignment(assignment schema.Assignment) {
 // NewColumn constructs a new column of the given name and bitwidth within
 // this module.
 func (p MirModule) NewColumn(kind schema.RegisterType, name string, bitwidth uint) schema.RegisterId {
-	// Add new register
-	rid := p.Module.NewRegister(schema.NewRegister(kind, name, bitwidth))
+	var (
+		// Default padding (for now)
+		padding big.Int
+		// Add new register
+		rid = p.Module.NewRegister(schema.NewRegister(kind, name, bitwidth, padding))
+	)
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
 		mir.NewRangeConstraint(name, p.Module.Id(), ir.NewRegisterAccess[bls12_377.Element, mir.Term](rid, 0), bitwidth))

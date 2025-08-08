@@ -191,6 +191,7 @@ func (p *GlobalEnvironment) allocateRegister(source RegisterSource) {
 	p.registers = append(p.registers, Register{
 		ast.NewContext(module, source.Multiplier),
 		source.Bitwidth,
+		source.Padding,
 		[]RegisterSource{source},
 		nil,
 	})

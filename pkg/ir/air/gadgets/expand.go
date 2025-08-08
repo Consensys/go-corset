@@ -13,6 +13,8 @@
 package gadgets
 
 import (
+	"math/big"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -33,14 +35,19 @@ func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.Registe
 		// Optimisation possible
 		return ca.Register
 	}
-	// Determine computed column name
-	name := e.Lisp(true, module).String(false)
-	// Look up column
-	index, ok := module.HasRegister(name)
+	//
+	var (
+		// Determine computed column name
+		name = e.Lisp(true, module).String(false)
+		// Look up column
+		index, ok = module.HasRegister(name)
+		// Default padding (for now)
+		padding big.Int = ir.PaddingFor(e, module)
+	)
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed column
-		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth))
+		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
 		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e, true))
 		// Construct v == [e]
 		v := ir.NewRegisterAccess[bls12_377.Element, air.Term](index, 0)

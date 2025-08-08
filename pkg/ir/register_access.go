@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -87,6 +88,10 @@ func (p *RegisterAccess[F, T]) Lisp(global bool, mapping schema.RegisterMap) sex
 		name = mapping.Register(p.Register).QualifiedName(mapping)
 	} else if mapping != nil {
 		name = mapping.Register(p.Register).Name
+		// Add quotes if suitable
+		if strings.Contains(name, " ") {
+			name = fmt.Sprintf("\"%s\"", name)
+		}
 	} else {
 		name = fmt.Sprintf("#%d", p.Register)
 	}

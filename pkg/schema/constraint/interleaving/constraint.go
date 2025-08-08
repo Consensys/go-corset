@@ -13,6 +13,8 @@
 package interleaving
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -155,7 +157,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("interleave"),
-		sexp.NewSymbol(p.Handle),
+		sexp.NewSymbol(fmt.Sprintf("\"%s\"", p.Handle)),
 		target,
 		sources,
 	})

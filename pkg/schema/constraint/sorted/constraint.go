@@ -155,6 +155,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 		module  = schema.Module(p.Context)
 		kind    = "sorted"
 		sources = sexp.EmptyList()
+		handle  = fmt.Sprintf("\"%s\"", p.Handle)
 	)
 	//
 	if p.Strict {
@@ -178,13 +179,13 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	if p.Selector.IsEmpty() {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(kind),
-			sexp.NewSymbol(p.Handle),
+			sexp.NewSymbol(handle),
 			sources,
 		})
 	} else {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(kind),
-			sexp.NewSymbol(p.Handle),
+			sexp.NewSymbol(handle),
 			p.Selector.Unwrap().Lisp(false, module),
 			sources,
 		})

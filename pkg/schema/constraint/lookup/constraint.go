@@ -14,6 +14,7 @@ package lookup
 
 import (
 	"encoding/binary"
+	"fmt"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -379,7 +380,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	// Done
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("lookup"),
-		sexp.NewSymbol(p.Handle),
+		sexp.NewSymbol(fmt.Sprintf("\"%s\"", p.Handle)),
 		targets,
 		sources,
 	})

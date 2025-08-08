@@ -71,6 +71,9 @@ func Test_Valid_Basic_12(t *testing.T) {
 func Test_Valid_Basic_13(t *testing.T) {
 	test_util.Check(t, false, "valid/basic_13")
 }
+func Test_Valid_Basic_14(t *testing.T) {
+	test_util.Check(t, false, "valid/basic_14")
+}
 
 // ===================================================================
 // Constants Tests
@@ -225,7 +228,7 @@ func Test_Valid_Property_01(t *testing.T) {
 	test_util.Check(t, false, "valid/property_01")
 }
 
-func Test_Property_02(t *testing.T) {
+func Test_Valid_Property_02(t *testing.T) {
 	test_util.Check(t, false, "valid/property_02")
 }
 

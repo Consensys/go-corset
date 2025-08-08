@@ -14,6 +14,7 @@ package ast
 
 import (
 	"math"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -134,6 +135,8 @@ type ColumnBinding struct {
 	Multiplier uint
 	// Determines the kind of this column.
 	Kind uint8
+	// Padding value (defaults to 0)
+	Padding big.Int
 	// Display modifier
 	Display string
 }

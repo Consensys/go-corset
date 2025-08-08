@@ -91,7 +91,7 @@ func check(t *testing.T, bitwidth uint, p Polynomial, widths ...uint) {
 	var regs = make([]schema.Register, len(widths))
 	//
 	for i := range regs {
-		regs[i] = schema.NewInputRegister("?", widths[i])
+		regs[i] = schema.NewInputRegister("?", widths[i], big.Int{})
 	}
 	// Determine computed bitwidth
 	actual, _ := WidthOfPolynomial(p, regs)

@@ -64,8 +64,6 @@ type Column[T any] interface {
 	// Access the underlying data array for this column.  This is useful in
 	// situations where we want to clone the entire column, etc.
 	Data() array.Array[T]
-	// Value to be used when padding this column
-	Padding() T
 }
 
 // RawFrColumn is a temporary alias which should be deprecated shortly.
