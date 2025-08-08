@@ -57,7 +57,7 @@ func (x Element) PutRawBytes(bytes []byte) []byte {
 		binary.BigEndian.PutUint64(bytes, x.Element[0])
 		binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
 		binary.BigEndian.PutUint64(bytes[16:], x.Element[2])
-		binary.BigEndian.PutUint64(bytes[24:], x.Element[3])
+		putRawBytes64(bytes[24:], x.Element[3])
 	case x.Element[2] != 0:
 		binary.BigEndian.PutUint64(bytes, x.Element[0])
 		binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
@@ -163,4 +163,56 @@ func setRawBytes64(bytes []byte) uint64 {
 	}
 	//
 	return val
+}
+
+func putRawBytes64(bytes []byte, val uint64) {
+	//
+	switch len(bytes) {
+	case 0:
+
+	case 1:
+		bytes[0] = uint8(val)
+	case 2:
+		bytes[0] = uint8(val >> 8)
+		bytes[1] = uint8(val)
+	case 3:
+		bytes[0] = uint8(val >> 16)
+		bytes[1] = uint8(val >> 8)
+		bytes[2] = uint8(val)
+	case 4:
+		bytes[0] = uint8(val >> 24)
+		bytes[1] = uint8(val >> 16)
+		bytes[2] = uint8(val >> 8)
+		bytes[3] = uint8(val)
+	case 5:
+		bytes[0] = uint8(val >> 32)
+		bytes[1] = uint8(val >> 24)
+		bytes[2] = uint8(val >> 16)
+		bytes[3] = uint8(val >> 8)
+		bytes[4] = uint8(val)
+	case 6:
+		bytes[0] = uint8(val >> 40)
+		bytes[1] = uint8(val >> 32)
+		bytes[2] = uint8(val >> 24)
+		bytes[3] = uint8(val >> 16)
+		bytes[4] = uint8(val >> 8)
+		bytes[5] = uint8(val)
+	case 7:
+		bytes[0] = uint8(val >> 48)
+		bytes[1] = uint8(val >> 40)
+		bytes[2] = uint8(val >> 32)
+		bytes[3] = uint8(val >> 24)
+		bytes[4] = uint8(val >> 16)
+		bytes[5] = uint8(val >> 8)
+		bytes[6] = uint8(val)
+	default:
+		bytes[0] = uint8(val >> 56)
+		bytes[1] = uint8(val >> 48)
+		bytes[2] = uint8(val >> 40)
+		bytes[3] = uint8(val >> 32)
+		bytes[4] = uint8(val >> 24)
+		bytes[5] = uint8(val >> 16)
+		bytes[6] = uint8(val >> 8)
+		bytes[7] = uint8(val)
+	}
 }
