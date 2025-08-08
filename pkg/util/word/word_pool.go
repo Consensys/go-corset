@@ -143,7 +143,7 @@ func (p *HeapPool[T]) alloc(word T) uint {
 		p.lengths = append(p.lengths, 0)
 	}
 	// Write word data
-	word.Put(p.heap[address : address+bytewidth])
+	word.PutRawBytes(p.heap[address : address+bytewidth])
 	// Configure word length
 	p.lengths[address] = uint8(bytewidth)
 	// Record word
@@ -185,7 +185,7 @@ func (p *HeapPool[T]) innerGet(index uint) T {
 		bytes = p.heap[index : index+length]
 	)
 	// Initialise word
-	return word.Set(bytes)
+	return word.SetRawBytes(bytes)
 }
 
 func (p *HeapPool[T]) rehash() {

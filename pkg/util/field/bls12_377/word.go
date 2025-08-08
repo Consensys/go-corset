@@ -19,27 +19,32 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// Bit implementation for the Word interface.
+// Bit implementation for word.Word interface.
 func (x Element) Bit(uint) bool {
 	panic("todo")
 }
 
-// ByteWidth implementation for the Word interface.
+// ByteWidth implementation for word.Word interface.
 func (x Element) ByteWidth() uint {
 	switch {
 	case x.Element[3] != 0:
-		return word.ByteWidth64(x.Element[3])
+		return 24 + word.ByteWidth64(x.Element[3])
 	case x.Element[2] != 0:
-		return word.ByteWidth64(x.Element[2])
+		return 16 + word.ByteWidth64(x.Element[2])
 	case x.Element[1] != 0:
-		return word.ByteWidth64(x.Element[1])
+		return 8 + word.ByteWidth64(x.Element[1])
 	default:
 		return word.ByteWidth64(x.Element[0])
 	}
 }
 
-// Put implementation for the Word interface.
-func (x Element) Put(bytes []byte) []byte {
+// RawBytes implementation for word.Word interface.
+func (x Element) RawBytes() []byte {
+	panic("todo")
+}
+
+// PutRawBytes implementation for word.Word interface.
+func (x Element) PutRawBytes(bytes []byte) []byte {
 	var width = x.ByteWidth()
 	// Sanity check enough space
 	if uint(len(bytes)) < width {
@@ -52,7 +57,7 @@ func (x Element) Put(bytes []byte) []byte {
 		binary.BigEndian.PutUint64(bytes, x.Element[0])
 		binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
 		binary.BigEndian.PutUint64(bytes[16:], x.Element[2])
-		binary.BigEndian.PutUint64(bytes[24:], x.Element[3])
+		putRawBytes64(bytes[24:], x.Element[3])
 	case x.Element[2] != 0:
 		binary.BigEndian.PutUint64(bytes, x.Element[0])
 		binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
@@ -67,22 +72,147 @@ func (x Element) Put(bytes []byte) []byte {
 	return bytes
 }
 
-// Set implementation for the Word interface.
-func (x Element) Set(bytes []byte) Element {
-	x.SetBytes(bytes)
-	return x
+// SetRawBytes implementation for word.Word interface.
+func (x Element) SetRawBytes(bytes []byte) Element {
+	var y Element
+	//
+	switch {
+	case len(bytes) >= 24:
+		y.Element[3] = setRawBytes64(bytes[24:])
+		y.Element[2] = binary.BigEndian.Uint64(bytes[16:24])
+		y.Element[1] = binary.BigEndian.Uint64(bytes[8:16])
+		y.Element[0] = binary.BigEndian.Uint64(bytes[0:8])
+	case len(bytes) >= 16:
+		y.Element[2] = setRawBytes64(bytes[16:])
+		y.Element[1] = binary.BigEndian.Uint64(bytes[8:16])
+		y.Element[0] = binary.BigEndian.Uint64(bytes[0:8])
+	case len(bytes) >= 8:
+		y.Element[1] = setRawBytes64(bytes[8:])
+		y.Element[0] = binary.BigEndian.Uint64(bytes[0:8])
+	default:
+		y.Element[0] = setRawBytes64(bytes)
+	}
+	//
+	return y
 }
 
-// Equals implementation for the Word interface.
+// Equals implementation for word.Word interface.
 func (x Element) Equals(other Element) bool {
 	return x == other
 }
 
-// Hash implementation for the Word interface.
+// Hash implementation for word.Word interface.
 func (x Element) Hash() uint64 {
 	hash := fnv.New64a()
 	// FIXME: could do better here.
 	hash.Write(x.Bytes())
 	// Done
 	return hash.Sum64()
+}
+
+func setRawBytes64(bytes []byte) uint64 {
+	var val uint64
+	//
+	switch len(bytes) {
+	case 0:
+		val = 0
+	case 1:
+		val = uint64(bytes[0])
+	case 2:
+		val = uint64(bytes[1])
+		val += uint64(bytes[0]) << 8
+	case 3:
+		val = uint64(bytes[2])
+		val += uint64(bytes[1]) << 8
+		val += uint64(bytes[0]) << 16
+	case 4:
+		val = uint64(bytes[3])
+		val += uint64(bytes[2]) << 8
+		val += uint64(bytes[1]) << 16
+		val += uint64(bytes[0]) << 24
+	case 5:
+		val = uint64(bytes[4])
+		val += uint64(bytes[3]) << 8
+		val += uint64(bytes[2]) << 16
+		val += uint64(bytes[1]) << 24
+		val += uint64(bytes[0]) << 32
+	case 6:
+		val = uint64(bytes[5])
+		val += uint64(bytes[4]) << 8
+		val += uint64(bytes[3]) << 16
+		val += uint64(bytes[2]) << 24
+		val += uint64(bytes[1]) << 32
+		val += uint64(bytes[0]) << 40
+	case 7:
+		val = uint64(bytes[6])
+		val += uint64(bytes[5]) << 8
+		val += uint64(bytes[4]) << 16
+		val += uint64(bytes[3]) << 24
+		val += uint64(bytes[2]) << 32
+		val += uint64(bytes[1]) << 40
+		val += uint64(bytes[0]) << 48
+	default:
+		val = uint64(bytes[7])
+		val += uint64(bytes[6]) << 8
+		val += uint64(bytes[5]) << 16
+		val += uint64(bytes[4]) << 24
+		val += uint64(bytes[3]) << 32
+		val += uint64(bytes[2]) << 40
+		val += uint64(bytes[1]) << 48
+		val += uint64(bytes[0]) << 56
+	}
+	//
+	return val
+}
+
+func putRawBytes64(bytes []byte, val uint64) {
+	//
+	switch len(bytes) {
+	case 0:
+
+	case 1:
+		bytes[0] = uint8(val)
+	case 2:
+		bytes[0] = uint8(val >> 8)
+		bytes[1] = uint8(val)
+	case 3:
+		bytes[0] = uint8(val >> 16)
+		bytes[1] = uint8(val >> 8)
+		bytes[2] = uint8(val)
+	case 4:
+		bytes[0] = uint8(val >> 24)
+		bytes[1] = uint8(val >> 16)
+		bytes[2] = uint8(val >> 8)
+		bytes[3] = uint8(val)
+	case 5:
+		bytes[0] = uint8(val >> 32)
+		bytes[1] = uint8(val >> 24)
+		bytes[2] = uint8(val >> 16)
+		bytes[3] = uint8(val >> 8)
+		bytes[4] = uint8(val)
+	case 6:
+		bytes[0] = uint8(val >> 40)
+		bytes[1] = uint8(val >> 32)
+		bytes[2] = uint8(val >> 24)
+		bytes[3] = uint8(val >> 16)
+		bytes[4] = uint8(val >> 8)
+		bytes[5] = uint8(val)
+	case 7:
+		bytes[0] = uint8(val >> 48)
+		bytes[1] = uint8(val >> 40)
+		bytes[2] = uint8(val >> 32)
+		bytes[3] = uint8(val >> 24)
+		bytes[4] = uint8(val >> 16)
+		bytes[5] = uint8(val >> 8)
+		bytes[6] = uint8(val)
+	default:
+		bytes[0] = uint8(val >> 56)
+		bytes[1] = uint8(val >> 48)
+		bytes[2] = uint8(val >> 40)
+		bytes[3] = uint8(val >> 32)
+		bytes[4] = uint8(val >> 24)
+		bytes[5] = uint8(val >> 16)
+		bytes[6] = uint8(val >> 8)
+		bytes[7] = uint8(val)
+	}
 }

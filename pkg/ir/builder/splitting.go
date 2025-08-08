@@ -23,25 +23,26 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
-func TraceSplitting[T word.Word[T]](parallel bool, tf lt.TraceFile,
-	mapping schema.LimbsMap) (word.Pool[uint, T], []trace.RawColumn[T], []error) {
+func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile,
+	mapping schema.LimbsMap) (word.Pool[uint, F], []trace.RawColumn[F], []error) {
 	//
 	var (
 		stats = util.NewPerfStats()
-		pool  word.Pool[uint, T]
-		cols  []trace.RawColumn[T]
+		pool  word.Pool[uint, F]
+		cols  []trace.RawColumn[F]
 		err   []error
 	)
 	//
 	if parallel {
-		pool, cols, err = parallelTraceSplitting[T](tf, mapping)
+		pool, cols, err = parallelTraceSplitting[F](tf, mapping)
 	} else {
-		pool, cols, err = sequentialTraceSplitting[T](tf, mapping)
+		pool, cols, err = sequentialTraceSplitting[F](tf, mapping)
 	}
 	//
 	stats.Log("Trace splitting")
@@ -49,10 +50,12 @@ func TraceSplitting[T word.Word[T]](parallel bool, tf lt.TraceFile,
 	return pool, cols, err
 }
 
-func sequentialTraceSplitting[T word.Word[T]](tf lt.TraceFile, gmap schema.LimbsMap) (word.Pool[uint, T], []trace.RawColumn[T], []error) {
+func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, gmap schema.LimbsMap) (word.Pool[uint, F],
+	[]trace.RawColumn[F], []error) {
+	//
 	var (
-		pool         = word.NewHeapPool[T]()
-		splitColumns []trace.RawColumn[T]
+		pool         = word.NewHeapPool[F]()
+		splitColumns []trace.RawColumn[F]
 		errors       []error
 	)
 	//
@@ -65,12 +68,14 @@ func sequentialTraceSplitting[T word.Word[T]](tf lt.TraceFile, gmap schema.Limbs
 	return pool, splitColumns, errors
 }
 
-func parallelTraceSplitting[T word.Word[T]](tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, T], []trace.RawColumn[T], []error) {
+func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],
+	[]trace.RawColumn[F], []error) {
+	//
 	var (
-		pool   = word.NewHeapPool[T]()
-		splits = make([][]trace.RawColumn[T], len(tf.Columns))
+		pool   = word.NewHeapPool[F]()
+		splits = make([][]trace.RawColumn[F], len(tf.Columns))
 		// Construct a communication channel split columns.
-		c = make(chan splitResult[T], len(tf.Columns))
+		c = make(chan splitResult[F], len(tf.Columns))
 		//
 		errors []error
 		//
@@ -81,7 +86,7 @@ func parallelTraceSplitting[T word.Word[T]](tf lt.TraceFile, mapping schema.Limb
 		go func(index int, column trace.BigEndianColumn, mapping schema.LimbsMap) {
 			// Send outcome back
 			data, errors := splitRawColumn(column, pool, mapping)
-			c <- splitResult[T]{index, data, errors}
+			c <- splitResult[F]{index, data, errors}
 		}(i, ith, mapping)
 	}
 	// Collect results
@@ -95,7 +100,7 @@ func parallelTraceSplitting[T word.Word[T]](tf lt.TraceFile, mapping schema.Limb
 		errors = append(errors, res.errors...)
 	}
 	// Flatten split
-	return pool, flatten[T](total, splits), errors
+	return pool, flatten[F](total, splits), errors
 }
 
 func flatten[T word.Word[T]](total int, splits [][]trace.RawColumn[T]) []trace.RawColumn[T] {
@@ -115,7 +120,9 @@ func flatten[T word.Word[T]](total int, splits [][]trace.RawColumn[T]) []trace.R
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn[F word.Word[F], T word.Word[T]](col trace.RawColumn[F], pool word.Pool[uint, T], mapping schema.LimbsMap) ([]trace.RawColumn[T], []error) {
+func splitRawColumn[W word.Word[W], F field.Element[F]](col trace.RawColumn[W], pool word.Pool[uint, F],
+	mapping schema.LimbsMap) ([]trace.RawColumn[F], []error) {
+	//
 	var (
 		height = col.Data.Len()
 		// Access mapping for enclosing module
@@ -134,14 +141,14 @@ func splitRawColumn[F word.Word[F], T word.Word[T]](col trace.RawColumn[F], pool
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
-		return []trace.RawColumn[T]{lowerRawColumn(pool, col)}, nil
+		return []trace.RawColumn[F]{lowerRawColumn(pool, col)}, nil
 	}
 	// Yes, must split into two or more limbs of given widths.
 	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Determine limbs of this register
 	limbs := agnostic.LimbsOf(modmap, limbIds)
 	// Construct temporary place holder for new array data.
-	arrays := make([]array.MutArray[T], len(limbIds))
+	arrays := make([]array.MutArray[F], len(limbIds))
 	//
 	for i, limb := range limbs {
 		arrays[i] = word.NewArray(height, limb.Width, pool)
@@ -151,15 +158,15 @@ func splitRawColumn[F word.Word[F], T word.Word[T]](col trace.RawColumn[F], pool
 		// Extract ith data
 		ith := col.Data.Get(i)
 		// Assign split components
-		for j, v := range splitFieldElement[F, T](ith, limbWidths) {
+		for j, v := range splitFieldElement[W, F](ith, limbWidths) {
 			arrays[j].Set(i, v)
 		}
 	}
 	// Construct final columns
-	columns := make([]trace.RawColumn[T], len(limbIds))
+	columns := make([]trace.RawColumn[F], len(limbIds))
 	// Construct final columns
 	for i, limb := range limbs {
-		columns[i] = trace.RawColumn[T]{
+		columns[i] = trace.RawColumn[F]{
 			Module: col.Module,
 			Name:   limb.Name,
 			Data:   arrays[i]}
@@ -171,7 +178,7 @@ func splitRawColumn[F word.Word[F], T word.Word[T]](col trace.RawColumn[F], pool
 // split a given field element into a given set of limbs, where the least
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
-func splitFieldElement[F word.Word[F], T word.Word[T]](val F, widths []uint) []T {
+func splitFieldElement[W word.Word[W], F field.Element[F]](val W, widths []uint) []F {
 	var (
 		n = len(widths)
 		//
@@ -180,22 +187,20 @@ func splitFieldElement[F word.Word[F], T word.Word[T]](val F, widths []uint) []T
 		bytewidth = word.ByteWidth(bitwidth)
 		// Extract bytes whilst ensuring they are in little endian form, and
 		// that they match the expected bitwidth.
-		bytes = reverseAndPad(val.Bytes(), bytewidth)
+		bytes = reverseAndPad(val.RawBytes(), bytewidth)
 		//
 		bits     = bit.NewReader(bytes[:])
 		buf      [32]byte
-		elements = make([]T, n)
+		elements = make([]F, n)
 	)
 	// read actual bits
 	for i, w := range widths {
-		var ith T
 		// Read bits
 		m := bits.ReadInto(w, buf[:])
 		// Convert back to big endian
 		array.ReverseInPlace(buf[:m])
 		// Done
-		ith.Set(buf[:m])
-		elements[i] = ith
+		elements[i] = field.FromBigEndianBytes[F](buf[:m])
 	}
 	//
 	return elements

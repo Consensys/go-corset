@@ -31,13 +31,18 @@ func (x Element) ByteWidth() uint {
 	panic("todo")
 }
 
-// Put implementation for the Word interface.
-func (x Element) Put([]byte) []byte {
+// PutRawBytes implementation for the Word interface.
+func (x Element) PutRawBytes([]byte) []byte {
 	panic("todo")
 }
 
-// Set implementation for the Word interface.
-func (x Element) Set([]byte) Element {
+// RawBytes implementation for word.Word interface.
+func (x Element) RawBytes() []byte {
+	panic("todo")
+}
+
+// SetRawBytes implementation for the Word interface.
+func (x Element) SetRawBytes([]byte) Element {
 	panic("todo")
 }
 

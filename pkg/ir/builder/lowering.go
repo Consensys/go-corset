@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -23,17 +24,17 @@ import (
 // representation into the appropriate field representation without performing
 // any splitting.  This is only required for traces which are "pre-expanded".
 // Such traces typically arise in testing, etc.
-func TraceLowering[T word.Word[T]](parallel bool, tf lt.TraceFile) (word.Pool[uint, T], []trace.RawColumn[T]) {
+func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (word.Pool[uint, F], []trace.RawColumn[F]) {
 	var (
 		stats = util.NewPerfStats()
-		pool  word.Pool[uint, T]
-		cols  []trace.RawColumn[T]
+		pool  word.Pool[uint, F]
+		cols  []trace.RawColumn[F]
 	)
 	//
 	if parallel {
-		pool, cols = parallelTraceLowering[T](tf)
+		pool, cols = parallelTraceLowering[F](tf)
 	} else {
-		pool, cols = sequentialTraceLowering[T](tf)
+		pool, cols = sequentialTraceLowering[F](tf)
 	}
 	//
 	stats.Log("Trace lowering")
@@ -41,10 +42,10 @@ func TraceLowering[T word.Word[T]](parallel bool, tf lt.TraceFile) (word.Pool[ui
 	return pool, cols
 }
 
-func sequentialTraceLowering[T word.Word[T]](tf lt.TraceFile) (word.Pool[uint, T], []trace.RawColumn[T]) {
+func sequentialTraceLowering[F field.Element[F]](tf lt.TraceFile) (word.Pool[uint, F], []trace.RawColumn[F]) {
 	var (
-		pool           = word.NewHeapPool[T]()
-		loweredColumns []trace.RawColumn[T]
+		pool           = word.NewHeapPool[F]()
+		loweredColumns []trace.RawColumn[F]
 	)
 	//
 	for _, ith := range tf.Columns {
@@ -55,13 +56,13 @@ func sequentialTraceLowering[T word.Word[T]](tf lt.TraceFile) (word.Pool[uint, T
 	return pool, loweredColumns
 }
 
-func parallelTraceLowering[T word.Word[T]](tf lt.TraceFile) (word.Pool[uint, T], []trace.RawColumn[T]) {
+func parallelTraceLowering[F field.Element[F]](tf lt.TraceFile) (word.Pool[uint, F], []trace.RawColumn[F]) {
 	var (
-		pool           = word.NewHeapPool[T]()
+		pool           = word.NewHeapPool[F]()
 		columns        = tf.Columns
-		loweredColumns = make([]trace.RawColumn[T], len(columns))
+		loweredColumns = make([]trace.RawColumn[F], len(columns))
 		// Construct a communication channel split columns.
-		c = make(chan util.Pair[int, trace.RawColumn[T]], len(columns))
+		c = make(chan util.Pair[int, trace.RawColumn[F]], len(columns))
 	)
 	// Split column concurrently
 	for i, ith := range columns {
@@ -82,7 +83,9 @@ func parallelTraceLowering[T word.Word[T]](tf lt.TraceFile) (word.Pool[uint, T],
 }
 
 // lowerRawColumn lowers a given raw column into a given field implementation.
-func lowerRawColumn[F word.Word[F], T word.Word[T]](pool word.Pool[uint, T], column trace.RawColumn[F]) trace.RawColumn[T] {
+func lowerRawColumn[W word.Word[W], F field.Element[F]](pool word.Pool[uint, F], column trace.RawColumn[W],
+) trace.RawColumn[F] {
+	//
 	var (
 		data = column.Data
 		arr  = word.NewArray(data.Len(), data.BitWidth(), pool)
@@ -90,16 +93,16 @@ func lowerRawColumn[F word.Word[F], T word.Word[T]](pool word.Pool[uint, T], col
 	)
 	//
 	for i := range data.Len() {
-		var val T
-		// Write data into byte array
-		buf = data.Get(i).Put(buf)
+		// Write raw data into byte array.  This is safe because we know its
+		// coming from an unencoded source.
+		buf = data.Get(i).PutRawBytes(buf)
 		// Initialise target from source bytes
-		val.Set(buf)
+		val := field.FromBigEndianBytes[F](buf)
 		// Write into ith row of array being constructed.
 		arr.Set(i, val)
 	}
 	//
-	return trace.RawColumn[T]{
+	return trace.RawColumn[F]{
 		Module: column.Module,
 		Name:   column.Name,
 		Data:   arr,

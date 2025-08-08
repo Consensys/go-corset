@@ -89,6 +89,13 @@ func (x Element) ToUint32() uint32 {
 	return uint32(i)
 }
 
+// SetBytes implementation for Element.
+func (x Element) SetBytes(bytes []byte) Element {
+	x.Element.SetBytes(bytes)
+	//
+	return x
+}
+
 // SetUint64 implementation for Element.
 func (x Element) SetUint64(val uint64) Element {
 	x.Element.SetUint64(val)

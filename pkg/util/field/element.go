@@ -24,7 +24,9 @@ type Element[Operand any] interface {
 	word.Word[Operand]
 	// Add x+y
 	Add(y Operand) Operand
-	// Bytes returns the big-endian encoded Element, possibly with leading zeros.
+	// Bytes returns the (big-endian) bytes representing this element as an
+	// unsigned integer.  Observe that, if the data is encoded internally (e.g.
+	// in Montgommery form), then this will first decode the given bytes.
 	Bytes() []byte
 	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
 	Cmp(y Operand) int
@@ -36,6 +38,11 @@ type Element[Operand any] interface {
 	Mul(y Operand) Operand
 	// Compute x⁻¹, or 0 if x = 0.
 	Inverse() Operand
+	// Set this element according to a given set of (big endian) bytes
+	// representing an unsigned integer.  Observe that, if the data is encoded
+	// internally (e.g. in Montgommery form), then this will first encode the
+	// given bytes.
+	SetBytes([]byte) Operand
 	// Set this element to a uint64 value
 	SetUint64(uint64) Operand
 	// Compute x - y
@@ -60,9 +67,18 @@ func One[F Element[F]]() F {
 
 // BigInt construct a field element from a given big.Int
 func BigInt[F Element[F]](val big.Int) F {
-	var element F
+	var (
+		element F
+		zero    F
+	)
 	//
-	return element.Set(val.Bytes())
+	element = element.SetBytes(val.Bytes())
+	// Handle negative values
+	if val.Sign() < 0 {
+		element = zero.Sub(element)
+	}
+	//
+	return element
 }
 
 // Uint64 construct a field element from a given uint64
@@ -70,6 +86,13 @@ func Uint64[F Element[F]](val uint64) F {
 	var element F
 	//
 	return element.SetUint64(val)
+}
+
+// FromBigEndianBytes constructs a word from an array of bytes given in big endian order.
+func FromBigEndianBytes[F Element[F]](bytes []byte) F {
+	var element F
+	//
+	return element.SetBytes(bytes)
 }
 
 // TwoPowN constructs a field element representing 2^n
