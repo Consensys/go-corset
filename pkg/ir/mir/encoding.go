@@ -690,6 +690,7 @@ func decode_ite(tag byte, buf *bytes.Buffer) (LogicalTerm, error) {
 // ============================================================================
 
 func encode_term(term Term, buf *bytes.Buffer) error {
+	//
 	switch t := term.(type) {
 	case *Add:
 		return encode_tagged_nary_terms(addTag, buf, t.Args...)
@@ -926,7 +927,7 @@ func decode_constant(buf *bytes.Buffer) (Term, error) {
 		return nil, errors.New("failed decoding constant")
 	}
 	//
-	element.SetBytes(bytes[:])
+	element = element.SetBytes(bytes[:])
 	//
 	return ir.Const[bls12_377.Element, Term](element), nil
 }
@@ -992,7 +993,7 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 		return nil, errors.New("failed decoding labelled constant")
 	}
 	//
-	element.SetBytes(const_bytes[:])
+	element = element.SetBytes(const_bytes[:])
 	//
 	return ir.LabelledConstant[bls12_377.Element, Term](string(str_bytes), element), nil
 }
@@ -1112,7 +1113,7 @@ func mulConstructor(terms []Term) Term {
 }
 
 func negationConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.Negation[bls12_377.Element, LogicalTerm](terms[0])
+	return ir.Negation(terms[0])
 }
 
 func notEqualConstructor(terms []Term) LogicalTerm {

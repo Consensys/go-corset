@@ -67,9 +67,18 @@ func One[F Element[F]]() F {
 
 // BigInt construct a field element from a given big.Int
 func BigInt[F Element[F]](val big.Int) F {
-	var element F
+	var (
+		element F
+		zero    F
+	)
 	//
-	return element.SetBytes(val.Bytes())
+	element = element.SetBytes(val.Bytes())
+	// Handle negative values
+	if val.Sign() < 0 {
+		element = zero.Sub(element)
+	}
+	//
+	return element
 }
 
 // Uint64 construct a field element from a given uint64
