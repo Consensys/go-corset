@@ -85,7 +85,12 @@ func (p *HeapPool[T]) Get(index uint) T {
 
 // IndexOf implementation for the Pool interface.
 func (p *HeapPool[T]) IndexOf(word T) (uint, bool) {
+	// Obtain read lock
+	p.mux.RLock()
+	// Lookup index of word
 	index, _ := p.has(word)
+	// Release read lock
+	p.mux.RUnlock()
 	//
 	return index, index != math.MaxUint
 }
@@ -129,10 +134,8 @@ func (p *HeapPool[T]) Put(word T) uint {
 func (p *HeapPool[T]) alloc(word T) uint {
 	var (
 		address = uint(len(p.heap))
-		// Determine length of word whilst ensuring that a completely empty word
-		// occupies at least one byte (as, otherwise, we'd get some kind of
-		// sharing going on).
-		bytewidth = ByteWidth(word.BitWidth())
+		// Determine length of word
+		bytewidth = word.ByteWidth()
 	)
 	// Allocate space for new word
 	for range bytewidth {

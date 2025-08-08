@@ -23,3 +23,19 @@ func ByteWidth(bitwidth uint) uint {
 	//
 	return n + 1
 }
+
+// ByteWidth64 returns the bytewidth of the given uint64 value.
+func ByteWidth64(value uint64) uint {
+	switch {
+	case value&0xFF000000 != 0:
+		return 4
+	case value&0x00FF0000 != 0:
+		return 3
+	case value&0x0000FF00 != 0:
+		return 2
+	case value != 0:
+		return 1
+	}
+	//
+	return 0
+}

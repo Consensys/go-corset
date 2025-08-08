@@ -15,6 +15,8 @@ package bls12_377
 import (
 	"encoding/binary"
 	"hash/fnv"
+
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Bit implementation for the Word interface.
@@ -22,21 +24,45 @@ func (x Element) Bit(uint) bool {
 	panic("todo")
 }
 
-// BitWidth implementation for the Word interface.
-func (x Element) BitWidth() uint {
-	return 252
+// ByteWidth implementation for the Word interface.
+func (x Element) ByteWidth() uint {
+	switch {
+	case x.Element[3] != 0:
+		return word.ByteWidth64(x.Element[3])
+	case x.Element[2] != 0:
+		return word.ByteWidth64(x.Element[2])
+	case x.Element[1] != 0:
+		return word.ByteWidth64(x.Element[1])
+	default:
+		return word.ByteWidth64(x.Element[0])
+	}
 }
 
 // Put implementation for the Word interface.
 func (x Element) Put(bytes []byte) []byte {
-	if len(bytes) < 32 {
-		return x.Bytes()
+	var width = x.ByteWidth()
+	// Sanity check enough space
+	if uint(len(bytes)) < width {
+		bytes = make([]byte, width)
 	}
-	// Copy over each element without allocating new array.
-	binary.BigEndian.PutUint64(bytes, x.Element[0])
-	binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
-	binary.BigEndian.PutUint64(bytes[16:], x.Element[2])
-	binary.BigEndian.PutUint64(bytes[24:], x.Element[3])
+	// Copy over each element without allocating new array.  Do this with as few
+	// branches as possible.
+	switch {
+	case x.Element[3] != 0:
+		binary.BigEndian.PutUint64(bytes, x.Element[0])
+		binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
+		binary.BigEndian.PutUint64(bytes[16:], x.Element[2])
+		binary.BigEndian.PutUint64(bytes[24:], x.Element[3])
+	case x.Element[2] != 0:
+		binary.BigEndian.PutUint64(bytes, x.Element[0])
+		binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
+		binary.BigEndian.PutUint64(bytes[16:], x.Element[2])
+	case x.Element[1] != 0:
+		binary.BigEndian.PutUint64(bytes, x.Element[0])
+		binary.BigEndian.PutUint64(bytes[8:], x.Element[1])
+	case x.Element[0] != 0:
+		binary.BigEndian.PutUint64(bytes, x.Element[0])
+	}
 	//
 	return bytes
 }
