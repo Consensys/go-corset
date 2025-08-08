@@ -98,7 +98,7 @@ func writeArrayBytes(w io.Writer, data array.Array[word.BigEndian]) error {
 	for i := range data.Len() {
 		ith := data.Get(i)
 		// Read exactly 32 bytes
-		bytes := ith.Bytes()
+		bytes := ith.RawBytes()
 		// Write them out
 		if _, err := w.Write(bytes[:]); err != nil {
 			return err

@@ -29,15 +29,21 @@ type Word[T any] interface {
 	// Return minimal number of bytes required to store this word.  This can be
 	// defined as the length of bytes of this word, with all leading zero bytes
 	// removed.  For example, 0x1010 has a length of 2, 0x0010 has a length of 1
-	// whilst 0x0000 has a byte length of 0.
+	// whilst 0x0000 has a byte length of 0.  Observe that, if the word is
+	// encoded (e.g. in Montgomerry form), then this is the length of the
+	// encoded bytes.
 	ByteWidth() uint
-	// Bytes returns the bytes of this word
-	Bytes() []byte
+	// Returns the raw bytes of this word.  Observe that, if the word is encoded
+	// (e.g. in Montgomerry form), then the *encoded* bytes are returned.
+	RawBytes() []byte
 	// Write contents of this word into given byte array.  If the given byte
-	// array is not big enough, a new array is allocated and returned.
-	Put([]byte) []byte
-	// Initialise this word from a set of bytes.
-	Set([]byte) T
+	// array is not big enough, a new array is allocated and returned.  Observe
+	// that, if the word is encoded (e.g. in Montgomerry form), then the
+	// *encoded* bytes are written.
+	PutRawBytes([]byte) []byte
+	// Initialise this word from a set of raw bytes.  Observe that, if the word
+	// is encoded (e.g. in Montgomerry form), then *encoded* bytes are assigned.
+	SetRawBytes([]byte) T
 }
 
 // NewArray constructs a new word array with a given capacity.

@@ -77,8 +77,8 @@ func (p BigEndian) Hash() uint64 {
 	return hash.Sum64()
 }
 
-// Put implementation for Word interface.
-func (p BigEndian) Put(bytes []byte) []byte {
+// PutRawBytes implementation for Word interface.
+func (p BigEndian) PutRawBytes(bytes []byte) []byte {
 	var (
 		n = uint(len(bytes))
 		m = uint(len(p.bytes))
@@ -86,6 +86,7 @@ func (p BigEndian) Put(bytes []byte) []byte {
 	// Sanity check space
 	if len(bytes) < len(p.bytes) {
 		bytes = make([]byte, len(p.bytes))
+		n = m
 	}
 	//
 	for m > 0 {
@@ -102,14 +103,13 @@ func (p BigEndian) Put(bytes []byte) []byte {
 	return bytes
 }
 
-// Set implementation for Word interface.
-func (p BigEndian) Set(bytes []byte) BigEndian {
+// SetRawBytes implementation for Word interface.
+func (p BigEndian) SetRawBytes(bytes []byte) BigEndian {
 	return BigEndian{trim(bytes)}
 }
 
-// Bytes returns a direct access to the underlying byte array in big endian
-// form.
-func (p BigEndian) Bytes() []byte {
+// RawBytes implementation for Word interface.
+func (p BigEndian) RawBytes() []byte {
 	return p.bytes
 }
 

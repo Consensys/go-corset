@@ -188,6 +188,14 @@ func (x Element) AddBytes(b []byte) Element {
 	return x.Add(New(v))
 }
 
+// SetBytes implementation for field.Element interface.
+func (x Element) SetBytes(b []byte) Element {
+	var y Element
+	//
+	y.AddBytes(b)
+	return y
+}
+
 func (x Element) IsZero() bool {
 	return x[0] == 0
 }

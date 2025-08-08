@@ -535,8 +535,8 @@ func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
 	}
 	//
 	n := 32 - (loWidth / 8)
-	hiFr = hiFr.Set(bytes[:n])
-	loFr = loFr.Set(bytes[n:])
+	hiFr = hiFr.SetBytes(bytes[:n])
+	loFr = loFr.SetBytes(bytes[n:])
 	//
 	return loFr, hiFr
 }

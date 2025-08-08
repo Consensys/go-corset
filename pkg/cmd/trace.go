@@ -577,7 +577,7 @@ func uniqueElementsSummariser(col trace.BigEndianColumn) string {
 	elems := hash.NewSet[hash.BytesKey](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
-		bytes := data.Get(i).Bytes()
+		bytes := data.Get(i).RawBytes()
 		elems.Insert(hash.NewBytesKey(bytes))
 	}
 	// Done
