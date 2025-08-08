@@ -84,9 +84,9 @@ func parallelTraceLowering[T word.Word[T]](tf lt.TraceFile) (word.Pool[uint, T],
 // lowerRawColumn lowers a given raw column into a given field implementation.
 func lowerRawColumn[F word.Word[F], T word.Word[T]](pool word.Pool[uint, T], column trace.RawColumn[F]) trace.RawColumn[T] {
 	var (
-		data    = column.Data
-		builder = word.NewArray(data.Len(), data.BitWidth(), pool)
-		buf     []byte
+		data = column.Data
+		arr  = word.NewArray(data.Len(), data.BitWidth(), pool)
+		buf  []byte
 	)
 	//
 	for i := range data.Len() {
@@ -96,12 +96,12 @@ func lowerRawColumn[F word.Word[F], T word.Word[T]](pool word.Pool[uint, T], col
 		// Initialise target from source bytes
 		val.Set(buf)
 		// Write into ith row of array being constructed.
-		builder.Set(i, val)
+		arr.Set(i, val)
 	}
 	//
 	return trace.RawColumn[T]{
 		Module: column.Module,
 		Name:   column.Name,
-		Data:   builder.Build(),
+		Data:   arr,
 	}
 }

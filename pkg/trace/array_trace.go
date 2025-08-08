@@ -189,7 +189,7 @@ func (p ArrayModule[T]) Width() uint {
 // FillColumn sets the data and padding for the given column.  This will panic
 // if the data is already set.  Also, if the module height is updated then this
 // returns true to signal a height recalculation is required.
-func (p *ArrayModule[T]) FillColumn(cid uint, data array.Array[T], padding T) bool {
+func (p *ArrayModule[T]) FillColumn(cid uint, data array.MutArray[T]) bool {
 	// Find column to fill
 	col := &p.columns[cid]
 	// Sanity check this column has not already been filled.
@@ -204,7 +204,6 @@ func (p *ArrayModule[T]) FillColumn(cid uint, data array.Array[T], padding T) bo
 	}
 	// Fill the column
 	col.data = data
-	col.padding = padding
 	//
 	return p.height == math.MaxUint
 }
@@ -285,14 +284,14 @@ type ArrayColumn[T fmt.Stringer] struct {
 	// Holds the name of this column
 	name string
 	// Holds the raw data making up this column
-	data array.Array[T]
+	data array.MutArray[T]
 	// Value to be used when padding this column
 	padding T
 }
 
 // NewArrayColumn constructs a with the give name, data and padding.  The given
 // data is permitted to be nil, and this is used to signal a computed column.
-func NewArrayColumn[T fmt.Stringer](name string, data array.Array[T], padding T) ArrayColumn[T] {
+func NewArrayColumn[T fmt.Stringer](name string, data array.MutArray[T], padding T) ArrayColumn[T] {
 	return ArrayColumn[T]{name, data, padding}
 }
 
@@ -355,9 +354,8 @@ func (p *ArrayColumn[T]) String() string {
 }
 
 func (p *ArrayColumn[T]) pad(front uint, back uint) {
-	// if p.data != nil {
-	// 	// Pad front of array
-	// 	p.data = p.data.Pad(front, back, p.padding)
-	// }
-	panic("todo")
+	if p.data != nil {
+		// Pad front of array
+		p.data.Pad(front, back, p.padding)
+	}
 }

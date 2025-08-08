@@ -45,7 +45,7 @@ func (p *Reader) ReadInto(nbits uint, buf []byte) uint {
 		nread++
 	}
 	//
-	Copy(p.bytes, p.bitoffset, buf, nbits)
+	Copy(p.bytes, p.bitoffset, buf, 0, nbits)
 	//
 	p.bitoffset += nbits
 	//

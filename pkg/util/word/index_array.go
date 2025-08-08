@@ -53,10 +53,14 @@ func (p *IndexArray[T, P]) Append(element T) {
 	p.Set(n, element)
 }
 
-// Build implementation for the array.Builder interface.  This simply means that
-// a index array is its own builder.
-func (p *IndexArray[T, P]) Build() array.Array[T] {
-	return p
+// Clone makes clones of this array producing an otherwise identical copy.
+func (p *IndexArray[T, P]) Clone() array.MutArray[T] {
+	// Allocate sufficient memory
+	nindex := make([]uint, uint(len(p.index)))
+	// Copy over the data
+	copy(nindex, p.index)
+	//
+	return &IndexArray[T, P]{p.pool, nindex, p.bitwidth}
 }
 
 // Len returns the number of elements in this word array.
@@ -72,6 +76,27 @@ func (p *IndexArray[T, P]) BitWidth() uint {
 // Get returns the field element at the given index in this array.
 func (p *IndexArray[T, P]) Get(index uint) T {
 	return p.pool.Get(p.index[index])
+}
+
+// Pad implementation for MutArray interface.
+func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) {
+	var (
+		// Determine new length
+		l = n + m + p.Len()
+		// Initialise new array
+		index = make([]uint, l)
+	)
+	// copy
+	copy(index[n:], p.index)
+	p.index = index
+	// Front padding!
+	for i := range n {
+		p.Set(i, padding)
+	}
+	// Back padding!
+	for i := n + p.Len(); i < l; i++ {
+		p.Set(i, padding)
+	}
 }
 
 // Set sets the field element at the given index in this array, overwriting the

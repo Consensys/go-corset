@@ -202,10 +202,13 @@ func sliceColumns(tf lt.TraceFile, start uint, end uint) {
 		ith := cols[i]
 		s := min(start, ith.Data.Len())
 		e := min(end, ith.Data.Len())
+		// Not pretty, but it works :)
+		data := ith.Data.Slice(s, e).(array.MutArray[word.BigEndian])
+		//
 		cols[i] = trace.BigEndianColumn{
 			Module: ith.Module,
 			Name:   ith.Name,
-			Data:   ith.Data.Slice(s, e),
+			Data:   data,
 		}
 	}
 }

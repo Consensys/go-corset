@@ -36,6 +36,11 @@ func NewZeroArray[T Word[T]](height uint) *ZeroArray[T] {
 	return &ZeroArray[T]{height}
 }
 
+// Clone makes clones of this array producing an otherwise identical copy.
+func (p *ZeroArray[T]) Clone() array.MutArray[T] {
+	return &ZeroArray[T]{p.height}
+}
+
 // Len returns the number of elements in this word array.
 func (p *ZeroArray[T]) Len() uint {
 	return p.height
@@ -63,6 +68,11 @@ func (p *ZeroArray[T]) Get(index uint) T {
 // original value.
 func (p *ZeroArray[T]) Set(index uint, word T) {
 	// do nothing
+}
+
+// Pad implementation for MutArray interface.
+func (p *ZeroArray[T]) Pad(n uint, m uint, padding T) {
+	p.height += n + m
 }
 
 // Slice out a subregion of this array.

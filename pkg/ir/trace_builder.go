@@ -371,8 +371,11 @@ func applySpillageAndDefensivePadding[F field.Element[F]](defensive bool, tr *tr
 	for i := uint(0); i < n; i++ {
 		// Compute extra padding rows required
 		padding := sc.RequiredPaddingRows(i, defensive, schema)
-		// Pad extract rows with 0
-		tr.Pad(i, padding, 0)
+		// Don't pad unless we have to
+		if padding > 0 {
+			// Pad extract rows with 0
+			tr.Pad(i, padding, 0)
+		}
 	}
 }
 

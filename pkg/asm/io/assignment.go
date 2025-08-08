@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
+// WordPool provides a useful alias
 type WordPool = word.Pool[uint, bls12_377.Element]
 
 // Assignment represents a wrapper around an instruction in order for it to
@@ -39,7 +40,9 @@ func (p Assignment[T]) Bounds(module uint) util.Bounds {
 }
 
 // Compute implementation for schema.Assignment interface.
-func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn[bls12_377.Element], error) {
+func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
+	//
 	var (
 		trModule = trace.Module(p.id)
 		states   []State
@@ -157,19 +160,15 @@ func (p Assignment[T]) initialState(row uint, trace tr.Module[bls12_377.Element]
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool) []tr.ArrayColumn[bls12_377.Element] {
+func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool) []array.MutArray[bls12_377.Element] {
 	var (
-		arrs      = make([]array.Builder[bls12_377.Element], width)
-		cols      = make([]tr.ArrayColumn[bls12_377.Element], width)
-		zero      bls12_377.Element
+		cols      = make([]array.MutArray[bls12_377.Element], width)
 		nrows     = uint(len(states))
 		multiLine = len(p.code) > 1
 	)
 	// Initialise register columns
 	for i, r := range p.registers {
-		arrs[i] = word.NewArray(nrows, r.Width, pool)
-		//
-		cols[i] = tr.NewArrayColumn(r.Name, arrs[i].Build(), zero)
+		cols[i] = word.NewArray(nrows, r.Width, pool)
 	}
 	// Initialise control columns (if applicable)
 	// transcribe values
@@ -182,20 +181,18 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 			//
 			val.SetBigInt(st.Load(rid))
 			//
-			arrs[i].Set(uint(row), val)
+			cols[i].Set(uint(row), val)
 		}
 	}
 	// Set control registers for multi-line functions
 	if multiLine {
-		pc, ret := p.assignControlRegisters(arrs, states, pool)
-		cols[pc] = tr.NewArrayColumn(PC_NAME, arrs[pc].Build(), zero)
-		cols[ret] = tr.NewArrayColumn(RET_NAME, arrs[ret].Build(), zero)
+		p.assignControlRegisters(cols, states, pool)
 	}
 	// Done
 	return cols
 }
 
-func (p Assignment[T]) assignControlRegisters(cols []array.Builder[bls12_377.Element], states []State, pool WordPool) (uint, uint) {
+func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[bls12_377.Element], states []State, pool WordPool) {
 	var (
 		zero  = field.Zero[bls12_377.Element]()
 		one   = field.One[bls12_377.Element]()
@@ -220,8 +217,6 @@ func (p Assignment[T]) assignControlRegisters(cols []array.Builder[bls12_377.Ele
 			cols[ret].Set(uint(row), zero)
 		}
 	}
-	//
-	return pc, ret
 }
 
 // Finalising a given state does two things: firstly, it clones the state;

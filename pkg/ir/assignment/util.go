@@ -33,21 +33,6 @@ func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef
 	return targets
 }
 
-// WriteRegisters a given set of registers from a trace.
-func WriteRegisters[F field.Element[F], T array.Array[F]](schema sc.AnySchema, targets []sc.RegisterRef, data []T) []tr.ArrayColumn[F] {
-	var (
-		columns = make([]tr.ArrayColumn[F], len(targets))
-		zero    F
-	)
-	// Write outputs
-	for i, ref := range targets {
-		ith := schema.Register(ref)
-		columns[i] = tr.NewArrayColumn(ith.Name, data[i], zero)
-	}
-	//
-	return columns
-}
-
 func toRegisterRefs(context sc.ModuleId, ids []sc.RegisterId) []sc.RegisterRef {
 	var refs = make([]sc.RegisterRef, len(ids))
 	//

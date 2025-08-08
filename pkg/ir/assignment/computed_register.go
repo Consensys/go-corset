@@ -50,8 +50,8 @@ type ComputedRegister struct {
 // NewComputedRegister constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedRegister(column schema.RegisterRef, expr ir.Evaluable[bls12_377.Element], direction bool) *ComputedRegister {
-	return &ComputedRegister{column, expr, direction}
+func NewComputedRegister(column schema.RegisterRef, expr ir.Evaluable[bls12_377.Element], dir bool) *ComputedRegister {
+	return &ComputedRegister{column, expr, dir}
 }
 
 // Bounds determines the well-definedness bounds for this assignment for both
@@ -70,7 +70,8 @@ func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema schema.AnySchema) ([]trace.ArrayColumn[bls12_377.Element], error) {
+func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema schema.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	var (
 		trModule = tr.Module(p.Target.Module())
 		scModule = schema.Module(p.Target.Module())
@@ -102,14 +103,8 @@ func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema sch
 	if err != nil {
 		return nil, err
 	}
-	// Determine padding value.  A negative row index is used here to ensure
-	// that all columns return their padding value which is then used to compute
-	// the padding value for *this* column.
-	padding, err := p.Expr.EvalAt(-1, &wrapper, scModule)
-	// Construct column
-	col := trace.NewArrayColumn(register.Name, wrapper.data, padding)
 	// Done
-	return []trace.ArrayColumn[bls12_377.Element]{col}, err
+	return []array.MutArray[bls12_377.Element]{wrapper.data}, err
 }
 
 // Consistent performs some simple checks that the given assignment is
@@ -282,9 +277,8 @@ func (p *recColumn[F]) Name() string {
 // Get implementation for trace.Column interface.
 func (p *recColumn[F]) Get(row int) F {
 	if row < 0 || uint(row) >= p.data.Len() {
-		var zero F
 		// out-of-bounds access
-		return zero
+		return field.Zero[F]()
 	}
 	//
 	return p.data.Get(uint(row))
