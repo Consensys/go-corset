@@ -71,8 +71,8 @@ func (p *ZeroArray[T]) Set(index uint, word T) {
 }
 
 // Pad implementation for MutArray interface.
-func (p *ZeroArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
-	panic("todo")
+func (p *ZeroArray[T]) Pad(n uint, m uint, padding T) {
+	p.height += n + m
 }
 
 // Slice out a subregion of this array.

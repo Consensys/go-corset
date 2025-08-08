@@ -79,8 +79,15 @@ func (p *BitArray[T]) Get(index uint) T {
 }
 
 // Pad implementation for MutArray interface.
-func (p *BitArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
-	panic("todo")
+func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
+	// Front padding
+	if n > 0 {
+		p.insertBits(n, padding)
+	}
+	// Back padding
+	if m > 0 {
+		p.appendBits(m, padding)
+	}
 }
 
 // Set sets the field element at the given index in this array, overwriting the
@@ -107,7 +114,7 @@ func (p *BitArray[T]) Slice(start uint, end uint) array.Array[T] {
 	// the use cases for Slice() are very limited at this time, so no need.
 	bytes := make([]byte, bytewidth)
 	// Copy height bits over
-	bit.Copy(p.data, start, bytes, height)
+	bit.Copy(p.data, start, bytes, 0, height)
 	// Done
 	return &BitArray[T]{bytes, height}
 }
@@ -128,4 +135,38 @@ func (p *BitArray[T]) String() string {
 	sb.WriteString("]")
 
 	return sb.String()
+}
+
+func (p *BitArray[T]) insertBits(n uint, padding T) {
+	var (
+		height    = p.height + n
+		bytewidth = ByteWidth(height)
+		data      = make([]byte, bytewidth)
+	)
+	// copy
+	bit.Copy(p.data, 0, data, n, p.height)
+	p.data = data
+	// assign
+	for i := range n {
+		p.Set(i, padding)
+	}
+	// done
+	p.height = height
+}
+
+func (p *BitArray[T]) appendBits(n uint, padding T) {
+	var (
+		height    = p.height + n
+		bytewidth = ByteWidth(height)
+		data      = make([]byte, bytewidth)
+	)
+	// copy
+	copy(data, p.data)
+	p.data = data
+	// assign
+	for i := p.height; i < height; i++ {
+		p.Set(i, padding)
+	}
+	// done
+	p.height = height
 }

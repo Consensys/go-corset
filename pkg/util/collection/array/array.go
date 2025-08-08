@@ -39,5 +39,5 @@ type MutArray[T any] interface {
 	Set(uint, T)
 	// Insert n copies of T at start of the array and m copies at the back
 	// producing an updated array.
-	Pad(uint, uint, T) MutArray[T]
+	Pad(uint, uint, T)
 }

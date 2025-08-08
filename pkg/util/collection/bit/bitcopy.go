@@ -13,25 +13,26 @@
 package bit
 
 // Copy copies n bits starting a given bit offset from a given byte array
-// source into a given destination.
-func Copy(src []byte, offset uint, dst []byte, nbits uint) {
-	// Check for aligned read
-	if offset%8 == 0 {
+// source into a given destination (at a given offset).
+func Copy(src []byte, srcOffset uint, dst []byte, dstOffset uint, nbits uint) {
+	// Check for aligned read / write
+	if srcOffset%8 == 0 && dstOffset%8 == 0 {
 		var (
-			byteOffset = offset / 8
-			nBytes     = nbits / 8
+			srcByteOffset = srcOffset / 8
+			dstByteOffset = dstOffset / 8
+			nBytes        = nbits / 8
 		)
 		// Copy bytes
-		copy(dst, src[byteOffset:byteOffset+nBytes])
+		copy(dst[dstByteOffset:dstByteOffset+nBytes], src[srcByteOffset:srcByteOffset+nBytes])
 		// Calculate residue
 		nbits = nbits % 8
-		offset += nBytes * 8
-		dst = dst[nBytes:]
+		srcOffset += nBytes * 8
+		dstOffset += nBytes * 8
 	}
 	// Continue with any remaining
 	for i := range nbits {
-		ith := Read(src, offset+i)
-		Write(ith, dst, i)
+		ith := Read(src, srcOffset+i)
+		Write(ith, dst, dstOffset+i)
 	}
 }
 

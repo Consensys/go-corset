@@ -79,8 +79,24 @@ func (p *IndexArray[T, P]) Get(index uint) T {
 }
 
 // Pad implementation for MutArray interface.
-func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) array.MutArray[T] {
-	panic("todo")
+func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) {
+	var (
+		// Determine new length
+		l = n + m + p.Len()
+		// Initialise new array
+		index = make([]uint, l)
+	)
+	// copy
+	copy(index[n:], p.index)
+	p.index = index
+	// Front padding!
+	for i := range n {
+		p.Set(i, padding)
+	}
+	// Back padding!
+	for i := n + p.Len(); i < l; i++ {
+		p.Set(i, padding)
+	}
 }
 
 // Set sets the field element at the given index in this array, overwriting the
