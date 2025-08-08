@@ -257,17 +257,15 @@ func (p *typeDecomposition) AddSource(source sc.RegisterRef) {
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
 func (p *typeDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]trace.ArrayColumn[bls12_377.Element], error) {
+) ([]array.MutArray[bls12_377.Element], error) {
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.sources...)
 	// Combine all sources
 	combined := combineSources(p.loWidth+p.hiWidth, sources, tr.Pool())
 	// Generate decomposition
 	data := computeDecomposition(p.loWidth, p.hiWidth, combined, tr.Pool())
-	// Write outputs
-	targets := assignment.WriteRegisters(schema, p.targets, data)
 	// Done
-	return targets, nil
+	return data, nil
 }
 
 // Bounds determines the well-definedness bounds for this assignment for both
@@ -353,16 +351,14 @@ type byteDecomposition struct {
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
 func (p *byteDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]trace.ArrayColumn[bls12_377.Element], error) {
+) ([]array.MutArray[bls12_377.Element], error) {
 	var n = uint(len(p.targets))
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.source)
 	// Apply native function
 	data := byteDecompositionNativeFunction(n, sources)
-	// Write outputs
-	targets := assignment.WriteRegisters(schema, p.targets, data)
 	//
-	return targets, nil
+	return data, nil
 }
 
 // Bounds determines the well-definedness bounds for this assignment for both
@@ -472,7 +468,9 @@ func determineLimbSplit(bitwidth uint) (uint, uint) {
 
 // Combine all values from the given source registers into a single array of
 // data, whilst eliminating duplicates.
-func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F], pool word.Pool[uint, F]) array.Array[F] {
+func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
+	pool word.Pool[uint, F]) array.MutArray[F] {
+	//
 	var (
 		zero F
 		arr  = word.NewIndexArray(0, bitwidth, pool)
@@ -502,7 +500,8 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 	return arr
 }
 
-func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.Array[F], pool word.Pool[uint, F]) []array.Array[F] {
+func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.MutArray[F],
+	pool word.Pool[uint, F]) []array.MutArray[F] {
 	// FIXME: using an index array here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce
@@ -521,7 +520,7 @@ func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.
 		vHiArr.Set(i, hi)
 	}
 	//
-	return []array.Array[F]{vArr, vLoArr, vHiArr}
+	return []array.MutArray[F]{vArr, vLoArr, vHiArr}
 }
 
 // Decompose a given field element into its least and most significant limbs,
@@ -588,9 +587,8 @@ func buildDecompositionTerm(bitwidth uint, byteRegisters []sc.RegisterRef) air.T
 		// Initialise array of terms
 		terms = make([]air.Term, len(byteRegisters))
 		// Initialise coefficient
-		coefficient bls12_377.Element
+		coefficient bls12_377.Element = field.One[bls12_377.Element]()
 	)
-	coefficient = coefficient.SetUint64(1)
 	// Construct Columns
 	for i, ref := range byteRegisters {
 		// Create Column + Constraint

@@ -141,10 +141,10 @@ func splitRawColumn[F word.Word[F], T word.Word[T]](col trace.RawColumn[F], pool
 	// Determine limbs of this register
 	limbs := agnostic.LimbsOf(modmap, limbIds)
 	// Construct temporary place holder for new array data.
-	builders := make([]array.Builder[T], len(limbIds))
+	arrays := make([]array.MutArray[T], len(limbIds))
 	//
 	for i, limb := range limbs {
-		builders[i] = word.NewArray(height, limb.Width, pool)
+		arrays[i] = word.NewArray(height, limb.Width, pool)
 	}
 	// Deconstruct all data
 	for i := range height {
@@ -152,7 +152,7 @@ func splitRawColumn[F word.Word[F], T word.Word[T]](col trace.RawColumn[F], pool
 		ith := col.Data.Get(i)
 		// Assign split components
 		for j, v := range splitFieldElement[F, T](ith, limbWidths) {
-			builders[j].Set(i, v)
+			arrays[j].Set(i, v)
 		}
 	}
 	// Construct final columns
@@ -162,7 +162,7 @@ func splitRawColumn[F word.Word[F], T word.Word[T]](col trace.RawColumn[F], pool
 		columns[i] = trace.RawColumn[T]{
 			Module: col.Module,
 			Name:   limb.Name,
-			Data:   builders[i].Build()}
+			Data:   arrays[i]}
 	}
 	// Done
 	return columns, nil

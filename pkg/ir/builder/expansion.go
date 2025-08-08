@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
@@ -56,7 +57,7 @@ func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[bls12
 	)
 	// Compute each assignment in turn
 	for !expander.Done() {
-		var cols []tr.ArrayColumn[bls12_377.Element]
+		var cols []array.MutArray[bls12_377.Element]
 		// Get next assignment
 		ith := expander.Next(1)[0]
 		// Compute ith assignment(s)
@@ -133,23 +134,17 @@ func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema, trace 
 // Fill a set of columns with their computed results.  The column index is that
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
-func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []tr.ArrayColumn[F], trace *tr.ArrayTrace[F]) {
+func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []array.MutArray[F], trace *tr.ArrayTrace[F]) {
 	var resized bit.Set
 	// Add all columns
 	for i, ref := range refs {
 		var (
 			rid    = ref.Column().Unwrap()
 			module = trace.RawModule(ref.Module())
-			dst    = module.Column(rid)
 			col    = cols[i]
 		)
-		// Sanity checks
-		if dst.Name() != col.Name() {
-			mod := module.Name()
-			panic(fmt.Sprintf("misaligned computed register %s.%s during trace expansion", mod, col.Name()))
-		}
 		// Looks good
-		if module.FillColumn(rid, col.Data(), col.Padding()) {
+		if module.FillColumn(rid, col) {
 			// Register module as being resized.
 			resized.Insert(ref.Module())
 		}
@@ -166,7 +161,7 @@ type columnBatch[F field.Element[F]] struct {
 	// Target registers for this batch
 	targets []sc.RegisterRef
 	// The computed columns in this batch.
-	columns []trace.ArrayColumn[F]
+	columns []array.MutArray[F]
 	// An error (should one arise)
 	err error
 }

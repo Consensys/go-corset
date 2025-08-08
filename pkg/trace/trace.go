@@ -84,7 +84,7 @@ type RawColumn[T any] struct {
 	// Name of the column
 	Name string
 	// Data held in the column
-	Data array.Array[T]
+	Data array.MutArray[T]
 }
 
 // QualifiedName returns the fully qualified name of this column.

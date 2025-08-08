@@ -22,8 +22,10 @@ import (
 
 // ToBigEndianByteArray converts an array of field elements into an array of
 // byte chunks in big endian form.
-func ToBigEndianByteArray[F Element[F], P word.Pool[uint, word.BigEndian]](arr array.Array[F], pool P) array.Array[word.BigEndian] {
-	var builder = word.NewArray(arr.Len(), arr.BitWidth(), pool)
+func ToBigEndianByteArray[F Element[F], P word.Pool[uint, word.BigEndian]](arr array.Array[F], pool P,
+) array.MutArray[word.BigEndian] {
+	//
+	var narr = word.NewArray(arr.Len(), arr.BitWidth(), pool)
 	//
 	for i := range arr.Len() {
 		var (
@@ -32,10 +34,10 @@ func ToBigEndianByteArray[F Element[F], P word.Pool[uint, word.BigEndian]](arr a
 			trimmed   = ith_bytes[:]
 		)
 		//
-		builder.Set(i, word.NewBigEndian(trimmed))
+		narr.Set(i, word.NewBigEndian(trimmed))
 	}
 	//
-	return builder.Build()
+	return narr
 }
 
 // Pow takes a given value to the power n.
@@ -48,8 +50,7 @@ func Pow[F Element[F]](val F, n uint64) F {
 		if n%2 == 1 {
 			tmp := val
 			val = Pow(val, m)
-			val = val.Mul(val)
-			val = val.Mul(tmp)
+			val = val.Mul(val).Mul(tmp)
 		} else {
 			// Even case is easy
 			val = Pow(val, m)

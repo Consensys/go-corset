@@ -50,12 +50,6 @@ func (p *StaticArray[T]) BitWidth() uint {
 	return p.bitwidth
 }
 
-// Build implementation for the array.Builder interface.  This simply means that
-// a static array is its own builder.
-func (p *StaticArray[T]) Build() array.Array[T] {
-	return p
-}
-
 // Get returns the field element at the given index in this array.
 func (p *StaticArray[T]) Get(index uint) T {
 	var (

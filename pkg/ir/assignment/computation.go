@@ -62,11 +62,12 @@ func (p *Computation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn[bls12_377.Element], error) {
+func (p *Computation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	// Identify Computation
 	fn := findNative[bls12_377.Element](p.Function)
 	// Go!
-	return computeNative(p.Sources, p.Targets, fn, trace, schema), nil
+	return computeNative(p.Sources, fn, trace), nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
@@ -141,10 +142,10 @@ func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 
 // NativeComputation defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation[F field.Element[F]] func([]array.Array[F], word.Pool[uint, F]) []array.Array[F]
+type NativeComputation[F field.Element[F]] func([]array.Array[F], word.Pool[uint, F]) []array.MutArray[F]
 
-func computeNative[F field.Element[F]](sources []sc.RegisterRef, targets []sc.RegisterRef, fn NativeComputation[F],
-	trace tr.Trace[F], schema sc.AnySchema) []tr.ArrayColumn[F] {
+func computeNative[F field.Element[F]](sources []sc.RegisterRef, fn NativeComputation[F],
+	trace tr.Trace[F]) []array.MutArray[F] {
 	// Read inputs
 	inputs := ReadRegisters(trace, sources...)
 	// Read inputs
@@ -153,9 +154,7 @@ func computeNative[F field.Element[F]](sources []sc.RegisterRef, targets []sc.Re
 		inputs[i] = trace.Module(mid).Column(rid).Data()
 	}
 	// Apply native function
-	data := fn(inputs, trace.Pool())
-	// Write outputs
-	return WriteRegisters(schema, targets, data)
+	return fn(inputs, trace.Pool())
 }
 
 // ============================================================================
@@ -189,12 +188,13 @@ func findNative[F field.Element[F]](name string) NativeComputation[F] {
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F]) []array.Array[F] {
-	if len(sources) != 1 {
-		panic("incorrect number of arguments")
-	}
-	// Clone source column (that's it)
-	return []array.Array[F]{sources[0]}
+func idNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F]) []array.MutArray[F] {
+	// if len(sources) != 1 {
+	// 	panic("incorrect number of arguments")
+	// }
+	// // Clone source column (that's it)
+	// return []array.Array[F]{sources[0]}
+	panic("todo")
 }
 
 // // interleaving constructs a single interleaved column from a give set of source

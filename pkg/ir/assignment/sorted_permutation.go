@@ -67,15 +67,14 @@ func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn[bls12_377.Element], error) {
+func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
 	data := sortedPermutationNativeFunction(sources, p.Signs)
-	// Write outputs
-	targets := WriteRegisters(schema, p.Targets, data)
 	//
-	return targets, nil
+	return data, nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
@@ -165,7 +164,7 @@ func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 // Native Function
 // ============================================================================
 
-func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool) []array.Array[F] {
+func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool) []array.MutArray[F] {
 	// // Clone target columns first
 	// targets := cloneNativeFunction(sources)
 	// // Sort target columns (in place)

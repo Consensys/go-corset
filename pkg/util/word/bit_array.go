@@ -57,10 +57,14 @@ func (p *BitArray[T]) BitWidth() uint {
 	return 1
 }
 
-// Build implementation for the array.Builder interface.  This simply means that
-// a static array is its own builder.
-func (p *BitArray[T]) Build() array.Array[T] {
-	return p
+// Clone makes clones of this array producing an otherwise identical copy.
+func (p *BitArray[T]) Clone() array.MutArray[T] {
+	// Allocate sufficient memory
+	ndata := make([]byte, uint(len(p.data)))
+	// Copy over the data
+	copy(ndata, p.data)
+	//
+	return &BitArray[T]{ndata, p.height}
 }
 
 // Get returns the field element at the given index in this array.
@@ -72,6 +76,11 @@ func (p *BitArray[T]) Get(index uint) T {
 	}
 	// Default is zero
 	return b
+}
+
+// Pad implementation for MutArray interface.
+func (p *BitArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
+	panic("todo")
 }
 
 // Set sets the field element at the given index in this array, overwriting the

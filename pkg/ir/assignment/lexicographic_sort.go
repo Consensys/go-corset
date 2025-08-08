@@ -78,7 +78,8 @@ func (p *LexicographicSort) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn[bls12_377.Element], error) {
+func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)
@@ -94,10 +95,8 @@ func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc
 	inputs := ReadRegisters(trace, p.sources...)
 	// Apply native function
 	data := lexSortNativeFunction(bit_width, inputs, p.signs, trace.Pool())
-	// Write out registers
-	outputs := WriteRegisters(schema, p.targets, data)
 	//
-	return outputs, nil
+	return data, nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
