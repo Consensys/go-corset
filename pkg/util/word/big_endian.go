@@ -61,6 +61,79 @@ func (p BigEndian) ByteWidth() uint {
 	return uint(len(p.bytes))
 }
 
+// Cmp64 implementation for Word interface.
+func (p BigEndian) Cmp64(o uint64) int {
+	var (
+		width = p.ByteWidth()
+	)
+	//
+	switch width {
+	case 0:
+		return cmp.Compare(o, 0)
+	case 1:
+		tmp := uint64(p.bytes[0])
+		return cmp.Compare(o, tmp)
+	case 2:
+		tmp := uint64(p.bytes[1])
+		tmp += uint64(p.bytes[0]) << 8
+		//
+		return cmp.Compare(o, tmp)
+	case 3:
+		tmp := uint64(p.bytes[2])
+		tmp += uint64(p.bytes[1]) << 8
+		tmp += uint64(p.bytes[0]) << 16
+		//
+		return cmp.Compare(o, tmp)
+	case 4:
+		tmp := uint64(p.bytes[3])
+		tmp += uint64(p.bytes[2]) << 8
+		tmp += uint64(p.bytes[1]) << 16
+		tmp += uint64(p.bytes[0]) << 24
+		//
+		return cmp.Compare(o, tmp)
+	case 5:
+		tmp := uint64(p.bytes[4])
+		tmp += uint64(p.bytes[3]) << 8
+		tmp += uint64(p.bytes[2]) << 16
+		tmp += uint64(p.bytes[1]) << 24
+		tmp += uint64(p.bytes[0]) << 32
+		//
+		return cmp.Compare(o, tmp)
+	case 6:
+		tmp := uint64(p.bytes[5])
+		tmp += uint64(p.bytes[4]) << 8
+		tmp += uint64(p.bytes[3]) << 16
+		tmp += uint64(p.bytes[2]) << 24
+		tmp += uint64(p.bytes[1]) << 32
+		tmp += uint64(p.bytes[0]) << 40
+		//
+		return cmp.Compare(o, tmp)
+	case 7:
+		tmp := uint64(p.bytes[6])
+		tmp += uint64(p.bytes[5]) << 8
+		tmp += uint64(p.bytes[4]) << 16
+		tmp += uint64(p.bytes[3]) << 24
+		tmp += uint64(p.bytes[2]) << 32
+		tmp += uint64(p.bytes[1]) << 40
+		tmp += uint64(p.bytes[0]) << 48
+		//
+		return cmp.Compare(o, tmp)
+	case 8:
+		tmp := uint64(p.bytes[7])
+		tmp += uint64(p.bytes[6]) << 8
+		tmp += uint64(p.bytes[5]) << 16
+		tmp += uint64(p.bytes[4]) << 24
+		tmp += uint64(p.bytes[3]) << 32
+		tmp += uint64(p.bytes[2]) << 40
+		tmp += uint64(p.bytes[1]) << 48
+		tmp += uint64(p.bytes[0]) << 56
+		//
+		return cmp.Compare(o, tmp)
+	default:
+		return 1
+	}
+}
+
 // Cmp implements a comparison by regarding the word as an unsigned integer.
 func (p BigEndian) Cmp(o BigEndian) int {
 	var (

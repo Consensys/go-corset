@@ -35,6 +35,8 @@ type Word[T any] interface {
 	Bytes() []byte
 	// Compare two words by treating them as unsigned integers.
 	Cmp(T) int
+	// Compare word against 64bit unsigned integer
+	Cmp64(uint64) int
 	// Write contents of this word into given byte array.  If the given byte
 	// array is not big enough, a new array is allocated and returned.  Observe
 	// that, if the word is encoded (e.g. in Montgomerry form), then the
