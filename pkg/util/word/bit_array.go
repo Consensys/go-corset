@@ -93,7 +93,10 @@ func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *BitArray[T]) Set(index uint, word T) {
-	bit.Write(word.Bit(0), p.data, index)
+	// if byte length is 0, the word represents 0.  otherwise, it must be 1.
+	var val = word.ByteWidth() != 0
+	//
+	bit.Write(val, p.data, index)
 }
 
 // Slice out a subregion of this array.

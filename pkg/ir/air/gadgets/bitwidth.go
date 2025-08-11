@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -631,44 +630,43 @@ func splitColumnRanges[F field.Element[F]](nbits uint) []F {
 }
 
 func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array.Array[F]) []array.MutArray[F] {
-	// var (
-	// 	source  = sources[0]
-	// 	targets = make([]array.MutArray[F], n)
-	// 	height  = source.Len()
-	// )
-	// // Sanity check
-	// if len(sources) != 1 {
-	// 	panic("too many source columns for byte decomposition")
-	// }
-	// // Initialise columns
-	// for i := range n {
-	// 	// Construct a byte array for ith byte
-	// 	targets[i] = word.NewArray(height, 8)
-	// }
-	// // Decompose each row of each column
-	// for i := range height {
-	// 	ith := decomposeIntoBytes(source.Get(i), n)
-	// 	for j := uint(0); j < n; j++ {
-	// 		targets[j].Set(i, ith[j])
-	// 	}
-	// }
-	// //
-	// return targets
-	panic("todo")
+	var (
+		source  = sources[0]
+		targets = make([]array.MutArray[F], n)
+		height  = source.Len()
+	)
+	// Sanity check
+	if len(sources) != 1 {
+		panic("too many source columns for byte decomposition")
+	}
+	// Initialise columns
+	for i := range n {
+		// Construct a byte array for ith byte
+		targets[i] = word.NewStaticArray[F](height, 8)
+	}
+	// Decompose each row of each column
+	for i := range height {
+		ith := decomposeIntoBytes(source.Get(i), n)
+		for j := uint(0); j < n; j++ {
+			targets[j].Set(i, ith[j])
+		}
+	}
+	//
+	return targets
 }
 
 // Decompose a given element into n bytes in little endian form.  For example,
 // decomposing 41b into 2 bytes gives [0x1b,0x04].
-func decomposeIntoBytes(val fr.Element, n uint) []fr.Element {
+func decomposeIntoBytes[F field.Element[F]](val F, n uint) []F {
 	// Construct return array
-	elements := make([]fr.Element, n)
+	elements := make([]F, n)
 	// Determine bytes of this value (in big endian form).
 	bytes := val.Bytes()
 	m := uint(len(bytes) - 1)
 	// Convert each byte into a field element
-	for i := uint(0); i < n; i++ {
+	for i := range n {
 		j := m - i
-		ith := fr.NewElement(uint64(bytes[j]))
+		ith := field.Uint64[F](uint64(bytes[j]))
 		elements[i] = ith
 	}
 
