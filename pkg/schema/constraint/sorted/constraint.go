@@ -49,8 +49,8 @@ type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E ir.Evaluable[bls12_377.Element]](handle string, context schema.ModuleId, bitwidth uint, selector util.Option[E],
-	sources []E, signs []bool, strict bool) Constraint[E] {
+func NewSortedConstraint[E ir.Evaluable[bls12_377.Element]](handle string, context schema.ModuleId, bitwidth uint,
+	selector util.Option[E], sources []E, signs []bool, strict bool) Constraint[E] {
 	//
 	return Constraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
 }

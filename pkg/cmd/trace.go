@@ -28,7 +28,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
@@ -140,7 +139,7 @@ func expandColumns(tf lt.TraceFile, schema sc.AnySchema, builder ir.TraceBuilder
 	var (
 		rcols []trace.RawColumn
 		// Construct expanded tr
-		tr, errs = builder.Build(schema, tf)
+		tr, errs = builder.BuildRaw(schema, tf)
 	)
 	// Handle errors
 	if len(errs) > 0 {
@@ -159,7 +158,7 @@ func expandColumns(tf lt.TraceFile, schema sc.AnySchema, builder ir.TraceBuilder
 			rcols = append(rcols, trace.RawColumn{
 				Module: module.Name(),
 				Name:   ith.Name(),
-				Data:   field.ToBigEndianByteArray(ith.Data(), tf.Pool),
+				Data:   ith.Data().Clone(),
 			})
 		}
 	}

@@ -169,6 +169,14 @@ func (tb TraceBuilder) BatchSize() uint {
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[bls12_377.Element], []error) {
+	tr, errors := tb.BuildRaw(schema, tf)
+	//
+	return trace.Wrap[word.BigEndian, bls12_377.Element](tr), errors
+}
+
+// BuildRaw attempts to construct a trace for a given schema, producing errors if
+// there are inconsistencies (e.g. missing columns, duplicate columns, etc).
+func (tb TraceBuilder) BuildRaw(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[word.BigEndian], []error) {
 	var (
 		pool   word.Pool[uint, word.BigEndian]
 		cols   []trace.RawColumn
@@ -219,7 +227,7 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[
 		padColumns(tr, schema, tb.padding)
 	}
 	//
-	return trace.Wrap[word.BigEndian, bls12_377.Element](tr), errors
+	return tr, errors
 }
 
 func initialiseTrace(expanded bool, schema sc.AnySchema, pool builder.WordPool,

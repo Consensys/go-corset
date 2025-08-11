@@ -196,6 +196,13 @@ func (x Element) SetBytes(b []byte) Element {
 	return y
 }
 
+// SetUint64 implementation for Element interface
+func (x Element) SetUint64(val uint64) Element {
+	var elem Element
+	//
+	return elem.AddUint32(uint32(val))
+}
+
 func (x Element) IsZero() bool {
 	return x[0] == 0
 }

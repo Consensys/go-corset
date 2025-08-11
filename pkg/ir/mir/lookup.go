@@ -45,7 +45,9 @@ func subdivideLookup(c LookupConstraint, mapping schema.LimbsMap) LookupConstrai
 // create more source/target pairings.  Rather, it splits registers within the
 // existing pairings only.  Later stages will subdivide and pad the
 // source/target pairings as necessary.
-func mapLookupVectors(vectors []lookup.Vector[bls12_377.Element, Term], mapping schema.LimbsMap) []lookup.Vector[bls12_377.Element, Term] {
+func mapLookupVectors(vectors []lookup.Vector[bls12_377.Element, Term],
+	mapping schema.LimbsMap) []lookup.Vector[bls12_377.Element, Term] {
+	//
 	var nterms = make([]lookup.Vector[bls12_377.Element, Term], len(vectors))
 	//
 	for i, vector := range vectors {

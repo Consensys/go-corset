@@ -231,8 +231,9 @@ func (p *Constraint[E]) checkSourceVectors(
 	return nil
 }
 
-func insertFilteredTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, rows *hash.Set[hash.BytesKey],
-	trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
+func insertFilteredTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
+	handle string, rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element],
+	scModule schema.Module, bytes []byte) schema.Failure {
 	// If no selector, then always selected
 	var selected bool = !vec.HasSelector()
 	//
@@ -264,7 +265,8 @@ func insertFilteredTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Ve
 }
 
 func insertTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string,
-	rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
+	rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element], scModule schema.Module,
+	bytes []byte) schema.Failure {
 	//
 	// Check each source is included
 	if err := evalExprsAsBytes(k, vec, handle, trModule, scModule, bytes); err != nil {
@@ -276,8 +278,9 @@ func insertTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls
 	return nil
 }
 
-func checkFilteredSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, rows *hash.Set[hash.BytesKey],
-	trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
+func checkFilteredSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
+	handle string, rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element],
+	scModule schema.Module, bytes []byte) schema.Failure {
 	// If no selector, then always selected
 	var selected bool = !vec.HasSelector()
 	//
@@ -308,8 +311,9 @@ func checkFilteredSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vec
 	return nil
 }
 
-func checkSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, rows *hash.Set[hash.BytesKey],
-	trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
+func checkSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
+	handle string, rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element],
+	scModule schema.Module, bytes []byte) schema.Failure {
 	// Check each source is included
 	if err := evalExprsAsBytes(k, vec, handle, trModule, scModule, bytes); err != nil {
 		return err
@@ -327,8 +331,8 @@ func checkSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls1
 	return nil
 }
 
-func evalExprsAsBytes[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string, trModule trace.Module[bls12_377.Element],
-	scModule schema.Module, bytes []byte) schema.Failure {
+func evalExprsAsBytes[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
+	handle string, trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
 	var (
 		// Slice provides an access window for writing
 		slice = bytes

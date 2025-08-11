@@ -201,7 +201,7 @@ func checkTrace[C sc.Constraint](t *testing.T, tf lt.TraceFile, id traceId, sche
 		WithParallelism(id.parallel).
 		WithRegisterMapping(mapping).
 		WithBatchSize(128).
-		Build(sc.Any(schema), tf)
+		Build(sc.Any(schema), tf.Clone())
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s): %s", id.String(), errs)

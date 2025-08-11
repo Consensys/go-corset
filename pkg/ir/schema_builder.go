@@ -36,7 +36,8 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]] struct
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[F field.Element[F], C schema.Constraint, T Term[F, T], E schema.Module](externs ...E) SchemaBuilder[F, C, T] {
+func NewSchemaBuilder[F field.Element[F], C schema.Constraint, T Term[F, T], E schema.Module](externs ...E,
+) SchemaBuilder[F, C, T] {
 	var (
 		modmap   = make(map[string]uint, 0)
 		nexterns = make([]schema.Module, len(externs))

@@ -259,7 +259,8 @@ func (p *AirLowering) lowerLookupConstraintToAir(c LookupConstraint, airModule *
 	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
 }
 
-func (p *AirLowering) expandLookupVectorToAir(vector lookup.Vector[bls12_377.Element, Term]) lookup.Vector[bls12_377.Element, *air.ColumnAccess] {
+func (p *AirLowering) expandLookupVectorToAir(vector lookup.Vector[bls12_377.Element, Term],
+) lookup.Vector[bls12_377.Element, *air.ColumnAccess] {
 	var (
 		terms    = p.expandTerms(vector.Module, vector.Terms...)
 		selector util.Option[*air.ColumnAccess]

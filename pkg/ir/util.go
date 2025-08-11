@@ -61,7 +61,9 @@ func lispOfTerms[F any, E any, T Term[F, E]](global bool, mapping schema.Registe
 	return sexp.NewList(arr)
 }
 
-func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
+func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping schema.RegisterMap, op string,
+	exprs []T) sexp.SExp {
+	//
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments

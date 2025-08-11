@@ -94,7 +94,7 @@ func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) {
 		p.Set(i, padding)
 	}
 	// Back padding!
-	for i := n + p.Len(); i < l; i++ {
+	for i := l - m; i < l; i++ {
 		p.Set(i, padding)
 	}
 }

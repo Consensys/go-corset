@@ -13,7 +13,6 @@
 package io
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema"
@@ -183,9 +182,6 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 			cols[i].Set(uint(row), val)
 		}
 	}
-	//
-	fmt.Printf("COLS=%v\n", cols)
-
 	// Set control registers for multi-line functions
 	if multiLine {
 		p.assignControlRegisters(cols, states, pool)

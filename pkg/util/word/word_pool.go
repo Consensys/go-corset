@@ -31,6 +31,8 @@ const HEAP_POOL_LOADING = 75
 // index.  This makes sense when we have a relatively small number of values
 // which can be referred to many times over.
 type Pool[K any, T any] interface {
+	// Clone a pool producing an identical, but unaliased copy.
+	Clone() Pool[K, T]
 	// Lookup a given word in the pool using an index.
 	Get(K) T
 	// Allocate word into pool, returning its index.
@@ -69,6 +71,25 @@ func NewHeapPool[T Word[T]]() *HeapPool[T] {
 	pool.heap = []byte{0}
 	// Done
 	return pool
+}
+
+// Clone implementation for Pool interface
+func (p *HeapPool[T]) Clone() Pool[uint, T] {
+	var (
+		heap    = make([]byte, len(p.heap))
+		lengths = make([]uint8, len(p.lengths))
+		buckets = make([][]uint, len(p.buckets))
+	)
+	//
+	copy(heap, p.heap)
+	copy(lengths, p.lengths)
+	//
+	for i, bucket := range p.buckets {
+		buckets[i] = make([]uint, len(bucket))
+		copy(buckets[i], bucket)
+	}
+	//
+	return &HeapPool[T]{heap: heap, lengths: lengths, buckets: buckets, count: p.count}
 }
 
 // Get implementation for the Pool interface.

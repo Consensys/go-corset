@@ -285,7 +285,8 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 		// rows).
 		util.None[int](),
 		//
-		ir.Equals[bls12_377.Element, mir.LogicalTerm](ir.NewRegisterAccess[bls12_377.Element, mir.Term](target.Register(), 0), computation),
+		ir.Equals[bls12_377.Element, mir.LogicalTerm](
+			ir.NewRegisterAccess[bls12_377.Element, mir.Term](target.Register(), 0), computation),
 	))
 	// Done
 	return nil

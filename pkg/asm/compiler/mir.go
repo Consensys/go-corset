@@ -177,7 +177,7 @@ func (p MirExpr) BigInt(number big.Int) MirExpr {
 	// Not power of 2
 	var num bls12_377.Element
 	//
-	num.Element.SetBigInt(&number)
+	num.SetBigInt(&number)
 	//
 	return MirExpr{ir.Const[bls12_377.Element, mir.Term](num), nil}
 }

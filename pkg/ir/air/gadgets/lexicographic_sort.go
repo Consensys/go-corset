@@ -77,7 +77,8 @@ func NewLexicographicSortingGadget(prefix string, columns []sc.RegisterId, bitwi
 		signs[i] = true
 	}
 	//
-	return &LexicographicSortingGadget{prefix, columns, signs, bitwidth, false, ir.Const64[bls12_377.Element, air.Term](1), 8, false}
+	return &LexicographicSortingGadget{prefix, columns, signs, bitwidth, false,
+		ir.Const64[bls12_377.Element, air.Term](1), 8, false}
 }
 
 // WithSigns configures the directions for all columns being sorted.

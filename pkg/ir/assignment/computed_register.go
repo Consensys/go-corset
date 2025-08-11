@@ -202,7 +202,7 @@ func fwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, Wo
 			return err
 		}
 		//
-		data.Set(i-1, word.FromBigEndian[word.BigEndian](val.Bytes()))
+		data.Set(i, word.FromBigEndian[word.BigEndian](val.Bytes()))
 	}
 	//
 	return nil

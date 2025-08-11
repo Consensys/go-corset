@@ -54,6 +54,21 @@ func NewTraceFile(metadata []byte, pool WordPool, columns []trace.RawColumn) Tra
 	}
 }
 
+// Clone a trace file producing an unaliased copy
+func (p *TraceFile) Clone() TraceFile {
+	var cols = make([]trace.RawColumn, len(p.Columns))
+	//
+	for i := range cols {
+		cols[i] = p.Columns[i].Clone()
+	}
+	//
+	return TraceFile{
+		p.Header,
+		p.Pool.Clone(),
+		cols,
+	}
+}
+
 // IsTraceFile checks whether the given data file begins with the expected
 // "zktracer" identifier.
 func IsTraceFile(data []byte) bool {
