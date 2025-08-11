@@ -102,6 +102,7 @@ func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) {
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *IndexArray[T, P]) Set(index uint, word T) {
+	//
 	p.index[index] = p.pool.Put(word)
 }
 

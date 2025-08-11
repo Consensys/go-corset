@@ -157,9 +157,7 @@ func splitRawColumn(col trace.RawColumn, pool WordPool, mapping schema.LimbsMap)
 		// Extract ith data
 		ith := col.Data.Get(i)
 		// Assign split components
-		for j, v := range splitWord(ith, limbWidths) {
-			arrays[j].Set(i, v)
-		}
+		setSplitWord(ith, i, arrays, limbWidths)
 	}
 	// Construct final columns
 	columns := make([]trace.RawColumn, len(limbIds))
@@ -177,20 +175,17 @@ func splitRawColumn(col trace.RawColumn, pool WordPool, mapping schema.LimbsMap)
 // split a given field element into a given set of limbs, where the least
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
-func splitWord(val word.BigEndian, widths []uint) []word.BigEndian {
+func setSplitWord(val word.BigEndian, row uint, arrays []array.MutArray[word.BigEndian], widths []uint) {
 	var (
-		n = len(widths)
-		//
 		bitwidth = sum(widths...)
 		// Determine bytewidth
 		bytewidth = word.ByteWidth(bitwidth)
 		// Extract bytes whilst ensuring they are in little endian form, and
 		// that they match the expected bitwidth.
-		bytes = reverseAndPad(val.Bytes(), bytewidth)
+		bytes = padAndReverse(val.Bytes(), bytewidth)
 		//
-		bits  = bit.NewReader(bytes[:])
-		buf   [32]byte
-		limbs = make([]word.BigEndian, n)
+		bits = bit.NewReader(bytes[:])
+		buf  [32]byte
 	)
 	// read actual bits
 	for i, w := range widths {
@@ -199,13 +194,11 @@ func splitWord(val word.BigEndian, widths []uint) []word.BigEndian {
 		// Convert back to big endian
 		array.ReverseInPlace(buf[:m])
 		// Done
-		limbs[i] = word.FromBigEndian[word.BigEndian](buf[:m])
+		arrays[i].Set(row, word.FromBigEndian[word.BigEndian](buf[:m]))
 	}
-	//
-	return limbs
 }
 
-func reverseAndPad(bytes []byte, n uint) []byte {
+func padAndReverse(bytes []byte, n uint) []byte {
 	// Make sure bytes is both padded and cloned.
 	switch {
 	case n > uint(len(bytes)):

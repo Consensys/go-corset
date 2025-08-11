@@ -671,7 +671,8 @@ func decomposeIntoBytes[W word.Word[W]](val W, n uint) []W {
 	elements := make([]W, n)
 	// Determine bytes of this value (in big endian form).
 	bytes := val.Bytes()
-	m := uint(len(bytes))
+	//
+	m := min(n, uint(len(bytes)))
 	// Convert each byte into a field element
 	for i := range m {
 		ith := word.Uint64[W](uint64(bytes[i]))

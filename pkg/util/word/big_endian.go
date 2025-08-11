@@ -15,6 +15,7 @@ package word
 import (
 	"bytes"
 	"cmp"
+	"encoding/binary"
 	"hash/fnv"
 	"math/big"
 
@@ -129,7 +130,11 @@ func (p BigEndian) SetBytes(bytes []byte) BigEndian {
 
 // SetUint64 implementation for Word interface.
 func (p BigEndian) SetUint64(value uint64) BigEndian {
-	panic("todo")
+	var bytes [8]byte
+	// Write big endian bytes
+	binary.BigEndian.PutUint64(bytes[:], value)
+	// Trim off leading zeros
+	return BigEndian{trim(bytes[:])}
 }
 
 // Bytes implementation for Word interface.
