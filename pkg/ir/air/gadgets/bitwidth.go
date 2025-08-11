@@ -528,17 +528,26 @@ func computeDecomposition[W word.Word[W]](loWidth, hiWidth uint, vArr array.MutA
 func decompose[W word.Word[W]](loWidth uint, ith W) (W, W) {
 	// Extract bytes from element
 	var (
-		bytes      = ith.Bytes()
-		loFr, hiFr W
+		bytes       = ith.Bytes()
+		loByteWidth = loWidth / 8
+		loFr, hiFr  W
+		n           = uint(len(bytes))
 	)
 	// Sanity check assumption
 	if loWidth%8 != 0 {
 		panic("unreachable")
 	}
 	//
-	n := 32 - (loWidth / 8)
-	hiFr = hiFr.SetBytes(bytes[:n])
-	loFr = loFr.SetBytes(bytes[n:])
+	if loByteWidth >= n {
+		// no high bytes at all
+		loFr = loFr.SetBytes(bytes)
+	} else {
+		// Determine pivot
+		n = n - loByteWidth
+		// Split bytes
+		hiFr = hiFr.SetBytes(bytes[:n])
+		loFr = loFr.SetBytes(bytes[n:])
+	}
 	//
 	return loFr, hiFr
 }
@@ -662,14 +671,12 @@ func decomposeIntoBytes[W word.Word[W]](val W, n uint) []W {
 	elements := make([]W, n)
 	// Determine bytes of this value (in big endian form).
 	bytes := val.Bytes()
-	m := uint(len(bytes) - 1)
+	m := uint(len(bytes))
 	// Convert each byte into a field element
-	for i := range n {
-		j := m - i
-		ith := word.Uint64[W](uint64(bytes[j]))
-		elements[i] = ith
+	for i := range m {
+		ith := word.Uint64[W](uint64(bytes[i]))
+		elements[m-i-1] = ith
 	}
-
 	// Done
 	return elements
 }
