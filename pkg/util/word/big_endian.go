@@ -71,7 +71,7 @@ func (p BigEndian) Cmp(o BigEndian) int {
 	if lp < op {
 		return -1
 	} else if lp > op {
-		return -1
+		return 1
 	}
 	//
 	for i := range lp {
@@ -144,7 +144,46 @@ func (p BigEndian) Bytes() []byte {
 
 // Sub implementation for the Word interface.
 func (p BigEndian) Sub(o BigEndian) (bool, BigEndian) {
-	panic("todo")
+	var (
+		n      = max(p.ByteWidth(), o.ByteWidth())
+		borrow bool
+		bytes  = make([]byte, n)
+		pi     = p.ByteWidth()
+		oi     = o.ByteWidth()
+	)
+	//
+	for pi > 0 && oi > 0 {
+		var tmp uint16
+		//
+		pi--
+		oi--
+		n--
+		//
+		pth := uint16(p.bytes[pi])
+		oth := uint16(o.bytes[oi])
+		//
+		if borrow {
+			tmp = pth - oth - 1
+		} else {
+			tmp = pth - oth
+		}
+		//
+		bytes[n] = uint8(tmp)
+		borrow = (tmp & 0x8000) != 0
+	}
+	// Copy anything left
+	copy(bytes, p.bytes[:pi])
+	copy(bytes, o.bytes[:oi])
+	// Continue subtracting borrow
+	for n > 0 && borrow {
+		n--
+		tmp := uint16(bytes[n]) - 1
+		//
+		bytes[n] = uint8(tmp)
+		borrow = (tmp & 0x8000) != 0
+	}
+	//
+	return borrow, BigEndian{bytes}
 }
 
 func (p BigEndian) String() string {
