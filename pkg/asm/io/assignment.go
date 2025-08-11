@@ -177,7 +177,7 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 				rid = schema.NewRegisterId(uint(i))
 			)
 			//
-			val.SetBytes(st.Load(rid).Bytes())
+			val = val.SetBytes(st.Load(rid).Bytes())
 			//
 			cols[i].Set(uint(row), val)
 		}
