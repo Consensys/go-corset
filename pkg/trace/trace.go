@@ -199,5 +199,5 @@ func (p *frColumn[W, F]) Get(row int) F {
 
 // Data implementation for trace.Column interface.
 func (p *frColumn[W, F]) Data() array.Array[F] {
-	panic("unreachable")
+	return field.NewWrappedArray[W, F](p.trColumn.Data())
 }
