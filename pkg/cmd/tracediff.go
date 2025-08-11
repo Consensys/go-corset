@@ -55,7 +55,7 @@ var traceDiffCmd = &cobra.Command{
 	},
 }
 
-func extractColumnNames(columns []trace.BigEndianColumn) set.SortedSet[string] {
+func extractColumnNames(columns []trace.RawColumn) set.SortedSet[string] {
 	var names set.SortedSet[string]
 	//
 	for _, c := range columns {
@@ -73,8 +73,8 @@ func reportExtraColumns(name string, columns []string, common set.SortedSet[stri
 	}
 }
 
-func filterCommonColumns(columns []trace.BigEndianColumn, common set.SortedSet[string]) []trace.BigEndianColumn {
-	var ncolumns []trace.BigEndianColumn
+func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]) []trace.RawColumn {
+	var ncolumns []trace.RawColumn
 	//
 	for _, c := range columns {
 		if common.Contains(c.QualifiedName()) {
@@ -85,7 +85,7 @@ func filterCommonColumns(columns []trace.BigEndianColumn, common set.SortedSet[s
 	return ncolumns
 }
 
-func parallelDiff(columns1 []trace.BigEndianColumn, columns2 []trace.BigEndianColumn) []error {
+func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
 	errors := make([]error, 0)
 	ncols := len(columns1)
 	// Look through all STAMP columns searching for 0s at the end.
@@ -107,7 +107,7 @@ func parallelDiff(columns1 []trace.BigEndianColumn, columns2 []trace.BigEndianCo
 	return errors
 }
 
-func diffColumns(index int, columns1 []trace.BigEndianColumn, columns2 []trace.BigEndianColumn) []error {
+func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
 	errors := make([]error, 0)
 	name := columns1[index].QualifiedName()
 	data1 := columns1[index].Data
@@ -181,7 +181,7 @@ func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] 
 	return summary
 }
 
-func findColumn(name string, columns []trace.BigEndianColumn) *trace.BigEndianColumn {
+func findColumn(name string, columns []trace.RawColumn) *trace.RawColumn {
 	for _, c := range columns {
 		if c.QualifiedName() == name {
 			return &c

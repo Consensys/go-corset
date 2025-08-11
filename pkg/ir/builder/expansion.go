@@ -21,14 +21,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceExpansion expands a given trace according to a given schema. More
 // specifically, that means computing the actual values for any assignments.
 // This is done using a straightforward sequential algorithm.
-func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[bls12_377.Element]) error {
+func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[word.BigEndian]) error {
 	var (
 		err error
 		// Start timer
@@ -50,14 +49,14 @@ func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *t
 // SequentialTraceExpansion expands a given trace according to a given schema.
 // More specifically, that means computing the actual values for any
 // assignments.  This is done using a straightforward sequential algorithm.
-func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[bls12_377.Element]) error {
+func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[word.BigEndian]) error {
 	var (
 		err      error
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
 	// Compute each assignment in turn
 	for !expander.Done() {
-		var cols []array.MutArray[bls12_377.Element]
+		var cols []array.MutArray[word.BigEndian]
 		// Get next assignment
 		ith := expander.Next(1)[0]
 		// Compute ith assignment(s)
@@ -76,11 +75,11 @@ func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[bls12
 // continuous approach.  This is for two reasons: firstly, the latter would
 // require locks that would slow down evaluation performance; secondly, the vast
 // majority of jobs are run in the very first wave.
-func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[bls12_377.Element]) error {
+func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[word.BigEndian]) error {
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
-		ch = make(chan columnBatch[bls12_377.Element], batchsize)
+		ch = make(chan columnBatch, batchsize)
 		//
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
@@ -93,7 +92,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 		// Dispatch next batch of assignments.
 		dispatchReadyAssignments(batch, schema, trace, ch)
 		//
-		batches := make([]columnBatch[bls12_377.Element], len(batch))
+		batches := make([]columnBatch, len(batch))
 		// Collect all the results
 		for i := range len(batch) {
 			batches[i] = <-ch
@@ -120,14 +119,14 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 // Dispatch the given set of assignments with results being fed back into the
 // shared channel.
 func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema,
-	trace *tr.ArrayTrace[bls12_377.Element], ch chan columnBatch[bls12_377.Element]) {
+	trace *tr.ArrayTrace[word.BigEndian], ch chan columnBatch) {
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {
 		// Dispatch!
 		go func(targets []sc.RegisterRef) {
 			cols, err := ith.Compute(trace, schema)
 			// Send outcome back
-			ch <- columnBatch[bls12_377.Element]{targets, cols, err}
+			ch <- columnBatch{targets, cols, err}
 		}(ith.RegistersWritten())
 	}
 }
@@ -135,7 +134,7 @@ func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema,
 // Fill a set of columns with their computed results.  The column index is that
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
-func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []array.MutArray[F], trace *tr.ArrayTrace[F]) {
+func fillComputedColumns[W word.Word[W]](refs []sc.RegisterRef, cols []array.MutArray[W], trace *tr.ArrayTrace[W]) {
 	var resized bit.Set
 	// Add all columns
 	for i, ref := range refs {
@@ -158,11 +157,11 @@ func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []array
 }
 
 // Result from given computation.
-type columnBatch[F field.Element[F]] struct {
+type columnBatch struct {
 	// Target registers for this batch
 	targets []sc.RegisterRef
 	// The computed columns in this batch.
-	columns []array.MutArray[F]
+	columns []array.MutArray[word.BigEndian]
 	// An error (should one arise)
 	err error
 }

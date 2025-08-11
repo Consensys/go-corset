@@ -21,8 +21,6 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -62,10 +60,10 @@ func (p *Computation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p *Computation) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
+) ([]array.MutArray[word.BigEndian], error) {
 	// Identify Computation
-	fn := findNative[bls12_377.Element](p.Function)
+	fn := findNative(p.Function)
 	// Go!
 	return computeNative(p.Sources, fn, trace), nil
 }
@@ -142,10 +140,10 @@ func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 
 // NativeComputation defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation[F field.Element[F]] func([]array.Array[F], word.Pool[uint, F]) []array.MutArray[F]
+type NativeComputation func([]array.Array[word.BigEndian], WordPool) []array.MutArray[word.BigEndian]
 
-func computeNative[F field.Element[F]](sources []sc.RegisterRef, fn NativeComputation[F],
-	trace tr.Trace[F]) []array.MutArray[F] {
+func computeNative(sources []sc.RegisterRef, fn NativeComputation, trace tr.Trace[word.BigEndian],
+) []array.MutArray[word.BigEndian] {
 	// Read inputs
 	inputs := ReadRegisters(trace, sources...)
 	// Read inputs
@@ -161,10 +159,10 @@ func computeNative[F field.Element[F]](sources []sc.RegisterRef, fn NativeComput
 // Native Function Definitions
 // ============================================================================
 
-func findNative[F field.Element[F]](name string) NativeComputation[F] {
+func findNative(name string) NativeComputation {
 	switch name {
 	case "id":
-		return idNativeFunction[F]
+		return idNativeFunction
 	// case "interleave":
 	// 	return interleaveNativeFunction
 	// case "filter":
@@ -188,7 +186,7 @@ func findNative[F field.Element[F]](name string) NativeComputation[F] {
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F]) []array.MutArray[F] {
+func idNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W]) []array.MutArray[W] {
 	// if len(sources) != 1 {
 	// 	panic("incorrect number of arguments")
 	// }

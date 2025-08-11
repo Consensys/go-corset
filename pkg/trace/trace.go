@@ -13,7 +13,6 @@
 package trace
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -22,7 +21,7 @@ import (
 
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
-type Trace[F field.Element[F]] interface {
+type Trace[F any] interface {
 	// Access a given column directly via a reference.
 	Column(ColumnRef) Column[F]
 	// Access a given module in this trace.
@@ -66,26 +65,25 @@ type Column[T any] interface {
 	Data() array.Array[T]
 }
 
-// RawFrColumn is a temporary alias which should be deprecated shortly.
-type RawFrColumn = RawColumn[fr.Element]
-
-// BigEndianColumn captures the notion of a raw column holding the bytes of an
-// unsigned integer in big endian form.
-type BigEndianColumn = RawColumn[word.BigEndian]
-
 // RawColumn represents a raw column of data which has not (yet) been indexed as
 // part of a trace, etc.  Raw columns are typically read directly from trace
 // files, and subsequently indexed into a trace during the expansion process.
-type RawColumn[T any] struct {
+type RawColumn struct {
 	// Name of the enclosing module
 	Module string
 	// Name of the column
 	Name string
 	// Data held in the column
-	Data array.MutArray[T]
+	Data array.MutArray[word.BigEndian]
 }
 
 // QualifiedName returns the fully qualified name of this column.
-func (p *RawColumn[T]) QualifiedName() string {
+func (p *RawColumn) QualifiedName() string {
 	return QualifiedColumnName(p.Module, p.Name)
+}
+
+// Wrap provides a wrapper which makes a trace of words look like a trace of
+// field elements.
+func Wrap[W word.Word[W], F field.Element[F]](trace Trace[W]) Trace[F] {
+	panic("todo")
 }

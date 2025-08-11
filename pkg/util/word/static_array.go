@@ -58,7 +58,7 @@ func (p *StaticArray[T]) Get(index uint) T {
 		bytes  = p.data[offset : offset+p.bytewidth]
 	)
 	//
-	return item.SetRawBytes(bytes)
+	return item.SetBytes(bytes)
 }
 
 // Set sets the field element at the given index in this array, overwriting the
@@ -69,7 +69,7 @@ func (p *StaticArray[T]) Set(index uint, word T) {
 		bytes  = p.data[offset : offset+p.bytewidth]
 	)
 	// Copy over
-	word.PutRawBytes(bytes)
+	word.PutBytes(bytes)
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.

@@ -256,8 +256,8 @@ func (p *typeDecomposition) AddSource(source sc.RegisterRef) {
 
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *typeDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p *typeDecomposition) Compute(tr trace.Trace[word.BigEndian], schema sc.AnySchema,
+) ([]array.MutArray[word.BigEndian], error) {
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.sources...)
 	// Combine all sources
@@ -350,8 +350,8 @@ type byteDecomposition struct {
 
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *byteDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p *byteDecomposition) Compute(tr trace.Trace[word.BigEndian], schema sc.AnySchema,
+) ([]array.MutArray[word.BigEndian], error) {
 	var n = uint(len(p.targets))
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.source)
@@ -468,11 +468,11 @@ func determineLimbSplit(bitwidth uint) (uint, uint) {
 
 // Combine all values from the given source registers into a single array of
 // data, whilst eliminating duplicates.
-func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
-	pool word.Pool[uint, F]) array.MutArray[F] {
+func combineSources[W word.Word[W]](bitwidth uint, sources []array.Array[W],
+	pool word.Pool[uint, W]) array.MutArray[W] {
 	//
 	var (
-		zero F
+		zero W
 		arr  = word.NewIndexArray(0, bitwidth, pool)
 		seen bit.Set
 	)
@@ -500,8 +500,8 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 	return arr
 }
 
-func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.MutArray[F],
-	pool word.Pool[uint, F]) []array.MutArray[F] {
+func computeDecomposition[W word.Word[W]](loWidth, hiWidth uint, vArr array.MutArray[W],
+	pool word.Pool[uint, W]) []array.MutArray[W] {
 	// FIXME: using an index array here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce
@@ -520,16 +520,16 @@ func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.
 		vHiArr.Set(i, hi)
 	}
 	//
-	return []array.MutArray[F]{vArr, vLoArr, vHiArr}
+	return []array.MutArray[W]{vArr, vLoArr, vHiArr}
 }
 
 // Decompose a given field element into its least and most significant limbs,
 // based on the required bitwidth for the least significant limb.
-func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
+func decompose[W word.Word[W]](loWidth uint, ith W) (W, W) {
 	// Extract bytes from element
 	var (
 		bytes      = ith.Bytes()
-		loFr, hiFr F
+		loFr, hiFr W
 	)
 	// Sanity check assumption
 	if loWidth%8 != 0 {
@@ -609,7 +609,7 @@ func splitColumnRanges[F field.Element[F]](nbits uint) []F {
 		n      = nbits / 8
 		m      = nbits % 8
 		ranges []F
-		// FIXME: following fails for small fields!
+		// FIXME: following fails for very small fields like GF251!
 		two8 F = field.Uint64[F](256)
 	)
 	//
@@ -622,17 +622,17 @@ func splitColumnRanges[F field.Element[F]](nbits uint) []F {
 		ranges[n] = field.TwoPowN[F](m)
 	}
 	//
-	for i := uint(0); i < n; i++ {
+	for i := range n {
 		ranges[i] = two8
 	}
 	//
 	return ranges
 }
 
-func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array.Array[F]) []array.MutArray[F] {
+func byteDecompositionNativeFunction[W word.Word[W]](n uint, sources []array.Array[W]) []array.MutArray[W] {
 	var (
 		source  = sources[0]
-		targets = make([]array.MutArray[F], n)
+		targets = make([]array.MutArray[W], n)
 		height  = source.Len()
 	)
 	// Sanity check
@@ -642,7 +642,7 @@ func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array
 	// Initialise columns
 	for i := range n {
 		// Construct a byte array for ith byte
-		targets[i] = word.NewStaticArray[F](height, 8)
+		targets[i] = word.NewStaticArray[W](height, 8)
 	}
 	// Decompose each row of each column
 	for i := range height {
@@ -657,16 +657,16 @@ func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array
 
 // Decompose a given element into n bytes in little endian form.  For example,
 // decomposing 41b into 2 bytes gives [0x1b,0x04].
-func decomposeIntoBytes[F field.Element[F]](val F, n uint) []F {
+func decomposeIntoBytes[W word.Word[W]](val W, n uint) []W {
 	// Construct return array
-	elements := make([]F, n)
+	elements := make([]W, n)
 	// Determine bytes of this value (in big endian form).
 	bytes := val.Bytes()
 	m := uint(len(bytes) - 1)
 	// Convert each byte into a field element
 	for i := range n {
 		j := m - i
-		ith := field.Uint64[F](uint64(bytes[j]))
+		ith := word.Uint64[W](uint64(bytes[j]))
 		elements[i] = ith
 	}
 

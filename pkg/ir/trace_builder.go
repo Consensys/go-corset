@@ -20,7 +20,6 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
-	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -171,20 +170,20 @@ func (tb TraceBuilder) BatchSize() uint {
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[bls12_377.Element], []error) {
 	var (
-		pool   word.Pool[uint, bls12_377.Element]
-		cols   []trace.RawColumn[bls12_377.Element]
+		pool   word.Pool[uint, word.BigEndian]
+		cols   []trace.RawColumn
 		errors []error
 	)
 	// If expansion is enabled, then we must split the trace according to the
 	// given mapping; otherwise, we simply lower the trace as is.
 	if tb.mapping != nil && tb.expand {
 		// Split raw columns, and handle any errors arising.
-		if pool, cols, errors = builder.TraceSplitting[bls12_377.Element](tb.parallel, tf, tb.mapping); len(errors) > 0 {
+		if pool, cols, errors = builder.TraceSplitting(tb.parallel, tf, tb.mapping); len(errors) > 0 {
 			return nil, errors
 		}
 	} else {
 		// Lower raw columns
-		pool, cols = builder.TraceLowering[bls12_377.Element](tb.parallel, tf)
+		pool, cols = tf.Pool, tf.Columns
 	}
 	// Initialise the actual trace object
 	tr, errors := initialiseTrace(!tb.expand, schema, pool, cols)
@@ -220,16 +219,16 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[
 		padColumns(tr, schema, tb.padding)
 	}
 	//
-	return tr, errors
+	return trace.Wrap[word.BigEndian, bls12_377.Element](tr), errors
 }
 
-func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema, pool word.Pool[uint, F],
-	cols []trace.RawColumn[F]) (*trace.ArrayTrace[F], []error) {
+func initialiseTrace(expanded bool, schema sc.AnySchema, pool builder.WordPool,
+	cols []trace.RawColumn) (*trace.ArrayTrace[word.BigEndian], []error) {
 	//
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
-		modules = make([]trace.ArrayModule[F], schema.Width())
+		modules = make([]trace.ArrayModule[word.BigEndian], schema.Width())
 	)
 	//
 	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
@@ -259,8 +258,8 @@ func initialiseModuleMap(schema sc.AnySchema) map[string]uint {
 	return modmap
 }
 
-func splitTraceColumns[T word.Word[T]](expanded bool, schema sc.AnySchema, modmap map[string]uint,
-	cols []trace.RawColumn[T]) ([][]trace.RawColumn[T], []error) {
+func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uint,
+	cols []trace.RawColumn) ([][]trace.RawColumn, []error) {
 	//
 	var (
 		// Errs contains the set of filling errors which are accumulated
@@ -269,7 +268,7 @@ func splitTraceColumns[T word.Word[T]](expanded bool, schema sc.AnySchema, modma
 		seen map[columnKey]bool = make(map[columnKey]bool, 0)
 	)
 	//
-	colmap, modules := initialiseColumnMap[T](expanded, schema)
+	colmap, modules := initialiseColumnMap(expanded, schema)
 	// Assign data from each input column given
 	for _, col := range cols {
 		// Lookup the module
@@ -309,15 +308,15 @@ func splitTraceColumns[T word.Word[T]](expanded bool, schema sc.AnySchema, modma
 	return modules, errs
 }
 
-func initialiseColumnMap[T word.Word[T]](expanded bool, schema sc.AnySchema) (map[columnKey]columnId, [][]trace.RawColumn[T]) {
+func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]columnId, [][]trace.RawColumn) {
 	var (
 		colmap  = make(map[columnKey]columnId, 100)
-		modules = make([][]trace.RawColumn[T], schema.Width())
+		modules = make([][]trace.RawColumn, schema.Width())
 	)
 	// Initialise modules
 	for i := uint(0); i != schema.Width(); i++ {
 		m := schema.Module(i)
-		columns := make([]trace.RawColumn[T], m.Width())
+		columns := make([]trace.RawColumn, m.Width())
 		//
 		for j := uint(0); j != m.Width(); j++ {
 			var (
@@ -331,7 +330,7 @@ func initialiseColumnMap[T word.Word[T]](expanded bool, schema sc.AnySchema) (ma
 				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
 			}
 			// Add initially empty column
-			columns[j] = trace.RawColumn[T]{
+			columns[j] = trace.RawColumn{
 				Module: m.Name(),
 				Name:   col.Name,
 				Data:   nil,
@@ -348,17 +347,19 @@ func initialiseColumnMap[T word.Word[T]](expanded bool, schema sc.AnySchema) (ma
 	return colmap, modules
 }
 
-func fillTraceModule[F field.Element[F]](mod sc.Module, rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
+func fillTraceModule(mod sc.Module, rawColumns []trace.RawColumn) trace.ArrayModule[word.BigEndian] {
 	var (
-		traceColumns = make([]trace.ArrayColumn[F], len(rawColumns))
+		traceColumns = make([]trace.ArrayColumn[word.BigEndian], len(rawColumns))
 	)
 	//
 	for i := range traceColumns {
 		var (
-			ith       = rawColumns[i]
-			reg       = mod.Register(sc.NewRegisterId(uint(i)))
-			padding F = field.BigInt[F](reg.Padding)
+			ith     = rawColumns[i]
+			reg     = mod.Register(sc.NewRegisterId(uint(i)))
+			padding word.BigEndian
 		)
+		//
+		padding = padding.SetBytes(reg.Padding.Bytes())
 		//
 		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, padding)
 	}
@@ -368,7 +369,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module, rawColumns []trace.RawCo
 
 // pad each module with its given level of spillage and (optionally) ensure a
 // given level of defensive padding.
-func addSpillageAndDefensivePadding[F field.Element[F]](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema) {
+func addSpillageAndDefensivePadding(defensive bool, tr *trace.ArrayTrace[word.BigEndian], schema sc.AnySchema) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
@@ -383,7 +384,7 @@ func addSpillageAndDefensivePadding[F field.Element[F]](defensive bool, tr *trac
 }
 
 // determineModuleHeights returns the height for each module in the trace.
-func determineModuleHeights[F field.Element[F]](tr *trace.ArrayTrace[F]) []uint {
+func determineModuleHeights[W word.Word[W]](tr *trace.ArrayTrace[W]) []uint {
 	n := tr.Modules().Count()
 	mid := 0
 	heights := make([]uint, n)
@@ -399,7 +400,9 @@ func determineModuleHeights[F field.Element[F]](tr *trace.ArrayTrace[F]) []uint 
 
 // checkModuleHeights checks the expanded heights match exactly what was
 // expected.
-func checkModuleHeights[F field.Element[F]](original []uint, defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema) error {
+func checkModuleHeights[W word.Word[W]](original []uint, defensive bool, tr *trace.ArrayTrace[W],
+	schema sc.AnySchema) error {
+	//
 	expanded := determineModuleHeights(tr)
 	//
 	for mid := uint(0); mid < uint(len(expanded)); mid++ {
@@ -419,7 +422,7 @@ func checkModuleHeights[F field.Element[F]](original []uint, defensive bool, tr 
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padColumns[F field.Element[F]](tr *trace.ArrayTrace[F], schema sc.AnySchema, padding uint) {
+func padColumns[W word.Word[W]](tr *trace.ArrayTrace[W], schema sc.AnySchema, padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {

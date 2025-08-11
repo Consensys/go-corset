@@ -32,15 +32,22 @@ type Word[T any] interface {
 	ByteWidth() uint
 	// Returns the raw bytes of this word.  Observe that, if the word is encoded
 	// (e.g. in Montgomerry form), then the *encoded* bytes are returned.
-	RawBytes() []byte
+	Bytes() []byte
+	// Compare two words by treating them as unsigned integers.
+	Cmp(T) int
 	// Write contents of this word into given byte array.  If the given byte
 	// array is not big enough, a new array is allocated and returned.  Observe
 	// that, if the word is encoded (e.g. in Montgomerry form), then the
 	// *encoded* bytes are written.
-	PutRawBytes([]byte) []byte
+	PutBytes([]byte) []byte
 	// Initialise this word from a set of raw bytes.  Observe that, if the word
 	// is encoded (e.g. in Montgomerry form), then *encoded* bytes are assigned.
-	SetRawBytes([]byte) T
+	SetBytes([]byte) T
+	// Set this word to a uint64 value
+	SetUint64(uint64) T
+	// Subtract a given word from this word by treating both as unsigned
+	// integers, producing the delta and a borrow bit.
+	Sub(other T) (borrow bool, delta T)
 }
 
 // NewArray constructs a new word array with a given capacity.
@@ -55,4 +62,18 @@ func NewArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) ar
 	default:
 		return NewIndexArray[T, P](height, bitwidth, pool)
 	}
+}
+
+// FromBigEndian constructs a word from an array of bytes given in big endian order.
+func FromBigEndian[W Word[W]](bytes []byte) W {
+	var word W
+	//
+	return word.SetBytes(bytes)
+}
+
+// Uint64 constructs a word from a given uint64 value.
+func Uint64[W Word[W]](value uint64) W {
+	var word W
+	//
+	return word.SetUint64(value)
 }

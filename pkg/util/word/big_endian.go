@@ -14,6 +14,7 @@ package word
 
 import (
 	"bytes"
+	"cmp"
 	"hash/fnv"
 	"math/big"
 
@@ -59,9 +60,27 @@ func (p BigEndian) ByteWidth() uint {
 	return uint(len(p.bytes))
 }
 
-// Cmp implements a byte comparisong between two big endian instances.
+// Cmp implements a comparison by regarding the word as an unsigned integer.
 func (p BigEndian) Cmp(o BigEndian) int {
-	return bytes.Compare(p.bytes, o.bytes)
+	var (
+		lp = len(p.bytes)
+		op = len(o.bytes)
+	)
+	//
+	if lp < op {
+		return -1
+	} else if lp > op {
+		return -1
+	}
+	//
+	for i := range lp {
+		c := cmp.Compare(p.bytes[i], o.bytes[i])
+		if c != 0 {
+			return c
+		}
+	}
+	//
+	return 0
 }
 
 // Equals implementation for the hash.Hasher interface.
@@ -77,8 +96,8 @@ func (p BigEndian) Hash() uint64 {
 	return hash.Sum64()
 }
 
-// PutRawBytes implementation for Word interface.
-func (p BigEndian) PutRawBytes(bytes []byte) []byte {
+// PutBytes implementation for Word interface.
+func (p BigEndian) PutBytes(bytes []byte) []byte {
 	var (
 		n = uint(len(bytes))
 		m = uint(len(p.bytes))
@@ -103,14 +122,24 @@ func (p BigEndian) PutRawBytes(bytes []byte) []byte {
 	return bytes
 }
 
-// SetRawBytes implementation for Word interface.
-func (p BigEndian) SetRawBytes(bytes []byte) BigEndian {
+// SetBytes implementation for Word interface.
+func (p BigEndian) SetBytes(bytes []byte) BigEndian {
 	return BigEndian{trim(bytes)}
 }
 
-// RawBytes implementation for Word interface.
-func (p BigEndian) RawBytes() []byte {
+// SetUint64 implementation for Word interface.
+func (p BigEndian) SetUint64(value uint64) BigEndian {
+	panic("todo")
+}
+
+// Bytes implementation for Word interface.
+func (p BigEndian) Bytes() []byte {
 	return p.bytes
+}
+
+// Sub implementation for the Word interface.
+func (p BigEndian) Sub(o BigEndian) (bool, BigEndian) {
+	panic("todo")
 }
 
 func (p BigEndian) String() string {

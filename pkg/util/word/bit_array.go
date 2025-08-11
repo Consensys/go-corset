@@ -72,7 +72,7 @@ func (p *BitArray[T]) Get(index uint) T {
 	var b T
 	//
 	if bit.Read(p.data, index) {
-		return b.SetRawBytes(bitOne)
+		return b.SetBytes(bitOne)
 	}
 	// Default is zero
 	return b

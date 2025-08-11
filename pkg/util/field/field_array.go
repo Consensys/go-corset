@@ -13,17 +13,8 @@
 package field
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
-
-type Pool = word.Pool[uint, bls12_377.Element]
-
-// FrArray represents an array of field elements.
-type FrArray = array.Array[fr.Element]
 
 // BatchInvert efficiently inverts the list of elements s, in place.
 func BatchInvert[T Element[T]](s []T) {

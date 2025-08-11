@@ -165,7 +165,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 // (i.e. binary or json) is based on the extension.
 func ReadTraceFile(filename string) lt.TraceFile {
 	var (
-		columns []trace.BigEndianColumn
+		columns []trace.RawColumn
 		pool    word.Pool[uint, word.BigEndian]
 	)
 	// Read data file
@@ -252,7 +252,7 @@ func WriteBinaryFile(binfile *binfile.BinaryFile, filename string) {
 	}
 }
 
-func maxHeightColumns[T any](cols []trace.RawColumn[T]) uint {
+func maxHeightColumns(cols []trace.RawColumn) uint {
 	h := uint(0)
 	// Iterate over modules
 	for _, col := range cols {

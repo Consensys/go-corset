@@ -16,13 +16,16 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
+// WordPool offsets a convenient alias
+type WordPool = word.Pool[uint, word.BigEndian]
+
 // ReadRegisters a given set of registers from a trace.
-func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef) []array.Array[F] {
+func ReadRegisters[W word.Word[W]](trace tr.Trace[W], regs ...sc.RegisterRef) []array.Array[W] {
 	var (
-		targets = make([]array.Array[F], len(regs))
+		targets = make([]array.Array[W], len(regs))
 	)
 	// Read registers
 	for i, ref := range regs {

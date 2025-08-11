@@ -70,17 +70,18 @@ func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema schema.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p *ComputedRegister) Compute(tr trace.Trace[word.BigEndian], schema schema.AnySchema,
+) ([]array.MutArray[word.BigEndian], error) {
 	var (
-		trModule = tr.Module(p.Target.Module())
+		frTrace  = trace.Wrap[word.BigEndian, bls12_377.Element](tr)
+		frModule = frTrace.Module(p.Target.Module())
 		scModule = schema.Module(p.Target.Module())
-		wrapper  = recModule[bls12_377.Element]{p.Target.Column().Unwrap(), nil, trModule}
+		wrapper  = recModule[bls12_377.Element]{p.Target.Column().Unwrap(), nil, frModule}
 		register = schema.Register(p.Target)
 		err      error
 	)
 	// Determine multiplied height
-	height := trModule.Height()
+	height := frModule.Height()
 	// FIXME: using an index array here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce
@@ -91,7 +92,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema sch
 	// Expand the trace
 	if !p.IsRecursive() {
 		// Non-recursive computation
-		err = fwdComputation(wrapper.data, p.Expr, trModule, scModule)
+		err = fwdComputation(wrapper.data, p.Expr, frModule, scModule)
 	} else if p.Direction {
 		// Forwards recursive computation
 		err = fwdComputation(wrapper.data, p.Expr, &wrapper, scModule)
@@ -104,7 +105,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema sch
 		return nil, err
 	}
 	// Done
-	return []array.MutArray[bls12_377.Element]{wrapper.data}, err
+	return []array.MutArray[word.BigEndian]{wrapper.data}, err
 }
 
 // Consistent performs some simple checks that the given assignment is
@@ -191,7 +192,7 @@ func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+func fwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, WordPool], expr ir.Evaluable[F],
 	trMod trace.Module[F], scMod schema.Module) error {
 	// Forwards computation
 	for i := uint(0); i < data.Len(); i++ {
@@ -201,13 +202,13 @@ func fwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint,
 			return err
 		}
 		//
-		data.Set(i, val)
+		data.Set(i-1, word.FromBigEndian[word.BigEndian](val.Bytes()))
 	}
 	//
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+func bwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, WordPool], expr ir.Evaluable[F],
 	trMod trace.Module[F], scMod schema.Module) error {
 	// Backwards computation
 	for i := data.Len(); i > 0; i-- {
@@ -217,7 +218,7 @@ func bwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint,
 			return err
 		}
 		//
-		data.Set(i-1, val)
+		data.Set(i-1, word.FromBigEndian[word.BigEndian](val.Bytes()))
 	}
 	//
 	return nil
@@ -228,7 +229,7 @@ func bwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint,
 // being generated.
 type recModule[F field.Element[F]] struct {
 	col      uint
-	data     *word.IndexArray[F, word.Pool[uint, F]]
+	data     *word.IndexArray[word.BigEndian, WordPool]
 	trModule trace.Module[F]
 }
 
@@ -266,7 +267,7 @@ func (p *recModule[F]) Height() uint {
 // RecColumn is a wrapper which enables the array being computed to be accessed
 // during its own computation.
 type recColumn[F field.Element[F]] struct {
-	data *word.IndexArray[F, word.Pool[uint, F]]
+	data *word.IndexArray[word.BigEndian, WordPool]
 }
 
 // Holds the name of this column
@@ -281,7 +282,7 @@ func (p *recColumn[F]) Get(row int) F {
 		return field.Zero[F]()
 	}
 	//
-	return p.data.Get(uint(row))
+	return field.FromBigEndianBytes[F](p.data.Get(uint(row)).Bytes())
 }
 
 // Data implementation for trace.Column interface.

@@ -41,12 +41,12 @@ type TraceFile struct {
 	// Word pool
 	Pool WordPool
 	// Column data
-	Columns []trace.BigEndianColumn
+	Columns []trace.RawColumn
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(metadata []byte, pool WordPool, columns []trace.BigEndianColumn) TraceFile {
+func NewTraceFile(metadata []byte, pool WordPool, columns []trace.RawColumn) TraceFile {
 	return TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		pool,

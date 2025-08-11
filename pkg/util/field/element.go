@@ -13,15 +13,13 @@
 package field
 
 import (
+	"fmt"
 	"math/big"
-
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // An Element of a prime-order field.
 type Element[Operand any] interface {
-	// Field elements are always words
-	word.Word[Operand]
+	fmt.Stringer
 	// Add x+y
 	Add(y Operand) Operand
 	// Bytes returns the (big-endian) bytes representing this element as an
