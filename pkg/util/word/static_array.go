@@ -85,7 +85,7 @@ func (p *StaticArray[T]) Clone() array.MutArray[T] {
 // Slice out a subregion of this array.
 func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
 	return &StaticArray[T]{
-		p.data[start:end], p.bitwidth, p.bytewidth,
+		p.data[start*p.bytewidth : end*p.bytewidth], p.bitwidth, p.bytewidth,
 	}
 }
 
