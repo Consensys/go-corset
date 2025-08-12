@@ -267,8 +267,9 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 		// Determine direction of comptuation
 		direction = d.Target.InnerBinding().Kind != ast.COMPUTED_BWD
 		// Determine MIR identifier for target register
-		targetPath = path.Extend(d.Target.Name())
-		target     = schema.NewRegisterRef(module.Id(), t.registerIndexOf(targetPath))
+		targetPath  = path.Extend(d.Target.Name())
+		targetIndex = t.registerIndexOf(targetPath)
+		target      = schema.NewRegisterRef(module.Id(), targetIndex)
 		// Translate computation
 		computation, errors = t.translateExpression(d.Computation, module, 0)
 	)
@@ -276,6 +277,8 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 	if len(errors) != 0 {
 		return errors
 	}
+	// Calculate and update padding value
+	module.Registers()[targetIndex.Unwrap()].Padding = ir.PaddingFor(computation, module)
 	// Add assignment
 	module.AddAssignment(assignment.NewComputedRegister(target, computation, direction))
 	// Add constraint (defconstraint target == computation)

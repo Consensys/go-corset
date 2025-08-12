@@ -1201,6 +1201,9 @@ func Test_Valid_ComputedColumn_03(t *testing.T) {
 func Test_Valid_ComputedColumn_04(t *testing.T) {
 	test_util.Check(t, false, "valid/computedcolumn_04")
 }
+func Test_Valid_ComputedColumn_05(t *testing.T) {
+	test_util.Check(t, false, "valid/computedcolumn_05")
+}
 
 // ===================================================================
 // Native computations

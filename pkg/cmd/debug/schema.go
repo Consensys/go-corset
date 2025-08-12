@@ -15,7 +15,6 @@ package debug
 import (
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -111,7 +110,6 @@ func printModule(module schema.Module, sc schema.AnySchema, width uint) {
 func printRegisters(module schema.Module, prefix string, filter func(schema.Register) bool) {
 	var (
 		regT string
-		zero big.Int
 	)
 
 	if countRegisters(module, filter) != 0 {
@@ -127,12 +125,8 @@ func printRegisters(module schema.Module, prefix string, filter func(schema.Regi
 				}
 				//
 				fmt.Printf("   (\"%s\" %s", r.Name, regT)
-				// Print padding (if not default)
-				if r.Padding.Cmp(&zero) != 0 {
-					fmt.Printf(" 0x%s", r.Padding.Text(16))
-				}
-				//
-				fmt.Println(")")
+				// Print padding
+				fmt.Printf(" 0x%s)\n", r.Padding.Text(16))
 			}
 		}
 		//
