@@ -46,7 +46,7 @@ func (p BigEndian) AsBigInt() big.Int {
 // Bit returnsthe bit at a given offset in this word, where offsets always start
 // with the least-significant.
 func (p BigEndian) Bit(offset uint) bool {
-	var bitwidth = p.ByteWidth() * 8
+	var bitwidth = p.ByteWidth()
 	// If offset is past the end of the available bits, then it must have been
 	// in the trimmed region and, therefore, was 0.
 	if offset < bitwidth {
@@ -69,28 +69,28 @@ func (p BigEndian) Cmp64(o uint64) int {
 	//
 	switch width {
 	case 0:
-		return cmp.Compare(o, 0)
+		return cmp.Compare(0, o)
 	case 1:
 		tmp := uint64(p.bytes[0])
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	case 2:
 		tmp := uint64(p.bytes[1])
 		tmp += uint64(p.bytes[0]) << 8
 		//
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	case 3:
 		tmp := uint64(p.bytes[2])
 		tmp += uint64(p.bytes[1]) << 8
 		tmp += uint64(p.bytes[0]) << 16
 		//
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	case 4:
 		tmp := uint64(p.bytes[3])
 		tmp += uint64(p.bytes[2]) << 8
 		tmp += uint64(p.bytes[1]) << 16
 		tmp += uint64(p.bytes[0]) << 24
 		//
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	case 5:
 		tmp := uint64(p.bytes[4])
 		tmp += uint64(p.bytes[3]) << 8
@@ -98,7 +98,7 @@ func (p BigEndian) Cmp64(o uint64) int {
 		tmp += uint64(p.bytes[1]) << 24
 		tmp += uint64(p.bytes[0]) << 32
 		//
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	case 6:
 		tmp := uint64(p.bytes[5])
 		tmp += uint64(p.bytes[4]) << 8
@@ -107,7 +107,7 @@ func (p BigEndian) Cmp64(o uint64) int {
 		tmp += uint64(p.bytes[1]) << 32
 		tmp += uint64(p.bytes[0]) << 40
 		//
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	case 7:
 		tmp := uint64(p.bytes[6])
 		tmp += uint64(p.bytes[5]) << 8
@@ -117,7 +117,7 @@ func (p BigEndian) Cmp64(o uint64) int {
 		tmp += uint64(p.bytes[1]) << 40
 		tmp += uint64(p.bytes[0]) << 48
 		//
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	case 8:
 		tmp := uint64(p.bytes[7])
 		tmp += uint64(p.bytes[6]) << 8
@@ -128,7 +128,7 @@ func (p BigEndian) Cmp64(o uint64) int {
 		tmp += uint64(p.bytes[1]) << 48
 		tmp += uint64(p.bytes[0]) << 56
 		//
-		return cmp.Compare(o, tmp)
+		return cmp.Compare(tmp, o)
 	default:
 		return 1
 	}
