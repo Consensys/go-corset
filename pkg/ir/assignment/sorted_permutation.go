@@ -72,7 +72,7 @@ func (p *SortedPermutation) Compute(trace tr.Trace[word.BigEndian], schema sc.An
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
-	data := sortedPermutationNativeFunction(sources, p.Signs)
+	data := sortedPermutationNativeFunction(sources, p.Signs, trace.Pool())
 	//
 	return data, nil
 }
@@ -164,26 +164,6 @@ func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 // Native Function
 // ============================================================================
 
-func sortedPermutationNativeFunction[W word.Word[W]](sources []array.Array[W], signs []bool) []array.MutArray[W] {
-	// Clone target columns first
-	targets := cloneNativeFunction(sources)
-	// Sort target columns (in place)
-	permutationSort(targets, signs)
-	//
-	return targets
-}
-
-func cloneNativeFunction[W word.Word[W]](sources []array.Array[W]) []array.MutArray[W] {
-	var targets = make([]array.MutArray[W], len(sources))
-	// Clone target columns
-	for i, src := range sources {
-		// Clone it to initialise permutation.
-		targets[i] = src.Clone()
-	}
-	//
-	return targets
-}
-
 // PermutationSort sorts an array of columns in row-wise fashion.  For
 // example, suppose consider [ [0,4,3,3], [1,2,4,3] ].  We can imagine
 // that this is first transformed into an array of rows (i.e.
@@ -198,57 +178,65 @@ func cloneNativeFunction[W word.Word[W]](sources []array.Array[W]) []array.MutAr
 // NOTE: the current implementation is not intended to be particularly
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
-func permutationSort[W word.Word[W], T array.MutArray[W]](cols []T, signs []bool) {
-	n := cols[0].Len()
-	m := len(cols)
-	// Rotate input matrix
-	rows := rotate(cols, m, n)
+func sortedPermutationNativeFunction[W word.Word[W]](sources []array.Array[W], signs []bool, pool word.Pool[uint, W],
+) []array.MutArray[W] {
+	//
+	var (
+		n = sources[0].Len()
+		// TODO: can we avoid allocating this array?
+		indices = rangeOf(n)
+		targets = make([]array.MutArray[W], len(sources))
+	)
 	// Perform the permutation sort
-	slices.SortFunc(rows, func(l []W, r []W) int {
-		return permutationSortFunc(l, r, signs)
-	})
-	// Project back
-	for i := uint(0); i < n; i++ {
-		row := rows[i]
-		for j := 0; j < m; j++ {
-			cols[j].Set(i, row[j])
+	slices.SortFunc(indices, permutationSortFunc(sources, signs))
+	//
+	for i, source := range sources {
+		target := word.NewArray(n, source.BitWidth(), pool)
+		//
+		for j, index := range indices {
+			target.Set(uint(j), source.Get(index))
 		}
-	}
-}
-
-func permutationSortFunc[W word.Word[W]](lhs []W, rhs []W, signs []bool) int {
-	for i := 0; i < len(signs); i++ {
-		// Compare ith elements
-		c := lhs[i].Cmp(rhs[i])
-		// Check whether same
-		if c != 0 {
-			if signs[i] {
-				// Positive
-				return c
-			}
-			// Negative
-			return -c
-		}
-	}
-	// Identical
-	return 0
-}
-
-// Clone and rotate a 2-dimensional array assuming a given geometry.
-func rotate[W word.Word[W], T array.MutArray[W]](src []T, ncols int, nrows uint) [][]W {
-	// Copy outer arrays
-	dst := make([][]W, nrows)
-	// Copy inner arrays
-	for i := uint(0); i < nrows; i++ {
-		row := make([]W, ncols)
-		for j := 0; j < ncols; j++ {
-			row[j] = src[j].Get(i)
-		}
-
-		dst[i] = row
+		//
+		targets[i] = target
 	}
 	//
-	return dst
+	return targets
+}
+
+func permutationSortFunc[W word.Word[W], T array.Array[W]](cols []T, signs []bool) func(uint, uint) int {
+	return func(lhs, rhs uint) int {
+		//
+		for i := 0; i < len(signs); i++ {
+			var (
+				lval = cols[i].Get(lhs)
+				rval = cols[i].Get(rhs)
+			)
+			// Compare ith elements
+			c := lval.Cmp(rval)
+			// Check whether same
+			if c != 0 {
+				if signs[i] {
+					// Positive
+					return c
+				}
+				// Negative
+				return -c
+			}
+		}
+		// Identical
+		return 0
+	}
+}
+
+// Constuct an array of contiguous integers from 0..n.
+func rangeOf(n uint) []uint {
+	items := make([]uint, n)
+	//
+	for i := range n {
+		items[i] = i
+	}
+	//
+	return items
 }
 
 // ============================================================================
