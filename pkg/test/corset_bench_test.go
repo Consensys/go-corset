@@ -46,10 +46,12 @@ func Test_Bench_Multiplier(t *testing.T) {
 	test_util.Check(t, false, "bench/multiplier")
 }
 
-func Test_Bench_Memory(t *testing.T) {
-	test_util.Check(t, true, "bench/memory")
+func Test_Bench_Memory16u8(t *testing.T) {
+	test_util.Check(t, true, "bench/memory16u8")
 }
-
+func Test_Bench_Memory32u32(t *testing.T) {
+	test_util.Check(t, true, "bench/memory32u32")
+}
 func Test_Bench_Adder(t *testing.T) {
 	test_util.Check(t, true, "bench/adder")
 }

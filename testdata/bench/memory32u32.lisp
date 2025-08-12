@@ -17,10 +17,10 @@
 ;; Address being Read/Written
 (defcolumns (ADDR :i32@prove))
 ;; Value being Read/Written
-(defcolumns (VAL :i8@prove))
+(defcolumns (VAL :i32@prove))
 
 ;; Permutation
-(defpermutation (ADDR' PC' RW' VAL') ((+ ADDR) (+ PC) (+ RW) (+ VAL)))
+(defpermutation (ADDR' PC' RW' VAL') ((+ ADDR) (+ PC) RW VAL))
 
 ;; PC[0]=0
 (defconstraint heartbeat_1 (:domain {0}) (eq! PC 0))
