@@ -12,34 +12,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package field
 
-import (
-	"encoding/binary"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/word"
-)
-
-// ToBigEndianByteArray converts an array of field elements into an array of
-// byte chunks in big endian form.
-func ToBigEndianByteArray[F Element[F], P word.Pool[uint, word.BigEndian]](arr array.Array[F], pool P,
-) array.MutArray[word.BigEndian] {
-	//
-	var narr = word.NewArray(arr.Len(), arr.BitWidth(), pool)
-	//
-	for i := range arr.Len() {
-		var (
-			ith       = arr.Get(i)
-			ith_bytes = ith.Bytes()
-			trimmed   = ith_bytes[:]
-		)
-		//
-		narr.Set(i, word.NewBigEndian(trimmed))
-	}
-	//
-	return narr
-}
-
 // Pow takes a given value to the power n.
 func Pow[F Element[F]](val F, n uint64) F {
 	if n == 0 {
@@ -59,17 +31,4 @@ func Pow[F Element[F]](val F, n uint64) F {
 	}
 	//
 	return val
-}
-
-// FrElementToBytes converts a given field element into a slice of 32 bytes.
-func FrElementToBytes(element fr.Element) [32]byte {
-	// Each fr.Element is 4 x 64bit words.
-	var bytes [32]byte
-	// Copy over each element
-	binary.BigEndian.PutUint64(bytes[:], element[0])
-	binary.BigEndian.PutUint64(bytes[8:], element[1])
-	binary.BigEndian.PutUint64(bytes[16:], element[2])
-	binary.BigEndian.PutUint64(bytes[24:], element[3])
-	// Done
-	return bytes
 }

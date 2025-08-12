@@ -23,35 +23,66 @@ import (
 const POW_BASE_MAX uint = 65536
 const POW_BASE_INC uint = 8
 
+func Test_Pow_00(t *testing.T) {
+	PowCheck(t, 1, 1)
+}
 func Test_Pow_01(t *testing.T) {
+	PowCheck(t, 2, 1)
+}
+func Test_Pow_02(t *testing.T) {
+	PowCheck(t, 2, 2)
+}
+func Test_Pow_03(t *testing.T) {
+	PowCheck(t, 2, 3)
+}
+func Test_Pow_04(t *testing.T) {
+	PowCheck(t, 2, 4)
+}
+func Test_Pow_05(t *testing.T) {
+	PowCheck(t, 3, 1)
+}
+func Test_Pow_06(t *testing.T) {
+	PowCheck(t, 3, 2)
+}
+func Test_Pow_07(t *testing.T) {
+	PowCheck(t, 3, 3)
+}
+func Test_Pow_08(t *testing.T) {
+	PowCheck(t, 3, 4)
+}
+func Test_Pow_09(t *testing.T) {
+	PowCheck(t, 3, 5)
+}
+
+func Test_Pow_10(t *testing.T) {
 	PowCheckLoop(t, 0)
 }
 
-func Test_Pow_02(t *testing.T) {
+func Test_Pow_12(t *testing.T) {
 	PowCheckLoop(t, 1)
 }
 
-func Test_Pow_03(t *testing.T) {
+func Test_Pow_13(t *testing.T) {
 	PowCheckLoop(t, 2)
 }
 
-func Test_Pow_04(t *testing.T) {
+func Test_Pow_14(t *testing.T) {
 	PowCheckLoop(t, 3)
 }
 
-func Test_Pow_05(t *testing.T) {
+func Test_Pow_15(t *testing.T) {
 	PowCheckLoop(t, 4)
 }
 
-func Test_Pow_06(t *testing.T) {
+func Test_Pow_16(t *testing.T) {
 	PowCheckLoop(t, 5)
 }
 
-func Test_Pow_07(t *testing.T) {
+func Test_Pow_17(t *testing.T) {
 	PowCheckLoop(t, 6)
 }
 
-func Test_Pow_08(t *testing.T) {
+func Test_Pow_18(t *testing.T) {
 	PowCheckLoop(t, 7)
 }
 
@@ -75,7 +106,7 @@ func PowCheck(t *testing.T, base uint, pow uint64) {
 		expected = fr.NewElement(uint64(base))
 	)
 	// Initialise actual value
-	actual.SetUint64(uint64(base))
+	actual = actual.SetUint64(uint64(base))
 	// Compute actual using our optimised method
 	actual = Pow(actual, pow)
 	// Compute expected using existing gnark function
