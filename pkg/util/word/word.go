@@ -47,9 +47,6 @@ type Word[T any] interface {
 	SetBytes([]byte) T
 	// Set this word to a uint64 value
 	SetUint64(uint64) T
-	// Subtract a given word from this word by treating both as unsigned
-	// integers, producing the delta and a borrow bit.
-	Sub(other T) (borrow bool, delta T)
 }
 
 // NewArray constructs a new word array with a given capacity.

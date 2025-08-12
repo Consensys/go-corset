@@ -20,6 +20,8 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -96,7 +98,7 @@ func (p *LexicographicSort) Compute(trace tr.Trace[word.BigEndian], schema sc.An
 	// Read input columns
 	inputs := ReadRegisters(trace, p.sources...)
 	// Apply native function
-	data := lexSortNativeFunction(bit_width, inputs, p.signs, trace.Pool())
+	data := lexSortNativeFunction[bls12_377.Element](bit_width, inputs, p.signs, trace.Pool())
 	//
 	return data, nil
 }
@@ -194,7 +196,7 @@ func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
 // Native Computation
 // ============================================================================
 
-func lexSortNativeFunction[W word.Word[W]](bitwidth uint, sources []array.Array[W], signs []bool,
+func lexSortNativeFunction[F field.Element[F], W word.Word[W]](bitwidth uint, sources []array.Array[W], signs []bool,
 	pool word.Pool[uint, W]) []array.MutArray[W] {
 	//
 	var (
@@ -207,6 +209,8 @@ func lexSortNativeFunction[W word.Word[W]](bitwidth uint, sources []array.Array[
 		//
 		zero W = word.Uint64[W](0)
 		one  W = word.Uint64[W](1)
+		//
+		frZero F = field.Zero[F]()
 	)
 	// FIXME: using an index array here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
@@ -227,11 +231,11 @@ func lexSortNativeFunction[W word.Word[W]](bitwidth uint, sources []array.Array[
 		targets[0].Set(i, zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < nbits; j++ {
-			prev := sources[j].Get(i - 1)
-			curr := sources[j].Get(i)
+			prev := field.FromBigEndianBytes[F](sources[j].Get(i - 1).Bytes())
+			curr := field.FromBigEndianBytes[F](sources[j].Get(i).Bytes())
 
 			if !set && prev.Cmp(curr) != 0 {
-				var diff W
+				var diff F
 
 				targets[j+1].Set(i, one)
 				// Compute curr - prev
@@ -245,12 +249,12 @@ func lexSortNativeFunction[W word.Word[W]](bitwidth uint, sources []array.Array[
 				// cases, we just need any valid filler value.
 				if curr.Cmp(prev) < 0 {
 					// Computation is invalid, so use filler of zero.
-					diff = zero
+					diff = frZero
 				} else {
-					_, diff = curr.Sub(prev)
+					diff = curr.Sub(prev)
 				}
 				//
-				targets[0].Set(i, diff)
+				targets[0].Set(i, word.FromBigEndian[W](diff.Bytes()))
 				//
 				set = true
 			} else {

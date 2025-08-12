@@ -84,7 +84,9 @@ func (p *StaticArray[T]) Clone() array.MutArray[T] {
 
 // Slice out a subregion of this array.
 func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
-	panic("todo")
+	return &StaticArray[T]{
+		p.data[start:end], p.bitwidth, p.bytewidth,
+	}
 }
 
 // Pad prepend array with n copies and append with m copies of the given padding
