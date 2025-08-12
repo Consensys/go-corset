@@ -13,7 +13,6 @@
 package lookup
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
@@ -22,7 +21,7 @@ import (
 
 // Vector encapsulates all columns on one side of a lookup (i.e. it
 // represents all source columns or all target columns).
-type Vector[E ir.Evaluable] struct {
+type Vector[F any, E ir.Evaluable[F]] struct {
 	// Module in which all terms are evaluated.
 	Module schema.ModuleId
 	// Selector for this vector (optional)
@@ -32,7 +31,7 @@ type Vector[E ir.Evaluable] struct {
 }
 
 // NewVector constructs a new vector in a given context with an optional selector.
-func NewVector[E ir.Evaluable](mid schema.ModuleId, selector util.Option[E], terms ...E) Vector[E] {
+func NewVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, selector util.Option[E], terms ...E) Vector[F, E] {
 	if selector.HasValue() {
 		return FilteredVector(mid, selector.Unwrap(), terms...)
 	}
@@ -41,8 +40,8 @@ func NewVector[E ir.Evaluable](mid schema.ModuleId, selector util.Option[E], ter
 }
 
 // UnfilteredVector constructs a new vector in a given context which has no selector.
-func UnfilteredVector[E ir.Evaluable](mid schema.ModuleId, terms ...E) Vector[E] {
-	return Vector[E]{
+func UnfilteredVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, terms ...E) Vector[F, E] {
+	return Vector[F, E]{
 		mid,
 		util.None[E](),
 		terms,
@@ -50,8 +49,8 @@ func UnfilteredVector[E ir.Evaluable](mid schema.ModuleId, terms ...E) Vector[E]
 }
 
 // FilteredVector constructs a new vector in a given context which has a selector.
-func FilteredVector[E ir.Evaluable](mid schema.ModuleId, selector E, terms ...E) Vector[E] {
-	return Vector[E]{
+func FilteredVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, selector E, terms ...E) Vector[F, E] {
+	return Vector[F, E]{
 		mid,
 		util.Some(selector),
 		terms,
@@ -61,7 +60,7 @@ func FilteredVector[E ir.Evaluable](mid schema.ModuleId, selector E, terms ...E)
 // Bounds determines the well-definedness bounds for all terms within this vector.
 //
 //nolint:revive
-func (p *Vector[E]) Bounds(module uint) util.Bounds {
+func (p *Vector[F, E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.Module {
@@ -82,29 +81,29 @@ func (p *Vector[E]) Bounds(module uint) util.Bounds {
 
 // Context returns the conterxt in which all terms of this vector must be
 // evaluated.
-func (p *Vector[E]) Context() schema.ModuleId {
+func (p *Vector[F, E]) Context() schema.ModuleId {
 	return p.Module
 }
 
 // HasSelector determines whether or not this lookup vector has a selector or
 // not.
-func (p *Vector[E]) HasSelector() bool {
+func (p *Vector[F, E]) HasSelector() bool {
 	return p.Selector.HasValue()
 }
 
 // Ith returns the ith term in this vector.
-func (p *Vector[E]) Ith(index uint) E {
+func (p *Vector[F, E]) Ith(index uint) E {
 	return p.Terms[index]
 }
 
 // Len returns the number of items in this lookup vector.  Note this doesn't
 // include the selector (since this is optional anyway).
-func (p *Vector[E]) Len() uint {
+func (p *Vector[F, E]) Len() uint {
 	return uint(len(p.Terms))
 }
 
 // Lisp returns a textual representation of this vector.
-func (p *Vector[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p *Vector[F, E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		module = schema.Module(p.Module)
 		terms  = sexp.EmptyList()
@@ -124,7 +123,7 @@ func (p *Vector[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this vector
-func (p *Vector[E]) Substitute(mapping map[string]fr.Element) {
+func (p *Vector[F, E]) Substitute(mapping map[string]F) {
 	for _, ith := range p.Terms {
 		ith.Substitute(mapping)
 	}

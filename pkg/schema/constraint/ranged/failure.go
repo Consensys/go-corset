@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Failure provides structural information about a failing type constraint.
@@ -29,7 +29,7 @@ type Failure struct {
 	// Enclosing context
 	Context schema.ModuleId
 	// Constraint expression
-	Expr ir.Evaluable
+	Expr ir.Evaluable[bls12_377.Element]
 	// Range restriction
 	Bitwidth uint
 	// Row on which the constraint failed

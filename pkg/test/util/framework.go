@@ -26,8 +26,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -65,7 +65,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 	nTests := 0
 	// Iterate possible testfile extensions
 	for _, cfg := range TESTFILE_EXTENSIONS {
-		var traces [][]trace.BigEndianColumn
+		var traces []lt.TraceFile
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
 		// Read traces from file
@@ -83,8 +83,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 	}
 }
 
-func fullCheckTraces(t *testing.T, test string, cfg Config,
-	traces [][]trace.BigEndianColumn, stacks []cmd_util.SchemaStack) {
+func fullCheckTraces(t *testing.T, test string, cfg Config, traces []lt.TraceFile, stacks []cmd_util.SchemaStack) {
 	// Identify primary stack
 	var primary = stacks[0]
 	// Run checks using schema compiled from source
@@ -96,8 +95,8 @@ func fullCheckTraces(t *testing.T, test string, cfg Config,
 }
 
 // Sanity check same outcome for all optimisation levels
-func checkCompilerOptimisations(t *testing.T, test string, cfg Config,
-	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
+func checkCompilerOptimisations(t *testing.T, test string, cfg Config, traces []lt.TraceFile,
+	stack cmd_util.SchemaStack) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
 		// Only check optimisation levels other than the default.
@@ -113,8 +112,7 @@ func checkCompilerOptimisations(t *testing.T, test string, cfg Config,
 }
 
 // Check the binary encoding / decoding.
-func checkBinaryEncoding(t *testing.T, test string, cfg Config,
-	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
+func checkBinaryEncoding(t *testing.T, test string, cfg Config, traces []lt.TraceFile, stack cmd_util.SchemaStack) {
 	//
 	name := fmt.Sprintf("%s:bin", test)
 	// Construct binary schema using primary stack
@@ -133,8 +131,7 @@ func checkBinaryEncoding(t *testing.T, test string, cfg Config,
 
 // Run default optimisation over all fields, and check padding for the primary
 // stack only.
-func checkFields(t *testing.T, test string, cfg Config,
-	traces [][]trace.BigEndianColumn, stacks []cmd_util.SchemaStack) {
+func checkFields(t *testing.T, test string, cfg Config, traces []lt.TraceFile, stacks []cmd_util.SchemaStack) {
 	// Now, perform full check
 	for i, stack := range stacks {
 		var maxPadding = MAX_PADDING
@@ -157,7 +154,7 @@ func checkFields(t *testing.T, test string, cfg Config,
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config,
-	traces [][]trace.BigEndianColumn, stack cmd_util.SchemaStack) {
+	traces []lt.TraceFile, stack cmd_util.SchemaStack) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
@@ -171,14 +168,14 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 			t.Parallel()
 			//
 			for _, ir := range []string{"MIR", "AIR"} {
-				for i, tr := range traces {
+				for i, tf := range traces {
 					// Only enable parallel expansion/checking for one trace.  This is
 					// because parallel expansion/checking slows testing down overall.
 					// However, we still want to test the pipeline (i.e. since that is used
 					// in production); therefore, we just restrict how much its used.
 					var parallel = (i == 0)
 					//
-					if tr != nil {
+					if tf.Columns != nil {
 						// Construct trace identifier
 						id := traceId{stack.RegisterMapping().Field().Name, ir, test,
 							cfg.expected, cfg.expand, cfg.validate, opt, parallel, i + 1, padding}
@@ -186,7 +183,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 						if cfg.expand || ir == "AIR" {
 							// Always check if expansion required, otherwise
 							// only check AIR constraints.
-							checkTrace(t, tr, id, stack.SchemaOf(ir), stack.RegisterMapping())
+							checkTrace(t, tf, id, stack.SchemaOf(ir), stack.RegisterMapping())
 						}
 					}
 				}
@@ -195,8 +192,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	}
 }
 
-func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, id traceId,
-	schema sc.Schema[C], mapping sc.LimbsMap) {
+func checkTrace[C sc.Constraint](t *testing.T, tf lt.TraceFile, id traceId, schema sc.Schema[C], mapping sc.LimbsMap) {
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).
@@ -205,7 +201,7 @@ func checkTrace[C sc.Constraint](t *testing.T, inputs []trace.BigEndianColumn, i
 		WithParallelism(id.parallel).
 		WithRegisterMapping(mapping).
 		WithBatchSize(128).
-		Build(sc.Any(schema), inputs)
+		Build(sc.Any(schema), tf.Clone())
 	// Sanity check construction
 	if len(errs) > 0 {
 		t.Errorf("Trace expansion failed (%s): %s", id.String(), errs)
@@ -310,22 +306,22 @@ func (p *traceId) String() string {
 
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
-func ReadTracesFile(filename string) [][]trace.BigEndianColumn {
+func ReadTracesFile(filename string) []lt.TraceFile {
 	lines := util.ReadInputFile(filename)
-	traces := make([][]trace.BigEndianColumn, len(lines))
+	traces := make([]lt.TraceFile, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
 			// Read traces
-			tr, err := json.FromBytes([]byte(line))
+			pool, tf, err := json.FromBytes([]byte(line))
 			//
 			if err != nil {
 				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
 				panic(msg)
 			}
 
-			traces[i] = tr
+			traces[i] = lt.NewTraceFile(nil, pool, tf)
 		}
 	}
 

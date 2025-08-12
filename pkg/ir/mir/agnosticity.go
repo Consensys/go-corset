@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -65,7 +66,7 @@ func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap) Logical
 	case *Disjunct:
 		return ir.Disjunction(splitLogicalTerms(t.Args, mapping)...)
 	case *Equal:
-		return ir.Equals[LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+		return ir.Equals[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
 	case *Ite:
 		condition := splitLogicalTerm(t.Condition, mapping)
 		trueBranch := splitOptionalLogicalTerm(t.TrueBranch, mapping)
@@ -75,13 +76,13 @@ func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap) Logical
 	case *Negate:
 		return ir.Negation(splitLogicalTerm(t.Arg, mapping))
 	case *NotEqual:
-		return ir.NotEquals[LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+		return ir.NotEquals[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
 	case *Inequality:
 		if t.Strict {
-			return ir.LessThan[LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+			return ir.LessThan[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
 		}
 		//
-		return ir.LessThanOrEquals[LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+		return ir.LessThanOrEquals[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
 	default:
 		panic("unreachable")
 	}
@@ -157,7 +158,7 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterLimbsMap) 
 	)
 	//
 	for i, limb := range limbs {
-		terms[i] = &ir.RegisterAccess[Term]{Register: limb, Shift: term.Shift}
+		terms[i] = &ir.RegisterAccess[bls12_377.Element, Term]{Register: limb, Shift: term.Shift}
 	}
 	// Check whether vector required, or not
 	if len(limbs) == 1 {
@@ -174,7 +175,7 @@ func splitVectorAccess(term *VectorAccess, mapping schema.RegisterLimbsMap) Term
 	//
 	for _, v := range term.Vars {
 		for _, limb := range mapping.LimbIds(v.Register) {
-			term := &ir.RegisterAccess[Term]{Register: limb, Shift: v.Shift}
+			term := &ir.RegisterAccess[bls12_377.Element, Term]{Register: limb, Shift: v.Shift}
 			terms = append(terms, term)
 		}
 	}

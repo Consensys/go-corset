@@ -15,14 +15,15 @@ package assignment
 import (
 	"encoding/gob"
 	"fmt"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // SortedPermutation declares one or more columns as sorted permutations of
@@ -66,15 +67,14 @@ func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
+func (p *SortedPermutation) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
+) ([]array.MutArray[word.BigEndian], error) {
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
-	data := sortedPermutationNativeFunction(sources, p.Signs)
-	// Write outputs
-	targets := WriteRegisters(schema, p.Targets, data)
+	data := sortedPermutationNativeFunction(sources, p.Signs, trace.Pool())
 	//
-	return targets, nil
+	return data, nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
@@ -164,24 +164,79 @@ func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 // Native Function
 // ============================================================================
 
-func sortedPermutationNativeFunction(sources []field.FrArray, signs []bool) []field.FrArray {
-	// Clone target columns first
-	targets := cloneNativeFunction(sources)
-	// Sort target columns (in place)
-	field.PermutationSort(targets, signs)
+// PermutationSort sorts an array of columns in row-wise fashion.  For
+// example, suppose consider [ [0,4,3,3], [1,2,4,3] ].  We can imagine
+// that this is first transformed into an array of rows (i.e.
+// [[0,1],[4,2],[3,4],[3,3]]) and then sorted lexicographically (to
+// give [[0,1],[3,3],[3,4],[4,2]]).  This is then projected back into
+// the original column-wise formulation, to give: [[0,3,3,4],
+// [1,3,4,2]].
+//
+// A further complication is that the direction of sorting for each
+// columns is determined by its sign.
+//
+// NOTE: the current implementation is not intended to be particularly
+// efficient.  In particular, would be better to do the sort directly
+// on the columns array without projecting into the row-wise form.
+func sortedPermutationNativeFunction[W word.Word[W]](sources []array.Array[W], signs []bool, pool word.Pool[uint, W],
+) []array.MutArray[W] {
+	//
+	var (
+		n = sources[0].Len()
+		// TODO: can we avoid allocating this array?
+		indices = rangeOf(n)
+		targets = make([]array.MutArray[W], len(sources))
+	)
+	// Perform the permutation sort
+	slices.SortFunc(indices, permutationSortFunc(sources, signs))
+	//
+	for i, source := range sources {
+		target := word.NewArray(n, source.BitWidth(), pool)
+		//
+		for j, index := range indices {
+			target.Set(uint(j), source.Get(index))
+		}
+		//
+		targets[i] = target
+	}
 	//
 	return targets
 }
 
-func cloneNativeFunction(sources []field.FrArray) []field.FrArray {
-	var targets = make([]field.FrArray, len(sources))
-	// Clone target columns
-	for i, src := range sources {
-		// Clone it to initialise permutation.
-		targets[i] = src.Clone()
+func permutationSortFunc[W word.Word[W], T array.Array[W]](cols []T, signs []bool) func(uint, uint) int {
+	return func(lhs, rhs uint) int {
+		//
+		for i := 0; i < len(signs); i++ {
+			var (
+				lval = cols[i].Get(lhs)
+				rval = cols[i].Get(rhs)
+			)
+			// Compare ith elements
+			c := lval.Cmp(rval)
+			// Check whether same
+			if c != 0 {
+				if signs[i] {
+					// Positive
+					return c
+				}
+				// Negative
+				return -c
+			}
+		}
+		// Identical
+		return 0
+	}
+}
+
+// Constuct an array of contiguous integers from 0..n.
+func rangeOf(n uint) []uint {
+	items := make([]uint, n)
+	//
+	for i := range n {
+		items[i] = i
 	}
 	//
-	return targets
+	return items
 }
 
 // ============================================================================

@@ -44,10 +44,23 @@ func NewIndexArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool 
 	return &IndexArray[T, P]{pool, index, bitwidth}
 }
 
-// Build implementation for the array.Builder interface.  This simply means that
-// a index array is its own builder.
-func (p *IndexArray[T, P]) Build() array.Array[T] {
-	return p
+// Append adds a new element to the end of this array
+func (p *IndexArray[T, P]) Append(element T) {
+	n := uint(len(p.index))
+	// Add new element
+	p.index = append(p.index, 0)
+	// Set value of that element
+	p.Set(n, element)
+}
+
+// Clone makes clones of this array producing an otherwise identical copy.
+func (p *IndexArray[T, P]) Clone() array.MutArray[T] {
+	// Allocate sufficient memory
+	nindex := make([]uint, uint(len(p.index)))
+	// Copy over the data
+	copy(nindex, p.index)
+	//
+	return &IndexArray[T, P]{p.pool, nindex, p.bitwidth}
 }
 
 // Len returns the number of elements in this word array.
@@ -65,9 +78,31 @@ func (p *IndexArray[T, P]) Get(index uint) T {
 	return p.pool.Get(p.index[index])
 }
 
+// Pad implementation for MutArray interface.
+func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) {
+	var (
+		// Determine new length
+		l = n + m + p.Len()
+		// Initialise new array
+		index = make([]uint, l)
+	)
+	// copy
+	copy(index[n:], p.index)
+	p.index = index
+	// Front padding!
+	for i := range n {
+		p.Set(i, padding)
+	}
+	// Back padding!
+	for i := l - m; i < l; i++ {
+		p.Set(i, padding)
+	}
+}
+
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *IndexArray[T, P]) Set(index uint, word T) {
+	//
 	p.index[index] = p.pool.Put(word)
 }
 

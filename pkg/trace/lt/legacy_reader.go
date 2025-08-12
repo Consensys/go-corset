@@ -30,7 +30,7 @@ type WordPool = word.Pool[uint, word.BigEndian]
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
+func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn, error) {
 	var (
 		// Construct new bytes.Reader
 		buf = bytes.NewReader(data)
@@ -40,25 +40,25 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	// Read Number of BytesColumns
 	var ncols uint32
 	if err := binary.Read(buf, binary.BigEndian, &ncols); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Construct empty environment
 	headers := make([]columnHeader, ncols)
-	columns := make([]trace.BigEndianColumn, ncols)
+	columns := make([]trace.RawColumn, ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
 		header, err := readColumnHeader(buf)
 		// Read column
 		if err != nil {
 			// Handle error
-			return nil, err
+			return nil, nil, err
 		}
 		// Assign header
 		headers[i] = header
 	}
 	// Determine byte slices
 	offset := uint(len(data) - buf.Len())
-	c := make(chan util.Pair[uint, array.Array[word.BigEndian]], ncols)
+	c := make(chan util.Pair[uint, array.MutArray[word.BigEndian]], ncols)
 	// Dispatch go-routines
 	for i := uint(0); i < uint(ncols); i++ {
 		ith := headers[i]
@@ -81,10 +81,10 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 		// Split qualified column name
 		mod, col := splitQualifiedColumnName(headers[res.Left].name)
 		// Construct appropriate slice
-		columns[res.Left] = trace.BigEndianColumn{Module: mod, Name: col, Data: res.Right}
+		columns[res.Left] = trace.RawColumn{Module: mod, Name: col, Data: res.Right}
 	}
 	// Done
-	return columns, nil
+	return pool, columns, nil
 }
 
 type columnHeader struct {
@@ -127,7 +127,7 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+func readColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
 	// Handle special cases
 	switch header.width {
 	case 1:
@@ -143,82 +143,82 @@ func readColumnData(header columnHeader, bytes []byte, pool WordPool) array.Arra
 	return readArbitraryColumnData(header, bytes, pool)
 }
 
-func readByteColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
-	builder := word.NewArray(header.length, header.width*8, pool)
+func readByteColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
+	arr := word.NewArray(header.length, header.width*8, pool)
 	//
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
-		builder.Set(i, word.NewBigEndian(bytes[i:i+1]))
+		arr.Set(i, word.NewBigEndian(bytes[i:i+1]))
 	}
 	// Done
-	return builder.Build()
+	return arr
 }
 
-func readWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+func readWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
 	var (
-		builder = word.NewArray(header.length, header.width*8, pool)
-		offset  = uint(0)
+		arr    = word.NewArray(header.length, header.width*8, pool)
+		offset = uint(0)
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		builder.Set(i, word.NewBigEndian(bytes[offset:offset+2]))
+		arr.Set(i, word.NewBigEndian(bytes[offset:offset+2]))
 		// Move offset to next element
 		offset += 2
 	}
 	// Done
-	return builder.Build()
+	return arr
 }
 
-func readDWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+func readDWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
 	var (
-		builder = word.NewArray(header.length, header.width*8, pool)
-		offset  = uint(0)
+		arr    = word.NewArray(header.length, header.width*8, pool)
+		offset = uint(0)
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		builder.Set(i, word.NewBigEndian(bytes[offset:offset+4]))
+		arr.Set(i, word.NewBigEndian(bytes[offset:offset+4]))
 		// Move offset to next element
 		offset += 4
 	}
 	// Done
-	return builder.Build()
+	return arr
 }
 
-func readQWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+func readQWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
 	var (
-		builder = word.NewArray(header.length, header.width*8, pool)
-		offset  = uint(0)
+		arr    = word.NewArray(header.length, header.width*8, pool)
+		offset = uint(0)
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		builder.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
+		arr.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
 		// Move offset to next element
 		offset += 8
 	}
 	// Done
-	return builder.Build()
+	return arr
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(header columnHeader, bytes []byte, pool WordPool) array.Array[word.BigEndian] {
+func readArbitraryColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
 	var (
-		builder = word.NewArray(header.length, header.width*8, pool)
-		offset  = uint(0)
+		arr    = word.NewArray(header.length, header.width*8, pool)
+		offset = uint(0)
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Calculate position of next element
 		next := offset + header.width
 		// Construct ith element
-		builder.Set(i, word.NewBigEndian(bytes[offset:next]))
+		arr.Set(i, word.NewBigEndian(bytes[offset:next]))
 		// Move offset to next element
 		offset = next
 	}
 	// Done
-	return builder.Build()
+	return arr
 }
 
 // SplitQualifiedColumnName splits a qualified column name into its module and

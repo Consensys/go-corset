@@ -15,8 +15,9 @@ package schema
 import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Assignment represents an arbitrary computation which determines the values
@@ -38,7 +39,7 @@ type Assignment interface {
 	// assignment depends must exist (e.g. are either inputs or have been
 	// computed already).  Computed columns do not exist in the original trace,
 	// but are added during trace expansion to form the final trace.
-	Compute(tr.Trace[bls12_377.Element], Schema[Constraint]) ([]tr.ArrayColumn, error)
+	Compute(tr.Trace[word.BigEndian], Schema[Constraint]) ([]array.MutArray[word.BigEndian], error)
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.

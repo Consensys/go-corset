@@ -19,13 +19,15 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceExpansion expands a given trace according to a given schema. More
 // specifically, that means computing the actual values for any assignments.
 // This is done using a straightforward sequential algorithm.
-func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace) error {
+func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[word.BigEndian]) error {
 	var (
 		err error
 		// Start timer
@@ -47,14 +49,14 @@ func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *t
 // SequentialTraceExpansion expands a given trace according to a given schema.
 // More specifically, that means computing the actual values for any
 // assignments.  This is done using a straightforward sequential algorithm.
-func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace) error {
+func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[word.BigEndian]) error {
 	var (
 		err      error
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
 	// Compute each assignment in turn
 	for !expander.Done() {
-		var cols []tr.ArrayColumn
+		var cols []array.MutArray[word.BigEndian]
 		// Get next assignment
 		ith := expander.Next(1)[0]
 		// Compute ith assignment(s)
@@ -73,7 +75,7 @@ func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace) erro
 // continuous approach.  This is for two reasons: firstly, the latter would
 // require locks that would slow down evaluation performance; secondly, the vast
 // majority of jobs are run in the very first wave.
-func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace) error {
+func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[word.BigEndian]) error {
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
@@ -116,7 +118,8 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 
 // Dispatch the given set of assignments with results being fed back into the
 // shared channel.
-func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema, trace *tr.ArrayTrace, ch chan columnBatch) {
+func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema,
+	trace *tr.ArrayTrace[word.BigEndian], ch chan columnBatch) {
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {
 		// Dispatch!
@@ -131,23 +134,17 @@ func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema, trace 
 // Fill a set of columns with their computed results.  The column index is that
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
-func fillComputedColumns(refs []sc.RegisterRef, cols []tr.ArrayColumn, trace *tr.ArrayTrace) {
+func fillComputedColumns[W word.Word[W]](refs []sc.RegisterRef, cols []array.MutArray[W], trace *tr.ArrayTrace[W]) {
 	var resized bit.Set
 	// Add all columns
 	for i, ref := range refs {
 		var (
 			rid    = ref.Column().Unwrap()
 			module = trace.RawModule(ref.Module())
-			dst    = module.Column(rid)
 			col    = cols[i]
 		)
-		// Sanity checks
-		if dst.Name() != col.Name() {
-			mod := module.Name()
-			panic(fmt.Sprintf("misaligned computed register %s.%s during trace expansion", mod, col.Name()))
-		}
 		// Looks good
-		if module.FillColumn(rid, col.Data(), col.Padding()) {
+		if module.FillColumn(rid, col) {
 			// Register module as being resized.
 			resized.Insert(ref.Module())
 		}
@@ -164,7 +161,7 @@ type columnBatch struct {
 	// Target registers for this batch
 	targets []sc.RegisterRef
 	// The computed columns in this batch.
-	columns []trace.ArrayColumn
+	columns []array.MutArray[word.BigEndian]
 	// An error (should one arise)
 	err error
 }

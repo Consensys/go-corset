@@ -23,7 +23,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -181,7 +181,7 @@ func (p *ModuleState) matchQuery(query *Query) termio.FormattedText {
 	// Always update history
 	p.scanHistory = history_append(p.scanHistory, query.String())
 	// Proceed
-	env := make(map[string]tr.Column)
+	env := make(map[string]tr.Column[bls12_377.Element])
 	// construct environment
 	for _, col := range p.columns {
 		env[col.Name] = p.trace.Column(col.Register)

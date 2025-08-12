@@ -13,26 +13,26 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // NotEqual represents an NotEqual between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  NotEquals are either NotEqualities (or negated NotEqualities) or
 // inNotEqualities.
-type NotEqual[S LogicalTerm[S], T Term[T]] struct {
-	Lhs Term[T]
-	Rhs Term[T]
+type NotEqual[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
+	Lhs Term[F, T]
+	Rhs Term[F, T]
 }
 
 // NotEquals constructs an NotEqual representing the NotEquality of two expressions.
-func NotEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
+func NotEquals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
 	var (
-		term LogicalTerm[S] = &NotEqual[S, T]{
+		term LogicalTerm[F, S] = &NotEqual[F, S, T]{
 			Lhs: lhs,
 			Rhs: rhs,
 		}
@@ -47,17 +47,17 @@ func NotEquals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 }
 
 // ApplyShift implementation for LogicalTerm interface.
-func (p *NotEqual[S, T]) ApplyShift(shift int) S {
-	return NotEquals[S](p.Lhs.ApplyShift(shift), p.Rhs.ApplyShift(shift))
+func (p *NotEqual[F, S, T]) ApplyShift(shift int) S {
+	return NotEquals[F, S](p.Lhs.ApplyShift(shift), p.Rhs.ApplyShift(shift))
 }
 
 // ShiftRange implementation for LogicalTerm interface.
-func (p *NotEqual[S, T]) ShiftRange() (int, int) {
+func (p *NotEqual[F, S, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms[T](p.Lhs.(T), p.Rhs.(T))
 }
 
 // Bounds implementation for Boundable interface.
-func (p *NotEqual[S, T]) Bounds() util.Bounds {
+func (p *NotEqual[F, S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()
 	r := p.Rhs.Bounds()
 	//
@@ -67,7 +67,7 @@ func (p *NotEqual[S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *NotEqual[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
+func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
@@ -77,14 +77,14 @@ func (p *NotEqual[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool,
 		return false, 0, err2
 	}
 	// perform comparison
-	c := lhs.Cmp(&rhs)
+	c := lhs.Cmp(rhs)
 	//
 	return c != 0, 0, nil
 }
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
 // debugging.
-func (p *NotEqual[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *NotEqual[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var (
 		l = p.Lhs.Lisp(global, mapping)
 		r = p.Rhs.Lisp(global, mapping)
@@ -95,7 +95,7 @@ func (p *NotEqual[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *NotEqual[S, T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *NotEqual[F, S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Lhs.RequiredRegisters()
 	set.InsertSorted(p.Rhs.RequiredRegisters())
 	//
@@ -103,7 +103,7 @@ func (p *NotEqual[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *NotEqual[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *NotEqual[F, S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	set := p.Lhs.RequiredCells(row, mid)
 	set.InsertSorted(p.Rhs.RequiredCells(row, mid))
 	//
@@ -113,31 +113,31 @@ func (p *NotEqual[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySort
 // Simplify this term as much as reasonably possible.
 //
 // nolint
-func (p *NotEqual[S, T]) Simplify(casts bool) S {
+func (p *NotEqual[F, S, T]) Simplify(casts bool) S {
 	var (
 		lhs = p.Lhs.Simplify(casts)
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc := IsConstant(lhs)
-	rc := IsConstant(rhs)
+	lc, lok := IsConstant[F](lhs)
+	rc, rok := IsConstant[F](rhs)
 	//
-	if lc != nil && rc != nil {
+	if lok && rok {
 		// Can simplify
 		if lc.Cmp(rc) == 0 {
-			return False[S]()
+			return False[F, S]()
 		}
 		//
-		return True[S]()
+		return True[F, S]()
 	}
 	// Cannot simplify
-	var tmp LogicalTerm[S] = &NotEqual[S, T]{lhs, rhs}
+	var tmp LogicalTerm[F, S] = &NotEqual[F, S, T]{lhs, rhs}
 	// Done
 	return tmp.(S)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *NotEqual[S, T]) Substitute(mapping map[string]fr.Element) {
+func (p *NotEqual[F, S, T]) Substitute(mapping map[string]F) {
 	p.Lhs.Substitute(mapping)
 	p.Rhs.Substitute(mapping)
 }

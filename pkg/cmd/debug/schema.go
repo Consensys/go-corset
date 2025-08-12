@@ -108,6 +108,10 @@ func printModule(module schema.Module, sc schema.AnySchema, width uint) {
 }
 
 func printRegisters(module schema.Module, prefix string, filter func(schema.Register) bool) {
+	var (
+		regT string
+	)
+
 	if countRegisters(module, filter) != 0 {
 		//
 		fmt.Printf("(%s\n", prefix)
@@ -115,10 +119,14 @@ func printRegisters(module schema.Module, prefix string, filter func(schema.Regi
 		for _, r := range module.Registers() {
 			if filter(r) {
 				if r.Width != math.MaxUint {
-					fmt.Printf("   (%s u%d)\n", r.Name, r.Width)
+					regT = fmt.Sprintf("u%d", r.Width)
 				} else {
-					fmt.Printf("   (%s 𝔽)\n", r.Name)
+					regT = "𝔽"
 				}
+				//
+				fmt.Printf("   (\"%s\" %s", r.Name, regT)
+				// Print padding
+				fmt.Printf(" 0x%s)\n", r.Padding.Text(16))
 			}
 		}
 		//

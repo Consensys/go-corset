@@ -13,173 +13,26 @@
 package field
 
 import (
-	"io"
-	"math/big"
-	"strings"
-
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
-
-// FrArray represents an array of field elements.
-type FrArray = array.MutArray[fr.Element]
-
-// NewFrArray creates a new FrArray dynamically based on the given width.
-func NewFrArray(height uint, bitWidth uint) FrArray {
-	switch {
-	case bitWidth <= 1:
-		var pool = NewFrBitPool()
-		return NewFrPoolArray(height, bitWidth, pool)
-	case bitWidth <= 8:
-		var pool = NewFrIndexPool[uint8]()
-		return NewFrPoolArray(height, bitWidth, pool)
-	case bitWidth <= 16:
-		var pool = NewFrIndexPool[uint16]()
-		return NewFrPoolArray(height, bitWidth, pool)
-	default:
-		return NewFrIndexArray(height, bitWidth)
-	}
-}
-
-// FrArrayFromBigInts converts an array of big integers into an array of
-// field elements.
-func FrArrayFromBigInts(bitWidth uint, ints []big.Int) FrArray {
-	elements := NewFrArray(uint(len(ints)), bitWidth)
-	// Convert each integer in turn.
-	for i, v := range ints {
-		var element fr.Element
-
-		element.SetBigInt(&v)
-		elements.Set(uint(i), element)
-	}
-
-	// Done.
-	return elements
-}
-
-// ----------------------------------------------------------------------------
-
-// FrElementArray implements an array of field elements using an underlying
-// byte array.  Each element occupies a fixed number of bytes, known as the
-// width.  This is space efficient when a known upper bound holds for the given
-// elements.  For example, when storing elements which always fit within 16bits,
-// etc.
-type FrElementArray struct {
-	// The data stored in this column (as bytes).
-	elements []fr.Element
-	// Maximum number of bits required to store an element of this array.
-	bitwidth uint
-}
-
-// NewFrElementArray constructs a new field array with a given capacity.
-func NewFrElementArray(height uint, bitwidth uint) *FrElementArray {
-	elements := make([]fr.Element, height)
-	return &FrElementArray{elements, bitwidth}
-}
-
-// Len returns the number of elements in this field array.
-func (p *FrElementArray) Len() uint {
-	return uint(len(p.elements))
-}
-
-// BitWidth returns the width (in bits) of elements in this array.
-func (p *FrElementArray) BitWidth() uint {
-	return p.bitwidth
-}
-
-// Get returns the field element at the given index in this array.
-func (p *FrElementArray) Get(index uint) fr.Element {
-	return p.elements[index]
-}
-
-// Set sets the field element at the given index in this array, overwriting the
-// original value.
-func (p *FrElementArray) Set(index uint, element fr.Element) {
-	p.elements[index] = element
-}
-
-// Clone makes clones of this array producing an otherwise identical copy.
-func (p *FrElementArray) Clone() array.MutArray[fr.Element] {
-	// Allocate sufficient memory
-	ndata := make([]fr.Element, uint(len(p.elements)))
-	// Copy over the data
-	copy(ndata, p.elements)
-	//
-	return &FrElementArray{ndata, p.bitwidth}
-}
-
-// Slice out a subregion of this array.
-func (p *FrElementArray) Slice(start uint, end uint) array.Array[fr.Element] {
-	return &FrElementArray{p.elements[start:end], p.bitwidth}
-}
-
-// Pad prepend array with n copies and append with m copies of the given padding
-// value.
-func (p *FrElementArray) Pad(n uint, m uint, padding fr.Element) array.MutArray[fr.Element] {
-	l := uint(len(p.elements))
-	// Allocate sufficient memory
-	ndata := make([]fr.Element, l+n+m)
-	// Copy over the data
-	copy(ndata[n:], p.elements)
-	// Front padding!
-	for i := uint(0); i < n; i++ {
-		ndata[i] = padding
-	}
-	// Back padding!
-	for i := n + l; i < n+l+m; i++ {
-		ndata[i] = padding
-	}
-	// Copy over
-	return &FrElementArray{ndata, p.bitwidth}
-}
-
-// Write the raw bytes of this column to a given writer, returning an error
-// if this failed (for some reason).
-func (p *FrElementArray) Write(w io.Writer) error {
-	for _, e := range p.elements {
-		// Read exactly 32 bytes
-		bytes := e.Bytes()
-		// Write them out
-		if _, err := w.Write(bytes[:]); err != nil {
-			return err
-		}
-	}
-	//
-	return nil
-}
-
-func (p *FrElementArray) String() string {
-	var sb strings.Builder
-
-	sb.WriteString("[")
-
-	for i := 0; i < len(p.elements); i++ {
-		if i != 0 {
-			sb.WriteString(",")
-		}
-
-		sb.WriteString(p.elements[i].String())
-	}
-
-	sb.WriteString("]")
-
-	return sb.String()
-}
 
 // BatchInvert efficiently inverts the list of elements s, in place.
 func BatchInvert[T Element[T]](s []T) {
 	if len(s) == 0 {
 		return
 	}
+	//
+	var (
+		zero = Zero[T]()
+		one  = One[T]()
+		// identifies entries which are zero
+		isZero = bit.NewSet(len(s))
 
-	var zero T
-	one := zero.AddUint32(1)
-
-	isZero := bit.NewSet(len(s))
-
-	m := make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
-
+		m = make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
+	)
+	//
 	isZero.Set(len(s)-1, s[len(s)-1].IsZero())
 
 	if isZero.Get(len(s) - 1) {
@@ -213,4 +66,44 @@ func BatchInvert[T Element[T]](s []T) {
 	if isZero.Get(len(s) - 1) {
 		s[len(s)-1] = zero
 	}
+}
+
+// WrappedArray provides a wrapper around a word array
+type WrappedArray[W word.Word[W], F Element[F]] struct {
+	data array.Array[W]
+}
+
+// NewWrappedArray constructs a new field array which wraps a word array.
+func NewWrappedArray[W word.Word[W], F Element[F]](data array.Array[W]) *WrappedArray[W, F] {
+	return &WrappedArray[W, F]{data}
+}
+
+// Clone this array producing a mutable copy
+func (p *WrappedArray[W, F]) Clone() array.MutArray[F] {
+	panic("unreachable")
+}
+
+// Len returns the number of elements in this array.
+func (p *WrappedArray[W, F]) Len() uint {
+	return p.data.Len()
+}
+
+// Get returns the element at the given index in this array.
+func (p *WrappedArray[W, F]) Get(row uint) F {
+	var (
+		word W = p.data.Get(row)
+		elem F
+	)
+	//
+	return elem.SetBytes(word.Bytes())
+}
+
+// BitWidth returns the number of bits required to store an element of this array.
+func (p *WrappedArray[W, F]) BitWidth() uint {
+	return p.data.BitWidth()
+}
+
+// Slice out a subregion of this array.
+func (p *WrappedArray[W, F]) Slice(uint, uint) array.Array[F] {
+	panic("unreachable")
 }

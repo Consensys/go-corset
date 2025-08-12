@@ -30,11 +30,16 @@ const HEAP_POOL_LOADING = 75
 // value.  The pool stores the actual word data, and provides fast access via an
 // index.  This makes sense when we have a relatively small number of values
 // which can be referred to many times over.
-type Pool[K any, T Word[T]] interface {
+type Pool[K any, T any] interface {
+	// Clone a pool producing an identical, but unaliased copy.
+	Clone() Pool[K, T]
 	// Lookup a given word in the pool using an index.
 	Get(K) T
 	// Allocate word into pool, returning its index.
 	Put(T) K
+	// Lookup the key associated with a given work, return false if it does not
+	// exist in the pool.
+	IndexOf(T) (K, bool)
 }
 
 // HeapPool maintains a heap of bytes representing the words.
@@ -68,6 +73,25 @@ func NewHeapPool[T Word[T]]() *HeapPool[T] {
 	return pool
 }
 
+// Clone implementation for Pool interface
+func (p *HeapPool[T]) Clone() Pool[uint, T] {
+	var (
+		heap    = make([]byte, len(p.heap))
+		lengths = make([]uint8, len(p.lengths))
+		buckets = make([][]uint, len(p.buckets))
+	)
+	//
+	copy(heap, p.heap)
+	copy(lengths, p.lengths)
+	//
+	for i, bucket := range p.buckets {
+		buckets[i] = make([]uint, len(bucket))
+		copy(buckets[i], bucket)
+	}
+	//
+	return &HeapPool[T]{heap: heap, lengths: lengths, buckets: buckets, count: p.count}
+}
+
 // Get implementation for the Pool interface.
 func (p *HeapPool[T]) Get(index uint) T {
 	// Obtain read lock
@@ -78,6 +102,18 @@ func (p *HeapPool[T]) Get(index uint) T {
 	p.mux.RUnlock()
 	// Initialise word
 	return word
+}
+
+// IndexOf implementation for the Pool interface.
+func (p *HeapPool[T]) IndexOf(word T) (uint, bool) {
+	// Obtain read lock
+	p.mux.RLock()
+	// Lookup index of word
+	index, _ := p.has(word)
+	// Release read lock
+	p.mux.RUnlock()
+	//
+	return index, index != math.MaxUint
 }
 
 // Put implementation for the Pool interface.  This is somewhat challenging
@@ -119,10 +155,8 @@ func (p *HeapPool[T]) Put(word T) uint {
 func (p *HeapPool[T]) alloc(word T) uint {
 	var (
 		address = uint(len(p.heap))
-		// Determine length of word whilst ensuring that a completely empty word
-		// occupies at least one byte (as, otherwise, we'd get some kind of
-		// sharing going on).
-		bytewidth = ByteWidth(word.BitWidth())
+		// Determine length of word
+		bytewidth = word.ByteWidth()
 	)
 	// Allocate space for new word
 	for range bytewidth {
@@ -130,7 +164,7 @@ func (p *HeapPool[T]) alloc(word T) uint {
 		p.lengths = append(p.lengths, 0)
 	}
 	// Write word data
-	word.Put(p.heap[address : address+bytewidth])
+	word.PutBytes(p.heap[address : address+bytewidth])
 	// Configure word length
 	p.lengths[address] = uint8(bytewidth)
 	// Record word
@@ -172,7 +206,7 @@ func (p *HeapPool[T]) innerGet(index uint) T {
 		bytes = p.heap[index : index+length]
 	)
 	// Initialise word
-	return word.Set(bytes)
+	return word.SetBytes(bytes)
 }
 
 func (p *HeapPool[T]) rehash() {

@@ -25,13 +25,16 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
+// WordPool provides a usefuil alias
+type WordPool = word.Pool[uint, word.BigEndian]
+
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
+func FromBytes(data []byte) (WordPool, []trace.RawColumn, error) {
 	var (
 		rawData map[string]map[string][]big.Int
-		cols    []trace.BigEndianColumn
+		cols    []trace.RawColumn
 	)
 	// Attempt to unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)
@@ -47,27 +50,27 @@ func FromBytes(data []byte) ([]trace.BigEndianColumn, error) {
 			col, bitwidth, error := splitColumnBitwidth(name)
 			// error check
 			if error != nil {
-				return nil, error
+				return nil, nil, error
 			}
 			// Validate data array
 			if row := validateBigInts(bitwidth, rawInts); row != math.MaxUint {
-				return nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
+				return nil, nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
 					name, row, rawInts[row].String())
 			}
 			// Construct data array
 			data := newArrayFromBigInts(bitwidth, rawInts, pool)
 			// Construct column
-			cols = append(cols, trace.BigEndianColumn{Module: mod, Name: col, Data: data})
+			cols = append(cols, trace.RawColumn{Module: mod, Name: col, Data: data})
 		}
 	}
 	//
-	return cols, nil
+	return pool, cols, nil
 }
 
 // FromBytesLegacy parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
+func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn, error) {
 	var (
 		rawData map[string][]big.Int
 		pool    = word.NewHeapPool[word.BigEndian]()
@@ -75,10 +78,10 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 	// Unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)
 	if jsonErr != nil {
-		return nil, jsonErr
+		return nil, nil, jsonErr
 	}
 	// Construct column data
-	cols := make([]trace.BigEndianColumn, len(rawData))
+	cols := make([]trace.RawColumn, len(rawData))
 	index := 0
 	//
 	for name, rawInts := range rawData {
@@ -86,38 +89,38 @@ func FromBytesLegacy(data []byte) ([]trace.BigEndianColumn, error) {
 		mod, col, bitwidth, error := splitQualifiedColumnName(name)
 		// error check
 		if error != nil {
-			return nil, error
+			return nil, nil, error
 		}
 		// Validate data array
 		if row := validateBigInts(bitwidth, rawInts); row != math.MaxUint {
-			return nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
+			return nil, nil, fmt.Errorf("column %s out-of-bounds (row %d, value %s)",
 				name, row, rawInts[row].String())
 		}
 		// Construct data array
 		data := newArrayFromBigInts(bitwidth, rawInts, pool)
 		// Construct column
-		cols[index] = trace.BigEndianColumn{Module: mod, Name: col, Data: data}
+		cols[index] = trace.RawColumn{Module: mod, Name: col, Data: data}
 		//
 		index++
 	}
 	// Done.
-	return cols, nil
+	return pool, cols, nil
 }
 
 func newArrayFromBigInts[P word.Pool[uint, word.BigEndian]](bitwidth uint, data []big.Int,
-	pool P) array.Array[word.BigEndian] {
+	pool P) array.MutArray[word.BigEndian] {
 	//
 	var (
-		n       = uint(len(data))
-		builder = word.NewArray[word.BigEndian](n, bitwidth, pool)
+		n   = uint(len(data))
+		arr = word.NewArray(n, bitwidth, pool)
 	)
 	//
 	for i := range n {
 		ithBytes := data[i].Bytes()
-		builder.Set(i, word.NewBigEndian(ithBytes))
+		arr.Set(i, word.NewBigEndian(ithBytes))
 	}
 	//
-	return builder.Build()
+	return arr
 }
 
 // SplitQualifiedColumnName splits a qualified column name into its module and

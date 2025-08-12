@@ -50,12 +50,6 @@ func (p *StaticArray[T]) BitWidth() uint {
 	return p.bitwidth
 }
 
-// Build implementation for the array.Builder interface.  This simply means that
-// a static array is its own builder.
-func (p *StaticArray[T]) Build() array.Array[T] {
-	return p
-}
-
 // Get returns the field element at the given index in this array.
 func (p *StaticArray[T]) Get(index uint) T {
 	var (
@@ -64,7 +58,7 @@ func (p *StaticArray[T]) Get(index uint) T {
 		bytes  = p.data[offset : offset+p.bytewidth]
 	)
 	//
-	return item.Set(bytes)
+	return item.SetBytes(bytes)
 }
 
 // Set sets the field element at the given index in this array, overwriting the
@@ -75,7 +69,7 @@ func (p *StaticArray[T]) Set(index uint, word T) {
 		bytes  = p.data[offset : offset+p.bytewidth]
 	)
 	// Copy over
-	word.Put(bytes)
+	word.PutBytes(bytes)
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
@@ -90,33 +84,31 @@ func (p *StaticArray[T]) Clone() array.MutArray[T] {
 
 // Slice out a subregion of this array.
 func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
-	panic("todo")
+	return &StaticArray[T]{
+		p.data[start*p.bytewidth : end*p.bytewidth], p.bitwidth, p.bytewidth,
+	}
 }
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *StaticArray[T]) Pad(n uint, m uint, padding T) array.MutArray[T] {
+func (p *StaticArray[T]) Pad(n uint, m uint, padding T) {
 	var (
-		q StaticArray[T]
 		// Determine new length
 		l = n + m + p.Len()
+		// Initialise new array
+		data = make([]byte, p.bytewidth*l)
 	)
-	// Initialise new array
-	q.bitwidth = p.bitwidth
-	q.bytewidth = p.bytewidth
-	q.data = make([]byte, q.bytewidth*l)
-	// Copy over existing bytes
-	copy(q.data[n*p.bytewidth:], p.data)
+	// copy
+	copy(data[n*p.bytewidth:], p.data)
+	p.data = data
 	// Front padding!
 	for i := range n {
-		q.Set(i, padding)
+		p.Set(i, padding)
 	}
 	// Back padding!
-	for i := n + p.Len(); i < l; i++ {
-		q.Set(i, padding)
+	for i := l - m; i < l; i++ {
+		p.Set(i, padding)
 	}
-	// Done
-	return &q
 }
 
 func (p *StaticArray[T]) String() string {

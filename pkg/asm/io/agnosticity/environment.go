@@ -14,6 +14,7 @@ package agnosticity
 
 import (
 	"fmt"
+	"math/big"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema"
@@ -166,6 +167,8 @@ func (p *RegisterSplittingEnvironment) AllocateTargetLimbs(targetLimbs []Registe
 func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, sourceWidth uint) RegisterId {
 	var (
 		overflowRegId = uint(len(p.regsAfter))
+		// Default padding (for now)
+		padding big.Int
 	)
 	// Sanity check
 	if targetWidth > sourceWidth {
@@ -179,7 +182,7 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
 	// Construct register for holding overflow
-	overflowRegister := schema.NewComputedRegister(fmt.Sprintf("c$%d", overflowRegId), overflowWidth)
+	overflowRegister := schema.NewComputedRegister(fmt.Sprintf("c$%d", overflowRegId), overflowWidth, padding)
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//

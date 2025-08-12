@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -44,8 +45,10 @@ func subdivideLookup(c LookupConstraint, mapping schema.LimbsMap) LookupConstrai
 // create more source/target pairings.  Rather, it splits registers within the
 // existing pairings only.  Later stages will subdivide and pad the
 // source/target pairings as necessary.
-func mapLookupVectors(vectors []lookup.Vector[Term], mapping schema.LimbsMap) []lookup.Vector[Term] {
-	var nterms = make([]lookup.Vector[Term], len(vectors))
+func mapLookupVectors(vectors []lookup.Vector[bls12_377.Element, Term],
+	mapping schema.LimbsMap) []lookup.Vector[bls12_377.Element, Term] {
+	//
+	var nterms = make([]lookup.Vector[bls12_377.Element, Term], len(vectors))
 	//
 	for i, vector := range vectors {
 		var (
@@ -67,10 +70,10 @@ func mapLookupVectors(vectors []lookup.Vector[Term], mapping schema.LimbsMap) []
 // now changed to [u16,u16] to accommodate the field bandwidth.  Furthermore,
 // notice padding has been applied to ensure we have a matching number of
 // columns on the left- and right-hand sides.
-func splitLookupVectors(geometry lookup.Geometry, vectors []lookup.Vector[Term],
-	mapping schema.LimbsMap) []lookup.Vector[Term] {
+func splitLookupVectors(geometry lookup.Geometry, vectors []lookup.Vector[bls12_377.Element, Term],
+	mapping schema.LimbsMap) []lookup.Vector[bls12_377.Element, Term] {
 	//
-	var nterms = make([]lookup.Vector[Term], len(vectors))
+	var nterms = make([]lookup.Vector[bls12_377.Element, Term], len(vectors))
 	//
 	for i, vector := range vectors {
 		nterms[i] = splitLookupVector(geometry, vector, mapping)
@@ -79,8 +82,8 @@ func splitLookupVectors(geometry lookup.Geometry, vectors []lookup.Vector[Term],
 	return nterms
 }
 
-func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[Term],
-	mapping schema.LimbsMap) lookup.Vector[Term] {
+func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[bls12_377.Element, Term],
+	mapping schema.LimbsMap) lookup.Vector[bls12_377.Element, Term] {
 	//
 	var (
 		limbs  [][]Term = make([][]Term, vector.Len())
@@ -200,7 +203,7 @@ func padLookupLimbs(terms [][]Term, geometry lookup.Geometry) []Term {
 		nterms = append(nterms, ith...)
 		// Pad out with zeros to match geometry
 		for m := n - len(ith); m > 0; m-- {
-			nterms = append(nterms, ir.Const64[Term](0))
+			nterms = append(nterms, ir.Const64[bls12_377.Element, Term](0))
 		}
 	}
 

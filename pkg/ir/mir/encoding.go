@@ -19,11 +19,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 const (
@@ -163,7 +163,7 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func encode_lookup_vector(vector lookup.Vector[Term], buffer *bytes.Buffer) error {
+func encode_lookup_vector(vector lookup.Vector[bls12_377.Element, Term], buffer *bytes.Buffer) error {
 	var (
 		gobEncoder = gob.NewEncoder(buffer)
 		selector   = vector.HasSelector()
@@ -414,10 +414,10 @@ func decode_lookup(data []byte) (schema.Constraint, error) {
 	return lookup, nil
 }
 
-func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[Term], error) {
+func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[bls12_377.Element, Term], error) {
 	var (
 		gobDecoder  = gob.NewDecoder(buf)
-		vector      lookup.Vector[Term]
+		vector      lookup.Vector[bls12_377.Element, Term]
 		hasSelector bool
 		selector    Term
 		err         error
@@ -690,6 +690,7 @@ func decode_ite(tag byte, buf *bytes.Buffer) (LogicalTerm, error) {
 // ============================================================================
 
 func encode_term(term Term, buf *bytes.Buffer) error {
+	//
 	switch t := term.(type) {
 	case *Add:
 		return encode_tagged_nary_terms(addTag, buf, t.Args...)
@@ -917,7 +918,7 @@ func decode_cast(buf *bytes.Buffer) (Term, error) {
 func decode_constant(buf *bytes.Buffer) (Term, error) {
 	var (
 		bytes   [32]byte
-		element fr.Element
+		element bls12_377.Element
 	)
 	//
 	if n, err := buf.Read(bytes[:]); err != nil {
@@ -926,9 +927,9 @@ func decode_constant(buf *bytes.Buffer) (Term, error) {
 		return nil, errors.New("failed decoding constant")
 	}
 	//
-	element.SetBytes(bytes[:])
+	element = element.SetBytes(bytes[:])
 	//
-	return ir.Const[Term](element), nil
+	return ir.Const[bls12_377.Element, Term](element), nil
 }
 
 func decode_exponent(buf *bytes.Buffer) (Term, error) {
@@ -972,7 +973,7 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 		str_bytes   []byte
 		str_len     uint16
 		const_bytes [32]byte
-		element     fr.Element
+		element     bls12_377.Element
 	)
 	// Label length
 	if err := binary.Read(buf, binary.BigEndian, &str_len); err != nil {
@@ -992,9 +993,9 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 		return nil, errors.New("failed decoding labelled constant")
 	}
 	//
-	element.SetBytes(const_bytes[:])
+	element = element.SetBytes(const_bytes[:])
 	//
-	return ir.LabelledConstant[Term](string(str_bytes), element), nil
+	return ir.LabelledConstant[bls12_377.Element, Term](string(str_bytes), element), nil
 }
 
 func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
@@ -1013,13 +1014,13 @@ func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
 	// Construct raw register id
 	rid := schema.NewRegisterId(uint(index))
 	// Done
-	return &ir.RegisterAccess[Term]{Register: rid, Shift: int(shift)}, nil
+	return &ir.RegisterAccess[bls12_377.Element, Term]{Register: rid, Shift: int(shift)}, nil
 }
 
 func decode_vec_access(buf *bytes.Buffer) (Term, error) {
 	vars, err := decode_nary(decode_reg_access, buf)
 	//
-	return &ir.VectorAccess[Term]{Vars: vars}, err
+	return &ir.VectorAccess[bls12_377.Element, Term]{Vars: vars}, err
 }
 
 // ============================================================================
@@ -1092,7 +1093,7 @@ func disjunctionConstructor(terms []LogicalTerm) LogicalTerm {
 }
 
 func equalConstructor(terms []Term) LogicalTerm {
-	return ir.Equals[LogicalTerm](terms[0], terms[1])
+	return ir.Equals[bls12_377.Element, LogicalTerm](terms[0], terms[1])
 }
 
 func iteTrueFalseConstructor(terms []LogicalTerm) LogicalTerm {
@@ -1112,19 +1113,19 @@ func mulConstructor(terms []Term) Term {
 }
 
 func negationConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.Negation[LogicalTerm](terms[0])
+	return ir.Negation(terms[0])
 }
 
 func notEqualConstructor(terms []Term) LogicalTerm {
-	return ir.NotEquals[LogicalTerm](terms[0], terms[1])
+	return ir.NotEquals[bls12_377.Element, LogicalTerm](terms[0], terms[1])
 }
 
 func lessThanConstructor(terms []Term) LogicalTerm {
-	return ir.LessThan[LogicalTerm](terms[0], terms[1])
+	return ir.LessThan[bls12_377.Element, LogicalTerm](terms[0], terms[1])
 }
 
 func lessThanOrEqualsConstructor(terms []Term) LogicalTerm {
-	return ir.LessThanOrEquals[LogicalTerm](terms[0], terms[1])
+	return ir.LessThanOrEquals[bls12_377.Element, LogicalTerm](terms[0], terms[1])
 }
 
 func subConstructor(terms []Term) Term {

@@ -38,16 +38,34 @@ var ZKTRACER [8]byte = [8]byte{'z', 'k', 't', 'r', 'a', 'c', 'e', 'r'}
 type TraceFile struct {
 	// Header for the binary file
 	Header Header
+	// Word pool
+	Pool WordPool
 	// Column data
-	Columns []trace.BigEndianColumn
+	Columns []trace.RawColumn
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(metadata []byte, columns []trace.BigEndianColumn) *TraceFile {
-	return &TraceFile{
+func NewTraceFile(metadata []byte, pool WordPool, columns []trace.RawColumn) TraceFile {
+	return TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
+		pool,
 		columns,
+	}
+}
+
+// Clone a trace file producing an unaliased copy
+func (p *TraceFile) Clone() TraceFile {
+	var cols = make([]trace.RawColumn, len(p.Columns))
+	//
+	for i := range cols {
+		cols[i] = p.Columns[i].Clone()
+	}
+	//
+	return TraceFile{
+		p.Header,
+		p.Pool.Clone(),
+		cols,
 	}
 }
 
@@ -98,7 +116,7 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	// Read header
 	if err = p.Header.UnmarshalBinary(buffer); err == nil && p.Header.IsCompatible() {
 		// Decode column data
-		p.Columns, err = FromBytesLegacy(buffer.Bytes())
+		p.Pool, p.Columns, err = FromBytesLegacy(buffer.Bytes())
 		// Done
 		return err
 	} else if err == nil {

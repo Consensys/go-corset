@@ -15,14 +15,13 @@ package vanishing
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -32,7 +31,7 @@ import (
 // ignored.  This is parameterised by the type of the constraint expression.
 // Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type Constraint[T ir.Testable] struct {
+type Constraint[T ir.Testable[bls12_377.Element]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -49,7 +48,7 @@ type Constraint[T ir.Testable] struct {
 }
 
 // NewConstraint constructs a new vanishing constraint!
-func NewConstraint[T ir.Testable](handle string, context schema.ModuleId,
+func NewConstraint[T ir.Testable[bls12_377.Element]](handle string, context schema.ModuleId,
 	domain util.Option[int], constraint T) Constraint[T] {
 	return Constraint[T]{handle, context, domain, constraint}
 }
@@ -133,8 +132,8 @@ func (p Constraint[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T ir.Testable](handle string, ctx schema.ModuleId, constraint T,
-	trMod trace.Module, scMod schema.Module) (bit.Set, schema.Failure) {
+func HoldsGlobally[T ir.Testable[bls12_377.Element]](handle string, ctx schema.ModuleId, constraint T,
+	trMod trace.Module[bls12_377.Element], scMod schema.Module) (bit.Set, schema.Failure) {
 	//
 	var (
 		coverage bit.Set
@@ -161,8 +160,8 @@ func HoldsGlobally[T ir.Testable](handle string, ctx schema.ModuleId, constraint
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T ir.Testable](k uint, handle string, term T, ctx schema.ModuleId,
-	trMod trace.Module, scMod schema.Module) (schema.Failure, uint) {
+func HoldsLocally[T ir.Testable[bls12_377.Element]](k uint, handle string, term T, ctx schema.ModuleId,
+	trMod trace.Module[bls12_377.Element], scMod schema.Module) (schema.Failure, uint) {
 	//
 	ok, id, err := term.TestAt(int(k), trMod, scMod)
 	// Check for errors
@@ -188,20 +187,21 @@ func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		module = schema.Module(p.Context)
 		name   string
+		vanish string = "vanish"
 	)
 	// Construct qualified name
 	if module.Name() != "" {
-		name = fmt.Sprintf("%s:%s", module.Name(), p.Handle)
+		name = fmt.Sprintf("\"%s:%s\"", module.Name(), p.Handle)
 	} else {
-		name = p.Handle
+		name = fmt.Sprintf("\"%s\"", p.Handle)
 	}
 	// Handle attributes
 	if p.Domain.HasValue() {
 		switch p.Domain.Unwrap() {
 		case 0:
-			name = fmt.Sprintf("%s:first", name)
+			vanish = fmt.Sprintf("%s:first", vanish)
 		case -1:
-			name = fmt.Sprintf("%s:last", name)
+			vanish = fmt.Sprintf("%s:last", vanish)
 		default:
 			domain := p.Domain.Unwrap()
 			panic(fmt.Sprintf("domain value %d not supported for local constraint", domain))
@@ -209,14 +209,13 @@ func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	}
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("vanish"),
-		sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol(name)}),
+		sexp.NewSymbol(vanish),
+		sexp.NewSymbol(name),
 		p.Constraint.Lisp(false, module),
 	})
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[T]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[T]) Substitute(mapping map[string]bls12_377.Element) {
 	p.Constraint.Substitute(mapping)
 }

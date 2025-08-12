@@ -57,10 +57,14 @@ func (p *BitArray[T]) BitWidth() uint {
 	return 1
 }
 
-// Build implementation for the array.Builder interface.  This simply means that
-// a static array is its own builder.
-func (p *BitArray[T]) Build() array.Array[T] {
-	return p
+// Clone makes clones of this array producing an otherwise identical copy.
+func (p *BitArray[T]) Clone() array.MutArray[T] {
+	// Allocate sufficient memory
+	ndata := make([]byte, uint(len(p.data)))
+	// Copy over the data
+	copy(ndata, p.data)
+	//
+	return &BitArray[T]{ndata, p.height}
 }
 
 // Get returns the field element at the given index in this array.
@@ -68,16 +72,31 @@ func (p *BitArray[T]) Get(index uint) T {
 	var b T
 	//
 	if bit.Read(p.data, index) {
-		return b.Set(bitOne)
+		return b.SetBytes(bitOne)
 	}
 	// Default is zero
 	return b
 }
 
+// Pad implementation for MutArray interface.
+func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
+	// Front padding
+	if n > 0 {
+		p.insertBits(n, padding)
+	}
+	// Back padding
+	if m > 0 {
+		p.appendBits(m, padding)
+	}
+}
+
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *BitArray[T]) Set(index uint, word T) {
-	bit.Write(word.Bit(0), p.data, index)
+	// if byte length is 0, the word represents 0.  otherwise, it must be 1.
+	var val = word.ByteWidth() != 0
+	//
+	bit.Write(val, p.data, index)
 }
 
 // Slice out a subregion of this array.
@@ -98,7 +117,7 @@ func (p *BitArray[T]) Slice(start uint, end uint) array.Array[T] {
 	// the use cases for Slice() are very limited at this time, so no need.
 	bytes := make([]byte, bytewidth)
 	// Copy height bits over
-	bit.Copy(p.data, start, bytes, height)
+	bit.Copy(p.data, start, bytes, 0, height)
 	// Done
 	return &BitArray[T]{bytes, height}
 }
@@ -119,4 +138,38 @@ func (p *BitArray[T]) String() string {
 	sb.WriteString("]")
 
 	return sb.String()
+}
+
+func (p *BitArray[T]) insertBits(n uint, padding T) {
+	var (
+		height    = p.height + n
+		bytewidth = ByteWidth(height)
+		data      = make([]byte, bytewidth)
+	)
+	// copy
+	bit.Copy(p.data, 0, data, n, p.height)
+	p.data = data
+	// assign
+	for i := range n {
+		p.Set(i, padding)
+	}
+	// done
+	p.height = height
+}
+
+func (p *BitArray[T]) appendBits(n uint, padding T) {
+	var (
+		height    = p.height + n
+		bytewidth = ByteWidth(height)
+		data      = make([]byte, bytewidth)
+	)
+	// copy
+	copy(data, p.data)
+	p.data = data
+	// assign
+	for i := p.height; i < height; i++ {
+		p.Set(i, padding)
+	}
+	// done
+	p.height = height
 }

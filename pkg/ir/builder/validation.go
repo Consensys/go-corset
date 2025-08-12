@@ -15,20 +15,19 @@ package builder
 import (
 	"fmt"
 	"math"
+	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace[bls12_377.Element]) []error {
+func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace[word.BigEndian]) []error {
 	var (
 		errors []error
 		// Start timer
@@ -51,7 +50,7 @@ func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace[bls12_377.E
 // SequentialTraceValidation validates that values held in trace columns match
 // the expected type.  This is really a sanity check that the trace is not
 // malformed.
-func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace[bls12_377.Element]) []error {
+func SequentialTraceValidation[W word.Word[W]](schema sc.AnySchema, tr trace.Trace[W]) []error {
 	var errors []error
 	//
 	for i := uint(0); i < max(schema.Width(), tr.Width()); i++ {
@@ -78,8 +77,7 @@ func SequentialTraceValidation(schema sc.AnySchema, tr trace.Trace[bls12_377.Ele
 // ParallelTraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Element]) []error {
-	//
+func ParallelTraceValidation[W word.Word[W]](schema sc.AnySchema, trace tr.Trace[W]) []error {
 	var (
 		errors []error
 		// Construct a communication channel for errors.
@@ -97,7 +95,7 @@ func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Eleme
 		for i := uint(0); i < trMod.Width(); i++ {
 			rid := sc.NewRegisterId(i)
 			// Check elements
-			go func(reg sc.Register, data tr.Column) {
+			go func(reg sc.Register, data tr.Column[W]) {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
 			}(scMod.Register(rid), trMod.Column(i))
@@ -116,7 +114,7 @@ func ParallelTraceValidation(schema sc.AnySchema, trace tr.Trace[bls12_377.Eleme
 	return errors
 }
 
-func sequentialModuleValidation(scMod sc.Module, trMod trace.Module) []error {
+func sequentialModuleValidation[W word.Word[W]](scMod sc.Module, trMod trace.Module[W]) []error {
 	var (
 		errors []error
 		// Extract module registers
@@ -137,9 +135,9 @@ func sequentialModuleValidation(scMod sc.Module, trMod trace.Module) []error {
 				errors = append(errors, err)
 			} else {
 				var (
-					rid               = sc.NewRegisterId(i)
-					reg  sc.Register  = scMod.Register(rid)
-					data trace.Column = trMod.Column(i)
+					rid  = sc.NewRegisterId(i)
+					reg  = scMod.Register(rid)
+					data = trMod.Column(i)
 				)
 				// Sanity check data has expected bitwidth
 				if err := validateColumnBitWidth(reg.Width, data, scMod); err != nil {
@@ -153,7 +151,7 @@ func sequentialModuleValidation(scMod sc.Module, trMod trace.Module) []error {
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.
-func validateColumnBitWidth(bitwidth uint, col tr.Column, mod sc.Module) error {
+func validateColumnBitWidth[W word.Word[W]](bitwidth uint, col tr.Column[W], mod sc.Module) error {
 	// Sanity check bitwidth can be checked.
 	if bitwidth == math.MaxUint {
 		// This indicates a column which has no fixed bitwidth but, rather, uses
@@ -165,14 +163,12 @@ func validateColumnBitWidth(bitwidth uint, col tr.Column, mod sc.Module) error {
 		panic(fmt.Sprintf("column %s is unassigned", col.Name()))
 	}
 	//
-	var frBound fr.Element = fr.NewElement(2)
-	// Compute 2^n
-	field.Pow(&frBound, uint64(bitwidth))
-	//
 	for j := 0; j < int(col.Data().Len()); j++ {
-		var jth = col.Get(j)
+		var jth big.Int
+
+		jth.SetBytes(col.Get(j).Bytes())
 		//
-		if jth.Cmp(&frBound) >= 0 {
+		if uint(jth.BitLen()) > bitwidth {
 			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}

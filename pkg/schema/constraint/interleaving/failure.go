@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Failure provides structural information about a failing lookup constraint.
@@ -29,11 +29,11 @@ type Failure struct {
 	// Relevant context for target expressions.
 	TargetContext schema.ModuleId
 	// Target expression involved
-	Target ir.Evaluable
+	Target ir.Evaluable[bls12_377.Element]
 	// Relevant context for source expressions.
 	SourceContext schema.ModuleId
 	// Source expression which were missing
-	Source ir.Evaluable
+	Source ir.Evaluable[bls12_377.Element]
 	// Target row on which constraint
 	Row uint
 }

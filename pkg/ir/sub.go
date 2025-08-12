@@ -13,22 +13,22 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Sub represents the subtraction over zero or more expressions.
-type Sub[T Term[T]] struct{ Args []T }
+type Sub[F field.Element[F], T Term[F, T]] struct{ Args []T }
 
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
-func Subtract[T Term[T]](exprs ...T) T {
+func Subtract[F field.Element[F], T Term[F, T]](exprs ...T) T {
 	// Sanity check
 	if len(exprs) == 0 {
 		panic("subtraction of zero expressions")
@@ -36,72 +36,72 @@ func Subtract[T Term[T]](exprs ...T) T {
 		return exprs[0]
 	}
 	//
-	var term Term[T] = &Sub[T]{exprs}
+	var term Term[F, T] = &Sub[F, T]{exprs}
 	//
 	return term.(T)
 }
 
 // Air indicates this term can be used at the AIR level.
-func (p *Sub[T]) Air() {}
+func (p *Sub[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *Sub[T]) ApplyShift(shift int) T {
-	var term Term[T] = &Sub[T]{applyShiftOfTerms(p.Args, shift)}
+func (p *Sub[F, T]) ApplyShift(shift int) T {
+	var term Term[F, T] = &Sub[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Sub[T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
+func (p *Sub[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Sub[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *Sub[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(p.Args); i++ {
-		var ith fr.Element
+		var ith F
 		// Evaluate ith argument
 		ith, err = p.Args[i].EvalAt(k, tr, sc)
-		val.Sub(&val, &ith)
+		val = val.Sub(ith)
 	}
 	// Done
 	return val, err
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *Sub[T]) IsDefined() bool {
+func (p *Sub[F, T]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Sub[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Sub[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	return lispOfTerms(global, mapping, "-", p.Args)
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Sub[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Sub[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return requiredRegistersOfTerms(p.Args)
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Sub[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Sub[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return requiredCellsOfTerms(p.Args, row, mid)
 }
 
 // ShiftRange implementation for Term interface.
-func (p *Sub[T]) ShiftRange() (int, int) {
+func (p *Sub[F, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args...)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Sub[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Sub[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 
 // ValueRange implementation for Term interface.
-func (p *Sub[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Sub[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
@@ -117,20 +117,20 @@ func (p *Sub[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 }
 
 // Simplify implementation for Term interface.
-func (p *Sub[T]) Simplify(casts bool) T {
+func (p *Sub[F, T]) Simplify(casts bool) T {
 	var (
-		targ  Term[T]
-		lhs   T       = p.Args[0].Simplify(casts)
-		lhs_t Term[T] = lhs
+		targ  Term[F, T]
+		lhs   T          = p.Args[0].Simplify(casts)
+		lhs_t Term[F, T] = lhs
 		// Subtraction is harder to optimise for.  What we do is view "a - b - c" as
 		// "a - (b+c)", and optimise the right-hand side as though it were addition.
-		rhs   T       = simplifySum(p.Args[1:], casts)
-		rhs_t Term[T] = rhs
+		rhs   T          = simplifySum[F](p.Args[1:], casts)
+		rhs_t Term[F, T] = rhs
 	)
 	// Check what's left
-	lc, l_const := lhs_t.(*Constant[T])
-	rc, r_const := rhs_t.(*Constant[T])
-	ra, r_add := rhs_t.(*Add[T])
+	lc, l_const := lhs_t.(*Constant[F, T])
+	rc, r_const := rhs_t.(*Constant[F, T])
+	ra, r_add := rhs_t.(*Add[F, T])
 	r_zero := isZero(rhs)
 	//
 	switch {
@@ -139,37 +139,35 @@ func (p *Sub[T]) Simplify(casts bool) T {
 		return lhs
 	case l_const && r_const:
 		// Both sides constant, result is constant.
-		c := lc.Value
-		c = *c.Sub(&c, &rc.Value)
+		c := lc.Value.Sub(rc.Value)
 		//
-		targ = &Constant[T]{c}
+		targ = &Constant[F, T]{c}
 	case l_const && r_add:
 		nterms := array.Prepend(lhs, ra.Args)
 		// if rhs has constant, subtract it.
 		if rc, ok := findConstant(ra.Args); ok {
-			c := lc.Value
-			c = *c.Sub(&c, &rc)
-			nterms = mergeConstants(c, nterms)
+			c := lc.Value.Sub(rc)
+			nterms = mergeConstants[F](c, nterms)
 		}
 		//
-		targ = &Sub[T]{nterms}
+		targ = &Sub[F, T]{nterms}
 	case r_add:
 		// Default case, recombine.
-		targ = &Sub[T]{array.Prepend(lhs, ra.Args)}
+		targ = &Sub[F, T]{array.Prepend(lhs, ra.Args)}
 	default:
-		targ = &Sub[T]{[]T{lhs, rhs}}
+		targ = &Sub[F, T]{[]T{lhs, rhs}}
 	}
 	//
 	return targ.(T)
 }
 
-func findConstant[T Term[T]](terms []T) (fr.Element, bool) {
+func findConstant[F field.Element[F], T Term[F, T]](terms []T) (F, bool) {
 	for _, t := range terms {
-		var ith Term[T] = t
-		if c, ok := ith.(*Constant[T]); ok {
+		var ith Term[F, T] = t
+		if c, ok := ith.(*Constant[F, T]); ok {
 			return c.Value, true
 		}
 	}
 	//
-	return frZERO, false
+	return field.Zero[F](), false
 }

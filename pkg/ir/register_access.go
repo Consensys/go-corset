@@ -16,12 +16,13 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -32,35 +33,35 @@ import (
 // contains the register accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
 // accesses the STAMP register at row 5, whilst CT(-1) accesses the CT register at
 // row 4.
-type RegisterAccess[T Term[T]] struct {
+type RegisterAccess[F field.Element[F], T Term[F, T]] struct {
 	Register schema.RegisterId
 	Shift    int
 }
 
 // NewRegisterAccess constructs an AIR expression representing the value of a
 // given register on the current row.
-func NewRegisterAccess[T Term[T]](register schema.RegisterId, shift int) T {
-	var term Term[T] = &RegisterAccess[T]{Register: register, Shift: shift}
+func NewRegisterAccess[F field.Element[F], T Term[F, T]](register schema.RegisterId, shift int) T {
+	var term Term[F, T] = &RegisterAccess[F, T]{Register: register, Shift: shift}
 	return term.(T)
 }
 
 // RawRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func RawRegisterAccess[T Term[T]](register schema.RegisterId, shift int) *RegisterAccess[T] {
-	return &RegisterAccess[T]{Register: register, Shift: shift}
+func RawRegisterAccess[F field.Element[F], T Term[F, T]](register schema.RegisterId, shift int) *RegisterAccess[F, T] {
+	return &RegisterAccess[F, T]{Register: register, Shift: shift}
 }
 
 // Air indicates this term can be used at the AIR level.
-func (p *RegisterAccess[T]) Air() {}
+func (p *RegisterAccess[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
-func (p *RegisterAccess[T]) ApplyShift(shift int) T {
-	var reg Term[T] = &RegisterAccess[T]{Register: p.Register, Shift: p.Shift + shift}
+func (p *RegisterAccess[F, T]) ApplyShift(shift int) T {
+	var reg Term[F, T] = &RegisterAccess[F, T]{Register: p.Register, Shift: p.Shift + shift}
 	return reg.(T)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *RegisterAccess[T]) Bounds() util.Bounds {
+func (p *RegisterAccess[F, T]) Bounds() util.Bounds {
 	if p.Shift >= 0 {
 		// Positive shift
 		return util.NewBounds(0, uint(p.Shift))
@@ -70,23 +71,27 @@ func (p *RegisterAccess[T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *RegisterAccess[T]) EvalAt(k int, module trace.Module, _ schema.Module) (fr.Element, error) {
+func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ schema.Module) (F, error) {
 	return module.Column(p.Register.Unwrap()).Get(k + p.Shift), nil
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *RegisterAccess[T]) IsDefined() bool {
+func (p *RegisterAccess[F, T]) IsDefined() bool {
 	return p.Register.IsUsed()
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *RegisterAccess[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *RegisterAccess[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
 	if mapping != nil && global {
 		name = mapping.Register(p.Register).QualifiedName(mapping)
 	} else if mapping != nil {
 		name = mapping.Register(p.Register).Name
+		// Add quotes if suitable
+		if strings.Contains(name, " ") {
+			name = fmt.Sprintf("\"%s\"", name)
+		}
 	} else {
 		name = fmt.Sprintf("#%d", p.Register)
 	}
@@ -104,7 +109,7 @@ func (p *RegisterAccess[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.S
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *RegisterAccess[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *RegisterAccess[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	r := set.NewSortedSet[uint]()
 	r.Insert(p.Register.Unwrap())
 	// Done
@@ -112,7 +117,7 @@ func (p *RegisterAccess[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *RegisterAccess[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *RegisterAccess[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	var (
 		set = set.NewAnySortedSet[trace.CellRef]()
 		ref = trace.NewColumnRef(mid, p.Register)
@@ -124,23 +129,23 @@ func (p *RegisterAccess[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnyS
 }
 
 // ShiftRange implementation for Term interface.
-func (p *RegisterAccess[T]) ShiftRange() (int, int) {
+func (p *RegisterAccess[F, T]) ShiftRange() (int, int) {
 	return p.Shift, p.Shift
 }
 
 // Simplify implementation for Term interface.
-func (p *RegisterAccess[T]) Simplify(casts bool) T {
-	var tmp Term[T] = p
+func (p *RegisterAccess[F, T]) Simplify(casts bool) T {
+	var tmp Term[F, T] = p
 	return tmp.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *RegisterAccess[T]) Substitute(mapping map[string]fr.Element) {
+func (p *RegisterAccess[F, T]) Substitute(mapping map[string]F) {
 
 }
 
 // ValueRange implementation for Term interface.
-func (p *RegisterAccess[T]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
+func (p *RegisterAccess[F, T]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
 	var width = mapping.Register(p.Register).Width
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume

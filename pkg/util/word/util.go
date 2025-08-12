@@ -12,6 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package word
 
+import (
+	"math"
+)
+
 // ByteWidth returns the least number of bytes required to store an element of
 // the given width.
 func ByteWidth(bitwidth uint) uint {
@@ -22,4 +26,33 @@ func ByteWidth(bitwidth uint) uint {
 	}
 	//
 	return n + 1
+}
+
+// ByteWidth64 returns the bytewidth of the given uint64 value.
+func ByteWidth64(value uint64) uint {
+	if value > math.MaxUint32 {
+		return 4 + ByteWidth32(uint32(value>>32))
+	}
+	//
+	return ByteWidth32(uint32(value))
+}
+
+// ByteWidth32 returns the bytewidth of the given uint64 value.
+func ByteWidth32(value uint32) uint {
+	if value > math.MaxUint16 {
+		return 2 + ByteWidth16(uint16(value>>16))
+	}
+	//
+	return ByteWidth16(uint16(value))
+}
+
+// ByteWidth16 returns the bytewidth of the given uint16 value.
+func ByteWidth16(value uint16) uint {
+	if value > math.MaxUint8 {
+		return 2
+	} else if value > 0 {
+		return 1
+	}
+	//
+	return 0
 }

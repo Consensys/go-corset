@@ -13,17 +13,19 @@
 package assignment
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
+// WordPool offsets a convenient alias
+type WordPool = word.Pool[uint, word.BigEndian]
+
 // ReadRegisters a given set of registers from a trace.
-func ReadRegisters(trace tr.Trace[bls12_377.Element], regs ...sc.RegisterRef) []field.FrArray {
+func ReadRegisters[W word.Word[W]](trace tr.Trace[W], regs ...sc.RegisterRef) []array.Array[W] {
 	var (
-		targets = make([]field.FrArray, len(regs))
+		targets = make([]array.Array[W], len(regs))
 	)
 	// Read registers
 	for i, ref := range regs {
@@ -32,22 +34,6 @@ func ReadRegisters(trace tr.Trace[bls12_377.Element], regs ...sc.RegisterRef) []
 	}
 	//
 	return targets
-}
-
-var zero = fr.NewElement(0)
-
-// WriteRegisters a given set of registers from a trace.
-func WriteRegisters(schema sc.AnySchema, targets []sc.RegisterRef, data []field.FrArray) []tr.ArrayColumn {
-	var (
-		columns = make([]tr.ArrayColumn, len(targets))
-	)
-	// Write outputs
-	for i, ref := range targets {
-		ith := schema.Register(ref)
-		columns[i] = tr.NewArrayColumn(ith.Name, data[i], zero)
-	}
-	//
-	return columns
 }
 
 func toRegisterRefs(context sc.ModuleId, ids []sc.RegisterId) []sc.RegisterRef {

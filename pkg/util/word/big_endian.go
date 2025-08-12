@@ -14,6 +14,8 @@ package word
 
 import (
 	"bytes"
+	"cmp"
+	"encoding/binary"
 	"hash/fnv"
 	"math/big"
 
@@ -44,7 +46,7 @@ func (p BigEndian) AsBigInt() big.Int {
 // Bit returnsthe bit at a given offset in this word, where offsets always start
 // with the least-significant.
 func (p BigEndian) Bit(offset uint) bool {
-	var bitwidth = p.BitWidth()
+	var bitwidth = p.ByteWidth()
 	// If offset is past the end of the available bits, then it must have been
 	// in the trimmed region and, therefore, was 0.
 	if offset < bitwidth {
@@ -54,14 +56,105 @@ func (p BigEndian) Bit(offset uint) bool {
 	return false
 }
 
-// BitWidth returns the actual bitwidth of this big endian.
-func (p BigEndian) BitWidth() uint {
-	return uint(len(p.bytes)) * 8
+// ByteWidth implementation for the Word interface.
+func (p BigEndian) ByteWidth() uint {
+	return uint(len(p.bytes))
 }
 
-// Cmp implements a byte comparisong between two big endian instances.
+// Cmp64 implementation for Word interface.
+func (p BigEndian) Cmp64(o uint64) int {
+	var (
+		width = p.ByteWidth()
+	)
+	//
+	switch width {
+	case 0:
+		return cmp.Compare(0, o)
+	case 1:
+		tmp := uint64(p.bytes[0])
+		return cmp.Compare(tmp, o)
+	case 2:
+		tmp := uint64(p.bytes[1])
+		tmp += uint64(p.bytes[0]) << 8
+		//
+		return cmp.Compare(tmp, o)
+	case 3:
+		tmp := uint64(p.bytes[2])
+		tmp += uint64(p.bytes[1]) << 8
+		tmp += uint64(p.bytes[0]) << 16
+		//
+		return cmp.Compare(tmp, o)
+	case 4:
+		tmp := uint64(p.bytes[3])
+		tmp += uint64(p.bytes[2]) << 8
+		tmp += uint64(p.bytes[1]) << 16
+		tmp += uint64(p.bytes[0]) << 24
+		//
+		return cmp.Compare(tmp, o)
+	case 5:
+		tmp := uint64(p.bytes[4])
+		tmp += uint64(p.bytes[3]) << 8
+		tmp += uint64(p.bytes[2]) << 16
+		tmp += uint64(p.bytes[1]) << 24
+		tmp += uint64(p.bytes[0]) << 32
+		//
+		return cmp.Compare(tmp, o)
+	case 6:
+		tmp := uint64(p.bytes[5])
+		tmp += uint64(p.bytes[4]) << 8
+		tmp += uint64(p.bytes[3]) << 16
+		tmp += uint64(p.bytes[2]) << 24
+		tmp += uint64(p.bytes[1]) << 32
+		tmp += uint64(p.bytes[0]) << 40
+		//
+		return cmp.Compare(tmp, o)
+	case 7:
+		tmp := uint64(p.bytes[6])
+		tmp += uint64(p.bytes[5]) << 8
+		tmp += uint64(p.bytes[4]) << 16
+		tmp += uint64(p.bytes[3]) << 24
+		tmp += uint64(p.bytes[2]) << 32
+		tmp += uint64(p.bytes[1]) << 40
+		tmp += uint64(p.bytes[0]) << 48
+		//
+		return cmp.Compare(tmp, o)
+	case 8:
+		tmp := uint64(p.bytes[7])
+		tmp += uint64(p.bytes[6]) << 8
+		tmp += uint64(p.bytes[5]) << 16
+		tmp += uint64(p.bytes[4]) << 24
+		tmp += uint64(p.bytes[3]) << 32
+		tmp += uint64(p.bytes[2]) << 40
+		tmp += uint64(p.bytes[1]) << 48
+		tmp += uint64(p.bytes[0]) << 56
+		//
+		return cmp.Compare(tmp, o)
+	default:
+		return 1
+	}
+}
+
+// Cmp implements a comparison by regarding the word as an unsigned integer.
 func (p BigEndian) Cmp(o BigEndian) int {
-	return bytes.Compare(p.bytes, o.bytes)
+	var (
+		lp = len(p.bytes)
+		op = len(o.bytes)
+	)
+	//
+	if lp < op {
+		return -1
+	} else if lp > op {
+		return 1
+	}
+	//
+	for i := range lp {
+		c := cmp.Compare(p.bytes[i], o.bytes[i])
+		if c != 0 {
+			return c
+		}
+	}
+	//
+	return 0
 }
 
 // Equals implementation for the hash.Hasher interface.
@@ -77,12 +170,17 @@ func (p BigEndian) Hash() uint64 {
 	return hash.Sum64()
 }
 
-// Put implementation for Word interface.
-func (p BigEndian) Put(bytes []byte) {
+// PutBytes implementation for Word interface.
+func (p BigEndian) PutBytes(bytes []byte) []byte {
 	var (
 		n = uint(len(bytes))
 		m = uint(len(p.bytes))
 	)
+	// Sanity check space
+	if len(bytes) < len(p.bytes) {
+		bytes = make([]byte, len(p.bytes))
+		n = m
+	}
 	//
 	for m > 0 {
 		m--
@@ -94,15 +192,25 @@ func (p BigEndian) Put(bytes []byte) {
 		n--
 		bytes[n] = 0
 	}
+	//
+	return bytes
 }
 
-// Set implementation for Word interface.
-func (p BigEndian) Set(bytes []byte) BigEndian {
+// SetBytes implementation for Word interface.
+func (p BigEndian) SetBytes(bytes []byte) BigEndian {
 	return BigEndian{trim(bytes)}
 }
 
-// Bytes returns a direct access to the underlying byte array in big endian
-// form.
+// SetUint64 implementation for Word interface.
+func (p BigEndian) SetUint64(value uint64) BigEndian {
+	var bytes [8]byte
+	// Write big endian bytes
+	binary.BigEndian.PutUint64(bytes[:], value)
+	// Trim off leading zeros
+	return BigEndian{trim(bytes[:])}
+}
+
+// Bytes implementation for Word interface.
 func (p BigEndian) Bytes() []byte {
 	return p.bytes
 }

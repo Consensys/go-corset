@@ -221,8 +221,13 @@ func (p *Function[T]) Width() uint {
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
 func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width uint) RegisterId {
-	index := uint(len(p.registers))
-	p.registers = append(p.registers, sc.NewRegister(kind, name, width))
+	var (
+		index = uint(len(p.registers))
+		// Default padding (for now)
+		padding big.Int
+	)
+
+	p.registers = append(p.registers, sc.NewRegister(kind, name, width, padding))
 	// Done
 	return sc.NewRegisterId(index)
 }

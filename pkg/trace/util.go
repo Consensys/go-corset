@@ -14,8 +14,6 @@ package trace
 
 import (
 	"fmt"
-
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 )
 
 // QualifiedColumnName returns the fully qualified name of a given column.
@@ -28,7 +26,7 @@ func QualifiedColumnName(module string, column string) string {
 }
 
 // NumberOfColumns returns the total number of all columns in the given trace.
-func NumberOfColumns(tr Trace[bls12_377.Element]) uint {
+func NumberOfColumns[F any](tr Trace[F]) uint {
 	var count = uint(0)
 	//
 	for i := range tr.Width() {

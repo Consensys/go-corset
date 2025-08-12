@@ -15,7 +15,6 @@ package ir
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -26,47 +25,40 @@ import (
 )
 
 // Exp represents the a given value taken to a power.
-type Exp[T Term[T]] struct {
+type Exp[F field.Element[F], T Term[F, T]] struct {
 	Arg T
 	Pow uint64
 }
 
 // Exponent constructs a new expression representing the given argument
 // raised to a given a given power.
-func Exponent[T Term[T]](arg T, pow uint64) T {
-	var term Term[T] = &Exp[T]{arg, pow}
+func Exponent[F field.Element[F], T Term[F, T]](arg T, pow uint64) T {
+	var term Term[F, T] = &Exp[F, T]{arg, pow}
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
-func (p *Exp[T]) ApplyShift(shift int) T {
-	return Exponent(p.Arg.ApplyShift(shift), p.Pow)
+func (p *Exp[F, T]) ApplyShift(shift int) T {
+	return Exponent[F, T](p.Arg.ApplyShift(shift), p.Pow)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Exp[T]) Bounds() util.Bounds {
+func (p *Exp[F, T]) Bounds() util.Bounds {
 	return p.Arg.Bounds()
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Exp[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Compute exponent
-	field.Pow(&val, p.Pow)
+	val = field.Pow(val, p.Pow)
 	// Done
 	return val, err
 }
 
-// IsDefined implementation for Evaluable interface.
-func (p *Exp[T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
-}
-
 // Lisp implementation for Lispifiable interface.
-func (p *Exp[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Exp[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	arg := p.Arg.Lisp(global, mapping)
 	pow := sexp.NewSymbol(fmt.Sprintf("%d", p.Pow))
 
@@ -74,49 +66,46 @@ func (p *Exp[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Exp[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Exp[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return p.Arg.RequiredRegisters()
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Exp[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Exp[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, mid)
 }
 
 // ShiftRange implementation for Term interface.
-func (p *Exp[T]) ShiftRange() (int, int) {
+func (p *Exp[F, T]) ShiftRange() (int, int) {
 	return p.Arg.ShiftRange()
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Exp[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Exp[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }
 
 // Simplify implementation for Term interface.
-func (p *Exp[T]) Simplify(casts bool) T {
+func (p *Exp[F, T]) Simplify(casts bool) T {
 	var (
-		arg  T       = p.Arg.Simplify(casts)
-		targ Term[T] = arg
+		arg  T          = p.Arg.Simplify(casts)
+		targ Term[F, T] = arg
 	)
 	//
-	if c, ok := targ.(*Constant[T]); ok {
-		var val fr.Element
-		// Clone value
-		val.Set(&c.Value)
+	if c, ok := targ.(*Constant[F, T]); ok {
 		// Compute exponent (in place)
-		field.Pow(&val, p.Pow)
+		val := field.Pow(c.Value, p.Pow)
 		// Done
-		targ = &Constant[T]{val}
+		targ = &Constant[F, T]{val}
 	} else {
-		targ = &Exp[T]{arg, p.Pow}
+		targ = &Exp[F, T]{arg, p.Pow}
 	}
 	//
 	return targ.(T)
 }
 
 // ValueRange implementation for Term interface.
-func (p *Exp[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Exp[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	bounds := p.Arg.ValueRange(mapping)
 	bounds.Exp(uint(p.Pow))
 	//

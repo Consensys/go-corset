@@ -13,36 +13,36 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Ite represents an "If Then Else" expression which returns the (optional) true
 // branch when the condition evaluates to zero, and the (optional false branch
 // otherwise.
-type Ite[T LogicalTerm[T]] struct {
+type Ite[F field.Element[F], T LogicalTerm[F, T]] struct {
 	// Elements contained within this list.
 	Condition T
 	// True branch (optional).
-	TrueBranch LogicalTerm[T]
+	TrueBranch LogicalTerm[F, T]
 	// False branch (optional).
-	FalseBranch LogicalTerm[T]
+	FalseBranch LogicalTerm[F, T]
 }
 
 // IfThenElse constructs a new conditional branch, where either the true branch
 // or the false branch can (optionally) be nil (but both cannot).  Note, the
 // true branch is taken when the condition evaluates to zero.
-func IfThenElse[T LogicalTerm[T]](condition T, trueBranch T, falseBranch T) T {
-	var term LogicalTerm[T] = &Ite[T]{condition, trueBranch, falseBranch}
+func IfThenElse[F field.Element[F], T LogicalTerm[F, T]](condition T, trueBranch T, falseBranch T) T {
+	var term LogicalTerm[F, T] = &Ite[F, T]{condition, trueBranch, falseBranch}
 	return term.(T)
 }
 
 // ApplyShift implementation for LogicalTerm interface.
-func (p *Ite[T]) ApplyShift(shift int) T {
+func (p *Ite[F, T]) ApplyShift(shift int) T {
 	var (
 		c  = p.Condition.ApplyShift(shift)
 		tb T
@@ -57,11 +57,11 @@ func (p *Ite[T]) ApplyShift(shift int) T {
 		fb = p.FalseBranch.ApplyShift(shift)
 	}
 	//
-	return IfThenElse(c, tb, fb)
+	return IfThenElse[F](c, tb, fb)
 }
 
 // ShiftRange implementation for LogicalTerm interface.
-func (p *Ite[T]) ShiftRange() (int, int) {
+func (p *Ite[F, T]) ShiftRange() (int, int) {
 	switch {
 	case p.TrueBranch == nil:
 		return shiftRangeOfTerms(p.Condition, p.FalseBranch.(T))
@@ -74,7 +74,7 @@ func (p *Ite[T]) ShiftRange() (int, int) {
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (p *Ite[T]) Bounds() util.Bounds {
+func (p *Ite[F, T]) Bounds() util.Bounds {
 	c := p.Condition.Bounds()
 	// Get bounds for true branch (if applicable)
 	if p.TrueBranch != nil {
@@ -91,7 +91,7 @@ func (p *Ite[T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Ite[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
+func (p *Ite[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
 	// Evaluate condition
 	cond, branch, err := p.Condition.TestAt(k, tr, sc)
 	//
@@ -107,7 +107,7 @@ func (p *Ite[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, e
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Ite[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Ite[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	// Translate Condition
 	condition := p.Condition.Lisp(global, mapping)
 	// Dispatch on type
@@ -135,7 +135,7 @@ func (p *Ite[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Ite[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Ite[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Condition.RequiredRegisters()
 	// Include true branch (if applicable)
 	if p.TrueBranch != nil {
@@ -150,7 +150,7 @@ func (p *Ite[T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Ite[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Ite[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	set := p.Condition.RequiredCells(row, mid)
 	// Include true branch (if applicable)
 	if p.TrueBranch != nil {
@@ -168,31 +168,31 @@ func (p *Ite[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[tr
 // ite is surprisingly tricky.  However, its useful to retain ite rathe the
 // compile it out completely as, in some cases, we can optimise things more
 // effectively.
-func (p *Ite[T]) Simplify(casts bool) T {
+func (p *Ite[F, T]) Simplify(casts bool) T {
 	var (
 		cond        = p.Condition.Simplify(casts)
-		trueBranch  LogicalTerm[T]
-		falseBranch LogicalTerm[T]
+		trueBranch  LogicalTerm[F, T]
+		falseBranch LogicalTerm[F, T]
 	)
 	// Handle reductive cases
-	if IsTrue(cond) {
+	if IsTrue[F](cond) {
 		if p.TrueBranch != nil {
 			return p.TrueBranch.Simplify(casts)
 		}
 		//
-		return True[T]()
-	} else if IsFalse(cond) {
+		return True[F, T]()
+	} else if IsFalse[F](cond) {
 		if p.FalseBranch != nil {
 			return p.FalseBranch.Simplify(casts)
 		}
 		//
-		return True[T]()
+		return True[F, T]()
 	}
 	// Simplify true branch (if applicable)
 	if p.TrueBranch != nil {
 		// If the branch logically true, then we can actually drop it
 		// altogether (i.e. X || tt ==> tt)
-		if tb := p.TrueBranch.Simplify(casts); !IsTrue(tb) {
+		if tb := p.TrueBranch.Simplify(casts); !IsTrue[F](tb) {
 			trueBranch = tb
 		}
 	}
@@ -200,26 +200,26 @@ func (p *Ite[T]) Simplify(casts bool) T {
 	if p.FalseBranch != nil {
 		// If the branch logically true, then we can actually drop it
 		// altogether (i.e. !X || tt ==> tt)
-		if fb := p.FalseBranch.Simplify(casts); !IsTrue(fb) {
+		if fb := p.FalseBranch.Simplify(casts); !IsTrue[F](fb) {
 			falseBranch = fb
 		}
 	}
 	// More simplification opportunities
 	if trueBranch == nil && falseBranch == nil {
-		return True[T]()
-	} else if trueBranch == nil && IsFalse(falseBranch.(T)) {
+		return True[F, T]()
+	} else if trueBranch == nil && IsFalse[F](falseBranch.(T)) {
 		return cond
-	} else if falseBranch == nil && IsFalse(trueBranch.(T)) {
+	} else if falseBranch == nil && IsFalse[F](trueBranch.(T)) {
 		return Negation(cond).Simplify(casts)
 	}
 	// Finally, done.
-	var term LogicalTerm[T] = &Ite[T]{cond, trueBranch, falseBranch}
+	var term LogicalTerm[F, T] = &Ite[F, T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Ite[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Ite[F, T]) Substitute(mapping map[string]F) {
 	p.Condition.Substitute(mapping)
 	//
 	if p.FalseBranch != nil {

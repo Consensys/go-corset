@@ -22,7 +22,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
@@ -59,7 +59,7 @@ var inspectCmd = &cobra.Command{
 		//
 		stats.Log("Reading trace file")
 		// Build the trace
-		trace, errors := schemas.TraceBuilder().Build(schemas.UniqueSchema(), tracefile.Columns)
+		trace, errors := schemas.TraceBuilder().Build(schemas.UniqueSchema(), tracefile)
 		//
 		if len(errors) == 0 {
 			// Run the inspector.

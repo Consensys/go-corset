@@ -15,14 +15,13 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -33,7 +32,7 @@ type AssertionFailure struct {
 	//
 	Context schema.ModuleId
 	// Constraint expression
-	Constraint ir.Testable
+	Constraint ir.Testable[bls12_377.Element]
 	// Row on which the constraint failed
 	Row uint
 }
@@ -60,7 +59,7 @@ func (p *AssertionFailure) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[T ir.Testable] struct {
+type Assertion[T ir.Testable[bls12_377.Element]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -76,7 +75,7 @@ type Assertion[T ir.Testable] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[T ir.Testable](handle string, ctx schema.ModuleId, property T) Assertion[T] {
+func NewAssertion[T ir.Testable[bls12_377.Element]](handle string, ctx schema.ModuleId, property T) Assertion[T] {
 	//
 	return Assertion[T]{handle, ctx, property}
 }
@@ -116,8 +115,8 @@ func (p Assertion[T]) Bounds(module uint) util.Bounds {
 func (p Assertion[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		trModule trace.Module  = tr.Module(p.Context)
-		scModule schema.Module = sc.Module(p.Context)
+		trModule = tr.Module(p.Context)
+		scModule = sc.Module(p.Context)
 		// Determine height of enclosing module
 		height = tr.Module(p.Context).Height()
 		// Determine well-definedness bounds for this constraint
@@ -157,6 +156,6 @@ func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Assertion[T]) Substitute(mapping map[string]fr.Element) {
+func (p Assertion[T]) Substitute(mapping map[string]bls12_377.Element) {
 	p.Property.Substitute(mapping)
 }

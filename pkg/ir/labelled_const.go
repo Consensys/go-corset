@@ -16,11 +16,11 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -28,69 +28,62 @@ import (
 // LabelledConst represents a constant value which is labelled with a given
 // name.  The purpose of this is to allow labelled constants to be substituted
 // for different values when desired.
-type LabelledConst[T Term[T]] struct {
+type LabelledConst[F field.Element[F], T Term[F, T]] struct {
 	Label string
-	Value fr.Element
+	Value F
 }
 
 // LabelledConstant construct an expression representing a constant with a given
 // label.
-func LabelledConstant[T Term[T]](label string, value fr.Element) T {
-	var term Term[T] = &LabelledConst[T]{Label: label, Value: value}
+func LabelledConstant[F field.Element[F], T Term[F, T]](label string, value F) T {
+	var term Term[F, T] = &LabelledConst[F, T]{Label: label, Value: value}
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
-func (p *LabelledConst[T]) ApplyShift(int) T {
-	var term Term[T] = p
+func (p *LabelledConst[F, T]) ApplyShift(int) T {
+	var term Term[F, T] = p
 	return term.(T)
 }
 
 // Bounds implementation for Boundable interface.
-func (p *LabelledConst[T]) Bounds() util.Bounds {
+func (p *LabelledConst[F, T]) Bounds() util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *LabelledConst[T]) EvalAt(k int, _ trace.Module, _ schema.Module) (fr.Element, error) {
+func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) (F, error) {
 	return p.Value, nil
 }
 
-// IsDefined implementation for Evaluable interface.
-func (p *LabelledConst[T]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
-}
-
 // Lisp implementation for Lispifiable interface.
-func (p *LabelledConst[T]) Lisp(_ bool, _ schema.RegisterMap) sexp.SExp {
+func (p *LabelledConst[F, T]) Lisp(_ bool, _ schema.RegisterMap) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *LabelledConst[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *LabelledConst[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return set.NewSortedSet[uint]()
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *LabelledConst[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *LabelledConst[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return set.NewAnySortedSet[trace.CellRef]()
 }
 
 // ShiftRange implementation for Term interface.
-func (p *LabelledConst[T]) ShiftRange() (int, int) {
+func (p *LabelledConst[F, T]) ShiftRange() (int, int) {
 	return math.MaxInt, math.MinInt
 }
 
 // Simplify implementation for Term interface.
-func (p *LabelledConst[T]) Simplify(casts bool) T {
-	var tmp Term[T] = p
+func (p *LabelledConst[F, T]) Simplify(casts bool) T {
+	var tmp Term[F, T] = p
 	return tmp.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *LabelledConst[T]) Substitute(mapping map[string]fr.Element) {
+func (p *LabelledConst[F, T]) Substitute(mapping map[string]F) {
 	// Attempt to apply substitution
 	if nval, ok := mapping[p.Label]; ok {
 		p.Value = nval
@@ -98,10 +91,10 @@ func (p *LabelledConst[T]) Substitute(mapping map[string]fr.Element) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *LabelledConst[T]) ValueRange(_ schema.RegisterMap) util_math.Interval {
+func (p *LabelledConst[F, T]) ValueRange(_ schema.RegisterMap) util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
-	p.Value.BigInt(&c)
+	c.SetBytes(p.Value.Bytes())
 	// Return as interval
 	return util_math.NewInterval(c, c)
 }

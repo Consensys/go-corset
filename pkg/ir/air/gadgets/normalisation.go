@@ -15,6 +15,7 @@ package gadgets
 import (
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
@@ -25,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -46,35 +48,37 @@ func Normalise(e air.Term, module *air.ModuleBuilder) air.Term {
 // column which holds the multiplicative inverse.  Constraints are also added to
 // ensure it really holds the inverted value.
 func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
-	// Construct inverse computation
-	ie := &psuedoInverse{Expr: e}
-	// Determine computed column name
-	name := ie.Lisp(true, module).String(false)
-	// Look up column
-	index, ok := module.HasRegister(name)
+	var (
+		// Construct inverse computation
+		ie = &psuedoInverse{Expr: e}
+		// Determine computed column name
+		name = ie.Lisp(true, module).String(false)
+		// Look up column
+		index, ok = module.HasRegister(name)
+		// Default padding (for now)
+		padding big.Int = ir.PaddingFor(ie, module)
+	)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// FIXME: this hard-coded constant will need to be changed at some point
-		// to properly support field agnosticity.  Currently, this simply
-		// signals that the column has no bitwidth constraint.
+		// Indicate column has "field element width".
 		var bitwidth uint = math.MaxUint
 		// Add computed register.
-		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth))
+		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth, padding))
 		// Add assignment
 		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), ie, true))
 		// Construct proof of 1/e
-		inv_e := ir.NewRegisterAccess[air.Term](index, 0)
+		inv_e := ir.NewRegisterAccess[bls12_377.Element, air.Term](index, 0)
 		// Construct e/e
 		e_inv_e := ir.Product(e, inv_e)
 		// Construct 1 == e/e
-		one_e_e := ir.Subtract(ir.Const64[air.Term](1), e_inv_e)
+		one_e_e := ir.Subtract(ir.Const64[bls12_377.Element, air.Term](1), e_inv_e)
 		// Construct (e != 0) ==> (1 == e/e)
 		e_implies_one_e_e := ir.Product(e, one_e_e)
 		l_name := fmt.Sprintf("%s <=", name)
 		module.AddConstraint(air.NewVanishingConstraint(l_name, module.Id(), util.None[int](), e_implies_one_e_e))
 	}
 	// Done
-	return ir.NewRegisterAccess[air.Term](index, 0)
+	return ir.NewRegisterAccess[bls12_377.Element, air.Term](index, 0)
 }
 
 // psuedoInverse represents a computation which computes the multiplicative
@@ -85,13 +89,12 @@ type psuedoInverse struct {
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *psuedoInverse) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
-	var inv fr.Element
+func (e *psuedoInverse) EvalAt(k int, tr trace.Module[bls12_377.Element], sc schema.Module) (bls12_377.Element, error) {
 	// Convert expression into something which can be evaluated, then evaluate
 	// it.
 	val, err := e.Expr.EvalAt(k, tr, sc)
 	// Go syntax huh?
-	inv.Inverse(&val)
+	inv := val.Inverse()
 	// Done
 	return inv, err
 }
@@ -135,7 +138,7 @@ func (e *psuedoInverse) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
 }
 
 // Substitute implementation for Substitutable interface.
-func (e *psuedoInverse) Substitute(mapping map[string]fr.Element) {
+func (e *psuedoInverse) Substitute(mapping map[string]bls12_377.Element) {
 	panic("unreachable")
 }
 

@@ -15,106 +15,104 @@ package ir
 import (
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Norm reduces the value of an expression to either zero (if it was zero)
 // or one (otherwise).
-type Norm[T Term[T]] struct{ Arg T }
+type Norm[F field.Element[F], T Term[F, T]] struct{ Arg T }
 
 // Normalise normalises the result of evaluating a given expression to be
 // either 0 (if its value was 0) or 1 (otherwise).
-func Normalise[T Term[T]](arg T) T {
-	var term Term[T] = &Norm[T]{arg}
+func Normalise[F field.Element[F], T Term[F, T]](arg T) T {
+	var term Term[F, T] = &Norm[F, T]{arg}
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
-func (p *Norm[T]) ApplyShift(shift int) T {
-	return Normalise(p.Arg.ApplyShift(shift))
+func (p *Norm[F, T]) ApplyShift(shift int) T {
+	return Normalise[F](p.Arg.ApplyShift(shift))
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Norm[T]) Bounds() util.Bounds {
+func (p *Norm[F, T]) Bounds() util.Bounds {
 	return p.Arg.Bounds()
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Norm[T]) EvalAt(k int, tr trace.Module, sc schema.Module) (fr.Element, error) {
+func (p *Norm[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Normalise value (if necessary)
 	if !val.IsZero() {
-		val.SetOne()
+		val = field.One[F]()
 	}
 	// Done
 	return val, err
 }
 
 // IsDefined implementation for Evaluable interface.
-func (p *Norm[T]) IsDefined() bool {
+func (p *Norm[F, T]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Norm[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Norm[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	arg := p.Arg.Lisp(global, mapping)
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("~"), arg})
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Norm[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Norm[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return p.Arg.RequiredRegisters()
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Norm[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Norm[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, mid)
 }
 
 // ShiftRange implementation for Term interface.
-func (p *Norm[T]) ShiftRange() (int, int) {
+func (p *Norm[F, T]) ShiftRange() (int, int) {
 	return p.Arg.ShiftRange()
 }
 
 // Simplify implementation for Term interface.
-func (p *Norm[T]) Simplify(casts bool) T {
+func (p *Norm[F, T]) Simplify(casts bool) T {
 	var (
-		arg  T       = p.Arg.Simplify(casts)
-		targ Term[T] = arg
+		arg  T          = p.Arg.Simplify(casts)
+		targ Term[F, T] = arg
 	)
 	//
-	if c, ok := targ.(*Constant[T]); ok {
-		var val fr.Element
-		// Clone value
-		val.Set(&c.Value)
+	if c, ok := targ.(*Constant[F, T]); ok {
+		val := c.Value
 		// Normalise (in place)
 		if !val.IsZero() {
-			val.SetOne()
+			val = field.One[F]()
 		}
 		// Done
-		targ = &Constant[T]{val}
+		targ = &Constant[F, T]{val}
 	} else {
-		targ = &Norm[T]{arg}
+		targ = &Norm[F, T]{arg}
 	}
 	//
 	return targ.(T)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Norm[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Norm[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }
 
 // ValueRange implementation for Term interface.
-func (p *Norm[T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Norm[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
 	return math.NewInterval(*big.NewInt(0), *big.NewInt(1))
 }

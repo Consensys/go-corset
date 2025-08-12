@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // LexicographicSortingGadget adds sorting constraints for a sequence of one or
@@ -76,7 +77,8 @@ func NewLexicographicSortingGadget(prefix string, columns []sc.RegisterId, bitwi
 		signs[i] = true
 	}
 	//
-	return &LexicographicSortingGadget{prefix, columns, signs, bitwidth, false, ir.Const64[air.Term](1), 8, false}
+	return &LexicographicSortingGadget{prefix, columns, signs, bitwidth, false,
+		ir.Const64[bls12_377.Element, air.Term](1), 8, false}
 }
 
 // WithSigns configures the directions for all columns being sorted.
@@ -180,7 +182,7 @@ func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.
 	//
 	var (
 		module = schema.Module(mid)
-		one    = ir.Const64[air.Term](1)
+		one    = ir.Const64[bls12_377.Element, air.Term](1)
 		ncols  = uint(len(p.signs))
 		// Calculate column index of first selector bit
 		bitIndex = deltaIndex.Unwrap() + 1
@@ -198,17 +200,17 @@ func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.
 		ith_id := sc.NewRegisterId(bitIndex + i)
 		pterms := make([]air.Term, i+1)
 		qterms := make([]air.Term, i)
-		c_i := ir.NewRegisterAccess[air.Term](p.columns[i], 0)
-		c_pi := ir.NewRegisterAccess[air.Term](p.columns[i], -1)
-		terms[i] = ir.NewRegisterAccess[air.Term](ith_id, 0)
+		c_i := ir.NewRegisterAccess[bls12_377.Element, air.Term](p.columns[i], 0)
+		c_pi := ir.NewRegisterAccess[bls12_377.Element, air.Term](p.columns[i], -1)
+		terms[i] = ir.NewRegisterAccess[bls12_377.Element, air.Term](ith_id, 0)
 
 		for j := uint(0); j < i; j++ {
 			jth_id := sc.NewRegisterId(bitIndex + j)
-			pterms[j] = ir.NewRegisterAccess[air.Term](jth_id, 0)
-			qterms[j] = ir.NewRegisterAccess[air.Term](jth_id, 0)
+			pterms[j] = ir.NewRegisterAccess[bls12_377.Element, air.Term](jth_id, 0)
+			qterms[j] = ir.NewRegisterAccess[bls12_377.Element, air.Term](jth_id, 0)
 		}
 		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
-		pterms[i] = ir.NewRegisterAccess[air.Term](ith_id, 0)
+		pterms[i] = ir.NewRegisterAccess[bls12_377.Element, air.Term](ith_id, 0)
 		pDiff := ir.Subtract(c_i, c_pi)
 		pName := fmt.Sprintf("%s:%d", p.prefix, i)
 		module.AddConstraint(
@@ -257,7 +259,7 @@ func constructLexicographicDeltaConstraint(deltaIndex sc.RegisterId, columns []s
 	bitIndex := deltaIndex.Unwrap() + 1
 	// Construct delta terms
 	terms := make([]air.Term, ncols)
-	Dk := ir.NewRegisterAccess[air.Term](deltaIndex, 0)
+	Dk := ir.NewRegisterAccess[bls12_377.Element, air.Term](deltaIndex, 0)
 	//
 	for i := uint(0); i < ncols; i++ {
 		var (
@@ -265,11 +267,11 @@ func constructLexicographicDeltaConstraint(deltaIndex sc.RegisterId, columns []s
 			ith_bit = sc.NewRegisterId(bitIndex + i)
 		)
 		// Ith bit column (at row k)
-		Bk := ir.NewRegisterAccess[air.Term](ith_bit, 0)
+		Bk := ir.NewRegisterAccess[bls12_377.Element, air.Term](ith_bit, 0)
 		// Ith column (at row k)
-		Xk := ir.NewRegisterAccess[air.Term](columns[i], 0)
+		Xk := ir.NewRegisterAccess[bls12_377.Element, air.Term](columns[i], 0)
 		// Ith column (at row k-1)
-		Xkm1 := ir.NewRegisterAccess[air.Term](columns[i], -1)
+		Xkm1 := ir.NewRegisterAccess[bls12_377.Element, air.Term](columns[i], -1)
 		if signs[i] {
 			Xdiff = ir.Subtract(Xk, Xkm1)
 		} else {

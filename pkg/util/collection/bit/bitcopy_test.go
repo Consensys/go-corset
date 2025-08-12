@@ -17,50 +17,63 @@ import (
 	"testing"
 )
 
+// dstOffset = 0
+
 func Test_BitCopy_00(t *testing.T) {
-	checkBitCopy(t, 0, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b1001_1111})
+	checkBitCopy(t, 0, 0, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b1001_1111})
 }
 func Test_BitCopy_01(t *testing.T) {
-	checkBitCopy(t, 1, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0100_1111})
+	checkBitCopy(t, 1, 0, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0100_1111})
 }
 func Test_BitCopy_02(t *testing.T) {
-	checkBitCopy(t, 2, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0010_0111})
+	checkBitCopy(t, 2, 0, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0010_0111})
 }
 func Test_BitCopy_03(t *testing.T) {
-	checkBitCopy(t, 3, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0001_0011})
+	checkBitCopy(t, 3, 0, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0001_0011})
 }
 func Test_BitCopy_04(t *testing.T) {
-	checkBitCopy(t, 4, 10, []byte{0b1001_1111, 0b0000_0101}, []byte{0b0101_1001, 0b0000_0000})
+	checkBitCopy(t, 4, 0, 10, []byte{0b1001_1111, 0b0000_0101}, []byte{0b0101_1001, 0b0000_0000})
 }
 func Test_BitCopy_05(t *testing.T) {
-	checkBitCopy(t, 4, 10, []byte{0b1001_1111, 0b0010_0101}, []byte{0b0101_1001, 0b0000_0010})
+	checkBitCopy(t, 4, 0, 10, []byte{0b1001_1111, 0b0010_0101}, []byte{0b0101_1001, 0b0000_0010})
 }
 func Test_BitCopy_06(t *testing.T) {
-	checkBitCopy(t, 8, 8, []byte{0b0000_0000, 0b1001_1111}, []byte{0b1001_1111})
+	checkBitCopy(t, 8, 0, 8, []byte{0b0000_0000, 0b1001_1111}, []byte{0b1001_1111})
 }
 func Test_BitCopy_07(t *testing.T) {
-	checkBitCopy(t, 8, 10, []byte{0b0000_0000, 0b1001_1111, 0b0000_0010}, []byte{0b1001_1111, 0b0000_0010})
+	checkBitCopy(t, 8, 0, 10, []byte{0b0000_0000, 0b1001_1111, 0b0000_0010}, []byte{0b1001_1111, 0b0000_0010})
 }
 func Test_BitCopy_08(t *testing.T) {
-	checkBitCopy(t, 8, 18,
+	checkBitCopy(t, 8, 0, 18,
 		[]byte{0b0000_0000, 0b1001_1111, 0b0101_0101, 0b0000_0010},
 		[]byte{0b1001_1111, 0b0101_0101, 0b0000_0010})
 }
 
-func checkBitCopy(t *testing.T, srcOffset uint, nbits uint, src []byte, expected []byte) {
+// dstOffset = 1
+func Test_BitCopy_10(t *testing.T) {
+	checkBitCopy(t, 0, 1, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0011_1110, 0b0000_0001})
+}
+func Test_BitCopy_11(t *testing.T) {
+	checkBitCopy(t, 1, 1, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b1001_1110, 0b0000_0000})
+}
+func Test_BitCopy_12(t *testing.T) {
+	checkBitCopy(t, 2, 1, 8, []byte{0b1001_1111, 0b0000_0000}, []byte{0b0100_1110, 0b0000_0000})
+}
+
+func checkBitCopy(t *testing.T, srcOffset uint, dstOffset uint, nbits uint, src []byte, expected []byte) {
 	//
 	t.Parallel()
 	//
 	var (
 		buf = make([]byte, len(src))
-		n   = nbits / 8
+		n   = (dstOffset + nbits) / 8
 	)
 	//
-	if nbits%8 != 0 {
+	if (dstOffset+nbits)%8 != 0 {
 		n++
 	}
 	//
-	Copy(src, srcOffset, buf, nbits)
+	Copy(src, srcOffset, buf, dstOffset, nbits)
 	// Extract read bytes
 	actual := buf[:n]
 	//

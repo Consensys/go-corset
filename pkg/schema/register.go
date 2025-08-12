@@ -17,6 +17,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
 )
@@ -95,30 +96,32 @@ type Register struct {
 	Name string
 	// Width (in bits) of this register
 	Width uint
+	// Determies what value will be used to padd this register.
+	Padding big.Int
 }
 
 // NewRegister constructs a new register of a given kind (i.e. input, output or
 // computed) with the given name and bitwidth.
-func NewRegister(kind RegisterType, name string, bitwidth uint) Register {
-	return Register{kind, name, bitwidth}
+func NewRegister(kind RegisterType, name string, bitwidth uint, padding big.Int) Register {
+	return Register{kind, name, bitwidth, padding}
 }
 
 // NewInputRegister constructs a new input register with the given name and
 // bitwidth.
-func NewInputRegister(name string, bitwidth uint) Register {
-	return Register{INPUT_REGISTER, name, bitwidth}
+func NewInputRegister(name string, bitwidth uint, padding big.Int) Register {
+	return Register{INPUT_REGISTER, name, bitwidth, padding}
 }
 
 // NewOutputRegister constructs a new output register with the given name and
 // bitwidth.
-func NewOutputRegister(name string, bitwidth uint) Register {
-	return Register{OUTPUT_REGISTER, name, bitwidth}
+func NewOutputRegister(name string, bitwidth uint, padding big.Int) Register {
+	return Register{OUTPUT_REGISTER, name, bitwidth, padding}
 }
 
 // NewComputedRegister constructs a new computed register with the given name and
 // bitwidth.
-func NewComputedRegister(name string, bitwidth uint) Register {
-	return Register{COMPUTED_REGISTER, name, bitwidth}
+func NewComputedRegister(name string, bitwidth uint, padding big.Int) Register {
+	return Register{COMPUTED_REGISTER, name, bitwidth, padding}
 }
 
 // Bound returns the first value which cannot be represented by the given
@@ -165,11 +168,17 @@ var one = *big.NewInt(1)
 
 // QualifiedName returns the fully qualified name of this register
 func (p Register) QualifiedName(mod RegisterMap) string {
-	if mod.Name() != "" {
-		return fmt.Sprintf("%s:%s", mod.Name(), p.Name)
+	var name = p.Name
+	//
+	if strings.Contains(name, " ") {
+		name = fmt.Sprintf("\"%s\"", name)
 	}
 	//
-	return p.Name
+	if mod.Name() != "" {
+		return fmt.Sprintf("%s:%s", mod.Name(), name)
+	}
+	//
+	return name
 }
 
 func (p Register) String() string {

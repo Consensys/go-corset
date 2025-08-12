@@ -14,6 +14,7 @@ package schema
 
 import (
 	"fmt"
+	"math/big"
 	"slices"
 )
 
@@ -131,9 +132,11 @@ func (p *registerAllocator) AllocateCarry(prefix string, width uint) RegisterId 
 		index = uint(len(p.limbs))
 		// Determine unique name for new register
 		name = fmt.Sprintf("%s$%d", prefix, index)
+		// Default padding (for now)
+		zero big.Int
 	)
 	// Allocate a new computed register.
-	p.limbs = append(p.limbs, NewComputedRegister(name, width))
+	p.limbs = append(p.limbs, NewComputedRegister(name, width, zero))
 	//
 	return NewRegisterId(index)
 }

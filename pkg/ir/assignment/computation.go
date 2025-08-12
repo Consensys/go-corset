@@ -16,18 +16,15 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
-	"slices"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
-	"github.com/consensys/go-corset/pkg/util/field"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Computation currently describes a native computation which accepts a set of
@@ -65,17 +62,12 @@ func (p *Computation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema) ([]tr.ArrayColumn, error) {
-	var (
-		fn func([]field.FrArray) []field.FrArray
-		ok bool
-	)
-	// Sanity check
-	if fn, ok = NATIVES[p.Function]; !ok {
-		panic(fmt.Sprintf("unknown native function: %s", p.Function))
-	}
+func (p *Computation) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
+) ([]array.MutArray[word.BigEndian], error) {
+	// Identify Computation
+	fn := findNative(p.Function)
 	// Go!
-	return computeNative(p.Sources, p.Targets, fn, trace, schema), nil
+	return computeNative(p.Sources, fn, trace), nil
 }
 
 // Consistent performs some simple checks that the given schema is consistent.
@@ -150,10 +142,10 @@ func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 
 // NativeComputation defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation func([]field.FrArray) []field.FrArray
+type NativeComputation func([]array.Array[word.BigEndian], WordPool) []array.MutArray[word.BigEndian]
 
-func computeNative(sources []sc.RegisterRef, targets []sc.RegisterRef, fn NativeComputation,
-	trace tr.Trace[bls12_377.Element], schema sc.AnySchema) []tr.ArrayColumn {
+func computeNative(sources []sc.RegisterRef, fn NativeComputation, trace tr.Trace[word.BigEndian],
+) []array.MutArray[word.BigEndian] {
 	// Read inputs
 	inputs := ReadRegisters(trace, sources...)
 	// Read inputs
@@ -162,41 +154,52 @@ func computeNative(sources []sc.RegisterRef, targets []sc.RegisterRef, fn Native
 		inputs[i] = trace.Module(mid).Column(rid).Data()
 	}
 	// Apply native function
-	data := fn(inputs)
-	// Write outputs
-	return WriteRegisters(schema, targets, data)
+	return fn(inputs, trace.Pool())
 }
 
 // ============================================================================
 // Native Function Definitions
 // ============================================================================
 
-// NATIVES map holds the supported set of native computations.
-var NATIVES = map[string]func([]field.FrArray) []field.FrArray{
-	"id":                   idNativeFunction,
-	"interleave":           interleaveNativeFunction,
-	"filter":               filterNativeFunction,
-	"map-if":               mapIfNativeFunction,
-	"fwd-changes-within":   fwdChangesWithinNativeFunction,
-	"fwd-unchanged-within": fwdUnchangedWithinNativeFunction,
-	"bwd-changes-within":   bwdChangesWithinNativeFunction,
-	"fwd-fill-within":      fwdFillWithinNativeFunction,
-	"bwd-fill-within":      bwdFillWithinNativeFunction,
+func findNative(name string) NativeComputation {
+	switch name {
+	case "id":
+		return idNativeFunction
+	case "interleave":
+		return interleaveNativeFunction
+	case "filter":
+		return filterNativeFunction
+	case "map-if":
+		return mapIfNativeFunction
+	case "fwd-changes-within":
+		return fwdChangesWithinNativeFunction
+	case "fwd-unchanged-within":
+		return fwdUnchangedWithinNativeFunction
+	case "bwd-changes-within":
+		return bwdChangesWithinNativeFunction
+	case "fwd-fill-within":
+		return fwdFillWithinNativeFunction
+	case "bwd-fill-within":
+		return bwdFillWithinNativeFunction
+	default:
+		panic(fmt.Sprintf("unknown native function: %s", name))
+	}
 }
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction(sources []field.FrArray) []field.FrArray {
+func idNativeFunction[W word.Word[W]](sources []array.Array[W], _ word.Pool[uint, W],
+) []array.MutArray[W] {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
 	}
 	// Clone source column (that's it)
-	return []field.FrArray{sources[0].Clone()}
+	return []array.MutArray[W]{sources[0].Clone()}
 }
 
 // interleaving constructs a single interleaved column from a give set of source
 // columns.  The assumption is that the height of all columns is the same.
-func interleaveNativeFunction(sources []field.FrArray) []field.FrArray {
+func interleaveNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W]) []array.MutArray[W] {
 	var (
 		height     = sources[0].Len()
 		bitwidth   = sources[0].BitWidth()
@@ -211,7 +214,7 @@ func interleaveNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Construct interleaved column
-	target := field.NewFrArray(height*multiplier, bitwidth)
+	target := word.NewArray(height*multiplier, bitwidth, pool)
 	//
 	for i := range multiplier {
 		src := sources[i]
@@ -222,13 +225,13 @@ func interleaveNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Done
-	return []field.FrArray{target}
+	return []array.MutArray[W]{target}
 }
 
 // filter assigns the target column with the corresponding value of the source
 // column *when* a given selector column is non-zero.  Otherwise, the target
 // column remains zero at the given position.
-func filterNativeFunction(sources []field.FrArray) []field.FrArray {
+func filterNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W]) []array.MutArray[W] {
 	if len(sources) != 2 {
 		panic("incorrect number of arguments")
 	}
@@ -238,23 +241,23 @@ func filterNativeFunction(sources []field.FrArray) []field.FrArray {
 		srcCol = sources[0]
 		selCol = sources[1]
 		// Clone source column
-		data = field.NewFrArray(srcCol.Len(), srcCol.BitWidth())
+		data = word.NewArray(srcCol.Len(), srcCol.BitWidth(), pool)
 	)
 	//
 	for i := uint(0); i < data.Len(); i++ {
 		selector := selCol.Get(i)
 		// Check whether selctor non-zero
-		if !selector.IsZero() {
+		if selector.Cmp64(0) != 0 {
 			ithValue := srcCol.Get(i)
 			data.Set(i, ithValue)
 		}
 	}
 	// Done
-	return []field.FrArray{data}
+	return []array.MutArray[W]{data}
 }
 
 // apply a key-value map conditionally.
-func mapIfNativeFunction(sources []field.FrArray) []field.FrArray {
+func mapIfNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W]) []array.MutArray[W] {
 	n := len(sources) - 3
 	if n%2 != 0 {
 		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
@@ -263,12 +266,12 @@ func mapIfNativeFunction(sources []field.FrArray) []field.FrArray {
 	n = n / 2
 	// Setup what we need
 	sourceSelector := sources[1+n]
-	sourceKeys := make([]array.MutArray[fr.Element], n)
+	sourceKeys := make([]array.Array[W], n)
 	sourceValue := sources[2+n+n]
-	sourceMap := hash.NewMap[hash.BytesKey, fr.Element](sourceValue.Len())
+	sourceMap := hash.NewMap[hash.BytesKey, W](sourceValue.Len())
 	targetSelector := sources[0]
-	targetKeys := make([]array.MutArray[fr.Element], n)
-	targetValue := field.NewFrArray(targetSelector.Len(), sourceValue.BitWidth())
+	targetKeys := make([]array.Array[W], n)
+	targetValue := word.NewArray(targetSelector.Len(), sourceValue.BitWidth(), pool)
 	// Initialise source / target keys
 	for i := 0; i < n; i++ {
 		targetKeys[i] = sources[1+i]
@@ -277,11 +280,11 @@ func mapIfNativeFunction(sources []field.FrArray) []field.FrArray {
 	// Build source map
 	for i := uint(0); i < sourceValue.Len(); i++ {
 		ithSelector := sourceSelector.Get(i)
-		if !ithSelector.IsZero() {
+		if ithSelector.Cmp64(0) != 0 {
 			ithValue := sourceValue.Get(i)
 			ithKey := extractIthKey(i, sourceKeys)
 			//
-			if val, ok := sourceMap.Get(ithKey); ok && val.Cmp(&ithValue) != 0 {
+			if val, ok := sourceMap.Get(ithKey); ok && val.Cmp(ithValue) != 0 {
 				// Conflicting item already in map, so fail with useful error.
 				ithRow := extractIthColumns(i, sourceKeys)
 				lhs := fmt.Sprintf("%v=>%s", ithRow, ithValue.String())
@@ -296,7 +299,7 @@ func mapIfNativeFunction(sources []field.FrArray) []field.FrArray {
 	// Construct target value column
 	for i := uint(0); i < targetValue.Len(); i++ {
 		ithSelector := targetSelector.Get(i)
-		if !ithSelector.IsZero() {
+		if ithSelector.Cmp64(0) != 0 {
 			ithKey := extractIthKey(i, targetKeys)
 			//nolint:revive
 			if val, ok := sourceMap.Get(ithKey); !ok {
@@ -310,57 +313,57 @@ func mapIfNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Done
-	return []field.FrArray{targetValue}
+	return []array.MutArray[W]{targetValue}
 }
 
-func extractIthKey(index uint, cols []field.FrArray) hash.BytesKey {
-	// Each fr.Element is 4 x 64bit words.
-	bytes := make([]byte, 32*len(cols))
-	// Slice provides an access window for writing
-	slice := bytes
+func extractIthKey[W word.Word[W]](index uint, cols []array.Array[W]) hash.BytesKey {
+	var (
+		// Each column has 1 x 64bit hash
+		bytes = make([]byte, 8*len(cols))
+		// Slice provides an access window for writing
+		slice = bytes
+	)
 	// Evaluate each expression in turn
 	for i := 0; i < len(cols); i++ {
-		ith := cols[i].Get(index)
-		// Copy over each element
-		binary.BigEndian.PutUint64(slice, ith[0])
-		binary.BigEndian.PutUint64(slice[8:], ith[1])
-		binary.BigEndian.PutUint64(slice[16:], ith[2])
-		binary.BigEndian.PutUint64(slice[24:], ith[3])
-		// Move slice over
-		slice = slice[32:]
+		ith := cols[i].Get(index).Hash()
+		// Copy has into bytes
+		binary.BigEndian.PutUint64(slice, ith)
+		// Shift slice along
+		slice = slice[8:]
 	}
 	// Done
 	return hash.NewBytesKey(bytes)
 }
 
 // determines changes of a given set of columns within a given region.
-func fwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
+func fwdChangesWithinNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W],
+) []array.MutArray[W] {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
 	// Useful constant
-	one := fr.One()
+	one := word.Uint64[W](1)
 	// Extract input column info
 	selectorCol := sources[0]
-	sourceCols := make([]array.MutArray[fr.Element], len(sources)-1)
+	sourceCols := make([]array.Array[W], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
 		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := field.NewFrArray(selectorCol.Len(), 1)
+	data := word.NewArray(selectorCol.Len(), 1, pool)
 	// Set current value
-	current := make([]fr.Element, len(sourceCols))
+	current := make([]W, len(sourceCols))
 	started := false
 	//
 	for i := uint(0); i < selectorCol.Len(); i++ {
 		ithSelector := selectorCol.Get(i)
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if ithSelector.Cmp64(0) != 0 {
 			//
 			row := extractIthColumns(i, sourceCols)
 			// Trigger required?
-			if !started || !slices.Equal(current, row) {
+			if !started || array.Compare(current, row) != 0 {
 				started = true
 				current = row
 				//
@@ -369,37 +372,39 @@ func fwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Done
-	return []field.FrArray{data}
+	return []array.MutArray[W]{data}
 }
 
-func fwdUnchangedWithinNativeFunction(sources []field.FrArray) []field.FrArray {
+func fwdUnchangedWithinNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W],
+) []array.MutArray[W] {
+	//
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
 	// Useful constant
-	one := fr.One()
-	zero := fr.NewElement(0)
+	one := word.Uint64[W](1)
+	zero := word.Uint64[W](0)
 	// Extract input column info
 	selectorCol := sources[0]
-	sourceCols := make([]array.MutArray[fr.Element], len(sources)-1)
+	sourceCols := make([]array.Array[W], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
 		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := field.NewFrArray(selectorCol.Len(), 1)
+	data := word.NewArray(selectorCol.Len(), 1, pool)
 	// Set current value
-	current := make([]fr.Element, len(sourceCols))
+	current := make([]W, len(sourceCols))
 	started := false
 	//
 	for i := uint(0); i < selectorCol.Len(); i++ {
 		ithSelector := selectorCol.Get(i)
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if ithSelector.Cmp64(0) != 0 {
 			//
 			row := extractIthColumns(i, sourceCols)
 			// Trigger required?
-			if !started || !slices.Equal(current, row) {
+			if !started || array.Compare(current, row) != 0 {
 				started = true
 				current = row
 				//
@@ -410,37 +415,39 @@ func fwdUnchangedWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Done
-	return []field.FrArray{data}
+	return []array.MutArray[W]{data}
 }
 
 // determines changes of a given set of columns within a given region.
-func bwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
+func bwdChangesWithinNativeFunction[W word.Word[W]](sources []array.Array[W], _ word.Pool[uint, W],
+) []array.MutArray[W] {
+	//
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
 	// Useful constant
-	one := fr.One()
+	one := word.Uint64[W](1)
 	// Extract input column info
 	selectorCol := sources[0]
-	sourceCols := make([]array.MutArray[fr.Element], len(sources)-1)
+	sourceCols := make([]array.Array[W], len(sources)-1)
 	//
 	for i := 1; i < len(sources); i++ {
 		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := field.NewFrArray(selectorCol.Len(), 1)
+	data := word.NewBitArray[W](selectorCol.Len())
 	// Set current value
-	current := make([]fr.Element, len(sourceCols))
+	current := make([]W, len(sourceCols))
 	started := false
 	//
 	for i := selectorCol.Len(); i > 0; i-- {
 		ithSelector := selectorCol.Get(i - 1)
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if ithSelector.Cmp64(0) != 0 {
 			//
 			row := extractIthColumns(i-1, sourceCols)
 			// Trigger required?
-			if !started || !slices.Equal(current, row) {
+			if !started || array.Compare(current, row) != 0 {
 				started = true
 				current = row
 				//
@@ -449,10 +456,12 @@ func bwdChangesWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Done
-	return []field.FrArray{data}
+	return []array.MutArray[W]{data}
 }
 
-func fwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
+func fwdFillWithinNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W],
+) []array.MutArray[W] {
+	//
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
@@ -461,17 +470,17 @@ func fwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	firstCol := sources[1]
 	sourceCol := sources[2]
 	// Construct (binary) output column
-	data := field.NewFrArray(sourceCol.Len(), sourceCol.BitWidth())
+	data := word.NewArray(sourceCol.Len(), sourceCol.BitWidth(), pool)
 	// Set current value
-	current := fr.NewElement(0)
+	current := word.Uint64[W](0)
 	//
 	for i := uint(0); i < selectorCol.Len(); i++ {
 		ithSelector := selectorCol.Get(i)
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if ithSelector.Cmp64(0) != 0 {
 			ithFirst := firstCol.Get(i)
 			//
-			if !ithFirst.IsZero() {
+			if ithFirst.Cmp64(0) != 0 {
 				current = sourceCol.Get(i)
 			}
 			//
@@ -479,10 +488,12 @@ func fwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Done
-	return []field.FrArray{data}
+	return []array.MutArray[W]{data}
 }
 
-func bwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
+func bwdFillWithinNativeFunction[W word.Word[W]](sources []array.Array[W], pool word.Pool[uint, W],
+) []array.MutArray[W] {
+	//
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
@@ -491,17 +502,17 @@ func bwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 	firstCol := sources[1]
 	sourceCol := sources[2]
 	// Construct (binary) output column
-	data := field.NewFrArray(sourceCol.Len(), sourceCol.BitWidth())
+	data := word.NewArray(sourceCol.Len(), sourceCol.BitWidth(), pool)
 	// Set current value
-	current := fr.NewElement(0)
+	current := word.Uint64[W](0)
 	//
 	for i := selectorCol.Len(); i > 0; i-- {
 		ithSelector := selectorCol.Get(i - 1)
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if ithSelector.Cmp64(0) != 0 {
 			ithFirst := firstCol.Get(i - 1)
 			//
-			if !ithFirst.IsZero() {
+			if ithFirst.Cmp64(0) != 0 {
 				current = sourceCol.Get(i - 1)
 			}
 			//
@@ -509,11 +520,11 @@ func bwdFillWithinNativeFunction(sources []field.FrArray) []field.FrArray {
 		}
 	}
 	// Done
-	return []field.FrArray{data}
+	return []array.MutArray[W]{data}
 }
 
-func extractIthColumns(index uint, cols []array.MutArray[fr.Element]) []fr.Element {
-	row := make([]fr.Element, len(cols))
+func extractIthColumns[W word.Word[W]](index uint, cols []array.Array[W]) []W {
+	row := make([]W, len(cols))
 	//
 	for i := range row {
 		row[i] = cols[i].Get(index)

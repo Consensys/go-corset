@@ -13,17 +13,17 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Equals constructs an Equal representing the equality of two expressions.
-func Equals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
-	var term LogicalTerm[S] = &Equal[S, T]{
+func Equals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
+	var term LogicalTerm[F, S] = &Equal[F, S, T]{
 		Lhs: lhs,
 		Rhs: rhs,
 	}
@@ -36,23 +36,23 @@ func Equals[S LogicalTerm[S], T Term[T]](lhs T, rhs T) S {
 // Equal represents an Equal between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Equals are either equalities (or negated equalities) or
 // inequalities.
-type Equal[S LogicalTerm[S], T Term[T]] struct {
-	Lhs Term[T]
-	Rhs Term[T]
+type Equal[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
+	Lhs Term[F, T]
+	Rhs Term[F, T]
 }
 
 // ApplyShift implementation for LogicalTerm interface.
-func (p *Equal[S, T]) ApplyShift(shift int) S {
-	return Equals[S](p.Lhs.ApplyShift(shift), p.Rhs.ApplyShift(shift))
+func (p *Equal[F, S, T]) ApplyShift(shift int) S {
+	return Equals[F, S](p.Lhs.ApplyShift(shift), p.Rhs.ApplyShift(shift))
 }
 
 // ShiftRange implementation for LogicalTerm interface.
-func (p *Equal[S, T]) ShiftRange() (int, int) {
+func (p *Equal[F, S, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms[T](p.Lhs.(T), p.Rhs.(T))
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Equal[S, T]) Bounds() util.Bounds {
+func (p *Equal[F, S, T]) Bounds() util.Bounds {
 	l := p.Lhs.Bounds()
 	r := p.Rhs.Bounds()
 	//
@@ -62,7 +62,7 @@ func (p *Equal[S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Equal[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
+func (p *Equal[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
@@ -72,14 +72,14 @@ func (p *Equal[S, T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, ui
 		return false, 0, err2
 	}
 	// perform comparison
-	c := lhs.Cmp(&rhs)
+	c := lhs.Cmp(rhs)
 	//
 	return c == 0, 0, nil
 }
 
 // Lisp returns a lisp representation of this Equal, which is useful for
 // debugging.
-func (p *Equal[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Equal[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var (
 		l = p.Lhs.Lisp(global, mapping)
 		r = p.Rhs.Lisp(global, mapping)
@@ -90,7 +90,7 @@ func (p *Equal[S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Equal[S, T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Equal[F, S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Lhs.RequiredRegisters()
 	set.InsertSorted(p.Rhs.RequiredRegisters())
 	//
@@ -98,7 +98,7 @@ func (p *Equal[S, T]) RequiredRegisters() *set.SortedSet[uint] {
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Equal[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Equal[F, S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	set := p.Lhs.RequiredCells(row, mid)
 	set.InsertSorted(p.Rhs.RequiredCells(row, mid))
 	//
@@ -107,31 +107,31 @@ func (p *Equal[S, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedS
 
 // Simplify this term as much as reasonably possible.
 // nolint
-func (p *Equal[S, T]) Simplify(casts bool) S {
+func (p *Equal[F, S, T]) Simplify(casts bool) S {
 	var (
 		lhs = p.Lhs.Simplify(casts)
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc := IsConstant(lhs)
-	rc := IsConstant(rhs)
+	lc, lok := IsConstant[F](lhs)
+	rc, rok := IsConstant[F](rhs)
 	//
-	if lc != nil && rc != nil {
+	if lok && rok {
 		// Can simplify
 		if lc.Cmp(rc) == 0 {
-			return True[S]()
+			return True[F, S]()
 		}
 		//
-		return False[S]()
+		return False[F, S]()
 	}
 	// Cannot simplify
-	var tmp LogicalTerm[S] = &Equal[S, T]{lhs, rhs}
+	var tmp LogicalTerm[F, S] = &Equal[F, S, T]{lhs, rhs}
 	// Done
 	return tmp.(S)
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Equal[S, T]) Substitute(mapping map[string]fr.Element) {
+func (p *Equal[F, S, T]) Substitute(mapping map[string]F) {
 	p.Lhs.Substitute(mapping)
 	p.Rhs.Substitute(mapping)
 }

@@ -18,6 +18,8 @@ type Predicate[T any] func(T) bool
 // Array provides a generice interface to an array of elements.  Typically, we
 // are interested in arrays of field elements here.
 type Array[T any] interface {
+	// Clone this array producing a mutable copy
+	Clone() MutArray[T]
 	// Returns the number of elements in this array.
 	Len() uint
 	// Get returns the element at the given index in this array.
@@ -32,24 +34,10 @@ type Array[T any] interface {
 // are interested in arrays of field elements here.
 type MutArray[T any] interface {
 	Array[T]
-	// Clone makes clones of this array producing an otherwise identical copy.
-	Clone() MutArray[T]
 	// Set the element at the given index in this array, overwriting the
 	// original value.
 	Set(uint, T)
 	// Insert n copies of T at start of the array and m copies at the back
 	// producing an updated array.
-	Pad(uint, uint, T) MutArray[T]
-}
-
-// Builder represents a general mechanism for construct arrays.  This helps to
-// separate the construction of an array from its continued existence.  Thus,
-// any additional data required for its construction can be discarded once the
-// array is built.
-type Builder[T any] interface {
-	// Fix the element at the given index in array being constructed.
-	Set(uint, T)
-	// Build constructs the final array.  After this point, the builder should
-	// be discarded.
-	Build() Array[T]
+	Pad(uint, uint, T)
 }

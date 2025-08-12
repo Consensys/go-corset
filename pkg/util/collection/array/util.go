@@ -19,6 +19,29 @@ import (
 	"slices"
 )
 
+// Comparable interface which can be implemented by non-primitive types.
+type Comparable[T any] interface {
+	// Cmp returns < 0 if this is less than other, or 0 if they are equal, or >
+	// 0 if this is greater than other.
+	Cmp(other T) int
+}
+
+// Compare two slices of ordered elements.
+func Compare[T Comparable[T]](lhs []T, rhs []T) int {
+	c := cmp.Compare(len(lhs), len(rhs))
+	//
+	if c == 0 {
+		for i := range lhs {
+			c = lhs[i].Cmp(rhs[i])
+			if c != 0 {
+				break
+			}
+		}
+	}
+	//
+	return c
+}
+
 // FrontPad pads an array upto a given length n with a given item.
 // Specifically, new items are inserted at the front of the array.
 func FrontPad[T any](slice []T, n uint, item T) []T {

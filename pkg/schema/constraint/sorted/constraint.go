@@ -14,22 +14,21 @@ package sorted
 
 import (
 	"fmt"
-	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	bls12_377 "github.com/consensys/go-corset/pkg/util/field/bls12-377"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Constraint declares a constraint that one (or more) columns are
 // lexicographically sorted.
-type Constraint[E ir.Evaluable] struct {
+type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
@@ -50,8 +49,8 @@ type Constraint[E ir.Evaluable] struct {
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E ir.Evaluable](handle string, context schema.ModuleId, bitwidth uint, selector util.Option[E],
-	sources []E, signs []bool, strict bool) Constraint[E] {
+func NewSortedConstraint[E ir.Evaluable[bls12_377.Element]](handle string, context schema.ModuleId, bitwidth uint,
+	selector util.Option[E], sources []E, signs []bool, strict bool) Constraint[E] {
 	//
 	return Constraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
 }
@@ -113,11 +112,11 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 	// Sanity check enough rows
 	if bounds.End < height {
 		// Determine permitted range on delta value
-		deltaBound := p.deltaBound()
+		deltaBound := field.TwoPowN[bls12_377.Element](p.BitWidth)
 		// Construct temporary buffers which are reused between evaluations to
 		// reduce memory pressure.
-		lhs := make([]fr.Element, len(p.Sources))
-		rhs := make([]fr.Element, len(p.Sources))
+		lhs := make([]bls12_377.Element, len(p.Sources))
+		rhs := make([]bls12_377.Element, len(p.Sources))
 		// Check all in-bounds values
 		for k := bounds.Start + 1; k < (height - bounds.End); k++ {
 			// Check selector
@@ -156,6 +155,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 		module  = schema.Module(p.Context)
 		kind    = "sorted"
 		sources = sexp.EmptyList()
+		handle  = fmt.Sprintf("\"%s\"", p.Handle)
 	)
 	//
 	if p.Strict {
@@ -179,13 +179,13 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	if p.Selector.IsEmpty() {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(kind),
-			sexp.NewSymbol(p.Handle),
+			sexp.NewSymbol(handle),
 			sources,
 		})
 	} else {
 		return sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol(kind),
-			sexp.NewSymbol(p.Handle),
+			sexp.NewSymbol(handle),
 			p.Selector.Unwrap().Lisp(false, module),
 			sources,
 		})
@@ -193,7 +193,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
+func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
 	for _, s := range p.Sources {
 		s.Substitute(mapping)
 	}
@@ -203,22 +203,11 @@ func (p Constraint[E]) Substitute(mapping map[string]fr.Element) {
 	}
 }
 
-func (p Constraint[E]) deltaBound() fr.Element {
-	var (
-		two   fr.Element = fr.NewElement(2)
-		bound fr.Element
-	)
-	//
-	bound.Exp(two, big.NewInt(int64(p.BitWidth)))
-	//
-	return bound
-}
-
-func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, signs []bool, strict bool,
-	trMod trace.Module, scMod schema.Module, lhs []fr.Element, rhs []fr.Element) (bool, error) {
+func sorted[F field.Element[F], E ir.Evaluable[F]](first, second uint, bound F, sources []E, signs []bool, strict bool,
+	trMod trace.Module[F], scMod schema.Module, lhs []F, rhs []F) (bool, error) {
 	//
 	var (
-		delta fr.Element
+		delta F
 		err   error
 	)
 	// Evaluate lhs
@@ -232,18 +221,18 @@ func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, s
 	//
 	for i := range signs {
 		// Compare value
-		c := lhs[i].Cmp(&rhs[i])
+		c := lhs[i].Cmp(rhs[i])
 		// Check sorting criteria
 		if c > 0 {
 			// Compute delta
-			delta.Sub(&lhs[i], &rhs[i])
+			delta = lhs[i].Sub(rhs[i])
 			//
-			return delta.Cmp(&bound) < 0 && !signs[i], nil
+			return delta.Cmp(bound) < 0 && !signs[i], nil
 		} else if c < 0 {
 			// Compute delta
-			delta.Sub(&rhs[i], &lhs[i])
+			delta = rhs[i].Sub(lhs[i])
 			//
-			return delta.Cmp(&bound) < 0 && signs[i], nil
+			return delta.Cmp(bound) < 0 && signs[i], nil
 		}
 	}
 	// If we get here, then the elements are considered equal.  Thus, this is
@@ -251,8 +240,8 @@ func sorted[E ir.Evaluable](first, second uint, bound fr.Element, sources []E, s
 	return !strict, nil
 }
 
-func evalExprsAt[E ir.Evaluable](k uint, sources []E, trMod trace.Module, scMod schema.Module,
-	buffer []fr.Element) error {
+func evalExprsAt[F field.Element[F], E ir.Evaluable[F]](k uint, sources []E, trMod trace.Module[F],
+	scMod schema.Module, buffer []F) error {
 	//
 	var err error
 	// Evaluate each expression in turn

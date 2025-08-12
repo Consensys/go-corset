@@ -15,6 +15,7 @@ package compiler
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 	"strings"
 
@@ -36,6 +37,8 @@ type Register struct {
 	Context ast.Context
 	// Underlying width of this register.
 	Bitwidth uint
+	// Common padding value
+	Padding big.Int
 	// Source columns of this register
 	Sources []RegisterSource
 	// Cached name
@@ -68,12 +71,19 @@ func (r *Register) IsInput() bool {
 // Merge two registers together.  This means the source-level columns will be
 // allocated to the same underlying HIR column (i.e. register).
 func (r *Register) Merge(other *Register) {
+	var zero big.Int
+	//
 	if r.Context != other.Context {
 		panic("cannot merge registers from different context")
 	}
 	//
 	r.Bitwidth = max(r.Bitwidth, other.Bitwidth)
 	r.Sources = append(r.Sources, other.Sources...)
+	// Check whether padding matches
+	if r.Padding.Cmp(&other.Padding) != 0 {
+		// No, so reset to default
+		r.Padding = zero
+	}
 	// Reset the cached name
 	r.cached_name = nil
 	// Deactivate other register
@@ -148,6 +158,8 @@ type RegisterSource struct {
 	MustProve bool
 	// Determines whether this is a Computed column.
 	Computed bool
+	// Determines value used for padding
+	Padding big.Int
 	// Display modifier
 	Display string
 }

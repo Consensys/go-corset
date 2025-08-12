@@ -13,17 +13,17 @@
 package ir
 
 import (
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Negation constructs a term representing the negation of a logical term.
-func Negation[T LogicalTerm[T]](body T) T {
-	var term LogicalTerm[T] = &Negate[T]{
+func Negation[F field.Element[F], T LogicalTerm[F, T]](body T) T {
+	var term LogicalTerm[F, T] = &Negate[F, T]{
 		Arg: body,
 	}
 	//
@@ -35,27 +35,27 @@ func Negation[T LogicalTerm[T]](body T) T {
 // Negate represents an Negate between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Negate are either Negateities (or negated Negateities) or
 // inNegateities.
-type Negate[T LogicalTerm[T]] struct {
+type Negate[F field.Element[F], T LogicalTerm[F, T]] struct {
 	Arg T
 }
 
 // ApplyShift implementation for LogicalTerm interface.
-func (p *Negate[T]) ApplyShift(shift int) T {
-	return Negation(p.Arg.ApplyShift(shift))
+func (p *Negate[F, T]) ApplyShift(shift int) T {
+	return Negation[F](p.Arg.ApplyShift(shift))
 }
 
 // ShiftRange implementation for LogicalTerm interface.
-func (p *Negate[T]) ShiftRange() (int, int) {
+func (p *Negate[F, T]) ShiftRange() (int, int) {
 	return p.Arg.ShiftRange()
 }
 
 // Bounds implementation for Boundable interface.
-func (p *Negate[T]) Bounds() util.Bounds {
+func (p *Negate[F, T]) Bounds() util.Bounds {
 	return p.Arg.Bounds()
 }
 
 // TestAt implementation for Testable interface.
-func (p *Negate[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint, error) {
+func (p *Negate[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
 	val, branch, err := p.Arg.TestAt(k, tr, sc)
 	//
 	return !val, branch, err
@@ -63,7 +63,7 @@ func (p *Negate[T]) TestAt(k int, tr trace.Module, sc schema.Module) (bool, uint
 
 // Lisp returns a lisp representation of this Negate, which is useful for
 // debugging.
-func (p *Negate[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Negate[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 	var l = p.Arg.Lisp(global, mapping)
 	//
 	return sexp.NewList([]sexp.SExp{
@@ -71,31 +71,31 @@ func (p *Negate[T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 }
 
 // RequiredRegisters implementation for Contextual interface.
-func (p *Negate[T]) RequiredRegisters() *set.SortedSet[uint] {
+func (p *Negate[F, T]) RequiredRegisters() *set.SortedSet[uint] {
 	return p.Arg.RequiredRegisters()
 }
 
 // RequiredCells implementation for Contextual interface
-func (p *Negate[T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (p *Negate[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return p.Arg.RequiredCells(row, mid)
 }
 
 // Simplify this Negate as much as reasonably possible.
-func (p *Negate[T]) Simplify(casts bool) T {
+func (p *Negate[F, T]) Simplify(casts bool) T {
 	var term T = p.Arg.Simplify(casts)
 	//
 	switch {
-	case IsTrue(term):
-		return False[T]()
-	case IsFalse(term):
-		return True[T]()
+	case IsTrue[F](term):
+		return False[F, T]()
+	case IsFalse[F](term):
+		return True[F, T]()
 	default:
-		var tmp LogicalTerm[T] = &Negate[T]{term}
+		var tmp LogicalTerm[F, T] = &Negate[F, T]{term}
 		return tmp.(T)
 	}
 }
 
 // Substitute implementation for Substitutable interface.
-func (p *Negate[T]) Substitute(mapping map[string]fr.Element) {
+func (p *Negate[F, T]) Substitute(mapping map[string]F) {
 	p.Arg.Substitute(mapping)
 }

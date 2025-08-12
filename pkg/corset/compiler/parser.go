@@ -388,6 +388,7 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 	e sexp.SExp) (*ast.DefColumn, *SyntaxError) {
 	//
 	var (
+		zero  big.Int
 		error *SyntaxError
 		// Initial binding with defaults
 		binding = ast.ColumnBinding{
@@ -395,6 +396,7 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 			Kind:          ast.NOT_COMPUTED,
 			Multiplier:    1,
 			MustProve:     false,
+			Padding:       zero,
 			Display:       "hex",
 		}
 	)
@@ -477,7 +479,17 @@ func (p *Parser) parseColumnDeclarationAttributes(node sexp.SExp, binding ast.Co
 				return binding, p.translator.SyntaxError(ith, "unknown display definition")
 			}
 		case ":array":
-			if array_min, array_max, err = p.parseArrayDimension(attrs[i+1]); err != nil {
+			if i+1 == len(attrs) {
+				return binding, p.translator.SyntaxError(ith, "missing array dimension")
+			} else if array_min, array_max, err = p.parseArrayDimension(attrs[i+1]); err != nil {
+				return binding, err
+			}
+			// skip dimension
+			i++
+		case ":padding":
+			if i+1 == len(attrs) {
+				return binding, p.translator.SyntaxError(ith, "missing padding value")
+			} else if binding.Padding, err = p.parsePaddingValue(attrs[i+1]); err != nil {
 				return binding, err
 			}
 			// skip dimension
@@ -514,6 +526,24 @@ func (p *Parser) parseColumnDeclarationAttributes(node sexp.SExp, binding ast.Co
 	}
 	// Success!
 	return binding, nil
+}
+
+func (p *Parser) parsePaddingValue(s sexp.SExp) (big.Int, *SyntaxError) {
+	var (
+		err     error
+		ok      bool
+		padding big.Int
+	)
+	//
+	if symbol := s.AsSymbol(); symbol == nil {
+		return padding, p.translator.SyntaxError(s, "invalid padding value")
+	} else if padding, ok, err = parseConstant(symbol.Value); err != nil {
+		return padding, p.translator.SyntaxError(s, err.Error())
+	} else if !ok {
+		return padding, p.translator.SyntaxError(s, "invalid padding value")
+	}
+	//
+	return padding, nil
 }
 
 func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {
@@ -1737,29 +1767,12 @@ func reduceParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 }
 
 func constantParserRule(symbol string) (ast.Expr, bool, error) {
-	var (
-		base int
-		name string
-		num  big.Int
-	)
-	//
-	if strings.HasPrefix(symbol, "0x") {
-		symbol = symbol[2:]
-		base = 16
-		name = "hexadecimal"
-	} else if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
-		base = 10
-		name = "integer"
-	} else {
-		// Not applicable
-		return nil, false, nil
+	num, ok, err := parseConstant(symbol)
+	// Check for error
+	if !ok || err != nil {
+		return nil, ok, err
 	}
-	// Attempt to parse
-	if _, ok := num.SetString(symbol, base); !ok {
-		err := fmt.Sprintf("invalid %s constant", name)
-		return nil, true, errors.New(err)
-	}
-	// Done
+	// Success
 	return &ast.Constant{Val: num}, true, nil
 }
 
@@ -1953,6 +1966,33 @@ func normParserRule(_ string, args []ast.Expr) (ast.Expr, error) {
 	}
 
 	return &ast.Normalise{Arg: args[0]}, nil
+}
+
+func parseConstant(symbol string) (constant big.Int, ok bool, err error) {
+	var (
+		base int
+		num  big.Int
+		name string
+	)
+	//
+	if strings.HasPrefix(symbol, "0x") {
+		symbol = symbol[2:]
+		base = 16
+		name = "hexadecimal"
+	} else if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
+		base = 10
+		name = "integer"
+	} else {
+		// Not applicable
+		return big.Int{}, false, nil
+	}
+	// Attempt to parse
+	if _, ok := num.SetString(symbol, base); !ok {
+		err := fmt.Sprintf("invalid %s constant", name)
+		return num, true, errors.New(err)
+	}
+	// Done
+	return num, true, nil
 }
 
 // Parse a name which can be (optionally) adorned with either a module or
