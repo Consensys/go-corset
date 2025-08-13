@@ -35,12 +35,12 @@ import (
 // expectation that this computation is acyclic.  Furthermore, computed columns
 // give rise to "trace expansion".  That is where the initial trace provided by
 // the user is expanded by determining the value of all computed columns.
-type ComputedRegister struct {
+type ComputedRegister[F field.Element[F]] struct {
 	// Target index for computed column
 	Target schema.RegisterRef
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr ir.Evaluable[bls12_377.Element]
+	Expr ir.Evaluable[F]
 	// Direction in which value is computed (true = forward, false = backward).
 	// More specifically, a forwards direction means the computation starts on
 	// the first row, whilst a backwards direction means it starts on the last.
@@ -50,8 +50,9 @@ type ComputedRegister struct {
 // NewComputedRegister constructs a new computed column with a given name and
 // determining expression.  More specifically, that expression is used to
 // compute the values for this column during trace expansion.
-func NewComputedRegister(column schema.RegisterRef, expr ir.Evaluable[bls12_377.Element], dir bool) *ComputedRegister {
-	return &ComputedRegister{column, expr, dir}
+func NewComputedRegister[F field.Element[F]](column schema.RegisterRef, expr ir.Evaluable[F], dir bool,
+) *ComputedRegister[F] {
+	return &ComputedRegister[F]{column, expr, dir}
 }
 
 // Bounds determines the well-definedness bounds for this assignment for both
@@ -59,7 +60,7 @@ func NewComputedRegister(column schema.RegisterRef, expr ir.Evaluable[bls12_377.
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
+func (p *ComputedRegister[F]) Bounds(mid sc.ModuleId) util.Bounds {
 	if mid == p.Target.Module() {
 		return p.Expr.Bounds()
 	}
@@ -70,12 +71,12 @@ func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema schema.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema,
+) ([]array.MutArray[F], error) {
 	var (
 		trModule = tr.Module(p.Target.Module())
 		scModule = schema.Module(p.Target.Module())
-		wrapper  = recModule{p.Target.Column().Unwrap(), nil, trModule}
+		wrapper  = recursiveModule[F]{p.Target.Column().Unwrap(), nil, trModule}
 		register = schema.Register(p.Target)
 		err      error
 	)
@@ -104,20 +105,20 @@ func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema sch
 		return nil, err
 	}
 	// Done
-	return []array.MutArray[bls12_377.Element]{wrapper.data}, err
+	return []array.MutArray[F]{wrapper.data}, err
 }
 
 // Consistent performs some simple checks that the given assignment is
 // consistent with its enclosing schema This provides a double check of certain
 // key properties, such as that registers used for assignments are valid,
 // etc.
-func (p *ComputedRegister) Consistent(schema sc.AnySchema) []error {
+func (p *ComputedRegister[F]) Consistent(schema sc.AnySchema) []error {
 	return nil
 }
 
 // IsRecursive checks whether or not this computation is recursive (i.e. the
 // target column is defined in terms of itself).
-func (p *ComputedRegister) IsRecursive() bool {
+func (p *ComputedRegister[F]) IsRecursive() bool {
 	var regs = p.Expr.RequiredRegisters()
 	// Walk through registers accessed by the computation and see whether target
 	// register is amongst them.
@@ -134,13 +135,13 @@ func (p *ComputedRegister) IsRecursive() bool {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *ComputedRegister) RegistersExpanded() []sc.RegisterRef {
+func (p *ComputedRegister[F]) RegistersExpanded() []sc.RegisterRef {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *ComputedRegister) RegistersRead() []schema.RegisterRef {
+func (p *ComputedRegister[F]) RegistersRead() []schema.RegisterRef {
 	var (
 		module = p.Target.Module()
 		regs   = p.Expr.RequiredRegisters()
@@ -159,19 +160,19 @@ func (p *ComputedRegister) RegistersRead() []schema.RegisterRef {
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *ComputedRegister) RegistersWritten() []sc.RegisterRef {
+func (p *ComputedRegister[F]) RegistersWritten() []sc.RegisterRef {
 	return []schema.RegisterRef{p.Target}
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *ComputedRegister) Subdivide(mapping schema.LimbsMap) sc.Assignment {
+func (p *ComputedRegister[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
 	return p
 }
 
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
 		module          = schema.Module(p.Target.Module())
 		target          = module.Register(p.Target.Register())
@@ -191,8 +192,8 @@ func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 		})
 }
 
-func fwdComputation(data *word.IndexArray[bls12_377.Element, WordPool], expr ir.Evaluable[bls12_377.Element],
-	trMod trace.Module[bls12_377.Element], scMod schema.Module) error {
+func fwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+	trMod trace.Module[F], scMod schema.Module) error {
 	// Forwards computation
 	for i := uint(0); i < data.Len(); i++ {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -207,8 +208,8 @@ func fwdComputation(data *word.IndexArray[bls12_377.Element, WordPool], expr ir.
 	return nil
 }
 
-func bwdComputation(data *word.IndexArray[bls12_377.Element, WordPool], expr ir.Evaluable[bls12_377.Element],
-	trMod trace.Module[bls12_377.Element], scMod schema.Module) error {
+func bwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+	trMod trace.Module[F], scMod schema.Module) error {
 	// Backwards computation
 	for i := data.Len(); i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
@@ -226,74 +227,74 @@ func bwdComputation(data *word.IndexArray[bls12_377.Element, WordPool], expr ir.
 // RecModule is a wrapper which enables a computation to be recursive.
 // Specifically, it allows the expression being evaluated to access as it is
 // being generated.
-type recModule struct {
+type recursiveModule[F field.Element[F]] struct {
 	col      uint
-	data     *word.IndexArray[bls12_377.Element, WordPool]
-	trModule trace.Module[bls12_377.Element]
+	data     *word.IndexArray[F, word.Pool[uint, F]]
+	trModule trace.Module[F]
 }
 
 // Module implementation for trace.Module interface.
-func (p *recModule) Name() string {
+func (p *recursiveModule[F]) Name() string {
 	return p.trModule.Name()
 }
 
 // Column implementation for trace.Module interface.
-func (p *recModule) Column(index uint) trace.Column[bls12_377.Element] {
+func (p *recursiveModule[F]) Column(index uint) trace.Column[F] {
 	if p.col == index {
-		return &recColumn{p.data}
+		return &recursiveColumn[F]{p.data}
 	}
 
 	return p.trModule.Column(index)
 }
 
 // ColumnOf implementation for trace.Module interface.
-func (p *recModule) ColumnOf(string) trace.Column[bls12_377.Element] {
+func (p *recursiveModule[F]) ColumnOf(string) trace.Column[F] {
 	// NOTE: this is marked unreachable because, as it stands, expression
 	// evaluation never calls this method.
 	panic("unreachable")
 }
 
 // Width implementation for trace.Module interface.
-func (p *recModule) Width() uint {
+func (p *recursiveModule[F]) Width() uint {
 	return p.trModule.Width()
 }
 
 // Height implementation for trace.Module interface.
-func (p *recModule) Height() uint {
+func (p *recursiveModule[F]) Height() uint {
 	return p.trModule.Height()
 }
 
 // RecColumn is a wrapper which enables the array being computed to be accessed
 // during its own computation.
-type recColumn struct {
-	data *word.IndexArray[bls12_377.Element, WordPool]
+type recursiveColumn[F field.Element[F]] struct {
+	data *word.IndexArray[F, word.Pool[uint, F]]
 }
 
 // Holds the name of this column
-func (p *recColumn) Name() string {
+func (p *recursiveColumn[F]) Name() string {
 	panic("unreachable")
 }
 
 // Get implementation for trace.Column interface.
-func (p *recColumn) Get(row int) bls12_377.Element {
+func (p *recursiveColumn[F]) Get(row int) F {
 	if row < 0 || uint(row) >= p.data.Len() {
 		// out-of-bounds access
-		return field.Zero[bls12_377.Element]()
+		return field.Zero[F]()
 	}
 	//
-	return field.FromBigEndianBytes[bls12_377.Element](p.data.Get(uint(row)).Bytes())
+	return field.FromBigEndianBytes[F](p.data.Get(uint(row)).Bytes())
 }
 
 // Data implementation for trace.Column interface.
-func (p *recColumn) Data() array.Array[bls12_377.Element] {
+func (p *recursiveColumn[F]) Data() array.Array[F] {
 	panic("unreachable")
 }
 
 // Padding implementation for trace.Column interface.
-func (p *recColumn) Padding() bls12_377.Element {
+func (p *recursiveColumn[F]) Padding() F {
 	panic("unreachable")
 }
 
 func init() {
-	gob.Register(sc.Assignment(&ComputedRegister{}))
+	gob.Register(sc.Assignment[bls12_377.Element](&ComputedRegister[bls12_377.Element]{}))
 }

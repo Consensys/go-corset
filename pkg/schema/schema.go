@@ -46,7 +46,7 @@ type Schema[C any] interface {
 	// Assignments returns an iterator over the assignments of this schema.
 	// That is, the set of computations used to determine values for all
 	// computed columns.
-	Assignments() iter.Iterator[Assignment]
+	Assignments() iter.Iterator[Assignment[bls12_377.Element]]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.

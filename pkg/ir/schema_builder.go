@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
@@ -131,7 +132,7 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]] struct
 	// Constraints for this module
 	constraints []C
 	// Assignments for computed registers
-	assignments []schema.Assignment
+	assignments []schema.Assignment[bls12_377.Element]
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
@@ -158,7 +159,7 @@ func NewExternModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T
 
 // AddAssignment adds a new assignment to this module.  Assignments are
 // responsible for computing the values of computed columns.
-func (p *ModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment) {
+func (p *ModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[bls12_377.Element]) {
 	if p.extern {
 		panic("cannot add assignment to external module")
 	}
@@ -178,7 +179,7 @@ func (p *ModuleBuilder[F, C, T]) AddConstraint(constraint C) {
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
-func (p *ModuleBuilder[F, C, T]) Assignments() iter.Iterator[schema.Assignment] {
+func (p *ModuleBuilder[F, C, T]) Assignments() iter.Iterator[schema.Assignment[bls12_377.Element]] {
 	return iter.NewArrayIterator(p.assignments)
 }
 

@@ -16,7 +16,6 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -26,7 +25,7 @@ import (
 // have an associated assignment.  A good example of an assignment is computed
 // the multiplicative inverse of a column in order to implement a non-zero
 // check.
-type Assignment interface {
+type Assignment[F any] interface {
 	// For the given module, determine any well-definedness bounds implied by
 	// this assignment in  both the negative (left) or positive (right)
 	// directions.  For example, consider an expression such as "(shift X -1)".
@@ -39,7 +38,7 @@ type Assignment interface {
 	// assignment depends must exist (e.g. are either inputs or have been
 	// computed already).  Computed columns do not exist in the original trace,
 	// but are added during trace expansion to form the final trace.
-	Compute(tr.Trace[bls12_377.Element], Schema[Constraint]) ([]array.MutArray[bls12_377.Element], error)
+	Compute(tr.Trace[F], Schema[Constraint]) ([]array.MutArray[F], error)
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.

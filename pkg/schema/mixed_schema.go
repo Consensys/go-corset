@@ -45,7 +45,7 @@ func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) M
 // Assignments returns an iterator over the assignments of this schema
 // These are the computations used to assign values to all computed columns
 // in this schema.
-func (p MixedSchema[M1, M2]) Assignments() iter.Iterator[Assignment] {
+func (p MixedSchema[M1, M2]) Assignments() iter.Iterator[Assignment[bls12_377.Element]] {
 	leftIter := assignmentsOf(p.left)
 	rightIter := assignmentsOf(p.right)
 	//

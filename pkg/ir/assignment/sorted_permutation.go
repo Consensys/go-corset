@@ -30,7 +30,7 @@ import (
 
 // SortedPermutation declares one or more columns as sorted permutations of
 // existing columns.
-type SortedPermutation struct {
+type SortedPermutation[F field.Element[F]] struct {
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
 	Targets []sc.RegisterRef
@@ -41,8 +41,8 @@ type SortedPermutation struct {
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation(context sc.ModuleId, targets []sc.RegisterId, signs []bool,
-	sources []sc.RegisterId) *SortedPermutation {
+func NewSortedPermutation[F field.Element[F]](context sc.ModuleId, targets []sc.RegisterId, signs []bool,
+	sources []sc.RegisterId) *SortedPermutation[F] {
 	//
 	if len(targets) != len(sources) {
 		panic("target and source column have differing lengths!")
@@ -50,7 +50,7 @@ func NewSortedPermutation(context sc.ModuleId, targets []sc.RegisterId, signs []
 		panic("invalid sort directions")
 	}
 	//
-	return &SortedPermutation{toRegisterRefs(context, targets), signs, toRegisterRefs(context, sources)}
+	return &SortedPermutation[F]{toRegisterRefs(context, targets), signs, toRegisterRefs(context, sources)}
 }
 
 // ============================================================================
@@ -62,15 +62,14 @@ func NewSortedPermutation(context sc.ModuleId, targets []sc.RegisterId, signs []
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
+func (p *SortedPermutation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema) ([]array.MutArray[F], error) {
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
@@ -82,7 +81,7 @@ func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *SortedPermutation) Consistent(schema sc.AnySchema) []error {
+func (p *SortedPermutation[F]) Consistent(schema sc.AnySchema) []error {
 	var errors []error
 	// // Sanity check source types
 	for i := range p.Sources {
@@ -100,23 +99,23 @@ func (p *SortedPermutation) Consistent(schema sc.AnySchema) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *SortedPermutation) RegistersExpanded() []sc.RegisterRef {
+func (p *SortedPermutation[F]) RegistersExpanded() []sc.RegisterRef {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *SortedPermutation) RegistersRead() []sc.RegisterRef {
+func (p *SortedPermutation[F]) RegistersRead() []sc.RegisterRef {
 	return p.Sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *SortedPermutation) RegistersWritten() []sc.RegisterRef {
+func (p *SortedPermutation[F]) RegistersWritten() []sc.RegisterRef {
 	return p.Targets
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *SortedPermutation) Subdivide(mapping schema.LimbsMap) sc.Assignment {
+func (p *SortedPermutation[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
 	return p
 }
 
@@ -126,7 +125,7 @@ func (p *SortedPermutation) Subdivide(mapping schema.LimbsMap) sc.Assignment {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
@@ -246,5 +245,5 @@ func rangeOf(n uint) []uint {
 // ============================================================================
 
 func init() {
-	gob.Register(sc.Assignment(&SortedPermutation{}))
+	gob.Register(sc.Assignment[bls12_377.Element](&SortedPermutation[bls12_377.Element]{}))
 }

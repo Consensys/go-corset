@@ -22,26 +22,21 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// WordPool provides a useful alias
-type WordPool = word.Pool[uint, bls12_377.Element]
-
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
-type Assignment[T Instruction[T]] Function[T]
+type Assignment[F field.Element[F], T Instruction[T]] Function[T]
 
 // Bounds implementation for schema.Assignment interface.
-func (p Assignment[T]) Bounds(module uint) util.Bounds {
+func (p Assignment[F, T]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Compute implementation for schema.Assignment interface.
-func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema) ([]array.MutArray[F], error) {
 	//
 	var (
 		trModule = trace.Module(p.id)
@@ -57,12 +52,12 @@ func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnyS
 }
 
 // Consistent implementation for schema.Assignment interface.
-func (p Assignment[T]) Consistent(sc.AnySchema) []error {
+func (p Assignment[F, T]) Consistent(sc.AnySchema) []error {
 	return nil
 }
 
 // Lisp implementation for schema.Assignment interface.
-func (p Assignment[T]) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p Assignment[F, T]) Lisp(schema sc.AnySchema) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),
@@ -71,12 +66,12 @@ func (p Assignment[T]) Lisp(schema sc.AnySchema) sexp.SExp {
 }
 
 // RegistersExpanded implementation for schema.Assignment interface.
-func (p Assignment[T]) RegistersExpanded() []sc.RegisterRef {
+func (p Assignment[F, T]) RegistersExpanded() []sc.RegisterRef {
 	return p.RegistersRead()
 }
 
 // RegistersRead implementation for schema.Assignment interface.
-func (p Assignment[T]) RegistersRead() []sc.RegisterRef {
+func (p Assignment[F, T]) RegistersRead() []sc.RegisterRef {
 	var regs []sc.RegisterRef
 	//
 	for i, reg := range p.registers {
@@ -90,7 +85,7 @@ func (p Assignment[T]) RegistersRead() []sc.RegisterRef {
 }
 
 // RegistersWritten implementation for schema.Assignment interface.
-func (p Assignment[T]) RegistersWritten() []sc.RegisterRef {
+func (p Assignment[F, T]) RegistersWritten() []sc.RegisterRef {
 	var (
 		regs       []sc.RegisterRef
 		nRegisters = len(p.registers)
@@ -113,7 +108,7 @@ func (p Assignment[T]) RegistersWritten() []sc.RegisterRef {
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.
-func (p Assignment[T]) trace(row uint, trace tr.Module[bls12_377.Element], iomap Map) []State {
+func (p Assignment[F, T]) trace(row uint, trace tr.Module[F], iomap Map) []State {
 	var (
 		code   = p.code
 		states []State
@@ -136,7 +131,7 @@ func (p Assignment[T]) trace(row uint, trace tr.Module[bls12_377.Element], iomap
 	return states
 }
 
-func (p Assignment[T]) initialState(row uint, trace tr.Module[bls12_377.Element], io Map) State {
+func (p Assignment[F, T]) initialState(row uint, trace tr.Module[F], io Map) State {
 	var (
 		state = make([]big.Int, len(p.registers))
 		index = 0
@@ -160,9 +155,9 @@ func (p Assignment[T]) initialState(row uint, trace tr.Module[bls12_377.Element]
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool) []array.MutArray[bls12_377.Element] {
+func (p Assignment[F, T]) states2columns(width uint, states []State, pool word.Pool[uint, F]) []array.MutArray[F] {
 	var (
-		cols      = make([]array.MutArray[bls12_377.Element], width)
+		cols      = make([]array.MutArray[F], width)
 		nrows     = uint(len(states))
 		multiLine = len(p.code) > 1
 	)
@@ -175,7 +170,7 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 	for row, st := range states {
 		for i := range p.registers {
 			var (
-				val bls12_377.Element
+				val F
 				rid = schema.NewRegisterId(uint(i))
 			)
 			//
@@ -192,10 +187,10 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 	return cols
 }
 
-func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[bls12_377.Element], states []State, pool WordPool) {
+func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], states []State, pool word.Pool[uint, F]) {
 	var (
-		zero  = field.Zero[bls12_377.Element]()
-		one   = field.One[bls12_377.Element]()
+		zero  = field.Zero[F]()
+		one   = field.One[F]()
 		nrows = uint(len(states))
 		pc    = uint(len(p.registers))
 		ret   = pc + 1
@@ -207,7 +202,7 @@ func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[bls12_377.El
 	cols[ret] = word.NewArray(nrows, 1, pool)
 	// Assign values
 	for row, st := range states {
-		npc := field.Uint64[bls12_377.Element](uint64(st.Pc() + 1))
+		npc := field.Uint64[F](uint64(st.Pc() + 1))
 		// NOTE: +1 because PC==0 reserved for padding.
 		cols[pc].Set(uint(row), npc)
 		// Check whether this is a terminating state, or not.
@@ -222,7 +217,7 @@ func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[bls12_377.El
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
-func finaliseState(row uint, terminated bool, state State, trace tr.Module[bls12_377.Element]) State {
+func finaliseState[F field.Element[F]](row uint, terminated bool, state State, trace tr.Module[F]) State {
 	// Clone state
 	var nstate = state.Clone()
 	// Now, ensure output registers retain their original values.

@@ -326,7 +326,7 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path)
 	// Determine enclosing module
 	module := t.moduleOf(context)
 	// Add the assignment and check the first identifier.
-	module.AddAssignment(assignment.NewComputation(binding.name, targets, sources))
+	module.AddAssignment(assignment.NewComputation[bls12_377.Element](binding.name, targets, sources))
 	//
 	return nil
 }
@@ -554,7 +554,7 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util
 	)
 	// Register assignment
 	tgtModule.AddAssignment(
-		assignment.NewComputation("interleave", targets, sources))
+		assignment.NewComputation[bls12_377.Element]("interleave", targets, sources))
 
 	// Done
 	return errors
@@ -602,7 +602,7 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 	signs := slices.Clone(decl.Signs)
 	bitwidth := determineMaxBitwidth(module, targetTerms[:len(signs)])
 	// Add assignment for computing the sorted permutation
-	module.AddAssignment(assignment.NewSortedPermutation(module.Id(), targets, signs, sources))
+	module.AddAssignment(assignment.NewSortedPermutation[bls12_377.Element](module.Id(), targets, signs, sources))
 	// Add Permutation Constraint
 	module.AddConstraint(mir.NewPermutationConstraint(handle.String(), module.Id(), targets, sources))
 	// Add Sorting Constraint
