@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -62,8 +63,8 @@ func (p *Computation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
-) ([]array.MutArray[word.BigEndian], error) {
+func (p *Computation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	// Identify Computation
 	fn := findNative(p.Function)
 	// Go!
@@ -142,10 +143,10 @@ func (p *Computation) Lisp(schema sc.AnySchema) sexp.SExp {
 
 // NativeComputation defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation func([]array.Array[word.BigEndian], WordPool) []array.MutArray[word.BigEndian]
+type NativeComputation func([]array.Array[bls12_377.Element], WordPool) []array.MutArray[bls12_377.Element]
 
-func computeNative(sources []sc.RegisterRef, fn NativeComputation, trace tr.Trace[word.BigEndian],
-) []array.MutArray[word.BigEndian] {
+func computeNative(sources []sc.RegisterRef, fn NativeComputation, trace tr.Trace[bls12_377.Element],
+) []array.MutArray[bls12_377.Element] {
 	// Read inputs
 	inputs := ReadRegisters(trace, sources...)
 	// Read inputs

@@ -49,6 +49,22 @@ type Word[T any] interface {
 	SetUint64(uint64) T
 }
 
+// Pool provides an abstraction for referring to large words by a smaller index
+// value.  The pool stores the actual word data, and provides fast access via an
+// index.  This makes sense when we have a relatively small number of values
+// which can be referred to many times over.
+type Pool[K any, T any] interface {
+	// Clone a pool producing an identical, but unaliased copy.
+	Clone() Pool[K, T]
+	// Lookup a given word in the pool using an index.
+	Get(K) T
+	// Allocate word into pool, returning its index.
+	Put(T) K
+	// Lookup the key associated with a given work, return false if it does not
+	// exist in the pool.
+	IndexOf(T) (K, bool)
+}
+
 // NewArray constructs a new word array with a given capacity.
 func NewArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) array.MutArray[T] {
 	switch {

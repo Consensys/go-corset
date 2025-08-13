@@ -27,7 +27,7 @@ import (
 // TraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace[word.BigEndian]) []error {
+func TraceValidation[F word.Word[F]](parallel bool, schema sc.AnySchema, tr tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Start timer

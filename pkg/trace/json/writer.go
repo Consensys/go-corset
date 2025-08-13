@@ -17,10 +17,11 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ToJsonString converts a trace into a JSON string.
-func ToJsonString(columns []trace.RawColumn) string {
+func ToJsonString(columns []trace.RawColumn[word.BigEndian]) string {
 	var builder strings.Builder
 	//
 	builder.WriteString("{")

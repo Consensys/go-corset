@@ -169,32 +169,24 @@ func (tb TraceBuilder) BatchSize() uint {
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[bls12_377.Element], []error) {
-	tr, errors := tb.BuildRaw(schema, tf)
-	//
-	return trace.Wrap[word.BigEndian, bls12_377.Element](tr), errors
-}
-
-// BuildRaw attempts to construct a trace for a given schema, producing errors if
-// there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) BuildRaw(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[word.BigEndian], []error) {
 	var (
-		pool   word.Pool[uint, word.BigEndian]
-		cols   []trace.RawColumn
+		pool   word.Pool[uint, bls12_377.Element]
+		cols   []trace.RawColumn[bls12_377.Element]
 		errors []error
 	)
 	// If expansion is enabled, then we must split the trace according to the
 	// given mapping; otherwise, we simply lower the trace as is.
 	if tb.mapping != nil && tb.expand {
 		// Split raw columns, and handle any errors arising.
-		if pool, cols, errors = builder.TraceSplitting(tb.parallel, tf, tb.mapping); len(errors) > 0 {
+		if pool, cols, errors = builder.TraceSplitting[bls12_377.Element](tb.parallel, tf, tb.mapping); len(errors) > 0 {
 			return nil, errors
 		}
 	} else {
 		// Lower raw columns
-		pool, cols = tf.Pool, tf.Columns
+		pool, cols = builder.TraceLowering[bls12_377.Element](tb.parallel, tf.Clone())
 	}
 	// Initialise the actual trace object
-	tr, errors := initialiseTrace(!tb.expand, schema, pool, cols)
+	tr, errors := initialiseTrace[bls12_377.Element](!tb.expand, schema, pool, cols)
 	//
 	if len(errors) > 0 {
 		// Critical failure
@@ -230,13 +222,13 @@ func (tb TraceBuilder) BuildRaw(schema sc.AnySchema, tf lt.TraceFile) (trace.Tra
 	return tr, errors
 }
 
-func initialiseTrace(expanded bool, schema sc.AnySchema, pool builder.WordPool,
-	cols []trace.RawColumn) (*trace.ArrayTrace[word.BigEndian], []error) {
+func initialiseTrace[W word.Word[W]](expanded bool, schema sc.AnySchema, pool word.Pool[uint, W],
+	cols []trace.RawColumn[W]) (*trace.ArrayTrace[W], []error) {
 	//
 	var (
 		// Initialise modules
 		modmap  = initialiseModuleMap(schema)
-		modules = make([]trace.ArrayModule[word.BigEndian], schema.Width())
+		modules = make([]trace.ArrayModule[W], schema.Width())
 	)
 	//
 	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
@@ -266,8 +258,8 @@ func initialiseModuleMap(schema sc.AnySchema) map[string]uint {
 	return modmap
 }
 
-func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uint,
-	cols []trace.RawColumn) ([][]trace.RawColumn, []error) {
+func splitTraceColumns[W word.Word[W]](expanded bool, schema sc.AnySchema, modmap map[string]uint,
+	cols []trace.RawColumn[W]) ([][]trace.RawColumn[W], []error) {
 	//
 	var (
 		// Errs contains the set of filling errors which are accumulated
@@ -276,7 +268,7 @@ func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uin
 		seen map[columnKey]bool = make(map[columnKey]bool, 0)
 	)
 	//
-	colmap, modules := initialiseColumnMap(expanded, schema)
+	colmap, modules := initialiseColumnMap[W](expanded, schema)
 	// Assign data from each input column given
 	for _, col := range cols {
 		// Lookup the module
@@ -316,15 +308,17 @@ func splitTraceColumns(expanded bool, schema sc.AnySchema, modmap map[string]uin
 	return modules, errs
 }
 
-func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]columnId, [][]trace.RawColumn) {
+func initialiseColumnMap[W word.Word[W]](expanded bool, schema sc.AnySchema) (map[columnKey]columnId,
+	[][]trace.RawColumn[W]) {
+	//
 	var (
 		colmap  = make(map[columnKey]columnId, 100)
-		modules = make([][]trace.RawColumn, schema.Width())
+		modules = make([][]trace.RawColumn[W], schema.Width())
 	)
 	// Initialise modules
 	for i := uint(0); i != schema.Width(); i++ {
 		m := schema.Module(i)
-		columns := make([]trace.RawColumn, m.Width())
+		columns := make([]trace.RawColumn[W], m.Width())
 		//
 		for j := uint(0); j != m.Width(); j++ {
 			var (
@@ -338,7 +332,7 @@ func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]colu
 				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
 			}
 			// Add initially empty column
-			columns[j] = trace.RawColumn{
+			columns[j] = trace.RawColumn[W]{
 				Module: m.Name(),
 				Name:   col.Name,
 				Data:   nil,
@@ -355,16 +349,16 @@ func initialiseColumnMap(expanded bool, schema sc.AnySchema) (map[columnKey]colu
 	return colmap, modules
 }
 
-func fillTraceModule(mod sc.Module, rawColumns []trace.RawColumn) trace.ArrayModule[word.BigEndian] {
+func fillTraceModule[W word.Word[W]](mod sc.Module, rawColumns []trace.RawColumn[W]) trace.ArrayModule[W] {
 	var (
-		traceColumns = make([]trace.ArrayColumn[word.BigEndian], len(rawColumns))
+		traceColumns = make([]trace.ArrayColumn[W], len(rawColumns))
 	)
 	//
 	for i := range traceColumns {
 		var (
 			ith     = rawColumns[i]
 			reg     = mod.Register(sc.NewRegisterId(uint(i)))
-			padding word.BigEndian
+			padding W
 		)
 		//
 		padding = padding.SetBytes(reg.Padding.Bytes())
@@ -377,7 +371,7 @@ func fillTraceModule(mod sc.Module, rawColumns []trace.RawColumn) trace.ArrayMod
 
 // pad each module with its given level of spillage and (optionally) ensure a
 // given level of defensive padding.
-func addSpillageAndDefensivePadding(defensive bool, tr *trace.ArrayTrace[word.BigEndian], schema sc.AnySchema) {
+func addSpillageAndDefensivePadding[W word.Word[W]](defensive bool, tr *trace.ArrayTrace[W], schema sc.AnySchema) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {

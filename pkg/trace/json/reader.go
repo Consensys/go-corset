@@ -31,10 +31,10 @@ type WordPool = word.Pool[uint, word.BigEndian]
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytes(data []byte) (WordPool, []trace.RawColumn, error) {
+func FromBytes(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], error) {
 	var (
 		rawData map[string]map[string][]big.Int
-		cols    []trace.RawColumn
+		cols    []trace.RawColumn[word.BigEndian]
 	)
 	// Attempt to unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)
@@ -60,7 +60,7 @@ func FromBytes(data []byte) (WordPool, []trace.RawColumn, error) {
 			// Construct data array
 			data := newArrayFromBigInts(bitwidth, rawInts, pool)
 			// Construct column
-			cols = append(cols, trace.RawColumn{Module: mod, Name: col, Data: data})
+			cols = append(cols, trace.RawColumn[word.BigEndian]{Module: mod, Name: col, Data: data})
 		}
 	}
 	//
@@ -70,7 +70,7 @@ func FromBytes(data []byte) (WordPool, []trace.RawColumn, error) {
 // FromBytesLegacy parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn, error) {
+func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], error) {
 	var (
 		rawData map[string][]big.Int
 		pool    = word.NewHeapPool[word.BigEndian]()
@@ -81,7 +81,7 @@ func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn, error) {
 		return nil, nil, jsonErr
 	}
 	// Construct column data
-	cols := make([]trace.RawColumn, len(rawData))
+	cols := make([]trace.RawColumn[word.BigEndian], len(rawData))
 	index := 0
 	//
 	for name, rawInts := range rawData {
@@ -99,7 +99,7 @@ func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn, error) {
 		// Construct data array
 		data := newArrayFromBigInts(bitwidth, rawInts, pool)
 		// Construct column
-		cols[index] = trace.RawColumn{Module: mod, Name: col, Data: data}
+		cols[index] = trace.RawColumn[word.BigEndian]{Module: mod, Name: col, Data: data}
 		//
 		index++
 	}

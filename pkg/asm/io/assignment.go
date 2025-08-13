@@ -21,12 +21,14 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // WordPool provides a useful alias
-type WordPool = word.Pool[uint, word.BigEndian]
+type WordPool = word.Pool[uint, bls12_377.Element]
 
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
@@ -38,8 +40,8 @@ func (p Assignment[T]) Bounds(module uint) util.Bounds {
 }
 
 // Compute implementation for schema.Assignment interface.
-func (p Assignment[T]) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
-) ([]array.MutArray[word.BigEndian], error) {
+func (p Assignment[T]) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	//
 	var (
 		trModule = trace.Module(p.id)
@@ -111,7 +113,7 @@ func (p Assignment[T]) RegistersWritten() []sc.RegisterRef {
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.
-func (p Assignment[T]) trace(row uint, trace tr.Module[word.BigEndian], iomap Map) []State {
+func (p Assignment[T]) trace(row uint, trace tr.Module[bls12_377.Element], iomap Map) []State {
 	var (
 		code   = p.code
 		states []State
@@ -134,7 +136,7 @@ func (p Assignment[T]) trace(row uint, trace tr.Module[word.BigEndian], iomap Ma
 	return states
 }
 
-func (p Assignment[T]) initialState(row uint, trace tr.Module[word.BigEndian], io Map) State {
+func (p Assignment[T]) initialState(row uint, trace tr.Module[bls12_377.Element], io Map) State {
 	var (
 		state = make([]big.Int, len(p.registers))
 		index = 0
@@ -158,9 +160,9 @@ func (p Assignment[T]) initialState(row uint, trace tr.Module[word.BigEndian], i
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool) []array.MutArray[word.BigEndian] {
+func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool) []array.MutArray[bls12_377.Element] {
 	var (
-		cols      = make([]array.MutArray[word.BigEndian], width)
+		cols      = make([]array.MutArray[bls12_377.Element], width)
 		nrows     = uint(len(states))
 		multiLine = len(p.code) > 1
 	)
@@ -173,7 +175,7 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 	for row, st := range states {
 		for i := range p.registers {
 			var (
-				val word.BigEndian
+				val bls12_377.Element
 				rid = schema.NewRegisterId(uint(i))
 			)
 			//
@@ -190,10 +192,10 @@ func (p Assignment[T]) states2columns(width uint, states []State, pool WordPool)
 	return cols
 }
 
-func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[word.BigEndian], states []State, pool WordPool) {
+func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[bls12_377.Element], states []State, pool WordPool) {
 	var (
-		zero  = word.Uint64[word.BigEndian](0)
-		one   = word.Uint64[word.BigEndian](1)
+		zero  = field.Zero[bls12_377.Element]()
+		one   = field.One[bls12_377.Element]()
 		nrows = uint(len(states))
 		pc    = uint(len(p.registers))
 		ret   = pc + 1
@@ -205,7 +207,7 @@ func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[word.BigEndi
 	cols[ret] = word.NewArray(nrows, 1, pool)
 	// Assign values
 	for row, st := range states {
-		npc := word.Uint64[word.BigEndian](uint64(st.Pc() + 1))
+		npc := field.Uint64[bls12_377.Element](uint64(st.Pc() + 1))
 		// NOTE: +1 because PC==0 reserved for padding.
 		cols[pc].Set(uint(row), npc)
 		// Check whether this is a terminating state, or not.
@@ -220,7 +222,7 @@ func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[word.BigEndi
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
-func finaliseState(row uint, terminated bool, state State, trace tr.Module[word.BigEndian]) State {
+func finaliseState[W word.Word[W]](row uint, terminated bool, state State, trace tr.Module[W]) State {
 	// Clone state
 	var nstate = state.Clone()
 	// Now, ensure output registers retain their original values.

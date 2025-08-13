@@ -10,4 +10,29 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package trace
+package bls12_377
+
+// ByteWidth implementation for Word interface
+func (p Element) ByteWidth() uint {
+	return 32
+}
+
+// Cmp64 implementation for Word interface
+func (p Element) Cmp64(uint64) int {
+	panic("todo")
+}
+
+// PutBytes implementation for Word interface
+func (p Element) PutBytes([]byte) []byte {
+	panic("todo")
+}
+
+// Equals implementation for hash.Hasher interface
+func (p Element) Equals(Element) bool {
+	panic("todo")
+}
+
+// Hash implementation for hash.Hasher interface
+func (p Element) Hash() uint64 {
+	panic("todo")
+}

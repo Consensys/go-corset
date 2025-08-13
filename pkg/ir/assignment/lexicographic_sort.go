@@ -82,8 +82,8 @@ func (p *LexicographicSort) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
-) ([]array.MutArray[word.BigEndian], error) {
+func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)

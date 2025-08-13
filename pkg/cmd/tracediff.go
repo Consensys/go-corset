@@ -55,7 +55,7 @@ var traceDiffCmd = &cobra.Command{
 	},
 }
 
-func extractColumnNames(columns []trace.RawColumn) set.SortedSet[string] {
+func extractColumnNames[W word.Word[W]](columns []trace.RawColumn[W]) set.SortedSet[string] {
 	var names set.SortedSet[string]
 	//
 	for _, c := range columns {
@@ -73,8 +73,10 @@ func reportExtraColumns(name string, columns []string, common set.SortedSet[stri
 	}
 }
 
-func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]) []trace.RawColumn {
-	var ncolumns []trace.RawColumn
+func filterCommonColumns[W word.Word[W]](columns []trace.RawColumn[W], common set.SortedSet[string],
+) []trace.RawColumn[W] {
+	//
+	var ncolumns []trace.RawColumn[W]
 	//
 	for _, c := range columns {
 		if common.Contains(c.QualifiedName()) {
@@ -85,7 +87,7 @@ func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]
 	return ncolumns
 }
 
-func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func parallelDiff[W word.Word[W]](columns1 []trace.RawColumn[W], columns2 []trace.RawColumn[W]) []error {
 	errors := make([]error, 0)
 	ncols := len(columns1)
 	// Look through all STAMP columns searching for 0s at the end.
@@ -107,7 +109,7 @@ func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []erro
 	return errors
 }
 
-func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func diffColumns[W word.Word[W]](index int, columns1 []trace.RawColumn[W], columns2 []trace.RawColumn[W]) []error {
 	errors := make([]error, 0)
 	name := columns1[index].QualifiedName()
 	data1 := columns1[index].Data
@@ -135,9 +137,9 @@ func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColu
 	return errors
 }
 
-func identify_vals(lhs hash.Map[word.BigEndian, uint], rhs hash.Map[word.BigEndian, uint]) []word.BigEndian {
-	seen := hash.NewSet[word.BigEndian](0)
-	vals := make([]word.BigEndian, 0)
+func identify_vals[W word.Word[W]](lhs hash.Map[W, uint], rhs hash.Map[W, uint]) []W {
+	seen := hash.NewSet[W](0)
+	vals := make([]W, 0)
 	// lhs
 	for iter := lhs.KeyValues(); iter.HasNext(); {
 		ith := iter.Next()
@@ -166,8 +168,8 @@ func identify_vals(lhs hash.Map[word.BigEndian, uint], rhs hash.Map[word.BigEndi
 	return vals
 }
 
-func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] {
-	summary := *hash.NewMap[word.BigEndian, uint](data.Len())
+func summarise[W word.Word[W]](data array.Array[W]) hash.Map[W, uint] {
+	summary := *hash.NewMap[W, uint](data.Len())
 	//
 	for i := uint(0); i < data.Len(); i++ {
 		ith := data.Get(i)
@@ -181,7 +183,7 @@ func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] 
 	return summary
 }
 
-func findColumn(name string, columns []trace.RawColumn) *trace.RawColumn {
+func findColumn[W word.Word[W]](name string, columns []trace.RawColumn[W]) *trace.RawColumn[W] {
 	for _, c := range columns {
 		if c.QualifiedName() == name {
 			return &c
