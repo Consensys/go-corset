@@ -22,6 +22,8 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -67,8 +69,8 @@ func (p *SortedPermutation) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
-) ([]array.MutArray[word.BigEndian], error) {
+func (p *SortedPermutation) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
@@ -178,14 +180,14 @@ func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 // NOTE: the current implementation is not intended to be particularly
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
-func sortedPermutationNativeFunction[W word.Word[W]](sources []array.Array[W], signs []bool, pool word.Pool[uint, W],
-) []array.MutArray[W] {
+func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool,
+	pool word.Pool[uint, F]) []array.MutArray[F] {
 	//
 	var (
 		n = sources[0].Len()
 		// TODO: can we avoid allocating this array?
 		indices = rangeOf(n)
-		targets = make([]array.MutArray[W], len(sources))
+		targets = make([]array.MutArray[F], len(sources))
 	)
 	// Perform the permutation sort
 	slices.SortFunc(indices, permutationSortFunc(sources, signs))
@@ -203,7 +205,7 @@ func sortedPermutationNativeFunction[W word.Word[W]](sources []array.Array[W], s
 	return targets
 }
 
-func permutationSortFunc[W word.Word[W], T array.Array[W]](cols []T, signs []bool) func(uint, uint) int {
+func permutationSortFunc[F field.Element[F], T array.Array[F]](cols []T, signs []bool) func(uint, uint) int {
 	return func(lhs, rhs uint) int {
 		//
 		for i := 0; i < len(signs); i++ {

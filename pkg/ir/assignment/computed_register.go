@@ -70,18 +70,17 @@ func (p *ComputedRegister) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister) Compute(tr trace.Trace[word.BigEndian], schema schema.AnySchema,
-) ([]array.MutArray[word.BigEndian], error) {
+func (p *ComputedRegister) Compute(tr trace.Trace[bls12_377.Element], schema schema.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	var (
-		frTrace  = trace.Wrap[word.BigEndian, bls12_377.Element](tr)
-		frModule = frTrace.Module(p.Target.Module())
+		trModule = tr.Module(p.Target.Module())
 		scModule = schema.Module(p.Target.Module())
-		wrapper  = recModule[bls12_377.Element]{p.Target.Column().Unwrap(), nil, frModule}
+		wrapper  = recModule{p.Target.Column().Unwrap(), nil, trModule}
 		register = schema.Register(p.Target)
 		err      error
 	)
 	// Determine multiplied height
-	height := frModule.Height()
+	height := trModule.Height()
 	// FIXME: using an index array here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce
@@ -92,7 +91,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace[word.BigEndian], schema schema
 	// Expand the trace
 	if !p.IsRecursive() {
 		// Non-recursive computation
-		err = fwdComputation(wrapper.data, p.Expr, frModule, scModule)
+		err = fwdComputation(wrapper.data, p.Expr, trModule, scModule)
 	} else if p.Direction {
 		// Forwards recursive computation
 		err = fwdComputation(wrapper.data, p.Expr, &wrapper, scModule)
@@ -105,7 +104,7 @@ func (p *ComputedRegister) Compute(tr trace.Trace[word.BigEndian], schema schema
 		return nil, err
 	}
 	// Done
-	return []array.MutArray[word.BigEndian]{wrapper.data}, err
+	return []array.MutArray[bls12_377.Element]{wrapper.data}, err
 }
 
 // Consistent performs some simple checks that the given assignment is
@@ -192,8 +191,8 @@ func (p *ComputedRegister) Lisp(schema sc.AnySchema) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, WordPool], expr ir.Evaluable[F],
-	trMod trace.Module[F], scMod schema.Module) error {
+func fwdComputation(data *word.IndexArray[bls12_377.Element, WordPool], expr ir.Evaluable[bls12_377.Element],
+	trMod trace.Module[bls12_377.Element], scMod schema.Module) error {
 	// Forwards computation
 	for i := uint(0); i < data.Len(); i++ {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -202,14 +201,14 @@ func fwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, Wo
 			return err
 		}
 		//
-		data.Set(i, word.FromBigEndian[word.BigEndian](val.Bytes()))
+		data.Set(i, val)
 	}
 	//
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, WordPool], expr ir.Evaluable[F],
-	trMod trace.Module[F], scMod schema.Module) error {
+func bwdComputation(data *word.IndexArray[bls12_377.Element, WordPool], expr ir.Evaluable[bls12_377.Element],
+	trMod trace.Module[bls12_377.Element], scMod schema.Module) error {
 	// Backwards computation
 	for i := data.Len(); i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
@@ -218,7 +217,7 @@ func bwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, Wo
 			return err
 		}
 		//
-		data.Set(i-1, word.FromBigEndian[word.BigEndian](val.Bytes()))
+		data.Set(i-1, val)
 	}
 	//
 	return nil
@@ -227,71 +226,71 @@ func bwdComputation[F field.Element[F]](data *word.IndexArray[word.BigEndian, Wo
 // RecModule is a wrapper which enables a computation to be recursive.
 // Specifically, it allows the expression being evaluated to access as it is
 // being generated.
-type recModule[F field.Element[F]] struct {
+type recModule struct {
 	col      uint
-	data     *word.IndexArray[word.BigEndian, WordPool]
-	trModule trace.Module[F]
+	data     *word.IndexArray[bls12_377.Element, WordPool]
+	trModule trace.Module[bls12_377.Element]
 }
 
 // Module implementation for trace.Module interface.
-func (p *recModule[F]) Name() string {
+func (p *recModule) Name() string {
 	return p.trModule.Name()
 }
 
 // Column implementation for trace.Module interface.
-func (p *recModule[F]) Column(index uint) trace.Column[F] {
+func (p *recModule) Column(index uint) trace.Column[bls12_377.Element] {
 	if p.col == index {
-		return &recColumn[F]{p.data}
+		return &recColumn{p.data}
 	}
 
 	return p.trModule.Column(index)
 }
 
 // ColumnOf implementation for trace.Module interface.
-func (p *recModule[F]) ColumnOf(string) trace.Column[F] {
+func (p *recModule) ColumnOf(string) trace.Column[bls12_377.Element] {
 	// NOTE: this is marked unreachable because, as it stands, expression
 	// evaluation never calls this method.
 	panic("unreachable")
 }
 
 // Width implementation for trace.Module interface.
-func (p *recModule[F]) Width() uint {
+func (p *recModule) Width() uint {
 	return p.trModule.Width()
 }
 
 // Height implementation for trace.Module interface.
-func (p *recModule[F]) Height() uint {
+func (p *recModule) Height() uint {
 	return p.trModule.Height()
 }
 
 // RecColumn is a wrapper which enables the array being computed to be accessed
 // during its own computation.
-type recColumn[F field.Element[F]] struct {
-	data *word.IndexArray[word.BigEndian, WordPool]
+type recColumn struct {
+	data *word.IndexArray[bls12_377.Element, WordPool]
 }
 
 // Holds the name of this column
-func (p *recColumn[F]) Name() string {
+func (p *recColumn) Name() string {
 	panic("unreachable")
 }
 
 // Get implementation for trace.Column interface.
-func (p *recColumn[F]) Get(row int) F {
+func (p *recColumn) Get(row int) bls12_377.Element {
 	if row < 0 || uint(row) >= p.data.Len() {
 		// out-of-bounds access
-		return field.Zero[F]()
+		return field.Zero[bls12_377.Element]()
 	}
 	//
-	return field.FromBigEndianBytes[F](p.data.Get(uint(row)).Bytes())
+	return field.FromBigEndianBytes[bls12_377.Element](p.data.Get(uint(row)).Bytes())
 }
 
 // Data implementation for trace.Column interface.
-func (p *recColumn[F]) Data() array.Array[F] {
+func (p *recColumn) Data() array.Array[bls12_377.Element] {
 	panic("unreachable")
 }
 
 // Padding implementation for trace.Column interface.
-func (p *recColumn[F]) Padding() F {
+func (p *recColumn) Padding() bls12_377.Element {
 	panic("unreachable")
 }
 

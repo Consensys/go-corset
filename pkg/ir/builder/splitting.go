@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -31,20 +32,20 @@ type WordPool = word.Pool[uint, word.BigEndian]
 
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
-func TraceSplitting(parallel bool, tf lt.TraceFile,
-	mapping schema.LimbsMap) (WordPool, []trace.RawColumn, []error) {
+func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],
+	[]trace.RawColumn[F], []error) {
 	//
 	var (
 		stats = util.NewPerfStats()
-		pool  WordPool
-		cols  []trace.RawColumn
+		pool  word.Pool[uint, F]
+		cols  []trace.RawColumn[F]
 		err   []error
 	)
 	//
 	if parallel {
-		pool, cols, err = parallelTraceSplitting(tf, mapping)
+		pool, cols, err = parallelTraceSplitting[F](tf, mapping)
 	} else {
-		pool, cols, err = sequentialTraceSplitting(tf, mapping)
+		pool, cols, err = sequentialTraceSplitting[F](tf, mapping)
 	}
 	//
 	stats.Log("Trace splitting")
@@ -52,12 +53,14 @@ func TraceSplitting(parallel bool, tf lt.TraceFile,
 	return pool, cols, err
 }
 
-func sequentialTraceSplitting(tf lt.TraceFile, gmap schema.LimbsMap) (WordPool, []trace.RawColumn, []error) {
+func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, gmap schema.LimbsMap) (word.Pool[uint, F],
+	[]trace.RawColumn[F], []error) {
 	//
 	var (
-		pool         = tf.Pool
-		splitColumns []trace.RawColumn
-		errors       []error
+		splitColumns []trace.RawColumn[F]
+		// Allocate fresh word pool
+		pool   = word.NewStaticPool[F]()
+		errors []error
 	)
 	//
 	for _, ith := range tf.Columns {
@@ -69,13 +72,15 @@ func sequentialTraceSplitting(tf lt.TraceFile, gmap schema.LimbsMap) (WordPool, 
 	return pool, splitColumns, errors
 }
 
-func parallelTraceSplitting(tf lt.TraceFile, mapping schema.LimbsMap) (WordPool, []trace.RawColumn, []error) {
+func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],
+	[]trace.RawColumn[F], []error) {
 	//
 	var (
-		pool   = tf.Pool
-		splits = make([][]trace.RawColumn, len(tf.Columns))
+		splits = make([][]trace.RawColumn[F], len(tf.Columns))
+		// Allocate fresh word pool
+		pool = word.NewStaticPool[F]()
 		// Construct a communication channel split columns.
-		c = make(chan splitResult, len(tf.Columns))
+		c = make(chan splitResult[F], len(tf.Columns))
 		//
 		errors []error
 		//
@@ -83,10 +88,10 @@ func parallelTraceSplitting(tf lt.TraceFile, mapping schema.LimbsMap) (WordPool,
 	)
 	// Split column concurrently
 	for i, ith := range tf.Columns {
-		go func(index int, column trace.RawColumn, mapping schema.LimbsMap) {
+		go func(index int, column trace.RawColumn[word.BigEndian], mapping schema.LimbsMap) {
 			// Send outcome back
 			data, errors := splitRawColumn(column, pool, mapping)
-			c <- splitResult{index, data, errors}
+			c <- splitResult[F]{index, data, errors}
 		}(i, ith, mapping)
 	}
 	// Collect results
@@ -103,9 +108,9 @@ func parallelTraceSplitting(tf lt.TraceFile, mapping schema.LimbsMap) (WordPool,
 	return pool, flatten(total, splits), errors
 }
 
-func flatten(total int, splits [][]trace.RawColumn) []trace.RawColumn {
+func flatten[W any](total int, splits [][]trace.RawColumn[W]) []trace.RawColumn[W] {
 	var (
-		columns = make([]trace.RawColumn, total)
+		columns = make([]trace.RawColumn[W], total)
 		index   = 0
 	)
 	// Flattern all columns
@@ -120,7 +125,8 @@ func flatten(total int, splits [][]trace.RawColumn) []trace.RawColumn {
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn(col trace.RawColumn, pool WordPool, mapping schema.LimbsMap) ([]trace.RawColumn, []error) {
+func splitRawColumn[F field.Element[F]](col trace.RawColumn[word.BigEndian], pool word.Pool[uint, F],
+	mapping schema.LimbsMap) ([]trace.RawColumn[F], []error) {
 	//
 	var (
 		height = col.Data.Len()
@@ -140,14 +146,14 @@ func splitRawColumn(col trace.RawColumn, pool WordPool, mapping schema.LimbsMap)
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
-		return []trace.RawColumn{col}, nil
+		return []trace.RawColumn[F]{lowerRawColumn(col, pool)}, nil
 	}
 	// Yes, must split into two or more limbs of given widths.
 	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Determine limbs of this register
 	limbs := agnostic.LimbsOf(modmap, limbIds)
 	// Construct temporary place holder for new array data.
-	arrays := make([]array.MutArray[word.BigEndian], len(limbIds))
+	arrays := make([]array.MutArray[F], len(limbIds))
 	//
 	for i, limb := range limbs {
 		arrays[i] = word.NewArray(height, limb.Width, pool)
@@ -160,10 +166,10 @@ func splitRawColumn(col trace.RawColumn, pool WordPool, mapping schema.LimbsMap)
 		setSplitWord(ith, i, arrays, limbWidths)
 	}
 	// Construct final columns
-	columns := make([]trace.RawColumn, len(limbIds))
+	columns := make([]trace.RawColumn[F], len(limbIds))
 	// Construct final columns
 	for i, limb := range limbs {
-		columns[i] = trace.RawColumn{
+		columns[i] = trace.RawColumn[F]{
 			Module: col.Module,
 			Name:   limb.Name,
 			Data:   arrays[i]}
@@ -175,7 +181,7 @@ func splitRawColumn(col trace.RawColumn, pool WordPool, mapping schema.LimbsMap)
 // split a given field element into a given set of limbs, where the least
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
-func setSplitWord(val word.BigEndian, row uint, arrays []array.MutArray[word.BigEndian], widths []uint) {
+func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []array.MutArray[F], widths []uint) {
 	var (
 		bitwidth = sum(widths...)
 		// Determine bytewidth
@@ -194,7 +200,7 @@ func setSplitWord(val word.BigEndian, row uint, arrays []array.MutArray[word.Big
 		// Convert back to big endian
 		array.ReverseInPlace(buf[:m])
 		// Done
-		arrays[i].Set(row, word.FromBigEndian[word.BigEndian](buf[:m]))
+		arrays[i].Set(row, field.FromBigEndianBytes[F](buf[:m]))
 	}
 }
 
@@ -223,8 +229,8 @@ func sum(vals ...uint) uint {
 }
 
 // SplitResult is returned by worker threads during parallel trace splitting.
-type splitResult struct {
+type splitResult[W any] struct {
 	id     int
-	data   []trace.RawColumn
+	data   []trace.RawColumn[W]
 	errors []error
 }

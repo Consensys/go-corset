@@ -6,7 +6,6 @@ import (
 	"slices"
 	"sort"
 
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -55,7 +54,7 @@ var traceDiffCmd = &cobra.Command{
 	},
 }
 
-func extractColumnNames(columns []trace.RawColumn) set.SortedSet[string] {
+func extractColumnNames(columns []RawColumn) set.SortedSet[string] {
 	var names set.SortedSet[string]
 	//
 	for _, c := range columns {
@@ -73,8 +72,10 @@ func reportExtraColumns(name string, columns []string, common set.SortedSet[stri
 	}
 }
 
-func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]) []trace.RawColumn {
-	var ncolumns []trace.RawColumn
+func filterCommonColumns(columns []RawColumn, common set.SortedSet[string],
+) []RawColumn {
+	//
+	var ncolumns []RawColumn
 	//
 	for _, c := range columns {
 		if common.Contains(c.QualifiedName()) {
@@ -85,7 +86,7 @@ func filterCommonColumns(columns []trace.RawColumn, common set.SortedSet[string]
 	return ncolumns
 }
 
-func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func parallelDiff(columns1 []RawColumn, columns2 []RawColumn) []error {
 	errors := make([]error, 0)
 	ncols := len(columns1)
 	// Look through all STAMP columns searching for 0s at the end.
@@ -107,7 +108,7 @@ func parallelDiff(columns1 []trace.RawColumn, columns2 []trace.RawColumn) []erro
 	return errors
 }
 
-func diffColumns(index int, columns1 []trace.RawColumn, columns2 []trace.RawColumn) []error {
+func diffColumns(index int, columns1 []RawColumn, columns2 []RawColumn) []error {
 	errors := make([]error, 0)
 	name := columns1[index].QualifiedName()
 	data1 := columns1[index].Data
@@ -181,7 +182,7 @@ func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] 
 	return summary
 }
 
-func findColumn(name string, columns []trace.RawColumn) *trace.RawColumn {
+func findColumn(name string, columns []RawColumn) *RawColumn {
 	for _, c := range columns {
 		if c.QualifiedName() == name {
 			return &c

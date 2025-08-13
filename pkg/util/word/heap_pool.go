@@ -26,24 +26,8 @@ const HEAP_POOL_INIT_BUCKETS = 1024
 // occur.  This is currently set to 75% capacity forces a rehashing.
 const HEAP_POOL_LOADING = 75
 
-// Pool provides an abstraction for referring to large words by a smaller index
-// value.  The pool stores the actual word data, and provides fast access via an
-// index.  This makes sense when we have a relatively small number of values
-// which can be referred to many times over.
-type Pool[K any, T any] interface {
-	// Clone a pool producing an identical, but unaliased copy.
-	Clone() Pool[K, T]
-	// Lookup a given word in the pool using an index.
-	Get(K) T
-	// Allocate word into pool, returning its index.
-	Put(T) K
-	// Lookup the key associated with a given work, return false if it does not
-	// exist in the pool.
-	IndexOf(T) (K, bool)
-}
-
 // HeapPool maintains a heap of bytes representing the words.
-type HeapPool[T Word[T]] struct {
+type HeapPool[T DynamicWord[T]] struct {
 	// heap of bytes
 	heap []byte
 	// byte lengths for each chunk in the pool
@@ -57,7 +41,7 @@ type HeapPool[T Word[T]] struct {
 }
 
 // NewHeapPool constructs a new heap pool with an initial number of buckets.
-func NewHeapPool[T Word[T]]() *HeapPool[T] {
+func NewHeapPool[T DynamicWord[T]]() *HeapPool[T] {
 	var (
 		// zero-sized word
 		empty T

@@ -22,27 +22,24 @@ import (
 // StaticArray implements an array of elements simply using an underlying array.
 type StaticArray[T Word[T]] struct {
 	// The data stored in this column (as bytes).
-	data []byte
+	data []T
 	// Bitwidth of each word in this array
 	bitwidth uint
-	// Number of bytes required to hold a word
-	bytewidth uint
 }
 
 // NewStaticArray constructs a new word array with a given capacity.
 func NewStaticArray[T Word[T]](height uint, bitwidth uint) *StaticArray[T] {
 	var (
-		bytewidth = ByteWidth(bitwidth)
-		elements  = make([]byte, height*bytewidth)
+		elements = make([]T, height)
 	)
 	//
-	return &StaticArray[T]{elements, bitwidth, bytewidth}
+	return &StaticArray[T]{elements, bitwidth}
 }
 
 // Len returns the number of elements in this word array.
 func (p *StaticArray[T]) Len() uint {
 	//
-	return uint(len(p.data)) / p.bytewidth
+	return uint(len(p.data))
 }
 
 // BitWidth returns the width (in bits) of elements in this array.
@@ -52,40 +49,29 @@ func (p *StaticArray[T]) BitWidth() uint {
 
 // Get returns the field element at the given index in this array.
 func (p *StaticArray[T]) Get(index uint) T {
-	var (
-		item   T
-		offset = index * p.bytewidth
-		bytes  = p.data[offset : offset+p.bytewidth]
-	)
-	//
-	return item.SetBytes(bytes)
+	return p.data[index]
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *StaticArray[T]) Set(index uint, word T) {
-	var (
-		offset = index * p.bytewidth
-		bytes  = p.data[offset : offset+p.bytewidth]
-	)
-	// Copy over
-	word.PutBytes(bytes)
+	p.data[index] = word
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
 func (p *StaticArray[T]) Clone() array.MutArray[T] {
 	// Allocate sufficient memory
-	ndata := make([]byte, uint(len(p.data)))
+	ndata := make([]T, uint(len(p.data)))
 	// Copy over the data
 	copy(ndata, p.data)
 	//
-	return &StaticArray[T]{ndata, p.bitwidth, p.bytewidth}
+	return &StaticArray[T]{ndata, p.bitwidth}
 }
 
 // Slice out a subregion of this array.
 func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
 	return &StaticArray[T]{
-		p.data[start*p.bytewidth : end*p.bytewidth], p.bitwidth, p.bytewidth,
+		p.data[start:end], p.bitwidth,
 	}
 }
 
@@ -96,10 +82,10 @@ func (p *StaticArray[T]) Pad(n uint, m uint, padding T) {
 		// Determine new length
 		l = n + m + p.Len()
 		// Initialise new array
-		data = make([]byte, p.bytewidth*l)
+		data = make([]T, l)
 	)
 	// copy
-	copy(data[n*p.bytewidth:], p.data)
+	copy(data[n:], p.data)
 	p.data = data
 	// Front padding!
 	for i := range n {

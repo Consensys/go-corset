@@ -17,6 +17,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // LT_MAJOR_VERSION givesn the major version of the binary file format.  No
@@ -41,12 +42,12 @@ type TraceFile struct {
 	// Word pool
 	Pool WordPool
 	// Column data
-	Columns []trace.RawColumn
+	Columns []trace.RawColumn[word.BigEndian]
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(metadata []byte, pool WordPool, columns []trace.RawColumn) TraceFile {
+func NewTraceFile(metadata []byte, pool WordPool, columns []trace.RawColumn[word.BigEndian]) TraceFile {
 	return TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		pool,
@@ -56,7 +57,7 @@ func NewTraceFile(metadata []byte, pool WordPool, columns []trace.RawColumn) Tra
 
 // Clone a trace file producing an unaliased copy
 func (p *TraceFile) Clone() TraceFile {
-	var cols = make([]trace.RawColumn, len(p.Columns))
+	var cols = make([]trace.RawColumn[word.BigEndian], len(p.Columns))
 	//
 	for i := range cols {
 		cols[i] = p.Columns[i].Clone()

@@ -24,7 +24,7 @@ import (
 
 // ArrayTrace provides an implementation of Trace which stores columns as an
 // array.
-type ArrayTrace[T word.Word[T]] struct {
+type ArrayTrace[T any] struct {
 	// Internal memory pool
 	pool word.Pool[uint, T]
 	// Holds the height of each module in this trace.  The index of each
@@ -34,7 +34,7 @@ type ArrayTrace[T word.Word[T]] struct {
 }
 
 // NewArrayTrace constructs a trace from a given set of indexed modules and columns.
-func NewArrayTrace[T word.Word[T]](pool word.Pool[uint, T], modules []ArrayModule[T]) *ArrayTrace[T] {
+func NewArrayTrace[T any](pool word.Pool[uint, T], modules []ArrayModule[T]) *ArrayTrace[T] {
 	return &ArrayTrace[T]{pool, modules}
 }
 
@@ -110,7 +110,7 @@ func (p *ArrayTrace[T]) String() string {
 // ----------------------------------------------------------------------------
 
 // ArrayModule describes an individual module within a trace.
-type ArrayModule[T fmt.Stringer] struct {
+type ArrayModule[T any] struct {
 	// Holds the name of this module
 	name string
 	// Holds the height of all columns within this module.
@@ -128,7 +128,7 @@ type ArrayModule[T fmt.Stringer] struct {
 
 // NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
-func NewArrayModule[T word.Word[T]](name string, multiplier uint, columns []ArrayColumn[T]) ArrayModule[T] {
+func NewArrayModule[T fmt.Stringer](name string, multiplier uint, columns []ArrayColumn[T]) ArrayModule[T] {
 	var (
 		height uint = 0
 		first       = true
@@ -280,7 +280,7 @@ func (p *ArrayModule[T]) String() string {
 // ----------------------------------------------------------------------------
 
 // ArrayColumn describes an individual column of data within a trace table.
-type ArrayColumn[T fmt.Stringer] struct {
+type ArrayColumn[T any] struct {
 	// Holds the name of this column
 	name string
 	// Holds the raw data making up this column
@@ -344,7 +344,7 @@ func (p *ArrayColumn[T]) String() string {
 				id.WriteString(",")
 			}
 
-			id.WriteString(jth.String())
+			id.WriteString(fmt.Sprintf("%v", jth))
 		}
 		//
 		id.WriteString("}")

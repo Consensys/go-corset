@@ -10,4 +10,23 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package trace
+package bls12_377
+
+import "hash/fnv"
+
+// Equals implementation for hash.Hasher interface
+func (x Element) Equals(o Element) bool {
+	return x.Element == o.Element
+}
+
+// Hash implementation for hash.Hasher interface
+func (x Element) Hash() uint64 {
+	var (
+		bytes = x.Element.Bytes()
+		hash  = fnv.New64a()
+	)
+	// Write hash bytes
+	hash.Write(bytes[:])
+	// Done
+	return hash.Sum64()
+}

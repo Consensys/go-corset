@@ -21,13 +21,13 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/word"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // TraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace[word.BigEndian]) []error {
+func TraceValidation[F field.Element[F]](parallel bool, schema sc.AnySchema, tr tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Start timer
@@ -50,7 +50,7 @@ func TraceValidation(parallel bool, schema sc.AnySchema, tr tr.Trace[word.BigEnd
 // SequentialTraceValidation validates that values held in trace columns match
 // the expected type.  This is really a sanity check that the trace is not
 // malformed.
-func SequentialTraceValidation[W word.Word[W]](schema sc.AnySchema, tr trace.Trace[W]) []error {
+func SequentialTraceValidation[F field.Element[F]](schema sc.AnySchema, tr trace.Trace[F]) []error {
 	var errors []error
 	//
 	for i := uint(0); i < max(schema.Width(), tr.Width()); i++ {
@@ -77,7 +77,7 @@ func SequentialTraceValidation[W word.Word[W]](schema sc.AnySchema, tr trace.Tra
 // ParallelTraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func ParallelTraceValidation[W word.Word[W]](schema sc.AnySchema, trace tr.Trace[W]) []error {
+func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema, trace tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Construct a communication channel for errors.
@@ -95,7 +95,7 @@ func ParallelTraceValidation[W word.Word[W]](schema sc.AnySchema, trace tr.Trace
 		for i := uint(0); i < trMod.Width(); i++ {
 			rid := sc.NewRegisterId(i)
 			// Check elements
-			go func(reg sc.Register, data tr.Column[W]) {
+			go func(reg sc.Register, data tr.Column[F]) {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
 			}(scMod.Register(rid), trMod.Column(i))
@@ -114,7 +114,7 @@ func ParallelTraceValidation[W word.Word[W]](schema sc.AnySchema, trace tr.Trace
 	return errors
 }
 
-func sequentialModuleValidation[W word.Word[W]](scMod sc.Module, trMod trace.Module[W]) []error {
+func sequentialModuleValidation[F field.Element[F]](scMod sc.Module, trMod trace.Module[F]) []error {
 	var (
 		errors []error
 		// Extract module registers
@@ -151,7 +151,7 @@ func sequentialModuleValidation[W word.Word[W]](scMod sc.Module, trMod trace.Mod
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.
-func validateColumnBitWidth[W word.Word[W]](bitwidth uint, col tr.Column[W], mod sc.Module) error {
+func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F], mod sc.Module) error {
 	// Sanity check bitwidth can be checked.
 	if bitwidth == math.MaxUint {
 		// This indicates a column which has no fixed bitwidth but, rather, uses

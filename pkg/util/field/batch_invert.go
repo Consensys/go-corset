@@ -13,9 +13,7 @@
 package field
 
 import (
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // BatchInvert efficiently inverts the list of elements s, in place.
@@ -66,44 +64,4 @@ func BatchInvert[T Element[T]](s []T) {
 	if isZero.Get(len(s) - 1) {
 		s[len(s)-1] = zero
 	}
-}
-
-// WrappedArray provides a wrapper around a word array
-type WrappedArray[W word.Word[W], F Element[F]] struct {
-	data array.Array[W]
-}
-
-// NewWrappedArray constructs a new field array which wraps a word array.
-func NewWrappedArray[W word.Word[W], F Element[F]](data array.Array[W]) *WrappedArray[W, F] {
-	return &WrappedArray[W, F]{data}
-}
-
-// Clone this array producing a mutable copy
-func (p *WrappedArray[W, F]) Clone() array.MutArray[F] {
-	panic("unreachable")
-}
-
-// Len returns the number of elements in this array.
-func (p *WrappedArray[W, F]) Len() uint {
-	return p.data.Len()
-}
-
-// Get returns the element at the given index in this array.
-func (p *WrappedArray[W, F]) Get(row uint) F {
-	var (
-		word W = p.data.Get(row)
-		elem F
-	)
-	//
-	return elem.SetBytes(word.Bytes())
-}
-
-// BitWidth returns the number of bits required to store an element of this array.
-func (p *WrappedArray[W, F]) BitWidth() uint {
-	return p.data.BitWidth()
-}
-
-// Slice out a subregion of this array.
-func (p *WrappedArray[W, F]) Slice(uint, uint) array.Array[F] {
-	panic("unreachable")
 }

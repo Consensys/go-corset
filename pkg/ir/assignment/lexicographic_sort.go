@@ -82,8 +82,8 @@ func (p *LexicographicSort) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort) Compute(trace tr.Trace[word.BigEndian], schema sc.AnySchema,
-) ([]array.MutArray[word.BigEndian], error) {
+func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
+) ([]array.MutArray[bls12_377.Element], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)
@@ -196,8 +196,8 @@ func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
 // Native Computation
 // ============================================================================
 
-func lexSortNativeFunction[F field.Element[F], W word.Word[W]](bitwidth uint, sources []array.Array[W], signs []bool,
-	pool word.Pool[uint, W]) []array.MutArray[W] {
+func lexSortNativeFunction[F field.Element[F]](bitwidth uint, sources []array.Array[F], signs []bool,
+	pool word.Pool[uint, F]) []array.MutArray[F] {
 	//
 	var (
 		nrows = sources[0].Len()
@@ -205,10 +205,10 @@ func lexSortNativeFunction[F field.Element[F], W word.Word[W]](bitwidth uint, so
 		nbits = len(signs)
 		// target[0] is for delta column, followed by one bit columns for each
 		// column being sorted.
-		targets = make([]array.MutArray[W], 1+nbits)
+		targets = make([]array.MutArray[F], 1+nbits)
 		//
-		zero W = word.Uint64[W](0)
-		one  W = word.Uint64[W](1)
+		zero F = field.Zero[F]()
+		one  F = field.One[F]()
 		//
 		frZero F = field.Zero[F]()
 	)
@@ -222,7 +222,7 @@ func lexSortNativeFunction[F field.Element[F], W word.Word[W]](bitwidth uint, so
 	// Initialise bit columns
 	for i := range signs {
 		// Construct a bit array for ith byte
-		targets[i+1] = word.NewBitArray[W](nrows)
+		targets[i+1] = word.NewBitArray[F](nrows)
 	}
 	//
 	for i := uint(1); i < nrows; i++ {
@@ -254,7 +254,7 @@ func lexSortNativeFunction[F field.Element[F], W word.Word[W]](bitwidth uint, so
 					diff = curr.Sub(prev)
 				}
 				//
-				targets[0].Set(i, word.FromBigEndian[W](diff.Bytes()))
+				targets[0].Set(i, diff)
 				//
 				set = true
 			} else {
