@@ -80,7 +80,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
-		ch = make(chan columnBatch, batchsize)
+		ch = make(chan columnBatch[bls12_377.Element], batchsize)
 		//
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
@@ -93,7 +93,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 		// Dispatch next batch of assignments.
 		dispatchReadyAssignments(batch, schema, trace, ch)
 		//
-		batches := make([]columnBatch, len(batch))
+		batches := make([]columnBatch[bls12_377.Element], len(batch))
 		// Collect all the results
 		for i := range len(batch) {
 			batches[i] = <-ch
@@ -119,15 +119,15 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 
 // Dispatch the given set of assignments with results being fed back into the
 // shared channel.
-func dispatchReadyAssignments(batch []sc.Assignment, schema sc.AnySchema,
-	trace *tr.ArrayTrace[bls12_377.Element], ch chan columnBatch) {
+func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F], schema sc.AnySchema,
+	trace *tr.ArrayTrace[F], ch chan columnBatch[F]) {
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {
 		// Dispatch!
 		go func(targets []sc.RegisterRef) {
 			cols, err := ith.Compute(trace, schema)
 			// Send outcome back
-			ch <- columnBatch{targets, cols, err}
+			ch <- columnBatch[F]{targets, cols, err}
 		}(ith.RegistersWritten())
 	}
 }
@@ -158,11 +158,11 @@ func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []array
 }
 
 // Result from given computation.
-type columnBatch struct {
+type columnBatch[F field.Element[F]] struct {
 	// Target registers for this batch
 	targets []sc.RegisterRef
 	// The computed columns in this batch.
-	columns []array.MutArray[bls12_377.Element]
+	columns []array.MutArray[F]
 	// An error (should one arise)
 	err error
 }

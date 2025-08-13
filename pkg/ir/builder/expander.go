@@ -26,11 +26,11 @@ import (
 // However, some assignments must be run before others.  For example, if one
 // assignment depends upon a column which is computed by another, then the
 // latter must go first.
-type Expander struct {
+type Expander[F any] struct {
 	// Width records the number of modules in the schema.
 	width uint
 	// Set of assignments yet to run
-	worklist []sc.Assignment
+	worklist []sc.Assignment[F]
 	// Records which columns are not ready.
 	notReady bit.Set
 	// Records set of columns being vertically expanded.
@@ -38,7 +38,7 @@ type Expander struct {
 }
 
 // NewExpander constructs a new trace expander for a given set of assignments.
-func NewExpander(width uint, assignments iter.Iterator[sc.Assignment]) Expander {
+func NewExpander[F any](width uint, assignments iter.Iterator[sc.Assignment[F]]) Expander[F] {
 	var (
 		notReady  bit.Set
 		expanding bit.Set
@@ -58,16 +58,16 @@ func NewExpander(width uint, assignments iter.Iterator[sc.Assignment]) Expander 
 		}
 	}
 	// Done
-	return Expander{width, arr, notReady, expanding}
+	return Expander[F]{width, arr, notReady, expanding}
 }
 
 // Done indicates whether all assignments have been processed, or not.
-func (p *Expander) Done() bool {
+func (p *Expander[F]) Done() bool {
 	return len(p.worklist) == 0
 }
 
 // Count returns the number of assignments remaining to be processed.
-func (p *Expander) Count() uint {
+func (p *Expander[F]) Count() uint {
 	return uint(len(p.worklist))
 }
 
@@ -77,9 +77,9 @@ func (p *Expander) Count() uint {
 // removed from the worklist and will not be returned again.  Specifically, they
 // are assumed to have been processed before any subsequent call is made to this
 // method.
-func (p *Expander) Next(n uint) []sc.Assignment {
+func (p *Expander[F]) Next(n uint) []sc.Assignment[F] {
 	var (
-		batch []sc.Assignment
+		batch []sc.Assignment[F]
 		m     = len(p.worklist)
 	)
 	// Go through each assignment in turn, pulling out those which are ready.
@@ -118,7 +118,7 @@ func (p *Expander) Next(n uint) []sc.Assignment {
 // isReady checks whether a given assignment can be processed (or not).
 // Specifically, an assignment cannot be processed if it depends upon a column
 // which is not ready (i.e. has not been processed).
-func (p *Expander) isReady(i int) bool {
+func (p *Expander[F]) isReady(i int) bool {
 	for _, ref := range p.worklist[i].RegistersRead() {
 		// Check whether dependency is ready
 		if p.notReady.Contains(ref.Index(p.width)) && !p.isExpandedBy(ref, i) {
@@ -132,7 +132,7 @@ func (p *Expander) isReady(i int) bool {
 
 // isExpandedBy checks whether a given register is actually being expanded by a
 // given assignment.
-func (p *Expander) isExpandedBy(ref sc.RegisterRef, i int) bool {
+func (p *Expander[F]) isExpandedBy(ref sc.RegisterRef, i int) bool {
 	if p.expanding.Contains(ref.Index(p.width)) {
 		ith := p.worklist[i]
 		// Check whether the given register is actually written by this assignment

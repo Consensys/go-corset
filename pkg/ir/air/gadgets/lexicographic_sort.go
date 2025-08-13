@@ -145,7 +145,7 @@ func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBu
 		deltaIndex = targets[0].Register()
 		//
 		module.AddAssignment(
-			assignment.NewLexicographicSort(targets, p.signs, sources, p.bitwidth))
+			assignment.NewLexicographicSort[bls12_377.Element](targets, p.signs, sources, p.bitwidth))
 		// Construct selector bits.
 		p.addLexicographicSelectorBits(deltaIndex, mid, schema)
 		// Add necessary bitwidth constraints.  Note, we don't need to consider

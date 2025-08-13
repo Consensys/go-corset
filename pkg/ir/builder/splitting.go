@@ -27,9 +27,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// WordPool offsets a convenient alias
-type WordPool = word.Pool[uint, word.BigEndian]
-
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
 func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],

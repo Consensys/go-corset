@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // ModuleMap provides a mapping from module identifiers (or names) to register
@@ -45,7 +46,7 @@ type Module interface {
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
-	Assignments() iter.Iterator[Assignment]
+	Assignments() iter.Iterator[Assignment[bls12_377.Element]]
 	// Constraints provides access to those constraints associated with this
 	// module.
 	Constraints() iter.Iterator[Constraint]
@@ -89,7 +90,7 @@ type Table[C Constraint] struct {
 	padding     bool
 	registers   []Register
 	constraints []C
-	assignments []Assignment
+	assignments []Assignment[bls12_377.Element]
 }
 
 // NewTable constructs a table module with the given registers and constraints.
@@ -99,7 +100,7 @@ func NewTable[C Constraint](name string, multiplier uint, padding bool) *Table[C
 
 // Assignments provides access to those assignments defined as part of this
 // table.
-func (p *Table[C]) Assignments() iter.Iterator[Assignment] {
+func (p *Table[C]) Assignments() iter.Iterator[Assignment[bls12_377.Element]] {
 	return iter.NewArrayIterator(p.assignments)
 }
 
@@ -175,7 +176,7 @@ func (p *Table[C]) Subdivide(mapping LimbsMap) *Table[C] {
 		modmap      = mapping.ModuleOf(p.name)
 		registers   []Register
 		constraints []C
-		assignments []Assignment
+		assignments []Assignment[bls12_377.Element]
 	)
 	// Append mapping registers
 	for i := range p.registers {
@@ -189,7 +190,7 @@ func (p *Table[C]) Subdivide(mapping LimbsMap) *Table[C] {
 	for _, c := range p.assignments {
 		var a any = c
 		//nolint
-		if fc, ok := a.(FieldAgnostic[Assignment]); ok {
+		if fc, ok := a.(FieldAgnostic[Assignment[bls12_377.Element]]); ok {
 			assignments = append(assignments, fc.Subdivide(mapping))
 		} else {
 			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
@@ -219,7 +220,7 @@ func (p *Table[C]) Width() uint {
 // ============================================================================
 
 // AddAssignments adds a new assignments to this table.
-func (p *Table[C]) AddAssignments(assignments ...Assignment) {
+func (p *Table[C]) AddAssignments(assignments ...Assignment[bls12_377.Element]) {
 	p.assignments = append(p.assignments, assignments...)
 }
 

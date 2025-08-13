@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -30,7 +29,7 @@ import (
 // added to enforce lexicographic sorting constraints between one or more source
 // columns.  Specifically, a delta column is required along with one selector
 // column (binary) for each source column.
-type LexicographicSort struct {
+type LexicographicSort[F field.Element[F]] struct {
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
 	targets []sc.RegisterRef
@@ -60,10 +59,10 @@ func LexicographicSortRegisters(n uint, prefix string, bitwidth uint) []sc.Regis
 }
 
 // NewLexicographicSort constructs a new LexicographicSorting assignment.
-func NewLexicographicSort(targets []sc.RegisterRef, signs []bool, sources []sc.RegisterRef,
-	bitwidth uint) *LexicographicSort {
+func NewLexicographicSort[F field.Element[F]](targets []sc.RegisterRef, signs []bool, sources []sc.RegisterRef,
+	bitwidth uint) *LexicographicSort[F] {
 	//
-	return &LexicographicSort{targets, sources, signs, bitwidth}
+	return &LexicographicSort[F]{targets, sources, signs, bitwidth}
 }
 
 // ============================================================================
@@ -75,15 +74,15 @@ func NewLexicographicSort(targets []sc.RegisterRef, signs []bool, sources []sc.R
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *LexicographicSort) Bounds(_ sc.ModuleId) util.Bounds {
+func (p *LexicographicSort[F]) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc.AnySchema,
-) ([]array.MutArray[bls12_377.Element], error) {
+func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema,
+) ([]array.MutArray[F], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)
@@ -98,7 +97,7 @@ func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc
 	// Read input columns
 	inputs := ReadRegisters(trace, p.sources...)
 	// Apply native function
-	data := lexSortNativeFunction[bls12_377.Element](bit_width, inputs, p.signs, trace.Pool())
+	data := lexSortNativeFunction[F](bit_width, inputs, p.signs, trace.Pool())
 	//
 	return data, nil
 }
@@ -106,7 +105,7 @@ func (p *LexicographicSort) Compute(trace tr.Trace[bls12_377.Element], schema sc
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *LexicographicSort) Consistent(schema sc.AnySchema) []error {
+func (p *LexicographicSort[F]) Consistent(schema sc.AnySchema) []error {
 	var (
 		errors   []error
 		bitwidth = uint(0)
@@ -135,18 +134,18 @@ func (p *LexicographicSort) Consistent(schema sc.AnySchema) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *LexicographicSort) RegistersExpanded() []sc.RegisterRef {
+func (p *LexicographicSort[F]) RegistersExpanded() []sc.RegisterRef {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *LexicographicSort) RegistersRead() []sc.RegisterRef {
+func (p *LexicographicSort[F]) RegistersRead() []sc.RegisterRef {
 	return p.sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *LexicographicSort) RegistersWritten() []sc.RegisterRef {
+func (p *LexicographicSort[F]) RegistersWritten() []sc.RegisterRef {
 	return p.targets
 }
 
@@ -156,7 +155,7 @@ func (p *LexicographicSort) RegistersWritten() []sc.RegisterRef {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *LexicographicSort) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *LexicographicSort[F]) Lisp(schema sc.AnySchema) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()

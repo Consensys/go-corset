@@ -50,7 +50,7 @@ func (p MirModule) Initialise(fn MicroFunction, mid uint) MirModule {
 }
 
 // NewAssignment adds a new assignment to this module.
-func (p MirModule) NewAssignment(assignment schema.Assignment) {
+func (p MirModule) NewAssignment(assignment schema.Assignment[bls12_377.Element]) {
 	p.Module.AddAssignment(assignment)
 }
 

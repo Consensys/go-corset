@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -68,10 +69,10 @@ var schemaSummarisers []schemaSummariser = []schemaSummariser{
 	constraintCounter("Permutations", isPermutationConstraint),
 	constraintCounter("Range", isRangeConstraint),
 	// Assignments
-	assignmentCounter("Computed Columns", reflect.TypeOf((*assignment.ComputedRegister)(nil))),
-	assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation)(nil))),
-	assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort)(nil))),
-	assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation)(nil))),
+	assignmentCounter("Computed Columns", reflect.TypeOf((*assignment.ComputedRegister[bls12_377.Element])(nil))),
+	assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation[bls12_377.Element])(nil))),
+	assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort[bls12_377.Element])(nil))),
+	assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation[bls12_377.Element])(nil))),
 	// Columns
 	columnCounter(),
 	columnWidthSummariser(1, 1),

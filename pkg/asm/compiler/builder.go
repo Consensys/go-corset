@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Module provides an abstraction for modules in the underlying constraint
@@ -26,7 +27,7 @@ type Module[T any, E Expr[T, E], M any] interface {
 	Initialise(fn MicroFunction, mid uint) M
 
 	// NewAssignment adds a new assignment to this module.
-	NewAssignment(assignment schema.Assignment)
+	NewAssignment(assignment schema.Assignment[bls12_377.Element])
 
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.

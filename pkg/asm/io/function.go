@@ -20,6 +20,7 @@ import (
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 const (
@@ -76,10 +77,10 @@ func NewFunction[T Instruction[T]](id sc.ModuleId, name string, registers []Regi
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
-func (p *Function[T]) Assignments() iter.Iterator[sc.Assignment] {
-	var assignment Assignment[T] = Assignment[T]{p.id, p.name, p.registers, p.code}
+func (p *Function[T]) Assignments() iter.Iterator[sc.Assignment[bls12_377.Element]] {
+	var assignment = Assignment[bls12_377.Element, T]{p.id, p.name, p.registers, p.code}
 	//
-	return iter.NewUnitIterator[sc.Assignment](assignment)
+	return iter.NewUnitIterator[sc.Assignment[bls12_377.Element]](assignment)
 }
 
 // CodeAt returns the ith instruction making up the body of this function.

@@ -18,6 +18,7 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // UniformSchema represents the simplest kind of schema which contains only
@@ -37,7 +38,7 @@ func NewUniformSchema[M Module](modules []M) UniformSchema[M] {
 // Assignments returns an iterator over the assignments of this schema
 // These are the computations used to assign values to all computed columns
 // in this schema.
-func (p UniformSchema[M]) Assignments() iter.Iterator[Assignment] {
+func (p UniformSchema[M]) Assignments() iter.Iterator[Assignment[bls12_377.Element]] {
 	return assignmentsOf(p.modules)
 }
 
@@ -101,10 +102,10 @@ func (p UniformSchema[M]) Width() uint {
 
 // Extract an iterator over all the constraints in a given array using a
 // projecting iterator.
-func assignmentsOf[M Module](modules []M) iter.Iterator[Assignment] {
+func assignmentsOf[M Module](modules []M) iter.Iterator[Assignment[bls12_377.Element]] {
 	arrIter := iter.NewArrayIterator(modules)
 	//
-	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Assignment] {
+	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Assignment[bls12_377.Element]] {
 		return m.Assignments()
 	})
 }
