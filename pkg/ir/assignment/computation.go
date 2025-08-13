@@ -513,10 +513,10 @@ func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], p
 	for i := selectorCol.Len(); i > 0; i-- {
 		ithSelector := selectorCol.Get(i - 1)
 		// Check whether within region or not.
-		if ithSelector.IsZero() {
+		if !ithSelector.IsZero() {
 			ithFirst := firstCol.Get(i - 1)
 			//
-			if ithFirst.IsZero() {
+			if !ithFirst.IsZero() {
 				current = sourceCol.Get(i - 1)
 			}
 			//
