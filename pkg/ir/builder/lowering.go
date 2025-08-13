@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -23,7 +24,7 @@ import (
 // representation into the appropriate field representation without performing
 // any splitting.  This is only required for traces which are "pre-expanded".
 // Such traces typically arise in testing, etc.
-func TraceLowering[F word.Word[F]](parallel bool, tf lt.TraceFile) (word.Pool[uint, F], []trace.RawColumn[F]) {
+func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (word.Pool[uint, F], []trace.RawColumn[F]) {
 	var (
 		stats = util.NewPerfStats()
 		pool  word.Pool[uint, F]
@@ -31,9 +32,9 @@ func TraceLowering[F word.Word[F]](parallel bool, tf lt.TraceFile) (word.Pool[ui
 	)
 	//
 	if parallel {
-		pool, cols = parallelTraceLowering[word.BigEndian, F](tf.Columns)
+		pool, cols = parallelTraceLowering[F](tf.Columns)
 	} else {
-		pool, cols = sequentialTraceLowering[word.BigEndian, F](tf.Columns)
+		pool, cols = sequentialTraceLowering[F](tf.Columns)
 	}
 	//
 	stats.Log("Trace lowering")
@@ -41,7 +42,7 @@ func TraceLowering[F word.Word[F]](parallel bool, tf lt.TraceFile) (word.Pool[ui
 	return pool, cols
 }
 
-func sequentialTraceLowering[W word.Word[W], F word.Word[F]](columns []trace.RawColumn[W]) (word.Pool[uint, F],
+func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.Pool[uint, F],
 	[]trace.RawColumn[F]) {
 	//
 	var (
@@ -50,14 +51,14 @@ func sequentialTraceLowering[W word.Word[W], F word.Word[F]](columns []trace.Raw
 	)
 	//
 	for _, ith := range columns {
-		lowered := lowerRawColumn[W, F](ith, pool)
+		lowered := lowerRawColumn[F](ith, pool)
 		loweredColumns = append(loweredColumns, lowered)
 	}
 	//
 	return pool, loweredColumns
 }
 
-func parallelTraceLowering[W word.Word[W], F word.Word[F]](columns []trace.RawColumn[W]) (word.Pool[uint, F],
+func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.Pool[uint, F],
 	[]trace.RawColumn[F]) {
 	//
 	var (
@@ -69,7 +70,7 @@ func parallelTraceLowering[W word.Word[W], F word.Word[F]](columns []trace.RawCo
 	)
 	// Split column concurrently
 	for i, ith := range columns {
-		go func(index int, column trace.RawColumn[W]) {
+		go func(index int, column trace.RawColumn[word.BigEndian]) {
 			// Send outcome back
 			c <- util.NewPair(index, lowerRawColumn(column, pool))
 		}(i, ith)
@@ -86,7 +87,7 @@ func parallelTraceLowering[W word.Word[W], F word.Word[F]](columns []trace.RawCo
 }
 
 // lowerRawColumn lowers a given raw column into a given field implementation.
-func lowerRawColumn[W word.Word[W], F word.Word[F]](column trace.RawColumn[W], pool word.Pool[uint, F],
+func lowerRawColumn[F field.Element[F]](column trace.RawColumn[word.BigEndian], pool word.Pool[uint, F],
 ) trace.RawColumn[F] {
 	var (
 		data  = column.Data

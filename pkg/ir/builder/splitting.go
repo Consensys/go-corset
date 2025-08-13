@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -31,7 +32,7 @@ type WordPool = word.Pool[uint, word.BigEndian]
 
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
-func TraceSplitting[F word.Word[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],
+func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],
 	[]trace.RawColumn[F], []error) {
 	//
 	var (
@@ -52,7 +53,7 @@ func TraceSplitting[F word.Word[F]](parallel bool, tf lt.TraceFile, mapping sche
 	return pool, cols, err
 }
 
-func sequentialTraceSplitting[F word.Word[F]](tf lt.TraceFile, gmap schema.LimbsMap) (word.Pool[uint, F],
+func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, gmap schema.LimbsMap) (word.Pool[uint, F],
 	[]trace.RawColumn[F], []error) {
 	//
 	var (
@@ -71,7 +72,7 @@ func sequentialTraceSplitting[F word.Word[F]](tf lt.TraceFile, gmap schema.Limbs
 	return pool, splitColumns, errors
 }
 
-func parallelTraceSplitting[F word.Word[F]](tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],
+func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (word.Pool[uint, F],
 	[]trace.RawColumn[F], []error) {
 	//
 	var (
@@ -124,7 +125,7 @@ func flatten[W any](total int, splits [][]trace.RawColumn[W]) []trace.RawColumn[
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn[W word.Word[W], F word.Word[F]](col trace.RawColumn[W], pool word.Pool[uint, F],
+func splitRawColumn[F field.Element[F]](col trace.RawColumn[word.BigEndian], pool word.Pool[uint, F],
 	mapping schema.LimbsMap) ([]trace.RawColumn[F], []error) {
 	//
 	var (
@@ -180,7 +181,7 @@ func splitRawColumn[W word.Word[W], F word.Word[F]](col trace.RawColumn[W], pool
 // split a given field element into a given set of limbs, where the least
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
-func setSplitWord[W word.Word[W], F word.Word[F]](val W, row uint, arrays []array.MutArray[F], widths []uint) {
+func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []array.MutArray[F], widths []uint) {
 	var (
 		bitwidth = sum(widths...)
 		// Determine bytewidth
@@ -199,7 +200,7 @@ func setSplitWord[W word.Word[W], F word.Word[F]](val W, row uint, arrays []arra
 		// Convert back to big endian
 		array.ReverseInPlace(buf[:m])
 		// Done
-		arrays[i].Set(row, word.FromBigEndian[F](buf[:m]))
+		arrays[i].Set(row, field.FromBigEndianBytes[F](buf[:m]))
 	}
 }
 

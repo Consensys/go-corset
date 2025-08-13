@@ -222,7 +222,7 @@ func (p Assignment[T]) assignControlRegisters(cols []array.MutArray[bls12_377.El
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
-func finaliseState[W word.Word[W]](row uint, terminated bool, state State, trace tr.Module[W]) State {
+func finaliseState(row uint, terminated bool, state State, trace tr.Module[bls12_377.Element]) State {
 	// Clone state
 	var nstate = state.Clone()
 	// Now, ensure output registers retain their original values.

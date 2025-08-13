@@ -33,20 +33,11 @@ type Word[T any] interface {
 	// Returns the raw bytes of this word.  Observe that, if the word is encoded
 	// (e.g. in Montgomerry form), then the *encoded* bytes are returned.
 	Bytes() []byte
-	// Compare two words by treating them as unsigned integers.
-	Cmp(T) int
-	// Compare word against 64bit unsigned integer
-	Cmp64(uint64) int
 	// Write contents of this word into given byte array.  If the given byte
-	// array is not big enough, a new array is allocated and returned.  Observe
-	// that, if the word is encoded (e.g. in Montgomerry form), then the
-	// *encoded* bytes are written.
+	// array is not big enough, a new array is allocated and returned.
 	PutBytes([]byte) []byte
-	// Initialise this word from a set of raw bytes.  Observe that, if the word
-	// is encoded (e.g. in Montgomerry form), then *encoded* bytes are assigned.
+	// Initialise this word from a set of raw bytes.
 	SetBytes([]byte) T
-	// Set this word to a uint64 value
-	SetUint64(uint64) T
 }
 
 // Pool provides an abstraction for referring to large words by a smaller index
@@ -66,29 +57,24 @@ type Pool[K any, T any] interface {
 }
 
 // NewArray constructs a new word array with a given capacity.
-func NewArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) array.MutArray[T] {
-	switch {
-	case bitwidth == 0:
-		return NewZeroArray[T](height)
-	case bitwidth == 1:
-		return NewBitArray[T](height)
-	case bitwidth < 64:
-		return NewStaticArray[T](height, bitwidth)
-	default:
-		return NewIndexArray[T, P](height, bitwidth, pool)
-	}
-}
-
-// FromBigEndian constructs a word from an array of bytes given in big endian order.
-func FromBigEndian[W Word[W]](bytes []byte) W {
-	var word W
-	//
-	return word.SetBytes(bytes)
+func NewArray[T any, P Pool[uint, T]](height uint, bitwidth uint, pool P) array.MutArray[T] {
+	// switch {
+	// case bitwidth == 0:
+	// 	return NewZeroArray[T](height)
+	// case bitwidth == 1:
+	// 	return NewBitArray[T](height)
+	// case bitwidth < 64:
+	// 	return NewStaticArray[T](height, bitwidth)
+	// default:
+	// 	return NewIndexArray[T, P](height, bitwidth, pool)
+	// }
+	panic("todo")
 }
 
 // Uint64 constructs a word from a given uint64 value.
 func Uint64[W Word[W]](value uint64) W {
-	var word W
-	//
-	return word.SetUint64(value)
+	// var word W
+	// //
+	// return word.SetUint64(value)
+	panic("todo")
 }
