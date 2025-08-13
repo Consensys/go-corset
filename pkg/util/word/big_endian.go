@@ -170,6 +170,11 @@ func (p BigEndian) Hash() uint64 {
 	return hash.Sum64()
 }
 
+// IsZero implementation for the Word interface
+func (p BigEndian) IsZero() bool {
+	return len(p.bytes) == 0
+}
+
 // PutBytes implementation for Word interface.
 func (p BigEndian) PutBytes(bytes []byte) []byte {
 	var (

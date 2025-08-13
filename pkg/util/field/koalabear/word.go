@@ -10,23 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package bls12_377
-
-import "hash/fnv"
+package koalabear
 
 // Equals implementation for hash.Hasher interface
-func (x Element) Equals(o Element) bool {
-	return x.Element == o.Element
+func (p Element) Equals(Element) bool {
+	panic("todo")
 }
 
 // Hash implementation for hash.Hasher interface
-func (x Element) Hash() uint64 {
-	var (
-		bytes = x.Element.Bytes()
-		hash  = fnv.New64a()
-	)
-	// Write hash bytes
-	hash.Write(bytes[:])
-	// Done
-	return hash.Sum64()
+func (p Element) Hash() uint64 {
+	panic("todo")
 }

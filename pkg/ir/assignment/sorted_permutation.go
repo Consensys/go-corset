@@ -180,8 +180,8 @@ func (p *SortedPermutation) Lisp(schema sc.AnySchema) sexp.SExp {
 // NOTE: the current implementation is not intended to be particularly
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
-func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool, pool word.Pool[uint, F],
-) []array.MutArray[F] {
+func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool,
+	pool word.Pool[uint, F]) []array.MutArray[F] {
 	//
 	var (
 		n = sources[0].Len()

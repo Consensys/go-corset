@@ -201,7 +201,8 @@ func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ word.Pool[
 
 // interleaving constructs a single interleaved column from a give set of source
 // columns.  The assumption is that the height of all columns is the same.
-func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F]) []array.MutArray[F] {
+func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F],
+) []array.MutArray[F] {
 	var (
 		height     = sources[0].Len()
 		bitwidth   = sources[0].BitWidth()

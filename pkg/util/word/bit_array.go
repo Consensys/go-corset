@@ -94,7 +94,7 @@ func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
 // original value.
 func (p *BitArray[T]) Set(index uint, word T) {
 	// if byte length is 0, the word represents 0.  otherwise, it must be 1.
-	var val = word.ByteWidth() != 0
+	var val = !word.IsZero()
 	//
 	bit.Write(val, p.data, index)
 }

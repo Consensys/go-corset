@@ -13,6 +13,7 @@
 package word
 
 import (
+	"encoding/binary"
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -23,6 +24,20 @@ import (
 type Word[T any] interface {
 	fmt.Stringer
 	hash.Hasher[T]
+	// Returns the raw bytes of this word.  Observe that, if the word is encoded
+	// (e.g. in Montgomerry form), then the *encoded* bytes are returned.
+	Bytes() []byte
+	// Check whether this word is zero, or not.
+	IsZero() bool
+	// Initialise this word from a set of raw bytes.
+	SetBytes([]byte) T
+}
+
+// DynamicWord is a word which has a dynamically sized representation, rather
+// than a fixed-size representation.  In particular, the dynamic word
+// representing zero is always the empty byte array.
+type DynamicWord[T any] interface {
+	Word[T]
 	// Return minimal number of bytes required to store this word.  This can be
 	// defined as the length of bytes of this word, with all leading zero bytes
 	// removed.  For example, 0x1010 has a length of 2, 0x0010 has a length of 1
@@ -30,14 +45,9 @@ type Word[T any] interface {
 	// encoded (e.g. in Montgomerry form), then this is the length of the
 	// encoded bytes.
 	ByteWidth() uint
-	// Returns the raw bytes of this word.  Observe that, if the word is encoded
-	// (e.g. in Montgomerry form), then the *encoded* bytes are returned.
-	Bytes() []byte
 	// Write contents of this word into given byte array.  If the given byte
 	// array is not big enough, a new array is allocated and returned.
 	PutBytes([]byte) []byte
-	// Initialise this word from a set of raw bytes.
-	SetBytes([]byte) T
 }
 
 // Pool provides an abstraction for referring to large words by a smaller index
@@ -57,24 +67,27 @@ type Pool[K any, T any] interface {
 }
 
 // NewArray constructs a new word array with a given capacity.
-func NewArray[T any, P Pool[uint, T]](height uint, bitwidth uint, pool P) array.MutArray[T] {
-	// switch {
-	// case bitwidth == 0:
-	// 	return NewZeroArray[T](height)
-	// case bitwidth == 1:
-	// 	return NewBitArray[T](height)
-	// case bitwidth < 64:
-	// 	return NewStaticArray[T](height, bitwidth)
-	// default:
-	// 	return NewIndexArray[T, P](height, bitwidth, pool)
-	// }
-	panic("todo")
+func NewArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) array.MutArray[T] {
+	switch {
+	case bitwidth == 0:
+		return NewZeroArray[T](height)
+	case bitwidth == 1:
+		return NewBitArray[T](height)
+	case bitwidth < 64:
+		return NewStaticArray[T](height, bitwidth)
+	default:
+		return NewIndexArray[T, P](height, bitwidth, pool)
+	}
 }
 
 // Uint64 constructs a word from a given uint64 value.
 func Uint64[W Word[W]](value uint64) W {
-	// var word W
-	// //
-	// return word.SetUint64(value)
-	panic("todo")
+	var (
+		word  W
+		bytes [8]byte
+	)
+	//
+	binary.BigEndian.PutUint64(bytes[:], value)
+	//
+	return word.SetBytes(bytes[:])
 }

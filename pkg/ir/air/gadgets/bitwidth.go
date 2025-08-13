@@ -675,7 +675,8 @@ func decomposeIntoBytes[W word.Word[W]](val W, n uint) []W {
 	m := min(n, uint(len(bytes)))
 	// Convert each byte into a field element
 	for i := range m {
-		ith := word.Uint64[W](uint64(bytes[i]))
+		var ith W
+		ith = ith.SetBytes(bytes[i : i+1])
 		elements[m-i-1] = ith
 	}
 	// Done
