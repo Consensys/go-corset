@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Geometry defines the "geometry" of a lookup.  That is the maximum
@@ -35,7 +34,7 @@ type Geometry struct {
 // NewGeometry returns the calculated "geometry" for this lookup.  That
 // is, for each source/target pair, the maximum bitwidth of any source or target
 // value.
-func NewGeometry[E ir.Evaluable[bls12_377.Element], T schema.RegisterMap](c Constraint[E],
+func NewGeometry[F field.Element[F], E ir.Evaluable[F], T schema.RegisterMap](c Constraint[F, E],
 	mapping schema.ModuleMap[T]) Geometry {
 	//
 	var geometry []uint = make([]uint, c.Sources[0].Len())

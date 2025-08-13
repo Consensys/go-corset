@@ -13,8 +13,8 @@
 package lookup
 
 import (
-	"encoding/binary"
 	"fmt"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -23,7 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -42,23 +42,23 @@ import (
 // pairs (and perhaps other constraints to ensure the required relationship) and
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
-type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
+type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
 	// Targets returns the target expressions which are used to lookup into the
 	// target expressions.  NOTE: the first element here is *always* the target
 	// selector.
-	Targets []Vector[bls12_377.Element, E]
+	Targets []Vector[F, E]
 	// Sources returns the source expressions which are used to lookup into the
 	// target expressions.  NOTE: the first element here is *always* the source
 	// selector.
-	Sources []Vector[bls12_377.Element, E]
+	Sources []Vector[F, E]
 }
 
 // NewConstraint creates a new lookup constraint with a given handle.
-func NewConstraint[E ir.Evaluable[bls12_377.Element]](handle string, targets []Vector[bls12_377.Element, E],
-	sources []Vector[bls12_377.Element, E]) Constraint[E] {
+func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, targets []Vector[F, E],
+	sources []Vector[F, E]) Constraint[F, E] {
 	var width uint
 	// Check sources
 	for i, ith := range sources {
@@ -75,7 +75,7 @@ func NewConstraint[E ir.Evaluable[bls12_377.Element]](handle string, targets []V
 		}
 	}
 
-	return Constraint[E]{Handle: handle,
+	return Constraint[F, E]{Handle: handle,
 		Targets: targets,
 		Sources: sources,
 	}
@@ -84,13 +84,13 @@ func NewConstraint[E ir.Evaluable[bls12_377.Element]](handle string, targets []V
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[E]) Consistent(_ schema.AnySchema) []error {
+func (p Constraint[F, E]) Consistent(_ schema.AnySchema) []error {
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[E]) Name() string {
+func (p Constraint[F, E]) Name() string {
 	return p.Handle
 }
 
@@ -99,7 +99,7 @@ func (p Constraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 	var contexts []schema.ModuleId
 	// source contexts
 	for _, source := range p.Sources {
@@ -120,7 +120,7 @@ func (p Constraint[E]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p Constraint[E]) Bounds(module uint) util.Bounds {
+func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	// sources
 	for _, ith := range p.Sources {
@@ -140,235 +140,29 @@ func (p Constraint[E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		// Determine width (in columns) of this lookup
-		width uint = p.Sources[0].Len()
-		//
-		rows *hash.Set[hash.BytesKey]
-		// Construct reusable buffer
-		bytes = make([]byte, 32*width)
-		err   schema.Failure
+		st       State[F, E]
+		err      schema.Failure
 	)
 	// Insert all active target vectors
-	if rows, err = p.insertTargetVectors(tr, sc, bytes); err != nil {
+	if st, err = p.insertTargetVectors(tr, sc); err != nil {
 		return coverage, err
 	}
 	// Check against all active source vectors
-	if err = p.checkSourceVectors(rows, tr, sc, bytes); err != nil {
+	if err = st.checkSourceVectors(p.Sources, tr, sc); err != nil {
 		return coverage, err
 	}
 	//
 	return coverage, nil
 }
 
-func (p *Constraint[E]) insertTargetVectors(tr trace.Trace[bls12_377.Element], sc schema.AnySchema,
-	bytes []byte) (*hash.Set[hash.BytesKey], schema.Failure) {
-	//
-	var (
-		rows = hash.NewSet[hash.BytesKey](tr.Module(p.Targets[0].Module).Height())
-	)
-	// Choose optimised loop
-	for _, target := range p.Targets {
-		var (
-			trModule = tr.Module(target.Module)
-			scModule = sc.Module(target.Module)
-			height   = trModule.Height()
-		)
-		//
-		if target.HasSelector() {
-			// unfiltered
-			for i := range int(height) {
-				if err := insertFilteredTargetVector(i, target, p.Handle, rows, trModule, scModule, bytes); err != nil {
-					return nil, err
-				}
-			}
-		} else {
-			// unfiltered
-			for i := range int(height) {
-				if err := insertTargetVector(i, target, p.Handle, rows, trModule, scModule, bytes); err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-	//
-	return rows, nil
-}
-
-func (p *Constraint[E]) checkSourceVectors(
-	rows *hash.Set[hash.BytesKey],
-	tr trace.Trace[bls12_377.Element],
-	sc schema.AnySchema,
-	bytes []byte,
-) schema.Failure {
-	// Choose optimised loop
-	for _, source := range p.Sources {
-		var (
-			trModule = tr.Module(source.Module)
-			scModule = sc.Module(source.Module)
-			height   = trModule.Height()
-		)
-		//
-		if source.HasSelector() {
-			// filtered
-			for i := range int(height) {
-				if err := checkFilteredSourceVector(i, source, p.Handle, rows, trModule, scModule, bytes); err != nil {
-					return err
-				}
-			}
-		} else {
-			// unfiltered
-			for i := range int(height) {
-				if err := checkSourceVector(i, source, p.Handle, rows, trModule, scModule, bytes); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	// success
-	return nil
-}
-
-func insertFilteredTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
-	handle string, rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element],
-	scModule schema.Module, bytes []byte) schema.Failure {
-	// If no selector, then always selected
-	var selected bool = !vec.HasSelector()
-	//
-	if vec.HasSelector() {
-		// Otherwise, check whether selector enabled (or not).
-		var (
-			selector = vec.Selector.Unwrap()
-			ith, err = selector.EvalAt(k, trModule, scModule)
-		)
-		//
-		if err != nil {
-			return &constraint.InternalFailure{
-				Handle:  handle,
-				Context: vec.Module,
-				Row:     uint(k),
-				Term:    vec.Selector.Unwrap(),
-				Error:   err.Error(),
-			}
-		}
-		// Selected when non-zero
-		selected = !ith.IsZero()
-	}
-	// If row selected, then insert contents!
-	if selected {
-		return insertTargetVector(k, vec, handle, rows, trModule, scModule, bytes)
-	}
-	//
-	return nil
-}
-
-func insertTargetVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E], handle string,
-	rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element], scModule schema.Module,
-	bytes []byte) schema.Failure {
-	//
-	// Check each source is included
-	if err := evalExprsAsBytes(k, vec, handle, trModule, scModule, bytes); err != nil {
-		return err
-	}
-	//
-	rows.Insert(hash.NewBytesKey(bytes))
-	//
-	return nil
-}
-
-func checkFilteredSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
-	handle string, rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element],
-	scModule schema.Module, bytes []byte) schema.Failure {
-	// If no selector, then always selected
-	var selected bool = !vec.HasSelector()
-	//
-	if vec.HasSelector() {
-		// Otherwise, check whether selector enabled (or not).
-		var (
-			selector = vec.Selector.Unwrap()
-			ith, err = selector.EvalAt(k, trModule, scModule)
-		)
-		//
-		if err != nil {
-			return &constraint.InternalFailure{
-				Handle:  handle,
-				Context: vec.Module,
-				Row:     uint(k),
-				Term:    vec.Selector.Unwrap(),
-				Error:   err.Error(),
-			}
-		}
-		// Selected when non-zero
-		selected = !ith.IsZero()
-	}
-	// If row selected, then check contents!
-	if selected {
-		return checkSourceVector(k, vec, handle, rows, trModule, scModule, bytes)
-	}
-	//
-	return nil
-}
-
-func checkSourceVector[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
-	handle string, rows *hash.Set[hash.BytesKey], trModule trace.Module[bls12_377.Element],
-	scModule schema.Module, bytes []byte) schema.Failure {
-	// Check each source is included
-	if err := evalExprsAsBytes(k, vec, handle, trModule, scModule, bytes); err != nil {
-		return err
-	}
-	// Check whether contained.
-	if !rows.Contains(hash.NewBytesKey(bytes)) {
-		sources := make([]ir.Evaluable[bls12_377.Element], vec.Len())
-		for i, e := range vec.Terms {
-			sources[i] = e
-		}
-		// Construct failures
-		return &Failure{handle, vec.Module, sources, uint(k)}
-	}
-	// success
-	return nil
-}
-
-func evalExprsAsBytes[E ir.Evaluable[bls12_377.Element]](k int, vec Vector[bls12_377.Element, E],
-	handle string, trModule trace.Module[bls12_377.Element], scModule schema.Module, bytes []byte) schema.Failure {
-	var (
-		// Slice provides an access window for writing
-		slice = bytes
-	)
-	// Evaluate each expression in turn (remembering that the first element is
-	// the selector)
-	for i := uint(0); i < vec.Len(); i++ {
-		ith, err := vec.Ith(i).EvalAt(k, trModule, scModule)
-		// error check
-		if err != nil {
-			return &constraint.InternalFailure{
-				Handle:  handle,
-				Context: vec.Module,
-				Row:     uint(k),
-				Term:    vec.Ith(i),
-				Error:   err.Error(),
-			}
-		} else {
-			// Copy over each element
-			binary.BigEndian.PutUint64(slice, ith.Element[0])
-			binary.BigEndian.PutUint64(slice[8:], ith.Element[1])
-			binary.BigEndian.PutUint64(slice[16:], ith.Element[2])
-			binary.BigEndian.PutUint64(slice[24:], ith.Element[3])
-			// Move slice over
-			slice = slice[32:]
-		}
-	}
-	// Done
-	return nil
-}
-
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F, E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var (
 		sources = sexp.EmptyList()
 		targets = sexp.EmptyList()
@@ -391,7 +185,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
+func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 	// Sources
 	for _, ith := range p.Sources {
 		ith.Substitute(mapping)
@@ -400,4 +194,204 @@ func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
 	for _, ith := range p.Targets {
 		ith.Substitute(mapping)
 	}
+}
+
+func (p *Constraint[F, E]) insertTargetVectors(tr trace.Trace[F], sc schema.AnySchema) (
+	State[F, E], schema.Failure) {
+	//
+	var (
+		st State[F, E]
+		// Determine width (in columns) of this lookup
+		width uint = p.Sources[0].Len()
+	)
+	// Initialise target state
+	st.handle = p.Handle
+	st.rows = hash.NewSet[hash.Array[F]](tr.Module(p.Targets[0].Module).Height())
+	st.buffer = make([]F, width)
+	// Choose optimised loop
+	for _, target := range p.Targets {
+		var (
+			trModule = tr.Module(target.Module)
+			scModule = sc.Module(target.Module)
+			height   = trModule.Height()
+		)
+		//
+		if target.HasSelector() {
+			// unfiltered
+			for i := range int(height) {
+				if err := st.insertFilteredVector(i, target, trModule, scModule); err != nil {
+					return st, err
+				}
+			}
+		} else {
+			// unfiltered
+			for i := range int(height) {
+				if err := st.insertTargetVector(i, target, trModule, scModule); err != nil {
+					return st, err
+				}
+			}
+		}
+	}
+	//
+	return st, nil
+}
+
+// State is just bringing somethings together to make life simpler
+type State[F field.Element[F], E ir.Evaluable[F]] struct {
+	handle string
+	// Set of target rows
+	rows *hash.Set[hash.Array[F]]
+	// Temporary buffer to avoid lots of reallocations.
+	buffer []F
+}
+
+func (p *State[F, E]) checkSourceVectors(sources []Vector[F, E], tr trace.Trace[F], sc schema.AnySchema,
+) schema.Failure {
+	// Choose optimised loop
+	for _, source := range sources {
+		var (
+			trModule = tr.Module(source.Module)
+			scModule = sc.Module(source.Module)
+			height   = trModule.Height()
+		)
+		//
+		if source.HasSelector() {
+			// filtered
+			for i := range int(height) {
+				if err := p.checkFilteredSourceVector(i, source, trModule, scModule); err != nil {
+					return err
+				}
+			}
+		} else {
+			// unfiltered
+			for i := range int(height) {
+				if err := p.checkSourceVector(i, source, trModule, scModule); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	// success
+	return nil
+}
+
+func (p *State[F, E]) insertFilteredVector(k int, vec Vector[F, E], trMod trace.Module[F], scMod schema.Module,
+) schema.Failure {
+	// If no selector, then always selected
+	var selected bool = !vec.HasSelector()
+	//
+	if vec.HasSelector() {
+		// Otherwise, check whether selector enabled (or not).
+		var (
+			selector = vec.Selector.Unwrap()
+			ith, err = selector.EvalAt(k, trMod, scMod)
+		)
+		//
+		if err != nil {
+			return &constraint.InternalFailure[F]{
+				Handle:  p.handle,
+				Context: vec.Module,
+				Row:     uint(k),
+				Term:    vec.Selector.Unwrap(),
+				Error:   err.Error(),
+			}
+		}
+		// Selected when non-zero
+		selected = !ith.IsZero()
+	}
+	// If row selected, then insert contents!
+	if selected {
+		return p.insertTargetVector(k, vec, trMod, scMod)
+	}
+	//
+	return nil
+}
+
+func (p *State[F, E]) insertTargetVector(k int, vec Vector[F, E], trModule trace.Module[F],
+	scModule schema.Module) schema.Failure {
+	// Check each source is included
+	if err := p.evalExprsArray(k, vec, trModule, scModule); err != nil {
+		return err
+	}
+	// Insert item whilst checking whether the buffer was consumed or not
+	if !p.rows.Insert(hash.NewArray(p.buffer)) {
+		// Yes, buffer consumed.  Therefore, construct fresh buffer to avoid
+		// aliasing the value now stored in the hash set.
+		p.buffer = slices.Clone(p.buffer)
+	}
+	//
+	return nil
+}
+
+func (p *State[F, E]) checkFilteredSourceVector(k int, vec Vector[F, E], trModule trace.Module[F],
+	scModule schema.Module) schema.Failure {
+	// If no selector, then always selected
+	var selected bool = !vec.HasSelector()
+	//
+	if vec.HasSelector() {
+		// Otherwise, check whether selector enabled (or not).
+		var (
+			selector = vec.Selector.Unwrap()
+			ith, err = selector.EvalAt(k, trModule, scModule)
+		)
+		//
+		if err != nil {
+			return &constraint.InternalFailure[F]{
+				Handle:  p.handle,
+				Context: vec.Module,
+				Row:     uint(k),
+				Term:    vec.Selector.Unwrap(),
+				Error:   err.Error(),
+			}
+		}
+		// Selected when non-zero
+		selected = !ith.IsZero()
+	}
+	// If row selected, then check contents!
+	if selected {
+		return p.checkSourceVector(k, vec, trModule, scModule)
+	}
+	//
+	return nil
+}
+
+func (p *State[F, E]) checkSourceVector(k int, vec Vector[F, E], trModule trace.Module[F], scModule schema.Module,
+) schema.Failure {
+	// Check each source is included
+	if err := p.evalExprsArray(k, vec, trModule, scModule); err != nil {
+		return err
+	}
+	// Check whether contained.
+	if !p.rows.Contains(hash.NewArray(p.buffer)) {
+		sources := make([]ir.Evaluable[F], vec.Len())
+		for i, e := range vec.Terms {
+			sources[i] = e
+		}
+		// Construct failures
+		return &Failure[F]{p.handle, vec.Module, sources, uint(k)}
+	}
+	// success
+	return nil
+}
+
+func (p *State[F, E]) evalExprsArray(k int, vec Vector[F, E], trModule trace.Module[F], scModule schema.Module,
+) schema.Failure {
+	var err error
+	// Evaluate each expression in turn (remembering that the first element is
+	// the selector)
+	for i := uint(0); i < vec.Len(); i++ {
+		p.buffer[i], err = vec.Ith(i).EvalAt(k, trModule, scModule)
+		// error check
+		if err != nil {
+			return &constraint.InternalFailure[F]{
+				Handle:  p.handle,
+				Context: vec.Module,
+				Row:     uint(k),
+				Term:    vec.Ith(i),
+				Error:   err.Error(),
+			}
+		}
+	}
+	// Done
+	return nil
 }

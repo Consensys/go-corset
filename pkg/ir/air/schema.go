@@ -68,22 +68,22 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = Air[constraint.Assertion[ir.Testable[bls12_377.Element]]]
+	Assertion = Air[constraint.Assertion[bls12_377.Element, ir.Testable[bls12_377.Element]]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
-	InterleavingConstraint = Air[interleaving.Constraint[*ColumnAccess]]
+	InterleavingConstraint = Air[interleaving.Constraint[bls12_377.Element, *ColumnAccess]]
 	// LookupConstraint captures the essence of a lookup constraint at the AIR
 	// level.  At the AIR level, lookup constraints are only permitted between
 	// columns (i.e. not arbitrary expressions).
-	LookupConstraint = Air[lookup.Constraint[*ColumnAccess]]
+	LookupConstraint = Air[lookup.Constraint[bls12_377.Element, *ColumnAccess]]
 	// PermutationConstraint captures the essence of a permutation constraint at the
 	// AIR level. Specifically, it represents a constraint that one (or more)
 	// columns are a permutation of another.
-	PermutationConstraint = Air[permutation.Constraint]
+	PermutationConstraint = Air[permutation.Constraint[bls12_377.Element]]
 	// RangeConstraint captures the essence of a range constraints at the AIR level.
-	RangeConstraint = Air[ranged.Constraint[*ColumnAccess]]
+	RangeConstraint = Air[ranged.Constraint[bls12_377.Element, *ColumnAccess]]
 	// VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
-	VanishingConstraint = Air[vanishing.Constraint[LogicalTerm]]
+	VanishingConstraint = Air[vanishing.Constraint[bls12_377.Element, LogicalTerm]]
 )
 
 // Following types capture permitted expression forms at the AIR level.

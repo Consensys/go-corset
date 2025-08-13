@@ -576,11 +576,10 @@ func columnBytesSummariser(col RawColumn) string {
 
 func uniqueElementsSummariser(col RawColumn) string {
 	data := col.Data
-	elems := hash.NewSet[hash.BytesKey](data.Len() / 2)
+	elems := hash.NewSet[word.BigEndian](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
-		bytes := data.Get(i).Bytes()
-		elems.Insert(hash.NewBytesKey(bytes))
+		elems.Insert(data.Get(i))
 	}
 	// Done
 	return fmt.Sprintf("%d", elems.Size())

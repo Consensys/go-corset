@@ -18,7 +18,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // CheckConsistent performs a simple consistency check for terms in a given
@@ -50,7 +49,7 @@ func CheckConsistent[E ir.Contextual](module uint, schema schema.AnySchema, term
 
 // DetermineHandle is a very simple helper which determines a suitable qualified
 // name for the given constraint handle.
-func DetermineHandle(handle string, ctx schema.ModuleId, tr trace.Trace[bls12_377.Element]) string {
+func DetermineHandle[F any](handle string, ctx schema.ModuleId, tr trace.Trace[F]) string {
 	modName := tr.Module(ctx).Name()
 	//
 	return trace.QualifiedColumnName(modName, handle)

@@ -22,14 +22,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Constraint restricts all values for a given expression to be within a
 // range [0..n) for some bound n.  Any bound is supported, and the system will
 // choose the best underlying implementation as needed.
-type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
+type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 	// A unique identifier for this constraint.  This is primarily useful for
 	// debugging.
 	Handle string
@@ -44,22 +43,22 @@ type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 	Bitwidth uint
 }
 
-// NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[E ir.Evaluable[bls12_377.Element]](handle string, context schema.ModuleId,
-	expr E, bitwidth uint) Constraint[E] {
-	return Constraint[E]{handle, context, expr, bitwidth}
+// NewConstraint constructs a new Range constraint!
+func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, context schema.ModuleId,
+	expr E, bitwidth uint) Constraint[F, E] {
+	return Constraint[F, E]{handle, context, expr, bitwidth}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[E]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[F, E]) Consistent(schema schema.AnySchema) []error {
 	return constraint.CheckConsistent(p.Context, schema, p.Expr)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[E]) Name() string {
+func (p Constraint[F, E]) Name() string {
 	return p.Handle
 }
 
@@ -68,7 +67,7 @@ func (p Constraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -79,7 +78,7 @@ func (p Constraint[E]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p Constraint[E]) Bounds(module uint) util.Bounds {
+func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 	if p.Context == module {
 		return p.Expr.Bounds()
 	}
@@ -91,16 +90,16 @@ func (p Constraint[E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		trModule = tr.Module(p.Context)
 		scModule = sc.Module(p.Context)
 		handle   = constraint.DetermineHandle(p.Handle, p.Context, tr)
-		bound    bls12_377.Element
+		bound    F
 	)
 	// Compute 2^n
-	bound = field.TwoPowN[bls12_377.Element](p.Bitwidth)
+	bound = field.TwoPowN[F](p.Bitwidth)
 	// Determine height of enclosing module
 	height := tr.Module(p.Context).Height()
 	// Iterate every row
@@ -109,7 +108,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 		kth, err := p.Expr.EvalAt(k, trModule, scModule)
 		// Perform the range check
 		if err != nil {
-			return coverage, &constraint.InternalFailure{
+			return coverage, &constraint.InternalFailure[F]{
 				Handle:  p.Handle,
 				Context: p.Context,
 				Row:     uint(k),
@@ -118,7 +117,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 			}
 		} else if kth.Cmp(bound) >= 0 {
 			// Evaluation failure
-			return coverage, &Failure{handle, p.Context, p.Expr, p.Bitwidth, uint(k)}
+			return coverage, &Failure[F]{handle, p.Context, p.Expr, p.Bitwidth, uint(k)}
 		}
 	}
 	// All good
@@ -129,7 +128,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 // it can be printed.
 //
 //nolint:revive
-func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F, E]) Lisp(schema schema.AnySchema) sexp.SExp {
 	module := schema.Module(p.Context)
 	//
 	return sexp.NewList([]sexp.SExp{
@@ -140,6 +139,6 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
+func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 	p.Expr.Substitute(mapping)
 }

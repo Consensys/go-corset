@@ -21,34 +21,34 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // AssertionFailure provides structural information about a failing vanishing constraint.
-type AssertionFailure struct {
+type AssertionFailure[F any] struct {
 	// Handle of the failing constraint
 	Handle string
 	//
 	Context schema.ModuleId
 	// Constraint expression
-	Constraint ir.Testable[bls12_377.Element]
+	Constraint ir.Testable[F]
 	// Row on which the constraint failed
 	Row uint
 }
 
 // Message provides a suitable error message
-func (p *AssertionFailure) Message() string {
+func (p *AssertionFailure[F]) Message() string {
 	// Construct useful error message
 	return fmt.Sprintf("assertion \"%s\" does not hold (row %d)", p.Handle, p.Row)
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *AssertionFailure) RequiredCells(tr trace.Trace[bls12_377.Element]) *set.AnySortedSet[trace.CellRef] {
+func (p *AssertionFailure[F]) RequiredCells(tr trace.Trace[F]) *set.AnySortedSet[trace.CellRef] {
 	return p.Constraint.RequiredCells(int(p.Row), p.Context)
 }
 
-func (p *AssertionFailure) String() string {
+func (p *AssertionFailure[F]) String() string {
 	return p.Message()
 }
 
@@ -59,7 +59,7 @@ func (p *AssertionFailure) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[T ir.Testable[bls12_377.Element]] struct {
+type Assertion[F field.Element[F], T ir.Testable[F]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -75,21 +75,22 @@ type Assertion[T ir.Testable[bls12_377.Element]] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[T ir.Testable[bls12_377.Element]](handle string, ctx schema.ModuleId, property T) Assertion[T] {
+func NewAssertion[F field.Element[F], T ir.Testable[F]](handle string, ctx schema.ModuleId, property T,
+) Assertion[F, T] {
 	//
-	return Assertion[T]{handle, ctx, property}
+	return Assertion[F, T]{handle, ctx, property}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Assertion[T]) Consistent(schema schema.AnySchema) []error {
+func (p Assertion[F, T]) Consistent(schema schema.AnySchema) []error {
 	return CheckConsistent(p.Context, schema, p.Property)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Assertion[T]) Name() string {
+func (p Assertion[F, T]) Name() string {
 	return p.Handle
 }
 
@@ -98,13 +99,13 @@ func (p Assertion[T]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Assertion[T]) Contexts() []schema.ModuleId {
+func (p Assertion[F, T]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
 // Bounds is not required for a property assertion since these are not real
 // constraints.
-func (p Assertion[T]) Bounds(module uint) util.Bounds {
+func (p Assertion[F, T]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -112,7 +113,7 @@ func (p Assertion[T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		trModule = tr.Module(p.Context)
@@ -129,9 +130,9 @@ func (p Assertion[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySc
 			// Check whether property holds (or was undefined)
 			if ok, id, err := p.Property.TestAt(int(k), trModule, scModule); err != nil {
 				// Evaluation failure
-				return coverage, &InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
+				return coverage, &InternalFailure[F]{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 			} else if !ok {
-				return coverage, &AssertionFailure{p.Handle, p.Context, p.Property, k}
+				return coverage, &AssertionFailure[F]{p.Handle, p.Context, p.Property, k}
 			} else {
 				// Update coverage
 				coverage.Insert(id)
@@ -145,7 +146,7 @@ func (p Assertion[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySc
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Assertion[F, T]) Lisp(schema schema.AnySchema) sexp.SExp {
 	var module = schema.Module(p.Context)
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
@@ -156,6 +157,6 @@ func (p Assertion[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Assertion[T]) Substitute(mapping map[string]bls12_377.Element) {
+func (p Assertion[F, T]) Substitute(mapping map[string]F) {
 	p.Property.Substitute(mapping)
 }

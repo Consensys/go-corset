@@ -33,6 +33,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -222,24 +223,24 @@ func reportFailures(ir string, failures []sc.Failure, trace tr.Trace[bls12_377.E
 }
 
 // Print a human-readable report detailing the given failure
-func reportFailure(failure sc.Failure, trace tr.Trace[bls12_377.Element], cfg checkConfig) {
-	if f, ok := failure.(*vanishing.Failure); ok {
+func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], cfg checkConfig) {
+	if f, ok := failure.(*vanishing.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)
-	} else if f, ok := failure.(*ranged.Failure); ok {
+	} else if f, ok := failure.(*ranged.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing range constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)
-	} else if f, ok := failure.(*lookup.Failure); ok {
+	} else if f, ok := failure.(*lookup.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing lookup constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)
-	} else if f, ok := failure.(*constraint.AssertionFailure); ok {
+	} else if f, ok := failure.(*constraint.AssertionFailure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing assertion %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, cfg)
-	} else if f, ok := failure.(*constraint.InternalFailure); ok {
+	} else if f, ok := failure.(*constraint.InternalFailure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("%s in %s:\n", f.Error, f.Handle)
 		reportRelevantCells(cells, trace, cfg)
@@ -247,7 +248,7 @@ func reportFailure(failure sc.Failure, trace tr.Trace[bls12_377.Element], cfg ch
 }
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
-func reportRelevantCells(cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[bls12_377.Element], cfg checkConfig) {
+func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F], cfg checkConfig) {
 	// Construct trace window
 	window := check.NewTraceWindow(cells, trace, cfg.reportPadding, cfg.corsetSourceMap)
 	// Construct & configure printer

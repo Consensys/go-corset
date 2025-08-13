@@ -52,25 +52,25 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = constraint.Assertion[LogicalTerm]
+	Assertion = constraint.Assertion[bls12_377.Element, LogicalTerm]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
-	InterleavingConstraint = interleaving.Constraint[Term]
+	InterleavingConstraint = interleaving.Constraint[bls12_377.Element, Term]
 	// LookupConstraint captures the essence of a lookup constraint at the MIR
 	// level.
-	LookupConstraint = lookup.Constraint[Term]
+	LookupConstraint = lookup.Constraint[bls12_377.Element, Term]
 	// PermutationConstraint captures the essence of a permutation constraint at the
 	// MIR level.
-	PermutationConstraint = permutation.Constraint
+	PermutationConstraint = permutation.Constraint[bls12_377.Element]
 	// RangeConstraint captures the essence of a range constraints at the MIR level.
-	RangeConstraint = ranged.Constraint[Term]
+	RangeConstraint = ranged.Constraint[bls12_377.Element, Term]
 	// SortedConstraint captures the essence of a sorted constraint at the MIR
 	// level.
-	SortedConstraint = sorted.Constraint[Term]
+	SortedConstraint = sorted.Constraint[bls12_377.Element, Term]
 	// VanishingConstraint captures the essence of a vanishing constraint at the MIR
 	// level. A vanishing constraint is a row constraint which must evaluate to
 	// zero.
-	VanishingConstraint = vanishing.Constraint[LogicalTerm]
+	VanishingConstraint = vanishing.Constraint[bls12_377.Element, LogicalTerm]
 )
 
 // Following types capture permitted expression forms at the MIR level.

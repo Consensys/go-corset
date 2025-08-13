@@ -19,15 +19,14 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Failure provides structural information about a failing vanishing constraint.
-type Failure struct {
+type Failure[F any] struct {
 	// Handle of the failing constraint
 	Handle string
 	// Constraint expression
-	Constraint ir.Testable[bls12_377.Element]
+	Constraint ir.Testable[F]
 	// Module where constraint failed
 	Context schema.ModuleId
 	// Row on which the constraint failed
@@ -35,16 +34,16 @@ type Failure struct {
 }
 
 // Message provides a suitable error message
-func (p *Failure) Message() string {
+func (p *Failure[F]) Message() string {
 	// Construct useful error message
 	return fmt.Sprintf("constraint \"%s\" does not hold (row %d)", p.Handle, p.Row)
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *Failure) RequiredCells(tr trace.Trace[bls12_377.Element]) *set.AnySortedSet[trace.CellRef] {
+func (p *Failure[F]) RequiredCells(tr trace.Trace[F]) *set.AnySortedSet[trace.CellRef] {
 	return p.Constraint.RequiredCells(int(p.Row), p.Context)
 }
 
-func (p *Failure) String() string {
+func (p *Failure[F]) String() string {
 	return p.Message()
 }
