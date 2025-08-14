@@ -256,7 +256,7 @@ func (p *typeDecomposition) AddSource(source sc.RegisterRef) {
 
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *typeDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema,
+func (p *typeDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema[bls12_377.Element],
 ) ([]array.MutArray[bls12_377.Element], error) {
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.sources...)
@@ -280,7 +280,7 @@ func (p *typeDecomposition) Bounds(_ sc.ModuleId) util.Bounds {
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *typeDecomposition) Consistent(schema sc.AnySchema) []error {
+func (p *typeDecomposition) Consistent(schema sc.AnySchema[bls12_377.Element]) []error {
 	return nil
 }
 
@@ -302,7 +302,7 @@ func (p *typeDecomposition) RegistersWritten() []sc.RegisterRef {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *typeDecomposition) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *typeDecomposition) Lisp(schema sc.AnySchema[bls12_377.Element]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
@@ -350,7 +350,7 @@ type byteDecomposition struct {
 
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *byteDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema,
+func (p *byteDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc.AnySchema[bls12_377.Element],
 ) ([]array.MutArray[bls12_377.Element], error) {
 	var n = uint(len(p.targets))
 	// Read inputs
@@ -373,7 +373,7 @@ func (p *byteDecomposition) Bounds(_ sc.ModuleId) util.Bounds {
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *byteDecomposition) Consistent(schema sc.AnySchema) []error {
+func (p *byteDecomposition) Consistent(schema sc.AnySchema[bls12_377.Element]) []error {
 	var (
 		bitwidth = schema.Register(p.source).Width
 		total    = uint(0)
@@ -411,7 +411,7 @@ func (p *byteDecomposition) RegistersWritten() []sc.RegisterRef {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *byteDecomposition) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *byteDecomposition) Lisp(schema sc.AnySchema[bls12_377.Element]) sexp.SExp {
 	var (
 		srcModule = schema.Module(p.source.Module())
 		source    = srcModule.Register(p.source.Register())

@@ -63,7 +63,7 @@ func (p *Computation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema,
+func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	// Identify Computation
 	fn := findNative[F](p.Function)
@@ -74,7 +74,7 @@ func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema,
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *Computation[F]) Consistent(_ sc.AnySchema) []error {
+func (p *Computation[F]) Consistent(_ sc.AnySchema[F]) []error {
 	// NOTE: this is where we could (in principle) check the type of the
 	// function being defined to ensure it is, for example, typed correctly.
 	return nil
@@ -107,7 +107,7 @@ func (p *Computation[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *Computation[F]) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()

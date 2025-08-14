@@ -36,10 +36,10 @@ type (
 	Schema = schema.UniformSchema[Module]
 	// Module captures the essence of a module at the AIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the AIR level.
-	Module = *schema.Table[Constraint]
+	Module = *schema.Table[bls12_377.Element, Constraint]
 	// Constraint captures the essence of a constraint at the AIR level.
 	Constraint interface {
-		schema.Constraint
+		schema.Constraint[bls12_377.Element]
 		// Air marks the constraints as been valid for the AIR representation.
 		Air()
 	}

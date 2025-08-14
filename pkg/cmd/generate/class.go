@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // JavaTraceClass generates a suitable trace class for Java integration.
@@ -93,7 +94,7 @@ func generateClassHeader(pkgname string, metadata typed.Map, builder *strings.Bu
 }
 
 func generateClassContents(className string, super string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
-	schema sc.AnySchema, builder indentBuilder) {
+	schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
 	// Attempt to find module
 	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name() == mod.Name })
 	// Sanity check we found it
@@ -158,7 +159,7 @@ func generateJavaClassFooter(builder indentBuilder) {
 	builder.WriteIndentedString("}\n")
 }
 
-func generateJavaModuleHeaders(mod corset.SourceModule, schema sc.AnySchema, builder indentBuilder) {
+func generateJavaModuleHeaders(mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()
 	// Count of created registers
@@ -263,18 +264,18 @@ func inferJavaType(value big.Int) (string, string) {
 	return constructor, javaType
 }
 
-func generateJavaModuleRegisterFields(module corset.SourceModule, schema sc.AnySchema, builder indentBuilder) {
+func generateJavaModuleRegisterFields[F any](mod corset.SourceModule, schema sc.AnySchema[F], builder indentBuilder) {
 	// Count of created registers
 	count := uint(0)
 	// Write register initialisers
-	for _, col := range module.Registers(schema.Width()) {
+	for _, col := range mod.Registers(schema.Width()) {
 		// Determine underlying register
 		reg := schema.Register(col.Register)
 		// Check whether this is part of our module
 		if reg.IsInputOutput() {
 			// Yes, include register
 			if count == 0 {
-				builder.WriteIndentedString(fmt.Sprintf("// Registers from %s\n", module.Name))
+				builder.WriteIndentedString(fmt.Sprintf("// Registers from %s\n", mod.Name))
 			}
 			// Determine suitable name for field
 			fieldName := toRegisterName(col.Register, reg.Name)
@@ -361,7 +362,7 @@ func generateJavaModuleConstructor(classname string, mod corset.SourceModule, bu
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleOpen(mod corset.SourceModule, schema sc.AnySchema, builder indentBuilder) {
+func generateJavaModuleOpen(mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
 	//
 	innerBuilder := builder.Indent()
 	//
@@ -406,7 +407,7 @@ func generateJavaModuleSize(builder indentBuilder) {
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleColumnSetters(className string, mod corset.SourceModule, schema sc.AnySchema,
+func generateJavaModuleColumnSetters(className string, mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element],
 	builder indentBuilder) {
 	//
 	for _, column := range mod.Columns {
@@ -422,8 +423,8 @@ func generateJavaModuleColumnSetters(className string, mod corset.SourceModule, 
 	}
 }
 
-func generateJavaModuleColumnSetter(className string, methodName string, col corset.SourceColumn, schema sc.AnySchema,
-	builder indentBuilder) {
+func generateJavaModuleColumnSetter(className string, methodName string, col corset.SourceColumn,
+	schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
 	//
 	methodName = toCamelCase(methodName)
 	bitwidth := col.Bitwidth
@@ -505,7 +506,7 @@ func generateJavaModuleBytesPutter(columnName, fieldName string, bitwidth uint, 
 	builder.WriteIndentedString(fmt.Sprintf("for(int i=0; i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
 }
 
-func generateJavaModuleValidateRow(className string, mod corset.SourceModule, schema sc.AnySchema,
+func generateJavaModuleValidateRow(className string, mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element],
 	builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()
@@ -532,7 +533,7 @@ func generateJavaModuleValidateRow(className string, mod corset.SourceModule, sc
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleFillAndValidateRow(className string, mod corset.SourceModule, schema sc.AnySchema,
+func generateJavaModuleFillAndValidateRow[F any](className string, mod corset.SourceModule, schema sc.AnySchema[F],
 	builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()

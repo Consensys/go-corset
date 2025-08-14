@@ -57,7 +57,8 @@ func (p *ConstraintFailure) String() string {
 type Constraint[T Instruction[T]] Function[T]
 
 // Accepts implementation for schema.Constraint interface.
-func (p Constraint[T]) Accepts(trace tr.Trace[bls12_377.Element], _ sc.AnySchema) (bit.Set, sc.Failure) {
+func (p Constraint[T]) Accepts(trace tr.Trace[bls12_377.Element], _ sc.AnySchema[bls12_377.Element],
+) (bit.Set, sc.Failure) {
 	// Extract relevant part of the trace
 	var (
 		coverage bit.Set
@@ -97,7 +98,7 @@ func (p Constraint[T]) Bounds(module uint) util.Bounds {
 }
 
 // Consistent implementation for schema.Constraint interface.
-func (p Constraint[T]) Consistent(sc.AnySchema) []error {
+func (p Constraint[T]) Consistent(sc.AnySchema[bls12_377.Element]) []error {
 	return nil
 }
 
@@ -112,7 +113,7 @@ func (p Constraint[T]) Name() string {
 }
 
 // Lisp implementation for schema.Constraint interface.
-func (p Constraint[T]) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p Constraint[T]) Lisp(schema sc.AnySchema[bls12_377.Element]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("function"),

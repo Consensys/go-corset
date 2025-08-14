@@ -54,7 +54,7 @@ func NewConstraint[F field.Element[F]](handle string, context schema.ModuleId, t
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[F]) Consistent(schema schema.AnySchema[F]) []error {
 	// TODO: check column access, and widths, etc.
 	return nil
 }
@@ -85,7 +85,7 @@ func (p Constraint[F]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p Constraint[F]) Accepts(tr trace.Trace[F], _ schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F]) Accepts(tr trace.Trace[F], _ schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
@@ -112,7 +112,7 @@ func (p Constraint[F]) Accepts(tr trace.Trace[F], _ schema.AnySchema) (bit.Set, 
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[F]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		module  = schema.Module(p.Context)
 		targets = sexp.EmptyList()

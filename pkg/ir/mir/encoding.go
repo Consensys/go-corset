@@ -61,7 +61,7 @@ const (
 	vectorAccessTag     = byte(40)
 )
 
-func encode_constraint(constraint schema.Constraint) ([]byte, error) {
+func encode_constraint(constraint schema.Constraint[bls12_377.Element]) ([]byte, error) {
 	switch c := constraint.(type) {
 	case Assertion:
 		return encode_assertion(c)
@@ -316,7 +316,7 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-func decode_constraint(bytes []byte) (schema.Constraint, error) {
+func decode_constraint(bytes []byte) (schema.Constraint[bls12_377.Element], error) {
 	switch bytes[0] {
 	case assertionTag:
 		return decode_assertion(bytes[1:])
@@ -339,7 +339,7 @@ func decode_constraint(bytes []byte) (schema.Constraint, error) {
 	}
 }
 
-func decode_assertion(data []byte) (schema.Constraint, error) {
+func decode_assertion(data []byte) (schema.Constraint[bls12_377.Element], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
@@ -360,7 +360,7 @@ func decode_assertion(data []byte) (schema.Constraint, error) {
 	return assertion, err
 }
 
-func decode_interleaving(data []byte) (schema.Constraint, error) {
+func decode_interleaving(data []byte) (schema.Constraint[bls12_377.Element], error) {
 	var (
 		buffer       = bytes.NewBuffer(data)
 		gobDecoder   = gob.NewDecoder(buffer)
@@ -391,7 +391,7 @@ func decode_interleaving(data []byte) (schema.Constraint, error) {
 	return interleaving, nil
 }
 
-func decode_lookup(data []byte) (schema.Constraint, error) {
+func decode_lookup(data []byte) (schema.Constraint[bls12_377.Element], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
@@ -446,7 +446,7 @@ func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[bls12_377.Element, T
 	return vector, nil
 }
 
-func decode_permutation(data []byte) (schema.Constraint, error) {
+func decode_permutation(data []byte) (schema.Constraint[bls12_377.Element], error) {
 	var (
 		buffer      = bytes.NewBuffer(data)
 		gobDecoder  = gob.NewDecoder(buffer)
@@ -473,7 +473,7 @@ func decode_permutation(data []byte) (schema.Constraint, error) {
 	return permutation, nil
 }
 
-func decode_sorted(selector bool, data []byte) (schema.Constraint, error) {
+func decode_sorted(selector bool, data []byte) (schema.Constraint[bls12_377.Element], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
@@ -516,7 +516,7 @@ func decode_sorted(selector bool, data []byte) (schema.Constraint, error) {
 	return sorted, err
 }
 
-func decode_range(data []byte) (schema.Constraint, error) {
+func decode_range(data []byte) (schema.Constraint[bls12_377.Element], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
@@ -541,7 +541,7 @@ func decode_range(data []byte) (schema.Constraint, error) {
 	return constraint, err
 }
 
-func decode_vanishing(data []byte) (schema.Constraint, error) {
+func decode_vanishing(data []byte) (schema.Constraint[bls12_377.Element], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)

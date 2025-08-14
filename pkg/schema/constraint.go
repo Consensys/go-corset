@@ -16,17 +16,16 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Constraint represents an element which can "accept" a trace, or either reject
 // with an error (or eventually perhaps report a warning).
-type Constraint interface {
+type Constraint[F any] interface {
 	// Accepts determines whether a given constraint accepts a given trace or
 	// not.  If not, a failure is produced.  Otherwise, a bitset indicating
 	// branch coverage is returned.
-	Accepts(trace.Trace[bls12_377.Element], AnySchema) (bit.Set, Failure)
+	Accepts(trace.Trace[F], AnySchema[F]) (bit.Set, Failure)
 	// Determine the well-definedness bounds for this constraint in both the
 	// negative (left) or positive (right) directions.  For example, consider an
 	// expression such as "(shift X -1)".  This is technically undefined for the
@@ -36,7 +35,7 @@ type Constraint interface {
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent(Schema[Constraint]) []error
+	Consistent(AnySchema[F]) []error
 	// Contexts returns the evaluation contexts (i.e. enclosing module + length
 	// multiplier) for this constraint.  Most constraints have only a single
 	// evaluation context, though some (e.g. lookups) have more.  Note that all
@@ -48,7 +47,7 @@ type Constraint interface {
 	Name() string
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(AnySchema) sexp.SExp
+	Lisp(AnySchema[F]) sexp.SExp
 	// Substitute any matchined labelled constants within this constraint
-	Substitute(map[string]bls12_377.Element)
+	Substitute(map[string]F)
 }

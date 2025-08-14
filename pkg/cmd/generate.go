@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/generate"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -128,7 +129,7 @@ func splitConstraintSets(filenames []string) [][]string {
 
 // Determine spillage required for a given schema and optimisation configuration
 // with (or without) defensive padding.
-func determineSpillage(schema sc.AnySchema, defensive bool) []uint {
+func determineSpillage(schema sc.AnySchema[bls12_377.Element], defensive bool) []uint {
 	nModules := schema.Width()
 	//
 	spillage := make([]uint, nModules)

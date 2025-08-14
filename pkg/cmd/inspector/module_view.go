@@ -13,20 +13,19 @@
 package inspector
 
 import (
+	"encoding/binary"
 	"fmt"
-	"math/big"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset"
 	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // ModuleView is responsible for generating the current window into a trace to
 // be shown in the inspector.
-type ModuleView struct {
+type ModuleView[F field.Element[F]] struct {
 	// Offsets into the module data.
 	row, col uint
 	// Maximum number of rows in any column
@@ -47,7 +46,7 @@ type ModuleView struct {
 
 // SetColumn sets the column offset if its valid (otherwise ignore).  This
 // affects which columns are visible in the view.
-func (p *ModuleView) SetColumn(col uint) {
+func (p *ModuleView[F]) SetColumn(col uint) {
 	if col < uint(len(p.columns)) {
 		p.col = col
 	}
@@ -55,7 +54,7 @@ func (p *ModuleView) SetColumn(col uint) {
 
 // SetRow the row offset if its valid (otherwise ignore).  This affects which
 // rows are visible in the view.  Note: column titles are always visible though.
-func (p *ModuleView) SetRow(row uint) uint {
+func (p *ModuleView[F]) SetRow(row uint) uint {
 	p.row = min(row, uint(len(p.rowWidths)-1))
 	//
 	return p.row
@@ -63,7 +62,7 @@ func (p *ModuleView) SetRow(row uint) uint {
 
 // SetMaxRowWidth sets the maximum display width of any row in the trace.  Cells
 // whose contents are wider than this will be clipped accordingly.
-func (p *ModuleView) SetMaxRowWidth(width uint, trace tr.Trace[bls12_377.Element]) {
+func (p *ModuleView[F]) SetMaxRowWidth(width uint, trace tr.Trace[F]) {
 	p.maxRowWidth = width
 	// Action change
 	p.rowWidths = p.recalculateRowWidths(trace)
@@ -71,7 +70,7 @@ func (p *ModuleView) SetMaxRowWidth(width uint, trace tr.Trace[bls12_377.Element
 
 // SetActiveColumns sets the currently active set of columns.  This updates the
 // current column title width, as as well as the maximum width for every row.
-func (p *ModuleView) SetActiveColumns(trace tr.Trace[bls12_377.Element], columns []SourceColumn) {
+func (p *ModuleView[F]) SetActiveColumns(trace tr.Trace[F], columns []SourceColumn) {
 	p.columns = columns
 	p.height = 0
 	// Recalculate module height
@@ -86,7 +85,7 @@ func (p *ModuleView) SetActiveColumns(trace tr.Trace[bls12_377.Element], columns
 
 // RowWidth returns the width of the largest element in a given row.  Observe
 // that the first row is always reserved for the column titles.
-func (p *ModuleView) RowWidth(row uint) uint {
+func (p *ModuleView[F]) RowWidth(row uint) uint {
 	if row == 0 {
 		return p.colTitleWidth
 	}
@@ -103,7 +102,7 @@ func (p *ModuleView) RowWidth(row uint) uint {
 // CellAt returns a textual representation of the data at a given column and row
 // in the module's view.  Observe that the first row and column typically show
 // titles.
-func (p *ModuleView) CellAt(trace tr.Trace[bls12_377.Element], col, row uint) termio.FormattedText {
+func (p *ModuleView[F]) CellAt(trace tr.Trace[F], col, row uint) termio.FormattedText {
 	if row == 0 && col == 0 {
 		return termio.NewText("")
 	}
@@ -141,16 +140,16 @@ func (p *ModuleView) CellAt(trace tr.Trace[bls12_377.Element], col, row uint) te
 }
 
 // ValueAt extracts the data point at a given rol and column in the trace.
-func (p *ModuleView) ValueAt(trace tr.Trace[bls12_377.Element], trCol, trRow uint) fr.Element {
+func (p *ModuleView[F]) ValueAt(trace tr.Trace[F], trCol, trRow uint) F {
 	// Determine underlying register for the given column.
 	ref := p.columns[trCol].Register
 	// Extract cell value from register
-	return trace.Column(ref).Get(int(trRow)).Element
+	return trace.Column(ref).Get(int(trRow))
 }
 
 // IsActive determines whether a given cell is active, or not.  A cell can be
 // inactive, for example, if its part of a perspective which is not active.
-func (p *ModuleView) IsActive(trace tr.Trace[bls12_377.Element], trCol, trRow uint) bool {
+func (p *ModuleView[F]) IsActive(trace tr.Trace[F], trCol, trRow uint) bool {
 	// Determine enclosing module
 	module := trace.Module(p.columns[trCol].Register.Module())
 	// Extract relevant selector
@@ -172,7 +171,7 @@ func (p *ModuleView) IsActive(trace tr.Trace[bls12_377.Element], trCol, trRow ui
 // This algorithm is based on that used in the original tool.  To understand
 // this algorithm, you need to look at the 256 colour table for ANSI escape
 // codes.  It actually does make sense, even if it doesn't appear to.
-func cellColour(val fr.Element) termio.AnsiEscape {
+func cellColour[F field.Element[F]](val F) termio.AnsiEscape {
 	if val.IsZero() {
 		return termio.NewAnsiEscape().FgColour(termio.TERM_WHITE)
 	}
@@ -194,7 +193,7 @@ func cellColour(val fr.Element) termio.AnsiEscape {
 }
 
 // Determine the maximum width of any column name in the given set of columns.
-func (p *ModuleView) recalculateColumnTitleWidth() uint {
+func (p *ModuleView[F]) recalculateColumnTitleWidth() uint {
 	maxWidth := 0
 
 	for _, col := range p.columns {
@@ -204,7 +203,7 @@ func (p *ModuleView) recalculateColumnTitleWidth() uint {
 	return uint(maxWidth)
 }
 
-func (p *ModuleView) recalculateRowWidths(module tr.Trace[bls12_377.Element]) []uint {
+func (p *ModuleView[F]) recalculateRowWidths(module tr.Trace[F]) []uint {
 	widths := make([]uint, p.height)
 	//
 	for row := uint(0); row < uint(len(widths)); row++ {
@@ -224,7 +223,7 @@ func (p *ModuleView) recalculateRowWidths(module tr.Trace[bls12_377.Element]) []
 
 // Determine the (unclipped) string value at a given column and row in a given
 // trace.
-func (p *ModuleView) display(col uint, val fr.Element) string {
+func (p *ModuleView[F]) display(col uint, val F) string {
 	if col < uint(len(p.columns)) {
 		disp := p.columns[col].Display
 		//
@@ -239,8 +238,9 @@ func (p *ModuleView) display(col uint, val fr.Element) string {
 			enumID := int(disp - corset.DISPLAY_CUSTOM)
 			// Check whether valid enumeration.
 			if enumID < len(p.enumerations) {
+				index := binary.BigEndian.Uint64(val.Bytes())
 				// Check whether value covered by enumeration.
-				if lab, ok := p.enumerations[enumID][val]; ok {
+				if lab, ok := p.enumerations[enumID][index]; ok {
 					return lab
 				}
 			}
@@ -251,19 +251,16 @@ func (p *ModuleView) display(col uint, val fr.Element) string {
 }
 
 // Format a field element according to the ":bytes" directive.
-func displayBytes(val fr.Element) string {
+func displayBytes[F field.Element[F]](val F) string {
 	var (
 		builder strings.Builder
-		bival   big.Int
 	)
 	// Handle zero case specifically.
 	if val.IsZero() {
 		return "00"
 	}
-	// assign as big integer
-	val.BigInt(&bival)
 	//
-	for i, b := range bival.Bytes() {
+	for i, b := range val.Bytes() {
 		if i != 0 {
 			builder.WriteString(" ")
 		}

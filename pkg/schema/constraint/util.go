@@ -23,7 +23,7 @@ import (
 // CheckConsistent performs a simple consistency check for terms in a given
 // module.  Specifically, to check that: (1) the module exists; (2) all used
 // registers existing with then given module.
-func CheckConsistent[E ir.Contextual](module uint, schema schema.AnySchema, terms ...E) []error {
+func CheckConsistent[F any, E ir.Contextual](module uint, schema schema.AnySchema[F], terms ...E) []error {
 	var errs []error
 	// Sanity check module
 	if module >= schema.Width() {

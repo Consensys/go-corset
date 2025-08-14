@@ -50,7 +50,7 @@ func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, targetC
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, E]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
 	// TODO: check column access, and widths, etc.
 	return nil
 }
@@ -81,7 +81,7 @@ func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Interleave holds between the source and
 // target columns.
-func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		srcTrMod = tr.Module(p.SourceContext)
@@ -134,7 +134,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.S
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[F, E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F, E]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		sourceModule = schema.Module(p.SourceContext)
 		targetModule = schema.Module(p.TargetContext)

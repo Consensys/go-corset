@@ -84,7 +84,7 @@ func NewAssertion[F field.Element[F], T ir.Testable[F]](handle string, ctx schem
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Assertion[F, T]) Consistent(schema schema.AnySchema) []error {
+func (p Assertion[F, T]) Consistent(schema schema.AnySchema[F]) []error {
 	return CheckConsistent(p.Context, schema, p.Property)
 }
 
@@ -113,7 +113,7 @@ func (p Assertion[F, T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		trModule = tr.Module(p.Context)
@@ -146,7 +146,7 @@ func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.Se
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Assertion[F, T]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Assertion[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var module = schema.Module(p.Context)
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{

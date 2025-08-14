@@ -31,7 +31,7 @@ import (
 type (
 	// Module captures the essence of a module at the MIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the MIR level.
-	Module = *schema.Table[Constraint]
+	Module = *schema.Table[bls12_377.Element, Constraint]
 	// Schema captures the notion of an MIR schema which is uniform and consists of
 	// MIR modules only.
 	Schema = schema.UniformSchema[Module]
@@ -135,11 +135,11 @@ func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], 
 }
 
 func init() {
-	gob.Register(schema.Constraint(&VanishingConstraint{}))
-	gob.Register(schema.Constraint(&RangeConstraint{}))
-	gob.Register(schema.Constraint(&PermutationConstraint{}))
-	gob.Register(schema.Constraint(&LookupConstraint{}))
-	gob.Register(schema.Constraint(&SortedConstraint{}))
+	gob.Register(schema.Constraint[bls12_377.Element](&VanishingConstraint{}))
+	gob.Register(schema.Constraint[bls12_377.Element](&RangeConstraint{}))
+	gob.Register(schema.Constraint[bls12_377.Element](&PermutationConstraint{}))
+	gob.Register(schema.Constraint[bls12_377.Element](&LookupConstraint{}))
+	gob.Register(schema.Constraint[bls12_377.Element](&SortedConstraint{}))
 	//
 	gob.Register(Term(&Add{}))
 	gob.Register(Term(&Mul{}))

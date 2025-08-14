@@ -95,16 +95,16 @@ func (p *Function[T]) Code() []T {
 
 // Constraints provides access to those constraints associated with this
 // function.
-func (p *Function[T]) Constraints() iter.Iterator[sc.Constraint] {
+func (p *Function[T]) Constraints() iter.Iterator[sc.Constraint[bls12_377.Element]] {
 	var constraint Constraint[T] = Constraint[T]{p.id, p.name, p.registers, p.code}
 	//
-	return iter.NewUnitIterator[sc.Constraint](constraint)
+	return iter.NewUnitIterator[sc.Constraint[bls12_377.Element]](constraint)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *Function[T]) Consistent(sc.Schema[sc.Constraint]) []error {
+func (p *Function[T]) Consistent(sc.AnySchema[bls12_377.Element]) []error {
 	// TODO: add checks?
 	return nil
 }

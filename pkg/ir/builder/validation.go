@@ -27,7 +27,7 @@ import (
 // TraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func TraceValidation[F field.Element[F]](parallel bool, schema sc.AnySchema, tr tr.Trace[F]) []error {
+func TraceValidation[F field.Element[F]](parallel bool, schema sc.AnySchema[F], tr tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Start timer
@@ -50,7 +50,7 @@ func TraceValidation[F field.Element[F]](parallel bool, schema sc.AnySchema, tr 
 // SequentialTraceValidation validates that values held in trace columns match
 // the expected type.  This is really a sanity check that the trace is not
 // malformed.
-func SequentialTraceValidation[F field.Element[F]](schema sc.AnySchema, tr trace.Trace[F]) []error {
+func SequentialTraceValidation[F field.Element[F]](schema sc.AnySchema[F], tr trace.Trace[F]) []error {
 	var errors []error
 	//
 	for i := uint(0); i < max(schema.Width(), tr.Width()); i++ {
@@ -77,7 +77,7 @@ func SequentialTraceValidation[F field.Element[F]](schema sc.AnySchema, tr trace
 // ParallelTraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema, trace tr.Trace[F]) []error {
+func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema[F], trace tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Construct a communication channel for errors.

@@ -28,7 +28,7 @@ type UniformSchema[M Module] struct {
 }
 
 // Sanity check
-var _ Schema[Constraint] = UniformSchema[Module]{}
+var _ Schema[bls12_377.Element, Constraint[bls12_377.Element]] = UniformSchema[Module]{}
 
 // NewUniformSchema constructs a new schema comprising the given modules.
 func NewUniformSchema[M Module](modules []M) UniformSchema[M] {
@@ -57,7 +57,7 @@ func (p UniformSchema[M]) Consistent() []error {
 
 // Constraints returns an iterator over all constraints defined in this
 // schema.
-func (p UniformSchema[M]) Constraints() iter.Iterator[Constraint] {
+func (p UniformSchema[M]) Constraints() iter.Iterator[Constraint[bls12_377.Element]] {
 	return constraintsOf(p.modules)
 }
 
@@ -112,10 +112,10 @@ func assignmentsOf[M Module](modules []M) iter.Iterator[Assignment[bls12_377.Ele
 
 // Extract an iterator over all the constraints in a given array using a
 // projecting iterator.
-func constraintsOf[M Module](modules []M) iter.Iterator[Constraint] {
+func constraintsOf[M Module](modules []M) iter.Iterator[Constraint[bls12_377.Element]] {
 	arrIter := iter.NewArrayIterator(modules)
 	//
-	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Constraint] {
+	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Constraint[bls12_377.Element]] {
 		return m.Constraints()
 	})
 }

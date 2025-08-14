@@ -19,12 +19,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -176,14 +176,14 @@ func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
 	return srcfiles
 }
 
-func constructSourceMap(schema schema.AnySchema, scope *compiler.ModuleScope,
+func constructSourceMap(schema schema.AnySchema[bls12_377.Element], scope *compiler.ModuleScope,
 	env compiler.GlobalEnvironment) *SourceMap {
 	//
 	enumerations := []Enumeration{OPCODE_ENUMERATION}
 	return &SourceMap{constructSourceModule(schema, scope, env), enumerations}
 }
 
-func constructSourceModule(schema schema.AnySchema, scope *compiler.ModuleScope,
+func constructSourceModule(schema schema.AnySchema[bls12_377.Element], scope *compiler.ModuleScope,
 	env compiler.GlobalEnvironment) SourceModule {
 	//
 	var (
@@ -242,7 +242,8 @@ func constructSourceModule(schema schema.AnySchema, scope *compiler.ModuleScope,
 
 // Determine the reference reference in the schema which corresponds with a
 // given (Corset) path.
-func determineRegisterRef(path util.Path, sc schema.AnySchema, env compiler.GlobalEnvironment) schema.RegisterRef {
+func determineRegisterRef[F any](path util.Path, sc schema.AnySchema[F], env compiler.GlobalEnvironment,
+) schema.RegisterRef {
 	var (
 		mid schema.ModuleId
 		rid schema.RegisterId
@@ -281,7 +282,7 @@ func constructDisplayModifier(modifier string) uint {
 
 // OPCODE_ENUMERATION provides a default enumeration for the existing ":opcode"
 // display modifier.
-var OPCODE_ENUMERATION map[fr.Element]string = map[fr.Element]string{}
+var OPCODE_ENUMERATION map[uint64]string = map[uint64]string{}
 
 // ContextOf attempts to reconstruct an AST context from a given module name.
 // This is helpful if we want to know the "root" module for a given family of
@@ -308,101 +309,100 @@ func ContextOf(name string) ast.Context {
 }
 
 func init() {
-	OPCODE_ENUMERATION[fr.NewElement(0)] = "STOP"
-	OPCODE_ENUMERATION[fr.NewElement(0x0)] = "STOP"
-	OPCODE_ENUMERATION[fr.NewElement(0x1)] = "ADD"
-	OPCODE_ENUMERATION[fr.NewElement(0x2)] = "MUL"
-	OPCODE_ENUMERATION[fr.NewElement(0x3)] = "SUB"
-	OPCODE_ENUMERATION[fr.NewElement(0x4)] = "DIV"
-	OPCODE_ENUMERATION[fr.NewElement(0x5)] = "SDIV"
-	OPCODE_ENUMERATION[fr.NewElement(0x6)] = "MOD"
-	OPCODE_ENUMERATION[fr.NewElement(0x7)] = "SMOD"
-	OPCODE_ENUMERATION[fr.NewElement(0x8)] = "ADDMOD"
-	OPCODE_ENUMERATION[fr.NewElement(0x9)] = "MULMOD"
-	OPCODE_ENUMERATION[fr.NewElement(0xa)] = "EXP"
-	OPCODE_ENUMERATION[fr.NewElement(0xb)] = "SIGNEXTEND"
-	OPCODE_ENUMERATION[fr.NewElement(0x10)] = "LT"
-	OPCODE_ENUMERATION[fr.NewElement(0x11)] = "GT"
-	OPCODE_ENUMERATION[fr.NewElement(0x12)] = "SLT"
-	OPCODE_ENUMERATION[fr.NewElement(0x13)] = "SGT"
-	OPCODE_ENUMERATION[fr.NewElement(0x14)] = "EQ"
-	OPCODE_ENUMERATION[fr.NewElement(0x15)] = "ISZERO"
-	OPCODE_ENUMERATION[fr.NewElement(0x16)] = "AND"
-	OPCODE_ENUMERATION[fr.NewElement(0x17)] = "OR"
-	OPCODE_ENUMERATION[fr.NewElement(0x18)] = "XOR"
-	OPCODE_ENUMERATION[fr.NewElement(0x19)] = "NOT"
-	OPCODE_ENUMERATION[fr.NewElement(0x1a)] = "BYTE"
-	OPCODE_ENUMERATION[fr.NewElement(0x1b)] = "SHL"
-	OPCODE_ENUMERATION[fr.NewElement(0x1c)] = "SHR"
-	OPCODE_ENUMERATION[fr.NewElement(0x1d)] = "SAR"
-	OPCODE_ENUMERATION[fr.NewElement(0x20)] = "SHA3"
-	OPCODE_ENUMERATION[fr.NewElement(0x30)] = "ADDRESS"
-	OPCODE_ENUMERATION[fr.NewElement(0x31)] = "BALANCE"
-	OPCODE_ENUMERATION[fr.NewElement(0x32)] = "ORIGIN"
-	OPCODE_ENUMERATION[fr.NewElement(0x33)] = "CALLER"
-	OPCODE_ENUMERATION[fr.NewElement(0x34)] = "CALLVALUE"
-	OPCODE_ENUMERATION[fr.NewElement(0x35)] = "CALLDATALOAD"
-	OPCODE_ENUMERATION[fr.NewElement(0x36)] = "CALLDATASIZE"
-	OPCODE_ENUMERATION[fr.NewElement(0x37)] = "CALLDATACOPY"
-	OPCODE_ENUMERATION[fr.NewElement(0x38)] = "CODESIZE"
-	OPCODE_ENUMERATION[fr.NewElement(0x39)] = "CODECOPY"
-	OPCODE_ENUMERATION[fr.NewElement(0x3a)] = "GASPRICE"
-	OPCODE_ENUMERATION[fr.NewElement(0x3b)] = "EXTCODESIZE"
-	OPCODE_ENUMERATION[fr.NewElement(0x3c)] = "EXTCODECOPY"
-	OPCODE_ENUMERATION[fr.NewElement(0x3d)] = "RETURNDATASIZE"
-	OPCODE_ENUMERATION[fr.NewElement(0x3e)] = "RETURNDATACOPY"
-	OPCODE_ENUMERATION[fr.NewElement(0x3f)] = "EXTCODEHASH"
-	OPCODE_ENUMERATION[fr.NewElement(0x40)] = "BLOCKHASH"
-	OPCODE_ENUMERATION[fr.NewElement(0x41)] = "COINBASE"
-	OPCODE_ENUMERATION[fr.NewElement(0x42)] = "TIMESTAMP"
-	OPCODE_ENUMERATION[fr.NewElement(0x43)] = "NUMBER"
-	OPCODE_ENUMERATION[fr.NewElement(0x44)] = "DIFFICULTY"
-	OPCODE_ENUMERATION[fr.NewElement(0x45)] = "GASLIMIT"
-	OPCODE_ENUMERATION[fr.NewElement(0x46)] = "CHAINID"
-	OPCODE_ENUMERATION[fr.NewElement(0x47)] = "SELFBALANCE"
-	OPCODE_ENUMERATION[fr.NewElement(0x48)] = "BASEFEE"
-	OPCODE_ENUMERATION[fr.NewElement(0x50)] = "POP"
-	OPCODE_ENUMERATION[fr.NewElement(0x51)] = "MLOAD"
-	OPCODE_ENUMERATION[fr.NewElement(0x52)] = "MSTORE"
-	OPCODE_ENUMERATION[fr.NewElement(0x53)] = "MSTORE8"
-	OPCODE_ENUMERATION[fr.NewElement(0x54)] = "SLOAD"
-	OPCODE_ENUMERATION[fr.NewElement(0x55)] = "SSTORE"
-	OPCODE_ENUMERATION[fr.NewElement(0x56)] = "JUMP"
-	OPCODE_ENUMERATION[fr.NewElement(0x57)] = "JUMPI"
-	OPCODE_ENUMERATION[fr.NewElement(0x58)] = "PC"
-	OPCODE_ENUMERATION[fr.NewElement(0x59)] = "MSIZE"
-	OPCODE_ENUMERATION[fr.NewElement(0x5a)] = "GAS"
-	OPCODE_ENUMERATION[fr.NewElement(0x5b)] = "JUMPDEST"
+	OPCODE_ENUMERATION[0x0] = "STOP"
+	OPCODE_ENUMERATION[0x1] = "ADD"
+	OPCODE_ENUMERATION[0x2] = "MUL"
+	OPCODE_ENUMERATION[0x3] = "SUB"
+	OPCODE_ENUMERATION[0x4] = "DIV"
+	OPCODE_ENUMERATION[0x5] = "SDIV"
+	OPCODE_ENUMERATION[0x6] = "MOD"
+	OPCODE_ENUMERATION[0x7] = "SMOD"
+	OPCODE_ENUMERATION[0x8] = "ADDMOD"
+	OPCODE_ENUMERATION[0x9] = "MULMOD"
+	OPCODE_ENUMERATION[0xa] = "EXP"
+	OPCODE_ENUMERATION[0xb] = "SIGNEXTEND"
+	OPCODE_ENUMERATION[0x10] = "LT"
+	OPCODE_ENUMERATION[0x11] = "GT"
+	OPCODE_ENUMERATION[0x12] = "SLT"
+	OPCODE_ENUMERATION[0x13] = "SGT"
+	OPCODE_ENUMERATION[0x14] = "EQ"
+	OPCODE_ENUMERATION[0x15] = "ISZERO"
+	OPCODE_ENUMERATION[0x16] = "AND"
+	OPCODE_ENUMERATION[0x17] = "OR"
+	OPCODE_ENUMERATION[0x18] = "XOR"
+	OPCODE_ENUMERATION[0x19] = "NOT"
+	OPCODE_ENUMERATION[0x1a] = "BYTE"
+	OPCODE_ENUMERATION[0x1b] = "SHL"
+	OPCODE_ENUMERATION[0x1c] = "SHR"
+	OPCODE_ENUMERATION[0x1d] = "SAR"
+	OPCODE_ENUMERATION[0x20] = "SHA3"
+	OPCODE_ENUMERATION[0x30] = "ADDRESS"
+	OPCODE_ENUMERATION[0x31] = "BALANCE"
+	OPCODE_ENUMERATION[0x32] = "ORIGIN"
+	OPCODE_ENUMERATION[0x33] = "CALLER"
+	OPCODE_ENUMERATION[0x34] = "CALLVALUE"
+	OPCODE_ENUMERATION[0x35] = "CALLDATALOAD"
+	OPCODE_ENUMERATION[0x36] = "CALLDATASIZE"
+	OPCODE_ENUMERATION[0x37] = "CALLDATACOPY"
+	OPCODE_ENUMERATION[0x38] = "CODESIZE"
+	OPCODE_ENUMERATION[0x39] = "CODECOPY"
+	OPCODE_ENUMERATION[0x3a] = "GASPRICE"
+	OPCODE_ENUMERATION[0x3b] = "EXTCODESIZE"
+	OPCODE_ENUMERATION[0x3c] = "EXTCODECOPY"
+	OPCODE_ENUMERATION[0x3d] = "RETURNDATASIZE"
+	OPCODE_ENUMERATION[0x3e] = "RETURNDATACOPY"
+	OPCODE_ENUMERATION[0x3f] = "EXTCODEHASH"
+	OPCODE_ENUMERATION[0x40] = "BLOCKHASH"
+	OPCODE_ENUMERATION[0x41] = "COINBASE"
+	OPCODE_ENUMERATION[0x42] = "TIMESTAMP"
+	OPCODE_ENUMERATION[0x43] = "NUMBER"
+	OPCODE_ENUMERATION[0x44] = "DIFFICULTY"
+	OPCODE_ENUMERATION[0x45] = "GASLIMIT"
+	OPCODE_ENUMERATION[0x46] = "CHAINID"
+	OPCODE_ENUMERATION[0x47] = "SELFBALANCE"
+	OPCODE_ENUMERATION[0x48] = "BASEFEE"
+	OPCODE_ENUMERATION[0x50] = "POP"
+	OPCODE_ENUMERATION[0x51] = "MLOAD"
+	OPCODE_ENUMERATION[0x52] = "MSTORE"
+	OPCODE_ENUMERATION[0x53] = "MSTORE8"
+	OPCODE_ENUMERATION[0x54] = "SLOAD"
+	OPCODE_ENUMERATION[0x55] = "SSTORE"
+	OPCODE_ENUMERATION[0x56] = "JUMP"
+	OPCODE_ENUMERATION[0x57] = "JUMPI"
+	OPCODE_ENUMERATION[0x58] = "PC"
+	OPCODE_ENUMERATION[0x59] = "MSIZE"
+	OPCODE_ENUMERATION[0x5a] = "GAS"
+	OPCODE_ENUMERATION[0x5b] = "JUMPDEST"
 	// EIP-1153
-	OPCODE_ENUMERATION[fr.NewElement(0x5c)] = "TLOAD"
-	OPCODE_ENUMERATION[fr.NewElement(0x5d)] = "TSTORE"
+	OPCODE_ENUMERATION[0x5c] = "TLOAD"
+	OPCODE_ENUMERATION[0x5d] = "TSTORE"
 	// EIP-5656
-	OPCODE_ENUMERATION[fr.NewElement(0x5e)] = "MCOPY"
+	OPCODE_ENUMERATION[0x5e] = "MCOPY"
 	// Push (inc PUSH0)
 	for i := uint64(0); i <= 32; i++ {
-		OPCODE_ENUMERATION[fr.NewElement(i+0x5f)] = fmt.Sprintf("PUSH%d", i)
+		OPCODE_ENUMERATION[i+0x5f] = fmt.Sprintf("PUSH%d", i)
 	}
 	// Dup
 	for i := uint64(0); i < 16; i++ {
-		OPCODE_ENUMERATION[fr.NewElement(i+0x80)] = fmt.Sprintf("DUP%d", i+1)
+		OPCODE_ENUMERATION[i+0x80] = fmt.Sprintf("DUP%d", i+1)
 	}
 	// Swap
 	for i := uint64(0); i < 16; i++ {
-		OPCODE_ENUMERATION[fr.NewElement(i+0x90)] = fmt.Sprintf("SWAP%d", i+1)
+		OPCODE_ENUMERATION[i+0x90] = fmt.Sprintf("SWAP%d", i+1)
 	}
 	// Log
 	for i := uint64(0); i <= 4; i++ {
-		OPCODE_ENUMERATION[fr.NewElement(i+0xa0)] = fmt.Sprintf("LOG%d", i)
+		OPCODE_ENUMERATION[i+0xa0] = fmt.Sprintf("LOG%d", i)
 	}
 	//
-	OPCODE_ENUMERATION[fr.NewElement(0xf0)] = "CREATE"
-	OPCODE_ENUMERATION[fr.NewElement(0xf1)] = "CALL"
-	OPCODE_ENUMERATION[fr.NewElement(0xf2)] = "CALLCODE"
-	OPCODE_ENUMERATION[fr.NewElement(0xf3)] = "RETURN"
-	OPCODE_ENUMERATION[fr.NewElement(0xf4)] = "DELEGATECALL"
-	OPCODE_ENUMERATION[fr.NewElement(0xf5)] = "CREATE2"
-	OPCODE_ENUMERATION[fr.NewElement(0xfa)] = "STATICCALL"
-	OPCODE_ENUMERATION[fr.NewElement(0xfd)] = "REVERT"
-	OPCODE_ENUMERATION[fr.NewElement(0xfe)] = "INVALID"
-	OPCODE_ENUMERATION[fr.NewElement(0xff)] = "SELFDESTRUCT"
+	OPCODE_ENUMERATION[0xf0] = "CREATE"
+	OPCODE_ENUMERATION[0xf1] = "CALL"
+	OPCODE_ENUMERATION[0xf2] = "CALLCODE"
+	OPCODE_ENUMERATION[0xf3] = "RETURN"
+	OPCODE_ENUMERATION[0xf4] = "DELEGATECALL"
+	OPCODE_ENUMERATION[0xf5] = "CREATE2"
+	OPCODE_ENUMERATION[0xfa] = "STATICCALL"
+	OPCODE_ENUMERATION[0xfd] = "REVERT"
+	OPCODE_ENUMERATION[0xfe] = "INVALID"
+	OPCODE_ENUMERATION[0xff] = "SELFDESTRUCT"
 }

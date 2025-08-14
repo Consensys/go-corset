@@ -18,9 +18,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 const qVAR = 0
@@ -37,20 +36,20 @@ const qSUB = 10
 
 // Query represents a boolean expression which can be evaluated over a
 // given set of columns.
-type Query struct {
+type Query[F field.Element[F]] struct {
 	// operation
 	op int
 	// arguments (if applicable)
-	args []Query
+	args []Query[F]
 	// constant value (if applicable)
-	number fr.Element
+	number F
 	// variable name (if applicable)
 	name string
 }
 
 // Variable constructs a variable of the given name.
-func (p *Query) Variable(name string) *Query {
-	var query Query
+func (p *Query[F]) Variable(name string) *Query[F] {
+	var query Query[F]
 	query.op = qVAR
 	query.name = name
 	//
@@ -58,13 +57,13 @@ func (p *Query) Variable(name string) *Query {
 }
 
 // Number constructs a number with the given value
-func (p *Query) Number(number big.Int) *Query {
+func (p *Query[F]) Number(number big.Int) *Query[F] {
 	var (
-		val   fr.Element
-		query Query
+		val   F
+		query Query[F]
 	)
 	//
-	val.SetBigInt(&number)
+	val = val.SetBytes(number.Bytes())
 	//
 	query.op = qNUM
 	query.number = val
@@ -73,62 +72,62 @@ func (p *Query) Number(number big.Int) *Query {
 }
 
 // Or constructs a disjunction of queries.
-func (p *Query) Or(queries ...*Query) *Query {
+func (p *Query[F]) Or(queries ...*Query[F]) *Query[F] {
 	args := build_args(p, queries)
 	//
-	return &Query{qOR, args, fr.Element{}, ""}
+	return &Query[F]{qOR, args, field.Zero[F](), ""}
 }
 
 // And constructs a conjunction of queries.
-func (p *Query) And(queries ...*Query) *Query {
+func (p *Query[F]) And(queries ...*Query[F]) *Query[F] {
 	args := build_args(p, queries)
 	//
-	return &Query{qAND, args, fr.Element{}, ""}
+	return &Query[F]{qAND, args, field.Zero[F](), ""}
 }
 
 // Equals constructs an equality between two queries.
-func (p *Query) Equals(rhs *Query) *Query {
-	return &Query{qEQ, []Query{*p, *rhs}, fr.Element{}, ""}
+func (p *Query[F]) Equals(rhs *Query[F]) *Query[F] {
+	return &Query[F]{qEQ, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
 }
 
 // NotEquals constructs a non-equality between two queries.
-func (p *Query) NotEquals(rhs *Query) *Query {
-	return &Query{qNEQ, []Query{*p, *rhs}, fr.Element{}, ""}
+func (p *Query[F]) NotEquals(rhs *Query[F]) *Query[F] {
+	return &Query[F]{qNEQ, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
 }
 
 // LessThan constructs a (strict) inequality between two queries.
-func (p *Query) LessThan(rhs *Query) *Query {
-	return &Query{qLT, []Query{*p, *rhs}, fr.Element{}, ""}
+func (p *Query[F]) LessThan(rhs *Query[F]) *Query[F] {
+	return &Query[F]{qLT, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
 }
 
 // LessThanEquals constructs a (non-strict) inequality between two queries.
-func (p *Query) LessThanEquals(rhs *Query) *Query {
-	return &Query{qLTEQ, []Query{*p, *rhs}, fr.Element{}, ""}
+func (p *Query[F]) LessThanEquals(rhs *Query[F]) *Query[F] {
+	return &Query[F]{qLTEQ, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
 }
 
 // Add constructs the sum of one or more queries
-func (p *Query) Add(queries ...*Query) *Query {
+func (p *Query[F]) Add(queries ...*Query[F]) *Query[F] {
 	args := build_args(p, queries)
 	//
-	return &Query{qADD, args, fr.Element{}, ""}
+	return &Query[F]{qADD, args, field.Zero[F](), ""}
 }
 
 // Mul constructs the product of one or more queries
-func (p *Query) Mul(queries ...*Query) *Query {
+func (p *Query[F]) Mul(queries ...*Query[F]) *Query[F] {
 	args := build_args(p, queries)
 	//
-	return &Query{qMUL, args, fr.Element{}, ""}
+	return &Query[F]{qMUL, args, field.Zero[F](), ""}
 }
 
 // Sub constructs the subtraction of one or more queries
-func (p *Query) Sub(queries ...*Query) *Query {
+func (p *Query[F]) Sub(queries ...*Query[F]) *Query[F] {
 	args := build_args(p, queries)
 	//
-	return &Query{qSUB, args, fr.Element{}, ""}
+	return &Query[F]{qSUB, args, field.Zero[F](), ""}
 }
 
-func build_args(q *Query, queries []*Query) []Query {
-	args := make([]Query, 1+len(queries))
+func build_args[F field.Element[F]](q *Query[F], queries []*Query[F]) []Query[F] {
+	args := make([]Query[F], 1+len(queries))
 	args[0] = *q
 	//
 	for i := range queries {
@@ -139,16 +138,16 @@ func build_args(q *Query, queries []*Query) []Query {
 }
 
 // String produces a parseable string from this query.
-func (p *Query) String() string {
+func (p *Query[F]) String() string {
 	return query_string(*p)
 }
 
 // Eval evaluates the given query in the given environment.
-func (p *Query) Eval(row uint, env map[string]tr.Column[bls12_377.Element]) fr.Element {
+func (p *Query[F]) Eval(row uint, env map[string]tr.Column[F]) F {
 	switch p.op {
 	case qVAR:
 		if col, ok := env[p.name]; ok {
-			return col.Get(int(row)).Element
+			return col.Get(int(row))
 		}
 		// error
 		panic("unknown column \"%s\"")
@@ -177,10 +176,11 @@ func (p *Query) Eval(row uint, env map[string]tr.Column[bls12_377.Element]) fr.E
 	}
 }
 
-type binary_op = func(fr.Element, fr.Element) fr.Element
-type nary_op = func([]fr.Element) fr.Element
+type binary_op[F field.Element[F]] func(F, F) F
+type nary_op[F field.Element[F]] func([]F) F
 
-func eval_binary(row uint, env map[string]tr.Column[bls12_377.Element], lhs Query, rhs Query, fn binary_op) fr.Element {
+func eval_binary[F field.Element[F]](row uint, env map[string]tr.Column[F], lhs Query[F], rhs Query[F],
+	fn binary_op[F]) F {
 	// Evaluate left-hand side
 	lv := lhs.Eval(row, env)
 	// Evaluate right-hand side
@@ -189,8 +189,8 @@ func eval_binary(row uint, env map[string]tr.Column[bls12_377.Element], lhs Quer
 	return fn(lv, rv)
 }
 
-func eval_nary(row uint, env map[string]tr.Column[bls12_377.Element], args []Query, fn nary_op) fr.Element {
-	vals := make([]fr.Element, len(args))
+func eval_nary[F field.Element[F]](row uint, env map[string]tr.Column[F], args []Query[F], fn nary_op[F]) F {
+	vals := make([]F, len(args))
 	// Evaluate arguments
 	for i, arg := range args {
 		vals[i] = arg.Eval(row, env)
@@ -199,43 +199,43 @@ func eval_nary(row uint, env map[string]tr.Column[bls12_377.Element], args []Que
 	return fn(vals)
 }
 
-func eval_eq(lhs fr.Element, rhs fr.Element) fr.Element {
+func eval_eq[F field.Element[F]](lhs F, rhs F) F {
 	// Perform comparison
-	if lhs.Cmp(&rhs) == 0 {
-		return fr.NewElement(0)
+	if lhs.Cmp(rhs) == 0 {
+		return field.Zero[F]()
 	}
 	//
-	return fr.One()
+	return field.One[F]()
 }
 
-func eval_neq(lhs fr.Element, rhs fr.Element) fr.Element {
+func eval_neq[F field.Element[F]](lhs F, rhs F) F {
 	// Perform comparison
-	if lhs.Cmp(&rhs) != 0 {
-		return fr.NewElement(0)
+	if lhs.Cmp(rhs) != 0 {
+		return field.Zero[F]()
 	}
 	//
-	return fr.One()
+	return field.One[F]()
 }
 
-func eval_lt(lhs fr.Element, rhs fr.Element) fr.Element {
+func eval_lt[F field.Element[F]](lhs F, rhs F) F {
 	// Perform comparison
-	if lhs.Cmp(&rhs) < 0 {
-		return fr.NewElement(0)
+	if lhs.Cmp(rhs) < 0 {
+		return field.Zero[F]()
 	}
 	//
-	return fr.One()
+	return field.One[F]()
 }
 
-func eval_lteq(lhs fr.Element, rhs fr.Element) fr.Element {
+func eval_lteq[F field.Element[F]](lhs F, rhs F) F {
 	// Perform comparison
-	if lhs.Cmp(&rhs) <= 0 {
-		return fr.NewElement(0)
+	if lhs.Cmp(rhs) <= 0 {
+		return field.Zero[F]()
 	}
 	//
-	return fr.One()
+	return field.One[F]()
 }
 
-func eval_or(vals []fr.Element) fr.Element {
+func eval_or[F field.Element[F]](vals []F) F {
 	for _, v := range vals {
 		if v.IsZero() {
 			// Success
@@ -243,10 +243,10 @@ func eval_or(vals []fr.Element) fr.Element {
 		}
 	}
 	// Fail
-	return fr.One()
+	return field.One[F]()
 }
 
-func eval_and(vals []fr.Element) fr.Element {
+func eval_and[F field.Element[F]](vals []F) F {
 	//
 	for _, v := range vals {
 		if !v.IsZero() {
@@ -255,40 +255,40 @@ func eval_and(vals []fr.Element) fr.Element {
 		}
 	}
 	// Success
-	return fr.NewElement(0)
+	return field.Zero[F]()
 }
 
-func eval_add(vals []fr.Element) fr.Element {
-	val := fr.NewElement(0)
+func eval_add[F field.Element[F]](vals []F) F {
+	val := field.Zero[F]()
 	//
 	for _, v := range vals {
-		val.Add(&val, &v)
+		val = val.Add(v)
 	}
 	//
 	return val
 }
 
-func eval_mul(vals []fr.Element) fr.Element {
-	val := fr.NewElement(1)
+func eval_mul[F field.Element[F]](vals []F) F {
+	val := field.One[F]()
 	//
 	for _, v := range vals {
-		val.Mul(&val, &v)
+		val = val.Mul(v)
 	}
 	//
 	return val
 }
 
-func eval_sub(vals []fr.Element) fr.Element {
+func eval_sub[F field.Element[F]](vals []F) F {
 	val := vals[0]
 	//
 	for _, v := range vals[1:] {
-		val.Sub(&val, &v)
+		val = val.Sub(v)
 	}
 	//
 	return val
 }
 
-func query_string(p Query, braces ...int) string {
+func query_string[F field.Element[F]](p Query[F], braces ...int) string {
 	var str string
 	//
 	switch p.op {
@@ -325,7 +325,7 @@ func query_string(p Query, braces ...int) string {
 	return str
 }
 
-func query_strings(op string, spacing bool, queries []Query, braces ...int) string {
+func query_strings[F field.Element[F]](op string, spacing bool, queries []Query[F], braces ...int) string {
 	var builder strings.Builder
 	//
 	for i, q := range queries {

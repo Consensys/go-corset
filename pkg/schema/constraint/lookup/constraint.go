@@ -84,7 +84,7 @@ func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, targets
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, E]) Consistent(_ schema.AnySchema) []error {
+func (p Constraint[F, E]) Consistent(_ schema.AnySchema[F]) []error {
 	return nil
 }
 
@@ -140,7 +140,7 @@ func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		st       State[F, E]
@@ -162,7 +162,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema) (bit.S
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint[F, E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F, E]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		sources = sexp.EmptyList()
 		targets = sexp.EmptyList()
@@ -196,7 +196,7 @@ func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 	}
 }
 
-func (p *Constraint[F, E]) insertTargetVectors(tr trace.Trace[F], sc schema.AnySchema) (
+func (p *Constraint[F, E]) insertTargetVectors(tr trace.Trace[F], sc schema.AnySchema[F]) (
 	State[F, E], schema.Failure) {
 	//
 	var (
@@ -245,7 +245,7 @@ type State[F field.Element[F], E ir.Evaluable[F]] struct {
 	buffer []F
 }
 
-func (p *State[F, E]) checkSourceVectors(sources []Vector[F, E], tr trace.Trace[F], sc schema.AnySchema,
+func (p *State[F, E]) checkSourceVectors(sources []Vector[F, E], tr trace.Trace[F], sc schema.AnySchema[F],
 ) schema.Failure {
 	// Choose optimised loop
 	for _, source := range sources {

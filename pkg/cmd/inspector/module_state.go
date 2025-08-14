@@ -23,21 +23,21 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // ModuleState provides state regarding how to display the trace for a given
 // module, including related aspects like filter histories, etc.
-type ModuleState struct {
+type ModuleState[F field.Element[F]] struct {
 	// Corresponding trace
-	trace tr.Trace[bls12_377.Element]
+	trace tr.Trace[F]
 	// Name of the source-level module
 	name string
 	// Identifies trace columns in this module.
 	columns []SourceColumn
 	// Active module view
-	view ModuleView
+	view ModuleView[F]
 	// History for goto row commands
 	targetRowHistory []string
 	// Active column filter
@@ -89,11 +89,11 @@ func (p *SourceColumnFilter) Match(col SourceColumn) bool {
 	return false
 }
 
-func newModuleState(module *corset.SourceModule, trace tr.Trace[bls12_377.Element], enums []corset.Enumeration,
-	recurse bool) ModuleState {
+func newModuleState[F field.Element[F]](module *corset.SourceModule, trace tr.Trace[F], enums []corset.Enumeration,
+	recurse bool) ModuleState[F] {
 	//
 	var (
-		state      ModuleState
+		state      ModuleState[F]
 		submodules []corset.SourceModule
 	)
 	// Handle non-root modules
@@ -122,23 +122,23 @@ func newModuleState(module *corset.SourceModule, trace tr.Trace[bls12_377.Elemen
 	return state
 }
 
-func (p *ModuleState) height() uint {
+func (p *ModuleState[F]) height() uint {
 	return uint(len(p.view.rowWidths))
 }
 
-func (p *ModuleState) cellWidth() uint {
+func (p *ModuleState[F]) cellWidth() uint {
 	return p.view.maxRowWidth
 }
 
-func (p *ModuleState) setCellWidth(width uint) {
+func (p *ModuleState[F]) setCellWidth(width uint) {
 	p.view.SetMaxRowWidth(width, p.trace)
 }
 
-func (p *ModuleState) setColumnOffset(colOffset uint) {
+func (p *ModuleState[F]) setColumnOffset(colOffset uint) {
 	p.view.SetColumn(colOffset)
 }
 
-func (p *ModuleState) setRowOffset(rowOffset uint) uint {
+func (p *ModuleState[F]) setRowOffset(rowOffset uint) uint {
 	row := p.view.SetRow(rowOffset)
 	//
 	if row != rowOffset {
@@ -152,7 +152,7 @@ func (p *ModuleState) setRowOffset(rowOffset uint) uint {
 
 // Apply a new column filter to the module view.  This determines which columns
 // are currently visible.
-func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool) {
+func (p *ModuleState[F]) applyColumnFilter(filter SourceColumnFilter, history bool) {
 	filteredColumns := make([]SourceColumn, 0)
 	// Apply filter
 	for _, col := range p.columns {
@@ -177,11 +177,11 @@ func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool)
 
 // Evaluate a query on the current module using those values from the given
 // trace, looking for the first row where the query holds.
-func (p *ModuleState) matchQuery(query *Query) termio.FormattedText {
+func (p *ModuleState[F]) matchQuery(query *Query[F]) termio.FormattedText {
 	// Always update history
 	p.scanHistory = history_append(p.scanHistory, query.String())
 	// Proceed
-	env := make(map[string]tr.Column[bls12_377.Element])
+	env := make(map[string]tr.Column[F])
 	// construct environment
 	for _, col := range p.columns {
 		env[col.Name] = p.trace.Column(col.Register)
