@@ -155,3 +155,8 @@ func (p Air[C]) Substitute(map[string]fr.Element) {
 	// constants.
 	panic("unreachable")
 }
+
+// Unwrap provides access to the underlying constraint.
+func (p Air[C]) Unwrap() C {
+	return p.constraint
+}
