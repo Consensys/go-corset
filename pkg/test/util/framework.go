@@ -29,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // TestDir determines the (relative) location of the test directory.  That is
@@ -192,7 +193,8 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	}
 }
 
-func checkTrace[C sc.Constraint](t *testing.T, tf lt.TraceFile, id traceId, schema sc.Schema[C], mapping sc.LimbsMap) {
+func checkTrace[C sc.Constraint[bls12_377.Element]](t *testing.T, tf lt.TraceFile, id traceId,
+	schema sc.Schema[bls12_377.Element, C], mapping sc.LimbsMap) {
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder().
 		WithExpansion(id.expand).

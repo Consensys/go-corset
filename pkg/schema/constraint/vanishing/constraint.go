@@ -21,7 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -31,7 +31,7 @@ import (
 // ignored.  This is parameterised by the type of the constraint expression.
 // Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type Constraint[T ir.Testable[bls12_377.Element]] struct {
+type Constraint[F field.Element[F], T ir.Testable[F]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -48,21 +48,21 @@ type Constraint[T ir.Testable[bls12_377.Element]] struct {
 }
 
 // NewConstraint constructs a new vanishing constraint!
-func NewConstraint[T ir.Testable[bls12_377.Element]](handle string, context schema.ModuleId,
-	domain util.Option[int], constraint T) Constraint[T] {
-	return Constraint[T]{handle, context, domain, constraint}
+func NewConstraint[F field.Element[F], T ir.Testable[F]](handle string, context schema.ModuleId,
+	domain util.Option[int], constraint T) Constraint[F, T] {
+	return Constraint[F, T]{handle, context, domain, constraint}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[E]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[F, T]) Consistent(schema schema.AnySchema[F]) []error {
 	return constraint.CheckConsistent(p.Context, schema, p.Constraint)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[E]) Name() string {
+func (p Constraint[F, T]) Name() string {
 	return p.Handle
 }
 
@@ -71,7 +71,7 @@ func (p Constraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[F, T]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -82,7 +82,7 @@ func (p Constraint[E]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p Constraint[T]) Bounds(module uint) util.Bounds {
+func (p Constraint[F, T]) Bounds(module uint) util.Bounds {
 	if p.Context == module {
 		return p.Constraint.Bounds()
 	}
@@ -94,7 +94,7 @@ func (p Constraint[T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Constraint[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
 		handle = constraint.DetermineHandle(p.Handle, p.Context, tr)
@@ -132,8 +132,8 @@ func (p Constraint[T]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[T ir.Testable[bls12_377.Element]](handle string, ctx schema.ModuleId, constraint T,
-	trMod trace.Module[bls12_377.Element], scMod schema.Module) (bit.Set, schema.Failure) {
+func HoldsGlobally[F field.Element[F], T ir.Testable[F]](handle string, ctx schema.ModuleId, constraint T,
+	trMod trace.Module[F], scMod schema.Module) (bit.Set, schema.Failure) {
 	//
 	var (
 		coverage bit.Set
@@ -160,13 +160,13 @@ func HoldsGlobally[T ir.Testable[bls12_377.Element]](handle string, ctx schema.M
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[T ir.Testable[bls12_377.Element]](k uint, handle string, term T, ctx schema.ModuleId,
-	trMod trace.Module[bls12_377.Element], scMod schema.Module) (schema.Failure, uint) {
+func HoldsLocally[F field.Element[F], T ir.Testable[F]](k uint, handle string, term T, ctx schema.ModuleId,
+	trMod trace.Module[F], scMod schema.Module) (schema.Failure, uint) {
 	//
 	ok, id, err := term.TestAt(int(k), trMod, scMod)
 	// Check for errors
 	if err != nil {
-		return &constraint.InternalFailure{
+		return &constraint.InternalFailure[F]{
 			Handle:  handle,
 			Context: ctx,
 			Row:     k,
@@ -174,7 +174,7 @@ func HoldsLocally[T ir.Testable[bls12_377.Element]](k uint, handle string, term 
 			Error:   err.Error()}, id
 	} else if !ok {
 		// Evaluation failure
-		return &Failure{handle, term, ctx, k}, id
+		return &Failure[F]{handle, term, ctx, k}, id
 	}
 	// Success
 	return nil, id
@@ -183,7 +183,7 @@ func HoldsLocally[T ir.Testable[bls12_377.Element]](k uint, handle string, term 
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		module = schema.Module(p.Context)
 		name   string
@@ -216,6 +216,6 @@ func (p Constraint[T]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[T]) Substitute(mapping map[string]bls12_377.Element) {
+func (p Constraint[F, T]) Substitute(mapping map[string]F) {
 	p.Constraint.Substitute(mapping)
 }

@@ -24,7 +24,7 @@ import (
 // SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
 // simplify the problem of mapping source-level names to e.g. module-specific
 // register indexes.
-type SchemaBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]] struct {
+type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] struct {
 	// Modmap maps modules identifers to modules
 	modmap map[string]uint
 	// Externs represent modules which have already been constructed.  These
@@ -37,7 +37,7 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]] struct
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[F field.Element[F], C schema.Constraint, T Term[F, T], E schema.Module](externs ...E,
+func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], E schema.Module](externs ...E,
 ) SchemaBuilder[F, C, T] {
 	var (
 		modmap   = make(map[string]uint, 0)
@@ -101,8 +101,8 @@ func (p *SchemaBuilder[F, C, T]) ModuleOf(name string) *ModuleBuilder[F, C, T] {
 }
 
 // Build returns an array of tables constructed by this builder.
-func (p *SchemaBuilder[F, C, T]) Build() []*schema.Table[C] {
-	modules := make([]*schema.Table[C], len(p.modules))
+func (p *SchemaBuilder[F, C, T]) Build() []*schema.Table[F, C] {
+	modules := make([]*schema.Table[F, C], len(p.modules))
 	//
 	for i, m := range p.modules {
 		modules[i] = m.BuildTable()
@@ -115,7 +115,7 @@ func (p *SchemaBuilder[F, C, T]) Build() []*schema.Table[C] {
 // use in schemas.  For example, it maintains a mapping from register names to
 // their relevant indices.  It also provides a mechanism for constructing a
 // register access based on the register name, etc.
-type ModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]] struct {
+type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] struct {
 	extern bool
 	// Name of the module being constructed
 	name string
@@ -132,11 +132,11 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]] struct
 	// Constraints for this module
 	constraints []C
 	// Assignments for computed registers
-	assignments []schema.Assignment[bls12_377.Element]
+	assignments []schema.Assignment[F]
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]](name string, mid schema.ModuleId,
+func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](name string, mid schema.ModuleId,
 	multiplier uint, padding bool) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
@@ -145,7 +145,7 @@ func NewModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]](nam
 
 // NewExternModuleBuilder constructs a new builder suitable for external
 // modules.  These are just used for linking purposes.
-func NewExternModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T]](mid schema.ModuleId,
+func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](mid schema.ModuleId,
 	module schema.Module) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
@@ -159,7 +159,7 @@ func NewExternModuleBuilder[F field.Element[F], C schema.Constraint, T Term[F, T
 
 // AddAssignment adds a new assignment to this module.  Assignments are
 // responsible for computing the values of computed columns.
-func (p *ModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[bls12_377.Element]) {
+func (p *ModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F]) {
 	if p.extern {
 		panic("cannot add assignment to external module")
 	}
@@ -179,14 +179,14 @@ func (p *ModuleBuilder[F, C, T]) AddConstraint(constraint C) {
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
-func (p *ModuleBuilder[F, C, T]) Assignments() iter.Iterator[schema.Assignment[bls12_377.Element]] {
+func (p *ModuleBuilder[F, C, T]) Assignments() iter.Iterator[schema.Assignment[F]] {
 	return iter.NewArrayIterator(p.assignments)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *ModuleBuilder[F, C, T]) Consistent(schema schema.AnySchema) []error {
+func (p *ModuleBuilder[F, C, T]) Consistent(schema schema.AnySchema[F]) []error {
 	var errors []error
 	// Check constraints
 	for _, c := range p.constraints {
@@ -202,9 +202,9 @@ func (p *ModuleBuilder[F, C, T]) Consistent(schema schema.AnySchema) []error {
 
 // Constraints provides access to those constraints associated with this
 // module.
-func (p *ModuleBuilder[F, C, T]) Constraints() iter.Iterator[schema.Constraint] {
+func (p *ModuleBuilder[F, C, T]) Constraints() iter.Iterator[schema.Constraint[bls12_377.Element]] {
 	i := iter.NewArrayIterator(p.constraints)
-	return iter.NewCastIterator[C, schema.Constraint](i)
+	return iter.NewCastIterator[C, schema.Constraint[bls12_377.Element]](i)
 }
 
 // Id returns the module index of this module.
@@ -295,12 +295,12 @@ func (p *ModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int) *Regis
 }
 
 // BuildTable constructs a table module from this module builder.
-func (p *ModuleBuilder[F, C, T]) BuildTable() *schema.Table[C] {
+func (p *ModuleBuilder[F, C, T]) BuildTable() *schema.Table[F, C] {
 	if p.extern {
 		panic("cannot build externally defined module")
 	}
 	//
-	table := schema.NewTable[C](p.name, p.multiplier, p.padding)
+	table := schema.NewTable[F, C](p.name, p.multiplier, p.padding)
 	table.AddRegisters(p.registers...)
 	table.AddConstraints(p.constraints...)
 	table.AddAssignments(p.assignments...)

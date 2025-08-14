@@ -21,6 +21,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Get a string representing the bound of all values in a given bitwidth.  For
@@ -58,7 +59,7 @@ func normaliseBitwidth(bitwidth uint) uint {
 
 // Determine total number of registers, including those for computed columns, in
 // this schema.
-func getMaxRegisterIndex(schema sc.AnySchema) uint {
+func getMaxRegisterIndex(schema sc.AnySchema[bls12_377.Element]) uint {
 	mx := uint(0)
 	// Write register initialisers
 	for mid := range schema.Width() {

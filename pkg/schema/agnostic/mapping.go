@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Subdivide a mixed schema of field agnostic modules according to the given
@@ -56,7 +57,7 @@ type limbsMap struct {
 // newRegisterMappings constructs a new schema mapping for a given schema and
 // parameter combination.  This determines, amongst other things,  the
 // composition of limbs for all registers in the schema.
-func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema) sc.LimbsMap {
+func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema[bls12_377.Element]) sc.LimbsMap {
 	var mappings []registerLimbsMap
 	//
 	for i := range schema.Width() {

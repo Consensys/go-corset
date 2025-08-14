@@ -21,14 +21,14 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Constraint declares a constraint that one expression represents the
 // interleaving of one or more expressions.  For example, suppose X=[1,2] and
 // Y=[3,4].  Then Z=[1,3,2,4] is the interleaving of X and Y.
-type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
+type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 	Handle string
 	// Context in which all target columns are evaluated.
 	TargetContext schema.ModuleId
@@ -41,23 +41,23 @@ type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 }
 
 // NewConstraint creates a new Interleave
-func NewConstraint[E ir.Evaluable[bls12_377.Element]](handle string, targetContext schema.ModuleId,
-	sourceContext schema.ModuleId, target E, sources []E) Constraint[E] {
+func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target E, sources []E) Constraint[F, E] {
 	//
-	return Constraint[E]{handle, targetContext, sourceContext, target, sources}
+	return Constraint[F, E]{handle, targetContext, sourceContext, target, sources}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[E]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
 	// TODO: check column access, and widths, etc.
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[E]) Name() string {
+func (p Constraint[F, E]) Name() string {
 	return p.Handle
 }
 
@@ -66,7 +66,7 @@ func (p Constraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.TargetContext, p.SourceContext}
 }
 
@@ -75,13 +75,13 @@ func (p Constraint[E]) Contexts() []schema.ModuleId {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p Constraint[E]) Bounds(module uint) util.Bounds {
+func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a Interleave holds between the source and
 // target columns.
-func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		srcTrMod = tr.Module(p.SourceContext)
@@ -101,7 +101,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 		s, s_err := p.Sources[row%n].EvalAt(row/n, srcTrMod, srcScMod)
 		// Checks
 		if t_err != nil {
-			return coverage, &constraint.InternalFailure{
+			return coverage, &constraint.InternalFailure[F]{
 				Handle:  p.Handle,
 				Context: p.TargetContext,
 				Row:     uint(row),
@@ -109,7 +109,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 				Error:   t_err.Error(),
 			}
 		} else if s_err != nil {
-			return coverage, &constraint.InternalFailure{
+			return coverage, &constraint.InternalFailure[F]{
 				Handle:  p.Handle,
 				Context: p.SourceContext,
 				Row:     uint(row / n),
@@ -118,7 +118,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 			}
 		} else if t.Cmp(s) != 0 {
 			// Evaluation failure
-			return coverage, &Failure{
+			return coverage, &Failure[F]{
 				p.Handle,
 				p.TargetContext,
 				p.Target,
@@ -134,7 +134,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F, E]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		sourceModule = schema.Module(p.SourceContext)
 		targetModule = schema.Module(p.TargetContext)
@@ -164,7 +164,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
+func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 	for _, s := range p.Sources {
 		s.Substitute(mapping)
 	}

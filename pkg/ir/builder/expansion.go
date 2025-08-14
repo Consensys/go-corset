@@ -22,13 +22,14 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // TraceExpansion expands a given trace according to a given schema. More
 // specifically, that means computing the actual values for any assignments.
 // This is done using a straightforward sequential algorithm.
-func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[bls12_377.Element]) error {
+func TraceExpansion[F field.Element[F]](parallel bool, batchsize uint, schema sc.AnySchema[F],
+	trace *tr.ArrayTrace[F]) error {
+	//
 	var (
 		err error
 		// Start timer
@@ -50,14 +51,14 @@ func TraceExpansion(parallel bool, batchsize uint, schema sc.AnySchema, trace *t
 // SequentialTraceExpansion expands a given trace according to a given schema.
 // More specifically, that means computing the actual values for any
 // assignments.  This is done using a straightforward sequential algorithm.
-func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[bls12_377.Element]) error {
+func SequentialTraceExpansion[F field.Element[F]](schema sc.AnySchema[F], trace *trace.ArrayTrace[F]) error {
 	var (
 		err      error
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
 	// Compute each assignment in turn
 	for !expander.Done() {
-		var cols []array.MutArray[bls12_377.Element]
+		var cols []array.MutArray[F]
 		// Get next assignment
 		ith := expander.Next(1)[0]
 		// Compute ith assignment(s)
@@ -76,13 +77,13 @@ func SequentialTraceExpansion(schema sc.AnySchema, trace *trace.ArrayTrace[bls12
 // continuous approach.  This is for two reasons: firstly, the latter would
 // require locks that would slow down evaluation performance; secondly, the vast
 // majority of jobs are run in the very first wave.
-func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.ArrayTrace[bls12_377.Element]) error {
+func ParallelTraceExpansion[F field.Element[F]](batchsize uint, schema sc.AnySchema[F], trace *tr.ArrayTrace[F]) error {
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
-		ch = make(chan columnBatch[bls12_377.Element], batchsize)
+		ch = make(chan columnBatch[F], batchsize)
 		//
-		expander = NewExpander(schema.Width(), schema.Assignments())
+		expander = NewExpander[F](schema.Width(), schema.Assignments())
 	)
 	// Iterate until all assignments processed.
 	for !expander.Done() {
@@ -93,7 +94,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 		// Dispatch next batch of assignments.
 		dispatchReadyAssignments(batch, schema, trace, ch)
 		//
-		batches := make([]columnBatch[bls12_377.Element], len(batch))
+		batches := make([]columnBatch[F], len(batch))
 		// Collect all the results
 		for i := range len(batch) {
 			batches[i] = <-ch
@@ -119,7 +120,7 @@ func ParallelTraceExpansion(batchsize uint, schema sc.AnySchema, trace *tr.Array
 
 // Dispatch the given set of assignments with results being fed back into the
 // shared channel.
-func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F], schema sc.AnySchema,
+func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F], schema sc.AnySchema[F],
 	trace *tr.ArrayTrace[F], ch chan columnBatch[F]) {
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {

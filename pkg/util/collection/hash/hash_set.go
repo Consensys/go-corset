@@ -13,27 +13,9 @@
 package hash
 
 import (
-	"bytes"
 	"fmt"
-	"hash/fnv"
 	"strings"
 )
-
-// A reasonably simple hashset implementation which permits collisions.  Observe
-// that, for example, hashicorp's go-set is *not* a suitable replacement here,
-// since that does not handle collisions.  Specifically, it assumes the hash
-// function always uniquely identifies the data in question.  I don't want to
-// make that assumption here.
-
-// Hasher provides a generic definition of a hashing function suitable for use
-// within the hashset.  This is similar to the Hasher interface provided in
-// go-set, except that it additionally includes equality.
-type Hasher[T any] interface {
-	// Check whether two items are equal (or not).
-	Equals(T) bool
-	// Return a suitable hashcode.
-	Hash() uint64
-}
 
 // Set defines a generic set implementation backed by a map.  This is a true
 // hashtable in that collisions are handle gracefully using buckets, rather than
@@ -121,7 +103,7 @@ func (p *Set[T]) String() string {
 
 			first = false
 
-			r.WriteString(fmt.Sprintf("%s", any(i)))
+			r.WriteString(fmt.Sprintf("%v", any(i)))
 		}
 	}
 	// Write closing brace
@@ -170,33 +152,4 @@ func (b *hashSetBucket[T]) contains(item T) bool {
 	}
 
 	return false
-}
-
-// ============================================================================
-// Key Implementations
-// ============================================================================
-
-// BytesKey wraps a bytes array as something which can be safely placed into a
-// HashSet.
-type BytesKey struct {
-	bytes []byte
-}
-
-// NewBytesKey constructs a new bytes key.
-func NewBytesKey(bytes []byte) BytesKey {
-	return BytesKey{bytes}
-}
-
-// Equals compares two BytesKeys to check whether they represent the same
-// underlying byte array (or not).
-func (p BytesKey) Equals(other BytesKey) bool {
-	return bytes.Equal(p.bytes, other.bytes)
-}
-
-// Hash generat6es a 64-bit hashcode from the underlying bytes array.
-func (p BytesKey) Hash() uint64 {
-	hash := fnv.New64a()
-	hash.Write(p.bytes)
-	// Done
-	return hash.Sum64()
 }

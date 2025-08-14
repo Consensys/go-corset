@@ -169,7 +169,9 @@ func (tb TraceBuilder) BatchSize() uint {
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[bls12_377.Element], []error) {
+func (tb TraceBuilder) Build(schema sc.AnySchema[bls12_377.Element], tf lt.TraceFile) (
+	trace.Trace[bls12_377.Element], []error) {
+	//
 	var (
 		pool   word.Pool[uint, bls12_377.Element]
 		cols   []trace.RawColumn[bls12_377.Element]
@@ -187,7 +189,7 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[
 		pool, cols = builder.TraceLowering[bls12_377.Element](tb.parallel, tf.Clone())
 	}
 	// Initialise the actual trace object
-	tr, errors := initialiseTrace[bls12_377.Element](!tb.expand, schema, pool, cols)
+	tr, errors := initialiseTrace(!tb.expand, schema, pool, cols)
 	//
 	if len(errors) > 0 {
 		// Critical failure
@@ -223,7 +225,7 @@ func (tb TraceBuilder) Build(schema sc.AnySchema, tf lt.TraceFile) (trace.Trace[
 	return tr, errors
 }
 
-func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema, pool word.Pool[uint, F],
+func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema[F], pool word.Pool[uint, F],
 	cols []trace.RawColumn[F]) (*trace.ArrayTrace[F], []error) {
 	//
 	var (
@@ -243,7 +245,7 @@ func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema, poo
 	return trace.NewArrayTrace(pool, modules), errors
 }
 
-func initialiseModuleMap(schema sc.AnySchema) map[string]uint {
+func initialiseModuleMap[F any](schema sc.AnySchema[F]) map[string]uint {
 	modmap := make(map[string]uint, 100)
 	// Initialise modules
 	for i := uint(0); i != schema.Width(); i++ {
@@ -259,7 +261,7 @@ func initialiseModuleMap(schema sc.AnySchema) map[string]uint {
 	return modmap
 }
 
-func splitTraceColumns[F field.Element[F]](expanded bool, schema sc.AnySchema, modmap map[string]uint,
+func splitTraceColumns[F field.Element[F]](expanded bool, schema sc.AnySchema[F], modmap map[string]uint,
 	cols []trace.RawColumn[F]) ([][]trace.RawColumn[F], []error) {
 	//
 	var (
@@ -309,7 +311,7 @@ func splitTraceColumns[F field.Element[F]](expanded bool, schema sc.AnySchema, m
 	return modules, errs
 }
 
-func initialiseColumnMap[F field.Element[F]](expanded bool, schema sc.AnySchema) (map[columnKey]columnId,
+func initialiseColumnMap[F field.Element[F]](expanded bool, schema sc.AnySchema[F]) (map[columnKey]columnId,
 	[][]trace.RawColumn[F]) {
 	//
 	var (
@@ -372,7 +374,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module, rawColumns []trace.RawCo
 
 // pad each module with its given level of spillage and (optionally) ensure a
 // given level of defensive padding.
-func addSpillageAndDefensivePadding[F any](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema) {
+func addSpillageAndDefensivePadding[F any](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema[F]) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
@@ -404,7 +406,7 @@ func determineModuleHeights[F any](tr *trace.ArrayTrace[F]) []uint {
 // checkModuleHeights checks the expanded heights match exactly what was
 // expected.
 func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayTrace[F],
-	schema sc.AnySchema) error {
+	schema sc.AnySchema[F]) error {
 	//
 	expanded := determineModuleHeights[F](tr)
 	//
@@ -425,7 +427,7 @@ func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayT
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padColumns[F any](tr *trace.ArrayTrace[F], schema sc.AnySchema, padding uint) {
+func padColumns[F any](tr *trace.ArrayTrace[F], schema sc.AnySchema[F], padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {

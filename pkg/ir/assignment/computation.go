@@ -13,7 +13,6 @@
 package assignment
 
 import (
-	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 
@@ -64,7 +63,7 @@ func (p *Computation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema,
+func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	// Identify Computation
 	fn := findNative[F](p.Function)
@@ -75,7 +74,7 @@ func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema,
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *Computation[F]) Consistent(_ sc.AnySchema) []error {
+func (p *Computation[F]) Consistent(_ sc.AnySchema[F]) []error {
 	// NOTE: this is where we could (in principle) check the type of the
 	// function being defined to ensure it is, for example, typed correctly.
 	return nil
@@ -108,7 +107,7 @@ func (p *Computation[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *Computation[F]) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
@@ -271,7 +270,7 @@ func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], pool word
 	sourceSelector := sources[1+n]
 	sourceKeys := make([]array.Array[F], n)
 	sourceValue := sources[2+n+n]
-	sourceMap := hash.NewMap[hash.BytesKey, F](sourceValue.Len())
+	sourceMap := hash.NewMap[hash.Array[F], F](sourceValue.Len())
 	targetSelector := sources[0]
 	targetKeys := make([]array.Array[F], n)
 	targetValue := word.NewArray(targetSelector.Len(), sourceValue.BitWidth(), pool)
@@ -320,23 +319,17 @@ func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], pool word
 	return []array.MutArray[F]{targetValue}
 }
 
-func extractIthKey[F field.Element[F]](index uint, cols []array.Array[F]) hash.BytesKey {
+func extractIthKey[F field.Element[F]](index uint, cols []array.Array[F]) hash.Array[F] {
 	var (
 		// Each column has 1 x 64bit hash
-		bytes = make([]byte, 8*len(cols))
-		// Slice provides an access window for writing
-		slice = bytes
+		buffer = make([]F, len(cols))
 	)
 	// Evaluate each expression in turn
 	for i := 0; i < len(cols); i++ {
-		ith := cols[i].Get(index).Hash()
-		// Copy has into bytes
-		binary.BigEndian.PutUint64(slice, ith)
-		// Shift slice along
-		slice = slice[8:]
+		buffer[i] = cols[i].Get(index)
 	}
 	// Done
-	return hash.NewBytesKey(bytes)
+	return hash.NewArray(buffer)
 }
 
 // determines changes of a given set of columns within a given region.

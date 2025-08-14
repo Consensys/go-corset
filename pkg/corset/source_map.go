@@ -16,7 +16,6 @@ import (
 	"encoding/gob"
 	"math/big"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
@@ -57,7 +56,7 @@ func (p *SourceMap) SubstituteConstants(mapping map[string]big.Int) {
 
 // Enumeration is a mapping from field elements to explicitly given names.  For
 // example, mapping opcode bytes to their names.
-type Enumeration map[fr.Element]string
+type Enumeration map[uint64]string
 
 // SourceModule represents an entity at the source-level which groups together
 // related columns.  Modules can be either concrete (in which case they

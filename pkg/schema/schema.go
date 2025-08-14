@@ -13,25 +13,17 @@
 package schema
 
 import (
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Any converts a concrete schema into a generic view of the schema.
-func Any[C Constraint](schema Schema[C]) AnySchema {
-	return schema.(Schema[Constraint])
+func Any[F any, C Constraint[F]](schema Schema[F, C]) AnySchema[F] {
+	return schema.(Schema[F, Constraint[F]])
 }
 
 // AnySchema captures a generic view of a schema, which is useful in situations
 // where exactly details about the schema are not important.
-type AnySchema = Schema[Constraint]
-
-// ============================================================================
-
-// Expander functions are responsible for "filling" traces according to a given
-// schema.  More specifically, the determine values for all computed columns.
-type Expander[M any, C any] func(Schema[C], trace.Trace[bls12_377.Element]) trace.Trace[bls12_377.Element]
+type AnySchema[F any] Schema[F, Constraint[F]]
 
 // ============================================================================
 
@@ -42,11 +34,11 @@ type Expander[M any, C any] func(Schema[C], trace.Trace[bls12_377.Element]) trac
 // in the final trace, whilst constraints are properties which should hold for
 // any acceptable trace.  Finally, assignments represent arbitrary computations
 // which "assign" values to registers during "trace expansion".
-type Schema[C any] interface {
+type Schema[F any, C any] interface {
 	// Assignments returns an iterator over the assignments of this schema.
 	// That is, the set of computations used to determine values for all
 	// computed columns.
-	Assignments() iter.Iterator[Assignment[bls12_377.Element]]
+	Assignments() iter.Iterator[Assignment[F]]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.

@@ -19,36 +19,35 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Failure provides structural information about a failing lookup constraint.
-type Failure struct {
+type Failure[F any] struct {
 	// Handle of the failing constraint
 	Handle string
 	// Relevant context for target expressions.
 	TargetContext schema.ModuleId
 	// Target expression involved
-	Target ir.Evaluable[bls12_377.Element]
+	Target ir.Evaluable[F]
 	// Relevant context for source expressions.
 	SourceContext schema.ModuleId
 	// Source expression which were missing
-	Source ir.Evaluable[bls12_377.Element]
+	Source ir.Evaluable[F]
 	// Target row on which constraint
 	Row uint
 }
 
 // Message provides a suitable error message
-func (p *Failure) Message() string {
+func (p *Failure[F]) Message() string {
 	return fmt.Sprintf("interleaving \"%s\" failed (row %d)", p.Handle, p.Row)
 }
 
-func (p *Failure) String() string {
+func (p *Failure[F]) String() string {
 	return p.Message()
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *Failure) RequiredCells(tr trace.Trace[bls12_377.Element]) *set.AnySortedSet[trace.CellRef] {
+func (p *Failure[F]) RequiredCells(tr trace.Trace[F]) *set.AnySortedSet[trace.CellRef] {
 	var res = set.NewAnySortedSet[trace.CellRef]()
 	//
 	res.InsertSorted(p.Source.RequiredCells(int(p.Row), p.SourceContext))

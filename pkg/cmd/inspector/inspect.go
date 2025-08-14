@@ -20,7 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/termio/widget"
 )
@@ -46,14 +46,14 @@ const TEXT_INPUT_MODE = 2
 const STATUS_MODE = 3
 
 // Inspector provides the necessary package
-type Inspector struct {
+type Inspector[F field.Element[F]] struct {
 	width  uint
 	height uint
 	//
 	term  *termio.Terminal
-	trace tr.Trace[bls12_377.Element]
+	trace tr.Trace[F]
 	// Module states
-	modules []ModuleState
+	modules []ModuleState[F]
 	// Widgets
 	tabs      *widget.Tabs
 	table     *widget.Table
@@ -63,32 +63,29 @@ type Inspector struct {
 	// The stack of "modes" in which the inspector is operating.  The root modes
 	// is the first in the stack.  When this is terminated, then the inspector
 	// closes.
-	modes []Mode
+	modes []Mode[F]
 }
 
 // Mode identifies a mode in which the inspector is operating.  The
 // default mode is for navigating the trace, but other modes are available for
 // receiving input from the user or displaying error messages, etc.
-type Mode interface {
+type Mode[F field.Element[F]] interface {
 	// Activate is called when this mode becomes active.  This happens when the
 	// mode is first entered, but can also happen subsequently when a child mode
 	// exits and results in this mode being reactivated.
-	Activate(*Inspector)
+	Activate(*Inspector[F])
 	// Clock is called on every clock tick.  This gives the mode an opportunity
 	// to do something if it wishes to.
-	Clock(*Inspector)
+	Clock(*Inspector[F])
 	// KeyPressed in the inspector and received by this mode.
-	KeyPressed(*Inspector, uint16) bool
+	KeyPressed(*Inspector[F], uint16) bool
 }
 
 // NewInspector constructs a new inspector on given terminal.
-func NewInspector(
-	term *termio.Terminal,
-	schema sc.AnySchema,
-	trace tr.Trace[bls12_377.Element],
-	srcmap *corset.SourceMap,
-) *Inspector {
-	states := make([]ModuleState, 0)
+func NewInspector[F field.Element[F]](term *termio.Terminal, schema sc.AnySchema[F], trace tr.Trace[F],
+	srcmap *corset.SourceMap) *Inspector[F] {
+	//
+	states := make([]ModuleState[F], 0)
 	//
 	for _, module := range srcmap.Flattern(concreteModules) {
 		// only consider modules which actually have columns.
@@ -105,16 +102,16 @@ func NewInspector(
 	//
 	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, states)
 	//
-	inspector := &Inspector{0, 0, term, trace, states, tabs, table, cmdbar, statusbar, 0, nil}
+	inspector := &Inspector[F]{0, 0, term, trace, states, tabs, table, cmdbar, statusbar, 0, nil}
 	table.SetSource(inspector)
 	// Put the inspector into default mode.
-	inspector.EnterMode(&NavigationMode{})
+	inspector.EnterMode(&NavigationMode[F]{})
 	//
 	return inspector
 }
 
 // Clock the inspector
-func (p *Inspector) Clock() error {
+func (p *Inspector[F]) Clock() error {
 	dirty := false
 	mode := len(p.modes) - 1
 	nWidth, nHeight := p.term.GetSize()
@@ -143,24 +140,24 @@ func (p *Inspector) Clock() error {
 }
 
 // Render the inspector to the given terminal
-func (p *Inspector) Render() error {
+func (p *Inspector[F]) Render() error {
 	return p.term.Render()
 }
 
 // Close the inspector.
-func (p *Inspector) Close() error {
+func (p *Inspector[F]) Close() error {
 	return p.term.Restore()
 }
 
 // CurrentModule returns the currently selected module
-func (p *Inspector) CurrentModule() *ModuleState {
+func (p *Inspector[F]) CurrentModule() *ModuleState[F] {
 	module := p.tabs.Selected()
 	//
 	return &p.modules[module]
 }
 
 // EnterMode pushes a new mode onto the mode stack.
-func (p *Inspector) EnterMode(mode Mode) {
+func (p *Inspector[F]) EnterMode(mode Mode[F]) {
 	// Append mode to stack of active modes
 	p.modes = append(p.modes, mode)
 	// Activate mode
@@ -168,7 +165,7 @@ func (p *Inspector) EnterMode(mode Mode) {
 }
 
 // KeyPressed allows the inspector to react to a key being pressed by the user.
-func (p *Inspector) KeyPressed(key uint16) bool {
+func (p *Inspector[F]) KeyPressed(key uint16) bool {
 	var n = len(p.modes) - 1
 	//
 	if p.modes[n].KeyPressed(p, key) {
@@ -185,21 +182,21 @@ func (p *Inspector) KeyPressed(key uint16) bool {
 
 // SetStatus puts a message on the status bar.  Messages remain visible for some
 // number of clock cycles.
-func (p *Inspector) SetStatus(msg termio.FormattedText) {
+func (p *Inspector[F]) SetStatus(msg termio.FormattedText) {
 	p.statusBar.Clear()
 	p.statusBar.AddLeft(msg)
 	p.statusClk = 5
 }
 
 // Access currently selected view
-func (p *Inspector) currentView() *ModuleState {
+func (p *Inspector[F]) currentView() *ModuleState[F] {
 	module := p.tabs.Selected()
 	// Action change
 	return &p.modules[module]
 }
 
 // change cell width in current module
-func (p *Inspector) changeCellWidth(direction bool) {
+func (p *Inspector[F]) changeCellWidth(direction bool) {
 	// Action change
 	width := p.CurrentModule().cellWidth()
 	//
@@ -215,7 +212,7 @@ func (p *Inspector) changeCellWidth(direction bool) {
 }
 
 // Actions goto row mode
-func (p *Inspector) gotoRow(row uint) termio.FormattedText {
+func (p *Inspector[F]) gotoRow(row uint) termio.FormattedText {
 	// Action change
 	row = p.CurrentModule().setRowOffset(row)
 	//
@@ -223,7 +220,7 @@ func (p *Inspector) gotoRow(row uint) termio.FormattedText {
 }
 
 // filter columns based on a regex
-func (p *Inspector) filterColumns(regex *regexp.Regexp) termio.FormattedText {
+func (p *Inspector[F]) filterColumns(regex *regexp.Regexp) termio.FormattedText {
 	filter := p.CurrentModule().columnFilter
 	filter.Regex = regex
 	p.CurrentModule().applyColumnFilter(filter, true)
@@ -231,7 +228,7 @@ func (p *Inspector) filterColumns(regex *regexp.Regexp) termio.FormattedText {
 	return termio.NewText("")
 }
 
-func (p *Inspector) clearColumnFilter() bool {
+func (p *Inspector[F]) clearColumnFilter() bool {
 	filter := p.CurrentModule().columnFilter
 	filter.Regex = nil
 	p.CurrentModule().applyColumnFilter(filter, false)
@@ -239,7 +236,7 @@ func (p *Inspector) clearColumnFilter() bool {
 	return true
 }
 
-func (p *Inspector) toggleColumnFilter() bool {
+func (p *Inspector[F]) toggleColumnFilter() bool {
 	var (
 		filter = p.CurrentModule().columnFilter
 		msg    string
@@ -264,7 +261,7 @@ func (p *Inspector) toggleColumnFilter() bool {
 	return true
 }
 
-func (p *Inspector) matchQuery(query *Query) termio.FormattedText {
+func (p *Inspector[F]) matchQuery(query *Query[F]) termio.FormattedText {
 	return p.CurrentModule().matchQuery(query)
 }
 
@@ -274,7 +271,7 @@ func (p *Inspector) matchQuery(query *Query) termio.FormattedText {
 
 // ColumnWidth gets the width of a given column in the main table of the
 // inspector.  Note that columns here are table columns, not trace columns.
-func (p *Inspector) ColumnWidth(col uint) uint {
+func (p *Inspector[F]) ColumnWidth(col uint) uint {
 	module := p.tabs.Selected()
 	state := p.modules[module]
 	//
@@ -283,7 +280,7 @@ func (p *Inspector) ColumnWidth(col uint) uint {
 
 // CellAt returns the contents of a given cell in the main table of the
 // inspector.
-func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
+func (p *Inspector[F]) CellAt(col, row uint) termio.FormattedText {
 	// Determine currently selected module
 	module := p.tabs.Selected()
 	state := &p.modules[module]
@@ -293,7 +290,7 @@ func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 }
 
 // Start provides a read / update / render loop.
-func (p *Inspector) Start() []error {
+func (p *Inspector[F]) Start() []error {
 	var errors []error
 	// Start clock timer
 	clk := time.NewTicker(500 * time.Millisecond)
@@ -333,7 +330,7 @@ func (p *Inspector) Start() []error {
 // Helpers
 // ==================================================================
 
-func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *widget.Tabs,
+func initInspectorWidgets[F field.Element[F]](term *termio.Terminal, states []ModuleState[F]) (tabs *widget.Tabs,
 	table *widget.Table, cmdbar *widget.TextLine, statusbar *widget.TextLine) {
 	//
 	tabs = initInspectorTabs(states)
@@ -351,7 +348,7 @@ func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *wi
 	return tabs, table, cmdbar, statusbar
 }
 
-func initInspectorTabs(states []ModuleState) *widget.Tabs {
+func initInspectorTabs[F field.Element[F]](states []ModuleState[F]) *widget.Tabs {
 	var titles []string
 
 	for _, state := range states {

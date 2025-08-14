@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -36,7 +37,7 @@ func (p Assignment[F, T]) Bounds(module uint) util.Bounds {
 }
 
 // Compute implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema) ([]array.MutArray[F], error) {
+func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]array.MutArray[F], error) {
 	//
 	var (
 		trModule = trace.Module(p.id)
@@ -52,12 +53,12 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema) ([]arr
 }
 
 // Consistent implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Consistent(sc.AnySchema) []error {
+func (p Assignment[F, T]) Consistent(sc.AnySchema[bls12_377.Element]) []error {
 	return nil
 }
 
 // Lisp implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p Assignment[F, T]) Lisp(schema sc.AnySchema[bls12_377.Element]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),

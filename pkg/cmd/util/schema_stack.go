@@ -74,7 +74,7 @@ type SchemaStack struct {
 	// Binfile represents the top of this stack.
 	binfile binfile.BinaryFile
 	// The various layers which are refined from the binfile.
-	schemas []schema.AnySchema
+	schemas []schema.AnySchema[bls12_377.Element]
 	// Register mapping used
 	mapping schema.LimbsMap
 	// Name of IR used for corresponding schema
@@ -150,13 +150,13 @@ func (p *SchemaStack) HasUniqueSchema() bool {
 
 // Schemas returns the stack of schemas according to the selected layers, where
 // higher-level layers come first.
-func (p *SchemaStack) Schemas() []schema.AnySchema {
+func (p *SchemaStack) Schemas() []schema.AnySchema[bls12_377.Element] {
 	return p.schemas
 }
 
 // SchemaOf returns the schema associated with the given IR representation.  If
 // there is no match, this will panic.
-func (p *SchemaStack) SchemaOf(ir string) schema.AnySchema {
+func (p *SchemaStack) SchemaOf(ir string) schema.AnySchema[bls12_377.Element] {
 	for i, n := range p.names {
 		if n == ir {
 			return p.schemas[i]
@@ -173,12 +173,12 @@ func (p *SchemaStack) TraceBuilder() ir.TraceBuilder {
 
 // UniqueSchema returns the first schema on the stack which, when
 // HasUniqueSchema() holds, means the uniquely specified schema.
-func (p *SchemaStack) UniqueSchema() schema.AnySchema {
+func (p *SchemaStack) UniqueSchema() schema.AnySchema[bls12_377.Element] {
 	return p.schemas[0]
 }
 
 // LowestSchema returns the last (i.e. lowest) schema on the stack.
-func (p *SchemaStack) LowestSchema() schema.AnySchema {
+func (p *SchemaStack) LowestSchema() schema.AnySchema[bls12_377.Element] {
 	n := len(p.schemas) - 1
 	return p.schemas[n]
 }

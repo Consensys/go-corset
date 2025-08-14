@@ -32,7 +32,7 @@ type MixedSchema[M1 Module, M2 Module] struct {
 	right []M2
 }
 
-var _ Schema[Constraint] = MixedSchema[Module, Module]{}
+var _ Schema[bls12_377.Element, Constraint[bls12_377.Element]] = MixedSchema[Module, Module]{}
 
 // NewMixedSchema constructs a new schema composed of two distinct sets of
 // modules, referred to as the "left" and the "right".  Those on the left are
@@ -71,7 +71,7 @@ func (p MixedSchema[M1, M2]) Consistent() []error {
 
 // Constraints returns an iterator over all constraints defined in this
 // schema.
-func (p MixedSchema[M1, M2]) Constraints() iter.Iterator[Constraint] {
+func (p MixedSchema[M1, M2]) Constraints() iter.Iterator[Constraint[bls12_377.Element]] {
 	leftIter := constraintsOf(p.left)
 	rightIter := constraintsOf(p.right)
 	//

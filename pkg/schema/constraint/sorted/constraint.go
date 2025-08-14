@@ -22,13 +22,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Constraint declares a constraint that one (or more) columns are
 // lexicographically sorted.
-type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
+type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
@@ -48,24 +47,24 @@ type Constraint[E ir.Evaluable[bls12_377.Element]] struct {
 	Strict bool
 }
 
-// NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[E ir.Evaluable[bls12_377.Element]](handle string, context schema.ModuleId, bitwidth uint,
-	selector util.Option[E], sources []E, signs []bool, strict bool) Constraint[E] {
+// NewConstraint creates a new Sorted
+func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, context schema.ModuleId, bitwidth uint,
+	selector util.Option[E], sources []E, signs []bool, strict bool) Constraint[F, E] {
 	//
-	return Constraint[E]{handle, context, bitwidth, selector, sources, signs, strict}
+	return Constraint[F, E]{handle, context, bitwidth, selector, sources, signs, strict}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[E]) Consistent(schema schema.AnySchema) []error {
+func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
 	// TODO: add more useful checks
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[E]) Name() string {
+func (p Constraint[F, E]) Name() string {
 	return p.Handle
 }
 
@@ -74,7 +73,7 @@ func (p Constraint[E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[E]) Contexts() []schema.ModuleId {
+func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -83,7 +82,7 @@ func (p Constraint[E]) Contexts() []schema.ModuleId {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p Constraint[E]) Bounds(module uint) util.Bounds {
+func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.Context {
@@ -98,7 +97,7 @@ func (p Constraint[E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Sorted holds between the source and
 // target columns.
-func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine enclosing module
@@ -112,11 +111,11 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 	// Sanity check enough rows
 	if bounds.End < height {
 		// Determine permitted range on delta value
-		deltaBound := field.TwoPowN[bls12_377.Element](p.BitWidth)
+		deltaBound := field.TwoPowN[F](p.BitWidth)
 		// Construct temporary buffers which are reused between evaluations to
 		// reduce memory pressure.
-		lhs := make([]bls12_377.Element, len(p.Sources))
-		rhs := make([]bls12_377.Element, len(p.Sources))
+		lhs := make([]F, len(p.Sources))
+		rhs := make([]F, len(p.Sources))
 		// Check all in-bounds values
 		for k := bounds.Start + 1; k < (height - bounds.End); k++ {
 			// Check selector
@@ -126,7 +125,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 				val, err := selector.EvalAt(int(k), trModule, scModule)
 				// Check whether active (or not)
 				if err != nil {
-					return coverage, &constraint.InternalFailure{
+					return coverage, &constraint.InternalFailure[F]{
 						Handle:  p.Handle,
 						Context: p.Context,
 						Row:     k,
@@ -138,7 +137,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 			}
 			// Check sorting between rows k-1 and k
 			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, trModule, scModule, lhs, rhs); err != nil {
-				return coverage, &constraint.InternalFailure{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
+				return coverage, &constraint.InternalFailure[F]{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 			} else if !ok {
 				return coverage, &Failure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}
@@ -150,7 +149,7 @@ func (p Constraint[E]) Accepts(tr trace.Trace[bls12_377.Element], sc schema.AnyS
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint[F, E]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		module  = schema.Module(p.Context)
 		kind    = "sorted"
@@ -193,7 +192,7 @@ func (p Constraint[E]) Lisp(schema schema.AnySchema) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[E]) Substitute(mapping map[string]bls12_377.Element) {
+func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 	for _, s := range p.Sources {
 		s.Substitute(mapping)
 	}

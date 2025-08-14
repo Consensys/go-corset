@@ -33,7 +33,7 @@ import (
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
 // are not found at the Constraint level.
 type Constraint struct {
-	constraint schema.Constraint
+	constraint schema.Constraint[bls12_377.Element]
 }
 
 // NewAssertion constructs a new assertion
@@ -46,7 +46,7 @@ func NewAssertion(handle string, ctx schema.ModuleId, term LogicalTerm) Constrai
 func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
 	term LogicalTerm) Constraint {
 	//
-	return Constraint{vanishing.NewConstraint(handle, ctx, domain, term)}
+	return Constraint{vanishing.NewConstraint[bls12_377.Element](handle, ctx, domain, term)}
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.
@@ -65,25 +65,27 @@ func NewLookupConstraint(handle string, targets []lookup.Vector[bls12_377.Elemen
 // NewPermutationConstraint creates a new permutation
 func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
 	sources []schema.RegisterId) Constraint {
-	return Constraint{permutation.NewPermutationConstraint(handle, context, targets, sources)}
+	return Constraint{permutation.NewConstraint[bls12_377.Element](handle, context, targets, sources)}
 }
 
 // NewRangeConstraint constructs a new Range constraint!
 func NewRangeConstraint(handle string, ctx schema.ModuleId, expr Term, bitwidth uint) Constraint {
-	return Constraint{ranged.NewRangeConstraint(handle, ctx, expr, bitwidth)}
+	return Constraint{ranged.NewConstraint(handle, ctx, expr, bitwidth)}
 }
 
 // NewSortedConstraint creates a new Sorted
 func NewSortedConstraint(handle string, context schema.ModuleId, bitwidth uint, selector util.Option[Term],
 	sources []Term, signs []bool, strict bool) Constraint {
 	//
-	return Constraint{sorted.NewSortedConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
+	return Constraint{sorted.NewConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
 }
 
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Constraint) Accepts(trace trace.Trace[bls12_377.Element], schema schema.AnySchema) (bit.Set, schema.Failure) {
+func (p Constraint) Accepts(trace trace.Trace[bls12_377.Element],
+	schema schema.AnySchema[bls12_377.Element]) (bit.Set, schema.Failure) {
+	//
 	return p.constraint.Accepts(trace, schema)
 }
 
@@ -99,7 +101,7 @@ func (p Constraint) Bounds(module uint) util.Bounds {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint) Consistent(schema schema.AnySchema) []error {
+func (p Constraint) Consistent(schema schema.AnySchema[bls12_377.Element]) []error {
 	return p.constraint.Consistent(schema)
 }
 
@@ -122,13 +124,13 @@ func (p Constraint) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint) Lisp(schema schema.AnySchema) sexp.SExp {
+func (p Constraint) Lisp(schema schema.AnySchema[bls12_377.Element]) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
 func (p Constraint) Subdivide(mapping schema.LimbsMap) Constraint {
-	var constraint schema.Constraint
+	var constraint schema.Constraint[bls12_377.Element]
 	//
 	switch c := p.constraint.(type) {
 	case Assertion:
@@ -159,7 +161,7 @@ func (p Constraint) Substitute(mapping map[string]bls12_377.Element) {
 }
 
 // Unwrap provides access to the underlying constraint.
-func (p Constraint) Unwrap() schema.Constraint {
+func (p Constraint) Unwrap() schema.Constraint[bls12_377.Element] {
 	return p.constraint
 }
 

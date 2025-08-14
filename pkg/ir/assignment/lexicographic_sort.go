@@ -81,7 +81,7 @@ func (p *LexicographicSort[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema,
+func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
@@ -105,7 +105,7 @@ func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema,
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *LexicographicSort[F]) Consistent(schema sc.AnySchema) []error {
+func (p *LexicographicSort[F]) Consistent(schema sc.AnySchema[F]) []error {
 	var (
 		errors   []error
 		bitwidth = uint(0)
@@ -155,7 +155,7 @@ func (p *LexicographicSort[F]) RegistersWritten() []sc.RegisterRef {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *LexicographicSort[F]) Lisp(schema sc.AnySchema) sexp.SExp {
+func (p *LexicographicSort[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
