@@ -13,8 +13,8 @@
 package inspector
 
 import (
-	"encoding/binary"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
@@ -238,10 +238,15 @@ func (p *ModuleView[F]) display(col uint, val F) string {
 			enumID := int(disp - corset.DISPLAY_CUSTOM)
 			// Check whether valid enumeration.
 			if enumID < len(p.enumerations) {
-				index := binary.BigEndian.Uint64(val.Bytes())
-				// Check whether value covered by enumeration.
-				if lab, ok := p.enumerations[enumID][index]; ok {
-					return lab
+				var index big.Int
+				//
+				index.SetBytes(val.Bytes())
+				//
+				if index.IsUint64() {
+					// Check whether value covered by enumeration.
+					if lab, ok := p.enumerations[enumID][index.Uint64()]; ok {
+						return lab
+					}
 				}
 			}
 		}
