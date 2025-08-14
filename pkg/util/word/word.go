@@ -13,10 +13,8 @@
 package word
 
 import (
-	"encoding/binary"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 )
 
@@ -31,6 +29,10 @@ type Word[T any] interface {
 	IsZero() bool
 	// Initialise this word from a set of raw bytes.
 	SetBytes([]byte) T
+	// Set this word to a uint64 value
+	SetUint64(uint64) T
+	// Returns value of word as an unsigned integer (truncated for 64bits).
+	Uint64() uint64
 }
 
 // DynamicWord is a word which has a dynamically sized representation, rather
@@ -55,39 +57,22 @@ type DynamicWord[T any] interface {
 // index.  This makes sense when we have a relatively small number of values
 // which can be referred to many times over.
 type Pool[K any, T any] interface {
-	// Clone a pool producing an identical, but unaliased copy.
-	Clone() Pool[K, T]
 	// Lookup a given word in the pool using an index.
 	Get(K) T
 	// Allocate word into pool, returning its index.
 	Put(T) K
-	// Lookup the key associated with a given work, return false if it does not
-	// exist in the pool.
-	IndexOf(T) (K, bool)
 }
 
-// NewArray constructs a new word array with a given capacity.
-func NewArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) array.MutArray[T] {
-	switch {
-	case bitwidth == 0:
-		return NewZeroArray[T](height)
-	case bitwidth == 1:
-		return NewBitArray[T](height)
-	case bitwidth < 64:
-		return NewStaticArray[T](height, bitwidth)
-	default:
-		return NewIndexArray[T, P](height, bitwidth, pool)
-	}
+// SharedPool represents a pool which can be safely shared amongst threads.
+type SharedPool[K any, T any, P any] interface {
+	Pool[K, T]
+	// Localise this pool
+	Localise() P
 }
 
 // Uint64 constructs a word from a given uint64 value.
 func Uint64[W Word[W]](value uint64) W {
-	var (
-		word  W
-		bytes [8]byte
-	)
-	//
-	binary.BigEndian.PutUint64(bytes[:], value)
-	//
-	return word.SetBytes(bytes[:])
+	var word W
+	// Easy as
+	return word.SetUint64(value)
 }

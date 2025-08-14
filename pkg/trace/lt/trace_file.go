@@ -40,14 +40,14 @@ type TraceFile struct {
 	// Header for the binary file
 	Header Header
 	// Word pool
-	Pool WordPool
+	Builder ArrayBuilder
 	// Column data
 	Columns []trace.RawColumn[word.BigEndian]
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(metadata []byte, pool WordPool, columns []trace.RawColumn[word.BigEndian]) TraceFile {
+func NewTraceFile(metadata []byte, pool ArrayBuilder, columns []trace.RawColumn[word.BigEndian]) TraceFile {
 	return TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		pool,
@@ -65,7 +65,7 @@ func (p *TraceFile) Clone() TraceFile {
 	//
 	return TraceFile{
 		p.Header,
-		p.Pool.Clone(),
+		p.Builder,
 		cols,
 	}
 }
@@ -117,7 +117,7 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	// Read header
 	if err = p.Header.UnmarshalBinary(buffer); err == nil && p.Header.IsCompatible() {
 		// Decode column data
-		p.Pool, p.Columns, err = FromBytesLegacy(buffer.Bytes())
+		p.Builder, p.Columns, err = FromBytesLegacy(buffer.Bytes())
 		// Done
 		return err
 	} else if err == nil {

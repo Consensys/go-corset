@@ -52,6 +52,11 @@ func (p *BitArray[T]) Len() uint {
 	return p.height
 }
 
+// Append new word on this array
+func (p *BitArray[T]) Append(word T) {
+	p.Pad(0, 1, word)
+}
+
 // BitWidth returns the width (in bits) of elements in this array.
 func (p *BitArray[T]) BitWidth() uint {
 	return 1
