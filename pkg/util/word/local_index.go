@@ -29,10 +29,18 @@ var _ Pool[uint32, BigEndian] = &LocalIndex[BigEndian]{}
 
 // NewLocalIndex constructs a new shared index
 func NewLocalIndex[T Word[T]]() *LocalIndex[T] {
-	return &LocalIndex[T]{
-		words:   nil,
-		buckets: make([][]uint32, HEAP_POOL_INIT_BUCKETS),
-	}
+	var (
+		empty T
+		//
+		p = &LocalIndex[T]{
+			words:   nil,
+			buckets: make([][]uint32, HEAP_POOL_INIT_BUCKETS),
+		}
+	)
+	// Initialise first index
+	p.Put(empty)
+	//
+	return p
 }
 
 // Get implementation for the Pool interface.
