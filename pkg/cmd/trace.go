@@ -144,6 +144,8 @@ func expandColumns(tf lt.TraceFile, schema sc.AnySchema[bls12_377.Element], buil
 		rcols []RawColumn
 		// Construct expanded tr
 		tr, errs = builder.Build(schema, tf)
+		//
+		arrBuilder = word.NewDynamicArrayBuilder[word.BigEndian]()
 	)
 	// Handle errors
 	if len(errs) > 0 {
@@ -162,12 +164,12 @@ func expandColumns(tf lt.TraceFile, schema sc.AnySchema[bls12_377.Element], buil
 			rcols = append(rcols, RawColumn{
 				Module: module.Name(),
 				Name:   ith.Name(),
-				Data:   word.CloneArray(ith.Data(), tf.Pool),
+				Data:   word.CloneArray(ith.Data(), arrBuilder),
 			})
 		}
 	}
 	//
-	return lt.NewTraceFile(tf.Header.MetaData, tf.Pool, rcols)
+	return lt.NewTraceFile(tf.Header.MetaData, arrBuilder, rcols)
 }
 
 // Construct a new trace containing only those columns from the original who
@@ -191,7 +193,7 @@ func filterColumns(tf lt.TraceFile, regex string) lt.TraceFile {
 		}
 	}
 	// Done
-	return lt.NewTraceFile(tf.Header.MetaData, tf.Pool, ncols)
+	return lt.NewTraceFile(tf.Header.MetaData, tf.Builder, ncols)
 }
 
 // Construct a new trace where all columns are sliced to a given region.  In

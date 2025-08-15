@@ -36,6 +36,11 @@ func NewStaticArray[T Word[T]](height uint, bitwidth uint) *StaticArray[T] {
 	return &StaticArray[T]{elements, bitwidth}
 }
 
+// Append new word on this array
+func (p *StaticArray[T]) Append(word T) {
+	p.Pad(0, 1, word)
+}
+
 // Len returns the number of elements in this word array.
 func (p *StaticArray[T]) Len() uint {
 	//

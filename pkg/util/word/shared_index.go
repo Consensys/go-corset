@@ -14,52 +14,63 @@ package word
 
 import (
 	"math"
+	"slices"
 	"sync"
 )
 
-// StaticPool represents a pool which stores words "as is", and does not attempt
+// SharedIndex represents a pool which stores words "as is", and does not attempt
 // to compress them into shorter byte sequences.
-type StaticPool[T Word[T]] struct {
+type SharedIndex[T Word[T]] struct {
 	// heap of bytes
 	words []T
 	// hash buckets
-	buckets [][]uint
+	buckets [][]uint32
 	// mutex required to ensure thread safety.
 	mux sync.RWMutex
 }
 
-var _ Pool[uint, BigEndian] = &StaticPool[BigEndian]{}
+var _ Pool[uint32, BigEndian] = &SharedIndex[BigEndian]{}
 
-// NewStaticPool constructs a new heap pool with an initial number of buckets.
-func NewStaticPool[T Word[T]]() *StaticPool[T] {
+// NewSharedIndex constructs a new shared index
+func NewSharedIndex[T Word[T]]() *SharedIndex[T] {
 	var (
-		// Initial bucket allocation
-		buckets = make([][]uint, HEAP_POOL_INIT_BUCKETS)
-		pool    = &StaticPool[T]{words: nil, buckets: buckets}
+		empty T
+		//
+		p = &SharedIndex[T]{
+			words:   nil,
+			buckets: make([][]uint32, HEAP_POOL_INIT_BUCKETS),
+		}
 	)
-	// Done
-	return pool
+	// Initialise first index
+	p.Put(empty)
+	//
+	return p
 }
 
-// Clone implementation for Pool interface
-func (p *StaticPool[T]) Clone() Pool[uint, T] {
+// Clone implementation for SharedPool interface.
+func (p *SharedIndex[T]) Clone() *SharedIndex[T] {
 	var (
-		words   = make([]T, len(p.words))
-		buckets = make([][]uint, len(p.buckets))
+		words   = slices.Clone(p.words)
+		buckets = make([][]uint32, len(p.buckets))
 	)
 	//
-	copy(words, p.words)
-	//
-	for i, bucket := range p.buckets {
-		buckets[i] = make([]uint, len(bucket))
-		copy(buckets[i], bucket)
+	for i := range len(p.buckets) {
+		buckets[i] = slices.Clone(p.buckets[i])
 	}
 	//
-	return &StaticPool[T]{words: words, buckets: buckets}
+	return &SharedIndex[T]{
+		words:   words,
+		buckets: buckets,
+	}
+}
+
+// Localise implementation for SharedPool interface.
+func (p *SharedIndex[T]) Localise() *LocalIndex[T] {
+	return NewLocalIndex[T]()
 }
 
 // Get implementation for the Pool interface.
-func (p *StaticPool[T]) Get(index uint) T {
+func (p *SharedIndex[T]) Get(index uint32) T {
 	// Obtain read lock
 	p.mux.RLock()
 	// Determine length of word in heap
@@ -70,29 +81,17 @@ func (p *StaticPool[T]) Get(index uint) T {
 	return word
 }
 
-// IndexOf implementation for the Pool interface.
-func (p *StaticPool[T]) IndexOf(word T) (uint, bool) {
-	// Obtain read lock
-	p.mux.RLock()
-	// Lookup index of word
-	index, _ := p.has(word)
-	// Release read lock
-	p.mux.RUnlock()
-	//
-	return index, index != math.MaxUint
-}
-
 // Put implementation for the Pool interface.  This is somewhat challenging
 // because it must be thread safe.  Since we anticipate a large number of cache
 // hits compared with cache misses, we employ a Read/Write lock.
-func (p *StaticPool[T]) Put(word T) uint {
+func (p *SharedIndex[T]) Put(word T) uint32 {
 	p.mux.RLock()
 	// Check whether word already stored
 	index, _ := p.has(word)
 	// Release read lock
 	p.mux.RUnlock()
 	// Check whether we found it
-	if index != math.MaxUint {
+	if index != math.MaxUint32 {
 		// Yes, therefore return it.
 		return index
 	}
@@ -102,9 +101,9 @@ func (p *StaticPool[T]) Put(word T) uint {
 	// (unlikely, but it is possible).
 	index, hash := p.has(word)
 	//
-	if index == math.MaxUint {
+	if index == math.MaxUint32 {
 		// Word still not present, so add it.
-		index = uint(len(p.words))
+		index = uint32(len(p.words))
 		p.words = append(p.words, word)
 		// Record entry in relevant bucket
 		p.buckets[hash] = append(p.buckets[hash], index)
@@ -118,7 +117,7 @@ func (p *StaticPool[T]) Put(word T) uint {
 }
 
 // Check whether the hash map is exceed its loading factor and, if so, rehash.
-func (p *StaticPool[T]) rehashIfOverloaded() {
+func (p *SharedIndex[T]) rehashIfOverloaded() {
 	load := (100 * len(p.words)) / len(p.buckets)
 	//
 	if load > HEAP_POOL_LOADING {
@@ -128,7 +127,7 @@ func (p *StaticPool[T]) rehashIfOverloaded() {
 }
 
 // Has checks whether a given word is stored in this heap, or not.
-func (p *StaticPool[T]) has(word T) (uint, uint64) {
+func (p *SharedIndex[T]) has(word T) (uint32, uint64) {
 	hash := word.Hash() % uint64(len(p.buckets))
 	// Attempt to lookup word
 	for _, index := range p.buckets[hash] {
@@ -137,16 +136,16 @@ func (p *StaticPool[T]) has(word T) (uint, uint64) {
 		}
 	}
 	//
-	return math.MaxUint, hash
+	return math.MaxUint32, hash
 }
 
-func (p *StaticPool[T]) rehash() {
+func (p *SharedIndex[T]) rehash() {
 	var (
 		oldBuckets = p.buckets
 		n          = uint64(len(oldBuckets) * 3)
 	)
 	// Double number of buckets
-	p.buckets = make([][]uint, n)
+	p.buckets = make([][]uint32, n)
 	// Rehash!
 	for _, bucket := range oldBuckets {
 		for _, index := range bucket {

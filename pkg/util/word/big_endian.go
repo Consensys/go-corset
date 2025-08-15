@@ -63,11 +63,7 @@ func (p BigEndian) ByteWidth() uint {
 
 // Cmp64 implementation for Word interface.
 func (p BigEndian) Cmp64(o uint64) int {
-	var (
-		width = p.ByteWidth()
-	)
-	//
-	switch width {
+	switch p.ByteWidth() {
 	case 0:
 		return cmp.Compare(0, o)
 	case 1:
@@ -213,6 +209,73 @@ func (p BigEndian) SetUint64(value uint64) BigEndian {
 	binary.BigEndian.PutUint64(bytes[:], value)
 	// Trim off leading zeros
 	return BigEndian{trim(bytes[:])}
+}
+
+// Uint64 implementation for Word interface.
+func (p BigEndian) Uint64() uint64 {
+	var val uint64
+	//
+	switch p.ByteWidth() {
+	case 0:
+		return 0
+	case 1:
+		val = uint64(p.bytes[0])
+	case 2:
+		val = uint64(p.bytes[1])
+		val += uint64(p.bytes[0]) << 8
+		//
+	case 3:
+		val = uint64(p.bytes[2])
+		val += uint64(p.bytes[1]) << 8
+		val += uint64(p.bytes[0]) << 16
+		//
+	case 4:
+		val = uint64(p.bytes[3])
+		val += uint64(p.bytes[2]) << 8
+		val += uint64(p.bytes[1]) << 16
+		val += uint64(p.bytes[0]) << 24
+		//
+	case 5:
+		val = uint64(p.bytes[4])
+		val += uint64(p.bytes[3]) << 8
+		val += uint64(p.bytes[2]) << 16
+		val += uint64(p.bytes[1]) << 24
+		val += uint64(p.bytes[0]) << 32
+		//
+	case 6:
+		val = uint64(p.bytes[5])
+		val += uint64(p.bytes[4]) << 8
+		val += uint64(p.bytes[3]) << 16
+		val += uint64(p.bytes[2]) << 24
+		val += uint64(p.bytes[1]) << 32
+		val += uint64(p.bytes[0]) << 40
+		//
+	case 7:
+		val = uint64(p.bytes[6])
+		val += uint64(p.bytes[5]) << 8
+		val += uint64(p.bytes[4]) << 16
+		val += uint64(p.bytes[3]) << 24
+		val += uint64(p.bytes[2]) << 32
+		val += uint64(p.bytes[1]) << 40
+		val += uint64(p.bytes[0]) << 48
+		//
+	case 8:
+		val = uint64(p.bytes[7])
+		val += uint64(p.bytes[6]) << 8
+		val += uint64(p.bytes[5]) << 16
+		val += uint64(p.bytes[4]) << 24
+		val += uint64(p.bytes[3]) << 32
+		val += uint64(p.bytes[2]) << 40
+		val += uint64(p.bytes[1]) << 48
+		val += uint64(p.bytes[0]) << 56
+		//
+	default:
+		// NOTE: we could do better here and return the truncated value.  Just
+		// have to be careful to get the right bytes :)
+		panic("not uint64")
+	}
+	//
+	return val
 }
 
 // Bytes implementation for Word interface.

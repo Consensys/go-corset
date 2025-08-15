@@ -20,8 +20,8 @@ import (
 
 // CloneArray converts a word array for one word geometry into a mutable array
 // for another geometry.
-func CloneArray[W1 Word[W1], W2 Word[W2]](arr array.Array[W1], pool Pool[uint, W2]) array.MutArray[W2] {
-	var res = NewArray(arr.Len(), arr.BitWidth(), pool)
+func CloneArray[W1 Word[W1], W2 Word[W2]](arr array.Array[W1], builder ArrayBuilder[W2]) array.MutArray[W2] {
+	var res = builder.NewArray(arr.Len(), arr.BitWidth())
 	//
 	for i := range arr.Len() {
 		var (

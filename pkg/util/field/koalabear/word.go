@@ -13,11 +13,16 @@
 package koalabear
 
 // Equals implementation for hash.Hasher interface
-func (p Element) Equals(Element) bool {
+func (x Element) Equals(Element) bool {
 	panic("todo")
 }
 
 // Hash implementation for hash.Hasher interface
-func (p Element) Hash() uint64 {
+func (x Element) Hash() uint64 {
 	panic("todo")
+}
+
+// Uint64 implementation for word.Word interface.
+func (x Element) Uint64() uint64 {
+	return uint64(x.ToUint32())
 }

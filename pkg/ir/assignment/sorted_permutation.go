@@ -73,7 +73,7 @@ func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]
 	// Read inputs
 	sources := ReadRegisters(trace, p.Sources...)
 	// Apply native function
-	data := sortedPermutationNativeFunction(sources, p.Signs, trace.Pool())
+	data := sortedPermutationNativeFunction(sources, p.Signs, trace.Builder())
 	//
 	return data, nil
 }
@@ -180,7 +180,7 @@ func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
 func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool,
-	pool word.Pool[uint, F]) []array.MutArray[F] {
+	builder word.ArrayBuilder[F]) []array.MutArray[F] {
 	//
 	var (
 		n = sources[0].Len()
@@ -192,7 +192,7 @@ func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F
 	slices.SortFunc(indices, permutationSortFunc(sources, signs))
 	//
 	for i, source := range sources {
-		target := word.NewArray(n, source.BitWidth(), pool)
+		target := builder.NewArray(n, source.BitWidth())
 		//
 		for j, index := range indices {
 			target.Set(uint(j), source.Get(index))

@@ -25,10 +25,6 @@ type Element[Operand any] interface {
 	word.Word[Operand]
 	// Add x+y
 	Add(y Operand) Operand
-	// Bytes returns the (big-endian) bytes representing this element as an
-	// unsigned integer.  Observe that, if the data is encoded internally (e.g.
-	// in Montgommery form), then this will first decode the given bytes.
-	Bytes() []byte
 	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
 	Cmp(y Operand) int
 	// Check whether this value is zero (or not).
@@ -39,11 +35,6 @@ type Element[Operand any] interface {
 	Mul(y Operand) Operand
 	// Compute x⁻¹, or 0 if x = 0.
 	Inverse() Operand
-	// Set this element according to a given set of (big endian) bytes
-	// representing an unsigned integer.  Observe that, if the data is encoded
-	// internally (e.g. in Montgommery form), then this will first encode the
-	// given bytes.
-	SetBytes([]byte) Operand
 	// Set this element to a uint64 value
 	SetUint64(uint64) Operand
 	// Compute x - y

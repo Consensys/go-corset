@@ -49,7 +49,7 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]
 		states = append(states, sts...)
 	}
 	//
-	return p.states2columns(trModule.Width(), states, trace.Pool()), nil
+	return p.states2columns(trModule.Width(), states, trace.Builder()), nil
 }
 
 // Consistent implementation for schema.Assignment interface.
@@ -156,7 +156,7 @@ func (p Assignment[F, T]) initialState(row uint, trace tr.Module[F], io Map) Sta
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[F, T]) states2columns(width uint, states []State, pool word.Pool[uint, F]) []array.MutArray[F] {
+func (p Assignment[F, T]) states2columns(width uint, states []State, builder word.ArrayBuilder[F]) []array.MutArray[F] {
 	var (
 		cols      = make([]array.MutArray[F], width)
 		nrows     = uint(len(states))
@@ -164,7 +164,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []State, pool word.P
 	)
 	// Initialise register columns
 	for i, r := range p.registers {
-		cols[i] = word.NewArray(nrows, r.Width, pool)
+		cols[i] = builder.NewArray(nrows, r.Width)
 	}
 	// Initialise control columns (if applicable)
 	// transcribe values
@@ -182,13 +182,15 @@ func (p Assignment[F, T]) states2columns(width uint, states []State, pool word.P
 	}
 	// Set control registers for multi-line functions
 	if multiLine {
-		p.assignControlRegisters(cols, states, pool)
+		p.assignControlRegisters(cols, states, builder)
 	}
 	// Done
 	return cols
 }
 
-func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], states []State, pool word.Pool[uint, F]) {
+func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], states []State,
+	builder word.ArrayBuilder[F]) {
+	//
 	var (
 		zero  = field.Zero[F]()
 		one   = field.One[F]()
@@ -199,8 +201,8 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 		pcWidth = bit.Width(uint(len(p.code) + 1))
 	)
 	// Initialise columns
-	cols[pc] = word.NewArray(nrows, pcWidth, pool)
-	cols[ret] = word.NewArray(nrows, 1, pool)
+	cols[pc] = builder.NewArray(nrows, pcWidth)
+	cols[ret] = builder.NewArray(nrows, 1)
 	// Assign values
 	for row, st := range states {
 		npc := field.Uint64[F](uint64(st.Pc() + 1))

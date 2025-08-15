@@ -19,72 +19,67 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
-// IndexArray implements an array of elements simply using an underlying array.
-type IndexArray[T Word[T], P Pool[uint, T]] struct {
+// PoolArray implements an array of elements simply using an underlying array.
+type PoolArray[K any, T Word[T], P Pool[K, T]] struct {
 	// pool of values
 	pool P
 	// indices into pool
-	index []uint
+	index []K
 	// Bitwidth of words in this array
 	bitwidth uint
 }
 
-// NewIndexArray constructs a new indexed array.
-func NewIndexArray[T Word[T], P Pool[uint, T]](height uint, bitwidth uint, pool P) *IndexArray[T, P] {
-	var (
-		undefined      T
-		undefinedIndex = pool.Put(undefined)
-		index          = make([]uint, height)
-	)
+// NewPoolArray constructs a new indexed array.
+func NewPoolArray[K any, T Word[T], P Pool[K, T]](height uint, bitwidth uint, pool P) *PoolArray[K, T, P] {
+	index := make([]K, height)
 	//
-	for i := range height {
-		index[i] = undefinedIndex
-	}
-	//
-	return &IndexArray[T, P]{pool, index, bitwidth}
+	return &PoolArray[K, T, P]{pool, index, bitwidth}
 }
 
 // Append adds a new element to the end of this array
-func (p *IndexArray[T, P]) Append(element T) {
-	n := uint(len(p.index))
+func (p *PoolArray[K, T, P]) Append(element T) {
+	var (
+		zero K
+		n    = uint(len(p.index))
+	)
 	// Add new element
-	p.index = append(p.index, 0)
+	p.index = append(p.index, zero)
 	// Set value of that element
 	p.Set(n, element)
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *IndexArray[T, P]) Clone() array.MutArray[T] {
+func (p *PoolArray[K, T, P]) Clone() array.MutArray[T] {
 	// Allocate sufficient memory
-	nindex := make([]uint, uint(len(p.index)))
+	nindex := make([]K, uint(len(p.index)))
 	// Copy over the data
 	copy(nindex, p.index)
 	//
-	return &IndexArray[T, P]{p.pool, nindex, p.bitwidth}
+	return &PoolArray[K, T, P]{p.pool, nindex, p.bitwidth}
 }
 
 // Len returns the number of elements in this word array.
-func (p *IndexArray[T, P]) Len() uint {
+func (p *PoolArray[K, T, P]) Len() uint {
 	return uint(len(p.index))
 }
 
 // BitWidth returns the width (in bits) of elements in this array.
-func (p *IndexArray[T, P]) BitWidth() uint {
+func (p *PoolArray[K, T, P]) BitWidth() uint {
 	return p.bitwidth
 }
 
 // Get returns the field element at the given index in this array.
-func (p *IndexArray[T, P]) Get(index uint) T {
+func (p *PoolArray[K, T, P]) Get(index uint) T {
 	return p.pool.Get(p.index[index])
 }
 
 // Pad implementation for MutArray interface.
-func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) {
+func (p *PoolArray[K, T, P]) Pad(n uint, m uint, padding T) {
 	var (
 		// Determine new length
 		l = n + m + p.Len()
 		// Initialise new array
-		index = make([]uint, l)
+		index = make([]K, l)
 	)
 	// copy
 	copy(index[n:], p.index)
@@ -101,21 +96,21 @@ func (p *IndexArray[T, P]) Pad(n uint, m uint, padding T) {
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *IndexArray[T, P]) Set(index uint, word T) {
+func (p *PoolArray[K, T, P]) Set(index uint, word T) {
 	//
 	p.index[index] = p.pool.Put(word)
 }
 
 // Slice out a subregion of this array.
-func (p *IndexArray[T, P]) Slice(start uint, end uint) array.Array[T] {
-	return &IndexArray[T, P]{
+func (p *PoolArray[K, T, P]) Slice(start uint, end uint) array.Array[T] {
+	return &PoolArray[K, T, P]{
 		p.pool,
 		p.index[start:end],
 		p.bitwidth,
 	}
 }
 
-func (p *IndexArray[T, P]) String() string {
+func (p *PoolArray[K, T, P]) String() string {
 	var sb strings.Builder
 
 	sb.WriteString("[")

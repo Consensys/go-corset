@@ -25,7 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -261,9 +261,9 @@ func (p *typeDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.sources...)
 	// Combine all sources
-	combined := combineSources(p.loWidth+p.hiWidth, sources, tr.Pool())
+	combined := combineSources(p.loWidth+p.hiWidth, sources, tr.Builder())
 	// Generate decomposition
-	data := computeDecomposition(p.loWidth, p.hiWidth, combined, tr.Pool())
+	data := computeDecomposition(p.loWidth, p.hiWidth, combined, tr.Builder())
 	// Done
 	return data, nil
 }
@@ -356,7 +356,7 @@ func (p *byteDecomposition) Compute(tr trace.Trace[bls12_377.Element], schema sc
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.source)
 	// Apply native function
-	data := byteDecompositionNativeFunction(n, sources)
+	data := byteDecompositionNativeFunction(n, sources, tr.Builder())
 	//
 	return data, nil
 }
@@ -469,30 +469,23 @@ func determineLimbSplit(bitwidth uint) (uint, uint) {
 // Combine all values from the given source registers into a single array of
 // data, whilst eliminating duplicates.
 func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
-	pool word.Pool[uint, F]) array.MutArray[F] {
+	pool word.ArrayBuilder[F]) array.MutArray[F] {
 	//
 	var (
-		zero F
-		arr  = word.NewIndexArray(0, bitwidth, pool)
-		seen bit.Set
+		n    = sources[0].Len()
+		arr  = pool.NewArray(0, bitwidth)
+		seen = hash.NewSet[F](n)
 	)
-	// Always include zero to work around limitations of FrIndexArray.  This is
-	// not actually inefficient, since all columns are subject to an initial
-	// padding row anyway.
-	arr.Append(zero)
 	//
 	for _, src := range sources {
 		for i := range src.Len() {
 			ith := src.Get(i)
 			// Add item if not already seen
-			if index, ok := pool.IndexOf(ith); !ok || !seen.Contains(index) {
-				if !ok {
-					// Never seen anywhere!
-					index = pool.Put(ith)
-				}
+			if !seen.Contains(ith) {
+				// record have seen item
+				seen.Insert(ith)
 				// append and record
 				arr.Append(src.Get(i))
-				seen.Insert(index)
 			}
 		}
 	}
@@ -501,16 +494,11 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 }
 
 func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.MutArray[F],
-	pool word.Pool[uint, F]) []array.MutArray[F] {
-	// FIXME: using an index array here ensures the underlying data is
-	// represented using a full field element, rather than e.g. some smaller
-	// number of bytes.  This is needed to handle reject tests which can produce
-	// values outside the range of the computed register, but which we still
-	// want to check are actually rejected (i.e. since they are simulating what
-	// an attacker might do).
+	builder word.ArrayBuilder[F]) []array.MutArray[F] {
+	//
 	var (
-		vLoArr = word.NewIndexArray(vArr.Len(), loWidth, pool)
-		vHiArr = word.NewIndexArray(vArr.Len(), hiWidth, pool)
+		vLoArr = builder.NewArray(vArr.Len(), loWidth)
+		vHiArr = builder.NewArray(vArr.Len(), hiWidth)
 	)
 	//
 	for i := range vArr.Len() {
@@ -638,7 +626,9 @@ func splitColumnRanges[F field.Element[F]](nbits uint) []F {
 	return ranges
 }
 
-func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array.Array[F]) []array.MutArray[F] {
+func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array.Array[F],
+	builder word.ArrayBuilder[F]) []array.MutArray[F] {
+	//
 	var (
 		source  = sources[0]
 		targets = make([]array.MutArray[F], n)
@@ -651,7 +641,7 @@ func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array
 	// Initialise columns
 	for i := range n {
 		// Construct a byte array for ith byte
-		targets[i] = word.NewStaticArray[F](height, 8)
+		targets[i] = builder.NewArray(height, 8)
 	}
 	// Decompose each row of each column
 	for i := range height {
@@ -682,7 +672,7 @@ func decomposeIntoBytes[W word.Word[W]](val W, n uint) []W {
 			j   = l - i - 1
 		)
 		//
-		elements[i] = ith.SetBytes([]byte{bytes[j]})
+		elements[i] = ith.SetUint64(uint64(bytes[j]))
 	}
 	// Done
 	return elements

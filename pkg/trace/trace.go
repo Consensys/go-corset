@@ -21,19 +21,19 @@ import (
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace[F any] interface {
+	// Provides agnostic mechanism for constructing arrays
+	Builder() word.ArrayBuilder[F]
 	// Access a given column difrtly via a reference.
 	Column(ColumnRef) Column[F]
-	// Access a given module in this trace.
-	Module(ModuleId) Module[F]
 	// Determine whether this trace has a module with the given name and, if so,
 	// what its module index is.
 	HasModule(name string) (uint, bool)
-	// Returns the number of modules in this trace.
-	Width() uint
+	// Access a given module in this trace.
+	Module(ModuleId) Module[F]
 	// Returns an iterator over the contained modules
 	Modules() iter.Iterator[Module[F]]
-	// Provides access to the internal memory pool
-	Pool() word.Pool[uint, F]
+	// Returns the number of modules in this trace.
+	Width() uint
 }
 
 // Module describes a module within the trace.  Every module is composed of some

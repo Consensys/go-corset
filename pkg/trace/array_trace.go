@@ -26,7 +26,7 @@ import (
 // array.
 type ArrayTrace[T any] struct {
 	// Internal memory pool
-	pool word.Pool[uint, T]
+	builder word.ArrayBuilder[T]
 	// Holds the height of each module in this trace.  The index of each
 	// module in this array uniquely identifies it, and is referred to as the
 	// "module index".
@@ -34,8 +34,8 @@ type ArrayTrace[T any] struct {
 }
 
 // NewArrayTrace constructs a trace from a given set of indexed modules and columns.
-func NewArrayTrace[T any](pool word.Pool[uint, T], modules []ArrayModule[T]) *ArrayTrace[T] {
-	return &ArrayTrace[T]{pool, modules}
+func NewArrayTrace[T any](builder word.ArrayBuilder[T], modules []ArrayModule[T]) *ArrayTrace[T] {
+	return &ArrayTrace[T]{builder, modules}
 }
 
 // Column accesses a given column directly via a reference.
@@ -83,9 +83,9 @@ func (p *ArrayTrace[T]) Pad(module uint, front uint, back uint) {
 	p.modules[module].Pad(front, back)
 }
 
-// Pool implementation for Trace interface.
-func (p *ArrayTrace[T]) Pool() word.Pool[uint, T] {
-	return p.pool
+// Builder implementation for Trace interface.
+func (p *ArrayTrace[T]) Builder() word.ArrayBuilder[T] {
+	return p.builder
 }
 
 func (p *ArrayTrace[T]) String() string {

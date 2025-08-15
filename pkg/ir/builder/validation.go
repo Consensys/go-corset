@@ -15,7 +15,6 @@ package builder
 import (
 	"fmt"
 	"math"
-	"math/big"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -162,13 +161,13 @@ func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F],
 	} else if col.Data() == nil {
 		panic(fmt.Sprintf("column %s is unassigned", col.Name()))
 	}
+	// FIXME: this will fail for small fields!!!!!
+	var bound = field.TwoPowN[F](bitwidth)
 	//
 	for j := 0; j < int(col.Data().Len()); j++ {
-		var jth big.Int
-
-		jth.SetBytes(col.Get(j).Bytes())
+		var jth = col.Get(j)
 		//
-		if uint(jth.BitLen()) > bitwidth {
+		if jth.Cmp(bound) >= 0 {
 			qualColName := trace.QualifiedColumnName(mod.Name(), col.Name())
 			return fmt.Errorf("row %d of column %s is out-of-bounds (%s)", j, qualColName, jth.String())
 		}

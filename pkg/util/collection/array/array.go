@@ -34,6 +34,8 @@ type Array[T any] interface {
 // are interested in arrays of field elements here.
 type MutArray[T any] interface {
 	Array[T]
+	// Append new element onto the end of array.
+	Append(T)
 	// Set the element at the given index in this array, overwriting the
 	// original value.
 	Set(uint, T)

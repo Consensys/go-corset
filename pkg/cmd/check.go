@@ -82,6 +82,8 @@ var checkCmd = &cobra.Command{
 		checkWithLegacyPipeline(cfg, batched, tracefile, schemas)
 		// Write memory profiling (if requested)
 		writeMemProfile(cmd)
+		// Stop cpu profiling (if was requested)
+		stopCpuProfiling(cmd)
 	},
 }
 
@@ -91,14 +93,16 @@ func startCpuProfiling(cmd *cobra.Command) {
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}
-		// nolint
-		defer f.Close()
 		//
 		if err := pprof.StartCPUProfile(f); err != nil {
 			log.Fatal("could not start CPU profile: ", err)
 		}
-		//
-		defer pprof.StopCPUProfile()
+	}
+}
+
+func stopCpuProfiling(cmd *cobra.Command) {
+	if filename := GetString(cmd, "cpuprof"); filename != "" {
+		pprof.StopCPUProfile()
 	}
 }
 

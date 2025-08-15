@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package bls12_377
 
-import "hash/fnv"
+const (
+	offset64 uint64 = 14695981039346656037
+	prime64  uint64 = 1099511628211
+)
 
 // Equals implementation for hash.Hasher interface
 func (x Element) Equals(o Element) bool {
@@ -21,12 +24,18 @@ func (x Element) Equals(o Element) bool {
 
 // Hash implementation for hash.Hasher interface
 func (x Element) Hash() uint64 {
-	var (
-		bytes = x.Element.Bytes()
-		hash  = fnv.New64a()
-	)
-	// Write hash bytes
-	hash.Write(bytes[:])
-	// Done
-	return hash.Sum64()
+	// FNV1a hash implementation (unrolled)
+	hash := offset64
+	//
+	hash = (hash ^ x.Element[0]) * prime64
+	hash = (hash ^ x.Element[1]) * prime64
+	hash = (hash ^ x.Element[2]) * prime64
+	hash = (hash ^ x.Element[3]) * prime64
+	//
+	return hash
+}
+
+// Uint64 implementation for word.Word interface.
+func (x Element) Uint64() uint64 {
+	return x.Element.Uint64()
 }

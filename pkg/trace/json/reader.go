@@ -25,13 +25,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// WordPool provides a usefuil alias
-type WordPool = word.Pool[uint, word.BigEndian]
+// ArrayBuilder provides a usefuil alias
+type ArrayBuilder = word.ArrayBuilder[word.BigEndian]
 
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytes(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], error) {
+func FromBytes(data []byte) (ArrayBuilder, []trace.RawColumn[word.BigEndian], error) {
 	var (
 		rawData map[string]map[string][]big.Int
 		cols    []trace.RawColumn[word.BigEndian]
@@ -42,8 +42,8 @@ func FromBytes(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], error)
 		// Failed, so try and fall back on the legacy format.
 		return FromBytesLegacy(data)
 	}
-	// Intialise pool
-	pool := word.NewHeapPool[word.BigEndian]()
+	// Intialise builder
+	builder := word.NewDynamicArrayBuilder[word.BigEndian]()
 	//
 	for mod, modData := range rawData {
 		for name, rawInts := range modData {
@@ -58,22 +58,22 @@ func FromBytes(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], error)
 					name, row, rawInts[row].String())
 			}
 			// Construct data array
-			data := newArrayFromBigInts(bitwidth, rawInts, pool)
+			data := newArrayFromBigInts(bitwidth, rawInts, builder)
 			// Construct column
 			cols = append(cols, trace.RawColumn[word.BigEndian]{Module: mod, Name: col, Data: data})
 		}
 	}
 	//
-	return pool, cols, nil
+	return builder, cols, nil
 }
 
 // FromBytesLegacy parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
 // and "Y".
-func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], error) {
+func FromBytesLegacy(data []byte) (ArrayBuilder, []trace.RawColumn[word.BigEndian], error) {
 	var (
 		rawData map[string][]big.Int
-		pool    = word.NewHeapPool[word.BigEndian]()
+		builder = word.NewDynamicArrayBuilder[word.BigEndian]()
 	)
 	// Unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)
@@ -97,22 +97,21 @@ func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], 
 				name, row, rawInts[row].String())
 		}
 		// Construct data array
-		data := newArrayFromBigInts(bitwidth, rawInts, pool)
+		data := newArrayFromBigInts(bitwidth, rawInts, builder)
 		// Construct column
 		cols[index] = trace.RawColumn[word.BigEndian]{Module: mod, Name: col, Data: data}
 		//
 		index++
 	}
 	// Done.
-	return pool, cols, nil
+	return builder, cols, nil
 }
 
-func newArrayFromBigInts[P word.Pool[uint, word.BigEndian]](bitwidth uint, data []big.Int,
-	pool P) array.MutArray[word.BigEndian] {
+func newArrayFromBigInts(bitwidth uint, data []big.Int, pool ArrayBuilder) array.MutArray[word.BigEndian] {
 	//
 	var (
 		n   = uint(len(data))
-		arr = word.NewArray(n, bitwidth, pool)
+		arr = pool.NewArray(n, bitwidth)
 	)
 	//
 	for i := range n {
