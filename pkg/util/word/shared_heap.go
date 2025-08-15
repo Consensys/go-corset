@@ -14,6 +14,7 @@ package word
 
 import (
 	"math"
+	"slices"
 	"sync"
 )
 
@@ -58,6 +59,29 @@ func NewSharedHeap[T DynamicWord[T]]() *SharedHeap[T] {
 	p.heap = []byte{0}
 	//
 	return p
+}
+
+// Clone implementation for SharedPool interface.
+func (p *SharedHeap[T]) Clone() *SharedHeap[T] {
+	var (
+		heap    = make([]byte, len(p.heap))
+		lengths = make([]uint8, len(p.lengths))
+		buckets = make([][]uint32, len(p.buckets))
+	)
+	//
+	copy(heap, p.heap)
+	copy(lengths, p.lengths)
+	//
+	for i := range len(p.buckets) {
+		buckets[i] = slices.Clone(p.buckets[i])
+	}
+	//
+	return &SharedHeap[T]{
+		heap:    heap,
+		lengths: lengths,
+		buckets: buckets,
+		count:   p.count,
+	}
 }
 
 // Localise implementation for SharedPool interface.

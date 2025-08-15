@@ -51,7 +51,7 @@ func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.
 	)
 	//
 	for _, ith := range columns {
-		lowered := lowerRawColumn[F](ith, builder)
+		lowered := lowerRawColumn(ith, builder)
 		loweredColumns = append(loweredColumns, lowered)
 	}
 	//

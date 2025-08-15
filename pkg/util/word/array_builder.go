@@ -19,13 +19,15 @@ import (
 // ArrayBuilder is a mechanism for constructing arrays which aims to select the
 // right representation for a given array.
 type ArrayBuilder[T any] interface {
+	// Clone this array builder, including any pools contained therein.
+	Clone() ArrayBuilder[T]
 	// NewArray constructs a new array of the given height holding elements of the given bitwidth
 	NewArray(height uint, bitwidth uint) array.MutArray[T]
 }
 
 // NewDynamicArrayBuilder constructs a new array builder for dynamic words.
 func NewDynamicArrayBuilder[T DynamicWord[T]]() ArrayBuilder[T] {
-	var builder = &SharedArrayBuilder[T, *LocalHeap[T], *SharedHeap[T]]{}
+	var builder = &dynamicArrayBuilder[T]{}
 	//
 	builder.heap8 = NewBytePool[T]()
 	builder.heap16 = NewWordPool[T]()
@@ -36,7 +38,7 @@ func NewDynamicArrayBuilder[T DynamicWord[T]]() ArrayBuilder[T] {
 
 // NewStaticArrayBuilder constructs a new array builder for dynamic words.
 func NewStaticArrayBuilder[T Word[T]]() ArrayBuilder[T] {
-	var builder = &SharedArrayBuilder[T, *LocalIndex[T], *SharedIndex[T]]{}
+	var builder = &staticArrayBuilder[T]{}
 	//
 	builder.heap8 = NewBytePool[T]()
 	builder.heap16 = NewWordPool[T]()
@@ -45,28 +47,69 @@ func NewStaticArrayBuilder[T Word[T]]() ArrayBuilder[T] {
 	return builder
 }
 
-// SharedArrayBuilder is for handling static words only.
-type SharedArrayBuilder[T Word[T], P Pool[uint32, T], S SharedPool[uint32, T, P]] struct {
+// dynamicArrayBuilder is for handling static words only.
+type dynamicArrayBuilder[T DynamicWord[T]] struct {
 	heap8  SmallPool[uint8, T]
 	heap16 SmallPool[uint16, T]
-	heap   S
+	heap   *SharedHeap[T]
 }
 
 // NewArray constructs a new word array with a given capacity.
-func (p *SharedArrayBuilder[T, P, S]) NewArray(height uint, bitwidth uint) array.MutArray[T] {
+func (p *dynamicArrayBuilder[T]) Clone() ArrayBuilder[T] {
+	return &dynamicArrayBuilder[T]{
+		p.heap8,
+		p.heap16,
+		p.heap.Clone(),
+	}
+}
+
+// NewArray constructs a new word array with a given capacity.
+func (p *dynamicArrayBuilder[T]) NewArray(height uint, bitwidth uint) array.MutArray[T] {
 	switch {
 	case bitwidth == 0:
 		return NewZeroArray[T](height)
 	case bitwidth == 1:
 		return NewBitArray[T](height)
 	case bitwidth <= 8:
-		return NewPoolArray(height, bitwidth, &p.heap8)
+		return NewPoolArray(height, bitwidth, p.heap8)
 	case bitwidth <= 16:
-		return NewPoolArray(height, bitwidth, &p.heap16)
+		return NewPoolArray(height, bitwidth, p.heap16)
+	default:
+		return NewPoolArray(height, bitwidth, p.heap)
+	}
+}
+
+// staticArrayBuilder is for handling static words only.
+type staticArrayBuilder[T Word[T]] struct {
+	heap8  SmallPool[uint8, T]
+	heap16 SmallPool[uint16, T]
+	heap   *SharedIndex[T]
+}
+
+// NewArray constructs a new word array with a given capacity.
+func (p *staticArrayBuilder[T]) Clone() ArrayBuilder[T] {
+	return &staticArrayBuilder[T]{
+		p.heap8,
+		p.heap16,
+		p.heap.Clone(),
+	}
+}
+
+// NewArray constructs a new word array with a given capacity.
+func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) array.MutArray[T] {
+	switch {
+	case bitwidth == 0:
+		return NewZeroArray[T](height)
+	case bitwidth == 1:
+		return NewBitArray[T](height)
+	case bitwidth <= 8:
+		return NewPoolArray(height, bitwidth, p.heap8)
+	case bitwidth <= 16:
+		return NewPoolArray(height, bitwidth, p.heap16)
 	default:
 		// FIXME: for now, this actually defeats the only purpose of the shared
 		// array builder.  Each array getting its own heap is sub-optimal.
 		// However, at this stage, this is done for performance reasons.
-		return NewPoolArray(height, bitwidth, p.heap.Localise())
+		return NewPoolArray(height, bitwidth, NewLocalIndex[T]())
 	}
 }

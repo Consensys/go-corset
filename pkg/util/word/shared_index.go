@@ -14,6 +14,7 @@ package word
 
 import (
 	"math"
+	"slices"
 	"sync"
 )
 
@@ -44,6 +45,23 @@ func NewSharedIndex[T Word[T]]() *SharedIndex[T] {
 	p.Put(empty)
 	//
 	return p
+}
+
+// Clone implementation for SharedPool interface.
+func (p *SharedIndex[T]) Clone() *SharedIndex[T] {
+	var (
+		words   = slices.Clone(p.words)
+		buckets = make([][]uint32, len(p.buckets))
+	)
+	//
+	for i := range len(p.buckets) {
+		buckets[i] = slices.Clone(p.buckets[i])
+	}
+	//
+	return &SharedIndex[T]{
+		words:   words,
+		buckets: buckets,
+	}
 }
 
 // Localise implementation for SharedPool interface.

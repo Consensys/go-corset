@@ -65,7 +65,7 @@ func (p *TraceFile) Clone() TraceFile {
 	//
 	return TraceFile{
 		p.Header,
-		p.Builder,
+		p.Builder.Clone(),
 		cols,
 	}
 }
