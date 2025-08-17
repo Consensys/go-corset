@@ -24,47 +24,47 @@ import (
 // representation into the appropriate field representation without performing
 // any splitting.  This is only required for traces which are "pre-expanded".
 // Such traces typically arise in testing, etc.
-func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (word.Pool[uint, F], []trace.RawColumn[F]) {
+func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (word.ArrayBuilder[F], []trace.RawColumn[F]) {
 	var (
-		stats = util.NewPerfStats()
-		pool  word.Pool[uint, F]
-		cols  []trace.RawColumn[F]
+		stats   = util.NewPerfStats()
+		builder word.ArrayBuilder[F]
+		cols    []trace.RawColumn[F]
 	)
 	//
 	if parallel {
-		pool, cols = parallelTraceLowering[F](tf.Columns)
+		builder, cols = parallelTraceLowering[F](tf.Columns)
 	} else {
-		pool, cols = sequentialTraceLowering[F](tf.Columns)
+		builder, cols = sequentialTraceLowering[F](tf.Columns)
 	}
 	//
 	stats.Log("Trace lowering")
 	//
-	return pool, cols
+	return builder, cols
 }
 
-func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.Pool[uint, F],
+func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.ArrayBuilder[F],
 	[]trace.RawColumn[F]) {
 	//
 	var (
 		loweredColumns []trace.RawColumn[F]
-		pool           = word.NewStaticPool[F]()
+		builder        = word.NewStaticArrayBuilder[F]()
 	)
 	//
 	for _, ith := range columns {
-		lowered := lowerRawColumn[F](ith, pool)
+		lowered := lowerRawColumn(ith, builder)
 		loweredColumns = append(loweredColumns, lowered)
 	}
 	//
-	return pool, loweredColumns
+	return builder, loweredColumns
 }
 
-func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.Pool[uint, F],
+func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.ArrayBuilder[F],
 	[]trace.RawColumn[F]) {
 	//
 	var (
 		loweredColumns []trace.RawColumn[F] = make([]trace.RawColumn[F], len(columns))
 		// Construct new pool
-		pool = word.NewStaticPool[F]()
+		builder = word.NewStaticArrayBuilder[F]()
 		// Construct a communication channel split columns.
 		c = make(chan util.Pair[int, trace.RawColumn[F]], len(columns))
 	)
@@ -72,7 +72,7 @@ func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.Bi
 	for i, ith := range columns {
 		go func(index int, column trace.RawColumn[word.BigEndian]) {
 			// Send outcome back
-			c <- util.NewPair(index, lowerRawColumn(column, pool))
+			c <- util.NewPair(index, lowerRawColumn(column, builder))
 		}(i, ith)
 	}
 	// Collect results
@@ -83,15 +83,15 @@ func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.Bi
 		loweredColumns[res.Left] = res.Right
 	}
 	// Done
-	return pool, loweredColumns
+	return builder, loweredColumns
 }
 
 // lowerRawColumn lowers a given raw column into a given field implementation.
-func lowerRawColumn[F field.Element[F]](column trace.RawColumn[word.BigEndian], pool word.Pool[uint, F],
+func lowerRawColumn[F field.Element[F]](column trace.RawColumn[word.BigEndian], builder word.ArrayBuilder[F],
 ) trace.RawColumn[F] {
 	var (
 		data  = column.Data
-		ndata = word.NewArray(data.Len(), data.BitWidth(), pool)
+		ndata = builder.NewArray(data.Len(), data.BitWidth())
 	)
 	//
 	for i := range data.Len() {

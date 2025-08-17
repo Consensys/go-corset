@@ -36,6 +36,11 @@ func NewZeroArray[T Word[T]](height uint) *ZeroArray[T] {
 	return &ZeroArray[T]{height}
 }
 
+// Append new word on this array
+func (p *ZeroArray[T]) Append(word T) {
+	p.Pad(0, 1, word)
+}
+
 // Clone makes clones of this array producing an otherwise identical copy.
 func (p *ZeroArray[T]) Clone() array.MutArray[T] {
 	return &ZeroArray[T]{p.height}

@@ -14,6 +14,7 @@ package assignment
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -87,17 +88,17 @@ func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)
 		// Byte width records the largest width of any column.
-		bit_width = uint(0)
+		bitwidth = uint(0)
 	)
 	// Compute maximum bitwidth of all source columns, as this determines the
 	// width required for the delta column.
 	for i := 0; i < nbits; i++ {
-		bit_width = max(bit_width, schema.Register(p.sources[i]).Width)
+		bitwidth = max(bitwidth, schema.Register(p.sources[i]).Width)
 	}
 	// Read input columns
 	inputs := ReadRegisters(trace, p.sources...)
 	// Apply native function
-	data := lexSortNativeFunction[F](bit_width, inputs, p.signs, trace.Pool())
+	data := lexSortNativeFunction(inputs, p.signs, trace.Builder())
 	//
 	return data, nil
 }
@@ -195,8 +196,8 @@ func (p *LexicographicSort[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 // Native Computation
 // ============================================================================
 
-func lexSortNativeFunction[F field.Element[F]](bitwidth uint, sources []array.Array[F], signs []bool,
-	pool word.Pool[uint, F]) []array.MutArray[F] {
+func lexSortNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool,
+	builder word.ArrayBuilder[F]) []array.MutArray[F] {
 	//
 	var (
 		nrows = sources[0].Len()
@@ -211,17 +212,17 @@ func lexSortNativeFunction[F field.Element[F]](bitwidth uint, sources []array.Ar
 		//
 		frZero F = field.Zero[F]()
 	)
-	// FIXME: using an index array here ensures the underlying data is
+	// FIXME: using a large bitwidth here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce
 	// values outside the range of the computed register, but which we still
 	// want to check are actually rejected (i.e. since they are simulating what
 	// an attacker might do).
-	targets[0] = word.NewIndexArray(nrows, bitwidth, pool)
+	targets[0] = builder.NewArray(nrows, math.MaxUint)
 	// Initialise bit columns
 	for i := range signs {
 		// Construct a bit array for ith byte
-		targets[i+1] = word.NewBitArray[F](nrows)
+		targets[i+1] = builder.NewArray(nrows, 1)
 	}
 	//
 	for i := uint(1); i < nrows; i++ {
@@ -230,8 +231,8 @@ func lexSortNativeFunction[F field.Element[F]](bitwidth uint, sources []array.Ar
 		targets[0].Set(i, zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < nbits; j++ {
-			prev := field.FromBigEndianBytes[F](sources[j].Get(i - 1).Bytes())
-			curr := field.FromBigEndianBytes[F](sources[j].Get(i).Bytes())
+			prev := sources[j].Get(i - 1)
+			curr := sources[j].Get(i)
 
 			if !set && prev.Cmp(curr) != 0 {
 				var diff F

@@ -23,19 +23,19 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// WordPool provides a usefuil alias
-type WordPool = word.Pool[uint, word.BigEndian]
+// ArrayBuilder provides a usefuil alias
+type ArrayBuilder = word.ArrayBuilder[word.BigEndian]
 
 // FromBytesLegacy parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) (WordPool, []trace.RawColumn[word.BigEndian], error) {
+func FromBytesLegacy(data []byte) (ArrayBuilder, []trace.RawColumn[word.BigEndian], error) {
 	var (
 		// Construct new bytes.Reader
 		buf = bytes.NewReader(data)
 		// Construct pool for all words contained herein
-		pool = word.NewHeapPool[word.BigEndian]()
+		pool = word.NewDynamicArrayBuilder[word.BigEndian]()
 	)
 	// Read Number of BytesColumns
 	var ncols uint32
@@ -127,7 +127,7 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
+func readColumnData(header columnHeader, bytes []byte, pool ArrayBuilder) array.MutArray[word.BigEndian] {
 	// Handle special cases
 	switch header.width {
 	case 1:
@@ -143,8 +143,8 @@ func readColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutA
 	return readArbitraryColumnData(header, bytes, pool)
 }
 
-func readByteColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
-	arr := word.NewArray(header.length, header.width*8, pool)
+func readByteColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+	arr := builder.NewArray(header.length, header.width*8)
 	//
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith field element
@@ -154,9 +154,9 @@ func readByteColumnData(header columnHeader, bytes []byte, pool WordPool) array.
 	return arr
 }
 
-func readWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
+func readWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
-		arr    = word.NewArray(header.length, header.width*8, pool)
+		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
 	)
 	// Assign elements
@@ -170,9 +170,9 @@ func readWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.
 	return arr
 }
 
-func readDWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
+func readDWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
-		arr    = word.NewArray(header.length, header.width*8, pool)
+		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
 	)
 	// Assign elements
@@ -186,9 +186,9 @@ func readDWordColumnData(header columnHeader, bytes []byte, pool WordPool) array
 	return arr
 }
 
-func readQWordColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
+func readQWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
-		arr    = word.NewArray(header.length, header.width*8, pool)
+		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
 	)
 	// Assign elements
@@ -203,9 +203,9 @@ func readQWordColumnData(header columnHeader, bytes []byte, pool WordPool) array
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(header columnHeader, bytes []byte, pool WordPool) array.MutArray[word.BigEndian] {
+func readArbitraryColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
-		arr    = word.NewArray(header.length, header.width*8, pool)
+		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
 	)
 	// Assign elements

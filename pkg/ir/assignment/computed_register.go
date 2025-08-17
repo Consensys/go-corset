@@ -26,7 +26,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ComputedRegister describes a column whose values are computed on-demand, rather
@@ -77,18 +76,17 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 		trModule = tr.Module(p.Target.Module())
 		scModule = schema.Module(p.Target.Module())
 		wrapper  = recursiveModule[F]{p.Target.Column().Unwrap(), nil, trModule}
-		register = schema.Register(p.Target)
 		err      error
 	)
 	// Determine multiplied height
 	height := trModule.Height()
-	// FIXME: using an index array here ensures the underlying data is
+	// FIXME: using a large bitwidth here ensures the underlying data is
 	// represented using a full field element, rather than e.g. some smaller
 	// number of bytes.  This is needed to handle reject tests which can produce
 	// values outside the range of the computed register, but which we still
 	// want to check are actually rejected (i.e. since they are simulating what
 	// an attacker might do).
-	wrapper.data = word.NewIndexArray(height, register.Width, tr.Pool())
+	wrapper.data = tr.Builder().NewArray(height, math.MaxUint)
 	// Expand the trace
 	if !p.IsRecursive() {
 		// Non-recursive computation
@@ -192,7 +190,7 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+func fwdComputation[F field.Element[F]](data array.MutArray[F], expr ir.Evaluable[F],
 	trMod trace.Module[F], scMod schema.Module) error {
 	// Forwards computation
 	for i := uint(0); i < data.Len(); i++ {
@@ -208,7 +206,7 @@ func fwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint,
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint, F]], expr ir.Evaluable[F],
+func bwdComputation[F field.Element[F]](data array.MutArray[F], expr ir.Evaluable[F],
 	trMod trace.Module[F], scMod schema.Module) error {
 	// Backwards computation
 	for i := data.Len(); i > 0; i-- {
@@ -229,7 +227,7 @@ func bwdComputation[F field.Element[F]](data *word.IndexArray[F, word.Pool[uint,
 // being generated.
 type recursiveModule[F field.Element[F]] struct {
 	col      uint
-	data     *word.IndexArray[F, word.Pool[uint, F]]
+	data     array.MutArray[F]
 	trModule trace.Module[F]
 }
 
@@ -267,7 +265,7 @@ func (p *recursiveModule[F]) Height() uint {
 // RecColumn is a wrapper which enables the array being computed to be accessed
 // during its own computation.
 type recursiveColumn[F field.Element[F]] struct {
-	data *word.IndexArray[F, word.Pool[uint, F]]
+	data array.MutArray[F]
 }
 
 // Holds the name of this column
@@ -282,7 +280,7 @@ func (p *recursiveColumn[F]) Get(row int) F {
 		return field.Zero[F]()
 	}
 	//
-	return field.FromBigEndianBytes[F](p.data.Get(uint(row)).Bytes())
+	return p.data.Get(uint(row))
 }
 
 // Data implementation for trace.Column interface.

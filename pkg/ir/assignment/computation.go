@@ -143,7 +143,7 @@ func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 
 // NativeComputation defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation[F any] func([]array.Array[F], word.Pool[uint, F]) []array.MutArray[F]
+type NativeComputation[F any] func([]array.Array[F], word.ArrayBuilder[F]) []array.MutArray[F]
 
 func computeNative[F field.Element[F]](sources []sc.RegisterRef, fn NativeComputation[F], trace tr.Trace[F],
 ) []array.MutArray[F] {
@@ -155,7 +155,7 @@ func computeNative[F field.Element[F]](sources []sc.RegisterRef, fn NativeComput
 		inputs[i] = trace.Module(mid).Column(rid).Data()
 	}
 	// Apply native function
-	return fn(inputs, trace.Pool())
+	return fn(inputs, trace.Builder())
 }
 
 // ============================================================================
@@ -189,7 +189,7 @@ func findNative[F field.Element[F]](name string) NativeComputation[F] {
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ word.Pool[uint, F],
+func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ word.ArrayBuilder[F],
 ) []array.MutArray[F] {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
@@ -200,7 +200,7 @@ func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ word.Pool[
 
 // interleaving constructs a single interleaved column from a give set of source
 // columns.  The assumption is that the height of all columns is the same.
-func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F],
+func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
 ) []array.MutArray[F] {
 	var (
 		height     = sources[0].Len()
@@ -216,7 +216,7 @@ func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], pool
 		}
 	}
 	// Construct interleaved column
-	target := word.NewArray(height*multiplier, bitwidth, pool)
+	target := builder.NewArray(height*multiplier, bitwidth)
 	//
 	for i := range multiplier {
 		src := sources[i]
@@ -233,7 +233,9 @@ func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], pool
 // filter assigns the target column with the corresponding value of the source
 // column *when* a given selector column is non-zero.  Otherwise, the target
 // column remains zero at the given position.
-func filterNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F]) []array.MutArray[F] {
+func filterNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+) []array.MutArray[F] {
+	//
 	if len(sources) != 2 {
 		panic("incorrect number of arguments")
 	}
@@ -243,7 +245,7 @@ func filterNativeFunction[F field.Element[F]](sources []array.Array[F], pool wor
 		srcCol = sources[0]
 		selCol = sources[1]
 		// Clone source column
-		data = word.NewArray(srcCol.Len(), srcCol.BitWidth(), pool)
+		data = builder.NewArray(srcCol.Len(), srcCol.BitWidth())
 	)
 	//
 	for i := uint(0); i < data.Len(); i++ {
@@ -259,7 +261,9 @@ func filterNativeFunction[F field.Element[F]](sources []array.Array[F], pool wor
 }
 
 // apply a key-value map conditionally.
-func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F]) []array.MutArray[F] {
+func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+) []array.MutArray[F] {
+	//
 	n := len(sources) - 3
 	if n%2 != 0 {
 		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
@@ -273,7 +277,7 @@ func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], pool word
 	sourceMap := hash.NewMap[hash.Array[F], F](sourceValue.Len())
 	targetSelector := sources[0]
 	targetKeys := make([]array.Array[F], n)
-	targetValue := word.NewArray(targetSelector.Len(), sourceValue.BitWidth(), pool)
+	targetValue := builder.NewArray(targetSelector.Len(), sourceValue.BitWidth())
 	// Initialise source / target keys
 	for i := 0; i < n; i++ {
 		targetKeys[i] = sources[1+i]
@@ -333,7 +337,7 @@ func extractIthKey[F field.Element[F]](index uint, cols []array.Array[F]) hash.A
 }
 
 // determines changes of a given set of columns within a given region.
-func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F],
+func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
 ) []array.MutArray[F] {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
@@ -348,7 +352,7 @@ func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := word.NewArray(selectorCol.Len(), 1, pool)
+	data := builder.NewArray(selectorCol.Len(), 1)
 	// Set current value
 	current := make([]F, len(sourceCols))
 	started := false
@@ -372,7 +376,7 @@ func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 	return []array.MutArray[F]{data}
 }
 
-func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F],
+func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) < 2 {
@@ -389,7 +393,7 @@ func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[
 		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := word.NewArray(selectorCol.Len(), 1, pool)
+	data := builder.NewArray(selectorCol.Len(), 1)
 	// Set current value
 	current := make([]F, len(sourceCols))
 	started := false
@@ -416,7 +420,7 @@ func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[
 }
 
 // determines changes of a given set of columns within a given region.
-func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], _ word.Pool[uint, F],
+func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) < 2 {
@@ -432,7 +436,7 @@ func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 		sourceCols[i-1] = sources[i]
 	}
 	// Construct (binary) output column
-	data := word.NewBitArray[F](selectorCol.Len())
+	data := builder.NewArray(selectorCol.Len(), 1)
 	// Set current value
 	current := make([]F, len(sourceCols))
 	started := false
@@ -456,7 +460,7 @@ func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 	return []array.MutArray[F]{data}
 }
 
-func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F],
+func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) != 3 {
@@ -467,7 +471,7 @@ func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], p
 	firstCol := sources[1]
 	sourceCol := sources[2]
 	// Construct (binary) output column
-	data := word.NewArray(sourceCol.Len(), sourceCol.BitWidth(), pool)
+	data := builder.NewArray(sourceCol.Len(), sourceCol.BitWidth())
 	// Set current value
 	current := field.Zero[F]()
 	//
@@ -488,7 +492,7 @@ func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], p
 	return []array.MutArray[F]{data}
 }
 
-func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], pool word.Pool[uint, F],
+func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) != 3 {
@@ -499,7 +503,7 @@ func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], p
 	firstCol := sources[1]
 	sourceCol := sources[2]
 	// Construct (binary) output column
-	data := word.NewArray(sourceCol.Len(), sourceCol.BitWidth(), pool)
+	data := builder.NewArray(sourceCol.Len(), sourceCol.BitWidth())
 	// Set current value
 	current := field.Zero[F]()
 	//

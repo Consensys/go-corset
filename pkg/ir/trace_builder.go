@@ -173,23 +173,25 @@ func (tb TraceBuilder) Build(schema sc.AnySchema[bls12_377.Element], tf lt.Trace
 	trace.Trace[bls12_377.Element], []error) {
 	//
 	var (
-		pool   word.Pool[uint, bls12_377.Element]
-		cols   []trace.RawColumn[bls12_377.Element]
-		errors []error
+		arrBuilder word.ArrayBuilder[bls12_377.Element]
+		cols       []trace.RawColumn[bls12_377.Element]
+		errors     []error
 	)
 	// If expansion is enabled, then we must split the trace according to the
 	// given mapping; otherwise, we simply lower the trace as is.
 	if tb.mapping != nil && tb.expand {
 		// Split raw columns, and handle any errors arising.
-		if pool, cols, errors = builder.TraceSplitting[bls12_377.Element](tb.parallel, tf, tb.mapping); len(errors) > 0 {
+		arrBuilder, cols, errors = builder.TraceSplitting[bls12_377.Element](tb.parallel, tf, tb.mapping)
+		// Sanity check for errors
+		if len(errors) > 0 {
 			return nil, errors
 		}
 	} else {
 		// Lower raw columns
-		pool, cols = builder.TraceLowering[bls12_377.Element](tb.parallel, tf.Clone())
+		arrBuilder, cols = builder.TraceLowering[bls12_377.Element](tb.parallel, tf)
 	}
 	// Initialise the actual trace object
-	tr, errors := initialiseTrace(!tb.expand, schema, pool, cols)
+	tr, errors := initialiseTrace(!tb.expand, schema, arrBuilder, cols)
 	//
 	if len(errors) > 0 {
 		// Critical failure
@@ -225,7 +227,7 @@ func (tb TraceBuilder) Build(schema sc.AnySchema[bls12_377.Element], tf lt.Trace
 	return tr, errors
 }
 
-func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema[F], pool word.Pool[uint, F],
+func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema[F], pool word.ArrayBuilder[F],
 	cols []trace.RawColumn[F]) (*trace.ArrayTrace[F], []error) {
 	//
 	var (
