@@ -28,7 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
@@ -139,7 +139,9 @@ func init() {
 // RawColumn provides a convenient alias
 type RawColumn = trace.RawColumn[word.BigEndian]
 
-func expandColumns(tf lt.TraceFile, schema sc.AnySchema[bls12_377.Element], builder ir.TraceBuilder) lt.TraceFile {
+func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], builder ir.TraceBuilder[F],
+) lt.TraceFile {
+	//
 	var (
 		rcols []RawColumn
 		// Construct expanded tr

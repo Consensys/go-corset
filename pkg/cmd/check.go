@@ -180,7 +180,7 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 }
 
 func checkTrace(ir string, traces []lt.TraceFile, schema sc.AnySchema[bls12_377.Element],
-	builder ir.TraceBuilder, cfg checkConfig) bool {
+	builder ir.TraceBuilder[bls12_377.Element], cfg checkConfig) bool {
 	//
 	for _, tf := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {

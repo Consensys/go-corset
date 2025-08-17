@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/spf13/cobra"
 )
 
@@ -130,7 +131,7 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 		}
 	}
 	// Construct trace builder
-	builder := ir.NewTraceBuilder().
+	builder := ir.NewTraceBuilder[bls12_377.Element]().
 		WithValidation(validate).
 		WithDefensivePadding(defensive).
 		WithExpansion(expand).

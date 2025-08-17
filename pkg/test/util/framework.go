@@ -196,7 +196,7 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 func checkTrace[C sc.Constraint[bls12_377.Element]](t *testing.T, tf lt.TraceFile, id traceId,
 	schema sc.Schema[bls12_377.Element, C], mapping sc.LimbsMap) {
 	// Construct the trace
-	tr, errs := ir.NewTraceBuilder().
+	tr, errs := ir.NewTraceBuilder[bls12_377.Element]().
 		WithExpansion(id.expand).
 		WithValidation(id.validate).
 		WithPadding(id.padding).

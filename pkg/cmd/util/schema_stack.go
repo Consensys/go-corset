@@ -66,7 +66,7 @@ type SchemaStack struct {
 	// Mir optimisation config options
 	mirConfig mir.OptimisationConfig
 	// Configuration for trace expansion
-	traceBuilder ir.TraceBuilder
+	traceBuilder ir.TraceBuilder[bls12_377.Element]
 	// Externalised constant definitions
 	externs []string
 	// Layers identifies which layers are included in the stack.
@@ -123,7 +123,7 @@ func (p *SchemaStack) WithLayer(layer uint) *SchemaStack {
 
 // WithTraceBuilder determines the settings to use for trace expansion, such as
 // whether to use parallelisation, etc.
-func (p *SchemaStack) WithTraceBuilder(builder ir.TraceBuilder) *SchemaStack {
+func (p *SchemaStack) WithTraceBuilder(builder ir.TraceBuilder[bls12_377.Element]) *SchemaStack {
 	p.traceBuilder = builder
 	// Apply register mapping
 	if p.mapping != nil {
@@ -167,7 +167,7 @@ func (p *SchemaStack) SchemaOf(ir string) schema.AnySchema[bls12_377.Element] {
 }
 
 // TraceBuilder returns a configured trace builder.
-func (p *SchemaStack) TraceBuilder() ir.TraceBuilder {
+func (p *SchemaStack) TraceBuilder() ir.TraceBuilder[bls12_377.Element] {
 	return p.traceBuilder
 }
 
