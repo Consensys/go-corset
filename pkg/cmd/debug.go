@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/debug"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -84,7 +85,7 @@ func init() {
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
 }
 
-func printAttributes(schemas cmd_util.SchemaStack) {
+func printAttributes(schemas cmd_util.SchemaStack[bls12_377.Element]) {
 	binfile := schemas.BinaryFile()
 	// Print attributes
 	for _, attr := range binfile.Attributes {
@@ -96,7 +97,7 @@ func printAttributes(schemas cmd_util.SchemaStack) {
 	}
 }
 
-func printSpillage(schemas cmd_util.SchemaStack, defensive bool) {
+func printSpillage(schemas cmd_util.SchemaStack[bls12_377.Element], defensive bool) {
 	// fmt.Println("Spillage:")
 	// // Compute spillage for optimisation level
 	// spillage := determineSpillage(&binf.Schema, defensive, optConfig)
@@ -117,7 +118,7 @@ func printSpillage(schemas cmd_util.SchemaStack, defensive bool) {
 	panic("todo")
 }
 
-func printBinaryFileHeader(schemas cmd_util.SchemaStack) {
+func printBinaryFileHeader(schemas cmd_util.SchemaStack[bls12_377.Element]) {
 	header := schemas.BinaryFile().Header
 	//
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)

@@ -74,9 +74,9 @@ const SCHEMA_DEFAULT_MIR = uint(1)
 // and that the default is for the stack to be lowered to the AIR level.
 const SCHEMA_DEFAULT_AIR = uint(2)
 
-func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack {
+func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack[bls12_377.Element] {
 	var (
-		schemaStack  cmd_util.SchemaStack
+		schemaStack  cmd_util.SchemaStack[bls12_377.Element]
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
 		field        = GetString(cmd, "field")

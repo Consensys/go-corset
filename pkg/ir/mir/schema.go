@@ -137,6 +137,10 @@ func SubstituteConstants[F field.Element[F], M schema.Module[F]](schema schema.M
 	}
 }
 
+func ConcretizeField[F field.Element[F]](schema Schema[bls12_377.Element]) Schema[F] {
+	panic("todo")
+}
+
 func registerIntermediateRepresentation[F field.Element[F]]() {
 	gob.Register(schema.Constraint[F](&VanishingConstraint[F]{}))
 	gob.Register(schema.Constraint[F](&RangeConstraint[F]{}))

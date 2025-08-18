@@ -28,7 +28,7 @@ import (
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
+func PrintSchemas(stack cmd_util.SchemaStack[bls12_377.Element], textwidth uint) {
 	//
 	for _, schema := range stack.Schemas() {
 		printSchema(schema, textwidth)

@@ -29,7 +29,7 @@ import (
 
 // PrintStats is used for printing summary information about a constraint set,
 // such as the number and type of constraints, etc.
-func PrintStats(stack cmd_util.SchemaStack) {
+func PrintStats(stack cmd_util.SchemaStack[bls12_377.Element]) {
 	var (
 		schemas     = stack.Schemas()
 		summarisers = getSummerisers[bls12_377.Element]()

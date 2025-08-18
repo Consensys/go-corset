@@ -147,7 +147,7 @@ type checkConfig struct {
 }
 
 // Check raw constraints using the legacy pipeline.
-func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
+func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack[bls12_377.Element]) {
 	var (
 		traces []lt.TraceFile
 		ok     bool = true

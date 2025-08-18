@@ -47,7 +47,7 @@ var generateCmd = &cobra.Command{
 		intrface := GetString(cmd, "interface")
 		// Parse constraints
 		files := splitConstraintSets(args)
-		schemas := make([]cmd_util.SchemaStack, len(files))
+		schemas := make([]cmd_util.SchemaStack[bls12_377.Element], len(files))
 		//
 		for i := range schemas {
 			schemas[i] = *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, files[i]...)

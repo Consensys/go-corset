@@ -19,11 +19,12 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // PrintExternalisedConstants is responsible for printing any externalised
 // constants contained within the given binary file.
-func PrintExternalisedConstants(schemas cmd_util.SchemaStack) {
+func PrintExternalisedConstants(schemas cmd_util.SchemaStack[bls12_377.Element]) {
 	binf := schemas.BinaryFile()
 	//
 	fmt.Println("External constants:")

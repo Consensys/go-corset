@@ -57,7 +57,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack
-		stacks = getSchemaStack(stdlib, fields[0], filenames...)
+		stacks = getSchemaStack[bls12_377.Element](stdlib, fields[0], filenames...)
 	)
 	// Sanity check
 	if len(fields) == 0 {
@@ -86,7 +86,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 }
 
 func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
-	stack cmd_util.SchemaStack) {
+	stack cmd_util.SchemaStack[F]) {
 	// Run checks using schema compiled from source
 	checkCompilerOptimisations[F](t, test, cfg, traces, stack)
 	// Construct binary schema using primary stack
@@ -97,7 +97,7 @@ func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, 
 
 // Sanity check same outcome for all optimisation levels
 func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
-	stack cmd_util.SchemaStack) {
+	stack cmd_util.SchemaStack[F]) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
 		// Only check optimisation levels other than the default.
@@ -114,7 +114,7 @@ func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, c
 
 // Check the binary encoding / decoding.
 func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
-	stack cmd_util.SchemaStack) {
+	stack cmd_util.SchemaStack[F]) {
 	//
 	name := fmt.Sprintf("%s:bin", test)
 	// Construct binary schema using primary stack
@@ -134,7 +134,7 @@ func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Conf
 // Run default optimisation over all fields, and check padding for the primary
 // stack only.
 func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
-	stack cmd_util.SchemaStack) {
+	stack cmd_util.SchemaStack[F]) {
 	//
 	if cfg.field == "" || cfg.field == stack.Field().Name {
 		// Set default optimisation level
@@ -149,7 +149,7 @@ func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, tra
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
 func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint, opt uint, cfg Config,
-	traces []lt.TraceFile, stack cmd_util.SchemaStack) {
+	traces []lt.TraceFile, stack cmd_util.SchemaStack[F]) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
@@ -344,10 +344,10 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStack(stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack {
+func getSchemaStack[F field.Element[F]](stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack[F] {
 	//
 	var (
-		stack        cmd_util.SchemaStack
+		stack        cmd_util.SchemaStack[F]
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
 	)
