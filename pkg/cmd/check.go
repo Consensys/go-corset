@@ -114,6 +114,7 @@ func writeMemProfile(cmd *cobra.Command) {
 		}
 		//nolint
 		defer f.Close()
+		//
 		runtime.GC()
 		//
 		if err := pprof.Lookup("allocs").WriteTo(f, 0); err != nil {
@@ -147,7 +148,9 @@ type checkConfig struct {
 }
 
 // Check raw constraints using the legacy pipeline.
-func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack[bls12_377.Element]) {
+func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string,
+	schemas cmd_util.SchemaStack[bls12_377.Element]) {
+	//
 	var (
 		traces []lt.TraceFile
 		ok     bool = true

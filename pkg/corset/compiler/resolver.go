@@ -603,14 +603,20 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLooku
 	var errors []SyntaxError
 	// Resolve source expressions
 	for i := range decl.Sources {
-		var scope = NewLocalScope(enclosing, true, false, false)
-		errs := r.finaliseExpressionsInModule(scope, decl.Sources[i])
+		var (
+			scope = NewLocalScope(enclosing, true, false, false)
+			errs  = r.finaliseExpressionsInModule(scope, decl.Sources[i])
+		)
+
 		errors = append(errors, errs...)
 	}
 	// Resolve all target expressions
 	for i := range decl.Targets {
-		var scope = NewLocalScope(enclosing, true, false, false)
-		errs := r.finaliseExpressionsInModule(scope, decl.Targets[i])
+		var (
+			scope = NewLocalScope(enclosing, true, false, false)
+			errs  = r.finaliseExpressionsInModule(scope, decl.Targets[i])
+		)
+
 		errors = append(errors, errs...)
 	}
 	//

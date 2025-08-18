@@ -39,7 +39,7 @@ type mirRegisterAccess = mir.RegisterAccess[bls12_377.Element]
 
 // SchemaBuilder is used within this translator for building the final mixed MIR
 // schema.
-type SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, mirConstraint, mirTerm, mirModule]
+type SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, mirConstraint, mirTerm]
 
 // ModuleBuilder is used within this translator for building the various modules
 // which are contained within the mixed MIR schema.
@@ -57,7 +57,7 @@ func TranslateCircuit[M schema.Module[bls12_377.Element]](
 	circuit *ast.Circuit,
 	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mirModule], []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm, mir.Module[bls12_377.Element]](externs...)
+	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm](externs...)
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
@@ -65,8 +65,10 @@ func TranslateCircuit[M schema.Module[bls12_377.Element]](
 	if errs := t.translateDeclarations(circuit); len(errs) > 0 {
 		return schema.MixedSchema[bls12_377.Element, M, mirModule]{}, errs
 	}
+	// Build concrete modules from schema
+	modules := ir.BuildSchema[mirModule](t.schema)
 	// Finally, construct the mixed schema
-	return schema.NewMixedSchema(externs, t.schema.Build()), nil
+	return schema.NewMixedSchema(externs, modules), nil
 }
 
 // Translator packages up information necessary for translating a circuit into
@@ -676,6 +678,7 @@ func (t *translator) translateUnitExpressions(exprs []ast.Expr, module *ModuleBu
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
+			//
 			expr, errs := t.translateExpression(e, module, shift)
 			errors = append(errors, errs...)
 			hirExprs[i] = expr
@@ -695,6 +698,7 @@ func (t *translator) translateExpressions(module *ModuleBuilder, shift int,
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
+			//
 			nexprs[i], errs = t.translateExpression(e, module, shift)
 			errors = append(errors, errs...)
 		} else {
@@ -877,6 +881,7 @@ func (t *translator) translateLogicals(module *ModuleBuilder, shift int,
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		var errs []SyntaxError
+		//
 		logicals[i], errs = t.translateLogical(e, module, shift)
 		errors = append(errors, errs...)
 	}

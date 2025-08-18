@@ -97,6 +97,11 @@ func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding bool
 	return &Table[F, C]{name, multiplier, padding, nil, nil, nil}
 }
 
+// Init implementation for ir.InitModule interface.
+func (p *Table[F, C]) Init(name string, multiplier uint, padding bool) *Table[F, C] {
+	return &Table[F, C]{name, multiplier, padding, nil, nil, nil}
+}
+
 // Assignments provides access to those assignments defined as part of this
 // table.
 func (p *Table[F, C]) Assignments() iter.Iterator[Assignment[F]] {
@@ -167,13 +172,6 @@ func (p *Table[F, C]) Register(id RegisterId) Register {
 // Specifically, the index of a register in this array is its register index.
 func (p *Table[F, C]) Registers() []Register {
 	return p.registers
-}
-
-// Init implementation for ir.InitModule interface.
-func (p *Table[F, C]) Init(name string, multiplier uint, padding bool) {
-	p.name = name
-	p.multiplier = multiplier
-	p.padding = padding
 }
 
 // Width returns the number of registers in this Table.
@@ -248,6 +246,7 @@ func (p *Table[F, C]) AddRegisters(registers ...Register) {
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p *Table[F, M]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
+	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Name
 	if err := gobEncoder.Encode(p.name); err != nil {

@@ -26,7 +26,8 @@ func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.LimbsMap) A
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.LimbsMap) InterleavingConstraint[F] {
+func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.LimbsMap,
+) InterleavingConstraint[F] {
 	// TODO: implement this
 	return c
 }
@@ -50,7 +51,8 @@ func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.LimbsMa
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping schema.RegisterLimbsMap) VanishingConstraint[F] {
+func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping schema.RegisterLimbsMap,
+) VanishingConstraint[F] {
 	// Split all registers occurring in the logical term.
 	c := splitLogicalTerm(p.Constraint, mapping)
 	// FIXME: this is an insufficient solution because it does not address the

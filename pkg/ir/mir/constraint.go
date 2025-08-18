@@ -28,7 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-// Constraint[F] attempts to encapsulate the notion of a valid constraint at the MIR
+// Constraint attempts to encapsulate the notion of a valid constraint at the MIR
 // level.  Since this is the fundamental level, only certain constraint forms
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
 // are not found at the Constraint[F] level.
@@ -69,13 +69,15 @@ func NewPermutationConstraint[F field.Element[F]](handle string, context schema.
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, expr Term[F], bitwidth uint) Constraint[F] {
+func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, expr Term[F],
+	bitwidth uint) Constraint[F] {
+	//
 	return Constraint[F]{ranged.NewConstraint(handle, ctx, expr, bitwidth)}
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[F field.Element[F]](handle string, context schema.ModuleId, bitwidth uint, selector util.Option[Term[F]],
-	sources []Term[F], signs []bool, strict bool) Constraint[F] {
+func NewSortedConstraint[F field.Element[F]](handle string, context schema.ModuleId, bitwidth uint,
+	selector util.Option[Term[F]], sources []Term[F], signs []bool, strict bool) Constraint[F] {
 	//
 	return Constraint[F]{sorted.NewConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
 }
@@ -177,6 +179,7 @@ func (p Constraint[F]) GobEncode() (data []byte, err error) {
 // GobDecode a previously encoded option
 func (p *Constraint[F]) GobDecode(data []byte) error {
 	var error error
+	//
 	p.constraint, error = decode_constraint[F](data)
 	//
 	return error

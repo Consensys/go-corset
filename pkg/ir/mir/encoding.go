@@ -660,13 +660,17 @@ func decode_logical[F field.Element[F]](buf *bytes.Buffer) (LogicalTerm[F], erro
 }
 
 // Decode a variable number of terms, as determined by the leading byte.
-func decode_nary_logicals[F field.Element[F]](constructor func([]LogicalTerm[F]) LogicalTerm[F], buf *bytes.Buffer) (LogicalTerm[F], error) {
+func decode_nary_logicals[F field.Element[F]](constructor func([]LogicalTerm[F]) LogicalTerm[F], buf *bytes.Buffer,
+) (LogicalTerm[F], error) {
+	//
 	terms, err := decode_nary(decode_logical[F], buf)
 	return constructor(terms), err
 }
 
 // Decode exactly n logicals terms
-func decode_logicals[F field.Element[F], S any](n uint, constructor func([]LogicalTerm[F]) S, buf *bytes.Buffer) (S, error) {
+func decode_logicals[F field.Element[F], S any](n uint, constructor func([]LogicalTerm[F]) S, buf *bytes.Buffer,
+) (S, error) {
+	//
 	terms, err := decode_n(n, decode_logical[F], buf)
 	return constructor(terms), err
 }

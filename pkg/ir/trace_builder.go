@@ -415,6 +415,7 @@ func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayT
 		// Perform the check
 		if expected != expanded[mid] {
 			name := schema.Module(mid).Name()
+			//
 			return fmt.Errorf(
 				"inconsistent expanded trace height for %s (was %d but expected %d)", name, expanded[mid], expected)
 		}

@@ -92,6 +92,7 @@ func initIndex[W Word[W]]() []W {
 	//
 	for i := range uint64(65536) {
 		var ith W
+		//
 		index[i] = ith.SetUint64(i)
 	}
 	//

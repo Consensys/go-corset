@@ -138,7 +138,7 @@ func LowerMixedMicroProgram[F field.Element[F]](p MixedMicroProgram[F]) schema.U
 	comp.Compile(p.LeftModules()...)
 	// Copy over compiled components
 	for i, m := range comp.Modules() {
-		modules[i] = ir.Build[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
+		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
 	}
 	// Copy over legacy components
 	copy(modules[n:], p.RightModules())

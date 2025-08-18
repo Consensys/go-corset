@@ -18,7 +18,6 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // UniformSchema represents the simplest kind of schema which contains only
@@ -26,9 +25,6 @@ import (
 type UniformSchema[F any, M Module[F]] struct {
 	modules []M
 }
-
-// Sanity check
-var _ Schema[bls12_377.Element, Constraint[bls12_377.Element]] = UniformSchema[bls12_377.Element, Module[bls12_377.Element]]{}
 
 // NewUniformSchema constructs a new schema comprising the given modules.
 func NewUniformSchema[F any, M Module[F]](modules []M) UniformSchema[F, M] {
@@ -127,6 +123,7 @@ func constraintsOf[F any, M Module[F]](modules []M) iter.Iterator[Constraint[F]]
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p UniformSchema[F, M]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
+	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Modules
 	if err := gobEncoder.Encode(&p.modules); err != nil {

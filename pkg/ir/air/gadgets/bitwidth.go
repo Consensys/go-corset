@@ -545,7 +545,8 @@ func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
 
 // Allocate n byte registers, each of which requires a suitable range
 // constraint.
-func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, module *air.ModuleBuilder[F]) []sc.RegisterRef {
+func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, module *air.ModuleBuilder[F],
+) []sc.RegisterRef {
 	var (
 		n    = bitwidth / 8
 		zero big.Int

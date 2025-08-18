@@ -40,6 +40,7 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 	//
 	for i := range p.Vars {
 		var ith Term[F, T] = p.Vars[i].ApplyShift(shift)
+		//
 		nterms[i] = ith.(*RegisterAccess[F, T])
 	}
 	//

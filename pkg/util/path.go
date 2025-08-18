@@ -176,6 +176,7 @@ func (p *Path) String() string {
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p *Path) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
+	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// absolute flag
 	if err := gobEncoder.Encode(&p.absolute); err != nil {

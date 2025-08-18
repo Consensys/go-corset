@@ -92,8 +92,8 @@ func generateClassHeader(pkgname string, metadata typed.Map, builder *strings.Bu
 	builder.WriteString(" */\n")
 }
 
-func generateClassContents[F any](className string, super string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
-	schema sc.AnySchema[F], builder indentBuilder) {
+func generateClassContents[F any](className string, super string, mod corset.SourceModule, metadata typed.Map,
+	spillage []uint, schema sc.AnySchema[F], builder indentBuilder) {
 	// Attempt to find module
 	mid, ok := schema.Modules().Find(func(m sc.Module[F]) bool { return m.Name() == mod.Name })
 	// Sanity check we found it

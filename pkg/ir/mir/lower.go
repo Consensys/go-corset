@@ -54,7 +54,7 @@ type AirLowering[F field.Element[F]] struct {
 // NewAirLowering constructs an initial state for lowering a given MIR schema.
 func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
 	var (
-		airSchema = ir.NewSchemaBuilder[F, air.Constraint[F], air.Term[F], air.Module[F], schema.Module[F]]()
+		airSchema = ir.NewSchemaBuilder[F, air.Constraint[F], air.Term[F], air.Module[F]]()
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {
@@ -85,8 +85,10 @@ func (p *AirLowering[F]) Lower() air.Schema[F] {
 	for i := 0; i < int(p.mirSchema.Width()); i++ {
 		p.LowerModule(uint(i))
 	}
+	// Build concrete modules from schema
+	modules := ir.BuildSchema[air.Module[F]](p.airSchema)
 	// Done
-	return schema.NewUniformSchema(p.airSchema.Build())
+	return schema.NewUniformSchema(modules)
 }
 
 // InitialiseModule simply initialises all registers within the module, but does
@@ -225,7 +227,8 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 // whenever a general expression is encountered, we must generate a computed
 // column to hold the value of that expression, along with appropriate
 // constraints to enforce the expected value.
-func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstraint[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstraint[F],
+	airModule *air.ModuleBuilder[F]) {
 	// Lower sources
 	sources := p.expandTerms(c.SourceContext, c.Sources...)
 	// Lower target
@@ -389,7 +392,9 @@ func (p *AirLowering[F]) lowerLogicalTo(sign bool, e LogicalTerm[F], airModule *
 	}
 }
 
-func (p *AirLowering[F]) lowerLogicalsTo(sign bool, airModule *air.ModuleBuilder[F], terms ...LogicalTerm[F]) [][]air.Term[F] {
+func (p *AirLowering[F]) lowerLogicalsTo(sign bool, airModule *air.ModuleBuilder[F], terms ...LogicalTerm[F],
+) [][]air.Term[F] {
+	//
 	nexprs := make([][]air.Term[F], len(terms))
 
 	for i := range len(terms) {
@@ -419,7 +424,8 @@ func (p *AirLowering[F]) lowerDisjunctionTo(sign bool, e *Disjunct[F], airModule
 	return conjunction(terms...)
 }
 
-func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F], airModule *air.ModuleBuilder[F],
+) []air.Term[F] {
 	//
 	var (
 		lhs air.Term[F] = p.lowerTermTo(left, airModule)

@@ -23,8 +23,8 @@ import (
 // BuildableModule embodies the notion of a module which can be initialised from
 // the various required components.  This provides a useful way for constructing
 // modules once all the various pieces of information have been finalised.
-type BuildableModule[F any, C schema.Constraint[F]] interface {
-	Init(name string, multiplier uint, padding bool)
+type BuildableModule[F any, C schema.Constraint[F], M any] interface {
+	Init(name string, multiplier uint, padding bool) M
 	// Add one or more assignments to this buildable module
 	AddAssignments(assignments ...schema.Assignment[F])
 	// Add one or more constraints to this buildable module
@@ -33,10 +33,37 @@ type BuildableModule[F any, C schema.Constraint[F]] interface {
 	AddRegisters(registers ...schema.Register)
 }
 
+// BuildSchema builds all modules defined within a give SchemaBuilder instance.
+func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constraint[F], T Term[F, T]](
+	p SchemaBuilder[F, C, T]) []M {
+	//
+	var modules = make([]M, len(p.modules))
+	//
+	for i, m := range p.modules {
+		modules[i] = BuildModule[F, C, T, M](*m)
+	}
+	//
+	return modules
+}
+
+// BuildModule builds a module from a given ModuleBuilder instance.
+func BuildModule[F field.Element[F], C schema.Constraint[F], T Term[F, T], M BuildableModule[F, C, M]](
+	m ModuleBuilder[F, C, T]) M {
+	//
+	var module M
+	// Build it
+	module = module.Init(m.name, m.moduleId, m.padding)
+	module.AddRegisters(m.registers...)
+	module.AddAssignments(m.assignments...)
+	module.AddConstraints(m.constraints...)
+	// Done
+	return module
+}
+
 // SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
 // simplify the problem of mapping source-level names to e.g. module-specific
 // register indexes.
-type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], M BuildableModule[F, C]] struct {
+type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] struct {
 	// Modmap maps modules identifers to modules
 	modmap map[string]uint
 	// Externs represent modules which have already been constructed.  These
@@ -49,8 +76,8 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], M B
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], M BuildableModule[F, C], E schema.Module[F]](externs ...E,
-) SchemaBuilder[F, C, T, M] {
+func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], E schema.Module[F]](externs ...E,
+) SchemaBuilder[F, C, T] {
 	var (
 		modmap   = make(map[string]uint, 0)
 		nexterns = make([]schema.Module[F], len(externs))
@@ -69,12 +96,12 @@ func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], 
 		nexterns[i] = m
 	}
 	//
-	return SchemaBuilder[F, C, T, M]{modmap, nexterns, nil}
+	return SchemaBuilder[F, C, T]{modmap, nexterns, nil}
 }
 
 // NewModule constructs a new, empty module and returns its unique module
 // identifier.
-func (p *SchemaBuilder[F, C, T, M]) NewModule(name string, multiplier uint, padding bool) uint {
+func (p *SchemaBuilder[F, C, T]) NewModule(name string, multiplier uint, padding bool) uint {
 	var mid = uint(len(p.externs) + len(p.modules))
 	// Sanity check this module is not already declared
 	if _, ok := p.modmap[name]; ok {
@@ -89,7 +116,7 @@ func (p *SchemaBuilder[F, C, T, M]) NewModule(name string, multiplier uint, padd
 
 // HasModule checks whether a moduleregister of the given name exists already
 // and,if so, returns its index.
-func (p *SchemaBuilder[F, C, T, M]) HasModule(name string) (uint, bool) {
+func (p *SchemaBuilder[F, C, T]) HasModule(name string) (uint, bool) {
 	// Lookup module associated with this name
 	mid, ok := p.modmap[name]
 	// That's it.
@@ -97,7 +124,7 @@ func (p *SchemaBuilder[F, C, T, M]) HasModule(name string) (uint, bool) {
 }
 
 // Module returns the builder for the given module based on its index.
-func (p *SchemaBuilder[F, C, T, M]) Module(mid uint) *ModuleBuilder[F, C, T] {
+func (p *SchemaBuilder[F, C, T]) Module(mid uint) *ModuleBuilder[F, C, T] {
 	var n uint = uint(len(p.externs))
 	// Sanity check
 	if mid < n {
@@ -108,30 +135,8 @@ func (p *SchemaBuilder[F, C, T, M]) Module(mid uint) *ModuleBuilder[F, C, T] {
 }
 
 // ModuleOf returns the builder for the given module based on its name.
-func (p *SchemaBuilder[F, C, T, M]) ModuleOf(name string) *ModuleBuilder[F, C, T] {
+func (p *SchemaBuilder[F, C, T]) ModuleOf(name string) *ModuleBuilder[F, C, T] {
 	return p.Module(p.modmap[name])
-}
-
-// Build returns an array of tables constructed by this builder.
-func (p *SchemaBuilder[F, C, T, M]) Build() []M {
-	modules := make([]M, len(p.modules))
-	//
-	for i, m := range p.modules {
-		modules[i] = Build[F, C, T, M](*m)
-	}
-	//
-	return modules
-}
-
-func Build[F field.Element[F], C schema.Constraint[F], T Term[F, T], M BuildableModule[F, C]](m ModuleBuilder[F, C, T]) M {
-	var module M
-	// Build it
-	module.Init(m.name, m.moduleId, m.padding)
-	module.AddRegisters(m.registers...)
-	module.AddAssignments(m.assignments...)
-	module.AddConstraints(m.constraints...)
-	// Done
-	return module
 }
 
 // ModuleBuilder provides a mechanism to ease the construction of modules for

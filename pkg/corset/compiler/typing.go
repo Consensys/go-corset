@@ -247,11 +247,12 @@ func (p *typeChecker) typeCheckExpressionsInModule(expected ast.Type, exprs []as
 	types := make([]ast.Type, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
+		var errs []SyntaxError
+		//
 		if e == nil {
 			continue
 		}
 		//
-		var errs []SyntaxError
 		types[i], errs = p.typeCheckExpressionInModule(expected, e, functional)
 		errors = append(errors, errs...)
 		// Sanity check what we got back

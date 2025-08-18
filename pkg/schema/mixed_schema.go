@@ -18,7 +18,6 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // MixedSchema represents a schema comprised of exactly two kinds of concrete
@@ -30,8 +29,6 @@ type MixedSchema[F any, M1 Module[F], M2 Module[F]] struct {
 	left  []M1
 	right []M2
 }
-
-var _ Schema[bls12_377.Element, Constraint[bls12_377.Element]] = MixedSchema[bls12_377.Element, Module[bls12_377.Element], Module[bls12_377.Element]]{}
 
 // NewMixedSchema constructs a new schema composed of two distinct sets of
 // modules, referred to as the "left" and the "right".  Those on the left are
@@ -142,6 +139,7 @@ func (p MixedSchema[F, M1, M2]) Width() uint {
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p MixedSchema[F, M1, M2]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
+	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Left modules
 	if err := gobEncoder.Encode(p.left); err != nil {

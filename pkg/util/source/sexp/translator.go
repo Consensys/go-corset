@@ -146,6 +146,7 @@ func (p *Translator[T]) createRecursiveListRule(t RecursiveRule[T]) ListRule[T] 
 		//
 		for i, s := range l.Elements[1:] {
 			var errs []source.SyntaxError
+			//
 			args[i], errs = translateSExp(p, s)
 			errors = append(errors, errs...)
 		}
@@ -182,6 +183,7 @@ func (p *Translator[T]) createRecursiveArrayRule(t RecursiveRule[T]) ArrayRule[T
 		//
 		for i, s := range l.Elements[1:] {
 			var errs []source.SyntaxError
+			//
 			args[i], errs = translateSExp(p, s)
 			errors = append(errors, errs...)
 		}

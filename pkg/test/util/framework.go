@@ -344,7 +344,8 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStack[F field.Element[F]](stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack[F] {
+func getSchemaStack[F field.Element[F]](stdlib bool, field schema.FieldConfig, filenames ...string,
+) cmd_util.SchemaStack[F] {
 	//
 	var (
 		stack        cmd_util.SchemaStack[F]

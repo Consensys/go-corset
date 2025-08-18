@@ -28,7 +28,7 @@ import (
 // which are contained within the mixed MIR schema.
 type ModuleBuilder[F field.Element[F]] = ir.ModuleBuilder[F, mir.Constraint[F], mir.Term[F]]
 
-// MirModule[F] provides a wrapper around a corset-level module declaration.
+// MirModule provides a wrapper around a corset-level module declaration.
 type MirModule[F field.Element[F]] struct {
 	Module *ModuleBuilder[F]
 }

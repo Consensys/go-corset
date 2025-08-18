@@ -108,7 +108,9 @@ func eliminateNormalisationInTerms[F field.Element[F]](terms []Term[F], module s
 	return nterms
 }
 
-func eliminateNormalisationInNorm[F field.Element[F]](arg Term[F], module schema.Module[F], cfg OptimisationConfig) Term[F] {
+func eliminateNormalisationInNorm[F field.Element[F]](arg Term[F], module schema.Module[F],
+	cfg OptimisationConfig) Term[F] {
+	//
 	bounds := arg.ValueRange(module)
 	// optimise argument
 	arg = eliminateNormalisationInTerm(arg, module, cfg)

@@ -95,7 +95,9 @@ func linkComponent[F field.Element[F]](index uint, components []*MacroFunction[F
 // bus (if was not already allocated) or returning the existing bus (if it was
 // previously allocated).  Allocating a new bus requires allocating
 // corresponding I/O registers within the given function.
-func allocateBus[F field.Element[F]](busId uint, localBuses map[uint]io.Bus, index uint, components []*MacroFunction[F]) io.Bus {
+func allocateBus[F field.Element[F]](busId uint, localBuses map[uint]io.Bus, index uint,
+	components []*MacroFunction[F]) io.Bus {
+	//
 	var (
 		fn      = components[index]
 		busName = components[busId].Name()
@@ -117,7 +119,9 @@ func allocateBus[F field.Element[F]](busId uint, localBuses map[uint]io.Bus, ind
 	return bus
 }
 
-func allocateIoRegisters[F field.Element[F]](busName string, registers []io.Register, fn *MacroFunction[F]) []io.RegisterId {
+func allocateIoRegisters[F field.Element[F]](busName string, registers []io.Register, fn *MacroFunction[F],
+) []io.RegisterId {
+	//
 	var lines []io.RegisterId
 	//
 	for _, reg := range registers {

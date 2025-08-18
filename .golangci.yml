@@ -10,7 +10,7 @@ linters:
     - revive
     - staticcheck
     - unconvert
-    - unparam
+    # - unparam #was causing crash
     - unused
     - whitespace
     - wsl_v5

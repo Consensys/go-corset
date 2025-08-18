@@ -35,7 +35,9 @@ type MacroProgram[F field.Element[F]] = io.Program[F, macro.Instruction]
 // are defined, and all control-flow paths must reach a "ret" instruction.
 // Finally, we cannot assign to an input register under the current calling
 // convention.
-func Validate[F field.Element[F]](fieldWidth uint, program MacroProgram[F], srcmaps source.Maps[any]) []source.SyntaxError {
+func Validate[F field.Element[F]](fieldWidth uint, program MacroProgram[F], srcmaps source.Maps[any],
+) []source.SyntaxError {
+	//
 	var errors []source.SyntaxError
 	//
 	for _, fn := range program.Functions() {

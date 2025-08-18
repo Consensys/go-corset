@@ -70,7 +70,9 @@ type LexicographicSortingGadget[F field.Element[F]] struct {
 // NewLexicographicSortingGadget constructs a default sorting gadget which can
 // then be configured.  The default gadget is non-strict and assumes all columns
 // are ascending.
-func NewLexicographicSortingGadget[F field.Element[F]](prefix string, columns []sc.RegisterId, bitwidth uint) *LexicographicSortingGadget[F] {
+func NewLexicographicSortingGadget[F field.Element[F]](prefix string, columns []sc.RegisterId, bitwidth uint,
+) *LexicographicSortingGadget[F] {
+	//
 	signs := make([]bool, len(columns))
 
 	for i := range signs {
@@ -253,13 +255,17 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 // appropriately for the sign) between the ith column whose multiplexor bit is
 // set. This is assumes that multiplexor bits are mutually exclusive (i.e. at
 // most is one).
-func constructLexicographicDeltaConstraint[F field.Element[F]](deltaIndex sc.RegisterId, columns []sc.RegisterId, signs []bool) air.Term[F] {
-	ncols := uint(len(signs))
-	// Calculate column index of first selector bit
-	bitIndex := deltaIndex.Unwrap() + 1
-	// Construct delta terms
-	terms := make([]air.Term[F], ncols)
-	Dk := ir.NewRegisterAccess[F, air.Term[F]](deltaIndex, 0)
+func constructLexicographicDeltaConstraint[F field.Element[F]](deltaIndex sc.RegisterId, columns []sc.RegisterId,
+	signs []bool) air.Term[F] {
+	//
+	var (
+		ncols = uint(len(signs))
+		// Calculate column index of first selector bit
+		bitIndex = deltaIndex.Unwrap() + 1
+		// Construct delta terms
+		terms = make([]air.Term[F], ncols)
+		Dk    = ir.NewRegisterAccess[F, air.Term[F]](deltaIndex, 0)
+	)
 	//
 	for i := uint(0); i < ncols; i++ {
 		var (
