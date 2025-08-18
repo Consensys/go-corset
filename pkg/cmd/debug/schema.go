@@ -51,9 +51,9 @@ func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
 		}
 		//
 		switch ith := ith.(type) {
-		case *asm.MacroFunction:
+		case *asm.MacroFunction[bls12_377.Element]:
 			printAssemblyFunction(*ith)
-		case *asm.MicroFunction:
+		case *asm.MicroFunction[bls12_377.Element]:
 			printAssemblyFunction(*ith)
 		default:
 			printModule(ith, schema, width)
@@ -150,8 +150,8 @@ func countRegisters[F any](module schema.Module[F], filter func(schema.Register)
 }
 
 func requiresSpacing(c schema.Constraint[bls12_377.Element]) bool {
-	if c, ok := c.(mir.Constraint); ok {
-		if _, ok := c.Unwrap().(mir.VanishingConstraint); ok {
+	if c, ok := c.(mir.Constraint[bls12_377.Element]); ok {
+		if _, ok := c.Unwrap().(mir.VanishingConstraint[bls12_377.Element]); ok {
 			return ok
 		}
 	}

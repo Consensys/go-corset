@@ -23,7 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
-func (p *StateTranslator[T, E, M]) translateCode(cc uint, codes []micro.Code) E {
+func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code) E {
 	switch codes[cc].(type) {
 	case *micro.Assign:
 		return p.translateAssign(cc, codes)
@@ -41,7 +41,7 @@ func (p *StateTranslator[T, E, M]) translateCode(cc uint, codes []micro.Code) E 
 }
 
 // Translate this instruction into low-level constraints.
-func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) E {
+func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Code) E {
 	var (
 		code = codes[cc].(*micro.Assign)
 		// build rhs
@@ -65,7 +65,7 @@ func (p *StateTranslator[T, E, M]) translateAssign(cc uint, codes []micro.Code) 
 	return eqn.And(p.translateCode(cc+1, codes))
 }
 
-func (p *StateTranslator[T, E, M]) translateInOut(cc uint, codes []micro.Code) E {
+func (p *StateTranslator[F, T, E, M]) translateInOut(cc uint, codes []micro.Code) E {
 	var code = codes[cc].(*micro.InOut)
 	// In/Out codes are really nops from the perspective of compilation.  Their
 	// primary purposes is to assist trace expansion.
@@ -77,17 +77,17 @@ func (p *StateTranslator[T, E, M]) translateInOut(cc uint, codes []micro.Code) E
 	return p.translateCode(cc+1, codes)
 }
 
-func (p *StateTranslator[T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
+func (p *StateTranslator[F, T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
 	var code = codes[cc].(*micro.Jmp)
 	//
 	return p.Goto(code.Target)
 }
 
-func (p *StateTranslator[T, E, M]) translateRet() E {
+func (p *StateTranslator[F, T, E, M]) translateRet() E {
 	return p.Terminate()
 }
 
-func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
+func (p *StateTranslator[F, T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
 	var (
 		code  = codes[cc].(*micro.Skip)
 		clone = p.Clone()
@@ -108,7 +108,7 @@ func (p *StateTranslator[T, E, M]) translateSkip(cc uint, codes []micro.Code) E 
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the
 // constraint: X + 1 == Y + 256.b (assuming b is u1, and X/Y are u8).
-func (p *StateTranslator[T, E, M]) rebalanceAssign(lhs []E, rhs []E) ([]E, []E) {
+func (p *StateTranslator[F, T, E, M]) rebalanceAssign(lhs []E, rhs []E) ([]E, []E) {
 	var (
 		n = len(lhs) - 1
 		// Extract sign bit
@@ -125,7 +125,7 @@ func (p *StateTranslator[T, E, M]) rebalanceAssign(lhs []E, rhs []E) ([]E, []E) 
 // Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
 // are constant coefficients.  This generates a given translation of terms,
 // along with an indication as to whether this is signed or not.
-func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E, signed bool) {
+func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E, signed bool) {
 	var (
 		terms []E
 	)
@@ -141,7 +141,7 @@ func (p *StateTranslator[T, E, M]) translatePolynomial(poly agnostic.Polynomial)
 }
 
 // Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
-func (p *StateTranslator[T, E, M]) translateMonomial(mono agnostic.Monomial) E {
+func (p *StateTranslator[F, T, E, M]) translateMonomial(mono agnostic.Monomial) E {
 	var (
 		n         = mono.Len()
 		coeff     = mono.Coefficient()

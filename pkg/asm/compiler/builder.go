@@ -17,17 +17,17 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Module provides an abstraction for modules in the underlying constraint
 // system.
-type Module[T any, E Expr[T, E], M any] interface {
+type Module[F field.Element[F], T any, E Expr[T, E], M any] interface {
 	// SetName sets the name of this module.
-	Initialise(fn MicroFunction, mid uint) M
+	Initialise(fn MicroFunction[F], mid uint) M
 
 	// NewAssignment adds a new assignment to this module.
-	NewAssignment(assignment schema.Assignment[bls12_377.Element])
+	NewAssignment(assignment schema.Assignment[F])
 
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.

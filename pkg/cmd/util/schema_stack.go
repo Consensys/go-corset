@@ -206,10 +206,10 @@ func (p *SchemaStack) Read(filenames ...string) {
 // schemas.
 func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	var (
-		asmSchema  asm.MixedMacroProgram
-		uasmSchema asm.MixedMicroProgram
-		mirSchema  mir.Schema
-		airSchema  air.Schema
+		asmSchema  asm.MixedMacroProgram[bls12_377.Element]
+		uasmSchema asm.MixedMicroProgram[bls12_377.Element]
+		mirSchema  mir.Schema[bls12_377.Element]
+		airSchema  air.Schema[bls12_377.Element]
 	)
 	// Set binary
 	p.binfile = binfile
@@ -283,14 +283,14 @@ func readConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringC
 }
 
 // ReadAssemblyProgram reads a given set of assembly files into a (macro) assembly program.
-func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[any]) {
+func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram[bls12_377.Element], source.Maps[any]) {
 	srcfiles, err := source.ReadFiles(filenames...)
 	//
 	if err != nil {
 		panic(err)
 	}
 	//
-	program, srcmaps, errs := asm.Assemble(srcfiles...)
+	program, srcmaps, errs := asm.Assemble[bls12_377.Element](srcfiles...)
 	//
 	if len(errs) == 0 {
 		return program, srcmaps
@@ -335,7 +335,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	//
 	var (
 		errors   []source.SyntaxError
-		schema   schema.MixedSchema[bls12_377.Element, *asm.MacroFunction, mir.Module]
+		schema   schema.MixedSchema[bls12_377.Element, *asm.MacroFunction[bls12_377.Element], mir.Module[bls12_377.Element]]
 		srcmap   corset.SourceMap
 		srcfiles = make([]*source.File, len(filenames))
 	)
@@ -355,7 +355,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	// Separate Corset from ASM files.
 	corsetFiles, asmFiles := splitSourceFiles(srcfiles)
 	// Compile ASM files
-	macroProgram, _, errors := asm.Assemble(asmFiles...)
+	macroProgram, _, errors := asm.Assemble[bls12_377.Element](asmFiles...)
 	// Continue if no errors
 	if len(errors) == 0 {
 		// Parse and compile source files

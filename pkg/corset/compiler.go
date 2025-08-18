@@ -53,14 +53,14 @@ type CompilationConfig struct {
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
 func CompileSourceFiles[M schema.Module[bls12_377.Element]](config CompilationConfig, srcfiles []*source.File,
-	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mir.Module], SourceMap, []SyntaxError) {
+	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mir.Module[bls12_377.Element]], SourceMap, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
 	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
 	// Check for parsing errors
 	if errs != nil {
-		return schema.MixedSchema[bls12_377.Element, M, mir.Module]{}, SourceMap{}, errs
+		return schema.MixedSchema[bls12_377.Element, M, mir.Module[bls12_377.Element]]{}, SourceMap{}, errs
 	}
 	// Compile each module into the schema
 	comp := NewCompiler(circuit, srcmap, externs).SetDebug(config.Debug)
@@ -79,7 +79,7 @@ func CompileSourceFiles[M schema.Module[bls12_377.Element]](config CompilationCo
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
 func CompileSourceFile[M schema.Module[bls12_377.Element]](config CompilationConfig,
-	srcfile *source.File) (schema.MixedSchema[bls12_377.Element, M, mir.Module], SourceMap, []SyntaxError) {
+	srcfile *source.File) (schema.MixedSchema[bls12_377.Element, M, mir.Module[bls12_377.Element]], SourceMap, []SyntaxError) {
 	//
 	return CompileSourceFiles[M](config, []*source.File{srcfile})
 }
@@ -127,7 +127,7 @@ func (p *Compiler[M]) SetAllocator(allocator func(compiler.RegisterAllocation)) 
 // ways if the given modules are malformed in some way.  For example, if some
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
-func (p *Compiler[M]) Compile() (schema.MixedSchema[bls12_377.Element, M, mir.Module], SourceMap, []SyntaxError) {
+func (p *Compiler[M]) Compile() (schema.MixedSchema[bls12_377.Element, M, mir.Module[bls12_377.Element]], SourceMap, []SyntaxError) {
 	var (
 		scope  *compiler.ModuleScope
 		errors []SyntaxError
@@ -138,11 +138,11 @@ func (p *Compiler[M]) Compile() (schema.MixedSchema[bls12_377.Element, M, mir.Mo
 	errors = append(errors, compiler.TypeCheckCircuit(p.srcmap, &p.circuit)...)
 	// Catch errors
 	if len(errors) > 0 {
-		return schema.MixedSchema[bls12_377.Element, M, mir.Module]{}, SourceMap{}, errors
+		return schema.MixedSchema[bls12_377.Element, M, mir.Module[bls12_377.Element]]{}, SourceMap{}, errors
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
 	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
-		return schema.MixedSchema[bls12_377.Element, M, mir.Module]{}, SourceMap{}, errors
+		return schema.MixedSchema[bls12_377.Element, M, mir.Module[bls12_377.Element]]{}, SourceMap{}, errors
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
@@ -150,7 +150,7 @@ func (p *Compiler[M]) Compile() (schema.MixedSchema[bls12_377.Element, M, mir.Mo
 	mixedSchema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.externs...)
 	// Sanity check for errors
 	if len(errs) > 0 {
-		return schema.MixedSchema[bls12_377.Element, M, mir.Module]{}, SourceMap{}, errs
+		return schema.MixedSchema[bls12_377.Element, M, mir.Module[bls12_377.Element]]{}, SourceMap{}, errs
 	} else if cerrs := mixedSchema.Consistent(); len(cerrs) > 0 {
 		// Should be unreachable.
 		for _, err := range cerrs {

@@ -23,7 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 const (
@@ -61,28 +61,28 @@ const (
 	vectorAccessTag     = byte(40)
 )
 
-func encode_constraint(constraint schema.Constraint[bls12_377.Element]) ([]byte, error) {
+func encode_constraint[F field.Element[F]](constraint schema.Constraint[F]) ([]byte, error) {
 	switch c := constraint.(type) {
-	case Assertion:
+	case Assertion[F]:
 		return encode_assertion(c)
-	case InterleavingConstraint:
+	case InterleavingConstraint[F]:
 		return encode_interleaving(c)
-	case LookupConstraint:
+	case LookupConstraint[F]:
 		return encode_lookup(c)
-	case PermutationConstraint:
+	case PermutationConstraint[F]:
 		return encode_permutation(c)
-	case SortedConstraint:
+	case SortedConstraint[F]:
 		return encode_sorted(c)
-	case RangeConstraint:
+	case RangeConstraint[F]:
 		return encode_range(c)
-	case VanishingConstraint:
+	case VanishingConstraint[F]:
 		return encode_vanishing(c)
 	default:
 		return nil, errors.New("unknown constraint")
 	}
 }
 
-func encode_assertion(c Assertion) ([]byte, error) {
+func encode_assertion[F field.Element[F]](c Assertion[F]) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -105,7 +105,7 @@ func encode_assertion(c Assertion) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-func encode_interleaving(c InterleavingConstraint) ([]byte, error) {
+func encode_interleaving[F field.Element[F]](c InterleavingConstraint[F]) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -131,14 +131,14 @@ func encode_interleaving(c InterleavingConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Source terms
-	if err := encode_nary(encode_term, &buffer, c.Sources); err != nil {
+	if err := encode_nary(encode_term[F], &buffer, c.Sources); err != nil {
 		return nil, err
 	}
 	//
 	return buffer.Bytes(), nil
 }
 
-func encode_lookup(c LookupConstraint) ([]byte, error) {
+func encode_lookup[F field.Element[F]](c LookupConstraint[F]) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -163,7 +163,7 @@ func encode_lookup(c LookupConstraint) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func encode_lookup_vector(vector lookup.Vector[bls12_377.Element, Term], buffer *bytes.Buffer) error {
+func encode_lookup_vector[F field.Element[F]](vector lookup.Vector[F, Term[F]], buffer *bytes.Buffer) error {
 	var (
 		gobEncoder = gob.NewEncoder(buffer)
 		selector   = vector.HasSelector()
@@ -183,10 +183,10 @@ func encode_lookup_vector(vector lookup.Vector[bls12_377.Element, Term], buffer 
 		}
 	}
 	// Source terms
-	return encode_nary(encode_term, buffer, vector.Terms)
+	return encode_nary(encode_term[F], buffer, vector.Terms)
 }
 
-func encode_permutation(c PermutationConstraint) ([]byte, error) {
+func encode_permutation[F field.Element[F]](c PermutationConstraint[F]) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -215,7 +215,7 @@ func encode_permutation(c PermutationConstraint) ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
-func encode_sorted(c SortedConstraint) ([]byte, error) {
+func encode_sorted[F field.Element[F]](c SortedConstraint[F]) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -259,12 +259,12 @@ func encode_sorted(c SortedConstraint) ([]byte, error) {
 		}
 	}
 	// Sources
-	err := encode_nary(encode_term, &buffer, c.Sources)
+	err := encode_nary(encode_term[F], &buffer, c.Sources)
 	//
 	return buffer.Bytes(), err
 }
 
-func encode_vanishing(c VanishingConstraint) ([]byte, error) {
+func encode_vanishing[F field.Element[F]](c VanishingConstraint[F]) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -291,7 +291,7 @@ func encode_vanishing(c VanishingConstraint) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-func encode_range(c RangeConstraint) ([]byte, error) {
+func encode_range[F field.Element[F]](c RangeConstraint[F]) ([]byte, error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -316,34 +316,34 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 	return buffer.Bytes(), err
 }
 
-func decode_constraint(bytes []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_constraint[F field.Element[F]](bytes []byte) (schema.Constraint[F], error) {
 	switch bytes[0] {
 	case assertionTag:
-		return decode_assertion(bytes[1:])
+		return decode_assertion[F](bytes[1:])
 	case interleavingTag:
-		return decode_interleaving(bytes[1:])
+		return decode_interleaving[F](bytes[1:])
 	case lookupTag:
-		return decode_lookup(bytes[1:])
+		return decode_lookup[F](bytes[1:])
 	case permutationTag:
-		return decode_permutation(bytes[1:])
+		return decode_permutation[F](bytes[1:])
 	case rangeTag:
-		return decode_range(bytes[1:])
+		return decode_range[F](bytes[1:])
 	case sortedUnfilteredTag:
-		return decode_sorted(false, bytes[1:])
+		return decode_sorted[F](false, bytes[1:])
 	case sortedFilteredTag:
-		return decode_sorted(true, bytes[1:])
+		return decode_sorted[F](true, bytes[1:])
 	case vanishingTag:
-		return decode_vanishing(bytes[1:])
+		return decode_vanishing[F](bytes[1:])
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", bytes[0])
 	}
 }
 
-func decode_assertion(data []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_assertion[F field.Element[F]](data []byte) (schema.Constraint[F], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
-		assertion  Assertion
+		assertion  Assertion[F]
 		err        error
 	)
 	// Handle
@@ -355,16 +355,16 @@ func decode_assertion(data []byte) (schema.Constraint[bls12_377.Element], error)
 		return assertion, err
 	}
 	//
-	assertion.Property, err = decode_logical(buffer)
+	assertion.Property, err = decode_logical[F](buffer)
 	// Success!
 	return assertion, err
 }
 
-func decode_interleaving(data []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_interleaving[F field.Element[F]](data []byte) (schema.Constraint[F], error) {
 	var (
 		buffer       = bytes.NewBuffer(data)
 		gobDecoder   = gob.NewDecoder(buffer)
-		interleaving InterleavingConstraint
+		interleaving InterleavingConstraint[F]
 		err          error
 	)
 	// Handle
@@ -376,7 +376,7 @@ func decode_interleaving(data []byte) (schema.Constraint[bls12_377.Element], err
 		return interleaving, err
 	}
 	// Targets
-	if interleaving.Target, err = decode_term(buffer); err != nil {
+	if interleaving.Target, err = decode_term[F](buffer); err != nil {
 		return interleaving, err
 	}
 	// Source Context
@@ -384,18 +384,18 @@ func decode_interleaving(data []byte) (schema.Constraint[bls12_377.Element], err
 		return interleaving, err
 	}
 	// Sources
-	if interleaving.Sources, err = decode_nary(decode_term, buffer); err != nil {
+	if interleaving.Sources, err = decode_nary(decode_term[F], buffer); err != nil {
 		return interleaving, err
 	}
 	//
 	return interleaving, nil
 }
 
-func decode_lookup(data []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_lookup[F field.Element[F]](data []byte) (schema.Constraint[F], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
-		lookup     LookupConstraint
+		lookup     LookupConstraint[F]
 		err        error
 	)
 	// Handle
@@ -403,23 +403,23 @@ func decode_lookup(data []byte) (schema.Constraint[bls12_377.Element], error) {
 		return lookup, err
 	}
 	// Targets
-	if lookup.Targets, err = decode_nary(decode_lookup_vector, buffer); err != nil {
+	if lookup.Targets, err = decode_nary(decode_lookup_vector[F], buffer); err != nil {
 		return lookup, err
 	}
 	// Sources
-	if lookup.Sources, err = decode_nary(decode_lookup_vector, buffer); err != nil {
+	if lookup.Sources, err = decode_nary(decode_lookup_vector[F], buffer); err != nil {
 		return lookup, err
 	}
 	//
 	return lookup, nil
 }
 
-func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[bls12_377.Element, Term], error) {
+func decode_lookup_vector[F field.Element[F]](buf *bytes.Buffer) (lookup.Vector[F, Term[F]], error) {
 	var (
 		gobDecoder  = gob.NewDecoder(buf)
-		vector      lookup.Vector[bls12_377.Element, Term]
+		vector      lookup.Vector[F, Term[F]]
 		hasSelector bool
-		selector    Term
+		selector    Term[F]
 		err         error
 	)
 	// Context
@@ -432,25 +432,25 @@ func decode_lookup_vector(buf *bytes.Buffer) (lookup.Vector[bls12_377.Element, T
 	}
 	// Selector (if applicable)
 	if hasSelector {
-		if selector, err = decode_term(buf); err != nil {
+		if selector, err = decode_term[F](buf); err != nil {
 			return vector, err
 		}
 		// Wrap selector
 		vector.Selector = util.Some(selector)
 	}
 	// Contents
-	if vector.Terms, err = decode_nary(decode_term, buf); err != nil {
+	if vector.Terms, err = decode_nary(decode_term[F], buf); err != nil {
 		return vector, err
 	}
 	// Done
 	return vector, nil
 }
 
-func decode_permutation(data []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_permutation[F field.Element[F]](data []byte) (schema.Constraint[F], error) {
 	var (
 		buffer      = bytes.NewBuffer(data)
 		gobDecoder  = gob.NewDecoder(buffer)
-		permutation PermutationConstraint
+		permutation PermutationConstraint[F]
 		err         error
 	)
 	// Handle
@@ -473,11 +473,11 @@ func decode_permutation(data []byte) (schema.Constraint[bls12_377.Element], erro
 	return permutation, nil
 }
 
-func decode_sorted(selector bool, data []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_sorted[F field.Element[F]](selector bool, data []byte) (schema.Constraint[F], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
-		sorted     SortedConstraint
+		sorted     SortedConstraint[F]
 		err        error
 	)
 	// Handle
@@ -502,25 +502,25 @@ func decode_sorted(selector bool, data []byte) (schema.Constraint[bls12_377.Elem
 	}
 	// Optional Selector
 	if selector {
-		var term Term
+		var term Term[F]
 		//
-		if term, err = decode_term(buffer); err != nil {
+		if term, err = decode_term[F](buffer); err != nil {
 			return nil, err
 		}
 		//
 		sorted.Selector = util.Some(term)
 	}
 	// Sources
-	sorted.Sources, err = decode_nary(decode_term, buffer)
+	sorted.Sources, err = decode_nary(decode_term[F], buffer)
 	// Done
 	return sorted, err
 }
 
-func decode_range(data []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_range[F field.Element[F]](data []byte) (schema.Constraint[F], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
-		constraint RangeConstraint
+		constraint RangeConstraint[F]
 		err        error
 	)
 	// Handle
@@ -536,16 +536,16 @@ func decode_range(data []byte) (schema.Constraint[bls12_377.Element], error) {
 		return constraint, err
 	}
 	//
-	constraint.Expr, err = decode_term(buffer)
+	constraint.Expr, err = decode_term[F](buffer)
 	// Success!
 	return constraint, err
 }
 
-func decode_vanishing(data []byte) (schema.Constraint[bls12_377.Element], error) {
+func decode_vanishing[F field.Element[F]](data []byte) (schema.Constraint[F], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
-		vanishing  VanishingConstraint
+		vanishing  VanishingConstraint[F]
 		err        error
 	)
 	// Handle
@@ -561,7 +561,7 @@ func decode_vanishing(data []byte) (schema.Constraint[bls12_377.Element], error)
 		return vanishing, err
 	}
 	//
-	vanishing.Constraint, err = decode_logical(buffer)
+	vanishing.Constraint, err = decode_logical[F](buffer)
 	// Success!
 	return vanishing, err
 }
@@ -570,21 +570,21 @@ func decode_vanishing(data []byte) (schema.Constraint[bls12_377.Element], error)
 // Logical Terms (encoding)
 // ============================================================================
 
-func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
+func encode_logical[F field.Element[F]](term LogicalTerm[F], buf *bytes.Buffer) error {
 	switch t := term.(type) {
-	case *Conjunct:
+	case *Conjunct[F]:
 		return encode_tagged_nary_logicals(conjunctTag, buf, t.Args...)
-	case *Disjunct:
+	case *Disjunct[F]:
 		return encode_tagged_nary_logicals(disjunctTag, buf, t.Args...)
-	case *Equal:
+	case *Equal[F]:
 		return encode_tagged_terms(equalTag, buf, t.Lhs, t.Rhs)
-	case *Ite:
+	case *Ite[F]:
 		return encode_ite(t, buf)
-	case *Negate:
+	case *Negate[F]:
 		return encode_tagged_logicals(negationTag, buf, t.Arg)
-	case *NotEqual:
+	case *NotEqual[F]:
 		return encode_tagged_terms(notEqualTag, buf, t.Lhs, t.Rhs)
-	case *Inequality:
+	case *Inequality[F]:
 		if t.Strict {
 			return encode_tagged_terms(lessThanTag, buf, t.Lhs, t.Rhs)
 		}
@@ -595,25 +595,25 @@ func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 	}
 }
 
-func encode_tagged_nary_logicals(tag byte, buf *bytes.Buffer, terms ...LogicalTerm) error {
+func encode_tagged_nary_logicals[F field.Element[F]](tag byte, buf *bytes.Buffer, terms ...LogicalTerm[F]) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_nary(encode_logical, buf, terms)
+	return encode_nary(encode_logical[F], buf, terms)
 }
 
-func encode_tagged_logicals(tag byte, buf *bytes.Buffer, terms ...LogicalTerm) error {
+func encode_tagged_logicals[F field.Element[F]](tag byte, buf *bytes.Buffer, terms ...LogicalTerm[F]) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_n(encode_logical, buf, terms...)
+	return encode_n(encode_logical[F], buf, terms...)
 }
 
-func encode_ite(term *Ite, buf *bytes.Buffer) error {
+func encode_ite[F field.Element[F]](term *Ite[F], buf *bytes.Buffer) error {
 	switch {
 	case term.FalseBranch != nil && term.TrueBranch != nil:
 		return encode_tagged_logicals(iteTagTF, buf, term.Condition, term.TrueBranch, term.FalseBranch)
@@ -630,7 +630,7 @@ func encode_ite(term *Ite, buf *bytes.Buffer) error {
 // Logical Terms (decoding)
 // ============================================================================
 
-func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
+func decode_logical[F field.Element[F]](buf *bytes.Buffer) (LogicalTerm[F], error) {
 	tag, err := buf.ReadByte()
 	//
 	if err != nil {
@@ -639,47 +639,47 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 	//
 	switch tag {
 	case conjunctTag:
-		return decode_nary_logicals(conjunctionConstructor, buf)
+		return decode_nary_logicals[F](conjunctionConstructor, buf)
 	case disjunctTag:
-		return decode_nary_logicals(disjunctionConstructor, buf)
+		return decode_nary_logicals[F](disjunctionConstructor, buf)
 	case equalTag:
-		return decode_terms(2, equalConstructor, buf)
+		return decode_terms[F](2, equalConstructor, buf)
 	case iteTagTF, iteTagT, iteTagF:
-		return decode_ite(tag, buf)
+		return decode_ite[F](tag, buf)
 	case negationTag:
-		return decode_logicals(1, negationConstructor, buf)
+		return decode_logicals[F](1, negationConstructor, buf)
 	case notEqualTag:
-		return decode_terms(2, notEqualConstructor, buf)
+		return decode_terms[F](2, notEqualConstructor, buf)
 	case lessThanTag:
-		return decode_terms(2, lessThanConstructor, buf)
+		return decode_terms[F](2, lessThanConstructor, buf)
 	case lessThanEqTag:
-		return decode_terms(2, lessThanOrEqualsConstructor, buf)
+		return decode_terms[F](2, lessThanOrEqualsConstructor, buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
 }
 
 // Decode a variable number of terms, as determined by the leading byte.
-func decode_nary_logicals(constructor func([]LogicalTerm) LogicalTerm, buf *bytes.Buffer) (LogicalTerm, error) {
-	terms, err := decode_nary(decode_logical, buf)
+func decode_nary_logicals[F field.Element[F]](constructor func([]LogicalTerm[F]) LogicalTerm[F], buf *bytes.Buffer) (LogicalTerm[F], error) {
+	terms, err := decode_nary(decode_logical[F], buf)
 	return constructor(terms), err
 }
 
 // Decode exactly n logicals terms
-func decode_logicals[S any](n uint, constructor func([]LogicalTerm) S, buf *bytes.Buffer) (S, error) {
-	terms, err := decode_n(n, decode_logical, buf)
+func decode_logicals[F field.Element[F], S any](n uint, constructor func([]LogicalTerm[F]) S, buf *bytes.Buffer) (S, error) {
+	terms, err := decode_n(n, decode_logical[F], buf)
 	return constructor(terms), err
 }
 
-func decode_ite(tag byte, buf *bytes.Buffer) (LogicalTerm, error) {
+func decode_ite[F field.Element[F]](tag byte, buf *bytes.Buffer) (LogicalTerm[F], error) {
 	//
 	switch tag {
 	case iteTagTF:
-		return decode_logicals(3, iteTrueFalseConstructor, buf)
+		return decode_logicals[F](3, iteTrueFalseConstructor, buf)
 	case iteTagT:
-		return decode_logicals(2, iteTrueConstructor, buf)
+		return decode_logicals[F](2, iteTrueConstructor, buf)
 	case iteTagF:
-		return decode_logicals(2, iteFalseConstructor, buf)
+		return decode_logicals[F](2, iteFalseConstructor, buf)
 	default:
 		panic("unreachable")
 	}
@@ -689,55 +689,55 @@ func decode_ite(tag byte, buf *bytes.Buffer) (LogicalTerm, error) {
 // Arithmetic Terms (encoding)
 // ============================================================================
 
-func encode_term(term Term, buf *bytes.Buffer) error {
+func encode_term[F field.Element[F]](term Term[F], buf *bytes.Buffer) error {
 	//
 	switch t := term.(type) {
-	case *Add:
+	case *Add[F]:
 		return encode_tagged_nary_terms(addTag, buf, t.Args...)
-	case *Cast:
+	case *Cast[F]:
 		return encode_cast(*t, buf)
-	case *Constant:
+	case *Constant[F]:
 		return encode_constant(*t, buf)
-	case *Exp:
+	case *Exp[F]:
 		return encode_exponent(*t, buf)
-	case *IfZero:
+	case *IfZero[F]:
 		return encode_ifZero(*t, buf)
-	case *LabelledConst:
+	case *LabelledConst[F]:
 		return encode_labelled_constant(*t, buf)
-	case *Mul:
+	case *Mul[F]:
 		return encode_tagged_nary_terms(mulTag, buf, t.Args...)
-	case *Norm:
+	case *Norm[F]:
 		return encode_tagged_terms(normTag, buf, t.Arg)
-	case *RegisterAccess:
+	case *RegisterAccess[F]:
 		return encode_reg_access(*t, buf)
-	case *Sub:
+	case *Sub[F]:
 		return encode_tagged_nary_terms(subTag, buf, t.Args...)
-	case *VectorAccess:
+	case *VectorAccess[F]:
 		return encode_vec_access(*t, buf)
 	default:
 		return fmt.Errorf("unknown arithmetic term encountered (%s)", term.Lisp(false, nil).String(false))
 	}
 }
 
-func encode_tagged_nary_terms(tag byte, buf *bytes.Buffer, terms ...Term) error {
+func encode_tagged_nary_terms[F field.Element[F]](tag byte, buf *bytes.Buffer, terms ...Term[F]) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_nary(encode_term, buf, terms)
+	return encode_nary(encode_term[F], buf, terms)
 }
 
-func encode_tagged_terms(tag byte, buf *bytes.Buffer, terms ...Term) error {
+func encode_tagged_terms[F field.Element[F]](tag byte, buf *bytes.Buffer, terms ...Term[F]) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_n(encode_term, buf, terms...)
+	return encode_n(encode_term[F], buf, terms...)
 }
 
-func encode_cast(term Cast, buf *bytes.Buffer) error {
+func encode_cast[F field.Element[F]](term Cast[F], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(castTag); err != nil {
 		return err
@@ -750,7 +750,7 @@ func encode_cast(term Cast, buf *bytes.Buffer) error {
 	return encode_term(term.Arg, buf)
 }
 
-func encode_constant(term Constant, buf *bytes.Buffer) error {
+func encode_constant[F field.Element[F]](term Constant[F], buf *bytes.Buffer) error {
 	bytes := term.Value.Bytes()
 	// Write tag
 	if err := buf.WriteByte(constantTag); err != nil {
@@ -762,7 +762,7 @@ func encode_constant(term Constant, buf *bytes.Buffer) error {
 	return err
 }
 
-func encode_ifZero(term IfZero, buf *bytes.Buffer) error {
+func encode_ifZero[F field.Element[F]](term IfZero[F], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(ifZeroTag); err != nil {
 		return err
@@ -772,10 +772,10 @@ func encode_ifZero(term IfZero, buf *bytes.Buffer) error {
 		return err
 	}
 	// Write true + false branches
-	return encode_n(encode_term, buf, term.TrueBranch, term.FalseBranch)
+	return encode_n(encode_term[F], buf, term.TrueBranch, term.FalseBranch)
 }
 
-func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
+func encode_labelled_constant[F field.Element[F]](term LabelledConst[F], buf *bytes.Buffer) error {
 	var (
 		str_bytes   = []byte(term.Label)
 		str_len     = uint16(len(str_bytes))
@@ -801,7 +801,7 @@ func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
 	return err
 }
 
-func encode_exponent(term Exp, buf *bytes.Buffer) error {
+func encode_exponent[F field.Element[F]](term Exp[F], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(expTag); err != nil {
 		return err
@@ -814,7 +814,7 @@ func encode_exponent(term Exp, buf *bytes.Buffer) error {
 	return encode_term(term.Arg, buf)
 }
 
-func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
+func encode_reg_access[F field.Element[F]](term RegisterAccess[F], buf *bytes.Buffer) error {
 	// Write (appropriate) tag
 	if err := buf.WriteByte(registerAccessTag); err != nil {
 		return err
@@ -823,7 +823,7 @@ func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
 	return encode_raw_access(&term, buf)
 }
 
-func encode_vec_access(term VectorAccess, buf *bytes.Buffer) error {
+func encode_vec_access[F field.Element[F]](term VectorAccess[F], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(vectorAccessTag); err != nil {
 		return err
@@ -832,7 +832,7 @@ func encode_vec_access(term VectorAccess, buf *bytes.Buffer) error {
 	return encode_nary(encode_raw_access, buf, term.Vars)
 }
 
-func encode_raw_access(term *RegisterAccess, buf *bytes.Buffer) error {
+func encode_raw_access[F field.Element[F]](term *RegisterAccess[F], buf *bytes.Buffer) error {
 	// Register Index
 	if err := binary.Write(buf, binary.BigEndian, uint16(term.Register.Unwrap())); err != nil {
 		return err
@@ -850,7 +850,7 @@ func encode_raw_access(term *RegisterAccess, buf *bytes.Buffer) error {
 // ============================================================================
 
 // Decode an arbitrary term from the buffer.
-func decode_term(buf *bytes.Buffer) (Term, error) {
+func decode_term[F field.Element[F]](buf *bytes.Buffer) (Term[F], error) {
 	tag, err := buf.ReadByte()
 	//
 	if err != nil {
@@ -859,48 +859,48 @@ func decode_term(buf *bytes.Buffer) (Term, error) {
 	//
 	switch tag {
 	case addTag:
-		return decode_nary_terms(addConstructor, buf)
+		return decode_nary_terms[F](addConstructor, buf)
 	case castTag:
-		return decode_cast(buf)
+		return decode_cast[F](buf)
 	case constantTag:
-		return decode_constant(buf)
+		return decode_constant[F](buf)
 	case expTag:
-		return decode_exponent(buf)
+		return decode_exponent[F](buf)
 	case ifZeroTag:
-		return decode_ifzero(buf)
+		return decode_ifzero[F](buf)
 	case labelledConstantTag:
-		return decode_labelled_constant(buf)
+		return decode_labelled_constant[F](buf)
 	case registerAccessTag:
-		return decode_reg_access(buf)
+		return decode_reg_access[F](buf)
 	case mulTag:
-		return decode_nary_terms(mulConstructor, buf)
+		return decode_nary_terms[F](mulConstructor, buf)
 	case normTag:
-		return decode_terms(1, normConstructor, buf)
+		return decode_terms[F](1, normConstructor, buf)
 	case subTag:
-		return decode_nary_terms(subConstructor, buf)
+		return decode_nary_terms[F](subConstructor, buf)
 	case vectorAccessTag:
-		return decode_vec_access(buf)
+		return decode_vec_access[F](buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
 }
 
 // Decode a variable number of terms, as determined by the leading byte.
-func decode_nary_terms(constructor func([]Term) Term, buf *bytes.Buffer) (Term, error) {
-	terms, err := decode_nary(decode_term, buf)
+func decode_nary_terms[F field.Element[F]](constructor func([]Term[F]) Term[F], buf *bytes.Buffer) (Term[F], error) {
+	terms, err := decode_nary(decode_term[F], buf)
 	return constructor(terms), err
 }
 
 // Decode exactly n terms
-func decode_terms[S any](n uint, constructor func([]Term) S, buf *bytes.Buffer) (S, error) {
-	terms, err := decode_n(n, decode_term, buf)
+func decode_terms[F field.Element[F], S any](n uint, constructor func([]Term[F]) S, buf *bytes.Buffer) (S, error) {
+	terms, err := decode_n(n, decode_term[F], buf)
 	return constructor(terms), err
 }
 
-func decode_cast(buf *bytes.Buffer) (Term, error) {
+func decode_cast[F field.Element[F]](buf *bytes.Buffer) (Term[F], error) {
 	var (
 		bitwidth uint16
-		term     Term
+		term     Term[F]
 		err      error
 	)
 	// Exponent
@@ -908,17 +908,17 @@ func decode_cast(buf *bytes.Buffer) (Term, error) {
 		return nil, err
 	}
 	// Term
-	if term, err = decode_term(buf); err != nil {
+	if term, err = decode_term[F](buf); err != nil {
 		return term, err
 	}
 	// Done
 	return ir.CastOf(term, uint(bitwidth)), nil
 }
 
-func decode_constant(buf *bytes.Buffer) (Term, error) {
+func decode_constant[F field.Element[F]](buf *bytes.Buffer) (Term[F], error) {
 	var (
 		bytes   [32]byte
-		element bls12_377.Element
+		element F
 	)
 	//
 	if n, err := buf.Read(bytes[:]); err != nil {
@@ -929,13 +929,13 @@ func decode_constant(buf *bytes.Buffer) (Term, error) {
 	//
 	element = element.SetBytes(bytes[:])
 	//
-	return ir.Const[bls12_377.Element, Term](element), nil
+	return ir.Const[F, Term[F]](element), nil
 }
 
-func decode_exponent(buf *bytes.Buffer) (Term, error) {
+func decode_exponent[F field.Element[F]](buf *bytes.Buffer) (Term[F], error) {
 	var (
 		exponent uint64
-		term     Term
+		term     Term[F]
 		err      error
 	)
 	// Exponent
@@ -943,37 +943,37 @@ func decode_exponent(buf *bytes.Buffer) (Term, error) {
 		return nil, err
 	}
 	// Term
-	if term, err = decode_term(buf); err != nil {
+	if term, err = decode_term[F](buf); err != nil {
 		return term, err
 	}
 	// Done
 	return ir.Exponent(term, exponent), nil
 }
 
-func decode_ifzero(buf *bytes.Buffer) (Term, error) {
+func decode_ifzero[F field.Element[F]](buf *bytes.Buffer) (Term[F], error) {
 	var (
-		condition LogicalTerm
-		branches  []Term
+		condition LogicalTerm[F]
+		branches  []Term[F]
 		err       error
 	)
 	// Condition
-	if condition, err = decode_logical(buf); err != nil {
-		return &IfZero{}, err
+	if condition, err = decode_logical[F](buf); err != nil {
+		return &IfZero[F]{}, err
 	}
 	// True / false branches
-	if branches, err = decode_n(2, decode_term, buf); err != nil {
-		return &IfZero{}, err
+	if branches, err = decode_n(2, decode_term[F], buf); err != nil {
+		return &IfZero[F]{}, err
 	}
 	// Done
 	return ir.IfElse(condition, branches[0], branches[1]), nil
 }
 
-func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
+func decode_labelled_constant[F field.Element[F]](buf *bytes.Buffer) (Term[F], error) {
 	var (
 		str_bytes   []byte
 		str_len     uint16
 		const_bytes [32]byte
-		element     bls12_377.Element
+		element     F
 	)
 	// Label length
 	if err := binary.Read(buf, binary.BigEndian, &str_len); err != nil {
@@ -995,10 +995,10 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 	//
 	element = element.SetBytes(const_bytes[:])
 	//
-	return ir.LabelledConstant[bls12_377.Element, Term](string(str_bytes), element), nil
+	return ir.LabelledConstant[F, Term[F]](string(str_bytes), element), nil
 }
 
-func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
+func decode_reg_access[F field.Element[F]](buf *bytes.Buffer) (*RegisterAccess[F], error) {
 	var (
 		index uint16
 		shift int16
@@ -1014,13 +1014,13 @@ func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
 	// Construct raw register id
 	rid := schema.NewRegisterId(uint(index))
 	// Done
-	return &ir.RegisterAccess[bls12_377.Element, Term]{Register: rid, Shift: int(shift)}, nil
+	return &ir.RegisterAccess[F, Term[F]]{Register: rid, Shift: int(shift)}, nil
 }
 
-func decode_vec_access(buf *bytes.Buffer) (Term, error) {
-	vars, err := decode_nary(decode_reg_access, buf)
+func decode_vec_access[F field.Element[F]](buf *bytes.Buffer) (Term[F], error) {
+	vars, err := decode_nary(decode_reg_access[F], buf)
 	//
-	return &ir.VectorAccess[bls12_377.Element, Term]{Vars: vars}, err
+	return &ir.VectorAccess[F, Term[F]]{Vars: vars}, err
 }
 
 // ============================================================================
@@ -1080,58 +1080,58 @@ func decode_n[T any](n uint, decoder func(*bytes.Buffer) (T, error), buf *bytes.
 // Constructors
 // ============================================================================
 
-func addConstructor(terms []Term) Term {
+func addConstructor[F field.Element[F]](terms []Term[F]) Term[F] {
 	return ir.Sum(terms...)
 }
 
-func conjunctionConstructor(terms []LogicalTerm) LogicalTerm {
+func conjunctionConstructor[F field.Element[F]](terms []LogicalTerm[F]) LogicalTerm[F] {
 	return ir.Conjunction(terms...)
 }
 
-func disjunctionConstructor(terms []LogicalTerm) LogicalTerm {
+func disjunctionConstructor[F field.Element[F]](terms []LogicalTerm[F]) LogicalTerm[F] {
 	return ir.Disjunction(terms...)
 }
 
-func equalConstructor(terms []Term) LogicalTerm {
-	return ir.Equals[bls12_377.Element, LogicalTerm](terms[0], terms[1])
+func equalConstructor[F field.Element[F]](terms []Term[F]) LogicalTerm[F] {
+	return ir.Equals[F, LogicalTerm[F]](terms[0], terms[1])
 }
 
-func iteTrueFalseConstructor(terms []LogicalTerm) LogicalTerm {
+func iteTrueFalseConstructor[F field.Element[F]](terms []LogicalTerm[F]) LogicalTerm[F] {
 	return ir.IfThenElse(terms[0], terms[1], terms[2])
 }
 
-func iteTrueConstructor(terms []LogicalTerm) LogicalTerm {
+func iteTrueConstructor[F field.Element[F]](terms []LogicalTerm[F]) LogicalTerm[F] {
 	return ir.IfThenElse(terms[0], terms[1], nil)
 }
 
-func iteFalseConstructor(terms []LogicalTerm) LogicalTerm {
+func iteFalseConstructor[F field.Element[F]](terms []LogicalTerm[F]) LogicalTerm[F] {
 	return ir.IfThenElse(terms[0], nil, terms[1])
 }
 
-func mulConstructor(terms []Term) Term {
+func mulConstructor[F field.Element[F]](terms []Term[F]) Term[F] {
 	return ir.Product(terms...)
 }
 
-func negationConstructor(terms []LogicalTerm) LogicalTerm {
+func negationConstructor[F field.Element[F]](terms []LogicalTerm[F]) LogicalTerm[F] {
 	return ir.Negation(terms[0])
 }
 
-func notEqualConstructor(terms []Term) LogicalTerm {
-	return ir.NotEquals[bls12_377.Element, LogicalTerm](terms[0], terms[1])
+func notEqualConstructor[F field.Element[F]](terms []Term[F]) LogicalTerm[F] {
+	return ir.NotEquals[F, LogicalTerm[F]](terms[0], terms[1])
 }
 
-func lessThanConstructor(terms []Term) LogicalTerm {
-	return ir.LessThan[bls12_377.Element, LogicalTerm](terms[0], terms[1])
+func lessThanConstructor[F field.Element[F]](terms []Term[F]) LogicalTerm[F] {
+	return ir.LessThan[F, LogicalTerm[F]](terms[0], terms[1])
 }
 
-func lessThanOrEqualsConstructor(terms []Term) LogicalTerm {
-	return ir.LessThanOrEquals[bls12_377.Element, LogicalTerm](terms[0], terms[1])
+func lessThanOrEqualsConstructor[F field.Element[F]](terms []Term[F]) LogicalTerm[F] {
+	return ir.LessThanOrEquals[F, LogicalTerm[F]](terms[0], terms[1])
 }
 
-func subConstructor(terms []Term) Term {
+func subConstructor[F field.Element[F]](terms []Term[F]) Term[F] {
 	return ir.Subtract(terms...)
 }
 
-func normConstructor(terms []Term) Term {
+func normConstructor[F field.Element[F]](terms []Term[F]) Term[F] {
 	return ir.Normalise(terms[0])
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -34,43 +34,43 @@ type Register = io.Register
 // MacroFunction is a function whose instructions are themselves macro
 // instructions.  A macro function must be compiled down into a micro function
 // before we can generate constraints.
-type MacroFunction = io.Function[bls12_377.Element, macro.Instruction]
+type MacroFunction[F field.Element[F]] = io.Function[F, macro.Instruction]
 
 // MicroFunction is a function whose instructions are themselves micro
 // instructions.  A micro function represents the lowest representation of a
 // function, where each instruction is made up of microcodes.
-type MicroFunction = io.Function[bls12_377.Element, micro.Instruction]
+type MicroFunction[F field.Element[F]] = io.Function[F, micro.Instruction]
 
 // MacroProgram represents a set of components at the macro level.
-type MacroProgram = io.Program[bls12_377.Element, macro.Instruction]
+type MacroProgram[F field.Element[F]] = io.Program[F, macro.Instruction]
 
 // MicroProgram represents a set of components at the micro level.
-type MicroProgram = io.Program[bls12_377.Element, micro.Instruction]
+type MicroProgram[F field.Element[F]] = io.Program[F, micro.Instruction]
 
 // MixedMacroProgram is a schema comprised of both macro assembly components and
 // MIR components (hence the term mixed).
-type MixedMacroProgram = schema.MixedSchema[bls12_377.Element, *MacroFunction, mir.Module]
+type MixedMacroProgram[F field.Element[F]] = schema.MixedSchema[F, *MacroFunction[F], mir.Module[F]]
 
 // MixedMicroProgram is a schema comprised of both micro assembly components and
 // MIR components (hence the term mixed).
-type MixedMicroProgram = schema.MixedSchema[bls12_377.Element, *MicroFunction, mir.Module]
+type MixedMicroProgram[F field.Element[F]] = schema.MixedSchema[F, *MicroFunction[F], mir.Module[F]]
 
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble(assembly ...source.File) (
-	MacroProgram, source.Maps[any], []source.SyntaxError) {
+func Assemble[F field.Element[F]](assembly ...source.File) (
+	MacroProgram[F], source.Maps[any], []source.SyntaxError) {
 	//
 	var (
-		items   []assembler.AssemblyItem
+		items   []assembler.AssemblyItem[F]
 		errors  []source.SyntaxError
-		program MacroProgram
+		program MacroProgram[F]
 		srcmaps source.Maps[any]
 	)
 	// Parse each file in turn.
 	for _, asm := range assembly {
 		// Parse source file
-		cs, errs := assembler.Parse(&asm)
+		cs, errs := assembler.Parse[F](&asm)
 		if len(errs) == 0 {
 			items = append(items, cs)
 		}
@@ -82,7 +82,7 @@ func Assemble(assembly ...source.File) (
 		return program, srcmaps, errors
 	}
 	// Link assembly and resolve buses
-	program, srcmaps = assembler.Link(items...)
+	program, srcmaps = assembler.Link[F](items...)
 	// Well-formedness checks (assuming unlimited field width).
 	errors = assembler.Validate(math.MaxUint, program, srcmaps)
 	// Done
@@ -107,8 +107,8 @@ type LoweringConfig struct {
 // vectorisation if desired.  Specifically, any macro modules within the schema
 // are lowered into "micro" modules (i.e. those using only micro instructions).
 // This does not impact any externally defined (e.g. MIR) modules in the schema.
-func LowerMixedMacroProgram(vectorize bool, p MixedMacroProgram) MixedMicroProgram {
-	functions := make([]*MicroFunction, len(p.LeftModules()))
+func LowerMixedMacroProgram[F field.Element[F]](vectorize bool, p MixedMacroProgram[F]) MixedMicroProgram[F] {
+	functions := make([]*MicroFunction[F], len(p.LeftModules()))
 	//
 	for i, f := range p.LeftModules() {
 		nf := lowerFunction(vectorize, *f)
@@ -126,12 +126,12 @@ func LowerMixedMacroProgram(vectorize bool, p MixedMacroProgram) MixedMicroProgr
 // LowerMixedMicroProgram lowers a mixed micro program into a unform schema of
 // MIR modules.  To do this, it translates all assembly components (e.g.
 // functions) into MIR modules to ensure uniformity at the end.
-func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[bls12_377.Element, mir.Module] {
+func LowerMixedMicroProgram[F field.Element[F]](p MixedMicroProgram[F]) schema.UniformSchema[F, mir.Module[F]] {
 	var (
 		n = len(p.LeftModules())
 		// Construct compiler
-		compiler = compiler.NewCompiler[schema.RegisterId, compiler.MirExpr, compiler.MirModule]()
-		modules  = make([]mir.Module, p.Width())
+		compiler = compiler.NewCompiler[F, schema.RegisterId, compiler.MirExpr[F], compiler.MirModule[F]]()
+		modules  = make([]mir.Module[F], p.Width())
 	)
 	// Compiler assembly components into MIR
 	compiler.Compile(p.LeftModules()...)
@@ -145,14 +145,14 @@ func LowerMixedMicroProgram(p MixedMicroProgram) schema.UniformSchema[bls12_377.
 	return schema.NewUniformSchema(modules)
 }
 
-func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
+func lowerFunction[F field.Element[F]](vectorize bool, f MacroFunction[F]) MicroFunction[F] {
 	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.
 	for pc, insn := range f.Code() {
 		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
-	fn := io.NewFunction[bls12_377.Element](f.Id(), f.Name(), f.Registers(), insns)
+	fn := io.NewFunction[F](f.Id(), f.Name(), f.Registers(), insns)
 	// Apply vectorisation (if enabled).
 	if vectorize {
 		fn = vectorizeFunction(fn)
@@ -165,7 +165,7 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 // possible.  For example, consider two micro instructions "x = y" and "a = b".
 // Since this instructions do not conflict over any assigned register, they can
 // be combined into a vector instruction "x=y;a=b".
-func vectorizeFunction(f MicroFunction) MicroFunction {
+func vectorizeFunction[F field.Element[F]](f MicroFunction[F]) MicroFunction[F] {
 	var insns = slices.Clone(f.Code())
 	// Vectorize instructions as much as possible.
 	for pc := range insns {
@@ -174,7 +174,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return io.NewFunction[bls12_377.Element](f.Id(), f.Name(), f.Registers(), insns)
+	return io.NewFunction[F](f.Id(), f.Name(), f.Registers(), insns)
 }
 
 func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {

@@ -18,11 +18,11 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup(c LookupConstraint, mapping schema.LimbsMap) LookupConstraint {
+func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.LimbsMap) LookupConstraint[F] {
 	var (
 		// Determine overall geometry for this lookup.
 		geometry = lookup.NewGeometry(c, mapping)
@@ -45,10 +45,10 @@ func subdivideLookup(c LookupConstraint, mapping schema.LimbsMap) LookupConstrai
 // create more source/target pairings.  Rather, it splits registers within the
 // existing pairings only.  Later stages will subdivide and pad the
 // source/target pairings as necessary.
-func mapLookupVectors(vectors []lookup.Vector[bls12_377.Element, Term],
-	mapping schema.LimbsMap) []lookup.Vector[bls12_377.Element, Term] {
+func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, Term[F]],
+	mapping schema.LimbsMap) []lookup.Vector[F, Term[F]] {
 	//
-	var nterms = make([]lookup.Vector[bls12_377.Element, Term], len(vectors))
+	var nterms = make([]lookup.Vector[F, Term[F]], len(vectors))
 	//
 	for i, vector := range vectors {
 		var (
@@ -70,10 +70,10 @@ func mapLookupVectors(vectors []lookup.Vector[bls12_377.Element, Term],
 // now changed to [u16,u16] to accommodate the field bandwidth.  Furthermore,
 // notice padding has been applied to ensure we have a matching number of
 // columns on the left- and right-hand sides.
-func splitLookupVectors(geometry lookup.Geometry, vectors []lookup.Vector[bls12_377.Element, Term],
-	mapping schema.LimbsMap) []lookup.Vector[bls12_377.Element, Term] {
+func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []lookup.Vector[F, Term[F]],
+	mapping schema.LimbsMap) []lookup.Vector[F, Term[F]] {
 	//
-	var nterms = make([]lookup.Vector[bls12_377.Element, Term], len(vectors))
+	var nterms = make([]lookup.Vector[F, Term[F]], len(vectors))
 	//
 	for i, vector := range vectors {
 		nterms[i] = splitLookupVector(geometry, vector, mapping)
@@ -82,12 +82,12 @@ func splitLookupVectors(geometry lookup.Geometry, vectors []lookup.Vector[bls12_
 	return nterms
 }
 
-func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[bls12_377.Element, Term],
-	mapping schema.LimbsMap) lookup.Vector[bls12_377.Element, Term] {
+func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector lookup.Vector[F, Term[F]],
+	mapping schema.LimbsMap) lookup.Vector[F, Term[F]] {
 	//
 	var (
-		limbs  [][]Term = make([][]Term, vector.Len())
-		modmap          = mapping.Module(vector.Module)
+		limbs  [][]Term[F] = make([][]Term[F], vector.Len())
+		modmap             = mapping.Module(vector.Module)
 	)
 	// Initial split
 	for i, t := range vector.Terms {
@@ -103,7 +103,7 @@ func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[bls12_377.
 		if bitwidth > geometry.BandWidth() {
 			// Yes, therefore need to split
 			//nolint
-			if va, ok := t.(*VectorAccess); ok {
+			if va, ok := t.(*VectorAccess[F]); ok {
 				for _, v := range va.Vars {
 					limbs[i] = append(limbs[i], v)
 				}
@@ -153,7 +153,7 @@ func splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[bls12_377.
 //
 // NOTE: For now, this function only checks that limbs are aligned and panics
 // otherwise.
-func alignLookupLimbs(limbs []Term, geometry []uint, mapping schema.RegisterLimbsMap) {
+func alignLookupLimbs[F field.Element[F]](limbs []Term[F], geometry []uint, mapping schema.RegisterLimbsMap) {
 	var (
 		n       = len(geometry) - 1
 		m       = len(limbs) - 1
@@ -192,8 +192,8 @@ func alignLookupLimbs(limbs []Term, geometry []uint, mapping schema.RegisterLimb
 //
 // Here, 0 has been appended to the translation of Y to match the number of
 // columns required for X.
-func padLookupLimbs(terms [][]Term, geometry lookup.Geometry) []Term {
-	var nterms []Term
+func padLookupLimbs[F field.Element[F]](terms [][]Term[F], geometry lookup.Geometry) []Term[F] {
+	var nterms []Term[F]
 
 	for i, ith := range terms {
 		// Determine expected geometry (i.e. number of columns) at this
@@ -203,7 +203,7 @@ func padLookupLimbs(terms [][]Term, geometry lookup.Geometry) []Term {
 		nterms = append(nterms, ith...)
 		// Pad out with zeros to match geometry
 		for m := n - len(ith); m > 0; m-- {
-			nterms = append(nterms, ir.Const64[bls12_377.Element, Term](0))
+			nterms = append(nterms, ir.Const64[F, Term[F]](0))
 		}
 	}
 

@@ -16,41 +16,41 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideAssertion(c Assertion, _ schema.LimbsMap) Assertion {
+func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.LimbsMap) Assertion[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving(c InterleavingConstraint, _ schema.LimbsMap) InterleavingConstraint {
+func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.LimbsMap) InterleavingConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation(c PermutationConstraint, _ schema.LimbsMap) PermutationConstraint {
+func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ schema.LimbsMap) PermutationConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange(c RangeConstraint, _ schema.LimbsMap) RangeConstraint {
+func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ schema.LimbsMap) RangeConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted(c SortedConstraint, _ schema.LimbsMap) SortedConstraint {
+func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.LimbsMap) SortedConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing(p VanishingConstraint, mapping schema.RegisterLimbsMap) VanishingConstraint {
+func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping schema.RegisterLimbsMap) VanishingConstraint[F] {
 	// Split all registers occurring in the logical term.
 	c := splitLogicalTerm(p.Constraint, mapping)
 	// FIXME: this is an insufficient solution because it does not address the
@@ -59,36 +59,36 @@ func subdivideVanishing(p VanishingConstraint, mapping schema.RegisterLimbsMap) 
 	return vanishing.NewConstraint(p.Handle, p.Context, p.Domain, c)
 }
 
-func splitLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap) LogicalTerm {
+func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
 	switch t := term.(type) {
-	case *Conjunct:
+	case *Conjunct[F]:
 		return ir.Conjunction(splitLogicalTerms(t.Args, mapping)...)
-	case *Disjunct:
+	case *Disjunct[F]:
 		return ir.Disjunction(splitLogicalTerms(t.Args, mapping)...)
-	case *Equal:
-		return ir.Equals[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
-	case *Ite:
+	case *Equal[F]:
+		return ir.Equals[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+	case *Ite[F]:
 		condition := splitLogicalTerm(t.Condition, mapping)
 		trueBranch := splitOptionalLogicalTerm(t.TrueBranch, mapping)
 		falseBranch := splitOptionalLogicalTerm(t.FalseBranch, mapping)
 		//
 		return ir.IfThenElse(condition, trueBranch, falseBranch)
-	case *Negate:
+	case *Negate[F]:
 		return ir.Negation(splitLogicalTerm(t.Arg, mapping))
-	case *NotEqual:
-		return ir.NotEquals[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
-	case *Inequality:
+	case *NotEqual[F]:
+		return ir.NotEquals[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+	case *Inequality[F]:
 		if t.Strict {
-			return ir.LessThan[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+			return ir.LessThan[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
 		}
 		//
-		return ir.LessThanOrEquals[bls12_377.Element, LogicalTerm](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+		return ir.LessThanOrEquals[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
 	default:
 		panic("unreachable")
 	}
 }
 
-func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap) LogicalTerm {
+func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
 	if term == nil {
 		return nil
 	}
@@ -96,8 +96,8 @@ func splitOptionalLogicalTerm(term LogicalTerm, mapping schema.RegisterLimbsMap)
 	return splitLogicalTerm(term, mapping)
 }
 
-func splitLogicalTerms(terms []LogicalTerm, mapping schema.RegisterLimbsMap) []LogicalTerm {
-	var nterms = make([]LogicalTerm, len(terms))
+func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F], mapping schema.RegisterLimbsMap) []LogicalTerm[F] {
+	var nterms = make([]LogicalTerm[F], len(terms))
 	//
 	for i := range len(terms) {
 		nterms[i] = splitLogicalTerm(terms[i], mapping)
@@ -106,41 +106,41 @@ func splitLogicalTerms(terms []LogicalTerm, mapping schema.RegisterLimbsMap) []L
 	return nterms
 }
 
-func splitTerm(term Term, mapping schema.RegisterLimbsMap) Term {
+func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap) Term[F] {
 	switch t := term.(type) {
-	case *Add:
+	case *Add[F]:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
-	case *Cast:
+	case *Cast[F]:
 		return ir.CastOf(splitTerm(t.Arg, mapping), t.BitWidth)
-	case *Constant:
+	case *Constant[F]:
 		return t
-	case *IfZero:
+	case *IfZero[F]:
 		return ir.IfElse(
 			splitLogicalTerm(t.Condition, mapping),
 			splitTerm(t.TrueBranch, mapping),
 			splitTerm(t.FalseBranch, mapping),
 		)
-	case *LabelledConst:
+	case *LabelledConst[F]:
 		return t
-	case *RegisterAccess:
+	case *RegisterAccess[F]:
 		return splitRegisterAccess(t, mapping)
-	case *Exp:
+	case *Exp[F]:
 		return ir.Exponent(splitTerm(t.Arg, mapping), t.Pow)
-	case *Mul:
+	case *Mul[F]:
 		return ir.Product(splitTerms(t.Args, mapping)...)
-	case *Norm:
+	case *Norm[F]:
 		return ir.Normalise(splitTerm(t.Arg, mapping))
-	case *Sub:
+	case *Sub[F]:
 		return ir.Subtract(splitTerms(t.Args, mapping)...)
-	case *VectorAccess:
+	case *VectorAccess[F]:
 		return splitVectorAccess(t, mapping)
 	default:
 		panic("unreachable")
 	}
 }
 
-func splitTerms(terms []Term, mapping schema.RegisterLimbsMap) []Term {
-	var nterms []Term = make([]Term, len(terms))
+func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterLimbsMap) []Term[F] {
+	var nterms []Term[F] = make([]Term[F], len(terms))
 	//
 	for i := range len(terms) {
 		nterms[i] = splitTerm(terms[i], mapping)
@@ -149,16 +149,16 @@ func splitTerms(terms []Term, mapping schema.RegisterLimbsMap) []Term {
 	return nterms
 }
 
-func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterLimbsMap) Term {
+func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
 	var (
 		// Determine limbs for this register
 		limbs = mapping.LimbIds(term.Register)
 		// Construct appropriate terms
-		terms = make([]*RegisterAccess, len(limbs))
+		terms = make([]*RegisterAccess[F], len(limbs))
 	)
 	//
 	for i, limb := range limbs {
-		terms[i] = &ir.RegisterAccess[bls12_377.Element, Term]{Register: limb, Shift: term.Shift}
+		terms[i] = &ir.RegisterAccess[F, Term[F]]{Register: limb, Shift: term.Shift}
 	}
 	// Check whether vector required, or not
 	if len(limbs) == 1 {
@@ -170,12 +170,12 @@ func splitRegisterAccess(term *RegisterAccess, mapping schema.RegisterLimbsMap) 
 	return ir.NewVectorAccess(terms)
 }
 
-func splitVectorAccess(term *VectorAccess, mapping schema.RegisterLimbsMap) Term {
-	var terms []*RegisterAccess
+func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
+	var terms []*RegisterAccess[F]
 	//
 	for _, v := range term.Vars {
 		for _, limb := range mapping.LimbIds(v.Register) {
-			term := &ir.RegisterAccess[bls12_377.Element, Term]{Register: limb, Shift: v.Shift}
+			term := &ir.RegisterAccess[F, Term[F]]{Register: limb, Shift: v.Shift}
 			terms = append(terms, term)
 		}
 	}

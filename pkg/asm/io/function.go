@@ -21,7 +21,6 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 const (
@@ -106,7 +105,7 @@ func (p *Function[F, T]) Constraints() iter.Iterator[sc.Constraint[F]] {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *Function[F, T]) Consistent(sc.AnySchema[bls12_377.Element]) []error {
+func (p *Function[F, T]) Consistent(sc.AnySchema[F]) []error {
 	// TODO: add checks?
 	return nil
 }

@@ -32,7 +32,7 @@ import (
 func PrintStats(stack cmd_util.SchemaStack) {
 	var (
 		schemas     = stack.Schemas()
-		summarisers = getSummerisers()
+		summarisers = getSummerisers[bls12_377.Element]()
 		//
 		n   = 1 + uint(len(schemas))
 		m   = uint(len(summarisers))
@@ -65,78 +65,78 @@ type schemaSummariser[F any] struct {
 	summary func(sc.AnySchema[F]) int
 }
 
-func getSummerisers() []schemaSummariser[bls12_377.Element] {
-	return []schemaSummariser[bls12_377.Element]{
+func getSummerisers[F field.Element[F]]() []schemaSummariser[F] {
+	return []schemaSummariser[F]{
 		// Constraints
-		constraintCounter("Constraints", func(schema.Constraint[bls12_377.Element]) bool { return true }),
-		constraintCounter("Vanishing", isVanishingConstraint),
-		constraintCounter("Lookups", isLookupConstraint),
-		constraintCounter("Permutations", isPermutationConstraint),
-		constraintCounter("Range", isRangeConstraint),
+		constraintCounter("Constraints", func(schema.Constraint[F]) bool { return true }),
+		constraintCounter("Vanishing", isVanishingConstraint[F]),
+		constraintCounter("Lookups", isLookupConstraint[F]),
+		constraintCounter("Permutations", isPermutationConstraint[F]),
+		constraintCounter("Range", isRangeConstraint[F]),
 		// Assignments
-		assignmentCounter[bls12_377.Element]("Computed Columns",
-			reflect.TypeOf((*assignment.ComputedRegister[bls12_377.Element])(nil))),
-		assignmentCounter[bls12_377.Element]("Computation Columns",
-			reflect.TypeOf((*assignment.Computation[bls12_377.Element])(nil))),
-		assignmentCounter[bls12_377.Element]("Lexicographic Orderings",
-			reflect.TypeOf((*assignment.LexicographicSort[bls12_377.Element])(nil))),
-		assignmentCounter[bls12_377.Element]("Sorted Permutations",
-			reflect.TypeOf((*assignment.SortedPermutation[bls12_377.Element])(nil))),
+		assignmentCounter[F]("Computed Columns",
+			reflect.TypeOf((*assignment.ComputedRegister[F])(nil))),
+		assignmentCounter[F]("Computation Columns",
+			reflect.TypeOf((*assignment.Computation[F])(nil))),
+		assignmentCounter[F]("Lexicographic Orderings",
+			reflect.TypeOf((*assignment.LexicographicSort[F])(nil))),
+		assignmentCounter[F]("Sorted Permutations",
+			reflect.TypeOf((*assignment.SortedPermutation[F])(nil))),
 		// Columns
-		columnCounter[bls12_377.Element](),
-		columnWidthSummariser[bls12_377.Element](1, 1),
-		columnWidthSummariser[bls12_377.Element](2, 4),
-		columnWidthSummariser[bls12_377.Element](5, 8),
-		columnWidthSummariser[bls12_377.Element](9, 16),
-		columnWidthSummariser[bls12_377.Element](17, 32),
-		columnWidthSummariser[bls12_377.Element](33, 64),
-		columnWidthSummariser[bls12_377.Element](65, 128),
-		columnWidthSummariser[bls12_377.Element](129, 256),
+		columnCounter[F](),
+		columnWidthSummariser[F](1, 1),
+		columnWidthSummariser[F](2, 4),
+		columnWidthSummariser[F](5, 8),
+		columnWidthSummariser[F](9, 16),
+		columnWidthSummariser[F](17, 32),
+		columnWidthSummariser[F](33, 64),
+		columnWidthSummariser[F](65, 128),
+		columnWidthSummariser[F](129, 256),
 	}
 }
 
-func isVanishingConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isVanishingConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.VanishingConstraint:
+	case air.VanishingConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.VanishingConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.VanishingConstraint[F])
 		return ok
 	}
 	//
 	return false
 }
 
-func isLookupConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isLookupConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.LookupConstraint:
+	case air.LookupConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.LookupConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.LookupConstraint[F])
 		return ok
 	}
 	//
 	return false
 }
 
-func isPermutationConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isPermutationConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.PermutationConstraint:
+	case air.PermutationConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.PermutationConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.PermutationConstraint[F])
 		return ok
 	}
 	//
 	return false
 }
 
-func isRangeConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isRangeConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.RangeConstraint:
+	case air.RangeConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.RangeConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.RangeConstraint[F])
 		return ok
 	}
 	//

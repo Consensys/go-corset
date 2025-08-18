@@ -18,7 +18,6 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
@@ -202,9 +201,9 @@ func (p *ModuleBuilder[F, C, T]) Consistent(schema schema.AnySchema[F]) []error 
 
 // Constraints provides access to those constraints associated with this
 // module.
-func (p *ModuleBuilder[F, C, T]) Constraints() iter.Iterator[schema.Constraint[bls12_377.Element]] {
+func (p *ModuleBuilder[F, C, T]) Constraints() iter.Iterator[schema.Constraint[F]] {
 	i := iter.NewArrayIterator(p.constraints)
-	return iter.NewCastIterator[C, schema.Constraint[bls12_377.Element]](i)
+	return iter.NewCastIterator[C, schema.Constraint[F]](i)
 }
 
 // Id returns the module index of this module.

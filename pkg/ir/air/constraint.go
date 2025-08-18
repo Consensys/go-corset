@@ -24,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -35,77 +35,77 @@ import (
 // ConstraintBound limits the permitted set of underlying constraints.  This
 // should never change, unless the underlying prover changes in some way to
 // offer different or more fundamental primitives.
-type ConstraintBound interface {
-	schema.Constraint[bls12_377.Element]
+type ConstraintBound[F field.Element[F]] interface {
+	schema.Constraint[F]
 
-	constraint.Assertion[bls12_377.Element, ir.Testable[bls12_377.Element]] |
-		interleaving.Constraint[bls12_377.Element, *ColumnAccess] |
-		lookup.Constraint[bls12_377.Element, *ColumnAccess] |
-		permutation.Constraint[bls12_377.Element] |
-		ranged.Constraint[bls12_377.Element, *ColumnAccess] |
-		vanishing.Constraint[bls12_377.Element, LogicalTerm]
+	constraint.Assertion[F, ir.Testable[F]] |
+		interleaving.Constraint[F, *ColumnAccess[F]] |
+		lookup.Constraint[F, *ColumnAccess[F]] |
+		permutation.Constraint[F] |
+		ranged.Constraint[F, *ColumnAccess[F]] |
+		vanishing.Constraint[F, LogicalTerm[F]]
 }
 
 // Air attempts to encapsulate the notion of a valid constraint at the AIR
 // level.  Since this is the fundamental level, only certain constraint forms
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
 // are not found at the Air level.
-type Air[C ConstraintBound] struct {
+type Air[F field.Element[F], C ConstraintBound[F]] struct {
 	constraint C
 }
 
 // newAir is a helper method for the various constraint constructors, basically
 // to avoid lots of generic types.
-func newAir[C ConstraintBound](constraint C) Air[C] {
-	return Air[C]{constraint}
+func newAir[F field.Element[F], C ConstraintBound[F]](constraint C) Air[F, C] {
+	return Air[F, C]{constraint}
 }
 
 // NewAssertion constructs a new AIR assertion
-func NewAssertion(handle string, ctx schema.ModuleId, term ir.Testable[bls12_377.Element]) Assertion {
+func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, term ir.Testable[F]) Assertion[F] {
 	//
 	return newAir(constraint.NewAssertion(handle, ctx, term))
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.
-func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
-	sourceContext schema.ModuleId, target ColumnAccess, sources []*ColumnAccess) Constraint {
+func NewInterleavingConstraint[F field.Element[F]](handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target ColumnAccess[F], sources []*ColumnAccess[F]) Constraint[F] {
 	return newAir(interleaving.NewConstraint(handle, targetContext, sourceContext, &target, sources))
 }
 
 // NewLookupConstraint constructs a new AIR lookup constraint
-func NewLookupConstraint(handle string, targets []lookup.Vector[bls12_377.Element, *ColumnAccess],
-	sources []lookup.Vector[bls12_377.Element, *ColumnAccess]) LookupConstraint {
+func NewLookupConstraint[F field.Element[F]](handle string, targets []lookup.Vector[F, *ColumnAccess[F]],
+	sources []lookup.Vector[F, *ColumnAccess[F]]) LookupConstraint[F] {
 	//
 	return newAir(lookup.NewConstraint(handle, targets, sources))
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
-	sources []schema.RegisterId) Constraint {
-	return newAir(permutation.NewConstraint[bls12_377.Element](handle, context, targets, sources))
+func NewPermutationConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []schema.RegisterId,
+	sources []schema.RegisterId) Constraint[F] {
+	return newAir(permutation.NewConstraint[F](handle, context, targets, sources))
 }
 
 // NewRangeConstraint constructs a new AIR range constraint
-func NewRangeConstraint(handle string, ctx schema.ModuleId, expr ColumnAccess, bitwidth uint) RangeConstraint {
+func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, expr ColumnAccess[F], bitwidth uint) RangeConstraint[F] {
 	return newAir(ranged.NewConstraint(handle, ctx, &expr, bitwidth))
 }
 
 // NewVanishingConstraint constructs a new AIR vanishing constraint
-func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
-	term Term) VanishingConstraint {
+func NewVanishingConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
+	term Term[F]) VanishingConstraint[F] {
 	//
-	return newAir(vanishing.NewConstraint(handle, ctx, domain, LogicalTerm{term}))
+	return newAir(vanishing.NewConstraint(handle, ctx, domain, LogicalTerm[F]{term}))
 }
 
 // Air marks the constraint as being valid for the AIR representation.
-func (p Air[C]) Air() {
+func (p Air[F, C]) Air() {
 	// nothing as just a marker.
 }
 
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Air[C]) Accepts(trace trace.Trace[bls12_377.Element], schema schema.AnySchema[bls12_377.Element],
+func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F],
 ) (bit.Set, schema.Failure) {
 	return p.constraint.Accepts(trace, schema)
 }
@@ -115,14 +115,14 @@ func (p Air[C]) Accepts(trace trace.Trace[bls12_377.Element], schema schema.AnyS
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass)
-func (p Air[C]) Bounds(module uint) util.Bounds {
+func (p Air[F, C]) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Air[C]) Consistent(schema schema.AnySchema[bls12_377.Element]) []error {
+func (p Air[F, C]) Consistent(schema schema.AnySchema[F]) []error {
 	return p.constraint.Consistent(schema)
 }
 
@@ -131,13 +131,13 @@ func (p Air[C]) Consistent(schema schema.AnySchema[bls12_377.Element]) []error {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Air[C]) Contexts() []schema.ModuleId {
+func (p Air[F, C]) Contexts() []schema.ModuleId {
 	return p.constraint.Contexts()
 }
 
 // Name returns a unique name and case number for a given constraint.  This
 // is useful purely for identifying constraints in reports, etc.
-func (p Air[C]) Name() string {
+func (p Air[F, C]) Name() string {
 	return p.constraint.Name()
 }
 
@@ -145,18 +145,18 @@ func (p Air[C]) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Air[C]) Lisp(schema schema.AnySchema[bls12_377.Element]) sexp.SExp {
+func (p Air[F, C]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Air[C]) Substitute(map[string]bls12_377.Element) {
+func (p Air[F, C]) Substitute(map[string]F) {
 	// This should never be called since AIR expressions cannot contain labelled
 	// constants.
 	panic("unreachable")
 }
 
 // Unwrap provides access to the underlying constraint.
-func (p Air[C]) Unwrap() C {
+func (p Air[F, C]) Unwrap() C {
 	return p.constraint
 }

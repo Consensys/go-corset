@@ -20,7 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // LexicographicSortingGadget adds sorting constraints for a sequence of one or
@@ -40,7 +40,7 @@ import (
 // case.  The delta value captures the difference Ci[k]-Ci[k-1] to ensure it is
 // positive.  The delta column is constrained to a given bitwidth, with
 // constraints added as necessary to ensure this.
-type LexicographicSortingGadget struct {
+type LexicographicSortingGadget[F field.Element[F]] struct {
 	// Prefix is used to construct the delta column name.
 	prefix string
 	// Identifies column(s) being sorted
@@ -56,7 +56,7 @@ type LexicographicSortingGadget struct {
 	// Strict implies that equal elements are not permitted.
 	strict bool
 	// Constraint active when selector is non-zero.
-	selector air.Term
+	selector air.Term[F]
 	// Determines the largest bitwidth for which range constraints are
 	// translated into AIR range constraints, versus  using a horizontal
 	// bitwidth gadget.
@@ -70,19 +70,19 @@ type LexicographicSortingGadget struct {
 // NewLexicographicSortingGadget constructs a default sorting gadget which can
 // then be configured.  The default gadget is non-strict and assumes all columns
 // are ascending.
-func NewLexicographicSortingGadget(prefix string, columns []sc.RegisterId, bitwidth uint) *LexicographicSortingGadget {
+func NewLexicographicSortingGadget[F field.Element[F]](prefix string, columns []sc.RegisterId, bitwidth uint) *LexicographicSortingGadget[F] {
 	signs := make([]bool, len(columns))
 
 	for i := range signs {
 		signs[i] = true
 	}
 	//
-	return &LexicographicSortingGadget{prefix, columns, signs, bitwidth, false,
-		ir.Const64[bls12_377.Element, air.Term](1), 8, false}
+	return &LexicographicSortingGadget[F]{prefix, columns, signs, bitwidth, false,
+		ir.Const64[F, air.Term[F]](1), 8, false}
 }
 
 // WithSigns configures the directions for all columns being sorted.
-func (p *LexicographicSortingGadget) WithSigns(signs ...bool) *LexicographicSortingGadget {
+func (p *LexicographicSortingGadget[F]) WithSigns(signs ...bool) *LexicographicSortingGadget[F] {
 	if len(p.columns) < len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
@@ -93,31 +93,31 @@ func (p *LexicographicSortingGadget) WithSigns(signs ...bool) *LexicographicSort
 }
 
 // WithStrictness configures strictness
-func (p *LexicographicSortingGadget) WithStrictness(strict bool) *LexicographicSortingGadget {
+func (p *LexicographicSortingGadget[F]) WithStrictness(strict bool) *LexicographicSortingGadget[F] {
 	p.strict = strict
 	return p
 }
 
 // WithSelector sets the selector for this constraint.
-func (p *LexicographicSortingGadget) WithSelector(selector air.Term) *LexicographicSortingGadget {
+func (p *LexicographicSortingGadget[F]) WithSelector(selector air.Term[F]) *LexicographicSortingGadget[F] {
 	p.selector = selector
 	return p
 }
 
 // WithMaxRangeConstraint determines the cutoff for range cosntraints.
-func (p *LexicographicSortingGadget) WithMaxRangeConstraint(width uint) *LexicographicSortingGadget {
+func (p *LexicographicSortingGadget[F]) WithMaxRangeConstraint(width uint) *LexicographicSortingGadget[F] {
 	p.maxRangeConstraint = width
 	return p
 }
 
 // WithLimitless enables or disables use of limitless type proofs.
-func (p *LexicographicSortingGadget) WithLimitless(flag bool) *LexicographicSortingGadget {
+func (p *LexicographicSortingGadget[F]) WithLimitless(flag bool) *LexicographicSortingGadget[F] {
 	p.limitless = flag
 	return p
 }
 
 // Apply this lexicographic sorting gadget to a given schema.
-func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBuilder) {
+func (p *LexicographicSortingGadget[F]) Apply(mid sc.ModuleId, schema *air.SchemaBuilder[F]) {
 	var (
 		module = schema.Module(mid)
 		//
@@ -145,7 +145,7 @@ func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBu
 		deltaIndex = targets[0].Register()
 		//
 		module.AddAssignment(
-			assignment.NewLexicographicSort[bls12_377.Element](targets, p.signs, sources, p.bitwidth))
+			assignment.NewLexicographicSort[F](targets, p.signs, sources, p.bitwidth))
 		// Construct selector bits.
 		p.addLexicographicSelectorBits(deltaIndex, mid, schema)
 		// Add necessary bitwidth constraints.  Note, we don't need to consider
@@ -162,7 +162,7 @@ func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBu
 		gadget.Constrain(ref, p.bitwidth)
 	}
 	// Construct delta terms
-	constraint := constructLexicographicDeltaConstraint(deltaIndex, p.columns, p.signs)
+	constraint := constructLexicographicDeltaConstraint[F](deltaIndex, p.columns, p.signs)
 	// Apply selector
 	constraint = ir.Product(p.selector, constraint)
 	// Add delta constraint
@@ -177,12 +177,12 @@ func (p *LexicographicSortingGadget) Apply(mid sc.ModuleId, schema *air.SchemaBu
 //
 // NOTE: this implementation differs from the original corset which used an
 // additional "Eq" bit to help ensure at most one selector bit was enabled.
-func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.RegisterId, mid sc.ModuleId,
-	schema *air.SchemaBuilder) {
+func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex sc.RegisterId, mid sc.ModuleId,
+	schema *air.SchemaBuilder[F]) {
 	//
 	var (
 		module = schema.Module(mid)
-		one    = ir.Const64[bls12_377.Element, air.Term](1)
+		one    = ir.Const64[F, air.Term[F]](1)
 		ncols  = uint(len(p.signs))
 		// Calculate column index of first selector bit
 		bitIndex = deltaIndex.Unwrap() + 1
@@ -194,23 +194,23 @@ func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.
 		NewBitwidthGadget(schema).Constrain(ref, 1)
 	}
 	// Apply constraints to ensure at most one is set.
-	terms := make([]air.Term, ncols)
+	terms := make([]air.Term[F], ncols)
 
 	for i := uint(0); i < ncols; i++ {
 		ith_id := sc.NewRegisterId(bitIndex + i)
-		pterms := make([]air.Term, i+1)
-		qterms := make([]air.Term, i)
-		c_i := ir.NewRegisterAccess[bls12_377.Element, air.Term](p.columns[i], 0)
-		c_pi := ir.NewRegisterAccess[bls12_377.Element, air.Term](p.columns[i], -1)
-		terms[i] = ir.NewRegisterAccess[bls12_377.Element, air.Term](ith_id, 0)
+		pterms := make([]air.Term[F], i+1)
+		qterms := make([]air.Term[F], i)
+		c_i := ir.NewRegisterAccess[F, air.Term[F]](p.columns[i], 0)
+		c_pi := ir.NewRegisterAccess[F, air.Term[F]](p.columns[i], -1)
+		terms[i] = ir.NewRegisterAccess[F, air.Term[F]](ith_id, 0)
 
 		for j := uint(0); j < i; j++ {
 			jth_id := sc.NewRegisterId(bitIndex + j)
-			pterms[j] = ir.NewRegisterAccess[bls12_377.Element, air.Term](jth_id, 0)
-			qterms[j] = ir.NewRegisterAccess[bls12_377.Element, air.Term](jth_id, 0)
+			pterms[j] = ir.NewRegisterAccess[F, air.Term[F]](jth_id, 0)
+			qterms[j] = ir.NewRegisterAccess[F, air.Term[F]](jth_id, 0)
 		}
 		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
-		pterms[i] = ir.NewRegisterAccess[bls12_377.Element, air.Term](ith_id, 0)
+		pterms[i] = ir.NewRegisterAccess[F, air.Term[F]](ith_id, 0)
 		pDiff := ir.Subtract(c_i, c_pi)
 		pName := fmt.Sprintf("%s:%d", p.prefix, i)
 		module.AddConstraint(
@@ -232,7 +232,7 @@ func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.
 	//
 	var (
 		sum        = ir.Sum(terms...)
-		constraint air.Term
+		constraint air.Term[F]
 	)
 	// Apply strictness
 	if p.strict {
@@ -253,25 +253,25 @@ func (p *LexicographicSortingGadget) addLexicographicSelectorBits(deltaIndex sc.
 // appropriately for the sign) between the ith column whose multiplexor bit is
 // set. This is assumes that multiplexor bits are mutually exclusive (i.e. at
 // most is one).
-func constructLexicographicDeltaConstraint(deltaIndex sc.RegisterId, columns []sc.RegisterId, signs []bool) air.Term {
+func constructLexicographicDeltaConstraint[F field.Element[F]](deltaIndex sc.RegisterId, columns []sc.RegisterId, signs []bool) air.Term[F] {
 	ncols := uint(len(signs))
 	// Calculate column index of first selector bit
 	bitIndex := deltaIndex.Unwrap() + 1
 	// Construct delta terms
-	terms := make([]air.Term, ncols)
-	Dk := ir.NewRegisterAccess[bls12_377.Element, air.Term](deltaIndex, 0)
+	terms := make([]air.Term[F], ncols)
+	Dk := ir.NewRegisterAccess[F, air.Term[F]](deltaIndex, 0)
 	//
 	for i := uint(0); i < ncols; i++ {
 		var (
-			Xdiff   air.Term
+			Xdiff   air.Term[F]
 			ith_bit = sc.NewRegisterId(bitIndex + i)
 		)
 		// Ith bit column (at row k)
-		Bk := ir.NewRegisterAccess[bls12_377.Element, air.Term](ith_bit, 0)
+		Bk := ir.NewRegisterAccess[F, air.Term[F]](ith_bit, 0)
 		// Ith column (at row k)
-		Xk := ir.NewRegisterAccess[bls12_377.Element, air.Term](columns[i], 0)
+		Xk := ir.NewRegisterAccess[F, air.Term[F]](columns[i], 0)
 		// Ith column (at row k-1)
-		Xkm1 := ir.NewRegisterAccess[bls12_377.Element, air.Term](columns[i], -1)
+		Xkm1 := ir.NewRegisterAccess[F, air.Term[F]](columns[i], -1)
 		if signs[i] {
 			Xdiff = ir.Subtract(Xk, Xkm1)
 		} else {
