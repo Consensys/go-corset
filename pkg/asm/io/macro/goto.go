@@ -54,11 +54,11 @@ func (p *Goto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *Goto) String(fn schema.Module) string {
+func (p *Goto) String(fn schema.RegisterMap) string {
 	return fmt.Sprintf("goto %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Goto) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Goto) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return nil
 }

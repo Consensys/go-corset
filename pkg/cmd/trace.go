@@ -29,7 +29,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
@@ -64,7 +63,7 @@ var traceCmd = &cobra.Command{
 		output := GetString(cmd, "out")
 		metadata := GetFlag(cmd, "metadata")
 		// Read in constraint files
-		schemas := *getSchemaStack[bls12_377.Element](cmd, SCHEMA_OPTIONAL, args[1:]...)
+		schemas := *getSchemaStack(cmd, SCHEMA_OPTIONAL, args[1:]...)
 		builder := schemas.TraceBuilder().WithPadding(padding)
 		// Parse trace file(s)
 		if batched {

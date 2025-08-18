@@ -20,10 +20,11 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // MicroFunction is a function composed entirely of micro instructions.
-type MicroFunction = io.Function[micro.Instruction]
+type MicroFunction = io.Function[bls12_377.Element, micro.Instruction]
 
 // FunctionMapping provides information regarding the mapping of a
 // assembly-level component (e.g. a function) to the corresponding columns in

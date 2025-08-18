@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -36,7 +35,7 @@ var compileCmd = &cobra.Command{
 		output := GetString(cmd, "output")
 		defines := GetStringArray(cmd, "define")
 		// Parse constraints
-		binfile := getSchemaStack[bls12_377.Element](cmd, SCHEMA_DEFAULT_MIR, args...).BinaryFile()
+		binfile := getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args...).BinaryFile()
 		// Write metadata
 		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
 			fmt.Printf("error writing metadata: %s\n", err.Error())

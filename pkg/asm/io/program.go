@@ -12,21 +12,23 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
+import "github.com/consensys/go-corset/pkg/util/field"
+
 // Program represents a complete set of functions and related declarations
 // defining a program.
-type Program[T Instruction[T]] interface {
+type Program[F field.Element[F], T Instruction[T]] interface {
 	// Function returns the ith function in this program.
-	Function(uint) Function[T]
+	Function(uint) Function[F, T]
 	// Functions returns the set of functions defined in this program.
-	Functions() []*Function[T]
+	Functions() []*Function[F, T]
 }
 
 // NewProgram constructs a new program using a given level of instruction.
-func NewProgram[T Instruction[T]](components ...*Function[T]) Program[T] {
-	fns := make([]*Function[T], len(components))
+func NewProgram[F field.Element[F], T Instruction[T]](components ...*Function[F, T]) Program[F, T] {
+	fns := make([]*Function[F, T], len(components))
 	copy(fns, components)
 
-	return &program[T]{fns}
+	return &program[F, T]{fns}
 }
 
 // ============================================================================
@@ -34,16 +36,16 @@ func NewProgram[T Instruction[T]](components ...*Function[T]) Program[T] {
 // ============================================================================
 
 // Simple implementation of Program[T]
-type program[T Instruction[T]] struct {
-	functions []*Function[T]
+type program[F field.Element[F], T Instruction[T]] struct {
+	functions []*Function[F, T]
 }
 
 // Function returns the ith function in this program.
-func (p *program[T]) Function(id uint) Function[T] {
+func (p *program[F, T]) Function(id uint) Function[F, T] {
 	return *p.functions[id]
 }
 
 // Functions returns all functions making up this program.
-func (p *program[T]) Functions() []*Function[T] {
+func (p *program[F, T]) Functions() []*Function[F, T] {
 	return p.functions
 }

@@ -98,7 +98,7 @@ func (p *Assign) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Assign) String(fn schema.Module) string {
+func (p *Assign) String(fn schema.RegisterMap) string {
 	var (
 		builder strings.Builder
 		regs    = fn.Registers()
@@ -152,7 +152,7 @@ func (p *Assign) Split(env schema.RegisterAllocator) []Code {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Assign) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	var (
 		regs = fn.Registers()
 		// Determine number of bits required to hold the left-hand side.

@@ -22,14 +22,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
-type Assignment[F field.Element[F], T Instruction[T]] Function[T]
+type Assignment[F field.Element[F], T Instruction[T]] Function[F, T]
 
 // Bounds implementation for schema.Assignment interface.
 func (p Assignment[F, T]) Bounds(module uint) util.Bounds {
@@ -53,12 +52,12 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]
 }
 
 // Consistent implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Consistent(sc.AnySchema[bls12_377.Element]) []error {
+func (p Assignment[F, T]) Consistent(sc.AnySchema[F]) []error {
 	return nil
 }
 
 // Lisp implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Lisp(schema sc.AnySchema[bls12_377.Element]) sexp.SExp {
+func (p Assignment[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),

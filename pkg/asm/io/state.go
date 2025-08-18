@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -56,7 +57,7 @@ func EmptyState(pc uint, registers []schema.Register, io Map) State {
 
 // InitialState constructs a suitable initial state for executing a given
 // function with the given arguments.
-func InitialState[T Instruction[T]](arguments []big.Int, fn Function[T], io Map) State {
+func InitialState[F field.Element[F], T Instruction[T]](arguments []big.Int, fn Function[F, T], io Map) State {
 	var (
 		state = EmptyState(0, fn.registers, io)
 		index = 0

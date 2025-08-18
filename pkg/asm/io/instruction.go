@@ -60,10 +60,10 @@ type Instruction[T any] interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(fieldWidth uint, fn schema.Module) error
+	Validate(fieldWidth uint, fn schema.RegisterMap) error
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(fn schema.Module) string
+	String(fn schema.RegisterMap) string
 }
 
 // SplittableInstruction is an instruction which supports register splitting for

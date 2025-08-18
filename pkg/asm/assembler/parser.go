@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
@@ -30,7 +31,7 @@ import (
 // MacroFunction is a function whose instructions are themselves macro
 // instructions.  A macro function must be compiled down into a micro function
 // before we can generate constraints.
-type MacroFunction = io.Function[macro.Instruction]
+type MacroFunction = io.Function[bls12_377.Element, macro.Instruction]
 
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
@@ -146,7 +147,7 @@ func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.Synt
 	// Finalise labels
 	env.BindLabels(code)
 	// Done
-	return io.NewFunction(id, name, env.registers, code), nil
+	return io.NewFunction[bls12_377.Element](id, name, env.registers, code), nil
 }
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {

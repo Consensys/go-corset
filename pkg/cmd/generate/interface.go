@@ -22,19 +22,18 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
-func JavaTraceInterfaceUnion[F field.Element[F]](filename string, pkgname string,
-	stacks []cmd_util.SchemaStack[F]) (string, error) {
+func JavaTraceInterfaceUnion(filename string, pkgname string,
+	stacks []cmd_util.SchemaStack) (string, error) {
 	//
 	return javaTraceInterface(filename, pkgname, true, stacks)
 }
 
-func javaTraceInterface[F field.Element[F]](filename string, pkgname string, union bool,
-	stacks []cmd_util.SchemaStack[F]) (string, error) {
+func javaTraceInterface(filename string, pkgname string, union bool,
+	stacks []cmd_util.SchemaStack) (string, error) {
 	//
 	var root corset.SourceModule
 	// Combine roots to determine set of common functionality.

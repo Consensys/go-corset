@@ -19,14 +19,16 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // MicroProgram is a program using micro instructions.
-type MicroProgram = io.Program[micro.Instruction]
+type MicroProgram = io.Program[bls12_377.Element, micro.Instruction]
 
 // MacroProgram is a program using macro instructions.
-type MacroProgram = io.Program[macro.Instruction]
+type MacroProgram = io.Program[bls12_377.Element, macro.Instruction]
 
 // Validate checks that a given set of functions are well-formed.  For
 // example, an assignment "x,y = z" must be balanced (i.e. number of bits on lhs
@@ -63,7 +65,7 @@ func ValidateMicro(fieldWidth uint, program MicroProgram) {
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func validateInstructions[T io.Instruction[T]](fieldWidth uint, fn io.Function[T],
+func validateInstructions[F field.Element[F], T io.Instruction[T]](fieldWidth uint, fn io.Function[F, T],
 	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError

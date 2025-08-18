@@ -71,7 +71,7 @@ var checkCmd = &cobra.Command{
 		// TODO: support true ranges
 		cfg.padding.Left = cfg.padding.Right
 		// Read in constraint files
-		schemas := *getSchemaStack[bls12_377.Element](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
+		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
 		// enable / disable coverage
 		if covfile := GetString(cmd, "coverage"); covfile != "" {
 			cfg.coverage = util.Some(covfile)
@@ -147,7 +147,7 @@ type checkConfig struct {
 }
 
 // Check raw constraints using the legacy pipeline.
-func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack[bls12_377.Element]) {
+func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
 	var (
 		traces []lt.TraceFile
 		ok     bool = true

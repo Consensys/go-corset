@@ -23,7 +23,6 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +38,7 @@ var inspectCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		// Read in constraint files
-		schemas := *getSchemaStack[bls12_377.Element](cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
+		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
 		//
 		stats := util.NewPerfStats()
 		// Parse constraints

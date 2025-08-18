@@ -99,12 +99,12 @@ func (p *Add) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Add) String(fn schema.Module) string {
+func (p *Add) String(fn schema.RegisterMap) string {
 	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " + ")
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Add) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	var (
 		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)

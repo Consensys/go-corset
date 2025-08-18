@@ -49,11 +49,11 @@ func (p *Return) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *Return) String(fn schema.Module) string {
+func (p *Return) String(fn schema.RegisterMap) string {
 	return "return"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Return) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Return) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return nil
 }

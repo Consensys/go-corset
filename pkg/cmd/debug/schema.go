@@ -28,7 +28,7 @@ import (
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth uint) {
+func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
 	//
 	for _, schema := range stack.Schemas() {
 		printSchema(schema, textwidth)
@@ -36,7 +36,7 @@ func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth u
 }
 
 // Print out all declarations included in a given
-func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
+func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
 	first := true
 	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {
@@ -67,7 +67,7 @@ func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 // Legacy module
 // ==================================================================
 
-func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchema[F], width uint) {
+func printModule(module schema.Module[bls12_377.Element], sc schema.AnySchema[bls12_377.Element], width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})
@@ -109,7 +109,7 @@ func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchem
 	}
 }
 
-func printRegisters(module schema.Module, prefix string, filter func(schema.Register) bool) {
+func printRegisters[F any](module schema.Module[F], prefix string, filter func(schema.Register) bool) {
 	var (
 		regT string
 	)
@@ -137,7 +137,7 @@ func printRegisters(module schema.Module, prefix string, filter func(schema.Regi
 	}
 }
 
-func countRegisters(module schema.Module, filter func(schema.Register) bool) uint {
+func countRegisters[F any](module schema.Module[F], filter func(schema.Register) bool) uint {
 	var count = uint(0)
 	//
 	for _, r := range module.Registers() {
@@ -159,7 +159,7 @@ func requiresSpacing(c schema.Constraint[bls12_377.Element]) bool {
 	return false
 }
 
-func isEmptyModule(module schema.Module) bool {
+func isEmptyModule[F any](module schema.Module[F]) bool {
 	return len(module.Registers()) == 0 &&
 		module.Constraints().Count() == 0 &&
 		module.Assignments().Count() == 0
@@ -169,7 +169,7 @@ func isEmptyModule(module schema.Module) bool {
 // Assembly Function
 // ==================================================================
 
-func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblyFunction[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
 	printAssemblySignature(f)
 	printAssemblyRegisters(f)
 	//
@@ -180,7 +180,7 @@ func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
 	fmt.Println("}")
 }
 
-func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblySignature[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
 	first := true
 	//
 	fmt.Printf("fn %s(", f.Name())
@@ -216,7 +216,7 @@ func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 	fmt.Println(") {")
 }
 
-func printAssemblyRegisters[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblyRegisters[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
 	for _, r := range f.Registers() {
 		if !r.IsInput() && !r.IsOutput() {
 			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)

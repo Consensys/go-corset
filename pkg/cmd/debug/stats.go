@@ -23,15 +23,16 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // PrintStats is used for printing summary information about a constraint set,
 // such as the number and type of constraints, etc.
-func PrintStats[F field.Element[F]](stack cmd_util.SchemaStack[F]) {
+func PrintStats(stack cmd_util.SchemaStack) {
 	var (
 		schemas     = stack.Schemas()
-		summarisers = getSummerisers[F]()
+		summarisers = getSummerisers()
 		//
 		n   = 1 + uint(len(schemas))
 		m   = uint(len(summarisers))
@@ -64,33 +65,37 @@ type schemaSummariser[F any] struct {
 	summary func(sc.AnySchema[F]) int
 }
 
-func getSummerisers[F field.Element[F]]() []schemaSummariser[F] {
-	return []schemaSummariser[F]{
+func getSummerisers() []schemaSummariser[bls12_377.Element] {
+	return []schemaSummariser[bls12_377.Element]{
 		// Constraints
-		constraintCounter("Constraints", func(schema.Constraint[F]) bool { return true }),
-		constraintCounter[F]("Vanishing", isVanishingConstraint),
-		constraintCounter[F]("Lookups", isLookupConstraint),
-		constraintCounter[F]("Permutations", isPermutationConstraint),
-		constraintCounter[F]("Range", isRangeConstraint),
+		constraintCounter("Constraints", func(schema.Constraint[bls12_377.Element]) bool { return true }),
+		constraintCounter("Vanishing", isVanishingConstraint),
+		constraintCounter("Lookups", isLookupConstraint),
+		constraintCounter("Permutations", isPermutationConstraint),
+		constraintCounter("Range", isRangeConstraint),
 		// Assignments
-		assignmentCounter[F]("Computed Columns", reflect.TypeOf((*assignment.ComputedRegister[F])(nil))),
-		assignmentCounter[F]("Computation Columns", reflect.TypeOf((*assignment.Computation[F])(nil))),
-		assignmentCounter[F]("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort[F])(nil))),
-		assignmentCounter[F]("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation[F])(nil))),
+		assignmentCounter[bls12_377.Element]("Computed Columns",
+			reflect.TypeOf((*assignment.ComputedRegister[bls12_377.Element])(nil))),
+		assignmentCounter[bls12_377.Element]("Computation Columns",
+			reflect.TypeOf((*assignment.Computation[bls12_377.Element])(nil))),
+		assignmentCounter[bls12_377.Element]("Lexicographic Orderings",
+			reflect.TypeOf((*assignment.LexicographicSort[bls12_377.Element])(nil))),
+		assignmentCounter[bls12_377.Element]("Sorted Permutations",
+			reflect.TypeOf((*assignment.SortedPermutation[bls12_377.Element])(nil))),
 		// Columns
-		columnCounter[F](),
-		columnWidthSummariser[F](1, 1),
-		columnWidthSummariser[F](2, 4),
-		columnWidthSummariser[F](5, 8),
-		columnWidthSummariser[F](9, 16),
-		columnWidthSummariser[F](17, 32),
-		columnWidthSummariser[F](33, 64),
-		columnWidthSummariser[F](65, 128),
-		columnWidthSummariser[F](129, 256),
+		columnCounter[bls12_377.Element](),
+		columnWidthSummariser[bls12_377.Element](1, 1),
+		columnWidthSummariser[bls12_377.Element](2, 4),
+		columnWidthSummariser[bls12_377.Element](5, 8),
+		columnWidthSummariser[bls12_377.Element](9, 16),
+		columnWidthSummariser[bls12_377.Element](17, 32),
+		columnWidthSummariser[bls12_377.Element](33, 64),
+		columnWidthSummariser[bls12_377.Element](65, 128),
+		columnWidthSummariser[bls12_377.Element](129, 256),
 	}
 }
 
-func isVanishingConstraint[F any](c schema.Constraint[F]) bool {
+func isVanishingConstraint(c schema.Constraint[bls12_377.Element]) bool {
 	switch c := c.(type) {
 	case air.VanishingConstraint:
 		return true
@@ -102,7 +107,7 @@ func isVanishingConstraint[F any](c schema.Constraint[F]) bool {
 	return false
 }
 
-func isLookupConstraint[F any](c schema.Constraint[F]) bool {
+func isLookupConstraint(c schema.Constraint[bls12_377.Element]) bool {
 	switch c := c.(type) {
 	case air.LookupConstraint:
 		return true
@@ -114,7 +119,7 @@ func isLookupConstraint[F any](c schema.Constraint[F]) bool {
 	return false
 }
 
-func isPermutationConstraint[F any](c schema.Constraint[F]) bool {
+func isPermutationConstraint(c schema.Constraint[bls12_377.Element]) bool {
 	switch c := c.(type) {
 	case air.PermutationConstraint:
 		return true
@@ -126,7 +131,7 @@ func isPermutationConstraint[F any](c schema.Constraint[F]) bool {
 	return false
 }
 
-func isRangeConstraint[F any](c schema.Constraint[F]) bool {
+func isRangeConstraint(c schema.Constraint[bls12_377.Element]) bool {
 	switch c := c.(type) {
 	case air.RangeConstraint:
 		return true

@@ -136,7 +136,7 @@ func (p *IfGoto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *IfGoto) String(fn schema.Module) string {
+func (p *IfGoto) String(fn schema.RegisterMap) string {
 	var (
 		l  = fn.Register(p.Left).Name
 		r  string
@@ -170,7 +170,7 @@ func (p *IfGoto) String(fn schema.Module) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *IfGoto) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *IfGoto) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	if p.Left == p.Right {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:

@@ -19,8 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/debug"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -48,7 +46,7 @@ var debugCmd = &cobra.Command{
 		spillage := GetFlag(cmd, "spillage")
 		textWidth := GetUint(cmd, "textwidth")
 		// Read in constraint files
-		schemas := *getSchemaStack[bls12_377.Element](cmd, SCHEMA_DEFAULT_MIR, args...)
+		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args...)
 		// Print constant info (if requested)
 		if constants {
 			debug.PrintExternalisedConstants(schemas)
@@ -86,7 +84,7 @@ func init() {
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
 }
 
-func printAttributes[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
+func printAttributes(schemas cmd_util.SchemaStack) {
 	binfile := schemas.BinaryFile()
 	// Print attributes
 	for _, attr := range binfile.Attributes {
@@ -98,7 +96,7 @@ func printAttributes[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
 	}
 }
 
-func printSpillage[F field.Element[F]](schemas cmd_util.SchemaStack[F], defensive bool) {
+func printSpillage(schemas cmd_util.SchemaStack, defensive bool) {
 	// fmt.Println("Spillage:")
 	// // Compute spillage for optimisation level
 	// spillage := determineSpillage(&binf.Schema, defensive, optConfig)
@@ -119,7 +117,7 @@ func printSpillage[F field.Element[F]](schemas cmd_util.SchemaStack[F], defensiv
 	panic("todo")
 }
 
-func printBinaryFileHeader[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
+func printBinaryFileHeader(schemas cmd_util.SchemaStack) {
 	header := schemas.BinaryFile().Header
 	//
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
