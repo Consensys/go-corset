@@ -57,7 +57,7 @@ type (
 
 type (
 	// SchemaBuilder is used for building the AIR schemas
-	SchemaBuilder[F field.Element[F]] = ir.SchemaBuilder[F, Constraint[F], Term[F]]
+	SchemaBuilder[F field.Element[F]] = ir.SchemaBuilder[F, Constraint[F], Term[F], Module[F]]
 	// ModuleBuilder is used for building various AIR modules.
 	ModuleBuilder[F field.Element[F]] = ir.ModuleBuilder[F, Constraint[F], Term[F]]
 )

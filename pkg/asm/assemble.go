@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -130,14 +131,14 @@ func LowerMixedMicroProgram[F field.Element[F]](p MixedMicroProgram[F]) schema.U
 	var (
 		n = len(p.LeftModules())
 		// Construct compiler
-		compiler = compiler.NewCompiler[F, schema.RegisterId, compiler.MirExpr[F], compiler.MirModule[F]]()
-		modules  = make([]mir.Module[F], p.Width())
+		comp    = compiler.NewCompiler[F, schema.RegisterId, compiler.MirExpr[F], compiler.MirModule[F]]()
+		modules = make([]mir.Module[F], p.Width())
 	)
 	// Compiler assembly components into MIR
-	compiler.Compile(p.LeftModules()...)
+	comp.Compile(p.LeftModules()...)
 	// Copy over compiled components
-	for i, m := range compiler.Modules() {
-		modules[i] = m.Module.BuildTable()
+	for i, m := range comp.Modules() {
+		modules[i] = ir.Build[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
 	}
 	// Copy over legacy components
 	copy(modules[n:], p.RightModules())

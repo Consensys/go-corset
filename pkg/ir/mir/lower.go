@@ -54,7 +54,7 @@ type AirLowering[F field.Element[F]] struct {
 // NewAirLowering constructs an initial state for lowering a given MIR schema.
 func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
 	var (
-		airSchema = ir.NewSchemaBuilder[F, air.Constraint[F], air.Term[F], schema.Module[F]]()
+		airSchema = ir.NewSchemaBuilder[F, air.Constraint[F], air.Term[F], air.Module[F], schema.Module[F]]()
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {
@@ -212,7 +212,7 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 	// Apply bitwidth gadget
 	ref := schema.NewRegisterRef(airModule.Id(), register)
 	// Construct gadget
-	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
+	gadget := air_gadgets.NewBitwidthGadget[F](&p.airSchema).
 		WithLimitless(p.config.LimitlessTypeProofs).
 		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
 	//

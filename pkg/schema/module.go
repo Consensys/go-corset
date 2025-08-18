@@ -169,6 +169,18 @@ func (p *Table[F, C]) Registers() []Register {
 	return p.registers
 }
 
+// Init implementation for ir.InitModule interface.
+func (p *Table[F, C]) Init(name string, multiplier uint, padding bool) {
+	p.name = name
+	p.multiplier = multiplier
+	p.padding = padding
+}
+
+// Width returns the number of registers in this Table.
+func (p *Table[F, C]) Width() uint {
+	return uint(len(p.registers))
+}
+
 // Subdivide implementation for the FieldAgnosticModule interface.
 func (p *Table[F, C]) Subdivide(mapping LimbsMap) *Table[F, C] {
 	var (
@@ -207,11 +219,6 @@ func (p *Table[F, C]) Subdivide(mapping LimbsMap) *Table[F, C] {
 	}
 	//
 	return &Table[F, C]{p.name, p.multiplier, p.padding, registers, constraints, assignments}
-}
-
-// Width returns the number of registers in this Table.
-func (p *Table[F, C]) Width() uint {
-	return uint(len(p.registers))
 }
 
 // ============================================================================

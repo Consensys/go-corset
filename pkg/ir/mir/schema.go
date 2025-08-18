@@ -36,6 +36,8 @@ type (
 	// Schema captures the notion of an MIR schema which is uniform and consists of
 	// MIR modules only.
 	Schema[F field.Element[F]] = schema.UniformSchema[F, Module[F]]
+	//
+	FieldModule[F field.Element[F]] = *schema.Table[F, Constraint[F]]
 	// Term represents the fundamental for arithmetic expressions in the MIR
 	// representation.
 	Term[F any] interface {

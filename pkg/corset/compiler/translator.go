@@ -39,7 +39,7 @@ type mirRegisterAccess = mir.RegisterAccess[bls12_377.Element]
 
 // SchemaBuilder is used within this translator for building the final mixed MIR
 // schema.
-type SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, mirConstraint, mirTerm]
+type SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, mirConstraint, mirTerm, mirModule]
 
 // ModuleBuilder is used within this translator for building the various modules
 // which are contained within the mixed MIR schema.
@@ -57,7 +57,7 @@ func TranslateCircuit[M schema.Module[bls12_377.Element]](
 	circuit *ast.Circuit,
 	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mirModule], []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm](externs...)
+	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm, mir.Module[bls12_377.Element]](externs...)
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
