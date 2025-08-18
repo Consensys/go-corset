@@ -275,7 +275,7 @@ func (p *State[F, E]) checkSourceVectors(sources []Vector[F, E], tr trace.Trace[
 	return nil
 }
 
-func (p *State[F, E]) insertFilteredVector(k int, vec Vector[F, E], trMod trace.Module[F], scMod schema.Module,
+func (p *State[F, E]) insertFilteredVector(k int, vec Vector[F, E], trMod trace.Module[F], scMod schema.Module[F],
 ) schema.Failure {
 	// If no selector, then always selected
 	var selected bool = !vec.HasSelector()
@@ -308,7 +308,7 @@ func (p *State[F, E]) insertFilteredVector(k int, vec Vector[F, E], trMod trace.
 }
 
 func (p *State[F, E]) insertTargetVector(k int, vec Vector[F, E], trModule trace.Module[F],
-	scModule schema.Module) schema.Failure {
+	scModule schema.Module[F]) schema.Failure {
 	// Check each source is included
 	if err := p.evalExprsArray(k, vec, trModule, scModule); err != nil {
 		return err
@@ -324,7 +324,7 @@ func (p *State[F, E]) insertTargetVector(k int, vec Vector[F, E], trModule trace
 }
 
 func (p *State[F, E]) checkFilteredSourceVector(k int, vec Vector[F, E], trModule trace.Module[F],
-	scModule schema.Module) schema.Failure {
+	scModule schema.Module[F]) schema.Failure {
 	// If no selector, then always selected
 	var selected bool = !vec.HasSelector()
 	//
@@ -355,7 +355,7 @@ func (p *State[F, E]) checkFilteredSourceVector(k int, vec Vector[F, E], trModul
 	return nil
 }
 
-func (p *State[F, E]) checkSourceVector(k int, vec Vector[F, E], trModule trace.Module[F], scModule schema.Module,
+func (p *State[F, E]) checkSourceVector(k int, vec Vector[F, E], trModule trace.Module[F], scModule schema.Module[F],
 ) schema.Failure {
 	// Check each source is included
 	if err := p.evalExprsArray(k, vec, trModule, scModule); err != nil {
@@ -374,7 +374,7 @@ func (p *State[F, E]) checkSourceVector(k int, vec Vector[F, E], trModule trace.
 	return nil
 }
 
-func (p *State[F, E]) evalExprsArray(k int, vec Vector[F, E], trModule trace.Module[F], scModule schema.Module,
+func (p *State[F, E]) evalExprsArray(k int, vec Vector[F, E], trModule trace.Module[F], scModule schema.Module[F],
 ) schema.Failure {
 	var err error
 	// Evaluate each expression in turn (remembering that the first element is

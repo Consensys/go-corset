@@ -29,7 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // TestDir determines the (relative) location of the test directory.  That is
@@ -56,7 +56,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack
-		stacks = getSchemaStacks(stdlib, fields, filenames...)
+		stacks = getSchemaStack(stdlib, fields[0], filenames...)
 	)
 	// Sanity check
 	if len(fields) == 0 {
@@ -84,20 +84,18 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 	}
 }
 
-func fullCheckTraces(t *testing.T, test string, cfg Config, traces []lt.TraceFile, stacks []cmd_util.SchemaStack) {
-	// Identify primary stack
-	var primary = stacks[0]
+func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile, primary cmd_util.SchemaStack[F]) {
 	// Run checks using schema compiled from source
 	checkCompilerOptimisations(t, test, cfg, traces, primary)
 	// Construct binary schema using primary stack
 	checkBinaryEncoding(t, test, cfg, traces, primary)
 	// Perform checks with different fields
-	checkFields(t, test, cfg, traces, stacks)
+	checkPadding(t, test, cfg, traces, primary)
 }
 
 // Sanity check same outcome for all optimisation levels
-func checkCompilerOptimisations(t *testing.T, test string, cfg Config, traces []lt.TraceFile,
-	stack cmd_util.SchemaStack) {
+func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
+	stack cmd_util.SchemaStack[F]) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
 		// Only check optimisation levels other than the default.
@@ -113,7 +111,7 @@ func checkCompilerOptimisations(t *testing.T, test string, cfg Config, traces []
 }
 
 // Check the binary encoding / decoding.
-func checkBinaryEncoding(t *testing.T, test string, cfg Config, traces []lt.TraceFile, stack cmd_util.SchemaStack) {
+func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile, stack cmd_util.SchemaStack[F]) {
 	//
 	name := fmt.Sprintf("%s:bin", test)
 	// Construct binary schema using primary stack
@@ -132,30 +130,21 @@ func checkBinaryEncoding(t *testing.T, test string, cfg Config, traces []lt.Trac
 
 // Run default optimisation over all fields, and check padding for the primary
 // stack only.
-func checkFields(t *testing.T, test string, cfg Config, traces []lt.TraceFile, stacks []cmd_util.SchemaStack) {
-	// Now, perform full check
-	for i, stack := range stacks {
-		var maxPadding = MAX_PADDING
-		// Only check padding on primary stack
-		if i != 0 {
-			maxPadding = 0
-		}
-		//
-		if cfg.field == "" || cfg.field == stack.Field().Name {
-			// Set default optimisation level
-			stack.WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL)
-			// Configure stack
-			stack.Apply(*stack.BinaryFile())
-			// Apply stack
-			checkTraces(t, test, maxPadding, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
-		}
+func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile, stack cmd_util.SchemaStack[F]) {
+	if cfg.field == "" || cfg.field == stack.Field().Name {
+		// Set default optimisation level
+		stack.WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL)
+		// Configure stack
+		stack.Apply(*stack.BinaryFile())
+		// Apply stack
+		checkTraces(t, test, MAX_PADDING, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
 	}
 }
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Config,
-	traces []lt.TraceFile, stack cmd_util.SchemaStack) {
+func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint, opt uint, cfg Config,
+	traces []lt.TraceFile, stack cmd_util.SchemaStack[F]) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
 	if !cfg.expand {
@@ -193,10 +182,10 @@ func checkTraces(t *testing.T, test string, maxPadding uint, opt uint, cfg Confi
 	}
 }
 
-func checkTrace[C sc.Constraint[bls12_377.Element]](t *testing.T, tf lt.TraceFile, id traceId,
-	schema sc.Schema[bls12_377.Element, C], mapping sc.LimbsMap) {
+func checkTrace[F field.Element[F], C sc.Constraint[F]](t *testing.T, tf lt.TraceFile, id traceId,
+	schema sc.Schema[F, C], mapping sc.LimbsMap) {
 	// Construct the trace
-	tr, errs := ir.NewTraceBuilder[bls12_377.Element]().
+	tr, errs := ir.NewTraceBuilder[F]().
 		WithExpansion(id.expand).
 		WithValidation(id.validate).
 		WithPadding(id.padding).
@@ -350,22 +339,10 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStacks(stdlib bool, fields []schema.FieldConfig, filenames ...string) []cmd_util.SchemaStack {
-	var (
-		stacks = make([]cmd_util.SchemaStack, len(fields))
-	)
-	//
-	for i, f := range fields {
-		stacks[i] = getSchemaStack(stdlib, f, filenames...)
-	}
-	//
-	return stacks
-}
-
-func getSchemaStack(stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack {
+func getSchemaStack[F field.Element[F]](stdlib bool, field schema.FieldConfig, filenames ...string) cmd_util.SchemaStack[F] {
 	//
 	var (
-		stack        cmd_util.SchemaStack
+		stack        cmd_util.SchemaStack[F]
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
 	)

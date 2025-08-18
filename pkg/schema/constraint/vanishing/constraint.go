@@ -133,7 +133,7 @@ func (p Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
 func HoldsGlobally[F field.Element[F], T ir.Testable[F]](handle string, ctx schema.ModuleId, constraint T,
-	trMod trace.Module[F], scMod schema.Module) (bit.Set, schema.Failure) {
+	trMod trace.Module[F], scMod schema.Module[F]) (bit.Set, schema.Failure) {
 	//
 	var (
 		coverage bit.Set
@@ -161,7 +161,7 @@ func HoldsGlobally[F field.Element[F], T ir.Testable[F]](handle string, ctx sche
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
 func HoldsLocally[F field.Element[F], T ir.Testable[F]](k uint, handle string, term T, ctx schema.ModuleId,
-	trMod trace.Module[F], scMod schema.Module) (schema.Failure, uint) {
+	trMod trace.Module[F], scMod schema.Module[F]) (schema.Failure, uint) {
 	//
 	ok, id, err := term.TestAt(int(k), trMod, scMod)
 	// Check for errors

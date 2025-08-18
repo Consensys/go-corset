@@ -191,7 +191,7 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 }
 
 func fwdComputation[F field.Element[F]](data array.MutArray[F], expr ir.Evaluable[F],
-	trMod trace.Module[F], scMod schema.Module) error {
+	trMod trace.Module[F], scMod schema.Module[F]) error {
 	// Forwards computation
 	for i := uint(0); i < data.Len(); i++ {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -207,7 +207,7 @@ func fwdComputation[F field.Element[F]](data array.MutArray[F], expr ir.Evaluabl
 }
 
 func bwdComputation[F field.Element[F]](data array.MutArray[F], expr ir.Evaluable[F],
-	trMod trace.Module[F], scMod schema.Module) error {
+	trMod trace.Module[F], scMod schema.Module[F]) error {
 	// Backwards computation
 	for i := data.Len(); i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)

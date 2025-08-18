@@ -19,7 +19,6 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // ModuleMap provides a mapping from module identifiers (or names) to register
@@ -41,19 +40,19 @@ type ModuleId = uint
 
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
-type Module interface {
+type Module[F any] interface {
 	RegisterMap
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
-	Assignments() iter.Iterator[Assignment[bls12_377.Element]]
+	Assignments() iter.Iterator[Assignment[F]]
 	// Constraints provides access to those constraints associated with this
 	// module.
-	Constraints() iter.Iterator[Constraint[bls12_377.Element]]
+	Constraints() iter.Iterator[Constraint[F]]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent(AnySchema[bls12_377.Element]) []error
+	Consistent(AnySchema[F]) []error
 	// Identifies the length multiplier for this module.  For every trace, the
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
@@ -68,8 +67,8 @@ type Module interface {
 
 // FieldAgnosticModule captures the notion of a module which is agnostic to the
 // underlying field being used.
-type FieldAgnosticModule[M Module] interface {
-	Module
+type FieldAgnosticModule[F any, M Module[F]] interface {
+	Module[F]
 	FieldAgnostic[M]
 }
 

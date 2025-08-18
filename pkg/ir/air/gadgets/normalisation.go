@@ -89,7 +89,7 @@ type psuedoInverse struct {
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *psuedoInverse) EvalAt(k int, tr trace.Module[bls12_377.Element], sc schema.Module) (bls12_377.Element, error) {
+func (e *psuedoInverse) EvalAt(k int, tr trace.Module[bls12_377.Element], sc schema.Module[bls12_377.Element]) (bls12_377.Element, error) {
 	// Convert expression into something which can be evaluated, then evaluate
 	// it.
 	val, err := e.Expr.EvalAt(k, tr, sc)

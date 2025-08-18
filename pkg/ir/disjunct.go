@@ -68,7 +68,7 @@ func (p *Disjunct[F, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
+func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	//
 	for _, disjunct := range p.Args {
 		val, _, err := disjunct.TestAt(k, tr, sc)

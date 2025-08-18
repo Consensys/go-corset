@@ -33,7 +33,7 @@ type (
 	// Schema captures the essence of an arithmetisation at the AIR level.
 	// Specifically, it is limited to only those constraint forms permitted at the
 	// AIR level.
-	Schema = schema.UniformSchema[Module]
+	Schema = schema.UniformSchema[bls12_377.Element, Module]
 	// Module captures the essence of a module at the AIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the AIR level.
 	Module = *schema.Table[bls12_377.Element, Constraint]
@@ -61,7 +61,7 @@ type (
 	ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, Constraint, Term]
 )
 
-var _ schema.Module = &ModuleBuilder{}
+var _ schema.Module[bls12_377.Element] = &ModuleBuilder{}
 
 // Following types capture permitted constraint forms at the AIR level.
 type (
@@ -114,7 +114,7 @@ func (p LogicalTerm) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p LogicalTerm) TestAt(k int, tr trace.Module[bls12_377.Element], sc schema.Module) (bool, uint, error) {
+func (p LogicalTerm) TestAt(k int, tr trace.Module[bls12_377.Element], sc schema.Module[bls12_377.Element]) (bool, uint, error) {
 	var (
 		val, err = p.Term.EvalAt(k, tr, sc)
 		zero     bls12_377.Element

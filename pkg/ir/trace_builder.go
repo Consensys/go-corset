@@ -351,7 +351,7 @@ func initialiseColumnMap[F field.Element[F]](expanded bool, schema sc.AnySchema[
 	return colmap, modules
 }
 
-func fillTraceModule[F field.Element[F]](mod sc.Module, rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
+func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
 	var (
 		traceColumns = make([]trace.ArrayColumn[F], len(rawColumns))
 	)

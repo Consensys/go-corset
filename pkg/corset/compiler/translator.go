@@ -45,11 +45,11 @@ type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mir.Constraint, mir.Ter
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit[M schema.Module](
+func TranslateCircuit[M schema.Module[bls12_377.Element]](
 	env Environment,
 	srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit,
-	externs ...M) (schema.MixedSchema[M, mir.Module], []SyntaxError) {
+	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mir.Module], []SyntaxError) {
 	//
 	builder := ir.NewSchemaBuilder[bls12_377.Element, mir.Constraint, mir.Term](externs...)
 	t := translator{env, srcmap, builder}
@@ -57,7 +57,7 @@ func TranslateCircuit[M schema.Module](
 	t.translateModules(circuit)
 	// Translate everything else
 	if errs := t.translateDeclarations(circuit); len(errs) > 0 {
-		return schema.MixedSchema[M, mir.Module]{}, errs
+		return schema.MixedSchema[bls12_377.Element, M, mir.Module]{}, errs
 	}
 	// Finally, construct the mixed schema
 	return schema.NewMixedSchema(externs, t.schema.Build()), nil

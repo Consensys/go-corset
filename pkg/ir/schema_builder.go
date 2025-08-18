@@ -30,18 +30,18 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] str
 	// Externs represent modules which have already been constructed.  These
 	// will be given the lower module identifiers, since they are already
 	// packaged and, hence, we must avoid breaking thein linkage.
-	externs []schema.Module
+	externs []schema.Module[F]
 	// Modules being constructed
 	modules []*ModuleBuilder[F, C, T]
 }
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], E schema.Module](externs ...E,
+func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], E schema.Module[F]](externs ...E,
 ) SchemaBuilder[F, C, T] {
 	var (
 		modmap   = make(map[string]uint, 0)
-		nexterns = make([]schema.Module, len(externs))
+		nexterns = make([]schema.Module[F], len(externs))
 	)
 	// Initialise module map
 	for i, m := range externs {
@@ -146,7 +146,7 @@ func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](
 // NewExternModuleBuilder constructs a new builder suitable for external
 // modules.  These are just used for linking purposes.
 func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](mid schema.ModuleId,
-	module schema.Module) *ModuleBuilder[F, C, T] {
+	module schema.Module[F]) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
 	// Initialise register map

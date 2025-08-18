@@ -53,10 +53,10 @@ type Schema[F any, C any] interface {
 	// returns its module identifier.  Otherwise, it returns false.
 	HasModule(name string) (ModuleId, bool)
 	// Access a given module in this schema.
-	Module(module uint) Module
+	Module(module uint) Module[F]
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
-	Modules() iter.Iterator[Module]
+	Modules() iter.Iterator[Module[F]]
 	// Access a given register in this schema.
 	Register(RegisterRef) Register
 	// Returns the number of modules in this schema.

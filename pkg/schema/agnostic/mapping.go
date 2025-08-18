@@ -17,14 +17,13 @@ import (
 	"strings"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Subdivide a mixed schema of field agnostic modules according to the given
 // bandwidth and maximum register width requirements.  See discussion of
 // FieldAgnosticModule for more on this process.
-func Subdivide[M1 sc.FieldAgnosticModule[M1], M2 sc.FieldAgnosticModule[M2]](
-	field sc.FieldConfig, schema sc.MixedSchema[M1, M2]) (sc.MixedSchema[M1, M2], sc.LimbsMap) {
+func Subdivide[F any, M1 sc.FieldAgnosticModule[F, M1], M2 sc.FieldAgnosticModule[F, M2]](
+	field sc.FieldConfig, schema sc.MixedSchema[F, M1, M2]) (sc.MixedSchema[F, M1, M2], sc.LimbsMap) {
 	//
 	var (
 		left    []M1 = make([]M1, len(schema.LeftModules()))
@@ -57,7 +56,7 @@ type limbsMap struct {
 // newRegisterMappings constructs a new schema mapping for a given schema and
 // parameter combination.  This determines, amongst other things,  the
 // composition of limbs for all registers in the schema.
-func newRegisterMappings(field sc.FieldConfig, schema sc.AnySchema[bls12_377.Element]) sc.LimbsMap {
+func newRegisterMappings[F any](field sc.FieldConfig, schema sc.AnySchema[F]) sc.LimbsMap {
 	var mappings []registerLimbsMap
 	//
 	for i := range schema.Width() {
@@ -136,7 +135,7 @@ type registerLimbsMap struct {
 
 // newRegisterMapping constructs an appropriate register map for a given module
 // and parameter combination.
-func newRegisterMapping(field sc.FieldConfig, module sc.Module) registerLimbsMap {
+func newRegisterMapping[F any](field sc.FieldConfig, module sc.Module[F]) registerLimbsMap {
 	var (
 		regs    = module.Registers()
 		limbs   []sc.Register

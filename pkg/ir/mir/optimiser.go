@@ -17,6 +17,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -64,7 +65,7 @@ var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[DEFAULT_OPTIMISATION_INDEX]
 
 // attempt to eliminate normalisations by undertaking a range analysis on their
 // arguments to see whether they have sufficiently small ranges.
-func eliminateNormalisationInTerm(term Term, module schema.Module,
+func eliminateNormalisationInTerm(term Term, module schema.Module[bls12_377.Element],
 	cfg OptimisationConfig) Term {
 	switch term := term.(type) {
 	case *Add:
@@ -96,7 +97,7 @@ func eliminateNormalisationInTerm(term Term, module schema.Module,
 	}
 }
 
-func eliminateNormalisationInTerms(terms []Term, module schema.Module,
+func eliminateNormalisationInTerms(terms []Term, module schema.Module[bls12_377.Element],
 	cfg OptimisationConfig) []Term {
 	nterms := make([]Term, len(terms))
 	//
@@ -107,7 +108,7 @@ func eliminateNormalisationInTerms(terms []Term, module schema.Module,
 	return nterms
 }
 
-func eliminateNormalisationInNorm(arg Term, module schema.Module, cfg OptimisationConfig) Term {
+func eliminateNormalisationInNorm(arg Term, module schema.Module[bls12_377.Element], cfg OptimisationConfig) Term {
 	bounds := arg.ValueRange(module)
 	// optimise argument
 	arg = eliminateNormalisationInTerm(arg, module, cfg)

@@ -55,7 +55,7 @@ type AirLowering struct {
 // NewAirLowering constructs an initial state for lowering a given MIR schema.
 func NewAirLowering(mirSchema Schema) AirLowering {
 	var (
-		airSchema = ir.NewSchemaBuilder[bls12_377.Element, air.Constraint, air.Term, schema.Module]()
+		airSchema = ir.NewSchemaBuilder[bls12_377.Element, air.Constraint, air.Term, schema.Module[bls12_377.Element]]()
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {

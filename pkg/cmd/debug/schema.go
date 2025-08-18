@@ -21,13 +21,14 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
+func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth uint) {
 	//
 	for _, schema := range stack.Schemas() {
 		printSchema(schema, textwidth)
@@ -35,7 +36,7 @@ func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
 }
 
 // Print out all declarations included in a given
-func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
+func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 	first := true
 	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {
@@ -66,7 +67,7 @@ func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
 // Legacy module
 // ==================================================================
 
-func printModule(module schema.Module, sc schema.AnySchema[bls12_377.Element], width uint) {
+func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchema[F], width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})

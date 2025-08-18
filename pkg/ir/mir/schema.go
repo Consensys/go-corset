@@ -34,7 +34,7 @@ type (
 	Module = *schema.Table[bls12_377.Element, Constraint]
 	// Schema captures the notion of an MIR schema which is uniform and consists of
 	// MIR modules only.
-	Schema = schema.UniformSchema[Module]
+	Schema = schema.UniformSchema[bls12_377.Element, Module]
 	// Term represents the fundamental for arithmetic expressions in the MIR
 	// representation.
 	Term interface {
@@ -126,7 +126,7 @@ type (
 
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.
-func SubstituteConstants[M schema.Module](schema schema.MixedSchema[M, Module], mapping map[string]bls12_377.Element) {
+func SubstituteConstants[M schema.Module[bls12_377.Element]](schema schema.MixedSchema[bls12_377.Element, M, Module], mapping map[string]bls12_377.Element) {
 	// Constraints
 	for iter := schema.Constraints(); iter.HasNext(); {
 		constraint := iter.Next()

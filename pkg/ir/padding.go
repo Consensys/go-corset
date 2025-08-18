@@ -25,7 +25,7 @@ import (
 // PaddingFor determines the appropriate padding value for the given term.  This
 // is done by evaluating the term against a artificially constructed trace from
 // the given module, where each column has its declared padding value.
-func PaddingFor[F field.Element[F], T Evaluable[F]](term T, mod schema.Module) big.Int {
+func PaddingFor[F field.Element[F], T Evaluable[F]](term T, mod schema.Module[F]) big.Int {
 	var (
 		num      big.Int
 		val, err = term.EvalAt(-1, &traceModule[F]{mod}, mod)
@@ -42,7 +42,7 @@ func PaddingFor[F field.Element[F], T Evaluable[F]](term T, mod schema.Module) b
 
 // Wrapper around a schema module making it look like a trace.
 type traceModule[F field.Element[F]] struct {
-	mod schema.Module
+	mod schema.Module[F]
 }
 
 // Name implementation for trace.Module interface

@@ -29,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
@@ -63,7 +64,7 @@ var traceCmd = &cobra.Command{
 		output := GetString(cmd, "out")
 		metadata := GetFlag(cmd, "metadata")
 		// Read in constraint files
-		schemas := *getSchemaStack(cmd, SCHEMA_OPTIONAL, args[1:]...)
+		schemas := *getSchemaStack[bls12_377.Element](cmd, SCHEMA_OPTIONAL, args[1:]...)
 		builder := schemas.TraceBuilder().WithPadding(padding)
 		// Parse trace file(s)
 		if batched {
@@ -139,13 +140,12 @@ func init() {
 // RawColumn provides a convenient alias
 type RawColumn = trace.RawColumn[word.BigEndian]
 
-func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], builder ir.TraceBuilder[F],
-) lt.TraceFile {
+func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], bldr ir.TraceBuilder[F]) lt.TraceFile {
 	//
 	var (
 		rcols []RawColumn
 		// Construct expanded tr
-		tr, errs = builder.Build(schema, tf)
+		tr, errs = bldr.Build(schema, tf)
 		//
 		arrBuilder = word.NewDynamicArrayBuilder[word.BigEndian]()
 	)

@@ -23,7 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/spf13/cobra"
 )
 
@@ -74,9 +74,9 @@ const SCHEMA_DEFAULT_MIR = uint(1)
 // and that the default is for the stack to be lowered to the AIR level.
 const SCHEMA_DEFAULT_AIR = uint(2)
 
-func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack {
+func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack[F] {
 	var (
-		schemaStack  cmd_util.SchemaStack
+		schemaStack  cmd_util.SchemaStack[F]
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
 		field        = GetString(cmd, "field")
@@ -131,7 +131,7 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 		}
 	}
 	// Construct trace builder
-	builder := ir.NewTraceBuilder[bls12_377.Element]().
+	builder := ir.NewTraceBuilder[F]().
 		WithValidation(validate).
 		WithDefensivePadding(defensive).
 		WithExpansion(expand).
