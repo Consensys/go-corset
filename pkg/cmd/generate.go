@@ -76,7 +76,7 @@ var generateCmd = &cobra.Command{
 				binf     = stack.BinaryFile()
 			)
 			// NOTE: assume defensive padding is enabled.
-			spillage := determineSpillage(stack.LowestSchema(), true)
+			spillage := determineSpillage(stack.LowestConcreteSchema(), true)
 			// Generate appropriate Java source
 			source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, binf)
 			// check for errors

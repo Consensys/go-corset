@@ -30,24 +30,23 @@ type Element[F any] = field.Element[F]
 // LookupVector provides a convenient shorthand
 type LookupVector[F any] = lookup.Vector[F, Term[F]]
 
-// ConcretizeField converts an MIR schema for a given field F1 into an MIR
-// schema for another field F2.  This is awkward as we have to rebuild the
-// entire Intermediate Representation in order to match the type appropriately.
-// In doing this, we take some opportunities to simplify, such as removing
-// labelled constants (which no longer make sense).  Furthermore, this stage can
+// Concretize converts an MIR schema for a given field F1 into an MIR schema for
+// another field F2.  This is awkward as we have to rebuild the entire
+// Intermediate Representation in order to match the type appropriately. In
+// doing this, we take some opportunities to simplify, such as removing labelled
+// constants (which no longer make sense).  Furthermore, this stage can
 // technically fail if the relevant constraints cannot be correctly concretized.
 // For example, they contain a constant which does not fit within the field.
-func ConcretizeField[F1 Element[F1], F2 Element[F2]](sc Schema[F1]) Schema[F2] {
+func Concretize[F1 Element[F1], F2 Element[F2]](mapping schema.LimbsMap, rawModules []Module[F1]) []Module[F2] {
 	var (
-		rawModules = sc.RawModules()
-		modules    = make([]Module[F2], sc.Width())
+		modules = make([]Module[F2], len(rawModules))
 	)
 	//
-	for i := range sc.Width() {
-		modules[i] = concretizeModule[F1, F2](rawModules[i])
+	for i, m := range rawModules {
+		modules[i] = concretizeModule[F1, F2](m.Subdivide(mapping))
 	}
 	//
-	return schema.NewUniformSchema(modules)
+	return modules
 }
 
 func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {

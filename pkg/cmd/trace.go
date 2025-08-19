@@ -84,7 +84,7 @@ var traceCmd = &cobra.Command{
 		} else if builder.Expanding() {
 			// Expand all the traces
 			for i, cols := range traces {
-				traces[i] = expandColumns(cols, schemas.UniqueSchema(), builder)
+				traces[i] = expandColumns(cols, schemas.UniqueConcreteSchema(), builder)
 			}
 		}
 		// Now manipulate traces

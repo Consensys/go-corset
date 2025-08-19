@@ -30,13 +30,17 @@ import (
 // a given schema.
 func PrintSchemas(stack cmd_util.SchemaStack[bls12_377.Element], textwidth uint) {
 	//
-	for _, schema := range stack.Schemas() {
+	for _, schema := range stack.AbstractSchemas() {
+		printSchema(schema, textwidth)
+	}
+	//
+	for _, schema := range stack.ConcreteSchemas() {
 		printSchema(schema, textwidth)
 	}
 }
 
 // Print out all declarations included in a given
-func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
+func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 	first := true
 	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {
@@ -51,9 +55,9 @@ func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
 		}
 		//
 		switch ith := ith.(type) {
-		case *asm.MacroFunction[bls12_377.Element]:
+		case *asm.MacroFunction[F]:
 			printAssemblyFunction(*ith)
-		case *asm.MicroFunction[bls12_377.Element]:
+		case *asm.MicroFunction[F]:
 			printAssemblyFunction(*ith)
 		default:
 			printModule(ith, schema, width)
@@ -67,7 +71,7 @@ func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
 // Legacy module
 // ==================================================================
 
-func printModule(module schema.Module[bls12_377.Element], sc schema.AnySchema[bls12_377.Element], width uint) {
+func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchema[F], width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})
@@ -149,9 +153,9 @@ func countRegisters[F any](module schema.Module[F], filter func(schema.Register)
 	return count
 }
 
-func requiresSpacing(c schema.Constraint[bls12_377.Element]) bool {
-	if c, ok := c.(mir.Constraint[bls12_377.Element]); ok {
-		if _, ok := c.Unwrap().(mir.VanishingConstraint[bls12_377.Element]); ok {
+func requiresSpacing[F field.Element[F]](c schema.Constraint[F]) bool {
+	if c, ok := c.(mir.Constraint[F]); ok {
+		if _, ok := c.Unwrap().(mir.VanishingConstraint[F]); ok {
 			return ok
 		}
 	}

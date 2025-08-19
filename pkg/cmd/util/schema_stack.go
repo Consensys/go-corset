@@ -28,7 +28,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
@@ -74,8 +73,10 @@ type SchemaStack[F field.Element[F]] struct {
 	layers bit.Set
 	// Binfile represents the top of this stack.
 	binfile binfile.BinaryFile
-	// The various layers which are refined from the binfile.
-	schemas []schema.AnySchema[F]
+	// The various (abstract) layers which are refined from the binfile.
+	abstractSchemas []schema.AnySchema[bls12_377.Element]
+	// The various (concrete) layers which are refined from the abstract layers.
+	concreteSchemas []schema.AnySchema[F]
 	// Register mapping used
 	mapping schema.LimbsMap
 	// Name of IR used for corresponding schema
@@ -146,21 +147,29 @@ func (p *SchemaStack[F]) Field() schema.FieldConfig {
 
 // HasUniqueSchema determines whether or not we have exactly one schema.
 func (p *SchemaStack[F]) HasUniqueSchema() bool {
-	return len(p.schemas) == 1
+	return len(p.concreteSchemas) == 1
 }
 
-// Schemas returns the stack of schemas according to the selected layers, where
-// higher-level layers come first.
-func (p *SchemaStack[F]) Schemas() []schema.AnySchema[F] {
-	return p.schemas
+// AbstractSchemas returns the stack of abstract schemas according to the
+// selected layers, where higher-level layers come first.
+func (p *SchemaStack[F]) AbstractSchemas() []schema.AnySchema[bls12_377.Element] {
+	return p.abstractSchemas
 }
 
-// SchemaOf returns the schema associated with the given IR representation.  If
+// ConcreteSchemas returns the stack of concrete schemas according to the selected
+// layers, where higher-level layers come first.
+func (p *SchemaStack[F]) ConcreteSchemas() []schema.AnySchema[F] {
+	return p.concreteSchemas
+}
+
+// ConcreteSchemaOf returns the schema associated with the given IR representation.  If
 // there is no match, this will panic.
-func (p *SchemaStack[F]) SchemaOf(ir string) schema.AnySchema[F] {
-	for i, n := range p.names {
+func (p *SchemaStack[F]) ConcreteSchemaOf(ir string) schema.AnySchema[F] {
+	var m = len(p.abstractSchemas)
+	//
+	for i, n := range p.names[m:] {
 		if n == ir {
-			return p.schemas[i]
+			return p.concreteSchemas[i]
 		}
 	}
 	//
@@ -172,16 +181,16 @@ func (p *SchemaStack[F]) TraceBuilder() ir.TraceBuilder[F] {
 	return p.traceBuilder
 }
 
-// UniqueSchema returns the first schema on the stack which, when
+// UniqueConcreteSchema returns the first schema on the stack which, when
 // HasUniqueSchema() holds, means the uniquely specified schema.
-func (p *SchemaStack[F]) UniqueSchema() schema.AnySchema[F] {
-	return p.schemas[0]
+func (p *SchemaStack[F]) UniqueConcreteSchema() schema.AnySchema[F] {
+	return p.concreteSchemas[0]
 }
 
-// LowestSchema returns the last (i.e. lowest) schema on the stack.
-func (p *SchemaStack[F]) LowestSchema() schema.AnySchema[F] {
-	n := len(p.schemas) - 1
-	return p.schemas[n]
+// LowestConcreteSchema returns the last (i.e. lowest) schema on the stack.
+func (p *SchemaStack[F]) LowestConcreteSchema() schema.AnySchema[F] {
+	n := len(p.concreteSchemas) - 1
+	return p.concreteSchemas[n]
 }
 
 // RegisterMapping returns the register mapping used to split registers
@@ -190,10 +199,10 @@ func (p *SchemaStack[F]) RegisterMapping() schema.LimbsMap {
 	return p.mapping
 }
 
-// IrName returns a human-readable anacronym of the IR used to generate the
+// ConcreteIrName returns a human-readable anacronym of the IR used to generate the
 // corresponding SCHEMA.
-func (p *SchemaStack[F]) IrName(index uint) string {
-	return p.names[index]
+func (p *SchemaStack[F]) ConcreteIrName(index uint) string {
+	return p.names[len(p.abstractSchemas)+int(index)]
 }
 
 // Read reads one or more constraints files into this stack.
@@ -207,16 +216,16 @@ func (p *SchemaStack[F]) Read(filenames ...string) {
 // schemas.
 func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	var (
-		asmSchema         asm.MixedMacroProgram[bls12_377.Element]
-		uasmSchema        asm.MixedMicroProgram[bls12_377.Element]
-		mirAgnosticSchema mir.Schema[bls12_377.Element]
-		mirSchema         mir.Schema[F]
-		airSchema         air.Schema[F]
+		asmSchema  asm.MixedMacroProgram[bls12_377.Element]
+		uasmSchema asm.MixedMicroProgram[bls12_377.Element]
+		mirSchema  mir.Schema[F]
+		airSchema  air.Schema[F]
 	)
 	// Set binary
 	p.binfile = binfile
 	// Reset schemas (in case set previously)
-	p.schemas = nil
+	p.abstractSchemas = nil
+	p.concreteSchemas = nil
 	p.names = nil
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)
@@ -225,25 +234,22 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	// Lower to mixed micro schema
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Apply register splitting for field agnosticity
-	uasmSchema, mapping := agnostic.Subdivide(p.asmConfig.Field, uasmSchema)
+	mirSchema, mapping := asm.Concretize[bls12_377.Element, F](p.asmConfig.Field, uasmSchema)
 	// Record mapping
 	p.mapping = mapping
-	// Lower to MIR
-	mirAgnosticSchema = asm.LowerMixedMicroProgram(uasmSchema)
-	// Include macro assembly layer (if requested)
-	// if p.layers.Contains(MACRO_ASM_LAYER) {
-	// 	p.schemas = append(p.schemas, asmSchema)
-	// 	p.names = append(p.names, "ASM")
-	// }
-	// // Include micro assembly layer (if requested)
-	// if p.layers.Contains(MICRO_ASM_LAYER) {
-	// 	p.schemas = append(p.schemas, uasmSchema)
-	// 	p.names = append(p.names, "µASM")
-	// }
-	mirSchema = mir.ConcretizeField[bls12_377.Element, F](mirAgnosticSchema)
+	// Include (Macro) Assembly Layer (if requested)
+	if p.layers.Contains(MACRO_ASM_LAYER) {
+		p.abstractSchemas = append(p.abstractSchemas, asmSchema)
+		p.names = append(p.names, "ASM")
+	}
+	// Include (Micro) Assembly Layer (if requested)
+	if p.layers.Contains(MICRO_ASM_LAYER) {
+		p.abstractSchemas = append(p.abstractSchemas, uasmSchema)
+		p.names = append(p.names, "UASM")
+	}
 	// Include Mid-level IR layer (if requested)
 	if p.layers.Contains(MIR_LAYER) {
-		p.schemas = append(p.schemas, mirSchema)
+		p.concreteSchemas = append(p.concreteSchemas, mirSchema)
 		p.names = append(p.names, "MIR")
 	}
 	// Include Arithmetic-level IR layer (if requested)
@@ -251,7 +257,7 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 		// Lower to AIR
 		airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
 		//
-		p.schemas = append(p.schemas, schema.Any(airSchema))
+		p.concreteSchemas = append(p.concreteSchemas, schema.Any(airSchema))
 		p.names = append(p.names, "AIR")
 	}
 }

@@ -14,6 +14,7 @@ package bls12_377
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
@@ -55,6 +56,11 @@ func (x Element) IsOne() bool {
 // IsZero implementation for the Element interface
 func (x Element) IsZero() bool {
 	return x.Element.IsZero()
+}
+
+// Modulus implementation for the Element interface
+func (x Element) Modulus() *big.Int {
+	return fr.Modulus()
 }
 
 // Mul x * y

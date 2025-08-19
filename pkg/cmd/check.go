@@ -172,8 +172,8 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string,
 	//
 	stats.Log("Reading trace file")
 	// Go!
-	for i, schema := range schemas.Schemas() {
-		ir := schemas.IrName(uint(i))
+	for i, schema := range schemas.ConcreteSchemas() {
+		ir := schemas.ConcreteIrName(uint(i))
 		ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
 	}
 	//

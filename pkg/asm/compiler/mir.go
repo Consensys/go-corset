@@ -175,9 +175,18 @@ func (p MirExpr[F]) Bool(val bool) MirExpr[F] {
 // BigInt constructs a constant expression from a big integer.
 func (p MirExpr[F]) BigInt(number big.Int) MirExpr[F] {
 	// Not power of 2
-	var num F
+	var (
+		num F
+		n   big.Int
+	)
 	//
-	num = num.SetBytes(number.Bytes())
+	if number.Sign() < 0 {
+		n.Add(&number, num.Modulus())
+	} else {
+		n = number
+	}
+	//
+	num = num.SetBytes(n.Bytes())
 	//
 	return MirExpr[F]{ir.Const[F, mir.Term[F]](num), nil}
 }

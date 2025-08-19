@@ -31,6 +31,8 @@ type Element[Operand any] interface {
 	IsZero() bool
 	// Check whether this value is one (or not).
 	IsOne() bool
+	// Return the modulus for the field in question.
+	Modulus() *big.Int
 	// Compute x * y
 	Mul(y Operand) Operand
 	// Compute x⁻¹, or 0 if x = 0.

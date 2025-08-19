@@ -23,6 +23,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
+// Element provides a convenient shorthand.
+type Element[F any] = field.Element[F]
+
 // MicroFunction is a function composed entirely of micro instructions.
 type MicroFunction[F field.Element[F]] = io.Function[F, micro.Instruction]
 
@@ -67,7 +70,7 @@ func (p *FunctionMapping[T]) Bus() []T {
 // Compiler packages up everything needed to compile a given assembly down into
 // an HIR schema.  Observe that the compiler may fail if the assembly files are
 // malformed in some way (e.g. fail type checking).
-type Compiler[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
+type Compiler[F1 Element[F1], F2 Element[F2], T any, E Expr[T, E], M Module[F2, T, E, M]] struct {
 	modules []M
 	// maxInstances determines the maximum number of instances permitted for any
 	// given function.
@@ -81,8 +84,10 @@ type Compiler[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] str
 }
 
 // NewCompiler constructs a new compiler
-func NewCompiler[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]]() *Compiler[F, T, E, M] {
-	return &Compiler[F, T, E, M]{
+func NewCompiler[F1 Element[F1], F2 Element[F2], T any, E Expr[T, E],
+	M Module[F2, T, E, M]]() *Compiler[F1, F2, T, E, M] {
+	//
+	return &Compiler[F1, F2, T, E, M]{
 		modules:      nil,
 		maxInstances: 32,
 		buses:        nil,
@@ -91,12 +96,12 @@ func NewCompiler[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]](
 }
 
 // Modules returns the abstract modules constructed during compilation.
-func (p *Compiler[F, T, E, M]) Modules() []M {
+func (p *Compiler[F1, F2, T, E, M]) Modules() []M {
 	return p.modules
 }
 
 // Compile a given set of micro functions
-func (p *Compiler[F, T, E, M]) Compile(fns ...*MicroFunction[F]) {
+func (p *Compiler[F1, F2, T, E, M]) Compile(fns ...*MicroFunction[F1]) {
 	p.modules = make([]M, len(fns))
 	p.buses = make([]FunctionMapping[T], len(fns))
 	// Initialise buses
@@ -111,14 +116,14 @@ func (p *Compiler[F, T, E, M]) Compile(fns ...*MicroFunction[F]) {
 
 // Compile a function with the given name, registers and micro-instructions into
 // constraints.
-func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction[F]) {
+func (p *Compiler[F1, F2, T, E, M]) compileFunction(fn MicroFunction[F1]) {
 	busId := p.busMap[fn.Name()]
 	// Setup framing columns / constraints
 	framing := p.initFunctionFraming(busId, fn)
 	// Initialise buses required for this code sequence
 	p.initBuses(busId, fn)
 	// Construct appropriate mapping
-	mapping := Translator[F, T, E, M]{
+	mapping := Translator[F2, T, E, M]{
 		Module:    p.modules[busId],
 		Framing:   framing,
 		Registers: fn.Registers(),
@@ -133,13 +138,13 @@ func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction[F]) {
 
 // Create columns in the respective module for all registers associated with a
 // given Bus component (e.g. function).
-func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction[F]) {
+func (p *Compiler[F1, F2, T, E, M]) initModule(busId uint, fn MicroFunction[F1]) {
 	var (
 		module M
 		bus    FunctionMapping[T]
 	)
 	// Initialise module correctly
-	module = module.Initialise(fn, busId)
+	module = module.Initialise(concretize[F1, F2](fn), busId)
 	p.modules[busId] = module
 	//
 	bus.name = fn.Name()
@@ -154,7 +159,7 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction[F]) {
 	p.busMap[bus.name] = busId
 }
 
-func (p *Compiler[F, T, E, M]) initFunctionFraming(busId uint, fn MicroFunction[F]) Framing[T, E] {
+func (p *Compiler[F1, F2, T, E, M]) initFunctionFraming(busId uint, fn MicroFunction[F1]) Framing[T, E] {
 	// One line (i.e. atomic functions doen't require any framing.  They don't
 	// even require a program counter!!
 	if fn.IsAtomic() {
@@ -164,7 +169,7 @@ func (p *Compiler[F, T, E, M]) initFunctionFraming(busId uint, fn MicroFunction[
 	return p.initMultLineFunctionFraming(busId, fn)
 }
 
-func (p *Compiler[F, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction[F]) Framing[T, E] {
+func (p *Compiler[F1, F2, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction[F1]) Framing[T, E] {
 	var (
 		module = p.modules[busId]
 		// determine suitable width of PC register
@@ -201,7 +206,7 @@ func (p *Compiler[F, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroF
 // ensure the inputs don't change within a given frame.  Observe that this only
 // applies for multi-line functions, as one-line functions don't have internal
 // states.
-func (p *Compiler[F, T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFunction[F]) {
+func (p *Compiler[F1, F2, T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFunction[F1]) {
 	var (
 		Bus    = p.buses[busId]
 		module = p.modules[busId]
@@ -223,7 +228,7 @@ func (p *Compiler[F, T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFun
 }
 
 // Initialise the buses linked in a given function.
-func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction[F]) {
+func (p *Compiler[F1, F2, T, E, M]) initBuses(caller uint, fn MicroFunction[F1]) {
 	var module = p.modules[caller]
 	//
 	for _, bus := range localBuses(fn) {
@@ -251,7 +256,7 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction[F]) {
 // Determine the set of buses used within a function, by inspecting each
 // instruction in turn.  Observe the resulting array does not contain duplicate
 // entries.
-func localBuses[F field.Element[F]](fn MicroFunction[F]) []io.Bus {
+func localBuses[F Element[F]](fn MicroFunction[F]) []io.Bus {
 	var (
 		insns = fn.Code()
 		// Set of buses already seen
@@ -274,4 +279,10 @@ func localBuses[F field.Element[F]](fn MicroFunction[F]) []io.Bus {
 	}
 	//
 	return buses
+}
+
+func concretize[F1 field.Element[F1], F2 field.Element[F2]](fn MicroFunction[F1]) MicroFunction[F2] {
+	return io.NewFunction[F2](
+		fn.Id(), fn.Name(), fn.Registers(), fn.Code(),
+	)
 }
