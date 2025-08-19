@@ -41,8 +41,8 @@ type SortedPermutation[F field.Element[F]] struct {
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation[F field.Element[F]](context sc.ModuleId, targets []sc.RegisterId, signs []bool,
-	sources []sc.RegisterId) *SortedPermutation[F] {
+func NewSortedPermutation[F field.Element[F]](targets []sc.RegisterRef, signs []bool,
+	sources []sc.RegisterRef) *SortedPermutation[F] {
 	//
 	if len(targets) != len(sources) {
 		panic("target and source column have differing lengths!")
@@ -50,7 +50,7 @@ func NewSortedPermutation[F field.Element[F]](context sc.ModuleId, targets []sc.
 		panic("invalid sort directions")
 	}
 	//
-	return &SortedPermutation[F]{toRegisterRefs(context, targets), signs, toRegisterRefs(context, sources)}
+	return &SortedPermutation[F]{targets, signs, sources}
 }
 
 // ============================================================================

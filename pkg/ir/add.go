@@ -94,7 +94,7 @@ func (p *Add[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Add[F, T]) Simplify(casts bool) T {
-	return simplifySum[F, T](p.Args, casts)
+	return simplifySum(p.Args, casts)
 }
 
 // Substitute implementation for Substitutable interface.

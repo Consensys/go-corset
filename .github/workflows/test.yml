@@ -4,15 +4,12 @@ on:
   pull_request:
     branches: [ "main" ]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
     strategy:
       matrix:
         test: [asm-test,corset-test,corset-bench,unit-test]
+      fail-fast: false
     runs-on: gha-runner-scale-set-ubuntu-22.04-amd64-large
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 #v4.2.2

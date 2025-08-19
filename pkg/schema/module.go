@@ -163,6 +163,18 @@ func (p *Table[F, C]) AllowPadding() bool {
 	return p.padding
 }
 
+// RawAssignments provides raw access to those assignments defined as part of this
+// table.
+func (p *Table[F, C]) RawAssignments() []Assignment[F] {
+	return p.assignments
+}
+
+// RawConstraints provides raw access to those constraints associated with this
+// module.
+func (p *Table[F, C]) RawConstraints() []C {
+	return p.constraints
+}
+
 // Register returns the given register in this table.
 func (p *Table[F, C]) Register(id RegisterId) Register {
 	return p.registers[id.Unwrap()]

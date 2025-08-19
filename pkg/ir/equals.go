@@ -48,7 +48,7 @@ func (p *Equal[F, S, T]) ApplyShift(shift int) S {
 
 // ShiftRange implementation for LogicalTerm interface.
 func (p *Equal[F, S, T]) ShiftRange() (int, int) {
-	return shiftRangeOfTerms[T](p.Lhs.(T), p.Rhs.(T))
+	return shiftRangeOfTerms(p.Lhs.(T), p.Rhs.(T))
 }
 
 // Bounds implementation for Boundable interface.
@@ -113,8 +113,8 @@ func (p *Equal[F, S, T]) Simplify(casts bool) S {
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc, lok := IsConstant[F](lhs)
-	rc, rok := IsConstant[F](rhs)
+	lc, lok := IsConstant(lhs)
+	rc, rok := IsConstant(rhs)
 	//
 	if lok && rok {
 		// Can simplify

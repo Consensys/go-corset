@@ -169,8 +169,8 @@ func (p *Inequality[F, S, T]) Simplify(casts bool) S {
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc, lok := IsConstant[F](lhs)
-	rc, rok := IsConstant[F](rhs)
+	lc, lok := IsConstant(lhs)
+	rc, rok := IsConstant(rhs)
 	//
 	if lok && rok {
 		c := lc.Cmp(rc)

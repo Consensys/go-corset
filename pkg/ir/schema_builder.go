@@ -52,7 +52,7 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T Term[F, T], M Bui
 	//
 	var module M
 	// Build it
-	module = module.Init(m.name, m.moduleId, m.padding)
+	module = module.Init(m.name, m.multiplier, m.padding)
 	module.AddRegisters(m.registers...)
 	module.AddAssignments(m.assignments...)
 	module.AddConstraints(m.constraints...)

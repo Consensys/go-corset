@@ -214,7 +214,7 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 	// Apply bitwidth gadget
 	ref := schema.NewRegisterRef(airModule.Id(), register)
 	// Construct gadget
-	gadget := air_gadgets.NewBitwidthGadget[F](&p.airSchema).
+	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
 		WithLimitless(p.config.LimitlessTypeProofs).
 		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
 	//
@@ -620,7 +620,7 @@ func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule *air.Mo
 	for i, v := range e.Vars {
 		ith := ir.NewRegisterAccess[F, air.Term[F]](v.Register, v.Shift)
 		// Apply shift
-		terms[i] = ir.Product[F](shiftTerm(ith, shift))
+		terms[i] = ir.Product(shiftTerm(ith, shift))
 		//
 		shift = shift + airModule.Register(v.Register).Width
 	}

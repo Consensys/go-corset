@@ -57,7 +57,7 @@ func (p *Ite[F, T]) ApplyShift(shift int) T {
 		fb = p.FalseBranch.ApplyShift(shift)
 	}
 	//
-	return IfThenElse[F](c, tb, fb)
+	return IfThenElse(c, tb, fb)
 }
 
 // ShiftRange implementation for LogicalTerm interface.
@@ -175,13 +175,13 @@ func (p *Ite[F, T]) Simplify(casts bool) T {
 		falseBranch LogicalTerm[F, T]
 	)
 	// Handle reductive cases
-	if IsTrue[F](cond) {
+	if IsTrue(cond) {
 		if p.TrueBranch != nil {
 			return p.TrueBranch.Simplify(casts)
 		}
 		//
 		return True[F, T]()
-	} else if IsFalse[F](cond) {
+	} else if IsFalse(cond) {
 		if p.FalseBranch != nil {
 			return p.FalseBranch.Simplify(casts)
 		}
@@ -192,7 +192,7 @@ func (p *Ite[F, T]) Simplify(casts bool) T {
 	if p.TrueBranch != nil {
 		// If the branch logically true, then we can actually drop it
 		// altogether (i.e. X || tt ==> tt)
-		if tb := p.TrueBranch.Simplify(casts); !IsTrue[F](tb) {
+		if tb := p.TrueBranch.Simplify(casts); !IsTrue(tb) {
 			trueBranch = tb
 		}
 	}
@@ -200,16 +200,16 @@ func (p *Ite[F, T]) Simplify(casts bool) T {
 	if p.FalseBranch != nil {
 		// If the branch logically true, then we can actually drop it
 		// altogether (i.e. !X || tt ==> tt)
-		if fb := p.FalseBranch.Simplify(casts); !IsTrue[F](fb) {
+		if fb := p.FalseBranch.Simplify(casts); !IsTrue(fb) {
 			falseBranch = fb
 		}
 	}
 	// More simplification opportunities
 	if trueBranch == nil && falseBranch == nil {
 		return True[F, T]()
-	} else if trueBranch == nil && IsFalse[F](falseBranch.(T)) {
+	} else if trueBranch == nil && IsFalse(falseBranch.(T)) {
 		return cond
-	} else if falseBranch == nil && IsFalse[F](trueBranch.(T)) {
+	} else if falseBranch == nil && IsFalse(trueBranch.(T)) {
 		return Negation(cond).Simplify(casts)
 	}
 	// Finally, done.

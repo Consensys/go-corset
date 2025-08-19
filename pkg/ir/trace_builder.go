@@ -270,7 +270,7 @@ func splitTraceColumns[F field.Element[F]](expanded bool, schema sc.AnySchema[F]
 		seen map[columnKey]bool = make(map[columnKey]bool, 0)
 	)
 	//
-	colmap, modules := initialiseColumnMap[F](expanded, schema)
+	colmap, modules := initialiseColumnMap(expanded, schema)
 	// Assign data from each input column given
 	for _, col := range cols {
 		// Lookup the module
@@ -407,7 +407,7 @@ func determineModuleHeights[F any](tr *trace.ArrayTrace[F]) []uint {
 func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayTrace[F],
 	schema sc.AnySchema[F]) error {
 	//
-	expanded := determineModuleHeights[F](tr)
+	expanded := determineModuleHeights(tr)
 	//
 	for mid := uint(0); mid < uint(len(expanded)); mid++ {
 		spillage := sc.RequiredPaddingRows(mid, defensive, schema)

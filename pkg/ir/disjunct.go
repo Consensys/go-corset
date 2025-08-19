@@ -54,7 +54,7 @@ func Disjunction[F field.Element[F], T LogicalTerm[F, T]](terms ...T) T {
 
 // ApplyShift implementation for LogicalTerm interface.
 func (p *Disjunct[F, T]) ApplyShift(shift int) T {
-	return Disjunction[F, T](applyShiftOfTerms(p.Args, shift)...)
+	return Disjunction(applyShiftOfTerms(p.Args, shift)...)
 }
 
 // ShiftRange implementation for LogicalTerm interface.
@@ -123,7 +123,7 @@ func (p *Disjunct[F, T]) Simplify(casts bool) T {
 	case 1:
 		return terms[0]
 	default:
-		return Disjunction[F, T](terms...)
+		return Disjunction(terms...)
 	}
 }
 

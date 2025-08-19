@@ -46,7 +46,7 @@ func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, term L
 func NewVanishingConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
 	term LogicalTerm[F]) Constraint[F] {
 	//
-	return Constraint[F]{vanishing.NewConstraint[F](handle, ctx, domain, term)}
+	return Constraint[F]{vanishing.NewConstraint(handle, ctx, domain, term)}
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.

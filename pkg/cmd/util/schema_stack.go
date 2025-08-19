@@ -209,7 +209,7 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	var (
 		asmSchema         asm.MixedMacroProgram[bls12_377.Element]
 		uasmSchema        asm.MixedMicroProgram[bls12_377.Element]
-		mirAgonsticSchema mir.Schema[bls12_377.Element]
+		mirAgnosticSchema mir.Schema[bls12_377.Element]
 		mirSchema         mir.Schema[F]
 		airSchema         air.Schema[F]
 	)
@@ -229,7 +229,7 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	// Record mapping
 	p.mapping = mapping
 	// Lower to MIR
-	mirAgonsticSchema = asm.LowerMixedMicroProgram(uasmSchema)
+	mirAgnosticSchema = asm.LowerMixedMicroProgram(uasmSchema)
 	// Include macro assembly layer (if requested)
 	// if p.layers.Contains(MACRO_ASM_LAYER) {
 	// 	p.schemas = append(p.schemas, asmSchema)
@@ -240,7 +240,7 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	// 	p.schemas = append(p.schemas, uasmSchema)
 	// 	p.names = append(p.names, "µASM")
 	// }
-	mirSchema = mir.ConcretizeField[F](mirAgonsticSchema)
+	mirSchema = mir.ConcretizeField[bls12_377.Element, F](mirAgnosticSchema)
 	// Include Mid-level IR layer (if requested)
 	if p.layers.Contains(MIR_LAYER) {
 		p.schemas = append(p.schemas, mirSchema)

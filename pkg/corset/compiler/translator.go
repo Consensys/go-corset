@@ -610,7 +610,8 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 	signs := slices.Clone(decl.Signs)
 	bitwidth := determineMaxBitwidth(module, targetTerms[:len(signs)])
 	// Add assignment for computing the sorted permutation
-	module.AddAssignment(assignment.NewSortedPermutation[bls12_377.Element](module.Id(), targets, signs, sources))
+	module.AddAssignment(assignment.NewSortedPermutation[bls12_377.Element](
+		toRegisterRefs(module.Id(), targets), signs, toRegisterRefs(module.Id(), sources)))
 	// Add Permutation Constraint
 	module.AddConstraint(mir.NewPermutationConstraint[bls12_377.Element](handle.String(), module.Id(), targets, sources))
 	// Add Sorting Constraint
@@ -1120,6 +1121,16 @@ func (t *translator) registerRefOf(path *util.Path) schema.RegisterRef {
 	}
 	//
 	panic("unreachable")
+}
+
+func toRegisterRefs(context schema.ModuleId, ids []schema.RegisterId) []schema.RegisterRef {
+	var refs = make([]schema.RegisterRef, len(ids))
+	//
+	for i, id := range ids {
+		refs[i] = schema.NewRegisterRef(context, id)
+	}
+	//
+	return refs
 }
 
 func determineMaxBitwidth(module *ModuleBuilder, sources []mirTerm) uint {

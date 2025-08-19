@@ -124,7 +124,7 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 		lhs_t Term[F, T] = lhs
 		// Subtraction is harder to optimise for.  What we do is view "a - b - c" as
 		// "a - (b+c)", and optimise the right-hand side as though it were addition.
-		rhs   T          = simplifySum[F](p.Args[1:], casts)
+		rhs   T          = simplifySum(p.Args[1:], casts)
 		rhs_t Term[F, T] = rhs
 	)
 	// Check what's left
@@ -147,7 +147,7 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 		// if rhs has constant, subtract it.
 		if rc, ok := findConstant(ra.Args); ok {
 			c := lc.Value.Sub(rc)
-			nterms = mergeConstants[F](c, nterms)
+			nterms = mergeConstants(c, nterms)
 		}
 		//
 		targ = &Sub[F, T]{nterms}

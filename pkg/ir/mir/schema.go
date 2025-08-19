@@ -16,6 +16,7 @@ import (
 	"encoding/gob"
 
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -48,6 +49,12 @@ type (
 	LogicalTerm[F any] interface {
 		ir.LogicalTerm[F, LogicalTerm[F]]
 	}
+)
+
+// Following types capture key assignment forms at the MIR level.
+type (
+	// ComputedRegister captures one form of computation permitted at the MIR level.
+	ComputedRegister[F field.Element[F]] = assignment.ComputedRegister[F, Term[F]]
 )
 
 // Following types capture permitted constraint forms at the MIR level.
@@ -138,11 +145,6 @@ func SubstituteConstants[F field.Element[F], M schema.Module[F]](schema schema.M
 	}
 }
 
-// ConcretizeField converts an MIR schema for a given field into an MIR schema for another field.
-func ConcretizeField[F field.Element[F]](schema Schema[bls12_377.Element]) Schema[F] {
-	panic("todo")
-}
-
 func registerIntermediateRepresentation[F field.Element[F]]() {
 	gob.Register(schema.Constraint[F](&VanishingConstraint[F]{}))
 	gob.Register(schema.Constraint[F](&RangeConstraint[F]{}))
@@ -165,6 +167,8 @@ func registerIntermediateRepresentation[F field.Element[F]]() {
 	gob.Register(LogicalTerm[F](&Disjunct[F]{}))
 	gob.Register(LogicalTerm[F](&Equal[F]{}))
 	gob.Register(LogicalTerm[F](&NotEqual[F]{}))
+	//
+	gob.Register(schema.Assignment[F](&ComputedRegister[F]{}))
 }
 
 func init() {

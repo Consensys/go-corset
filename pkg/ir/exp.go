@@ -39,7 +39,7 @@ func Exponent[F field.Element[F], T Term[F, T]](arg T, pow uint64) T {
 
 // ApplyShift implementation for Term interface.
 func (p *Exp[F, T]) ApplyShift(shift int) T {
-	return Exponent[F, T](p.Arg.ApplyShift(shift), p.Pow)
+	return Exponent(p.Arg.ApplyShift(shift), p.Pow)
 }
 
 // Bounds implementation for Boundable interface.

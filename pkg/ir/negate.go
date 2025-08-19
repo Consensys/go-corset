@@ -41,7 +41,7 @@ type Negate[F field.Element[F], T LogicalTerm[F, T]] struct {
 
 // ApplyShift implementation for LogicalTerm interface.
 func (p *Negate[F, T]) ApplyShift(shift int) T {
-	return Negation[F](p.Arg.ApplyShift(shift))
+	return Negation(p.Arg.ApplyShift(shift))
 }
 
 // ShiftRange implementation for LogicalTerm interface.
@@ -85,9 +85,9 @@ func (p *Negate[F, T]) Simplify(casts bool) T {
 	var term T = p.Arg.Simplify(casts)
 	//
 	switch {
-	case IsTrue[F](term):
+	case IsTrue(term):
 		return False[F, T]()
-	case IsFalse[F](term):
+	case IsFalse(term):
 		return True[F, T]()
 	default:
 		var tmp LogicalTerm[F, T] = &Negate[F, T]{term}

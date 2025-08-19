@@ -37,7 +37,7 @@ func Normalise[F field.Element[F], T Term[F, T]](arg T) T {
 
 // ApplyShift implementation for Term interface.
 func (p *Norm[F, T]) ApplyShift(shift int) T {
-	return Normalise[F](p.Arg.ApplyShift(shift))
+	return Normalise(p.Arg.ApplyShift(shift))
 }
 
 // Bounds implementation for Boundable interface.
