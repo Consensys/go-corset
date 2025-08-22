@@ -22,13 +22,12 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas(stack cmd_util.SchemaStack[bls12_377.Element], textwidth uint) {
+func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth uint) {
 	//
 	for _, schema := range stack.AbstractSchemas() {
 		printSchema(schema, textwidth)

@@ -17,7 +17,10 @@ import (
 	"os"
 	"strings"
 
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -28,22 +31,32 @@ var compileCmd = &cobra.Command{
 	Long: `Compile a given set of constraint file(s) into a single binary package which can
 	 be subsequently used without requiring a full compilation step.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Configure log level
-		if GetFlag(cmd, "verbose") {
-			log.SetLevel(log.DebugLevel)
-		}
-		output := GetString(cmd, "output")
-		defines := GetStringArray(cmd, "define")
-		// Parse constraints
-		binfile := getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args...).BinaryFile()
-		// Write metadata
-		if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
-			fmt.Printf("error writing metadata: %s\n", err.Error())
-			os.Exit(1)
-		}
-		// Serialise as a gob file.
-		WriteBinaryFile(binfile, output)
+		runFieldAgnosticCmd(cmd, args, compileCmds)
 	},
+}
+
+// Available instances
+var compileCmds = []FieldAgnosticCmd{
+	FieldAgnosticCmd{sc.BLS12_377, runCompileCmd[bls12_377.Element]},
+}
+
+func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	// Configure log level
+	if GetFlag(cmd, "verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	output := GetString(cmd, "output")
+	defines := GetStringArray(cmd, "define")
+	// Parse constraints
+	binfile := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...).BinaryFile()
+	// Write metadata
+	if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
+		fmt.Printf("error writing metadata: %s\n", err.Error())
+		os.Exit(1)
+	}
+	// Serialise as a gob file.
+	WriteBinaryFile(binfile, output)
 }
 
 func buildMetadata(items []string) typed.Map {

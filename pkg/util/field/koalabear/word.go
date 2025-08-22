@@ -12,14 +12,38 @@
 // SPDX-License-Identifier: Apache-2.0
 package koalabear
 
+const (
+	offset64 uint64 = 14695981039346656037
+	prime64  uint64 = 1099511628211
+)
+
 // Equals implementation for hash.Hasher interface
-func (x Element) Equals(Element) bool {
-	panic("todo")
+func (x Element) Equals(o Element) bool {
+	return x == o
 }
 
 // Hash implementation for hash.Hasher interface
 func (x Element) Hash() uint64 {
-	panic("todo")
+	// FNV1a hash implementation (unrolled)
+	hash := offset64
+	//
+	return (hash ^ uint64(x[0])) * prime64
+}
+
+// SetBytes implementation for word.Word interface.
+func (x Element) SetBytes(b []byte) Element {
+	var y Element
+	//
+	y.AddBytes(b)
+	//
+	return y
+}
+
+// SetUint64 implementation for word.Word interface
+func (x Element) SetUint64(val uint64) Element {
+	var elem Element
+	//
+	return elem.AddUint32(uint32(val))
 }
 
 // Uint64 implementation for word.Word interface.

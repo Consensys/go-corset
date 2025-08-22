@@ -23,6 +23,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
@@ -32,47 +33,59 @@ var inspectCmd = &cobra.Command{
 	Short: "Inspect a trace file",
 	Long:  `Inspect a trace file using an interactive (terminal-based) environment`,
 	Run: func(cmd *cobra.Command, args []string) {
-		//
-		if len(args) != 2 {
-			fmt.Println(cmd.UsageString())
-			os.Exit(1)
-		}
-		// Read in constraint files
-		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
-		//
-		stats := util.NewPerfStats()
-		// Parse constraints
-		binf := schemas.BinaryFile()
-		// Sanity check debug information is available.
-		srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
-		//
-		if !srcmap_ok {
-			fmt.Printf("binary file \"%s\" missing source map", args[1])
-		} else if !schemas.HasUniqueSchema() {
-			fmt.Println("must specify exactly one of --air/mir/uasm/asm")
-			os.Exit(2)
-		}
-		//
-		stats.Log("Reading constraints file")
-		// Parse trace file
-		tracefile := ReadTraceFile(args[0])
-		//
-		stats.Log("Reading trace file")
-		// Build the trace
-		trace, errors := schemas.TraceBuilder().Build(schemas.UniqueConcreteSchema(), tracefile)
-		//
-		if len(errors) == 0 {
-			// Run the inspector.
-			errors = inspect(&binf.Schema, srcmap, trace)
-		}
-		// Sanity check what happened
-		if len(errors) > 0 {
-			for _, err := range errors {
-				fmt.Println(err)
-			}
-			os.Exit(1)
-		}
+		runFieldAgnosticCmd(cmd, args, inspectCmds)
 	},
+}
+
+// Available instances
+var inspectCmds = []FieldAgnosticCmd{
+	FieldAgnosticCmd{sc.BLS12_377, runInspectCmd[bls12_377.Element]},
+}
+
+func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	//
+	if len(args) != 2 {
+		fmt.Println(cmd.UsageString())
+		os.Exit(1)
+	}
+	// Read in constraint files
+	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
+	//
+	stats := util.NewPerfStats()
+	// Parse constraints
+	binf := schemas.BinaryFile()
+	// Sanity check debug information is available.
+	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+	//
+	if !srcmap_ok {
+		fmt.Printf("binary file \"%s\" missing source map", args[1])
+	} else if !schemas.HasUniqueSchema() {
+		fmt.Println("must specify exactly one of --air/mir/uasm/asm")
+		os.Exit(2)
+	}
+	//
+	stats.Log("Reading constraints file")
+	// Parse trace file
+	tracefile := ReadTraceFile(args[0])
+	// Extract scheam
+	schema := schemas.UniqueConcreteSchema()
+	//
+	stats.Log("Reading trace file")
+	// Build the trace
+	trace, errors := schemas.TraceBuilder().Build(schema, tracefile)
+	//
+	if len(errors) == 0 {
+		// Run the inspector.
+		errors = inspect(schema, srcmap, trace)
+	}
+	// Sanity check what happened
+	if len(errors) > 0 {
+		for _, err := range errors {
+			fmt.Println(err)
+		}
+
+		os.Exit(1)
+	}
 }
 
 // Inspect a given trace using a given schema.

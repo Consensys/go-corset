@@ -31,6 +31,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 )
 
 // TestDir determines the (relative) location of the test directory.  That is
@@ -54,15 +57,34 @@ func Check(t *testing.T, stdlib bool, test string) {
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
 func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.FieldConfig) {
-	var (
-		filenames = matchSourceFiles(test)
-		// Configure the stack
-		stacks = getSchemaStack[bls12_377.Element](stdlib, fields[0], filenames...)
-	)
 	// Sanity check
 	if len(fields) == 0 {
 		panic("no field configurations")
 	}
+	// Run checks for each field
+	for _, field := range fields {
+		// Dispatch based on field config
+		switch field {
+		case schema.GF_251:
+			checkWithField[gf251.Element](t, stdlib, test, field)
+		case schema.GF_8209:
+			checkWithField[gf8209.Element](t, stdlib, test, field)
+		case schema.KOALABEAR_16:
+			checkWithField[koalabear.Element](t, stdlib, test, field)
+		case schema.BLS12_377:
+			checkWithField[bls12_377.Element](t, stdlib, test, field)
+		default:
+			panic(fmt.Sprintf("unknown field configuration: %s", field.Name))
+		}
+	}
+}
+
+func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, field schema.FieldConfig) {
+	var (
+		filenames = matchSourceFiles(test)
+		// Configure the stack for the given field.
+		stacks = getSchemaStack[F](stdlib, field, filenames...)
+	)
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
@@ -74,7 +96,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 		traces = ReadTracesFile(testFilename)
 		if len(traces) > 0 {
 			// Run tests
-			fullCheckTraces[bls12_377.Element](t, testFilename, cfg, traces, stacks)
+			fullCheckTraces(t, testFilename, cfg, traces, stacks)
 		}
 		// Record how many tests we found
 		nTests += len(traces)
@@ -88,11 +110,11 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
 	stack cmd_util.SchemaStack[F]) {
 	// Run checks using schema compiled from source
-	checkCompilerOptimisations[F](t, test, cfg, traces, stack)
+	checkCompilerOptimisations(t, test, cfg, traces, stack)
 	// Construct binary schema using primary stack
-	checkBinaryEncoding[F](t, test, cfg, traces, stack)
+	checkBinaryEncoding(t, test, cfg, traces, stack)
 	// Perform checks with different fields
-	checkPadding[F](t, test, cfg, traces, stack)
+	checkPadding(t, test, cfg, traces, stack)
 }
 
 // Sanity check same outcome for all optimisation levels

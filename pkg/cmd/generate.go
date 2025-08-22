@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/generate"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -32,59 +33,68 @@ var generateCmd = &cobra.Command{
 	Short: "generate suitable Java class(es) for integration.",
 	Long:  `Generate suitable Java class(es) for integration with a Java-based tracer generator.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var (
-			source string
-			err    error
-			super  string
-		)
-		// Configure log level
-		if GetFlag(cmd, "verbose") {
-			log.SetLevel(log.DebugLevel)
-		}
-		//
-		outputs := GetStringArray(cmd, "output")
-		pkgname := GetString(cmd, "package")
-		intrface := GetString(cmd, "interface")
-		// Parse constraints
-		files := splitConstraintSets(args)
-		schemas := make([]cmd_util.SchemaStack[bls12_377.Element], len(files))
-		//
-		for i := range schemas {
-			schemas[i] = *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, files[i]...)
-		}
-		//
-		if len(outputs) < len(schemas) {
-			fmt.Println("insufficient output Java files specified.")
-			os.Exit(2)
-		}
-		//
-		if intrface != "" {
-			// Attempt to write java interface
-			source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, schemas)
-			// check for errors
-			checkError(err)
-			// write out class file
-			writeJavaFile(intrface, source)
-			// Determine interface class name
-			filename := filepath.Base(intrface)
-			super = strings.TrimSuffix(filename, ".java")
-		}
-		//
-		for i, stack := range schemas {
-			var (
-				filename = outputs[i]
-				binf     = stack.BinaryFile()
-			)
-			// NOTE: assume defensive padding is enabled.
-			spillage := determineSpillage(stack.LowestConcreteSchema(), true)
-			// Generate appropriate Java source
-			source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, binf)
-			// check for errors
-			checkError(err)
-			// write out class file
-			writeJavaFile(filename, source)
-		}
+		runFieldAgnosticCmd(cmd, args, generateCmds)
 	},
+}
+
+// Available instances
+var generateCmds = []FieldAgnosticCmd{
+	FieldAgnosticCmd{sc.BLS12_377, runGenerateCmd[bls12_377.Element]},
+}
+
+func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var (
+		source string
+		err    error
+		super  string
+	)
+	// Configure log level
+	if GetFlag(cmd, "verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+	//
+	outputs := GetStringArray(cmd, "output")
+	pkgname := GetString(cmd, "package")
+	intrface := GetString(cmd, "interface")
+	// Parse constraints
+	files := splitConstraintSets(args)
+	schemas := make([]cmd_util.SchemaStack[F], len(files))
+	//
+	for i := range schemas {
+		schemas[i] = *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, files[i]...)
+	}
+	//
+	if len(outputs) < len(schemas) {
+		fmt.Println("insufficient output Java files specified.")
+		os.Exit(2)
+	}
+	//
+	if intrface != "" {
+		// Attempt to write java interface
+		source, err = generate.JavaTraceInterfaceUnion(intrface, pkgname, schemas)
+		// check for errors
+		checkError(err)
+		// write out class file
+		writeJavaFile(intrface, source)
+		// Determine interface class name
+		filename := filepath.Base(intrface)
+		super = strings.TrimSuffix(filename, ".java")
+	}
+	//
+	for i, stack := range schemas {
+		var (
+			filename = outputs[i]
+			binf     = stack.BinaryFile()
+		)
+		// NOTE: assume defensive padding is enabled.
+		spillage := determineSpillage(stack.LowestConcreteSchema(), true)
+		// Generate appropriate Java source
+		source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, binf)
+		// check for errors
+		checkError(err)
+		// write out class file
+		writeJavaFile(filename, source)
+	}
 }
 
 func checkError(err error) {
@@ -129,7 +139,7 @@ func splitConstraintSets(filenames []string) [][]string {
 
 // Determine spillage required for a given schema and optimisation configuration
 // with (or without) defensive padding.
-func determineSpillage(schema sc.AnySchema[bls12_377.Element], defensive bool) []uint {
+func determineSpillage[F field.Element[F]](schema sc.AnySchema[F], defensive bool) []uint {
 	nModules := schema.Width()
 	//
 	spillage := make([]uint, nModules)

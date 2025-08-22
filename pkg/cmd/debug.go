@@ -19,6 +19,8 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/debug"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -31,48 +33,57 @@ var debugCmd = &cobra.Command{
 	expansion in order to debug them.  Constraints can be given
 	either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		//
-		if len(args) < 1 {
-			fmt.Println(cmd.UsageString())
-			os.Exit(1)
-		}
-		// Configure log level
-		if GetFlag(cmd, "verbose") {
-			log.SetLevel(log.DebugLevel)
-		}
-		stats := GetFlag(cmd, "stats")
-		attrs := GetFlag(cmd, "attributes")
-		metadata := GetFlag(cmd, "metadata")
-		constants := GetFlag(cmd, "constants")
-		spillage := GetFlag(cmd, "spillage")
-		textWidth := GetUint(cmd, "textwidth")
-		// Read in constraint files
-		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_MIR, args...)
-		// Print constant info (if requested)
-		if constants {
-			debug.PrintExternalisedConstants(schemas)
-		}
-		// Print spillage info (if requested)
-		if spillage {
-			printSpillage(schemas, true)
-		}
-		// Print meta-data (if requested)
-		if metadata {
-			printBinaryFileHeader(schemas)
-		}
-		// Print stats (if requested)
-		if stats {
-			debug.PrintStats(schemas)
-		}
-		// Print embedded attributes (if requested
-		if attrs {
-			printAttributes(schemas)
-		}
-		//
-		if !stats && !attrs {
-			debug.PrintSchemas(schemas, textWidth)
-		}
+		runFieldAgnosticCmd(cmd, args, debugCmds)
 	},
+}
+
+// Available instances
+var debugCmds = []FieldAgnosticCmd{
+	FieldAgnosticCmd{sc.BLS12_377, runDebugCmd[bls12_377.Element]},
+}
+
+func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	if len(args) < 1 {
+		fmt.Println(cmd.UsageString())
+		os.Exit(1)
+	}
+	// Configure log level
+	if GetFlag(cmd, "verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	stats := GetFlag(cmd, "stats")
+	attrs := GetFlag(cmd, "attributes")
+	metadata := GetFlag(cmd, "metadata")
+	constants := GetFlag(cmd, "constants")
+	spillage := GetFlag(cmd, "spillage")
+	textWidth := GetUint(cmd, "textwidth")
+	// Read in constraint files
+	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
+	// Print constant info (if requested)
+	if constants {
+		debug.PrintExternalisedConstants(schemas)
+	}
+	// Print spillage info (if requested)
+	if spillage {
+		printSpillage(schemas, true)
+	}
+	// Print meta-data (if requested)
+	if metadata {
+		printBinaryFileHeader(schemas)
+	}
+	// Print stats (if requested)
+	if stats {
+		debug.PrintStats(schemas)
+	}
+	// Print embedded attributes (if requested
+	if attrs {
+		printAttributes(schemas)
+	}
+	//
+	if !stats && !attrs {
+		debug.PrintSchemas(schemas, textWidth)
+	}
 }
 
 func init() {
@@ -85,7 +96,7 @@ func init() {
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
 }
 
-func printAttributes(schemas cmd_util.SchemaStack[bls12_377.Element]) {
+func printAttributes[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
 	binfile := schemas.BinaryFile()
 	// Print attributes
 	for _, attr := range binfile.Attributes {
@@ -97,7 +108,7 @@ func printAttributes(schemas cmd_util.SchemaStack[bls12_377.Element]) {
 	}
 }
 
-func printSpillage(schemas cmd_util.SchemaStack[bls12_377.Element], defensive bool) {
+func printSpillage[F field.Element[F]](schemas cmd_util.SchemaStack[F], defensive bool) {
 	// fmt.Println("Spillage:")
 	// // Compute spillage for optimisation level
 	// spillage := determineSpillage(&binf.Schema, defensive, optConfig)
@@ -118,7 +129,7 @@ func printSpillage(schemas cmd_util.SchemaStack[bls12_377.Element], defensive bo
 	panic("todo")
 }
 
-func printBinaryFileHeader(schemas cmd_util.SchemaStack[bls12_377.Element]) {
+func printBinaryFileHeader[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
 	header := schemas.BinaryFile().Header
 	//
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)

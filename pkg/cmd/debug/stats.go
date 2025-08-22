@@ -23,16 +23,15 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // PrintStats is used for printing summary information about a constraint set,
 // such as the number and type of constraints, etc.
-func PrintStats(stack cmd_util.SchemaStack[bls12_377.Element]) {
+func PrintStats[F field.Element[F]](stack cmd_util.SchemaStack[F]) {
 	var (
 		schemas     = stack.ConcreteSchemas()
-		summarisers = getSummerisers[bls12_377.Element]()
+		summarisers = getSummerisers[F]()
 		//
 		n   = 1 + uint(len(schemas))
 		m   = uint(len(summarisers))

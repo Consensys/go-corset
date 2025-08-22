@@ -18,6 +18,9 @@ var GF_251 = FieldConfig{"GF_251", 7, 4}
 // GF_8209 is small prime field used exclusively for testing.
 var GF_8209 = FieldConfig{"GF_8209", 13, 8}
 
+// KOALABEAR_16 corresponds to the KoalaBear field with a 16bit register size.
+var KOALABEAR_16 = FieldConfig{"KOALABEAR_16", 30, 16}
+
 // BLS12_377 is the defacto default field at this time.
 var BLS12_377 = FieldConfig{"BLS12_377", 252, 160}
 

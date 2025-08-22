@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package bls12_377
+package gf251
 
 const (
 	offset64 uint64 = 14695981039346656037
@@ -19,7 +19,7 @@ const (
 
 // Equals implementation for hash.Hasher interface
 func (x Element) Equals(o Element) bool {
-	return x.Element == o.Element
+	return x == o
 }
 
 // Hash implementation for hash.Hasher interface
@@ -27,29 +27,26 @@ func (x Element) Hash() uint64 {
 	// FNV1a hash implementation (unrolled)
 	hash := offset64
 	//
-	hash = (hash ^ x.Element[0]) * prime64
-	hash = (hash ^ x.Element[1]) * prime64
-	hash = (hash ^ x.Element[2]) * prime64
-	hash = (hash ^ x.Element[3]) * prime64
-	//
-	return hash
+	return (hash ^ uint64(x[0])) * prime64
 }
 
 // SetBytes implementation for word.Word interface.
-func (x Element) SetBytes(bytes []byte) Element {
-	x.Element.SetBytes(bytes)
+func (x Element) SetBytes(b []byte) Element {
+	var y Element
 	//
-	return x
+	y.AddBytes(b)
+	//
+	return y
 }
 
-// SetUint64 implementation for word.Word interface.
+// SetUint64 implementation for word.Word interface
 func (x Element) SetUint64(val uint64) Element {
-	x.Element.SetUint64(val)
+	var elem Element
 	//
-	return x
+	return elem.AddUint32(uint32(val))
 }
 
 // Uint64 implementation for word.Word interface.
 func (x Element) Uint64() uint64 {
-	return x.Element.Uint64()
+	return uint64(x.ToUint32())
 }

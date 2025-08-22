@@ -37,8 +37,6 @@ type Element[Operand any] interface {
 	Mul(y Operand) Operand
 	// Compute x⁻¹, or 0 if x = 0.
 	Inverse() Operand
-	// Set this element to a uint64 value
-	SetUint64(uint64) Operand
 	// Compute x - y
 	Sub(y Operand) Operand
 	// Text returns the numerical value of x in the given base.

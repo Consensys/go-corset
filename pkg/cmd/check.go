@@ -47,44 +47,53 @@ var checkCmd = &cobra.Command{
 	Traces can be given either as JSON or binary lt files.
 	Constraints can be given either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var cfg checkConfig
-
-		if len(args) < 2 {
-			fmt.Println(cmd.UsageString())
-			os.Exit(1)
-		}
-		// Configure log level
-		if GetFlag(cmd, "verbose") {
-			log.SetLevel(log.DebugLevel)
-		}
-		// Configure CPU profiling (if requested)
-		startCpuProfiling(cmd)
-		//
-		batched := GetFlag(cmd, "batched")
-		//
-		cfg.padding.Right = GetUint(cmd, "padding")
-		cfg.report = GetFlag(cmd, "report")
-		cfg.reportPadding = GetUint(cmd, "report-context")
-		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
-		cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
-		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
-		// TODO: support true ranges
-		cfg.padding.Left = cfg.padding.Right
-		// Read in constraint files
-		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
-		// enable / disable coverage
-		if covfile := GetString(cmd, "coverage"); covfile != "" {
-			cfg.coverage = util.Some(covfile)
-		}
-		//
-		tracefile := args[0]
-		//
-		checkWithLegacyPipeline(cfg, batched, tracefile, schemas)
-		// Write memory profiling (if requested)
-		writeMemProfile(cmd)
-		// Stop cpu profiling (if was requested)
-		stopCpuProfiling(cmd)
+		runFieldAgnosticCmd(cmd, args, checkCmds)
 	},
+}
+
+// Available instances
+var checkCmds = []FieldAgnosticCmd{
+	FieldAgnosticCmd{sc.BLS12_377, runCheckCmd[bls12_377.Element]},
+}
+
+func runCheckCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var cfg checkConfig
+
+	if len(args) < 2 {
+		fmt.Println(cmd.UsageString())
+		os.Exit(1)
+	}
+	// Configure log level
+	if GetFlag(cmd, "verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+	// Configure CPU profiling (if requested)
+	startCpuProfiling(cmd)
+	//
+	batched := GetFlag(cmd, "batched")
+	//
+	cfg.padding.Right = GetUint(cmd, "padding")
+	cfg.report = GetFlag(cmd, "report")
+	cfg.reportPadding = GetUint(cmd, "report-context")
+	cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
+	cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
+	cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
+	// TODO: support true ranges
+	cfg.padding.Left = cfg.padding.Right
+	// Read in constraint files
+	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
+	// enable / disable coverage
+	if covfile := GetString(cmd, "coverage"); covfile != "" {
+		cfg.coverage = util.Some(covfile)
+	}
+	//
+	tracefile := args[0]
+	//
+	checkWithLegacyPipeline(cfg, batched, tracefile, schemas)
+	// Write memory profiling (if requested)
+	writeMemProfile(cmd)
+	// Stop cpu profiling (if was requested)
+	stopCpuProfiling(cmd)
 }
 
 func startCpuProfiling(cmd *cobra.Command) {
@@ -148,8 +157,8 @@ type checkConfig struct {
 }
 
 // Check raw constraints using the legacy pipeline.
-func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string,
-	schemas cmd_util.SchemaStack[bls12_377.Element]) {
+func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, tracefile string,
+	schemas cmd_util.SchemaStack[F]) {
 	//
 	var (
 		traces []lt.TraceFile
@@ -182,8 +191,8 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string,
 	}
 }
 
-func checkTrace(ir string, traces []lt.TraceFile, schema sc.AnySchema[bls12_377.Element],
-	builder ir.TraceBuilder[bls12_377.Element], cfg checkConfig) bool {
+func checkTrace[F field.Element[F]](ir string, traces []lt.TraceFile, schema sc.AnySchema[F],
+	builder ir.TraceBuilder[F], cfg checkConfig) bool {
 	//
 	for _, tf := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -214,7 +223,7 @@ func checkTrace(ir string, traces []lt.TraceFile, schema sc.AnySchema[bls12_377.
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
-func reportFailures(ir string, failures []sc.Failure, trace tr.Trace[bls12_377.Element], cfg checkConfig) {
+func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], cfg checkConfig) {
 	errs := make([]error, len(failures))
 	for i, f := range failures {
 		errs[i] = errors.New(f.Message())
