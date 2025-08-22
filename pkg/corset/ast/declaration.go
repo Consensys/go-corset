@@ -1076,6 +1076,11 @@ type DefProperty struct {
 	// Unique handle given to this constraint.  This is primarily useful for
 	// debugging (i.e. so we know which constaint failed, etc).
 	Handle string
+	// Domain of this property which, if empty, indicates the property applies
+	// to all rows. Otherwise, a given value indicates a single row on which
+	// this property should apply (where negative values are taken from the end,
+	// meaning that -1 represents the last row of a given module).
+	Domain util.Option[int]
 	// The assertion itself which (when active) should evaluate to zero for the
 	// relevant set of rows.
 	Assertion Expr
@@ -1084,8 +1089,8 @@ type DefProperty struct {
 }
 
 // NewDefProperty constructs a new (unfinalised) property assertion.
-func NewDefProperty(handle string, assertion Expr) *DefProperty {
-	return &DefProperty{handle, assertion, false}
+func NewDefProperty(handle string, domain util.Option[int], assertion Expr) *DefProperty {
+	return &DefProperty{handle, domain, assertion, false}
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe that
@@ -1119,10 +1124,29 @@ func (p *DefProperty) Finalise() {
 // Lisp converts this node into its lisp representation.  This is primarily used
 // for debugging purposes.
 func (p *DefProperty) Lisp() sexp.SExp {
-	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("defproperty"),
-		sexp.NewSymbol(p.Handle),
-		p.Assertion.Lisp()})
+	var (
+		list = sexp.NewList([]sexp.SExp{
+			sexp.NewSymbol("defproperty"),
+			sexp.NewSymbol(p.Handle)})
+		//
+
+	)
+	// domain
+	if p.Domain.HasValue() {
+		var (
+			domain    = fmt.Sprintf("{%d}", p.Domain.Unwrap())
+			modifiers = sexp.EmptyList()
+		)
+		//
+		modifiers.Append(sexp.NewSymbol(":domain"))
+		modifiers.Append(sexp.NewSymbol(domain))
+		//
+		list.Append(modifiers)
+	}
+	//
+	list.Append(p.Assertion.Lisp())
+	//
+	return list
 }
 
 // ============================================================================

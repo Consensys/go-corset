@@ -61,9 +61,10 @@ func newAir[F field.Element[F], C ConstraintBound[F]](constraint C) Air[F, C] {
 }
 
 // NewAssertion constructs a new AIR assertion
-func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, term ir.Testable[F]) Assertion[F] {
+func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int], term ir.Testable[F],
+) Assertion[F] {
 	//
-	return newAir(constraint.NewAssertion(handle, ctx, term))
+	return newAir(constraint.NewAssertion(handle, ctx, domain, term))
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.

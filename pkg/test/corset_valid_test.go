@@ -232,6 +232,13 @@ func Test_Valid_Property_02(t *testing.T) {
 	test_util.Check(t, false, "valid/property_02")
 }
 
+func Test_Valid_Property_03(t *testing.T) {
+	test_util.Check(t, false, "valid/property_03")
+}
+func Test_Valid_Property_04(t *testing.T) {
+	test_util.Check(t, false, "valid/property_04")
+}
+
 // ===================================================================
 // Shift Tests
 // ===================================================================
