@@ -24,6 +24,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +42,10 @@ var inspectCmd = &cobra.Command{
 
 // Available instances
 var inspectCmds = []FieldAgnosticCmd{
-	FieldAgnosticCmd{sc.BLS12_377, runInspectCmd[bls12_377.Element]},
+	{sc.GF_251, runInspectCmd[gf251.Element]},
+	{sc.GF_8209, runInspectCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runInspectCmd[koalabear.Element]},
+	{sc.BLS12_377, runInspectCmd[bls12_377.Element]},
 }
 
 func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {

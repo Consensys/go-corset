@@ -28,6 +28,7 @@ var BLS12_377 = FieldConfig{"BLS12_377", 252, 160}
 var FIELD_CONFIGS = []FieldConfig{
 	GF_251,
 	GF_8209,
+	KOALABEAR_16,
 	BLS12_377,
 }
 

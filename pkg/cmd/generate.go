@@ -24,6 +24,9 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +42,10 @@ var generateCmd = &cobra.Command{
 
 // Available instances
 var generateCmds = []FieldAgnosticCmd{
-	FieldAgnosticCmd{sc.BLS12_377, runGenerateCmd[bls12_377.Element]},
+	{sc.GF_251, runGenerateCmd[gf251.Element]},
+	{sc.GF_8209, runGenerateCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runGenerateCmd[koalabear.Element]},
+	{sc.BLS12_377, runGenerateCmd[bls12_377.Element]},
 }
 
 func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {

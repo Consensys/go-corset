@@ -30,6 +30,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
@@ -50,7 +53,10 @@ var traceCmd = &cobra.Command{
 
 // Available instances
 var traceCmds = []FieldAgnosticCmd{
-	FieldAgnosticCmd{sc.BLS12_377, runTraceCmd[bls12_377.Element]},
+	{sc.GF_251, runTraceCmd[gf251.Element]},
+	{sc.GF_8209, runTraceCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runTraceCmd[koalabear.Element]},
+	{sc.BLS12_377, runTraceCmd[bls12_377.Element]},
 }
 
 func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {

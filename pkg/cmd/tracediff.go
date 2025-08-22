@@ -12,6 +12,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/word"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +32,10 @@ var traceDiffCmd = &cobra.Command{
 
 // Available instances
 var traceDiffCmds = []FieldAgnosticCmd{
-	FieldAgnosticCmd{sc.BLS12_377, runTraceDiffCmd[bls12_377.Element]},
+	{sc.GF_251, runTraceDiffCmd[gf251.Element]},
+	{sc.GF_8209, runTraceDiffCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runTraceDiffCmd[koalabear.Element]},
+	{sc.BLS12_377, runTraceDiffCmd[bls12_377.Element]},
 }
 
 func runTraceDiffCmd[F field.Element[F]](cmd *cobra.Command, args []string) {

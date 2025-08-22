@@ -21,6 +21,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +40,10 @@ var compileCmd = &cobra.Command{
 
 // Available instances
 var compileCmds = []FieldAgnosticCmd{
-	FieldAgnosticCmd{sc.BLS12_377, runCompileCmd[bls12_377.Element]},
+	{sc.GF_251, runCompileCmd[gf251.Element]},
+	{sc.GF_8209, runCompileCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runCompileCmd[koalabear.Element]},
+	{sc.BLS12_377, runCompileCmd[bls12_377.Element]},
 }
 
 func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
