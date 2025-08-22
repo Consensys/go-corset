@@ -53,11 +53,11 @@ func (p *Jmp) Split(env schema.RegisterAllocator) []Code {
 	return []Code{p}
 }
 
-func (p *Jmp) String(fn schema.Module) string {
+func (p *Jmp) String(fn schema.RegisterMap) string {
 	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Jmp) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return nil
 }

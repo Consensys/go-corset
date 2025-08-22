@@ -28,7 +28,11 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
@@ -43,78 +47,94 @@ var traceCmd = &cobra.Command{
 	it from one format (e.g. lt) to another (e.g. json),
 	or filtering out modules, or listing columns, etc.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var traces []lt.TraceFile
-		// Configure log level
-		if GetFlag(cmd, "verbose") {
-			log.SetLevel(log.DebugLevel)
-		}
-		// Parse trace
-		columns := GetFlag(cmd, "columns")
-		batched := GetFlag(cmd, "batched")
-		modules := GetFlag(cmd, "modules")
-		stats := GetFlag(cmd, "stats")
-		includes := GetStringArray(cmd, "include")
-		print := GetFlag(cmd, "print")
-		start := GetUint(cmd, "start")
-		end := GetUint(cmd, "end")
-		max_width := GetUint(cmd, "max-width")
-		padding := GetUint(cmd, "padding")
-		filter := GetString(cmd, "filter")
-		output := GetString(cmd, "out")
-		metadata := GetFlag(cmd, "metadata")
-		// Read in constraint files
-		schemas := *getSchemaStack(cmd, SCHEMA_OPTIONAL, args[1:]...)
-		builder := schemas.TraceBuilder().WithPadding(padding)
-		// Parse trace file(s)
-		if batched {
-			// batched mode
-			traces = ReadBatchedTraceFile(args[0])
-		} else {
-			// unbatched (i.e. normal) mode
-			traces = []lt.TraceFile{ReadTraceFile(args[0])}
-			// Print meta-data (if requested)
-			if metadata {
-				printTraceFileHeader(&traces[0].Header)
-			}
-		}
-		//
-		if builder.Expanding() && !schemas.HasUniqueSchema() {
-			fmt.Println("must specify one of --asm/uasm/mir/air")
-			os.Exit(2)
-		} else if builder.Expanding() {
-			// Expand all the traces
-			for i, cols := range traces {
-				traces[i] = expandColumns(cols, schemas.UniqueSchema(), builder)
-			}
-		}
-		// Now manipulate traces
-		for i := range traces {
-			// construct filters
-			if filter != "" {
-				traces[i] = filterColumns(traces[i], filter)
-			}
-			if start != 0 || end != math.MaxUint {
-				sliceColumns(traces[i], start, end)
-			}
-			if columns {
-				listColumns(max_width, traces[i], includes)
-			}
-			if modules {
-				listModules(max_width, traces[i])
-			}
-			if stats {
-				summaryStats(traces[i])
-			}
-
-			if print {
-				printTrace(start, max_width, traces[i])
-			}
-		}
-		// Write out results (if requested)
-		if output != "" {
-			writeBatchedTracesFile(output, traces...)
-		}
+		runFieldAgnosticCmd(cmd, args, traceCmds)
 	},
+}
+
+// Available instances
+var traceCmds = []FieldAgnosticCmd{
+	{sc.GF_251, runTraceCmd[gf251.Element]},
+	{sc.GF_8209, runTraceCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runTraceCmd[koalabear.Element]},
+	{sc.BLS12_377, runTraceCmd[bls12_377.Element]},
+}
+
+func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var traces []lt.TraceFile
+	// Configure log level
+	if GetFlag(cmd, "verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+	// Parse trace
+	columns := GetFlag(cmd, "columns")
+	batched := GetFlag(cmd, "batched")
+	modules := GetFlag(cmd, "modules")
+	stats := GetFlag(cmd, "stats")
+	includes := GetStringArray(cmd, "include")
+	print := GetFlag(cmd, "print")
+	start := GetUint(cmd, "start")
+	end := GetUint(cmd, "end")
+	max_width := GetUint(cmd, "max-width")
+	padding := GetUint(cmd, "padding")
+	filter := GetString(cmd, "filter")
+	output := GetString(cmd, "out")
+	metadata := GetFlag(cmd, "metadata")
+	// Read in constraint files
+	schemas := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
+	builder := schemas.TraceBuilder().WithPadding(padding)
+	// Parse trace file(s)
+	if batched {
+		// batched mode
+		traces = ReadBatchedTraceFile(args[0])
+	} else {
+		// unbatched (i.e. normal) mode
+		traces = []lt.TraceFile{ReadTraceFile(args[0])}
+		// Print meta-data (if requested)
+		if metadata {
+			printTraceFileHeader(&traces[0].Header)
+		}
+	}
+	//
+	if builder.Expanding() && !schemas.HasUniqueSchema() {
+		fmt.Println("must specify one of --asm/uasm/mir/air")
+		os.Exit(2)
+	} else if builder.Expanding() {
+		// Expand all the traces
+		for i, cols := range traces {
+			traces[i] = expandColumns(cols, schemas.UniqueConcreteSchema(), builder)
+		}
+	}
+	// Now manipulate traces
+	for i := range traces {
+		// construct filters
+		if filter != "" {
+			traces[i] = filterColumns(traces[i], filter)
+		}
+
+		if start != 0 || end != math.MaxUint {
+			sliceColumns(traces[i], start, end)
+		}
+
+		if columns {
+			listColumns(max_width, traces[i], includes)
+		}
+
+		if modules {
+			listModules(max_width, traces[i])
+		}
+
+		if stats {
+			summaryStats(traces[i])
+		}
+
+		if print {
+			printTrace(start, max_width, traces[i])
+		}
+	}
+	// Write out results (if requested)
+	if output != "" {
+		writeBatchedTracesFile(output, traces...)
+	}
 }
 
 func init() {
@@ -139,11 +159,12 @@ func init() {
 // RawColumn provides a convenient alias
 type RawColumn = trace.RawColumn[word.BigEndian]
 
-func expandColumns(tf lt.TraceFile, schema sc.AnySchema[bls12_377.Element], builder ir.TraceBuilder) lt.TraceFile {
+func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], bldr ir.TraceBuilder[F]) lt.TraceFile {
+	//
 	var (
 		rcols []RawColumn
 		// Construct expanded tr
-		tr, errs = builder.Build(schema, tf)
+		tr, errs = bldr.Build(schema, tf)
 		//
 		arrBuilder = word.NewDynamicArrayBuilder[word.BigEndian]()
 	)

@@ -53,11 +53,11 @@ func (p *Ret) Split(env schema.RegisterAllocator) []Code {
 	return []Code{p}
 }
 
-func (p *Ret) String(fn schema.Module) string {
+func (p *Ret) String(fn schema.RegisterMap) string {
 	return "ret"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Ret) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return nil
 }

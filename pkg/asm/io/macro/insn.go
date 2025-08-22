@@ -61,7 +61,7 @@ type IoInstruction interface {
 	Link(bus io.Bus)
 }
 
-func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn schema.Module,
+func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn schema.RegisterMap,
 	c big.Int, op string) string {
 	//
 	var (

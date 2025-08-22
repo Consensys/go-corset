@@ -58,7 +58,7 @@ func (p *Add[F, T]) ApplyShift(shift int) T {
 func (p *Add[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Add[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
+func (p *Add[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
@@ -94,7 +94,7 @@ func (p *Add[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *Add[F, T]) Simplify(casts bool) T {
-	return simplifySum[F, T](p.Args, casts)
+	return simplifySum(p.Args, casts)
 }
 
 // Substitute implementation for Substitutable interface.

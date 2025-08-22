@@ -21,14 +21,13 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
 // schema and set of input columns.  The goal is to encapsulate all of the logic
 // around building a trace.
-type TraceBuilder struct {
+type TraceBuilder[F field.Element[F]] struct {
 	// Indicates whether or not to perform defensive padding.  This is where
 	// padding rows are appended and/or prepended to ensure no constraint in the
 	// active region of the trace is clipped.  Whilst not strictly necessary,
@@ -78,13 +77,13 @@ type columnId struct {
 
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
-func NewTraceBuilder() TraceBuilder {
-	return TraceBuilder{true, true, true, true, 0, true, math.MaxUint, nil}
+func NewTraceBuilder[F field.Element[F]]() TraceBuilder[F] {
+	return TraceBuilder[F]{true, true, true, true, 0, true, math.MaxUint, nil}
 }
 
 // WithDefensivePadding updates a given builder configuration to apply defensive padding
 // (or not).
-func (tb TraceBuilder) WithDefensivePadding(flag bool) TraceBuilder {
+func (tb TraceBuilder[F]) WithDefensivePadding(flag bool) TraceBuilder[F] {
 	ntb := tb
 	ntb.defensive = flag
 	//
@@ -92,7 +91,7 @@ func (tb TraceBuilder) WithDefensivePadding(flag bool) TraceBuilder {
 }
 
 // WithExpansionChecks enables runtime safety checks on the expanded trace.
-func (tb TraceBuilder) WithExpansionChecks(flag bool) TraceBuilder {
+func (tb TraceBuilder[F]) WithExpansionChecks(flag bool) TraceBuilder[F] {
 	ntb := tb
 	ntb.checks = flag
 	//
@@ -101,7 +100,7 @@ func (tb TraceBuilder) WithExpansionChecks(flag bool) TraceBuilder {
 
 // WithExpansion updates a given builder configuration to perform trace expansion (or
 // not).
-func (tb TraceBuilder) WithExpansion(flag bool) TraceBuilder {
+func (tb TraceBuilder[F]) WithExpansion(flag bool) TraceBuilder[F] {
 	ntb := tb
 	ntb.expand = flag
 	//
@@ -109,13 +108,13 @@ func (tb TraceBuilder) WithExpansion(flag bool) TraceBuilder {
 }
 
 // Expanding indicates whether or not this builder will expand the trace.
-func (tb TraceBuilder) Expanding() bool {
+func (tb TraceBuilder[F]) Expanding() bool {
 	return tb.expand
 }
 
 // WithRegisterMapping updates a given builder configuration to split the trace
 // according to a given mapping of registers.
-func (tb TraceBuilder) WithRegisterMapping(mapping sc.LimbsMap) TraceBuilder {
+func (tb TraceBuilder[F]) WithRegisterMapping(mapping sc.LimbsMap) TraceBuilder[F] {
 	ntb := tb
 	ntb.mapping = mapping
 	//
@@ -124,7 +123,7 @@ func (tb TraceBuilder) WithRegisterMapping(mapping sc.LimbsMap) TraceBuilder {
 
 // WithValidation updates a given builder configuration to perform trace validation (or
 // not).
-func (tb TraceBuilder) WithValidation(flag bool) TraceBuilder {
+func (tb TraceBuilder[F]) WithValidation(flag bool) TraceBuilder[F] {
 	ntb := tb
 	ntb.validate = flag
 	//
@@ -132,7 +131,7 @@ func (tb TraceBuilder) WithValidation(flag bool) TraceBuilder {
 }
 
 // WithPadding updates a given builder configuration to use a given amount of padding
-func (tb TraceBuilder) WithPadding(padding uint) TraceBuilder {
+func (tb TraceBuilder[F]) WithPadding(padding uint) TraceBuilder[F] {
 	ntb := tb
 	ntb.padding = padding
 	//
@@ -141,7 +140,7 @@ func (tb TraceBuilder) WithPadding(padding uint) TraceBuilder {
 
 // WithParallelism updates a given builder configuration to allow trace expansion to be
 // performed concurrently (or not).
-func (tb TraceBuilder) WithParallelism(flag bool) TraceBuilder {
+func (tb TraceBuilder[F]) WithParallelism(flag bool) TraceBuilder[F] {
 	ntb := tb
 	ntb.parallel = flag
 	//
@@ -149,13 +148,13 @@ func (tb TraceBuilder) WithParallelism(flag bool) TraceBuilder {
 }
 
 // Parallelism checks whether parallelism is enabled for this builder.
-func (tb TraceBuilder) Parallelism() bool {
+func (tb TraceBuilder[F]) Parallelism() bool {
 	return tb.parallel
 }
 
 // WithBatchSize sets the maximum number of batches to run in parallel during trace
 // expansion.
-func (tb TraceBuilder) WithBatchSize(batchSize uint) TraceBuilder {
+func (tb TraceBuilder[F]) WithBatchSize(batchSize uint) TraceBuilder[F] {
 	ntb := tb
 	ntb.batchSize = batchSize
 	//
@@ -163,32 +162,30 @@ func (tb TraceBuilder) WithBatchSize(batchSize uint) TraceBuilder {
 }
 
 // BatchSize returns the configure batch size for this builder.
-func (tb TraceBuilder) BatchSize() uint {
+func (tb TraceBuilder[F]) BatchSize() uint {
 	return tb.batchSize
 }
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder) Build(schema sc.AnySchema[bls12_377.Element], tf lt.TraceFile) (
-	trace.Trace[bls12_377.Element], []error) {
-	//
+func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.Trace[F], []error) {
 	var (
-		arrBuilder word.ArrayBuilder[bls12_377.Element]
-		cols       []trace.RawColumn[bls12_377.Element]
+		arrBuilder word.ArrayBuilder[F]
+		cols       []trace.RawColumn[F]
 		errors     []error
 	)
 	// If expansion is enabled, then we must split the trace according to the
 	// given mapping; otherwise, we simply lower the trace as is.
 	if tb.mapping != nil && tb.expand {
 		// Split raw columns, and handle any errors arising.
-		arrBuilder, cols, errors = builder.TraceSplitting[bls12_377.Element](tb.parallel, tf, tb.mapping)
+		arrBuilder, cols, errors = builder.TraceSplitting[F](tb.parallel, tf, tb.mapping)
 		// Sanity check for errors
 		if len(errors) > 0 {
 			return nil, errors
 		}
 	} else {
 		// Lower raw columns
-		arrBuilder, cols = builder.TraceLowering[bls12_377.Element](tb.parallel, tf)
+		arrBuilder, cols = builder.TraceLowering[F](tb.parallel, tf)
 	}
 	// Initialise the actual trace object
 	tr, errors := initialiseTrace(!tb.expand, schema, arrBuilder, cols)
@@ -273,7 +270,7 @@ func splitTraceColumns[F field.Element[F]](expanded bool, schema sc.AnySchema[F]
 		seen map[columnKey]bool = make(map[columnKey]bool, 0)
 	)
 	//
-	colmap, modules := initialiseColumnMap[F](expanded, schema)
+	colmap, modules := initialiseColumnMap(expanded, schema)
 	// Assign data from each input column given
 	for _, col := range cols {
 		// Lookup the module
@@ -354,7 +351,7 @@ func initialiseColumnMap[F field.Element[F]](expanded bool, schema sc.AnySchema[
 	return colmap, modules
 }
 
-func fillTraceModule[F field.Element[F]](mod sc.Module, rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
+func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
 	var (
 		traceColumns = make([]trace.ArrayColumn[F], len(rawColumns))
 	)
@@ -410,7 +407,7 @@ func determineModuleHeights[F any](tr *trace.ArrayTrace[F]) []uint {
 func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayTrace[F],
 	schema sc.AnySchema[F]) error {
 	//
-	expanded := determineModuleHeights[F](tr)
+	expanded := determineModuleHeights(tr)
 	//
 	for mid := uint(0); mid < uint(len(expanded)); mid++ {
 		spillage := sc.RequiredPaddingRows(mid, defensive, schema)
@@ -418,6 +415,7 @@ func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayT
 		// Perform the check
 		if expected != expanded[mid] {
 			name := schema.Module(mid).Name()
+			//
 			return fmt.Errorf(
 				"inconsistent expanded trace height for %s (was %d but expected %d)", name, expanded[mid], expected)
 		}

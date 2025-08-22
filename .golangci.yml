@@ -10,10 +10,10 @@ linters:
     - revive
     - staticcheck
     - unconvert
-    - unparam
+    # - unparam #was causing crash
     - unused
     - whitespace
-    - wsl
+    - wsl_v5
   settings:
     errcheck:
       check-blank: true
@@ -58,6 +58,10 @@ linters:
         - -ST1023
         - -QF1001
         - -QF1011
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
   exclusions:
     generated: lax
     paths:

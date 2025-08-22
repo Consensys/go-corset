@@ -21,7 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Expand converts an arbitrary expression into a specific column index.  In
@@ -29,9 +29,9 @@ import (
 // arbitrary expression and returning its index.  However, this can be optimised
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
-func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.RegisterId {
+func Expand[F field.Element[F]](bitwidth uint, e air.Term[F], module *air.ModuleBuilder[F]) schema.RegisterId {
 	// Check whether this is a straightforward register access.
-	if ca, ok := e.(*air.ColumnAccess); ok && ca.Shift == 0 {
+	if ca, ok := e.(*air.ColumnAccess[F]); ok && ca.Shift == 0 {
 		// Optimisation possible
 		return ca.Register
 	}
@@ -50,7 +50,7 @@ func Expand(bitwidth uint, e air.Term, module *air.ModuleBuilder) schema.Registe
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
 		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e, true))
 		// Construct v == [e]
-		v := ir.NewRegisterAccess[bls12_377.Element, air.Term](index, 0)
+		v := ir.NewRegisterAccess[F, air.Term[F]](index, 0)
 		// v - e
 		eq_e_v := ir.Subtract(v, e)
 		// Ensure (v - e) == 0, where v is value of computed column.

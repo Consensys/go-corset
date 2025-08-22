@@ -35,6 +35,20 @@ func (x Element) Hash() uint64 {
 	return hash
 }
 
+// SetBytes implementation for word.Word interface.
+func (x Element) SetBytes(bytes []byte) Element {
+	x.Element.SetBytes(bytes)
+	//
+	return x
+}
+
+// SetUint64 implementation for word.Word interface.
+func (x Element) SetUint64(val uint64) Element {
+	x.Element.SetUint64(val)
+	//
+	return x
+}
+
 // Uint64 implementation for word.Word interface.
 func (x Element) Uint64() uint64 {
 	return x.Element.Uint64()

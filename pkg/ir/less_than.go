@@ -107,7 +107,7 @@ func (p *Inequality[F, S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Inequality[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
+func (p *Inequality[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
@@ -169,8 +169,8 @@ func (p *Inequality[F, S, T]) Simplify(casts bool) S {
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc, lok := IsConstant[F](lhs)
-	rc, rok := IsConstant[F](rhs)
+	lc, lok := IsConstant(lhs)
+	rc, rok := IsConstant(rhs)
 	//
 	if lok && rok {
 		c := lc.Cmp(rc)

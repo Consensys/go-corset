@@ -39,7 +39,7 @@ func Exponent[F field.Element[F], T Term[F, T]](arg T, pow uint64) T {
 
 // ApplyShift implementation for Term interface.
 func (p *Exp[F, T]) ApplyShift(shift int) T {
-	return Exponent[F, T](p.Arg.ApplyShift(shift), p.Pow)
+	return Exponent(p.Arg.ApplyShift(shift), p.Pow)
 }
 
 // Bounds implementation for Boundable interface.
@@ -48,7 +48,7 @@ func (p *Exp[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
+func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Compute exponent

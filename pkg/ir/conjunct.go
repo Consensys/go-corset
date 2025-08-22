@@ -54,7 +54,7 @@ func Conjunction[F field.Element[F], T LogicalTerm[F, T]](terms ...T) T {
 
 // ApplyShift implementation for LogicalTerm interface.
 func (p *Conjunct[F, T]) ApplyShift(shift int) T {
-	return Conjunction[F, T](applyShiftOfTerms(p.Args, shift)...)
+	return Conjunction(applyShiftOfTerms(p.Args, shift)...)
 }
 
 // Bounds implementation for Boundable interface.
@@ -68,7 +68,7 @@ func (p *Conjunct[F, T]) ShiftRange() (int, int) {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Conjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
+func (p *Conjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	//
 	for _, disjunct := range p.Args {
 		val, _, err := disjunct.TestAt(k, tr, sc)
@@ -123,13 +123,13 @@ func (p *Conjunct[F, T]) Simplify(casts bool) T {
 	case 1:
 		return terms[0]
 	default:
-		return Conjunction[F, T](terms...)
+		return Conjunction(terms...)
 	}
 }
 
 // Substitute implementation for Substitutable interface.
 func (p *Conjunct[F, T]) Substitute(mapping map[string]F) {
-	substituteTerms[F, T](mapping, p.Args...)
+	substituteTerms(mapping, p.Args...)
 }
 
 func flatternConjunct[F field.Element[F], T LogicalTerm[F, T]](term T) []T {

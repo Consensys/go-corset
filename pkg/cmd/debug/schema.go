@@ -21,21 +21,25 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
-func PrintSchemas(stack cmd_util.SchemaStack, textwidth uint) {
+func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth uint) {
 	//
-	for _, schema := range stack.Schemas() {
+	for _, schema := range stack.AbstractSchemas() {
+		printSchema(schema, textwidth)
+	}
+	//
+	for _, schema := range stack.ConcreteSchemas() {
 		printSchema(schema, textwidth)
 	}
 }
 
 // Print out all declarations included in a given
-func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
+func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 	first := true
 	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {
@@ -50,9 +54,9 @@ func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
 		}
 		//
 		switch ith := ith.(type) {
-		case *asm.MacroFunction:
+		case *asm.MacroFunction[F]:
 			printAssemblyFunction(*ith)
-		case *asm.MicroFunction:
+		case *asm.MicroFunction[F]:
 			printAssemblyFunction(*ith)
 		default:
 			printModule(ith, schema, width)
@@ -66,7 +70,7 @@ func printSchema(schema schema.AnySchema[bls12_377.Element], width uint) {
 // Legacy module
 // ==================================================================
 
-func printModule(module schema.Module, sc schema.AnySchema[bls12_377.Element], width uint) {
+func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchema[F], width uint) {
 	formatter := sexp.NewFormatter(width)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.SFormatter{Head: "ifnot", Priority: 0})
@@ -108,7 +112,7 @@ func printModule(module schema.Module, sc schema.AnySchema[bls12_377.Element], w
 	}
 }
 
-func printRegisters(module schema.Module, prefix string, filter func(schema.Register) bool) {
+func printRegisters[F any](module schema.Module[F], prefix string, filter func(schema.Register) bool) {
 	var (
 		regT string
 	)
@@ -136,7 +140,7 @@ func printRegisters(module schema.Module, prefix string, filter func(schema.Regi
 	}
 }
 
-func countRegisters(module schema.Module, filter func(schema.Register) bool) uint {
+func countRegisters[F any](module schema.Module[F], filter func(schema.Register) bool) uint {
 	var count = uint(0)
 	//
 	for _, r := range module.Registers() {
@@ -148,9 +152,9 @@ func countRegisters(module schema.Module, filter func(schema.Register) bool) uin
 	return count
 }
 
-func requiresSpacing(c schema.Constraint[bls12_377.Element]) bool {
-	if c, ok := c.(mir.Constraint); ok {
-		if _, ok := c.Unwrap().(mir.VanishingConstraint); ok {
+func requiresSpacing[F field.Element[F]](c schema.Constraint[F]) bool {
+	if c, ok := c.(mir.Constraint[F]); ok {
+		if _, ok := c.Unwrap().(mir.VanishingConstraint[F]); ok {
 			return ok
 		}
 	}
@@ -158,7 +162,7 @@ func requiresSpacing(c schema.Constraint[bls12_377.Element]) bool {
 	return false
 }
 
-func isEmptyModule(module schema.Module) bool {
+func isEmptyModule[F any](module schema.Module[F]) bool {
 	return len(module.Registers()) == 0 &&
 		module.Constraints().Count() == 0 &&
 		module.Assignments().Count() == 0
@@ -168,7 +172,7 @@ func isEmptyModule(module schema.Module) bool {
 // Assembly Function
 // ==================================================================
 
-func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblyFunction[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
 	printAssemblySignature(f)
 	printAssemblyRegisters(f)
 	//
@@ -179,7 +183,7 @@ func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
 	fmt.Println("}")
 }
 
-func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblySignature[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
 	first := true
 	//
 	fmt.Printf("fn %s(", f.Name())
@@ -215,7 +219,7 @@ func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 	fmt.Println(") {")
 }
 
-func printAssemblyRegisters[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblyRegisters[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
 	for _, r := range f.Registers() {
 		if !r.IsInput() && !r.IsOutput() {
 			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)

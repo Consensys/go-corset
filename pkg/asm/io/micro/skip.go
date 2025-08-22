@@ -116,7 +116,7 @@ func (p *Skip) Split(env schema.RegisterAllocator) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(fn schema.Module) string {
+func (p *Skip) String(fn schema.RegisterMap) string {
 	var (
 		l = fn.Register(p.Left).Name
 	)
@@ -129,7 +129,7 @@ func (p *Skip) String(fn schema.Module) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Skip) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	var lw = fn.Register(p.Left).Width
 	//
 	if p.Right.IsUsed() {

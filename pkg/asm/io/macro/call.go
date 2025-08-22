@@ -119,7 +119,7 @@ func (p *Call) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Call) String(fn schema.Module) string {
+func (p *Call) String(fn schema.RegisterMap) string {
 	var (
 		builder strings.Builder
 		regs    = fn.Registers()
@@ -134,7 +134,7 @@ func (p *Call) String(fn schema.Module) string {
 }
 
 // Validate checks whether or not this instruction well-formed.
-func (p *Call) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *Call) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	// Check bus is assigned
 	if p.IoBus.IsUnlinked() {
 		return fmt.Errorf("unknown function")

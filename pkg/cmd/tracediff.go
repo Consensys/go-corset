@@ -6,9 +6,15 @@ import (
 	"slices"
 	"sort"
 
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/word"
 	"github.com/spf13/cobra"
 )
@@ -20,38 +26,50 @@ var traceDiffCmd = &cobra.Command{
 	Long: `Reports differences between two trace files,
 	which is useful when the trace files are expected to be identical.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if len(args) != 2 {
-			fmt.Println(cmd.UsageString())
-			os.Exit(1)
-		}
-		// Extract trace file to diagnose
-		filename1 := args[0]
-		filename2 := args[1]
-		// Read trace files
-		tracefile1 := ReadTraceFile(filename1)
-		tracefile2 := ReadTraceFile(filename2)
-		// Extract column names
-		trace1cols := extractColumnNames(tracefile1.Columns)
-		trace2cols := extractColumnNames(tracefile2.Columns)
-		// Sanity check
-		if !slices.Equal(trace1cols, trace2cols) {
-			var common set.SortedSet[string]
-			//
-			common.InsertSorted(&trace1cols)
-			common.Intersect(&trace2cols)
-			//
-			reportExtraColumns(filename1, trace1cols, common)
-			reportExtraColumns(filename2, trace2cols, common)
-			tracefile1.Columns = filterCommonColumns(tracefile1.Columns, common)
-			tracefile2.Columns = filterCommonColumns(tracefile2.Columns, common)
-		}
-		//
-		errors := parallelDiff(tracefile1.Columns, tracefile2.Columns)
-		// report any differences
-		for _, err := range errors {
-			fmt.Println(err)
-		}
+		runFieldAgnosticCmd(cmd, args, traceDiffCmds)
 	},
+}
+
+// Available instances
+var traceDiffCmds = []FieldAgnosticCmd{
+	{sc.GF_251, runTraceDiffCmd[gf251.Element]},
+	{sc.GF_8209, runTraceDiffCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runTraceDiffCmd[koalabear.Element]},
+	{sc.BLS12_377, runTraceDiffCmd[bls12_377.Element]},
+}
+
+func runTraceDiffCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		fmt.Println(cmd.UsageString())
+		os.Exit(1)
+	}
+	// Extract trace file to diagnose
+	filename1 := args[0]
+	filename2 := args[1]
+	// Read trace files
+	tracefile1 := ReadTraceFile(filename1)
+	tracefile2 := ReadTraceFile(filename2)
+	// Extract column names
+	trace1cols := extractColumnNames(tracefile1.Columns)
+	trace2cols := extractColumnNames(tracefile2.Columns)
+	// Sanity check
+	if !slices.Equal(trace1cols, trace2cols) {
+		var common set.SortedSet[string]
+		//
+		common.InsertSorted(&trace1cols)
+		common.Intersect(&trace2cols)
+		//
+		reportExtraColumns(filename1, trace1cols, common)
+		reportExtraColumns(filename2, trace2cols, common)
+		tracefile1.Columns = filterCommonColumns(tracefile1.Columns, common)
+		tracefile2.Columns = filterCommonColumns(tracefile2.Columns, common)
+	}
+	//
+	errors := parallelDiff(tracefile1.Columns, tracefile2.Columns)
+	// report any differences
+	for _, err := range errors {
+		fmt.Println(err)
+	}
 }
 
 func extractColumnNames(columns []RawColumn) set.SortedSet[string] {

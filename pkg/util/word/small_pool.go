@@ -13,7 +13,12 @@
 package word
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 )
 
@@ -58,11 +63,17 @@ func (p SmallPool[K, F]) Clone() Pool[K, F] {
 // Custom implementations
 // ============================================================================
 
-// Index for the bls12_377 curve
-var bls12_377_index []bls12_377.Element
+// Index for the GF251 field
+var gf251_index []gf251.Element
 
-// Index for the koalabear curve
+// Index for the GF8209 field
+var gf8209_index []gf8209.Element
+
+// Index for the koalabear field
 var koalabear_index []koalabear.Element
+
+// Index for the bls12_377 field
+var bls12_377_index []bls12_377.Element
 
 // Index for the bigendian word
 var bigendian_index []BigEndian
@@ -74,14 +85,18 @@ func getIndex[W Word[W]]() []W {
 	)
 	//
 	switch any(dummy).(type) {
-	case BigEndian:
-		index = any(bigendian_index).([]W)
-	case bls12_377.Element:
-		index = any(bls12_377_index).([]W)
+	case gf251.Element:
+		index = any(gf251_index).([]W)
+	case gf8209.Element:
+		index = any(gf8209_index).([]W)
 	case koalabear.Element:
 		index = any(koalabear_index).([]W)
+	case bls12_377.Element:
+		index = any(bls12_377_index).([]W)
+	case BigEndian:
+		index = any(bigendian_index).([]W)
 	default:
-		panic("small pool not supported")
+		panic(fmt.Sprintf("small pool not supported for %s", reflect.TypeOf(dummy).String()))
 	}
 	//
 	return index
@@ -92,6 +107,7 @@ func initIndex[W Word[W]]() []W {
 	//
 	for i := range uint64(65536) {
 		var ith W
+		//
 		index[i] = ith.SetUint64(i)
 	}
 	//
@@ -99,7 +115,9 @@ func initIndex[W Word[W]]() []W {
 }
 
 func init() {
-	bigendian_index = initIndex[BigEndian]()
-	bls12_377_index = initIndex[bls12_377.Element]()
+	gf251_index = initIndex[gf251.Element]()
+	gf8209_index = initIndex[gf8209.Element]()
 	koalabear_index = initIndex[koalabear.Element]()
+	bls12_377_index = initIndex[bls12_377.Element]()
+	bigendian_index = initIndex[BigEndian]()
 }

@@ -20,7 +20,7 @@ import (
 )
 
 func Test_Asm_Add(t *testing.T) {
-	test_util.Check(t, false, "asm/add")
+	test_util.CheckWithFields(t, false, "asm/add", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 // Recusion
@@ -29,7 +29,7 @@ func Test_Asm_Add(t *testing.T) {
 //		test_util.Check(t, false, "asm/byte")
 //	}
 func Test_Asm_Dec4(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/dec4", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "asm/dec4", sc.BLS12_377)
 }
 
 // See #1081
@@ -42,7 +42,7 @@ func Test_Asm_Counter(t *testing.T) {
 }
 
 func Test_Asm_Counter256(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/counter256", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "asm/counter256", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Asm_FastPow(t *testing.T) {
@@ -71,7 +71,7 @@ func Test_Asm_Max16(t *testing.T) {
 }
 
 func Test_Asm_Max256(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/max256", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "asm/max256", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Asm_MixedSmall(t *testing.T) {
@@ -94,7 +94,7 @@ func Test_Asm_SlowPow(t *testing.T) {
 // }
 
 func Test_Asm_Trim(t *testing.T) {
-	test_util.Check(t, false, "asm/trim")
+	test_util.CheckWithFields(t, false, "asm/trim", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 // Recursion
@@ -111,5 +111,5 @@ func Test_Asm_Trim(t *testing.T) {
 
 // Field Element Out-Of-Bounds
 func Test_Asm_Wcp(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/wcp", sc.BLS12_377, sc.GF_8209)
+	test_util.CheckWithFields(t, false, "asm/wcp", sc.BLS12_377, sc.KOALABEAR_16)
 }

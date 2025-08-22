@@ -800,6 +800,7 @@ func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (as
 		//
 		for i := 0; i != sexpSources.Len(); i++ {
 			var errs []SyntaxError
+			//
 			sources[i], errs = p.parseDefInterleavedSource(sexpSources.Get(i))
 			errors = append(errors, errs...)
 		}
@@ -1884,6 +1885,7 @@ func invokeParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 		args := make([]ast.Expr, list.Len()-1)
 		for i := 0; i < len(args); i++ {
 			var errs []SyntaxError
+			//
 			args[i], errs = p.translator.Translate(list.Get(i + 1))
 			errors = append(errors, errs...)
 		}

@@ -17,9 +17,7 @@ import (
 	"encoding/gob"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // MixedSchema represents a schema comprised of exactly two kinds of concrete
@@ -27,25 +25,23 @@ import (
 // on the "right" (all of the other kind).  This can be useful, for example, for
 // packaging together modules from different layers, such as assembly and legacy
 // (i.e. low-level) modules mixed together.
-type MixedSchema[M1 Module, M2 Module] struct {
+type MixedSchema[F any, M1 Module[F], M2 Module[F]] struct {
 	left  []M1
 	right []M2
 }
-
-var _ Schema[bls12_377.Element, Constraint[bls12_377.Element]] = MixedSchema[Module, Module]{}
 
 // NewMixedSchema constructs a new schema composed of two distinct sets of
 // modules, referred to as the "left" and the "right".  Those on the left are
 // allocated lower module indices, whilst the indices of those on the right
 // begin immediately following the left.
-func NewMixedSchema[M1 Module, M2 Module](leftModules []M1, rightModules []M2) MixedSchema[M1, M2] {
-	return MixedSchema[M1, M2]{leftModules, rightModules}
+func NewMixedSchema[F any, M1 Module[F], M2 Module[F]](leftModules []M1, rightModules []M2) MixedSchema[F, M1, M2] {
+	return MixedSchema[F, M1, M2]{leftModules, rightModules}
 }
 
 // Assignments returns an iterator over the assignments of this schema
 // These are the computations used to assign values to all computed columns
 // in this schema.
-func (p MixedSchema[M1, M2]) Assignments() iter.Iterator[Assignment[bls12_377.Element]] {
+func (p MixedSchema[F, M1, M2]) Assignments() iter.Iterator[Assignment[F]] {
 	leftIter := assignmentsOf(p.left)
 	rightIter := assignmentsOf(p.right)
 	//
@@ -55,7 +51,7 @@ func (p MixedSchema[M1, M2]) Assignments() iter.Iterator[Assignment[bls12_377.El
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p MixedSchema[M1, M2]) Consistent() []error {
+func (p MixedSchema[F, M1, M2]) Consistent() []error {
 	var errors []error
 	// Check left
 	for _, m := range p.left {
@@ -71,22 +67,16 @@ func (p MixedSchema[M1, M2]) Consistent() []error {
 
 // Constraints returns an iterator over all constraints defined in this
 // schema.
-func (p MixedSchema[M1, M2]) Constraints() iter.Iterator[Constraint[bls12_377.Element]] {
+func (p MixedSchema[F, M1, M2]) Constraints() iter.Iterator[Constraint[F]] {
 	leftIter := constraintsOf(p.left)
 	rightIter := constraintsOf(p.right)
 	//
 	return iter.NewAppendIterator(leftIter, rightIter)
 }
 
-// Expand a given trace according to this schema by determining appropriate
-// values for all computed columns within the schema.
-func (p MixedSchema[M1, M2]) Expand(trace.Trace[bls12_377.Element]) (trace.Trace[bls12_377.Element], []error) {
-	panic("todo")
-}
-
 // HasModule checks whether a module with the given name exists and, if so,
 // returns its module identifier.  Otherwise, it returns false.
-func (p MixedSchema[M1, M2]) HasModule(name string) (ModuleId, bool) {
+func (p MixedSchema[F, M1, M2]) HasModule(name string) (ModuleId, bool) {
 	for i := range p.Width() {
 		if p.Module(i).Name() == name {
 			return i, true
@@ -97,7 +87,7 @@ func (p MixedSchema[M1, M2]) HasModule(name string) (ModuleId, bool) {
 }
 
 // Module returns a given module in this schema.
-func (p MixedSchema[M1, M2]) Module(module uint) Module {
+func (p MixedSchema[F, M1, M2]) Module(module uint) Module[F] {
 	var (
 		n = uint(len(p.left))
 	)
@@ -111,34 +101,34 @@ func (p MixedSchema[M1, M2]) Module(module uint) Module {
 
 // Modules returns an iterator over the declared set of modules within this
 // schema.
-func (p MixedSchema[M1, M2]) Modules() iter.Iterator[Module] {
+func (p MixedSchema[F, M1, M2]) Modules() iter.Iterator[Module[F]] {
 	leftIter := iter.NewArrayIterator(p.left)
 	rightIter := iter.NewArrayIterator(p.right)
-	leftCastingIter := iter.NewCastIterator[M1, Module](leftIter)
-	rightCastingIter := iter.NewCastIterator[M2, Module](rightIter)
+	leftCastingIter := iter.NewCastIterator[M1, Module[F]](leftIter)
+	rightCastingIter := iter.NewCastIterator[M2, Module[F]](rightIter)
 	//
 	return iter.NewAppendIterator(leftCastingIter, rightCastingIter)
 }
 
 // LeftModules returns those modules which form the "left" part of this mixed
 // schema.
-func (p MixedSchema[M1, M2]) LeftModules() []M1 {
+func (p MixedSchema[F, M1, M2]) LeftModules() []M1 {
 	return p.left
 }
 
 // Register returns the given register in this schema.
-func (p MixedSchema[M1, M2]) Register(ref RegisterRef) Register {
+func (p MixedSchema[F, M1, M2]) Register(ref RegisterRef) Register {
 	return p.Module(ref.Module()).Register(ref.Register())
 }
 
 // RightModules returns those modules which form the "right" part of this mixed
 // schema.
-func (p MixedSchema[M1, M2]) RightModules() []M2 {
+func (p MixedSchema[F, M1, M2]) RightModules() []M2 {
 	return p.right
 }
 
 // Width returns the number of modules in this schema.
-func (p MixedSchema[M1, M2]) Width() uint {
+func (p MixedSchema[F, M1, M2]) Width() uint {
 	return uint(len(p.left) + len(p.right))
 }
 
@@ -147,8 +137,9 @@ func (p MixedSchema[M1, M2]) Width() uint {
 // ============================================================================
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p MixedSchema[M1, M2]) GobEncode() (data []byte, err error) {
+func (p MixedSchema[F, M1, M2]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
+	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Left modules
 	if err := gobEncoder.Encode(p.left); err != nil {
@@ -163,7 +154,7 @@ func (p MixedSchema[M1, M2]) GobEncode() (data []byte, err error) {
 }
 
 // GobDecode a previously encoded option
-func (p *MixedSchema[M1, M2]) GobDecode(data []byte) error {
+func (p *MixedSchema[F, M1, M2]) GobDecode(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	gobDecoder := gob.NewDecoder(buffer)
 	// Left modules

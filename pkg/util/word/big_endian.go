@@ -19,6 +19,7 @@ import (
 	"hash/fnv"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 )
@@ -34,7 +35,7 @@ var _ hash.Hasher[BigEndian] = BigEndian{}
 
 // NewBigEndian constructs a new big endian byte array.
 func NewBigEndian(bytes []byte) BigEndian {
-	return BigEndian{trim(bytes)}
+	return BigEndian{array.TrimLeadingZeros(bytes)}
 }
 
 // AsBigInt returns a freshly allocated big integer from the given bytes.
@@ -199,7 +200,7 @@ func (p BigEndian) PutBytes(bytes []byte) []byte {
 
 // SetBytes implementation for Word interface.
 func (p BigEndian) SetBytes(bytes []byte) BigEndian {
-	return BigEndian{trim(bytes)}
+	return BigEndian{array.TrimLeadingZeros(bytes)}
 }
 
 // SetUint64 implementation for Word interface.
@@ -208,7 +209,7 @@ func (p BigEndian) SetUint64(value uint64) BigEndian {
 	// Write big endian bytes
 	binary.BigEndian.PutUint64(bytes[:], value)
 	// Trim off leading zeros
-	return BigEndian{trim(bytes[:])}
+	return BigEndian{array.TrimLeadingZeros(bytes[:])}
 }
 
 // Uint64 implementation for Word interface.
@@ -287,13 +288,4 @@ func (p BigEndian) String() string {
 	bi := p.AsBigInt()
 	//
 	return bi.String()
-}
-
-func trim(bytes []byte) []byte {
-	// trim any leading zeros to ensure words are in a canonical form.
-	for len(bytes) > 0 && bytes[0] == 0 {
-		bytes = bytes[1:]
-	}
-	//
-	return bytes
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -40,6 +41,7 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 	//
 	for i := range p.Vars {
 		var ith Term[F, T] = p.Vars[i].ApplyShift(shift)
+		//
 		nterms[i] = ith.(*RegisterAccess[F, T])
 	}
 	//
@@ -52,7 +54,7 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 func (p *VectorAccess[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Vars) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
+func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	var shift = sc.Register(p.Vars[0].Register).Width
 	// Evaluate first argument
 	val, err := p.Vars[0].EvalAt(k, tr, sc)
@@ -82,7 +84,7 @@ func (p *VectorAccess[F, T]) IsDefined() bool {
 
 // Lisp implementation for Lispifiable interface.
 func (p *VectorAccess[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
-	return lispOfTerms(global, mapping, "::", p.Vars)
+	return lispOfTerms(global, mapping, "::", array.Reverse(p.Vars))
 }
 
 // RequiredRegisters implementation for Contextual interface.

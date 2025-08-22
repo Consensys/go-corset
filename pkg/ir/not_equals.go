@@ -53,7 +53,7 @@ func (p *NotEqual[F, S, T]) ApplyShift(shift int) S {
 
 // ShiftRange implementation for LogicalTerm interface.
 func (p *NotEqual[F, S, T]) ShiftRange() (int, int) {
-	return shiftRangeOfTerms[T](p.Lhs.(T), p.Rhs.(T))
+	return shiftRangeOfTerms(p.Lhs.(T), p.Rhs.(T))
 }
 
 // Bounds implementation for Boundable interface.
@@ -67,7 +67,7 @@ func (p *NotEqual[F, S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
+func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
@@ -119,8 +119,8 @@ func (p *NotEqual[F, S, T]) Simplify(casts bool) S {
 		rhs = p.Rhs.Simplify(casts)
 	)
 	//
-	lc, lok := IsConstant[F](lhs)
-	rc, rok := IsConstant[F](rhs)
+	lc, lok := IsConstant(lhs)
+	rc, rok := IsConstant(rhs)
 	//
 	if lok && rok {
 		// Can simplify

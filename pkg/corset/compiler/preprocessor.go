@@ -246,6 +246,7 @@ func (p *preprocessor) preprocessExpressionsInModule(exprs []ast.Expr) ([]ast.Ex
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
+			//
 			nexprs[i], errs = p.preprocessExpressionInModule(e)
 			errors = append(errors, errs...)
 			// Check for non-voidability
@@ -272,6 +273,7 @@ func (p *preprocessor) preprocessVoidableExpressionsInModule(exprs []ast.Expr) (
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
+			//
 			hirExprs[i], errs = p.preprocessExpressionInModule(e)
 			errors = append(errors, errs...)
 			// Update dirty flag

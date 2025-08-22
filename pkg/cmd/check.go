@@ -35,6 +35,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -47,44 +50,56 @@ var checkCmd = &cobra.Command{
 	Traces can be given either as JSON or binary lt files.
 	Constraints can be given either as lisp or bin files.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var cfg checkConfig
-
-		if len(args) < 2 {
-			fmt.Println(cmd.UsageString())
-			os.Exit(1)
-		}
-		// Configure log level
-		if GetFlag(cmd, "verbose") {
-			log.SetLevel(log.DebugLevel)
-		}
-		// Configure CPU profiling (if requested)
-		startCpuProfiling(cmd)
-		//
-		batched := GetFlag(cmd, "batched")
-		//
-		cfg.padding.Right = GetUint(cmd, "padding")
-		cfg.report = GetFlag(cmd, "report")
-		cfg.reportPadding = GetUint(cmd, "report-context")
-		cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
-		cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
-		cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
-		// TODO: support true ranges
-		cfg.padding.Left = cfg.padding.Right
-		// Read in constraint files
-		schemas := *getSchemaStack(cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
-		// enable / disable coverage
-		if covfile := GetString(cmd, "coverage"); covfile != "" {
-			cfg.coverage = util.Some(covfile)
-		}
-		//
-		tracefile := args[0]
-		//
-		checkWithLegacyPipeline(cfg, batched, tracefile, schemas)
-		// Write memory profiling (if requested)
-		writeMemProfile(cmd)
-		// Stop cpu profiling (if was requested)
-		stopCpuProfiling(cmd)
+		runFieldAgnosticCmd(cmd, args, checkCmds)
 	},
+}
+
+// Available instances
+var checkCmds = []FieldAgnosticCmd{
+	{sc.GF_251, runCheckCmd[gf251.Element]},
+	{sc.GF_8209, runCheckCmd[gf8209.Element]},
+	{sc.KOALABEAR_16, runCheckCmd[koalabear.Element]},
+	{sc.BLS12_377, runCheckCmd[bls12_377.Element]},
+}
+
+func runCheckCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var cfg checkConfig
+
+	if len(args) < 2 {
+		fmt.Println(cmd.UsageString())
+		os.Exit(1)
+	}
+	// Configure log level
+	if GetFlag(cmd, "verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+	// Configure CPU profiling (if requested)
+	startCpuProfiling(cmd)
+	//
+	batched := GetFlag(cmd, "batched")
+	//
+	cfg.padding.Right = GetUint(cmd, "padding")
+	cfg.report = GetFlag(cmd, "report")
+	cfg.reportPadding = GetUint(cmd, "report-context")
+	cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
+	cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
+	cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
+	// TODO: support true ranges
+	cfg.padding.Left = cfg.padding.Right
+	// Read in constraint files
+	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
+	// enable / disable coverage
+	if covfile := GetString(cmd, "coverage"); covfile != "" {
+		cfg.coverage = util.Some(covfile)
+	}
+	//
+	tracefile := args[0]
+	//
+	checkWithLegacyPipeline(cfg, batched, tracefile, schemas)
+	// Write memory profiling (if requested)
+	writeMemProfile(cmd)
+	// Stop cpu profiling (if was requested)
+	stopCpuProfiling(cmd)
 }
 
 func startCpuProfiling(cmd *cobra.Command) {
@@ -114,6 +129,7 @@ func writeMemProfile(cmd *cobra.Command) {
 		}
 		//nolint
 		defer f.Close()
+		//
 		runtime.GC()
 		//
 		if err := pprof.Lookup("allocs").WriteTo(f, 0); err != nil {
@@ -147,7 +163,9 @@ type checkConfig struct {
 }
 
 // Check raw constraints using the legacy pipeline.
-func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, schemas cmd_util.SchemaStack) {
+func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, tracefile string,
+	schemas cmd_util.SchemaStack[F]) {
+	//
 	var (
 		traces []lt.TraceFile
 		ok     bool = true
@@ -169,8 +187,8 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	//
 	stats.Log("Reading trace file")
 	// Go!
-	for i, schema := range schemas.Schemas() {
-		ir := schemas.IrName(uint(i))
+	for i, schema := range schemas.ConcreteSchemas() {
+		ir := schemas.ConcreteIrName(uint(i))
 		ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
 	}
 	//
@@ -179,8 +197,8 @@ func checkWithLegacyPipeline(cfg checkConfig, batched bool, tracefile string, sc
 	}
 }
 
-func checkTrace(ir string, traces []lt.TraceFile, schema sc.AnySchema[bls12_377.Element],
-	builder ir.TraceBuilder, cfg checkConfig) bool {
+func checkTrace[F field.Element[F]](ir string, traces []lt.TraceFile, schema sc.AnySchema[F],
+	builder ir.TraceBuilder[F], cfg checkConfig) bool {
 	//
 	for _, tf := range traces {
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
@@ -211,7 +229,7 @@ func checkTrace(ir string, traces []lt.TraceFile, schema sc.AnySchema[bls12_377.
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
-func reportFailures(ir string, failures []sc.Failure, trace tr.Trace[bls12_377.Element], cfg checkConfig) {
+func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], cfg checkConfig) {
 	errs := make([]error, len(failures))
 	for i, f := range failures {
 		errs[i] = errors.New(f.Message())

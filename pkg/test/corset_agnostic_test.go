@@ -20,7 +20,7 @@ import (
 )
 
 func Test_Agnostic_Padding_01(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/padding_01", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/padding_01", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 // func Test_Agnostic_Vanish_01(t *testing.T) {
@@ -32,32 +32,32 @@ func Test_Agnostic_Padding_01(t *testing.T) {
 // }
 
 func Test_Agnostic_Lookup_01(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_01", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_01", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_02(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_02", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_02", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_03(t *testing.T) {
 	// NOTE: BLS12_377 generates an irregular lookup (which, at the time of
 	// writing, are not supported).
-	test_util.CheckWithFields(t, false, "agnostic/lookup_03", sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_03", sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_04(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_04", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_04", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_05(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_05", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_05", sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_Agnostic_Lookup_06(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_06", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_06", sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_Agnostic_Lookup_07(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_07", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_07", sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_Agnostic_Lookup_08(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_08", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "agnostic/lookup_08", sc.BLS12_377, sc.KOALABEAR_16)
 }

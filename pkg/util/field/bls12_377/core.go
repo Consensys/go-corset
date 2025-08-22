@@ -14,6 +14,7 @@ package bls12_377
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 )
@@ -57,6 +58,11 @@ func (x Element) IsZero() bool {
 	return x.Element.IsZero()
 }
 
+// Modulus implementation for the Element interface
+func (x Element) Modulus() *big.Int {
+	return fr.Modulus()
+}
+
 // Mul x * y
 func (x Element) Mul(y Element) Element {
 	var elem fr.Element
@@ -87,20 +93,6 @@ func (x Element) ToUint32() uint32 {
 	}
 
 	return uint32(i)
-}
-
-// SetBytes implementation for Element.
-func (x Element) SetBytes(bytes []byte) Element {
-	x.Element.SetBytes(bytes)
-	//
-	return x
-}
-
-// SetUint64 implementation for Element.
-func (x Element) SetUint64(val uint64) Element {
-	x.Element.SetUint64(val)
-	//
-	return x
 }
 
 // Bytes returns the big-endian encoded value of the Element, possibly with leading zeros.

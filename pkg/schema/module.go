@@ -19,7 +19,6 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // ModuleMap provides a mapping from module identifiers (or names) to register
@@ -41,19 +40,19 @@ type ModuleId = uint
 
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
-type Module interface {
+type Module[F any] interface {
 	RegisterMap
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
-	Assignments() iter.Iterator[Assignment[bls12_377.Element]]
+	Assignments() iter.Iterator[Assignment[F]]
 	// Constraints provides access to those constraints associated with this
 	// module.
-	Constraints() iter.Iterator[Constraint[bls12_377.Element]]
+	Constraints() iter.Iterator[Constraint[F]]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent(AnySchema[bls12_377.Element]) []error
+	Consistent(AnySchema[F]) []error
 	// Identifies the length multiplier for this module.  For every trace, the
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
@@ -68,8 +67,8 @@ type Module interface {
 
 // FieldAgnosticModule captures the notion of a module which is agnostic to the
 // underlying field being used.
-type FieldAgnosticModule[M Module] interface {
-	Module
+type FieldAgnosticModule[F any, M Module[F]] interface {
+	Module[F]
 	FieldAgnostic[M]
 }
 
@@ -95,6 +94,11 @@ type Table[F any, C Constraint[F]] struct {
 
 // NewTable constructs a table module with the given registers and constraints.
 func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding bool) *Table[F, C] {
+	return &Table[F, C]{name, multiplier, padding, nil, nil, nil}
+}
+
+// Init implementation for ir.InitModule interface.
+func (p *Table[F, C]) Init(name string, multiplier uint, padding bool) *Table[F, C] {
 	return &Table[F, C]{name, multiplier, padding, nil, nil, nil}
 }
 
@@ -159,6 +163,18 @@ func (p *Table[F, C]) AllowPadding() bool {
 	return p.padding
 }
 
+// RawAssignments provides raw access to those assignments defined as part of this
+// table.
+func (p *Table[F, C]) RawAssignments() []Assignment[F] {
+	return p.assignments
+}
+
+// RawConstraints provides raw access to those constraints associated with this
+// module.
+func (p *Table[F, C]) RawConstraints() []C {
+	return p.constraints
+}
+
 // Register returns the given register in this table.
 func (p *Table[F, C]) Register(id RegisterId) Register {
 	return p.registers[id.Unwrap()]
@@ -168,6 +184,11 @@ func (p *Table[F, C]) Register(id RegisterId) Register {
 // Specifically, the index of a register in this array is its register index.
 func (p *Table[F, C]) Registers() []Register {
 	return p.registers
+}
+
+// Width returns the number of registers in this Table.
+func (p *Table[F, C]) Width() uint {
+	return uint(len(p.registers))
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
@@ -210,11 +231,6 @@ func (p *Table[F, C]) Subdivide(mapping LimbsMap) *Table[F, C] {
 	return &Table[F, C]{p.name, p.multiplier, p.padding, registers, constraints, assignments}
 }
 
-// Width returns the number of registers in this Table.
-func (p *Table[F, C]) Width() uint {
-	return uint(len(p.registers))
-}
-
 // ============================================================================
 // Mutators
 // ============================================================================
@@ -242,6 +258,7 @@ func (p *Table[F, C]) AddRegisters(registers ...Register) {
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p *Table[F, M]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
+	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Name
 	if err := gobEncoder.Encode(p.name); err != nil {

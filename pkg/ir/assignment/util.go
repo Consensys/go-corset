@@ -32,13 +32,3 @@ func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef
 	//
 	return targets
 }
-
-func toRegisterRefs(context sc.ModuleId, ids []sc.RegisterId) []sc.RegisterRef {
-	var refs = make([]sc.RegisterRef, len(ids))
-	//
-	for i, id := range ids {
-		refs[i] = sc.NewRegisterRef(context, id)
-	}
-	//
-	return refs
-}

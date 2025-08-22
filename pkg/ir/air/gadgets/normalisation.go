@@ -26,7 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -35,7 +35,7 @@ import (
 // That is, an expression which is 0 when e is 0, and 1 when e is non-zero.
 // This is done by introducing a computed column to hold the (pseudo)
 // mutliplicative inverse of e.
-func Normalise(e air.Term, module *air.ModuleBuilder) air.Term {
+func Normalise[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) air.Term[F] {
 	// Construct pseudo multiplicative inverse of e.
 	ie := applyPseudoInverseGadget(e, module)
 	// Return e * e⁻¹.
@@ -47,10 +47,10 @@ func Normalise(e air.Term, module *air.ModuleBuilder) air.Term {
 // directly using arithmetic constraints, it is done by adding a new computed
 // column which holds the multiplicative inverse.  Constraints are also added to
 // ensure it really holds the inverted value.
-func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
+func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) air.Term[F] {
 	var (
 		// Construct inverse computation
-		ie = &psuedoInverse{Expr: e}
+		ie = &psuedoInverse[F]{Expr: e}
 		// Determine computed column name
 		name = ie.Lisp(true, module).String(false)
 		// Look up column
@@ -67,29 +67,29 @@ func applyPseudoInverseGadget(e air.Term, module *air.ModuleBuilder) air.Term {
 		// Add assignment
 		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), ie, true))
 		// Construct proof of 1/e
-		inv_e := ir.NewRegisterAccess[bls12_377.Element, air.Term](index, 0)
+		inv_e := ir.NewRegisterAccess[F, air.Term[F]](index, 0)
 		// Construct e/e
 		e_inv_e := ir.Product(e, inv_e)
 		// Construct 1 == e/e
-		one_e_e := ir.Subtract(ir.Const64[bls12_377.Element, air.Term](1), e_inv_e)
+		one_e_e := ir.Subtract(ir.Const64[F, air.Term[F]](1), e_inv_e)
 		// Construct (e != 0) ==> (1 == e/e)
 		e_implies_one_e_e := ir.Product(e, one_e_e)
 		l_name := fmt.Sprintf("%s <=", name)
 		module.AddConstraint(air.NewVanishingConstraint(l_name, module.Id(), util.None[int](), e_implies_one_e_e))
 	}
 	// Done
-	return ir.NewRegisterAccess[bls12_377.Element, air.Term](index, 0)
+	return ir.NewRegisterAccess[F, air.Term[F]](index, 0)
 }
 
 // psuedoInverse represents a computation which computes the multiplicative
 // inverse of a given expression.
-type psuedoInverse struct {
-	Expr air.Term
+type psuedoInverse[F field.Element[F]] struct {
+	Expr air.Term[F]
 }
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *psuedoInverse) EvalAt(k int, tr trace.Module[bls12_377.Element], sc schema.Module) (bls12_377.Element, error) {
+func (e *psuedoInverse[F]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	// Convert expression into something which can be evaluated, then evaluate
 	// it.
 	val, err := e.Expr.EvalAt(k, tr, sc)
@@ -102,27 +102,27 @@ func (e *psuedoInverse) EvalAt(k int, tr trace.Module[bls12_377.Element], sc sch
 // AsConstant determines whether or not this is a constant expression.  If
 // so, the constant is returned; otherwise, nil is returned.  NOTE: this
 // does not perform any form of simplification to determine this.
-func (e *psuedoInverse) AsConstant() *fr.Element { return nil }
+func (e *psuedoInverse[F]) AsConstant() *fr.Element { return nil }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (e *psuedoInverse) Bounds() util.Bounds { return e.Expr.Bounds() }
+func (e *psuedoInverse[F]) Bounds() util.Bounds { return e.Expr.Bounds() }
 
 // RequiredRegisters returns the set of registers on which this term depends.
 // That is, registers whose values may be accessed when evaluating this term on
 // a given trace.
-func (e *psuedoInverse) RequiredRegisters() *set.SortedSet[uint] {
+func (e *psuedoInverse[F]) RequiredRegisters() *set.SortedSet[uint] {
 	return e.Expr.RequiredRegisters()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
-func (e *psuedoInverse) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (e *psuedoInverse[F]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return e.Expr.RequiredCells(row, mid)
 }
 
 // IsDefined implementation for Evaluable interface.
-func (e *psuedoInverse) IsDefined() bool {
+func (e *psuedoInverse[F]) IsDefined() bool {
 	// NOTE: this is technically safe given the limited way that IsDefined is
 	// used for lookup selectors.
 	return true
@@ -130,7 +130,7 @@ func (e *psuedoInverse) IsDefined() bool {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
+func (e *psuedoInverse[F]) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
 		e.Expr.Lisp(global, mapping),
@@ -138,12 +138,12 @@ func (e *psuedoInverse) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
 }
 
 // Substitute implementation for Substitutable interface.
-func (e *psuedoInverse) Substitute(mapping map[string]bls12_377.Element) {
+func (e *psuedoInverse[F]) Substitute(mapping map[string]F) {
 	panic("unreachable")
 }
 
 // ValueRange implementation for Term interface.
-func (e *psuedoInverse) ValueRange(mapping schema.RegisterMap) util_math.Interval {
+func (e *psuedoInverse[F]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
 	// This could be managed by having a mechanism for representing infinity
 	// (e.g. nil). For now, this is never actually used, so we can just ignore
 	// it.

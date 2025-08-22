@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -25,9 +26,9 @@ import (
 // assembly process.  The key is that, as this stage, the bus identifiers are
 // not fully known.  Hence, when multiple assembly items come together we must
 // "align buses appropriately between them.
-type AssemblyItem struct {
+type AssemblyItem[F field.Element[F]] struct {
 	// Components making up this assembly item.
-	Components []MacroFunction
+	Components []MacroFunction[F]
 	// Mapping of instructions back to the source file.
 	SourceMap source.Map[any]
 }
@@ -36,11 +37,11 @@ type AssemblyItem struct {
 // program, or one or more errors.  Linking is the process of connecting buses
 // which are used (e.g. by a call instruction) with their definitions (e.g. a
 // function declaration).
-func Link(items ...AssemblyItem) (MacroProgram, source.Maps[any]) {
+func Link[F field.Element[F]](items ...AssemblyItem[F]) (MacroProgram[F], source.Maps[any]) {
 	var (
 		srcmap     source.Maps[any] = *source.NewSourceMaps[any]()
 		busmap     map[string]uint  = make(map[string]uint)
-		components []*MacroFunction
+		components []*MacroFunction[F]
 	)
 	// Constuct bus and source mappings
 	for _, item := range items {
@@ -70,7 +71,7 @@ func Link(items ...AssemblyItem) (MacroProgram, source.Maps[any]) {
 // Link all buses used within this function to their intended targets.  This
 // means, for every bus used locally, settings the global bus identifier and
 // also allocated regisers for the address/data lines.
-func linkComponent(index uint, components []*MacroFunction, busmap map[string]uint) {
+func linkComponent[F field.Element[F]](index uint, components []*MacroFunction[F], busmap map[string]uint) {
 	// Mapping of bus names to allocated buses
 	var (
 		fn         = components[index]
@@ -94,7 +95,9 @@ func linkComponent(index uint, components []*MacroFunction, busmap map[string]ui
 // bus (if was not already allocated) or returning the existing bus (if it was
 // previously allocated).  Allocating a new bus requires allocating
 // corresponding I/O registers within the given function.
-func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components []*MacroFunction) io.Bus {
+func allocateBus[F field.Element[F]](busId uint, localBuses map[uint]io.Bus, index uint,
+	components []*MacroFunction[F]) io.Bus {
+	//
 	var (
 		fn      = components[index]
 		busName = components[busId].Name()
@@ -116,7 +119,9 @@ func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components 
 	return bus
 }
 
-func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunction) []io.RegisterId {
+func allocateIoRegisters[F field.Element[F]](busName string, registers []io.Register, fn *MacroFunction[F],
+) []io.RegisterId {
+	//
 	var lines []io.RegisterId
 	//
 	for _, reg := range registers {

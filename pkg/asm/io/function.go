@@ -20,7 +20,7 @@ import (
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 const (
@@ -57,7 +57,7 @@ type FunctionInstance struct {
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
-type Function[T Instruction[T]] struct {
+type Function[F field.Element[F], T Instruction[T]] struct {
 	// unique module identifier
 	id sc.ModuleId
 	// Unique name of this function.
@@ -70,47 +70,48 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](id sc.ModuleId, name string, registers []Register, code []T) Function[T] {
-	return Function[T]{id, name, registers, code}
+func NewFunction[F field.Element[F], T Instruction[T]](id sc.ModuleId, name string, registers []Register, code []T,
+) Function[F, T] {
+	return Function[F, T]{id, name, registers, code}
 }
 
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
-func (p *Function[T]) Assignments() iter.Iterator[sc.Assignment[bls12_377.Element]] {
-	var assignment = Assignment[bls12_377.Element, T]{p.id, p.name, p.registers, p.code}
+func (p *Function[F, T]) Assignments() iter.Iterator[sc.Assignment[F]] {
+	var assignment = Assignment[F, T]{p.id, p.name, p.registers, p.code}
 	//
-	return iter.NewUnitIterator[sc.Assignment[bls12_377.Element]](assignment)
+	return iter.NewUnitIterator[sc.Assignment[F]](assignment)
 }
 
 // CodeAt returns the ith instruction making up the body of this function.
-func (p *Function[T]) CodeAt(i uint) T {
+func (p *Function[F, T]) CodeAt(i uint) T {
 	return p.code[i]
 }
 
 // Code returns the instructions making up the body of this function.
-func (p *Function[T]) Code() []T {
+func (p *Function[F, T]) Code() []T {
 	return p.code
 }
 
 // Constraints provides access to those constraints associated with this
 // function.
-func (p *Function[T]) Constraints() iter.Iterator[sc.Constraint[bls12_377.Element]] {
-	var constraint Constraint[T] = Constraint[T]{p.id, p.name, p.registers, p.code}
+func (p *Function[F, T]) Constraints() iter.Iterator[sc.Constraint[F]] {
+	var constraint Constraint[F, T] = Constraint[F, T]{p.id, p.name, p.registers, p.code}
 	//
-	return iter.NewUnitIterator[sc.Constraint[bls12_377.Element]](constraint)
+	return iter.NewUnitIterator[sc.Constraint[F]](constraint)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *Function[T]) Consistent(sc.AnySchema[bls12_377.Element]) []error {
+func (p *Function[F, T]) Consistent(sc.AnySchema[F]) []error {
 	// TODO: add checks?
 	return nil
 }
 
 // Id returns the unique module identifier for this function.
-func (p *Function[T]) Id() sc.ModuleId {
+func (p *Function[F, T]) Id() sc.ModuleId {
 	return p.id
 }
 
@@ -118,13 +119,13 @@ func (p *Function[T]) Id() sc.ModuleId {
 // where every instance of this function occupies exactly one line in the
 // corresponding trace.  This is useful to know, as certain optimisations can be
 // applied for one line functions (e.g. no PC register is required).
-func (p *Function[T]) IsAtomic() bool {
+func (p *Function[F, T]) IsAtomic() bool {
 	return len(p.code) == 1
 }
 
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
-func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
+func (p *Function[F, T]) HasRegister(name string) (RegisterId, bool) {
 	for i, r := range p.registers {
 		if r.Name == name {
 			return sc.NewRegisterId(uint(i)), true
@@ -135,7 +136,7 @@ func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
 }
 
 // Inputs returns the set of input registers for this function.
-func (p *Function[T]) Inputs() []Register {
+func (p *Function[F, T]) Inputs() []Register {
 	var inputs []Register
 	//
 	for _, r := range p.registers {
@@ -150,24 +151,24 @@ func (p *Function[T]) Inputs() []Register {
 // LengthMultiplier identifies the length multiplier for this module.  For every
 // trace, the height of the corresponding module must be a multiple of this.
 // This is used specifically to support interleaving constraints.
-func (p *Function[T]) LengthMultiplier() uint {
+func (p *Function[F, T]) LengthMultiplier() uint {
 	return 1
 }
 
 // AllowPadding determines whether the given module supports padding at the
 // beginning of the module.  Assembly modules do not support padding, as this
 // causes various problems of its own.
-func (p *Function[T]) AllowPadding() bool {
+func (p *Function[F, T]) AllowPadding() bool {
 	return false
 }
 
 // Name returns the name of this function.
-func (p *Function[T]) Name() string {
+func (p *Function[F, T]) Name() string {
 	return p.name
 }
 
 // Outputs returns the set of output registers for this function.
-func (p *Function[T]) Outputs() []Register {
+func (p *Function[F, T]) Outputs() []Register {
 	var outputs []Register
 	//
 	for _, r := range p.registers {
@@ -180,48 +181,24 @@ func (p *Function[T]) Outputs() []Register {
 }
 
 // Register returns the ith register used in this function.
-func (p *Function[T]) Register(id sc.RegisterId) Register {
+func (p *Function[F, T]) Register(id sc.RegisterId) Register {
 	return p.registers[id.Unwrap()]
 }
 
 // Registers returns the set of all registers used during execution of this
 // function.
-func (p *Function[T]) Registers() []Register {
+func (p *Function[F, T]) Registers() []Register {
 	return p.registers
 }
 
-// Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Function[T]) Subdivide(mapping sc.LimbsMap) *Function[T] {
-	var (
-		// Construct suitable splitting environment
-		env = sc.NewAllocator(mapping.ModuleOf(p.name))
-		// Updated instruction sequence
-		ninsns []T
-	)
-	// Split instructions
-	for _, insn := range p.Code() {
-		var ith Instruction[T] = insn
-		//nolint
-		if i, ok := ith.(SplittableInstruction[T]); ok {
-			ninsns = append(ninsns, i.SplitRegisters(env))
-		} else {
-			panic("non-field agnostic instruction encountered")
-		}
-	}
-	// Done
-	nf := NewFunction(p.Id(), p.Name(), env.Limbs(), ninsns)
-	//
-	return &nf
-}
-
 // Width identifiers the number of registers in this function.
-func (p *Function[T]) Width() uint {
+func (p *Function[F, T]) Width() uint {
 	return uint(len(p.registers))
 }
 
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width uint) RegisterId {
+func (p *Function[F, T]) AllocateRegister(kind sc.RegisterType, name string, width uint) RegisterId {
 	var (
 		index = uint(len(p.registers))
 		// Default padding (for now)
@@ -238,7 +215,7 @@ func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width 
 // ============================================================================
 
 // nolint
-func (p *Function[T]) GobEncode() ([]byte, error) {
+func (p *Function[F, T]) GobEncode() ([]byte, error) {
 	var buffer bytes.Buffer
 	gobEncoder := gob.NewEncoder(&buffer)
 	//
@@ -258,7 +235,7 @@ func (p *Function[T]) GobEncode() ([]byte, error) {
 }
 
 // nolint
-func (p *Function[T]) GobDecode(data []byte) error {
+func (p *Function[F, T]) GobDecode(data []byte) error {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)

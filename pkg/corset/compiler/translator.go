@@ -31,13 +31,19 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
+type mirModule = mir.Module[bls12_377.Element]
+type mirConstraint = mir.Constraint[bls12_377.Element]
+type mirTerm = mir.Term[bls12_377.Element]
+type mirLogicalTerm = mir.LogicalTerm[bls12_377.Element]
+type mirRegisterAccess = mir.RegisterAccess[bls12_377.Element]
+
 // SchemaBuilder is used within this translator for building the final mixed MIR
 // schema.
-type SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, mir.Constraint, mir.Term]
+type SchemaBuilder = ir.SchemaBuilder[bls12_377.Element, mirConstraint, mirTerm]
 
 // ModuleBuilder is used within this translator for building the various modules
 // which are contained within the mixed MIR schema.
-type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mir.Constraint, mir.Term]
+type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mirConstraint, mirTerm]
 
 // TranslateCircuit translates the components of a Corset circuit and add them
 // to the schema.  By the time we get to this point, all malformed source files
@@ -45,22 +51,24 @@ type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mir.Constraint, mir.Ter
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit[M schema.Module](
+func TranslateCircuit[M schema.Module[bls12_377.Element]](
 	env Environment,
 	srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit,
-	externs ...M) (schema.MixedSchema[M, mir.Module], []SyntaxError) {
+	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mirModule], []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[bls12_377.Element, mir.Constraint, mir.Term](externs...)
+	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm](externs...)
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
 	// Translate everything else
 	if errs := t.translateDeclarations(circuit); len(errs) > 0 {
-		return schema.MixedSchema[M, mir.Module]{}, errs
+		return schema.MixedSchema[bls12_377.Element, M, mirModule]{}, errs
 	}
+	// Build concrete modules from schema
+	modules := ir.BuildSchema[mirModule](t.schema)
 	// Finally, construct the mixed schema
-	return schema.NewMixedSchema(externs, t.schema.Build()), nil
+	return schema.NewMixedSchema(externs, modules), nil
 }
 
 // Translator packages up information necessary for translating a circuit into
@@ -288,8 +296,8 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 		// rows).
 		util.None[int](),
 		//
-		ir.Equals[bls12_377.Element, mir.LogicalTerm](
-			ir.NewRegisterAccess[bls12_377.Element, mir.Term](target.Register(), 0), computation),
+		ir.Equals[bls12_377.Element, mirLogicalTerm](
+			ir.NewRegisterAccess[bls12_377.Element, mirTerm](target.Register(), 0), computation),
 	))
 	// Done
 	return nil
@@ -349,7 +357,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 	if decl.Guard != nil {
 		// Translate (optional) guard
 		gexpr, guardErrors := t.translateOptionalExpression(decl.Guard, module, 0)
-		guard := ir.Equals[bls12_377.Element, mir.LogicalTerm](gexpr, ir.Const64[bls12_377.Element, mir.Term](0))
+		guard := ir.Equals[bls12_377.Element, mirLogicalTerm](gexpr, ir.Const64[bls12_377.Element, mirTerm](0))
 		expr = ir.IfThenElse(guard, nil, expr)
 		// Combine errors
 		errors = append(errors, guardErrors...)
@@ -358,7 +366,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 	if decl.Perspective != nil {
 		// Translate (optional) perspective selector
 		sexpr, selectorErrors := t.translateSelectorInModule(decl.Perspective, module)
-		selector := ir.Equals[bls12_377.Element, mir.LogicalTerm](sexpr, ir.Const64[bls12_377.Element, mir.Term](0))
+		selector := ir.Equals[bls12_377.Element, mirLogicalTerm](sexpr, ir.Const64[bls12_377.Element, mirTerm](0))
 		expr = ir.IfThenElse(selector, nil, expr)
 		// Combine errors
 		errors = append(errors, selectorErrors...)
@@ -376,7 +384,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 // a defconstraint may not be part of a perspective and, hence, would have no
 // selector.
 func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
-	module *ModuleBuilder) (mir.Term, []SyntaxError) {
+	module *ModuleBuilder) (mirTerm, []SyntaxError) {
 	//
 	if perspective != nil {
 		return t.translateExpression(perspective.InnerBinding().Selector, module, 0)
@@ -390,8 +398,8 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
 		errors  []SyntaxError
 		context ast.Context
-		sources []lookup.Vector[bls12_377.Element, mir.Term]
-		targets []lookup.Vector[bls12_377.Element, mir.Term]
+		sources []lookup.Vector[bls12_377.Element, mirTerm]
+		targets []lookup.Vector[bls12_377.Element, mirTerm]
 	)
 	// Translate sources
 	for i, ith := range decl.Targets {
@@ -420,11 +428,11 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 }
 
 func (t *translator) translateDefLookupSources(selector ast.Expr,
-	sources []ast.Expr) (lookup.Vector[bls12_377.Element, mir.Term], ast.Context, []SyntaxError) {
+	sources []ast.Expr) (lookup.Vector[bls12_377.Element, mirTerm], ast.Context, []SyntaxError) {
 	// Determine context of ith set of targets
 	var (
 		context, j = ast.ContextOfExpressions(sources...)
-		vector     lookup.Vector[bls12_377.Element, mir.Term]
+		vector     lookup.Vector[bls12_377.Element, mirTerm]
 	)
 	// Include selector (when present)
 	if selector != nil {
@@ -433,7 +441,7 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
 	if context.IsConflicted() {
-		return lookup.Vector[bls12_377.Element, mir.Term]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
+		return lookup.Vector[bls12_377.Element, mirTerm]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
 	}
 	// Determine enclosing module
 	module := t.moduleOf(context)
@@ -458,7 +466,7 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	return vector, context, errors
 }
 
-func (t *translator) checkLookupVector(vector lookup.Vector[bls12_377.Element, mir.Term], selector ast.Expr,
+func (t *translator) checkLookupVector(vector lookup.Vector[bls12_377.Element, mirTerm], selector ast.Expr,
 	terms []ast.Expr) []SyntaxError {
 	//
 	var (
@@ -520,7 +528,7 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util
 		targets = make([]schema.RegisterRef, 1)
 		//
 		sourceContext ast.Context
-		sourceTerms   = make([]mir.Term, len(decl.Sources))
+		sourceTerms   = make([]mirTerm, len(decl.Sources))
 		// Lookup target register info
 		targetPath = path.Extend(decl.Target.Name())
 		targetId   = t.env.RegisterOf(targetPath)
@@ -566,7 +574,7 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 	var (
 		context     ast.Context = ast.VoidContext()
 		targets                 = make([]schema.RegisterId, len(decl.Sources))
-		targetTerms             = make([]mir.Term, len(decl.Sources))
+		targetTerms             = make([]mirTerm, len(decl.Sources))
 		sources                 = make([]schema.RegisterId, len(decl.Sources))
 		handle      strings.Builder
 	)
@@ -602,12 +610,13 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util
 	signs := slices.Clone(decl.Signs)
 	bitwidth := determineMaxBitwidth(module, targetTerms[:len(signs)])
 	// Add assignment for computing the sorted permutation
-	module.AddAssignment(assignment.NewSortedPermutation[bls12_377.Element](module.Id(), targets, signs, sources))
+	module.AddAssignment(assignment.NewSortedPermutation[bls12_377.Element](
+		toRegisterRefs(module.Id(), targets), signs, toRegisterRefs(module.Id(), sources)))
 	// Add Permutation Constraint
-	module.AddConstraint(mir.NewPermutationConstraint(handle.String(), module.Id(), targets, sources))
+	module.AddConstraint(mir.NewPermutationConstraint[bls12_377.Element](handle.String(), module.Id(), targets, sources))
 	// Add Sorting Constraint
 	module.AddConstraint(
-		mir.NewSortedConstraint(handle.String(), module.Id(), bitwidth, util.None[mir.Term](), targetTerms, signs, false))
+		mir.NewSortedConstraint(handle.String(), module.Id(), bitwidth, util.None[mirTerm](), targetTerms, signs, false))
 	//
 	return nil
 }
@@ -629,7 +638,7 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty) []SyntaxError {
 // Translate a "defsorted" declaration.
 func (t *translator) translateDefSorted(decl *ast.DefSorted) []SyntaxError {
 	var (
-		selector util.Option[mir.Term]
+		selector util.Option[mirTerm]
 		// Determine source context
 		context, _ = ast.ContextOfExpressions(decl.Sources...)
 		//
@@ -662,14 +671,15 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted) []SyntaxError {
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
 func (t *translator) translateUnitExpressions(exprs []ast.Expr, module *ModuleBuilder,
-	shift int) ([]mir.Term, []SyntaxError) {
+	shift int) ([]mirTerm, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	hirExprs := make([]mir.Term, len(exprs))
+	hirExprs := make([]mirTerm, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
+			//
 			expr, errs := t.translateExpression(e, module, shift)
 			errors = append(errors, errs...)
 			hirExprs[i] = expr
@@ -681,14 +691,15 @@ func (t *translator) translateUnitExpressions(exprs []ast.Expr, module *ModuleBu
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
 func (t *translator) translateExpressions(module *ModuleBuilder, shift int,
-	exprs ...ast.Expr) ([]mir.Term, []SyntaxError) {
+	exprs ...ast.Expr) ([]mirTerm, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	nexprs := make([]mir.Term, len(exprs))
+	nexprs := make([]mirTerm, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		if e != nil {
 			var errs []SyntaxError
+			//
 			nexprs[i], errs = t.translateExpression(e, module, shift)
 			errors = append(errors, errs...)
 		} else {
@@ -705,7 +716,7 @@ func (t *translator) translateExpressions(module *ModuleBuilder, shift int,
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
 func (t *translator) translateOptionalExpression(expr ast.Expr, module *ModuleBuilder,
-	shift int) (mir.Term, []SyntaxError) {
+	shift int) (mirTerm, []SyntaxError) {
 	//
 	if expr != nil {
 		return t.translateExpression(expr, module, shift)
@@ -717,7 +728,7 @@ func (t *translator) translateOptionalExpression(expr ast.Expr, module *ModuleBu
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
-func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, shift int) (mirTerm, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ast.ArrayAccess:
 		// Lookup underlying register info
@@ -745,7 +756,7 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		// Initialise field from bigint
 		val := field.BigInt[bls12_377.Element](e.Val)
 		//
-		return ir.Const[bls12_377.Element, mir.Term](val), nil
+		return ir.Const[bls12_377.Element, mirTerm](val), nil
 	case *ast.Exp:
 		return t.translateExp(e, module, shift)
 	case *ast.If:
@@ -773,9 +784,9 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 	}
 }
 
-func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift int) (mirTerm, []SyntaxError) {
 	var (
-		limbs  []*mir.RegisterAccess = make([]*mir.RegisterAccess, len(expr.Args))
+		limbs  []*mirRegisterAccess = make([]*mirRegisterAccess, len(expr.Args))
 		errors []SyntaxError
 	)
 	//
@@ -784,7 +795,7 @@ func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift
 			ith, errs = t.translateExpression(v, mod, shift)
 		)
 		// Sanity check it was a real register access
-		if ra, ok := ith.(*mir.RegisterAccess); ok {
+		if ra, ok := ith.(*mirRegisterAccess); ok {
 			limbs[i] = ra
 		} else if len(errs) == 0 {
 			errors = append(errors, *t.srcmap.SyntaxError(v, "invalid register access"))
@@ -796,7 +807,7 @@ func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift
 	return ir.NewVectorAccess(limbs), errors
 }
 
-func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift int) (mirTerm, []SyntaxError) {
 	arg, errs := t.translateExpression(expr.Arg, module, shift)
 	pow := expr.Pow.AsConstant()
 	// Identity constant for pow
@@ -813,7 +824,7 @@ func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift in
 	return nil, errs
 }
 
-func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int) (mirTerm, []SyntaxError) {
 	// Translate condition as a logical
 	cond, condErrs := t.translateLogical(expr.Condition, module, shift)
 	// Translate optional true / false branches
@@ -832,7 +843,7 @@ func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int)
 	return ir.IfElse(cond, args[0], args[1]), nil
 }
 
-func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift int) (mirTerm, []SyntaxError) {
 	constant := expr.Shift.AsConstant()
 	// Determine the shift constant
 	if constant == nil {
@@ -844,7 +855,7 @@ func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift i
 	return t.translateExpression(expr.Arg, mod, shift+int(constant.Int64()))
 }
 
-func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int) (mir.Term, []SyntaxError) {
+func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int) (mirTerm, []SyntaxError) {
 	if _, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		return t.registerOfVariableAccess(expr, shift)
 	} else if binding, ok := expr.Binding().(*ast.ConstantBinding); ok {
@@ -853,10 +864,10 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 		// Handle externalised constants slightly differently.
 		if binding.Extern {
 			//
-			return ir.LabelledConstant[bls12_377.Element, mir.Term](binding.Path.String(), constant), nil
+			return ir.LabelledConstant[bls12_377.Element, mirTerm](binding.Path.String(), constant), nil
 		}
 		//
-		return ir.Const[bls12_377.Element, mir.Term](constant), nil
+		return ir.Const[bls12_377.Element, mirTerm](constant), nil
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
@@ -864,13 +875,14 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 
 // Translate a sequence of zero or more logical expressions enclosed in a given module.
 func (t *translator) translateLogicals(module *ModuleBuilder, shift int,
-	exprs ...ast.Expr) ([]mir.LogicalTerm, []SyntaxError) {
+	exprs ...ast.Expr) ([]mirLogicalTerm, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
-	logicals := make([]mir.LogicalTerm, len(exprs))
+	logicals := make([]mirLogicalTerm, len(exprs))
 	// Iterate each expression in turn
 	for i, e := range exprs {
 		var errs []SyntaxError
+		//
 		logicals[i], errs = t.translateLogical(e, module, shift)
 		errors = append(errors, errs...)
 	}
@@ -882,7 +894,7 @@ func (t *translator) translateLogicals(module *ModuleBuilder, shift int,
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
 func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuilder,
-	shift int) (mir.LogicalTerm, []SyntaxError) {
+	shift int) (mirLogicalTerm, []SyntaxError) {
 	//
 	if expr != nil {
 		return t.translateLogical(expr, module, shift)
@@ -894,7 +906,7 @@ func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuild
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
-func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift int) (mir.LogicalTerm, []SyntaxError) {
+func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift int) (mirLogicalTerm, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ast.Cast:
 		if e.Type != ast.BOOL_TYPE {
@@ -924,17 +936,17 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 		//
 		switch e.Kind {
 		case ast.EQUALS:
-			return ir.Equals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
+			return ir.Equals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		case ast.NOT_EQUALS:
-			return ir.NotEquals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
+			return ir.NotEquals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		case ast.LESS_THAN:
-			return ir.LessThan[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
+			return ir.LessThan[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		case ast.LESS_THAN_EQUALS:
-			return ir.LessThanOrEquals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
+			return ir.LessThanOrEquals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		case ast.GREATER_THAN:
-			return ir.GreaterThan[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
+			return ir.GreaterThan[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		case ast.GREATER_THAN_EQUALS:
-			return ir.GreaterThanOrEquals[bls12_377.Element, mir.LogicalTerm](lhs, rhs), nil
+			return ir.GreaterThanOrEquals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		default:
 			panic("unreachable")
 		}
@@ -961,7 +973,7 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 	}
 }
 
-func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int) (mir.LogicalTerm, []SyntaxError) {
+func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int) (mirLogicalTerm, []SyntaxError) {
 	// Translate condition as a logical
 	cond, errs := t.translateLogical(expr.Condition, module, shift)
 	// Translate optional true / false branches
@@ -984,7 +996,7 @@ func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int
 }
 
 func (t *translator) translateLogicalShift(expr *ast.Shift, mod *ModuleBuilder,
-	shift int) (mir.LogicalTerm, []SyntaxError) {
+	shift int) (mirLogicalTerm, []SyntaxError) {
 	//
 	constant := expr.Shift.AsConstant()
 	// Determine the shift constant
@@ -998,7 +1010,7 @@ func (t *translator) translateLogicalShift(expr *ast.Shift, mod *ModuleBuilder,
 }
 
 // Determine the underlying register for a symbol which represents a register access.
-func (t *translator) registerOfRegisterAccess(symbol ast.Symbol, shift int) (*mir.RegisterAccess, []SyntaxError) {
+func (t *translator) registerOfRegisterAccess(symbol ast.Symbol, shift int) (*mirRegisterAccess, []SyntaxError) {
 	switch e := symbol.(type) {
 	case *ast.ArrayAccess:
 		return t.registerOfArrayAccess(e, shift)
@@ -1010,7 +1022,7 @@ func (t *translator) registerOfRegisterAccess(symbol ast.Symbol, shift int) (*mi
 }
 
 func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess,
-	shift int) (*mir.RegisterAccess, []SyntaxError) {
+	shift int) (*mirRegisterAccess, []SyntaxError) {
 	//
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); ok {
 		// Lookup register binding
@@ -1020,7 +1032,7 @@ func (t *translator) registerOfVariableAccess(expr *ast.VariableAccess,
 	return nil, t.srcmap.SyntaxErrors(expr, "invalid register access")
 }
 
-func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*mir.RegisterAccess, []SyntaxError) {
+func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*mirRegisterAccess, []SyntaxError) {
 	var (
 		errors []SyntaxError
 		min    uint = 0
@@ -1069,7 +1081,7 @@ func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 }
 
 // Map columns to appropriate module register identifiers.
-func (t *translator) registerOf(path *util.Path, shift int) *mir.RegisterAccess {
+func (t *translator) registerOf(path *util.Path, shift int) *mirRegisterAccess {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//
@@ -1111,14 +1123,24 @@ func (t *translator) registerRefOf(path *util.Path) schema.RegisterRef {
 	panic("unreachable")
 }
 
-func determineMaxBitwidth(module *ModuleBuilder, sources []mir.Term) uint {
+func toRegisterRefs(context schema.ModuleId, ids []schema.RegisterId) []schema.RegisterRef {
+	var refs = make([]schema.RegisterRef, len(ids))
+	//
+	for i, id := range ids {
+		refs[i] = schema.NewRegisterRef(context, id)
+	}
+	//
+	return refs
+}
+
+func determineMaxBitwidth(module *ModuleBuilder, sources []mirTerm) uint {
 	// Sanity check bitwidth
 	bitwidth := uint(0)
 	//
 	for _, e := range sources {
 		// Determine bitwidth of nth term
 		switch e := e.(type) {
-		case *ir.RegisterAccess[bls12_377.Element, mir.Term]:
+		case *ir.RegisterAccess[bls12_377.Element, mirTerm]:
 			reg := module.Register(e.Register)
 			//
 			if reg.Width > bitwidth {

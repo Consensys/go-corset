@@ -48,7 +48,7 @@ func (p *IfZero[F, S, T]) ApplyShift(shift int) T {
 		fb = p.FalseBranch.ApplyShift(shift)
 	)
 	//
-	return IfElse[F](c, tb, fb)
+	return IfElse(c, tb, fb)
 }
 
 // Bounds returns max shift in either the negative (left) or positive
@@ -66,7 +66,7 @@ func (p *IfZero[F, S, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
+func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	// Evaluate condition
 	cond, _, err := p.Condition.TestAt(k, tr, sc)
 	//
@@ -146,9 +146,9 @@ func (p *IfZero[F, S, T]) Simplify(casts bool) T {
 		falseBranch = p.FalseBranch.Simplify(casts)
 	)
 	// Handle reductive cases
-	if IsTrue[F](cond) {
+	if IsTrue(cond) {
 		return trueBranch
-	} else if IsFalse[F](cond) {
+	} else if IsFalse(cond) {
 		return falseBranch
 	}
 	// Done

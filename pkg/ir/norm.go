@@ -37,7 +37,7 @@ func Normalise[F field.Element[F], T Term[F, T]](arg T) T {
 
 // ApplyShift implementation for Term interface.
 func (p *Norm[F, T]) ApplyShift(shift int) T {
-	return Normalise[F](p.Arg.ApplyShift(shift))
+	return Normalise(p.Arg.ApplyShift(shift))
 }
 
 // Bounds implementation for Boundable interface.
@@ -46,7 +46,7 @@ func (p *Norm[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Norm[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
+func (p *Norm[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Normalise value (if necessary)

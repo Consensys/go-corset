@@ -47,7 +47,7 @@ func CastOf[F field.Element[F], T Term[F, T]](arg T, bitwidth uint) T {
 
 // ApplyShift implementation for Term interface.
 func (p *Cast[F, T]) ApplyShift(shift int) T {
-	return CastOf[F, T](p.Arg.ApplyShift(shift), p.BitWidth)
+	return CastOf(p.Arg.ApplyShift(shift), p.BitWidth)
 }
 
 // Bounds implementation for Boundable interface.
@@ -56,7 +56,7 @@ func (p *Cast[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
+func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Dynamic cast check
@@ -116,7 +116,7 @@ func (p *Cast[F, T]) Simplify(casts bool) T {
 		// Type failure
 		panic(fmt.Sprintf("type cast failure (have %s with expected bitwidth %d)", c.Value.String(), p.BitWidth))
 	} else if casts {
-		targ = CastOf[F, T](arg, p.BitWidth)
+		targ = CastOf(arg, p.BitWidth)
 		arg = targ.(T)
 	}
 	// elide cast

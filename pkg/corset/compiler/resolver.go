@@ -34,7 +34,7 @@ type DeclPredicate = array.Predicate[ast.Declaration]
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit[M schema.Module](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
+func ResolveCircuit[F any, M schema.Module[F]](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
 	externs ...M) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
 	scope := NewModuleScope()
@@ -603,14 +603,20 @@ func (r *resolver) finaliseDefLookupInModule(enclosing Scope, decl *ast.DefLooku
 	var errors []SyntaxError
 	// Resolve source expressions
 	for i := range decl.Sources {
-		var scope = NewLocalScope(enclosing, true, false, false)
-		errs := r.finaliseExpressionsInModule(scope, decl.Sources[i])
+		var (
+			scope = NewLocalScope(enclosing, true, false, false)
+			errs  = r.finaliseExpressionsInModule(scope, decl.Sources[i])
+		)
+
 		errors = append(errors, errs...)
 	}
 	// Resolve all target expressions
 	for i := range decl.Targets {
-		var scope = NewLocalScope(enclosing, true, false, false)
-		errs := r.finaliseExpressionsInModule(scope, decl.Targets[i])
+		var (
+			scope = NewLocalScope(enclosing, true, false, false)
+			errs  = r.finaliseExpressionsInModule(scope, decl.Targets[i])
+		)
+
 		errors = append(errors, errs...)
 	}
 	//

@@ -20,11 +20,12 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Translator encapsulates general information related to the mapping from
 // instructions down to constraints.
-type Translator[T any, E Expr[T, E], M Module[T, E, M]] struct {
+type Translator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
 	// Enclosing module to which constraints are added.
 	Module M
 	// Framining identifies any required control lines.
@@ -36,7 +37,7 @@ type Translator[T any, E Expr[T, E], M Module[T, E, M]] struct {
 }
 
 // Translate a micro-instruction at a given program counter position.
-func (p *Translator[T, E, M]) Translate(pc uint, insn micro.Instruction) {
+func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) {
 	var (
 		tr         = NewStateTranslator(*p, pc, insn)
 		constraint = tr.translateCode(0, insn.Codes)
@@ -52,8 +53,8 @@ func (p *Translator[T, E, M]) Translate(pc uint, insn micro.Instruction) {
 
 // StateTranslator packages up key information regarding how an individual state
 // of the machine is compiled down to the lower level.
-type StateTranslator[T any, E Expr[T, E], M Module[T, E, M]] struct {
-	mapping Translator[T, E, M]
+type StateTranslator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
+	mapping Translator[F, T, E, M]
 	// Program counter
 	pc uint
 	// Set of registers not mutated by the enclosing instruction.
@@ -66,8 +67,8 @@ type StateTranslator[T any, E Expr[T, E], M Module[T, E, M]] struct {
 
 // NewStateTranslator constructs a new translated for a given state (i.e.
 // program counter location) with a given mapping.
-func NewStateTranslator[T any, E Expr[T, E], M Module[T, E, M]](mapping Translator[T, E, M],
-	pc uint, insn micro.Instruction) StateTranslator[T, E, M] {
+func NewStateTranslator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]](mapping Translator[F, T, E, M],
+	pc uint, insn micro.Instruction) StateTranslator[F, T, E, M] {
 	//
 	var constants bit.Set
 	// Initially include all registers
@@ -81,7 +82,7 @@ func NewStateTranslator[T any, E Expr[T, E], M Module[T, E, M]](mapping Translat
 		}
 	}
 	//
-	return StateTranslator[T, E, M]{
+	return StateTranslator[F, T, E, M]{
 		mapping:   mapping,
 		pc:        pc,
 		constants: constants,
@@ -91,20 +92,20 @@ func NewStateTranslator[T any, E Expr[T, E], M Module[T, E, M]](mapping Translat
 }
 
 // Terminate current frame, and setup for next frame.
-func (p *StateTranslator[T, E, M]) Terminate() E {
+func (p *StateTranslator[F, T, E, M]) Terminate() E {
 	return p.WithLocalConstancies(p.mapping.Framing.Return())
 }
 
 // Goto returns an expression suitable for ensuring that the given instruction
 // transitions to the state representing the given PC value.
-func (p *StateTranslator[T, E, M]) Goto(pc uint) E {
+func (p *StateTranslator[F, T, E, M]) Goto(pc uint) E {
 	// Apply framing
 	return p.WithLocalConstancies(p.mapping.Framing.Goto(pc))
 }
 
 // Clone creates a fresh copy of this translator.
-func (p *StateTranslator[T, E, M]) Clone() StateTranslator[T, E, M] {
-	return StateTranslator[T, E, M]{
+func (p *StateTranslator[F, T, E, M]) Clone() StateTranslator[F, T, E, M] {
+	return StateTranslator[F, T, E, M]{
 		mapping:   p.mapping,
 		constants: p.constants.Clone(),
 		mutated:   p.mutated.Clone(),
@@ -116,7 +117,7 @@ func (p *StateTranslator[T, E, M]) Clone() StateTranslator[T, E, M] {
 // by a given microinstruction.  This activates forwarding for those registers
 // for all states after this, and returns suitable expressions for the
 // assignment.
-func (p *StateTranslator[T, E, M]) WriteRegisters(targets []io.RegisterId) []E {
+func (p *StateTranslator[F, T, E, M]) WriteRegisters(targets []io.RegisterId) []E {
 	lhs := make([]E, len(targets))
 	// build up the lhs
 	for i, dst := range targets {
@@ -134,7 +135,7 @@ func (p *StateTranslator[T, E, M]) WriteRegisters(targets []io.RegisterId) []E {
 // written by a given microinstruction, and also shifts them (i.e. so they can
 // be combined in a sum).  This activates forwarding for those registers for all
 // states after this, and returns suitable expressions for the assignment.
-func (p *StateTranslator[T, E, M]) WriteAndShiftRegisters(targets []io.RegisterId) []E {
+func (p *StateTranslator[F, T, E, M]) WriteAndShiftRegisters(targets []io.RegisterId) []E {
 	lhs := make([]E, len(targets))
 	offset := big.NewInt(1)
 	// build up the lhs
@@ -157,7 +158,7 @@ func (p *StateTranslator[T, E, M]) WriteAndShiftRegisters(targets []io.RegisterI
 
 // ReadRegister constructs a suitable accessor for referring to a given register.
 // This applies forwarding as appropriate.
-func (p *StateTranslator[T, E, M]) ReadRegister(reg io.RegisterId) E {
+func (p *StateTranslator[F, T, E, M]) ReadRegister(reg io.RegisterId) E {
 	rid := p.mapping.Columns[reg.Unwrap()]
 	//
 	if p.mapping.Registers[reg.Unwrap()].IsInput() {
@@ -173,7 +174,7 @@ func (p *StateTranslator[T, E, M]) ReadRegister(reg io.RegisterId) E {
 
 // ReadRegisters constructs appropriate column accesses for a given set of
 // registers.  When appropriate, forwarding will be applied automatically.
-func (p *StateTranslator[T, E, M]) ReadRegisters(sources []io.RegisterId) []E {
+func (p *StateTranslator[F, T, E, M]) ReadRegisters(sources []io.RegisterId) []E {
 	rhs := make([]E, len(sources))
 	// build up the lhs
 	for i, src := range sources {
@@ -185,7 +186,7 @@ func (p *StateTranslator[T, E, M]) ReadRegisters(sources []io.RegisterId) []E {
 
 // WithLocalConstancies adds constancy constraints for all registers not
 // mutated by a given branch through an instruction.
-func (p *StateTranslator[T, E, M]) WithLocalConstancies(condition E) E {
+func (p *StateTranslator[F, T, E, M]) WithLocalConstancies(condition E) E {
 	if p.pc > 0 {
 		for i, r := range p.mapping.Registers {
 			rid := p.mapping.Columns[i]
@@ -205,7 +206,7 @@ func (p *StateTranslator[T, E, M]) WithLocalConstancies(condition E) E {
 
 // WithGlobalConstancies adds constancy constraints for all registers not
 // mutated at all by an instruction.
-func (p *StateTranslator[T, E, M]) WithGlobalConstancies(condition E) E {
+func (p *StateTranslator[F, T, E, M]) WithGlobalConstancies(condition E) E {
 	// FIXME: following check is temporary hack
 	if p.pc > 0 {
 		for i, r := range p.mapping.Registers {

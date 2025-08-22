@@ -22,21 +22,24 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // PrintStats is used for printing summary information about a constraint set,
 // such as the number and type of constraints, etc.
-func PrintStats(stack cmd_util.SchemaStack) {
-	schemas := stack.Schemas()
-	//
-	n := 1 + uint(len(schemas))
-	m := uint(len(schemaSummarisers))
-	tbl := termio.NewTablePrinter(n, m)
+func PrintStats[F field.Element[F]](stack cmd_util.SchemaStack[F]) {
+	var (
+		schemas     = stack.ConcreteSchemas()
+		summarisers = getSummerisers[F]()
+		//
+		n   = 1 + uint(len(schemas))
+		m   = uint(len(summarisers))
+		tbl = termio.NewTablePrinter(n, m)
+	)
 	// Go!
 	for i := uint(0); i < m; i++ {
-		ith := schemaSummarisers[i]
+		ith := summarisers[i]
 		row := make([]termio.FormattedText, n)
 		row[0] = termio.NewText(ith.name)
 
@@ -56,87 +59,93 @@ func PrintStats(stack cmd_util.SchemaStack) {
 // Schema Summarisers
 // ============================================================================
 
-type schemaSummariser struct {
+type schemaSummariser[F any] struct {
 	name    string
-	summary func(sc.AnySchema[bls12_377.Element]) int
+	summary func(sc.AnySchema[F]) int
 }
 
-var schemaSummarisers []schemaSummariser = []schemaSummariser{
-	// Constraints
-	constraintCounter("Constraints", func(schema.Constraint[bls12_377.Element]) bool { return true }),
-	constraintCounter("Vanishing", isVanishingConstraint),
-	constraintCounter("Lookups", isLookupConstraint),
-	constraintCounter("Permutations", isPermutationConstraint),
-	constraintCounter("Range", isRangeConstraint),
-	// Assignments
-	assignmentCounter("Computed Columns", reflect.TypeOf((*assignment.ComputedRegister[bls12_377.Element])(nil))),
-	assignmentCounter("Computation Columns", reflect.TypeOf((*assignment.Computation[bls12_377.Element])(nil))),
-	assignmentCounter("Lexicographic Orderings", reflect.TypeOf((*assignment.LexicographicSort[bls12_377.Element])(nil))),
-	assignmentCounter("Sorted Permutations", reflect.TypeOf((*assignment.SortedPermutation[bls12_377.Element])(nil))),
-	// Columns
-	columnCounter(),
-	columnWidthSummariser(1, 1),
-	columnWidthSummariser(2, 4),
-	columnWidthSummariser(5, 8),
-	columnWidthSummariser(9, 16),
-	columnWidthSummariser(17, 32),
-	columnWidthSummariser(33, 64),
-	columnWidthSummariser(65, 128),
-	columnWidthSummariser(129, 256),
+func getSummerisers[F field.Element[F]]() []schemaSummariser[F] {
+	return []schemaSummariser[F]{
+		// Constraints
+		constraintCounter("Constraints", func(schema.Constraint[F]) bool { return true }),
+		constraintCounter("Vanishing", isVanishingConstraint[F]),
+		constraintCounter("Lookups", isLookupConstraint[F]),
+		constraintCounter("Permutations", isPermutationConstraint[F]),
+		constraintCounter("Range", isRangeConstraint[F]),
+		// Assignments
+		assignmentCounter[F]("Computed Columns",
+			reflect.TypeOf((*mir.ComputedRegister[F])(nil))),
+		assignmentCounter[F]("Computation Columns",
+			reflect.TypeOf((*assignment.Computation[F])(nil))),
+		assignmentCounter[F]("Lexicographic Orderings",
+			reflect.TypeOf((*assignment.LexicographicSort[F])(nil))),
+		assignmentCounter[F]("Sorted Permutations",
+			reflect.TypeOf((*assignment.SortedPermutation[F])(nil))),
+		// Columns
+		columnCounter[F](),
+		columnWidthSummariser[F](1, 1),
+		columnWidthSummariser[F](2, 4),
+		columnWidthSummariser[F](5, 8),
+		columnWidthSummariser[F](9, 16),
+		columnWidthSummariser[F](17, 32),
+		columnWidthSummariser[F](33, 64),
+		columnWidthSummariser[F](65, 128),
+		columnWidthSummariser[F](129, 256),
+	}
 }
 
-func isVanishingConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isVanishingConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.VanishingConstraint:
+	case air.VanishingConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.VanishingConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.VanishingConstraint[F])
 		return ok
 	}
 	//
 	return false
 }
 
-func isLookupConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isLookupConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.LookupConstraint:
+	case air.LookupConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.LookupConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.LookupConstraint[F])
 		return ok
 	}
 	//
 	return false
 }
 
-func isPermutationConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isPermutationConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.PermutationConstraint:
+	case air.PermutationConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.PermutationConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.PermutationConstraint[F])
 		return ok
 	}
 	//
 	return false
 }
 
-func isRangeConstraint(c schema.Constraint[bls12_377.Element]) bool {
+func isRangeConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	switch c := c.(type) {
-	case air.RangeConstraint:
+	case air.RangeConstraint[F]:
 		return true
-	case mir.Constraint:
-		_, ok := c.Unwrap().(mir.RangeConstraint)
+	case mir.Constraint[F]:
+		_, ok := c.Unwrap().(mir.RangeConstraint[F])
 		return ok
 	}
 	//
 	return false
 }
 
-func constraintCounter(title string, includes func(schema.Constraint[bls12_377.Element]) bool) schemaSummariser {
-	return schemaSummariser{
+func constraintCounter[F any](title string, includes func(schema.Constraint[F]) bool) schemaSummariser[F] {
+	return schemaSummariser[F]{
 		name: title,
-		summary: func(schema sc.AnySchema[bls12_377.Element]) int {
+		summary: func(schema sc.AnySchema[F]) int {
 			sum := 0
 			for iter := schema.Constraints(); iter.HasNext(); {
 				if includes(iter.Next()) {
@@ -148,10 +157,10 @@ func constraintCounter(title string, includes func(schema.Constraint[bls12_377.E
 	}
 }
 
-func assignmentCounter(title string, types ...reflect.Type) schemaSummariser {
-	return schemaSummariser{
+func assignmentCounter[F field.Element[F]](title string, types ...reflect.Type) schemaSummariser[F] {
+	return schemaSummariser[F]{
 		name: title,
-		summary: func(schema sc.AnySchema[bls12_377.Element]) int {
+		summary: func(schema sc.AnySchema[F]) int {
 			sum := 0
 			for _, t := range types {
 				sum += typeOfCounter(schema, t)
@@ -161,7 +170,7 @@ func assignmentCounter(title string, types ...reflect.Type) schemaSummariser {
 	}
 }
 
-func typeOfCounter(schema sc.AnySchema[bls12_377.Element], dyntype reflect.Type) int {
+func typeOfCounter[F field.Element[F]](schema sc.AnySchema[F], dyntype reflect.Type) int {
 	count := 0
 
 	for m := range schema.Width() {
@@ -176,10 +185,10 @@ func typeOfCounter(schema sc.AnySchema[bls12_377.Element], dyntype reflect.Type)
 	return count
 }
 
-func columnCounter() schemaSummariser {
-	return schemaSummariser{
+func columnCounter[F field.Element[F]]() schemaSummariser[F] {
+	return schemaSummariser[F]{
 		name: "Columns (all)",
-		summary: func(schema sc.AnySchema[bls12_377.Element]) int {
+		summary: func(schema sc.AnySchema[F]) int {
 			count := 0
 			for m := range schema.Width() {
 				count += int(schema.Module(m).Width())
@@ -189,10 +198,10 @@ func columnCounter() schemaSummariser {
 	}
 }
 
-func columnWidthSummariser(lowWidth uint, highWidth uint) schemaSummariser {
-	return schemaSummariser{
+func columnWidthSummariser[F field.Element[F]](lowWidth uint, highWidth uint) schemaSummariser[F] {
+	return schemaSummariser[F]{
 		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
-		summary: func(schema sc.AnySchema[bls12_377.Element]) int {
+		summary: func(schema sc.AnySchema[F]) int {
 			count := 0
 			for i := schema.Modules(); i.HasNext(); {
 				m := i.Next()

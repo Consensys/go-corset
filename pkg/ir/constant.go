@@ -75,7 +75,7 @@ func (p *Constant[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Constant[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module) (F, error) {
+func (p *Constant[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module[F]) (F, error) {
 	return p.Value, nil
 }
 

@@ -23,12 +23,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // ConstraintFailure provides structural information about a failing vanishing constraint.
-type ConstraintFailure struct {
+type ConstraintFailure[F field.Element[F]] struct {
 	// Module where constraint failed
 	Context schema.ModuleId
 	// Row on which the constraint failed
@@ -38,26 +38,26 @@ type ConstraintFailure struct {
 }
 
 // Message provides a suitable error message
-func (p *ConstraintFailure) Message() string {
+func (p *ConstraintFailure[F]) Message() string {
 	// Construct useful error message
 	return fmt.Sprintf("constraint failure (row %d): %s", p.Row, p.Msg)
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *ConstraintFailure) RequiredCells(tr trace.Trace[bls12_377.Element]) *set.AnySortedSet[trace.CellRef] {
+func (p *ConstraintFailure[F]) RequiredCells(tr trace.Trace[F]) *set.AnySortedSet[trace.CellRef] {
 	return set.NewAnySortedSet[trace.CellRef]()
 }
 
-func (p *ConstraintFailure) String() string {
+func (p *ConstraintFailure[F]) String() string {
 	return p.Message()
 }
 
 // Constraint represents a wrapper around an instruction in order for it to
 // conform to the constraint interface.
-type Constraint[T Instruction[T]] Function[T]
+type Constraint[F field.Element[F], T Instruction[T]] Function[F, T]
 
 // Accepts implementation for schema.Constraint interface.
-func (p Constraint[T]) Accepts(trace tr.Trace[bls12_377.Element], _ sc.AnySchema[bls12_377.Element],
+func (p Constraint[F, T]) Accepts(trace tr.Trace[F], _ sc.AnySchema[F],
 ) (bit.Set, sc.Failure) {
 	// Extract relevant part of the trace
 	var (
@@ -86,34 +86,34 @@ func (p Constraint[T]) Accepts(trace tr.Trace[bls12_377.Element], _ sc.AnySchema
 	// Sanity check frame is complete.
 	if !state.Terminated() {
 		msg := fmt.Sprintf("function terminated unexpectedly (pc=%d)", state.Pc())
-		return coverage, &ConstraintFailure{p.id, trModule.Height() - 1, msg}
+		return coverage, &ConstraintFailure[F]{p.id, trModule.Height() - 1, msg}
 	}
 	// Success
 	return coverage, nil
 }
 
 // Bounds implementation for schema.Constraint interface.
-func (p Constraint[T]) Bounds(module uint) util.Bounds {
+func (p Constraint[F, T]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Consistent implementation for schema.Constraint interface.
-func (p Constraint[T]) Consistent(sc.AnySchema[bls12_377.Element]) []error {
+func (p Constraint[F, T]) Consistent(sc.AnySchema[F]) []error {
 	return nil
 }
 
 // Contexts implementation for schema.Constraint interface.
-func (p Constraint[T]) Contexts() []sc.ModuleId {
+func (p Constraint[F, T]) Contexts() []sc.ModuleId {
 	return []sc.ModuleId{p.id}
 }
 
 // Name implementation for schema.Constraint interface.
-func (p Constraint[T]) Name() string {
+func (p Constraint[F, T]) Name() string {
 	return p.name
 }
 
 // Lisp implementation for schema.Constraint interface.
-func (p Constraint[T]) Lisp(schema sc.AnySchema[bls12_377.Element]) sexp.SExp {
+func (p Constraint[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("function"),
@@ -122,12 +122,12 @@ func (p Constraint[T]) Lisp(schema sc.AnySchema[bls12_377.Element]) sexp.SExp {
 }
 
 // Substitute implementation for schema.Constraint interface.
-func (p Constraint[T]) Substitute(map[string]bls12_377.Element) {
+func (p Constraint[F, T]) Substitute(map[string]F) {
 	// Do nothing since assembly instructions do not (at the time of writing)
 	// employ labelled constants.
 }
 
-func extractState(row int, state State, trace tr.Module[bls12_377.Element]) State {
+func extractState[F field.Element[F]](row int, state State, trace tr.Module[F]) State {
 	//
 	for i := range state.registers {
 		var (
@@ -137,7 +137,7 @@ func extractState(row int, state State, trace tr.Module[bls12_377.Element]) Stat
 			biVal big.Int
 		)
 		// Convert field element to big int
-		frVal.BigInt(&biVal)
+		biVal.SetBytes(frVal.Bytes())
 		// Assign corresponding register
 		state.Store(rid, biVal)
 	}
@@ -145,7 +145,7 @@ func extractState(row int, state State, trace tr.Module[bls12_377.Element]) Stat
 	return state
 }
 
-func checkState(row int, state State, mid sc.ModuleId, trace tr.Module[bls12_377.Element]) sc.Failure {
+func checkState[F field.Element[F]](row int, state State, mid sc.ModuleId, trace tr.Module[F]) sc.Failure {
 	// Check each regsiter in turn
 	for i := range trace.Width() {
 		var (
@@ -156,12 +156,13 @@ func checkState(row int, state State, mid sc.ModuleId, trace tr.Module[bls12_377
 			stVal = state.Load(rid)
 		)
 		// Convert field element to big int
-		frVal.BigInt(&biVal)
+		biVal.SetBytes(frVal.Bytes())
 		// Sanity check they match
 		if biVal.Cmp(stVal) != 0 {
 			msg := fmt.Sprintf("invalid register state (%s holds 0x%s, expected 0x%s)",
 				state.registers[i].Name, biVal.Text(16), stVal.Text(16))
-			return &ConstraintFailure{mid, uint(row), msg}
+			//
+			return &ConstraintFailure[F]{mid, uint(row), msg}
 		}
 	}
 	// Success

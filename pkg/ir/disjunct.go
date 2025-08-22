@@ -54,7 +54,7 @@ func Disjunction[F field.Element[F], T LogicalTerm[F, T]](terms ...T) T {
 
 // ApplyShift implementation for LogicalTerm interface.
 func (p *Disjunct[F, T]) ApplyShift(shift int) T {
-	return Disjunction[F, T](applyShiftOfTerms(p.Args, shift)...)
+	return Disjunction(applyShiftOfTerms(p.Args, shift)...)
 }
 
 // ShiftRange implementation for LogicalTerm interface.
@@ -68,7 +68,7 @@ func (p *Disjunct[F, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module) (bool, uint, error) {
+func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	//
 	for _, disjunct := range p.Args {
 		val, _, err := disjunct.TestAt(k, tr, sc)
@@ -123,7 +123,7 @@ func (p *Disjunct[F, T]) Simplify(casts bool) T {
 	case 1:
 		return terms[0]
 	default:
-		return Disjunction[F, T](terms...)
+		return Disjunction(terms...)
 	}
 }
 

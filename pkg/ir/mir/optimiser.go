@@ -17,6 +17,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -64,31 +65,31 @@ var DEFAULT_OPTIMISATION_LEVEL = OPTIMISATION_LEVELS[DEFAULT_OPTIMISATION_INDEX]
 
 // attempt to eliminate normalisations by undertaking a range analysis on their
 // arguments to see whether they have sufficiently small ranges.
-func eliminateNormalisationInTerm(term Term, module schema.Module,
-	cfg OptimisationConfig) Term {
+func eliminateNormalisationInTerm[F field.Element[F]](term Term[F], module schema.Module[F],
+	cfg OptimisationConfig) Term[F] {
 	switch term := term.(type) {
-	case *Add:
+	case *Add[F]:
 		args := eliminateNormalisationInTerms(term.Args, module, cfg)
-		return &Add{Args: args}
-	case *Cast:
+		return &Add[F]{Args: args}
+	case *Cast[F]:
 		arg := eliminateNormalisationInTerm(term.Arg, module, cfg)
-		return &Cast{Arg: arg, BitWidth: term.BitWidth}
-	case *Constant:
+		return &Cast[F]{Arg: arg, BitWidth: term.BitWidth}
+	case *Constant[F]:
 		return term
-	case *RegisterAccess:
+	case *RegisterAccess[F]:
 		return term
-	case *Exp:
+	case *Exp[F]:
 		arg := eliminateNormalisationInTerm(term.Arg, module, cfg)
-		return &Exp{Arg: arg, Pow: term.Pow}
-	case *Mul:
+		return &Exp[F]{Arg: arg, Pow: term.Pow}
+	case *Mul[F]:
 		args := eliminateNormalisationInTerms(term.Args, module, cfg)
-		return &Mul{Args: args}
-	case *Norm:
+		return &Mul[F]{Args: args}
+	case *Norm[F]:
 		return eliminateNormalisationInNorm(term.Arg, module, cfg)
-	case *Sub:
+	case *Sub[F]:
 		args := eliminateNormalisationInTerms(term.Args, module, cfg)
-		return &Sub{Args: args}
-	case *VectorAccess:
+		return &Sub[F]{Args: args}
+	case *VectorAccess[F]:
 		return term
 	default:
 		name := reflect.TypeOf(term).Name()
@@ -96,9 +97,9 @@ func eliminateNormalisationInTerm(term Term, module schema.Module,
 	}
 }
 
-func eliminateNormalisationInTerms(terms []Term, module schema.Module,
-	cfg OptimisationConfig) []Term {
-	nterms := make([]Term, len(terms))
+func eliminateNormalisationInTerms[F field.Element[F]](terms []Term[F], module schema.Module[F],
+	cfg OptimisationConfig) []Term[F] {
+	nterms := make([]Term[F], len(terms))
 	//
 	for i, t := range terms {
 		nterms[i] = eliminateNormalisationInTerm(t, module, cfg)
@@ -107,7 +108,9 @@ func eliminateNormalisationInTerms(terms []Term, module schema.Module,
 	return nterms
 }
 
-func eliminateNormalisationInNorm(arg Term, module schema.Module, cfg OptimisationConfig) Term {
+func eliminateNormalisationInNorm[F field.Element[F]](arg Term[F], module schema.Module[F],
+	cfg OptimisationConfig) Term[F] {
+	//
 	bounds := arg.ValueRange(module)
 	// optimise argument
 	arg = eliminateNormalisationInTerm(arg, module, cfg)
@@ -119,8 +122,8 @@ func eliminateNormalisationInNorm(arg Term, module schema.Module, cfg Optimisati
 		return arg
 	} else if cfg.InverseEliminiationLevel > 0 && bounds.Within(math.NewInterval64(-1, 1)) {
 		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
-		return &Mul{Args: []Term{arg, arg}}
+		return &Mul[F]{Args: []Term[F]{arg, arg}}
 	}
 	// Nothing happening
-	return &Norm{Arg: arg}
+	return &Norm[F]{Arg: arg}
 }

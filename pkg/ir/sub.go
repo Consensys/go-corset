@@ -54,7 +54,7 @@ func (p *Sub[F, T]) ApplyShift(shift int) T {
 func (p *Sub[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Sub[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module) (F, error) {
+func (p *Sub[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
@@ -124,7 +124,7 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 		lhs_t Term[F, T] = lhs
 		// Subtraction is harder to optimise for.  What we do is view "a - b - c" as
 		// "a - (b+c)", and optimise the right-hand side as though it were addition.
-		rhs   T          = simplifySum[F](p.Args[1:], casts)
+		rhs   T          = simplifySum(p.Args[1:], casts)
 		rhs_t Term[F, T] = rhs
 	)
 	// Check what's left
@@ -147,7 +147,7 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 		// if rhs has constant, subtract it.
 		if rc, ok := findConstant(ra.Args); ok {
 			c := lc.Value.Sub(rc)
-			nterms = mergeConstants[F](c, nterms)
+			nterms = mergeConstants(c, nterms)
 		}
 		//
 		targ = &Sub[F, T]{nterms}

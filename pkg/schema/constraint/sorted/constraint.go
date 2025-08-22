@@ -203,7 +203,7 @@ func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 }
 
 func sorted[F field.Element[F], E ir.Evaluable[F]](first, second uint, bound F, sources []E, signs []bool, strict bool,
-	trMod trace.Module[F], scMod schema.Module, lhs []F, rhs []F) (bool, error) {
+	trMod trace.Module[F], scMod schema.Module[F], lhs []F, rhs []F) (bool, error) {
 	//
 	var (
 		delta F
@@ -240,7 +240,7 @@ func sorted[F field.Element[F], E ir.Evaluable[F]](first, second uint, bound F, 
 }
 
 func evalExprsAt[F field.Element[F], E ir.Evaluable[F]](k uint, sources []E, trMod trace.Module[F],
-	scMod schema.Module, buffer []F) error {
+	scMod schema.Module[F], buffer []F) error {
 	//
 	var err error
 	// Evaluate each expression in turn

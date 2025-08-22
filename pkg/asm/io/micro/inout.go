@@ -94,7 +94,7 @@ func (p *InOut) Split(env schema.RegisterAllocator) []Code {
 	return []Code{&InOut{p.input, bus}}
 }
 
-func (p *InOut) String(fn schema.Module) string {
+func (p *InOut) String(fn schema.RegisterMap) string {
 	if p.input {
 		return fmt.Sprintf("in %s", p.bus.Name)
 	}
@@ -103,6 +103,6 @@ func (p *InOut) String(fn schema.Module) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *InOut) Validate(fieldWidth uint, fn schema.Module) error {
+func (p *InOut) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return nil
 }

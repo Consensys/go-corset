@@ -18,6 +18,7 @@ package koalabear
 
 import (
 	"cmp"
+	"math/big"
 	"math/bits"
 	"strconv"
 )
@@ -32,6 +33,10 @@ const (
 	rSqModM           = 402124772  // r² (mod m)
 	negModulusInvModR = 2130706431 // -Modulus⁻¹ (mod r), used for Montgomery reduction
 	nbBytes           = 4
+)
+
+var (
+	bigModulus = big.NewInt(Modulus)
 )
 
 // In what follows nᵣ is the number of bits in r. Likewise, nₘ is the number of bits in m.
@@ -84,6 +89,11 @@ func (x Element) AddUint32(y uint32) Element {
 // value of x.
 func (x Element) ToUint32() uint32 {
 	return montgomeryReduce(uint64(x[0]))[0]
+}
+
+// Modulus implementation for the Element interface
+func (x Element) Modulus() *big.Int {
+	return bigModulus
 }
 
 // Mul x * y
@@ -186,21 +196,6 @@ func (x Element) AddBytes(b []byte) Element {
 		v |= uint32(b[i]) << ((nbBytes - 1 - i) * 8)
 	}
 	return x.Add(New(v))
-}
-
-// SetBytes implementation for field.Element interface.
-func (x Element) SetBytes(b []byte) Element {
-	var y Element
-	//
-	y.AddBytes(b)
-	return y
-}
-
-// SetUint64 implementation for Element interface
-func (x Element) SetUint64(val uint64) Element {
-	var elem Element
-	//
-	return elem.AddUint32(uint32(val))
 }
 
 func (x Element) IsZero() bool {

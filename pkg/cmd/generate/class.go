@@ -24,7 +24,6 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // JavaTraceClass generates a suitable trace class for Java integration.
@@ -93,10 +92,10 @@ func generateClassHeader(pkgname string, metadata typed.Map, builder *strings.Bu
 	builder.WriteString(" */\n")
 }
 
-func generateClassContents(className string, super string, mod corset.SourceModule, metadata typed.Map, spillage []uint,
-	schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
+func generateClassContents[F any](className string, super string, mod corset.SourceModule, metadata typed.Map,
+	spillage []uint, schema sc.AnySchema[F], builder indentBuilder) {
 	// Attempt to find module
-	mid, ok := schema.Modules().Find(func(m sc.Module) bool { return m.Name() == mod.Name })
+	mid, ok := schema.Modules().Find(func(m sc.Module[F]) bool { return m.Name() == mod.Name })
 	// Sanity check we found it
 	if !ok {
 		panic(fmt.Sprintf("unable to find module \"%s\"", mod.Name))
@@ -159,7 +158,7 @@ func generateJavaClassFooter(builder indentBuilder) {
 	builder.WriteIndentedString("}\n")
 }
 
-func generateJavaModuleHeaders(mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
+func generateJavaModuleHeaders[F any](mod corset.SourceModule, schema sc.AnySchema[F], builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()
 	// Count of created registers
@@ -362,7 +361,7 @@ func generateJavaModuleConstructor(classname string, mod corset.SourceModule, bu
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleOpen(mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
+func generateJavaModuleOpen[F any](mod corset.SourceModule, schema sc.AnySchema[F], builder indentBuilder) {
 	//
 	innerBuilder := builder.Indent()
 	//
@@ -407,7 +406,7 @@ func generateJavaModuleSize(builder indentBuilder) {
 	builder.WriteIndentedString("}\n\n")
 }
 
-func generateJavaModuleColumnSetters(className string, mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element],
+func generateJavaModuleColumnSetters[F any](className string, mod corset.SourceModule, schema sc.AnySchema[F],
 	builder indentBuilder) {
 	//
 	for _, column := range mod.Columns {
@@ -423,8 +422,8 @@ func generateJavaModuleColumnSetters(className string, mod corset.SourceModule, 
 	}
 }
 
-func generateJavaModuleColumnSetter(className string, methodName string, col corset.SourceColumn,
-	schema sc.AnySchema[bls12_377.Element], builder indentBuilder) {
+func generateJavaModuleColumnSetter[F any](className string, methodName string, col corset.SourceColumn,
+	schema sc.AnySchema[F], builder indentBuilder) {
 	//
 	methodName = toCamelCase(methodName)
 	bitwidth := col.Bitwidth
@@ -506,7 +505,7 @@ func generateJavaModuleBytesPutter(columnName, fieldName string, bitwidth uint, 
 	builder.WriteIndentedString(fmt.Sprintf("for(int i=0; i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
 }
 
-func generateJavaModuleValidateRow(className string, mod corset.SourceModule, schema sc.AnySchema[bls12_377.Element],
+func generateJavaModuleValidateRow[F any](className string, mod corset.SourceModule, schema sc.AnySchema[F],
 	builder indentBuilder) {
 	//
 	i1Builder := builder.Indent()

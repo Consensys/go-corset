@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/spf13/cobra"
 )
 
@@ -73,9 +74,41 @@ const SCHEMA_DEFAULT_MIR = uint(1)
 // and that the default is for the stack to be lowered to the AIR level.
 const SCHEMA_DEFAULT_AIR = uint(2)
 
-func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack {
+// FieldAgnosticCmd represents a command to be executed for a given field.
+type FieldAgnosticCmd struct {
+	Field    schema.FieldConfig
+	Function func(*cobra.Command, []string)
+}
+
+// Run a field agnostic top-level command.
+func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnosticCmd) {
 	var (
-		schemaStack  cmd_util.SchemaStack
+		field = GetString(cmd, "field")
+		// Field configuration
+		config = schema.GetFieldConfig(field)
+	)
+	// Sanity check
+	if config == nil {
+		fmt.Printf("unknown field \"%s\"\n", field)
+		os.Exit(3)
+	}
+	// Find command to dispatch
+	for _, c := range cmds {
+		if c.Field == *config {
+			// Match
+			c.Function(cmd, args)
+			// Done
+			return
+		}
+	}
+	//
+	fmt.Printf("field %s unsupported for command '%s'\n", field, cmd.Name())
+	os.Exit(2)
+}
+
+func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack[F] {
+	var (
+		schemaStack  cmd_util.SchemaStack[F]
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
 		field        = GetString(cmd, "field")
@@ -130,7 +163,7 @@ func getSchemaStack(cmd *cobra.Command, mode uint, filenames ...string) *cmd_uti
 		}
 	}
 	// Construct trace builder
-	builder := ir.NewTraceBuilder().
+	builder := ir.NewTraceBuilder[F]().
 		WithValidation(validate).
 		WithDefensivePadding(defensive).
 		WithExpansion(expand).

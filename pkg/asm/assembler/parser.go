@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
@@ -30,13 +31,13 @@ import (
 // MacroFunction is a function whose instructions are themselves macro
 // instructions.  A macro function must be compiled down into a micro function
 // before we can generate constraints.
-type MacroFunction = io.Function[macro.Instruction]
+type MacroFunction[F field.Element[F]] = io.Function[F, macro.Instruction]
 
 // Parse accepts a given source file representing an assembly language
 // program, and assembles it into an instruction sequence which can then the
 // executed.
-func Parse(srcfile *source.File) (AssemblyItem, []source.SyntaxError) {
-	parser := NewParser(srcfile)
+func Parse[F field.Element[F]](srcfile *source.File) (AssemblyItem[F], []source.SyntaxError) {
+	parser := NewParser[F](srcfile)
 	// Parse functions
 	return parser.Parse()
 }
@@ -46,7 +47,7 @@ func Parse(srcfile *source.File) (AssemblyItem, []source.SyntaxError) {
 // ============================================================================
 
 // Parser is a parser for assembly language.
-type Parser struct {
+type Parser[F field.Element[F]] struct {
 	srcfile *source.File
 	tokens  []lex.Token
 	// Source mapping
@@ -56,20 +57,20 @@ type Parser struct {
 }
 
 // NewParser constructs a new parser for a given source file.
-func NewParser(srcfile *source.File) *Parser {
+func NewParser[F field.Element[F]](srcfile *source.File) *Parser[F] {
 	// Construct (initially empty) source mapping
 	srcmap := source.NewSourceMap[any](*srcfile)
 	//
-	return &Parser{srcfile, nil, srcmap, 0}
+	return &Parser[F]{srcfile, nil, srcmap, 0}
 }
 
 // Parse the given source file into a sequence of zero or more components and/or
 // some number of syntax errors.
-func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
+func (p *Parser[F]) Parse() (AssemblyItem[F], []source.SyntaxError) {
 	var (
-		item   AssemblyItem
+		item   AssemblyItem[F]
 		errors []source.SyntaxError
-		fn     MacroFunction
+		fn     MacroFunction[F]
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
@@ -92,7 +93,7 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	return item, nil
 }
 
-func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.SyntaxError) {
+func (p *Parser[F]) parseFunction(id schema.ModuleId) (MacroFunction[F], []source.SyntaxError) {
 	var (
 		env             Environment
 		inst            macro.Instruction
@@ -104,35 +105,35 @@ func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.Synt
 	)
 	// Parse function declaration
 	if name, errs = p.parseIdentifier(); len(errs) > 0 || name != "fn" {
-		return MacroFunction{}, errs
+		return MacroFunction[F]{}, errs
 	}
 	// Parse function name
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return MacroFunction[F]{}, errs
 	}
 	// Parse inputs
 	if inputs, errs = p.parseArgsList(schema.INPUT_REGISTER); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return MacroFunction[F]{}, errs
 	}
 	// Parse '->'
 	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return MacroFunction[F]{}, errs
 	}
 	// Parse outputs
 	if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return MacroFunction[F]{}, errs
 	}
 	// Update register list with inputs/outputs
 	env.registers = append(env.registers, inputs...)
 	env.registers = append(env.registers, outputs...)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return MacroFunction[F]{}, errs
 	}
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
 		if inst, errs = p.parseMacroInstruction(pc, &env); len(errs) > 0 {
-			return MacroFunction{}, errs
+			return MacroFunction[F]{}, errs
 		}
 		//
 		if inst != nil {
@@ -146,10 +147,10 @@ func (p *Parser) parseFunction(id schema.ModuleId) (MacroFunction, []source.Synt
 	// Finalise labels
 	env.BindLabels(code)
 	// Done
-	return io.NewFunction(id, name, env.registers, code), nil
+	return io.NewFunction[F](id, name, env.registers, code), nil
 }
 
-func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
+func (p *Parser[F]) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
 	var (
 		arg     string
 		width   uint
@@ -184,7 +185,7 @@ func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []sourc
 	return regs, nil
 }
 
-func (p *Parser) parseType() (uint, []source.SyntaxError) {
+func (p *Parser[F]) parseType() (uint, []source.SyntaxError) {
 	var (
 		lookahead = p.lookahead()
 		name      string
@@ -210,7 +211,7 @@ func (p *Parser) parseType() (uint, []source.SyntaxError) {
 	}
 }
 
-func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser[F]) parseMacroInstruction(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		// Save current position for backtracking
 		start = p.index
@@ -251,7 +252,7 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	return insn, errs
 }
 
-func (p *Parser) parseGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser[F]) parseGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	lab, errs := p.parseIdentifier()
 	//
 	if len(errs) > 0 {
@@ -262,7 +263,7 @@ func (p *Parser) parseGoto(env *Environment) (macro.Instruction, []source.Syntax
 		Target: env.BindLabel(lab)}, nil
 }
 
-func (p *Parser) parseLabel(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser[F]) parseLabel(pc uint, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	// Observe, following cannot fail
 	tok, _ := p.expect(IDENTIFIER)
 	// Likewise, this cannot fail
@@ -279,7 +280,7 @@ func (p *Parser) parseLabel(pc uint, env *Environment) (macro.Instruction, []sou
 	return nil, nil
 }
 
-func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
+func (p *Parser[F]) parseVar(env *Environment) []source.SyntaxError {
 	var (
 		errs  []source.SyntaxError
 		names []string
@@ -312,7 +313,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	return nil
 }
 
-func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser[F]) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
 		lhs, rhs io.RegisterId
@@ -350,7 +351,7 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 	}, nil
 }
 
-func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser[F]) parseAssignment(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		lhs      []io.RegisterId
 		rhs      []io.RegisterId
@@ -392,7 +393,7 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	}
 }
 
-func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
+func (p *Parser[F]) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
 	lhs, errs := p.parseRegisterList(env)
 	// Reverse items so that least significant comes first.
 	lhs = array.Reverse(lhs)
@@ -400,7 +401,7 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 	return lhs, errs
 }
 
-func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []io.RegisterId, big.Int, []source.SyntaxError) {
+func (p *Parser[F]) parseAssignmentRhs(env *Environment) (uint, []io.RegisterId, big.Int, []source.SyntaxError) {
 	var (
 		constant big.Int
 		rhs      []io.RegisterId
@@ -441,7 +442,7 @@ func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []io.RegisterId, bi
 	return kind, rhs, p.number(lookahead), errs
 }
 
-func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
+func (p *Parser[F]) parseAssignmentOp() (lex.Token, bool) {
 	lookahead := p.lookahead()
 	//
 	switch lookahead.Kind {
@@ -455,7 +456,7 @@ func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
 	}
 }
 
-func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
+func (p *Parser[F]) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs []source.SyntaxError
 		rhs  []io.RegisterId
@@ -478,7 +479,7 @@ func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Inst
 }
 
 // Parse sequence of one or more registers separated by a comma.
-func (p *Parser) parseRegisterList(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
+func (p *Parser[F]) parseRegisterList(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
 	var (
 		lhs  []io.RegisterId = make([]io.RegisterId, 1)
 		errs []source.SyntaxError
@@ -500,7 +501,7 @@ func (p *Parser) parseRegisterList(env *Environment) ([]io.RegisterId, []source.
 	return lhs, nil
 }
 
-func (p *Parser) parseRegisterOrConstant(env *Environment) (io.RegisterId, big.Int, []source.SyntaxError) {
+func (p *Parser[F]) parseRegisterOrConstant(env *Environment) (io.RegisterId, big.Int, []source.SyntaxError) {
 	var (
 		reg      io.RegisterId
 		constant big.Int
@@ -524,7 +525,7 @@ func (p *Parser) parseRegisterOrConstant(env *Environment) (io.RegisterId, big.I
 	return reg, constant, errs
 }
 
-func (p *Parser) parseRegister(env *Environment) (io.RegisterId, []source.SyntaxError) {
+func (p *Parser[F]) parseRegister(env *Environment) (io.RegisterId, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	reg, errs := p.parseIdentifier()
 	//
@@ -537,7 +538,7 @@ func (p *Parser) parseRegister(env *Environment) (io.RegisterId, []source.Syntax
 	return env.LookupRegister(reg), nil
 }
 
-func (p *Parser) parseKeyword(keyword string) []source.SyntaxError {
+func (p *Parser[F]) parseKeyword(keyword string) []source.SyntaxError {
 	tok, errs := p.expect(IDENTIFIER)
 	//
 	if len(errs) > 0 {
@@ -549,7 +550,7 @@ func (p *Parser) parseKeyword(keyword string) []source.SyntaxError {
 	return nil
 }
 
-func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
+func (p *Parser[F]) parseIdentifier() (string, []source.SyntaxError) {
 	tok, errs := p.expect(IDENTIFIER)
 	//
 	if len(errs) > 0 {
@@ -559,7 +560,7 @@ func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 	return p.string(tok), nil
 }
 
-func (p *Parser) parseComparator() (uint8, []source.SyntaxError) {
+func (p *Parser[F]) parseComparator() (uint8, []source.SyntaxError) {
 	var (
 		lookahead = p.lookahead()
 		op        uint8
@@ -588,13 +589,13 @@ func (p *Parser) parseComparator() (uint8, []source.SyntaxError) {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) string(token lex.Token) string {
+func (p *Parser[F]) string(token lex.Token) string {
 	start, end := token.Span.Start(), token.Span.End()
 	return string(p.srcfile.Contents()[start:end])
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) number(token lex.Token) big.Int {
+func (p *Parser[F]) number(token lex.Token) big.Int {
 	var number big.Int
 	//
 	number.SetString(p.string(token), 0)
@@ -604,12 +605,12 @@ func (p *Parser) number(token lex.Token) big.Int {
 
 // Lookahead returns the next token.  This must exist because EOF is always
 // appended at the end of the token stream.
-func (p *Parser) lookahead() lex.Token {
+func (p *Parser[F]) lookahead() lex.Token {
 	return p.tokens[p.index]
 }
 
 // Expect panics if the next token is not what was expected.
-func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
+func (p *Parser[F]) expect(kind uint) (lex.Token, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	//
 	if lookahead.Kind != kind {
@@ -623,7 +624,7 @@ func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
 }
 
 // Match attempts to match the given token.
-func (p *Parser) match(kind uint) bool {
+func (p *Parser[F]) match(kind uint) bool {
 	if p.lookahead().Kind == kind {
 		p.index++
 		return true
@@ -633,7 +634,7 @@ func (p *Parser) match(kind uint) bool {
 }
 
 // Follows attempts to check what follows the current position.
-func (p *Parser) follows(kinds ...uint) bool {
+func (p *Parser[F]) follows(kinds ...uint) bool {
 	for i, kind := range kinds {
 		n := i + p.index
 		if n >= len(p.tokens) {
@@ -645,14 +646,14 @@ func (p *Parser) follows(kinds ...uint) bool {
 	//
 	return true
 }
-func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
+func (p *Parser[F]) spanOf(firstToken, lastToken int) source.Span {
 	start := p.tokens[firstToken].Span.Start()
 	end := p.tokens[lastToken].Span.End()
 	//
 	return source.NewSpan(start, end)
 }
 
-func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError {
+func (p *Parser[F]) syntaxErrors(token lex.Token, msg string) []source.SyntaxError {
 	return []source.SyntaxError{*p.srcfile.SyntaxError(token.Span, msg)}
 }
 

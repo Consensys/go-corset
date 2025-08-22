@@ -113,7 +113,7 @@ func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema[F], trace t
 	return errors
 }
 
-func sequentialModuleValidation[F field.Element[F]](scMod sc.Module, trMod trace.Module[F]) []error {
+func sequentialModuleValidation[F field.Element[F]](scMod sc.Module[F], trMod trace.Module[F]) []error {
 	var (
 		errors []error
 		// Extract module registers
@@ -150,7 +150,7 @@ func sequentialModuleValidation[F field.Element[F]](scMod sc.Module, trMod trace
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.
-func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F], mod sc.Module) error {
+func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F], mod sc.Module[F]) error {
 	// Sanity check bitwidth can be checked.
 	if bitwidth == math.MaxUint {
 		// This indicates a column which has no fixed bitwidth but, rather, uses

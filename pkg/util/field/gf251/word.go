@@ -10,11 +10,9 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package koalabear
+package gf251
 
-import (
-	"github.com/consensys/go-corset/pkg/util/collection/array"
-)
+import "github.com/consensys/go-corset/pkg/util/collection/array"
 
 const (
 	offset64 uint64 = 14695981039346656037

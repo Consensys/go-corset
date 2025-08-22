@@ -180,6 +180,7 @@ func (t *Terminal) Render() error {
 	}
 	//
 	renderLock.Lock()
+	//
 	for {
 		// Write as much as we can.
 		n, err := t.xterm.Write(buffer)

@@ -50,6 +50,7 @@ type Query[F field.Element[F]] struct {
 // Variable constructs a variable of the given name.
 func (p *Query[F]) Variable(name string) *Query[F] {
 	var query Query[F]
+	//
 	query.op = qVAR
 	query.name = name
 	//

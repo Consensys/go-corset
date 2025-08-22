@@ -28,8 +28,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
 
@@ -58,7 +58,7 @@ const (
 // layer is a refinement of the macro assembly layer.  Likewise, the Arithmetic
 // Intermediate Representation is a refinement of the Mid-level Intermediate
 // Representation, etc.
-type SchemaStack struct {
+type SchemaStack[F field.Element[F]] struct {
 	// Corset compilation config options
 	corsetConfig corset.CompilationConfig
 	// Asm lowering config options
@@ -66,15 +66,17 @@ type SchemaStack struct {
 	// Mir optimisation config options
 	mirConfig mir.OptimisationConfig
 	// Configuration for trace expansion
-	traceBuilder ir.TraceBuilder
+	traceBuilder ir.TraceBuilder[F]
 	// Externalised constant definitions
 	externs []string
 	// Layers identifies which layers are included in the stack.
 	layers bit.Set
 	// Binfile represents the top of this stack.
 	binfile binfile.BinaryFile
-	// The various layers which are refined from the binfile.
-	schemas []schema.AnySchema[bls12_377.Element]
+	// The various (abstract) layers which are refined from the binfile.
+	abstractSchemas []schema.AnySchema[bls12_377.Element]
+	// The various (concrete) layers which are refined from the abstract layers.
+	concreteSchemas []schema.AnySchema[F]
 	// Register mapping used
 	mapping schema.LimbsMap
 	// Name of IR used for corresponding schema
@@ -82,48 +84,48 @@ type SchemaStack struct {
 }
 
 // NewSchemaStack constructs a new, but empty stack of schemas.
-func NewSchemaStack() *SchemaStack {
-	return &SchemaStack{}
+func NewSchemaStack[F field.Element[F]]() *SchemaStack[F] {
+	return &SchemaStack[F]{}
 }
 
 // WithAssemblyConfig determines the ASM lowering configuration to use for this
 // schema stack.  This determines, amongst other things, the maximum register
 // size.
-func (p *SchemaStack) WithAssemblyConfig(config asm.LoweringConfig) *SchemaStack {
+func (p *SchemaStack[F]) WithAssemblyConfig(config asm.LoweringConfig) *SchemaStack[F] {
 	p.asmConfig = config
 	return p
 }
 
 // WithCorsetConfig determines the compilation configuration to use for Corset.
-func (p *SchemaStack) WithCorsetConfig(config corset.CompilationConfig) *SchemaStack {
+func (p *SchemaStack[F]) WithCorsetConfig(config corset.CompilationConfig) *SchemaStack[F] {
 	p.corsetConfig = config
 	return p
 }
 
 // WithOptimisationConfig determines the optimisation level to apply at the MIR
 // layer.
-func (p *SchemaStack) WithOptimisationConfig(config mir.OptimisationConfig) *SchemaStack {
+func (p *SchemaStack[F]) WithOptimisationConfig(config mir.OptimisationConfig) *SchemaStack[F] {
 	p.mirConfig = config
 	return p
 }
 
 // WithConstantDefinitions determines the externalised constant definitions to
 // apply to the constructed binary file.
-func (p *SchemaStack) WithConstantDefinitions(externs []string) *SchemaStack {
+func (p *SchemaStack[F]) WithConstantDefinitions(externs []string) *SchemaStack[F] {
 	p.externs = externs
 	return p
 }
 
 // WithLayer identifies that the given layer should be included in the schema
 // stack.
-func (p *SchemaStack) WithLayer(layer uint) *SchemaStack {
+func (p *SchemaStack[F]) WithLayer(layer uint) *SchemaStack[F] {
 	p.layers.Insert(layer)
 	return p
 }
 
 // WithTraceBuilder determines the settings to use for trace expansion, such as
 // whether to use parallelisation, etc.
-func (p *SchemaStack) WithTraceBuilder(builder ir.TraceBuilder) *SchemaStack {
+func (p *SchemaStack[F]) WithTraceBuilder(builder ir.TraceBuilder[F]) *SchemaStack[F] {
 	p.traceBuilder = builder
 	// Apply register mapping
 	if p.mapping != nil {
@@ -134,32 +136,40 @@ func (p *SchemaStack) WithTraceBuilder(builder ir.TraceBuilder) *SchemaStack {
 }
 
 // BinaryFile returns the binary file representing the top of this stack.
-func (p *SchemaStack) BinaryFile() *binfile.BinaryFile {
+func (p *SchemaStack[F]) BinaryFile() *binfile.BinaryFile {
 	return &p.binfile
 }
 
 // Field returns the field configuration used within this schema stack.
-func (p *SchemaStack) Field() schema.FieldConfig {
+func (p *SchemaStack[F]) Field() schema.FieldConfig {
 	return p.asmConfig.Field
 }
 
 // HasUniqueSchema determines whether or not we have exactly one schema.
-func (p *SchemaStack) HasUniqueSchema() bool {
-	return len(p.schemas) == 1
+func (p *SchemaStack[F]) HasUniqueSchema() bool {
+	return len(p.concreteSchemas) == 1
 }
 
-// Schemas returns the stack of schemas according to the selected layers, where
-// higher-level layers come first.
-func (p *SchemaStack) Schemas() []schema.AnySchema[bls12_377.Element] {
-	return p.schemas
+// AbstractSchemas returns the stack of abstract schemas according to the
+// selected layers, where higher-level layers come first.
+func (p *SchemaStack[F]) AbstractSchemas() []schema.AnySchema[bls12_377.Element] {
+	return p.abstractSchemas
 }
 
-// SchemaOf returns the schema associated with the given IR representation.  If
+// ConcreteSchemas returns the stack of concrete schemas according to the selected
+// layers, where higher-level layers come first.
+func (p *SchemaStack[F]) ConcreteSchemas() []schema.AnySchema[F] {
+	return p.concreteSchemas
+}
+
+// ConcreteSchemaOf returns the schema associated with the given IR representation.  If
 // there is no match, this will panic.
-func (p *SchemaStack) SchemaOf(ir string) schema.AnySchema[bls12_377.Element] {
-	for i, n := range p.names {
+func (p *SchemaStack[F]) ConcreteSchemaOf(ir string) schema.AnySchema[F] {
+	var m = len(p.abstractSchemas)
+	//
+	for i, n := range p.names[m:] {
 		if n == ir {
-			return p.schemas[i]
+			return p.concreteSchemas[i]
 		}
 	}
 	//
@@ -167,36 +177,36 @@ func (p *SchemaStack) SchemaOf(ir string) schema.AnySchema[bls12_377.Element] {
 }
 
 // TraceBuilder returns a configured trace builder.
-func (p *SchemaStack) TraceBuilder() ir.TraceBuilder {
+func (p *SchemaStack[F]) TraceBuilder() ir.TraceBuilder[F] {
 	return p.traceBuilder
 }
 
-// UniqueSchema returns the first schema on the stack which, when
+// UniqueConcreteSchema returns the first schema on the stack which, when
 // HasUniqueSchema() holds, means the uniquely specified schema.
-func (p *SchemaStack) UniqueSchema() schema.AnySchema[bls12_377.Element] {
-	return p.schemas[0]
+func (p *SchemaStack[F]) UniqueConcreteSchema() schema.AnySchema[F] {
+	return p.concreteSchemas[0]
 }
 
-// LowestSchema returns the last (i.e. lowest) schema on the stack.
-func (p *SchemaStack) LowestSchema() schema.AnySchema[bls12_377.Element] {
-	n := len(p.schemas) - 1
-	return p.schemas[n]
+// LowestConcreteSchema returns the last (i.e. lowest) schema on the stack.
+func (p *SchemaStack[F]) LowestConcreteSchema() schema.AnySchema[F] {
+	n := len(p.concreteSchemas) - 1
+	return p.concreteSchemas[n]
 }
 
 // RegisterMapping returns the register mapping used to split registers
 // according to the given field configuration.
-func (p *SchemaStack) RegisterMapping() schema.LimbsMap {
+func (p *SchemaStack[F]) RegisterMapping() schema.LimbsMap {
 	return p.mapping
 }
 
-// IrName returns a human-readable anacronym of the IR used to generate the
+// ConcreteIrName returns a human-readable anacronym of the IR used to generate the
 // corresponding SCHEMA.
-func (p *SchemaStack) IrName(index uint) string {
-	return p.names[index]
+func (p *SchemaStack[F]) ConcreteIrName(index uint) string {
+	return p.names[len(p.abstractSchemas)+int(index)]
 }
 
 // Read reads one or more constraints files into this stack.
-func (p *SchemaStack) Read(filenames ...string) {
+func (p *SchemaStack[F]) Read(filenames ...string) {
 	binfile := readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
 	//
 	p.Apply(binfile)
@@ -204,17 +214,18 @@ func (p *SchemaStack) Read(filenames ...string) {
 
 // Apply updates the binary for this stack and recalculates all requested
 // schemas.
-func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
+func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	var (
-		asmSchema  asm.MixedMacroProgram
-		uasmSchema asm.MixedMicroProgram
-		mirSchema  mir.Schema
-		airSchema  air.Schema
+		asmSchema  asm.MixedMacroProgram[bls12_377.Element]
+		uasmSchema asm.MixedMicroProgram[bls12_377.Element]
+		mirSchema  mir.Schema[F]
+		airSchema  air.Schema[F]
 	)
 	// Set binary
 	p.binfile = binfile
 	// Reset schemas (in case set previously)
-	p.schemas = nil
+	p.abstractSchemas = nil
+	p.concreteSchemas = nil
 	p.names = nil
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)
@@ -223,24 +234,22 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 	// Lower to mixed micro schema
 	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
 	// Apply register splitting for field agnosticity
-	uasmSchema, mapping := agnostic.Subdivide(p.asmConfig.Field, uasmSchema)
+	mirSchema, mapping := asm.Concretize[bls12_377.Element, F](p.asmConfig.Field, uasmSchema)
 	// Record mapping
 	p.mapping = mapping
-	// Lower to MIR
-	mirSchema = asm.LowerMixedMicroProgram(uasmSchema)
-	// Include macro assembly layer (if requested)
+	// Include (Macro) Assembly Layer (if requested)
 	if p.layers.Contains(MACRO_ASM_LAYER) {
-		p.schemas = append(p.schemas, asmSchema)
+		p.abstractSchemas = append(p.abstractSchemas, asmSchema)
 		p.names = append(p.names, "ASM")
 	}
-	// Include micro assembly layer (if requested)
+	// Include (Micro) Assembly Layer (if requested)
 	if p.layers.Contains(MICRO_ASM_LAYER) {
-		p.schemas = append(p.schemas, uasmSchema)
-		p.names = append(p.names, "µASM")
+		p.abstractSchemas = append(p.abstractSchemas, uasmSchema)
+		p.names = append(p.names, "UASM")
 	}
 	// Include Mid-level IR layer (if requested)
 	if p.layers.Contains(MIR_LAYER) {
-		p.schemas = append(p.schemas, mirSchema)
+		p.concreteSchemas = append(p.concreteSchemas, mirSchema)
 		p.names = append(p.names, "MIR")
 	}
 	// Include Arithmetic-level IR layer (if requested)
@@ -248,7 +257,7 @@ func (p *SchemaStack) Apply(binfile binfile.BinaryFile) {
 		// Lower to AIR
 		airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
 		//
-		p.schemas = append(p.schemas, schema.Any(airSchema))
+		p.concreteSchemas = append(p.concreteSchemas, schema.Any(airSchema))
 		p.names = append(p.names, "AIR")
 	}
 }
@@ -283,14 +292,14 @@ func readConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringC
 }
 
 // ReadAssemblyProgram reads a given set of assembly files into a (macro) assembly program.
-func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[any]) {
+func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram[bls12_377.Element], source.Maps[any]) {
 	srcfiles, err := source.ReadFiles(filenames...)
 	//
 	if err != nil {
 		panic(err)
 	}
 	//
-	program, srcmaps, errs := asm.Assemble(srcfiles...)
+	program, srcmaps, errs := asm.Assemble[bls12_377.Element](srcfiles...)
 	//
 	if len(errs) == 0 {
 		return program, srcmaps
@@ -335,7 +344,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	//
 	var (
 		errors   []source.SyntaxError
-		schema   schema.MixedSchema[*asm.MacroFunction, mir.Module]
+		schema   schema.MixedSchema[bls12_377.Element, *asm.MacroFunction[bls12_377.Element], mir.Module[bls12_377.Element]]
 		srcmap   corset.SourceMap
 		srcfiles = make([]*source.File, len(filenames))
 	)
@@ -355,7 +364,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	// Separate Corset from ASM files.
 	corsetFiles, asmFiles := splitSourceFiles(srcfiles)
 	// Compile ASM files
-	macroProgram, _, errors := asm.Assemble(asmFiles...)
+	macroProgram, _, errors := asm.Assemble[bls12_377.Element](asmFiles...)
 	// Continue if no errors
 	if len(errors) == 0 {
 		// Parse and compile source files
