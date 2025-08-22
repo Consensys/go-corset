@@ -28,17 +28,20 @@ type Sub[F field.Element[F], T Term[F, T]] struct{ Args []T }
 
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
-func Subtract[F field.Element[F], T Term[F, T]](exprs ...T) T {
-	// Sanity check
-	if len(exprs) == 0 {
-		panic("subtraction of zero expressions")
-	} else if len(exprs) == 1 {
-		return exprs[0]
+func Subtract[F field.Element[F], T Term[F, T]](terms ...T) T {
+	// Remove any zeros
+	terms = array.RemoveMatchingIndexed(terms, isZeroExcept)
+	// Final simplifications
+	switch len(terms) {
+	case 0:
+		return Const64[F, T](0)
+	case 1:
+		return terms[0]
+	default:
+		var term Term[F, T] = &Sub[F, T]{terms}
+		//
+		return term.(T)
 	}
-	//
-	var term Term[F, T] = &Sub[F, T]{exprs}
-	//
-	return term.(T)
 }
 
 // Air indicates this term can be used at the AIR level.
@@ -170,4 +173,8 @@ func findConstant[F field.Element[F], T Term[F, T]](terms []T) (F, bool) {
 	}
 	//
 	return field.Zero[F](), false
+}
+
+func isZeroExcept[F field.Element[F], T Term[F, T]](i int, term T) bool {
+	return i != 0 && isZero(term)
 }
