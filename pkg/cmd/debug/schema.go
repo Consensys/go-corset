@@ -128,8 +128,10 @@ func printRegisters[F any](module schema.Module[F], prefix string, filter func(s
 				} else {
 					regT = "𝔽"
 				}
+				// construct name string whilst applying quotes when necessary.
+				name := sexp.NewSymbol(r.Name).String(true)
 				//
-				fmt.Printf("   (\"%s\" %s", r.Name, regT)
+				fmt.Printf("   (%s %s", name, regT)
 				// Print padding
 				fmt.Printf(" 0x%s)\n", r.Padding.Text(16))
 			}
