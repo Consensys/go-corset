@@ -629,7 +629,7 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty) []SyntaxError {
 	//
 	if len(errors) == 0 {
 		// Add translated constraint
-		module.AddConstraint(mir.NewAssertion(decl.Handle, module.Id(), assertion))
+		module.AddConstraint(mir.NewAssertion(decl.Handle, module.Id(), decl.Domain, assertion))
 	}
 	// Done
 	return errors

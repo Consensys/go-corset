@@ -66,6 +66,9 @@ type Assertion[F field.Element[F], T ir.Testable[F]] struct {
 	// Enclosing module for this assertion.  This restricts the asserted
 	// property to access only columns from within this module.
 	Context schema.ModuleId
+	// Indicates (when empty) a property that applies to all rows. Otherwise,
+	// indicates a property which applies to the specific row given.
+	Domain util.Option[int]
 	// The actual assertion itself, namely an expression which
 	// should hold (i.e. vanish) for every row of a trace.
 	// Observe that this can be any function which is computable
@@ -75,10 +78,10 @@ type Assertion[F field.Element[F], T ir.Testable[F]] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[F field.Element[F], T ir.Testable[F]](handle string, ctx schema.ModuleId, property T,
-) Assertion[F, T] {
+func NewAssertion[F field.Element[F], T ir.Testable[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
+	property T) Assertion[F, T] {
 	//
-	return Assertion[F, T]{handle, ctx, property}
+	return Assertion[F, T]{handle, ctx, domain, property}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
@@ -116,28 +119,22 @@ func (p Assertion[F, T]) Bounds(module uint) util.Bounds {
 func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		trModule = tr.Module(p.Context)
-		scModule = sc.Module(p.Context)
 		// Determine height of enclosing module
 		height = tr.Module(p.Context).Height()
 		// Determine well-definedness bounds for this constraint
 		bounds = p.Property.Bounds()
 	)
 	// Sanity check enough rows
-	if bounds.End < height {
-		// Check all in-bounds values
-		for k := bounds.Start; k < (height - bounds.End); k++ {
-			// Check whether property holds (or was undefined)
-			if ok, id, err := p.Property.TestAt(int(k), trModule, scModule); err != nil {
-				// Evaluation failure
-				return coverage, &InternalFailure[F]{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
-			} else if !ok {
-				return coverage, &AssertionFailure[F]{p.Handle, p.Context, p.Property, k}
-			} else {
-				// Update coverage
-				coverage.Insert(id)
-			}
+	if p.Domain.HasValue() {
+		var row int = p.Domain.Unwrap()
+		//
+		if row < 0 {
+			row += int(height)
 		}
+		//
+		return p.acceptRange(uint(row), uint(row)+1, tr, sc)
+	} else if bounds.End < height {
+		return p.acceptRange(bounds.Start, height-bounds.End, tr, sc)
 	}
 	// All good
 	return coverage, nil
@@ -147,10 +144,25 @@ func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit
 //
 //nolint:revive
 func (p Assertion[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
-	var module = schema.Module(p.Context)
+	var (
+		module           = schema.Module(p.Context)
+		assertion string = "assert"
+	)
+	// Handle attributes
+	if p.Domain.HasValue() {
+		switch p.Domain.Unwrap() {
+		case 0:
+			assertion = fmt.Sprintf("%s:first", assertion)
+		case -1:
+			assertion = fmt.Sprintf("%s:last", assertion)
+		default:
+			domain := p.Domain.Unwrap()
+			panic(fmt.Sprintf("domain value %d not supported for local constraint", domain))
+		}
+	}
 	// Construct the list
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("assert"),
+		sexp.NewSymbol(assertion),
 		sexp.NewSymbol(p.Handle),
 		p.Property.Lisp(false, module),
 	})
@@ -159,4 +171,28 @@ func (p Assertion[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 // Substitute any matchined labelled constants within this constraint
 func (p Assertion[F, T]) Substitute(mapping map[string]F) {
 	p.Property.Substitute(mapping)
+}
+
+func (p Assertion[F, T]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F],
+) (bit.Set, schema.Failure) {
+	var (
+		coverage bit.Set
+		trModule = tr.Module(p.Context)
+		scModule = sc.Module(p.Context)
+	)
+	// Check all in-bounds values
+	for k := start; k < end; k++ {
+		// Check whether property holds (or was undefined)
+		if ok, id, err := p.Property.TestAt(int(k), trModule, scModule); err != nil {
+			// Evaluation failure
+			return coverage, &InternalFailure[F]{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
+		} else if !ok {
+			return coverage, &AssertionFailure[F]{p.Handle, p.Context, p.Property, k}
+		} else {
+			// Update coverage
+			coverage.Insert(id)
+		}
+	}
+	//
+	return coverage, nil
 }

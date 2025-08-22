@@ -302,7 +302,7 @@ func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declarati
 		decl, errors = p.parseDefPermutation(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defperspective") {
 		decl, errors = p.parseDefPerspective(module, s.Elements)
-	} else if s.Len() == 3 && s.MatchSymbols(2, "defproperty") {
+	} else if 3 <= s.Len() && s.Len() <= 4 && s.MatchSymbols(2, "defproperty") {
 		decl, errors = p.parseDefProperty(s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defsorted") {
 		decl, errors = p.parseDefSorted(false, s.Elements)
@@ -1259,22 +1259,72 @@ func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp) (as
 
 // Parse a property assertion
 func (p *Parser) parseDefProperty(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
-	var errors []SyntaxError
+	var (
+		errors    []SyntaxError
+		assertion int = len(elements) - 1
+		domain    util.Option[int]
+	)
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
 		errors = p.translator.SyntaxErrors(elements[1], "expected constraint handle")
 	}
-	//
+	// Extract handle
 	handle := elements[1].AsSymbol()
+	// Check for any attributes
+	if len(elements) > 3 {
+		var errs []SyntaxError
+
+		domain, errs = p.parsePropertyAttributes(elements[2])
+		errors = append(errors, errs...)
+	}
 	// Translate expression
-	expr, errs := p.translator.Translate(elements[2])
+	expr, errs := p.translator.Translate(elements[assertion])
 	errors = append(errors, errs...)
 	// Error Check
 	if len(errors) != 0 {
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefProperty(handle.Value, expr), nil
+	return ast.NewDefProperty(handle.Value, domain, expr), nil
+}
+
+func (p *Parser) parsePropertyAttributes(attributes sexp.SExp) (domain util.Option[int], err []SyntaxError) {
+	//
+	var errors []SyntaxError
+	// Check attribute list is a list
+	if attributes.AsList() == nil {
+		return util.None[int](), p.translator.SyntaxErrors(attributes, "expected attribute list")
+	}
+	// Deconstruct as list
+	attrs := attributes.AsList()
+	// Process each attribute in turn
+	for i := 0; i < attrs.Len(); i++ {
+		ith := attrs.Get(i)
+		// Check start of attribute
+		if ith.AsSymbol() == nil {
+			errors = append(errors, *p.translator.SyntaxError(ith, "malformed attribute"))
+		} else {
+			var errs []SyntaxError
+			// Check what we've got
+			switch ith.AsSymbol().Value {
+			case ":domain":
+				i++
+				domain, errs = p.parseDomainAttribute(attrs.Get(i))
+			default:
+				errs = p.translator.SyntaxErrors(ith, "unknown attribute")
+			}
+			//
+			if len(errs) != 0 {
+				errors = append(errors, errs...)
+			}
+		}
+	}
+	// Error Check
+	if len(errors) != 0 {
+		return util.None[int](), errors
+	}
+	// Done
+	return domain, nil
 }
 
 // Parse a permutation declaration

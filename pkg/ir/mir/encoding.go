@@ -99,6 +99,10 @@ func encode_assertion[F field.Element[F]](c Assertion[F]) ([]byte, error) {
 	if err := gobEncoder.Encode(c.Context); err != nil {
 		return nil, err
 	}
+	// Domain
+	if err := gobEncoder.Encode(&c.Domain); err != nil {
+		return nil, err
+	}
 	// Constraint
 	err := encode_logical(c.Property, &buffer)
 	// Done
@@ -352,6 +356,10 @@ func decode_assertion[F field.Element[F]](data []byte) (schema.Constraint[F], er
 	}
 	// Context
 	if err = gobDecoder.Decode(&assertion.Context); err != nil {
+		return assertion, err
+	}
+	// Domain
+	if err = gobDecoder.Decode(&assertion.Domain); err != nil {
 		return assertion, err
 	}
 	//
