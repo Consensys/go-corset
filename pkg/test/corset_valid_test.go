@@ -497,6 +497,10 @@ func Test_Valid_Type_12(t *testing.T) {
 	test_util.Check(t, false, "valid/type_12")
 }
 
+func Test_Valid_Type_13(t *testing.T) {
+	test_util.Check(t, false, "valid/type_13")
+}
+
 // ===================================================================
 // Range Constraints
 // ===================================================================
