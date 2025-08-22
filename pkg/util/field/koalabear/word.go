@@ -12,6 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package koalabear
 
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+)
+
 const (
 	offset64 uint64 = 14695981039346656037
 	prime64  uint64 = 1099511628211
@@ -31,12 +35,14 @@ func (x Element) Hash() uint64 {
 }
 
 // SetBytes implementation for word.Word interface.
-func (x Element) SetBytes(b []byte) Element {
-	var y Element
+func (x Element) SetBytes(bs []byte) Element {
+	var v uint32
 	//
-	y.AddBytes(b)
+	for _, b := range array.TrimLeadingZeros(bs) {
+		v = (v << 8) | uint32(b)
+	}
 	//
-	return y
+	return New(v)
 }
 
 // SetUint64 implementation for word.Word interface

@@ -330,3 +330,13 @@ func forceFlatten[T any](items []T, fn func(T) []T) []T {
 	// no change
 	return nitems
 }
+
+// TrimLeadingZeros any leading zeros from this array
+func TrimLeadingZeros(bytes []byte) []byte {
+	// trim any leading zeros to ensure words are in a canonical form.
+	for len(bytes) > 0 && bytes[0] == 0 {
+		bytes = bytes[1:]
+	}
+	//
+	return bytes
+}

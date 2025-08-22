@@ -129,7 +129,7 @@ func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, c
 			// Configure stack
 			stack.Apply(*stack.BinaryFile())
 			// Apply stack
-			checkTraces[F](t, test, 0, opt, cfg, traces, stack)
+			checkTraces(t, test, 0, opt, cfg, traces, stack)
 		}
 	}
 }
@@ -149,7 +149,7 @@ func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Conf
 		stack.Apply(*binSchema)
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
-		checkTraces[F](t, name, 0, opt, cfg, traces, stack)
+		checkTraces(t, name, 0, opt, cfg, traces, stack)
 	}
 }
 
@@ -164,7 +164,7 @@ func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, tra
 		// Configure stack
 		stack.Apply(*stack.BinaryFile())
 		// Apply stack
-		checkTraces[F](t, test, MAX_PADDING, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
+		checkTraces(t, test, MAX_PADDING, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
 	}
 }
 

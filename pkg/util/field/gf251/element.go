@@ -189,7 +189,7 @@ func (x Element) Bytes() []byte {
 // AddBytes adds the Element to the given big-endian value. It expects exactly 2  input bytes.
 func (x Element) AddBytes(b []byte) Element {
 	if len(b) != nbBytes {
-		panic("AddBytes expects 2 bytes")
+		panic("AddBytes expects 1 bytes")
 	}
 	var v uint32
 	for i := range nbBytes {

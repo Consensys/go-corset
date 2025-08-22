@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -83,7 +84,7 @@ func (p *VectorAccess[F, T]) IsDefined() bool {
 
 // Lisp implementation for Lispifiable interface.
 func (p *VectorAccess[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
-	return lispOfTerms(global, mapping, "::", p.Vars)
+	return lispOfTerms(global, mapping, "::", array.Reverse(p.Vars))
 }
 
 // RequiredRegisters implementation for Contextual interface.
