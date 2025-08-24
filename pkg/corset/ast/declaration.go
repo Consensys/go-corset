@@ -332,6 +332,8 @@ type DefComputed struct {
 	Function Symbol
 	// Source columns as parameters to computation.
 	Sources []Symbol
+	// Indicates the declaration has been resolved
+	Finalised bool
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -364,13 +366,13 @@ func (p *DefComputed) Defines(symbol Symbol) bool {
 // IsFinalised checks whether this declaration has already been finalised.  If
 // so, then we don't need to finalise it again.
 func (p *DefComputed) IsFinalised() bool {
-	for _, col := range p.Targets {
-		if !col.binding.IsFinalised() {
-			return false
-		}
-	}
-	// Done
-	return true
+	return p.Finalised
+}
+
+// Finalise this declaration, which means that all source and target expressions
+// have been resolved.
+func (p *DefComputed) Finalise() {
+	p.Finalised = true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used
@@ -689,7 +691,7 @@ type DefInterleaved struct {
 	Target *DefColumn
 	// The source columns used to define the interleaved target column.
 	Sources []TypedSymbol
-	// Indicates the computation has been resolved
+	// Indicates the declaration has been resolved
 	Finalised bool
 }
 

@@ -565,7 +565,7 @@ func Test_Invalid_Interleave_14(t *testing.T) {
 	CheckInvalid(t, "invalid/interleave_invalid_14")
 }
 func Test_Invalid_Interleave_15(t *testing.T) {
-	CheckInvalid(t, "invalid/interleave_invalid_16")
+	CheckInvalid(t, "invalid/interleave_invalid_15")
 }
 func Test_Invalid_Interleave_16(t *testing.T) {
 	CheckInvalid(t, "invalid/interleave_invalid_16")
@@ -818,6 +818,9 @@ func Test_Invalid_Compute_06(t *testing.T) {
 
 func Test_Invalid_Compute_07(t *testing.T) {
 	CheckInvalid(t, "invalid/compute_invalid_07")
+}
+func Test_Invalid_Compute_08(t *testing.T) {
+	CheckInvalid(t, "invalid/compute_invalid_08")
 }
 
 // ===================================================================
