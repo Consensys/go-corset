@@ -368,7 +368,7 @@ func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (ast.Declaratio
 	var errors []SyntaxError
 	// Process column declarations one by one.
 	for i := 1; i < len(l.Elements); i++ {
-		decl, err := p.parseColumnDeclaration(module, module, false, l.Elements[i])
+		decl, err := p.parseColumnDeclaration(module, module, false, 1, l.Elements[i])
 		// Extract column name
 		if err != nil {
 			errors = append(errors, *err)
@@ -384,7 +384,7 @@ func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (ast.Declaratio
 	return ast.NewDefColumns(columns), nil
 }
 
-func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, computed bool,
+func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, computed bool, multiplier int,
 	e sexp.SExp) (*ast.DefColumn, *SyntaxError) {
 	//
 	var (
@@ -394,7 +394,7 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 		binding = ast.ColumnBinding{
 			ColumnContext: context,
 			Kind:          ast.NOT_COMPUTED,
-			Multiplier:    1,
+			Multiplier:    uint(multiplier),
 			MustProve:     false,
 			Padding:       zero,
 			Display:       "hex",
@@ -587,7 +587,7 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 		for i := 0; i < sexpTargets.Len(); i++ {
 			var err *SyntaxError
 			// Parse target declaration
-			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); err != nil {
+			if targets[i], err = p.parseColumnDeclaration(module, module, true, 1, sexpTargets.Get(i)); err != nil {
 				errors = append(errors, *err)
 			}
 		}
@@ -633,9 +633,9 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 // Parse a defcomputedcolumn declaration
 func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
-		errors      []SyntaxError
-		target      *ast.DefColumn
-		targetError *SyntaxError
+		errors []SyntaxError
+		target *ast.DefColumn
+		err    *SyntaxError
 	)
 
 	// Parse target declaration
@@ -647,8 +647,8 @@ func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) 
 	//
 	if len(errors) != 0 {
 		return nil, errors
-	} else if target, targetError = p.parseColumnDeclaration(module, module, true, columnDeclaration); targetError != nil {
-		errors = append(errors, *targetError)
+	} else if target, err = p.parseColumnDeclaration(module, module, true, 1, columnDeclaration); err != nil {
+		errors = append(errors, *err)
 	}
 	// Translate expression
 	expr, exprErrors := p.translator.Translate(elements[2])
@@ -783,37 +783,33 @@ func (p *Parser) parseDefConstraint(module util.Path, elements []sexp.SExp) (ast
 // Parse a interleaved declaration
 func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
-		errors  []SyntaxError
-		sources []ast.TypedSymbol
+		errors      []SyntaxError
+		err         *SyntaxError
+		sources     []ast.TypedSymbol
+		sexpSources = elements[2].AsList()
+		target      *ast.DefColumn
 	)
-	// Check target column
-	if !isIdentifier(elements[1]) {
-		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed target column"))
+	// Sanity check we have sourcers
+	if sexpSources == nil {
+		return nil, p.translator.SyntaxErrors(elements[2], "malformed source columns")
+	}
+	// Parse target declaration
+	if target, err = p.parseColumnDeclaration(module, module, true, sexpSources.Len(), elements[1]); err != nil {
+		errors = append(errors, *err)
 	}
 	// Check source columns
-	if elements[2].AsList() == nil {
-		errors = append(errors, *p.translator.SyntaxError(elements[2], "malformed source columns"))
-	} else {
-		// Extract target and source columns
-		sexpSources := elements[2].AsList()
-		sources = make([]ast.TypedSymbol, sexpSources.Len())
+	sources = make([]ast.TypedSymbol, sexpSources.Len())
+	//
+	for i := 0; i != sexpSources.Len(); i++ {
+		var errs []SyntaxError
 		//
-		for i := 0; i != sexpSources.Len(); i++ {
-			var errs []SyntaxError
-			//
-			sources[i], errs = p.parseDefInterleavedSource(sexpSources.Get(i))
-			errors = append(errors, errs...)
-		}
+		sources[i], errs = p.parseDefInterleavedSource(sexpSources.Get(i))
+		errors = append(errors, errs...)
 	}
 	// Error Check
 	if len(errors) != 0 {
 		return nil, errors
 	}
-	//
-	path := module.Extend(elements[1].AsSymbol().Value)
-	target := ast.NewDefComputedColumn(module, *path)
-	// Updating mapping for target definition
-	p.mapSourceNode(elements[1], target)
 	// Done
 	return &ast.DefInterleaved{Target: target, Sources: sources}, nil
 }
@@ -1060,7 +1056,7 @@ func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (as
 			//
 			ith_src := sexpSources.Get(i)
 			// Parse target column
-			if targets[i], err = p.parseColumnDeclaration(module, module, true, sexpTargets.Get(i)); err != nil {
+			if targets[i], err = p.parseColumnDeclaration(module, module, true, 1, sexpTargets.Get(i)); err != nil {
 				errors = append(errors, *err)
 			}
 			// Parse source column
@@ -1240,7 +1236,7 @@ func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp) (as
 		columns = make([]*ast.DefColumn, sexp_columns.Len())
 
 		for i := 0; i < len(sexp_columns.Elements); i++ {
-			decl, err := p.parseColumnDeclaration(module, *perspective.Path(), false, sexp_columns.Elements[i])
+			decl, err := p.parseColumnDeclaration(module, *perspective.Path(), false, 1, sexp_columns.Elements[i])
 			// Extract column name
 			if err != nil {
 				errors = append(errors, *err)

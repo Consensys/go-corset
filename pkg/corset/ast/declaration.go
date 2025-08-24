@@ -689,6 +689,8 @@ type DefInterleaved struct {
 	Target *DefColumn
 	// The source columns used to define the interleaved target column.
 	Sources []TypedSymbol
+	// Indicates the computation has been resolved
+	Finalised bool
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -713,7 +715,13 @@ func (p *DefInterleaved) Defines(symbol Symbol) bool {
 // IsFinalised checks whether this declaration has already been finalised.  If
 // so, then we don't need to finalise it again.
 func (p *DefInterleaved) IsFinalised() bool {
-	return p.Target.binding.IsFinalised()
+	return p.Finalised
+}
+
+// Finalise this declaration, which means that all source and target expressions
+// have been resolved.
+func (p *DefInterleaved) Finalise() {
+	p.Finalised = true
 }
 
 // Lisp converts this node into its lisp representation.  This is primarily used

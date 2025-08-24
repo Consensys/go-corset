@@ -496,8 +496,22 @@ func (r *resolver) finaliseDefInterleavedInModule(enclosing *ModuleScope, decl *
 		length_multiplier *= uint(len(decl.Sources))
 		// Lookup existing declaration
 		binding := decl.Target.Binding().(*ast.ColumnBinding)
-		// Finalise column binding
-		binding.Finalise(length_multiplier, datatype)
+		// Finalise (if not already)
+		if !binding.IsFinalised() {
+			// Finalise column binding
+			binding.Finalise(length_multiplier, datatype)
+		}
+		// Check data type
+		if !datatype.SubtypeOf(binding.DataType) {
+			msg := fmt.Sprintf("incompatible type (%s)", datatype.String())
+			errors = append(errors, *r.srcmap.SyntaxError(decl.Target, msg))
+		}
+		// Check multiplier
+		if length_multiplier != binding.Multiplier {
+			errors = append(errors, *r.srcmap.SyntaxError(decl.Target, "invalid length multiplier"))
+		}
+		// Finalise declaration
+		decl.Finalise()
 	}
 	//
 	enclosing.CloseDefinition(decl.Target)
