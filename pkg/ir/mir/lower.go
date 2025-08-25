@@ -519,8 +519,6 @@ func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule *air.ModuleBuil
 // A module identifier is required to determine where any computed columns
 // should be located.
 func (p *AirLowering[F]) lowerAndSimplifyTermTo(term Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	// Optimise normalisations
-	term = eliminateNormalisationInTerm(term, airModule, p.config)
 	// Apply all reasonable simplifications
 	term = term.Simplify(false)
 	// Lower properly
