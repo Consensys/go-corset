@@ -167,12 +167,6 @@ func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F],
 	)
 	//
 	for i, air_expr := range terms {
-		// // Check whether this is a constant
-		// constant := air_expr.AsConstant()
-		// // Check for compile-time constants
-		// if constant != nil && !constant.IsZero() {
-		// 	panic(fmt.Sprintf("constraint %s cannot vanish!", v.Handle))
-		// } else if constant == nil {
 		// Construct suitable handle to distinguish this case
 		handle := fmt.Sprintf("%s#%d", v.Handle, i)
 		// Add constraint
@@ -772,7 +766,8 @@ func disjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
 	// Base cases
 	switch len(terms) {
 	case 0:
-		return nil
+		// NOTE: return non-zero value to indicate a failure.
+		return []air.Term[F]{ir.Const64[F, air.Term[F]](1)}
 	case 1:
 		return terms[0]
 	}
