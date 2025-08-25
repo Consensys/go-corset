@@ -125,8 +125,13 @@ func (p *IfZero[F, S, T]) ShiftRange() (int, int) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *IfZero[F, S, T]) ValueRange(_ schema.RegisterMap) math.Interval {
-	panic("todo")
+func (p *IfZero[F, S, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+	var (
+		trueBounds  = p.TrueBranch.ValueRange(mapping)
+		falseBounds = p.FalseBranch.ValueRange(mapping)
+	)
+	//
+	return trueBounds.Union(falseBounds)
 }
 
 // Substitute implementation for Substitutable interface.
