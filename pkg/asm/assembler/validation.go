@@ -148,6 +148,8 @@ func applyInstructionSemantics[F field.Element[F]](worklist *Worklist, fn MacroF
 		// Check all outputs are assigned
 		errs := checkOutputsAssigned(insn, state, fn, srcmaps)
 		errors = append(errors, errs...)
+	case *macro.Fail:
+		// Nothing to do here
 	default:
 		// Check not falling off the end
 		if pc+1 == uint(len(fn.Code())) {

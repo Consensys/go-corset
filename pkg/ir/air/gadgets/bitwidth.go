@@ -259,8 +259,9 @@ func (p *typeDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F]
 ) ([]array.MutArray[F], error) {
 	// Read inputs
 	sources := assignment.ReadRegisters(tr, p.sources...)
+	padding := assignment.ReadPadding(tr, p.sources...)
 	// Combine all sources
-	combined := combineSources(p.loWidth+p.hiWidth, sources, tr.Builder())
+	combined := combineSources(p.loWidth+p.hiWidth, sources, padding, tr.Builder())
 	// Generate decomposition
 	data := computeDecomposition(p.loWidth, p.hiWidth, combined, tr.Builder())
 	// Done
@@ -467,7 +468,7 @@ func determineLimbSplit(bitwidth uint) (uint, uint) {
 
 // Combine all values from the given source registers into a single array of
 // data, whilst eliminating duplicates.
-func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
+func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F], padding []F,
 	pool word.ArrayBuilder[F]) array.MutArray[F] {
 	//
 	var (
@@ -475,8 +476,9 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 		arr  = pool.NewArray(0, bitwidth)
 		seen = hash.NewSet[F](n)
 	)
-	//
+	// Add all values
 	for _, src := range sources {
+		// Add all values from column
 		for i := range src.Len() {
 			ith := src.Get(i)
 			// Add item if not already seen
@@ -484,8 +486,18 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 				// record have seen item
 				seen.Insert(ith)
 				// append and record
-				arr.Append(src.Get(i))
+				arr.Append(ith)
 			}
+		}
+	}
+	// Add all padding values
+	for _, ith := range padding {
+		// Add item if not already seen
+		if !seen.Contains(ith) {
+			// record have seen item
+			seen.Insert(ith)
+			// append and record
+			arr.Append(ith)
 		}
 	}
 	// Done
