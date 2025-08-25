@@ -220,6 +220,10 @@ func Test_Valid_Logic_01(t *testing.T) {
 	test_util.Check(t, false, "valid/logic_01")
 }
 
+func Test_Valid_Logic_02(t *testing.T) {
+	test_util.Check(t, false, "valid/logic_02")
+}
+
 // ===================================================================
 // Property Tests
 // ===================================================================
@@ -426,6 +430,14 @@ func Test_Valid_If_18(t *testing.T) {
 
 func Test_Valid_If_19(t *testing.T) {
 	test_util.Check(t, false, "valid/if_19")
+}
+
+func Test_Valid_If_20(t *testing.T) {
+	test_util.Check(t, false, "valid/if_20")
+}
+
+func Test_Valid_If_21(t *testing.T) {
+	test_util.Check(t, false, "valid/if_21")
 }
 
 // ===================================================================

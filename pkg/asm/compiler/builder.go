@@ -31,7 +31,7 @@ type Module[F field.Element[F], T any, E Expr[T, E], M any] interface {
 
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.
-	NewColumn(kind schema.RegisterType, name string, bitwidth uint) T
+	NewColumn(kind schema.RegisterType, name string, bitwidth uint, padding big.Int) T
 
 	// NewUnusedColumn constructs an empty (i.e. unused) column identifier.
 	NewUnusedColumn() T
@@ -108,6 +108,13 @@ func BigNumber[T any, E Expr[T, E]](c *big.Int) E {
 	val.Set(c)
 	//
 	return empty.BigInt(val)
+}
+
+// False constructs an expression which never holds.
+func False[T any, E Expr[T, E]]() E {
+	var empty E
+	//
+	return empty.Bool(false)
 }
 
 // If constructs an if-then expression.

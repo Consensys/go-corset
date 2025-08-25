@@ -49,6 +49,8 @@ func lowerFunction[F field.Element[F]](vectorize bool, f MacroFunction[F]) Micro
 	if vectorize {
 		fn = vectorizeFunction(fn)
 	}
+	// Infer padding as needed
+	io.InferPadding(fn)
 	//
 	return fn
 }
@@ -111,7 +113,7 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 			return true
 		}
 		// Fall through
-	case *micro.Ret:
+	case *micro.Ret, *micro.Fail:
 		return false
 	}
 	// Check conflicts, and update mutated registers

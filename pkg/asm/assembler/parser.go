@@ -225,10 +225,12 @@ func (p *Parser[F]) parseMacroInstruction(pc uint, env *Environment) (macro.Inst
 	}
 	//
 	switch first {
-	case "if":
-		insn, errs = p.parseIfGoto(env)
+	case "fail":
+		insn, errs = &macro.Fail{}, nil
 	case "goto":
 		insn, errs = p.parseGoto(env)
+	case "if":
+		insn, errs = p.parseIfGoto(env)
 	case "return":
 		insn, errs = &macro.Return{}, nil
 	case "var":

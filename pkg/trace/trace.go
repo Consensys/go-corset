@@ -62,6 +62,8 @@ type Column[T any] interface {
 	// Access the underlying data array for this column.  This is useful in
 	// situations where we want to clone the entire column, etc.
 	Data() array.Array[T]
+	// Padding returns the value which will be used for padding this column.
+	Padding() T
 }
 
 // RawColumn represents a raw column of data which has not (yet) been indexed as

@@ -96,3 +96,8 @@ func (p *traceColumn[F]) Get(_ int) F {
 func (p *traceColumn[F]) Data() array.Array[F] {
 	panic("unreachable")
 }
+
+// Padding implementation for trace.Column interface.
+func (p *traceColumn[F]) Padding() F {
+	panic("unreachable")
+}
