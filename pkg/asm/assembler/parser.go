@@ -170,8 +170,10 @@ func (p *Parser[F]) parseArgsList(kind schema.RegisterType) ([]io.Register, []so
 				return nil, errs
 			}
 		}
-		// parse name & type
+		// parse name, type & optional padding
 		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
+			return nil, errs
+		} else if padding, errs = p.parseOptionalPadding(); len(errs) > 0 {
 			return nil, errs
 		} else if width, errs = p.parseType(); len(errs) > 0 {
 			return nil, errs
@@ -183,6 +185,23 @@ func (p *Parser[F]) parseArgsList(kind schema.RegisterType) ([]io.Register, []so
 	p.match(RBRACE)
 	//
 	return regs, nil
+}
+
+func (p *Parser[F]) parseOptionalPadding() (big.Int, []source.SyntaxError) {
+	var (
+		padding   big.Int
+		errs      []source.SyntaxError
+		lookahead lex.Token
+	)
+	//
+	if !p.match(EQUALS) {
+		// no optional padding
+		return padding, nil
+	} else if lookahead, errs = p.expect(NUMBER); len(errs) > 0 {
+		return padding, errs
+	}
+	//
+	return p.number(lookahead), nil
 }
 
 func (p *Parser[F]) parseType() (uint, []source.SyntaxError) {
