@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// ReadRegisters a given set of registers from a trace.
+// ReadRegisters reads the values for a given set of registers from a trace.
 func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef) []array.Array[F] {
 	var (
 		targets = make([]array.Array[F], len(regs))
@@ -28,6 +28,20 @@ func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef
 	for i, ref := range regs {
 		mid, rid := ref.Module(), ref.Register().Unwrap()
 		targets[i] = trace.Module(mid).Column(rid).Data()
+	}
+	//
+	return targets
+}
+
+// ReadPadding reads the padding values determined for a given set of registers in a trace.
+func ReadPadding[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef) []F {
+	var (
+		targets = make([]F, len(regs))
+	)
+	// Read registers
+	for i, ref := range regs {
+		mid, rid := ref.Module(), ref.Register().Unwrap()
+		targets[i] = trace.Module(mid).Column(rid).Padding()
 	}
 	//
 	return targets
