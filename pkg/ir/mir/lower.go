@@ -418,6 +418,7 @@ func (p *AirLowering[F]) lowerDisjunctionTo(sign bool, e *Disjunct[F], airModule
 	var terms = p.lowerLogicalsTo(sign, airModule, e.Args...)
 	//
 	if sign {
+		//
 		return disjunction(terms...)
 	}
 	//

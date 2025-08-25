@@ -1,0 +1,6 @@
+(defcolumns (X :i16 :padding 1) (Y :i16 :padding 1))
+;;(defcomputed ((Y :i16@prove)) (id X))
+(defconstraint c1 ()
+  (if (== X 0)
+      (== 1 0)
+      (== X Y)))
