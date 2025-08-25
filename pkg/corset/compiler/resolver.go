@@ -358,11 +358,28 @@ func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxEr
 			// Finalise each target column
 			for i := 0; i < len(decl.Targets); i++ {
 				// Finalise ith target column
-				target := decl.Targets[i].Binding().(*ast.ColumnBinding)
-				// Update with completed information
-				target.Multiplier = assignments[i].multiplier
-				target.DataType = assignments[i].datatype
+				var (
+					ith_multiplier = assignments[i].multiplier
+					ith_datatype   = assignments[i].datatype
+					binding        = decl.Targets[i].Binding().(*ast.ColumnBinding)
+				)
+				// Finalise (if not already)
+				if !binding.IsFinalised() {
+					// Finalise column binding
+					binding.Finalise(ith_multiplier, ith_datatype)
+				}
+				// Check data type
+				if !ith_datatype.SubtypeOf(binding.DataType) {
+					msg := fmt.Sprintf("incompatible type (%s)", ith_datatype.String())
+					errors = append(errors, *r.srcmap.SyntaxError(decl.Targets[i], msg))
+				}
+				// Check multiplier
+				if ith_multiplier != binding.Multiplier {
+					errors = append(errors, *r.srcmap.SyntaxError(decl.Targets[i], "invalid length multiplier"))
+				}
 			}
+			// Finalise declaration
+			decl.Finalise()
 		}
 	}
 	// Done
@@ -496,8 +513,22 @@ func (r *resolver) finaliseDefInterleavedInModule(enclosing *ModuleScope, decl *
 		length_multiplier *= uint(len(decl.Sources))
 		// Lookup existing declaration
 		binding := decl.Target.Binding().(*ast.ColumnBinding)
-		// Finalise column binding
-		binding.Finalise(length_multiplier, datatype)
+		// Finalise (if not already)
+		if !binding.IsFinalised() {
+			// Finalise column binding
+			binding.Finalise(length_multiplier, datatype)
+		}
+		// Check data type
+		if !datatype.SubtypeOf(binding.DataType) {
+			msg := fmt.Sprintf("incompatible type (%s)", datatype.String())
+			errors = append(errors, *r.srcmap.SyntaxError(decl.Target, msg))
+		}
+		// Check multiplier
+		if length_multiplier != binding.Multiplier {
+			errors = append(errors, *r.srcmap.SyntaxError(decl.Target, "invalid length multiplier"))
+		}
+		// Finalise declaration
+		decl.Finalise()
 	}
 	//
 	enclosing.CloseDefinition(decl.Target)
