@@ -40,8 +40,7 @@ import (
 // additional combines all fragments of the same module together into one place.
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
-func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node], []SyntaxError) {
-	//
+func ParseSourceFiles(files []*source.File, enforceTypes bool) (ast.Circuit, *source.Maps[ast.Node], []SyntaxError) {
 	var circuit ast.Circuit
 	// (for now) at most one error per source file is supported.
 	var errors []SyntaxError
@@ -53,7 +52,7 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 	names := make([]string, 0)
 	//
 	for _, file := range files {
-		c, srcmap, errs := ParseSourceFile(file)
+		c, srcmap, errs := ParseSourceFile(file, enforceTypes)
 		// Handle errors
 		if len(errs) > 0 {
 			// Report any errors encountered
@@ -97,7 +96,7 @@ func ParseSourceFiles(files []*source.File) (ast.Circuit, *source.Maps[ast.Node]
 // ParseSourceFile parses the contents of a single lisp file into one or more
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
-func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], []SyntaxError) {
+func ParseSourceFile(srcfile *source.File, enforceTypes bool) (ast.Circuit, *source.Map[ast.Node], []SyntaxError) {
 	//
 	var (
 		circuit ast.Circuit
@@ -111,7 +110,7 @@ func ParseSourceFile(srcfile *source.File) (ast.Circuit, *source.Map[ast.Node], 
 		return circuit, nil, []SyntaxError{*err}
 	}
 	// Construct parser for corset syntax
-	p := NewParser(srcfile, srcmap)
+	p := NewParser(srcfile, srcmap, enforceTypes)
 	// Parse whatever is declared at the beginning of the file before the first
 	// module declaration.  These declarations form part of the "prelude".
 	if circuit.Declarations, terms, errors = p.parseModuleContents(path, terms); len(errors) > 0 {
@@ -154,16 +153,18 @@ type Parser struct {
 	translator *sexp.Translator[ast.Expr]
 	// Mapping from constructed S-Expressions to their spans in the original text.
 	nodemap *source.Map[ast.Node]
+	// Flag to signal when types should be automatically enforced by default.
+	enforceTypes bool
 }
 
 // NewParser constructs a new parser using a given mapping from S-Expressions to
 // spans in the underlying source file.
-func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp]) *Parser {
+func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp], enforceTypes bool) *Parser {
 	p := sexp.NewTranslator[ast.Expr](srcfile, srcmap)
 	// Construct (initially empty) node map
 	nodemap := source.NewSourceMap[ast.Node](srcmap.Source())
 	// Construct parser
-	parser := &Parser{p, nodemap}
+	parser := &Parser{p, nodemap, enforceTypes}
 	// Configure expression translator
 	p.AddSymbolRule(constantParserRule)
 	p.AddSymbolRule(varAccessParserRule)
@@ -395,7 +396,7 @@ func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, compu
 			ColumnContext: context,
 			Kind:          ast.NOT_COMPUTED,
 			Multiplier:    uint(multiplier),
-			MustProve:     false,
+			MustProve:     p.enforceTypes,
 			Padding:       zero,
 			Display:       "hex",
 		}
@@ -749,7 +750,7 @@ func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool
 			// Handle errors
 			if err != nil {
 				return nil, nil, false, []SyntaxError{*err}
-			} else if prove {
+			} else if prove && !p.enforceTypes {
 				return nil, nil, false, p.translator.SyntaxErrors(list, "constants cannot have proven types")
 			}
 		}
@@ -1452,7 +1453,7 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*ast.DefParameter, [
 	//
 	if err != nil {
 		return nil, []SyntaxError{*err}
-	} else if prove {
+	} else if prove && !p.enforceTypes {
 		// Parameters cannot be marked @prove
 		err := p.translator.SyntaxError(element, "malformed parameter declaration")
 		//
@@ -1630,8 +1631,8 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 		// Done
 		datatype = ast.NewUintType(uint(n))
 	}
-	// Types not proven unless explicitly requested
-	var proven bool = false
+	// Types default to not proven (unless explicitly requested)
+	var proven bool = p.enforceTypes
 	// Process type modifiers
 	for i := 1; i < len(parts); i++ {
 		switch parts[i] {

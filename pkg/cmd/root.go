@@ -144,6 +144,7 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 	corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
 	corsetConfig.Debug = GetFlag(cmd, "debug")
 	corsetConfig.Legacy = GetFlag(cmd, "legacy")
+	corsetConfig.EnforceTypes = GetFlag(cmd, "enforce-types")
 	// Assembly lowering config
 	asmConfig.Vectorize = GetFlag(cmd, "vectorize")
 	asmConfig.Field = *fieldConfig
@@ -210,6 +211,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("debug", false, "enable debugging constraints")
 	rootCmd.PersistentFlags().Bool("legacy", true, "use legacy register allocator")
 	rootCmd.PersistentFlags().Bool("no-stdlib", false, "prevent standard library from being included")
+	rootCmd.PersistentFlags().Bool("enforce-types", false, "enforce types by default")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 	rootCmd.PersistentFlags().UintP("opt", "O", 1, "set optimisation level")
 	// Assembly lowering config

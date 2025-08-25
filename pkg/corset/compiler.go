@@ -47,6 +47,8 @@ type CompilationConfig struct {
 	Debug bool
 	// Enable legacy register allocator
 	Legacy bool
+	// Enforce all types by default
+	EnforceTypes bool
 }
 
 // CompileSourceFiles compiles one or more source files into a schema.  This
@@ -54,17 +56,17 @@ type CompilationConfig struct {
 // or other forms of error (e.g. type errors).
 func CompileSourceFiles[M schema.Module[bls12_377.Element]](config CompilationConfig, srcfiles []*source.File,
 	externs ...M) (mir.MixedSchema[bls12_377.Element, M], SourceMap, []SyntaxError) {
-	//
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
-	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles)
+	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, config.EnforceTypes)
 	// Check for parsing errors
 	if errs != nil {
 		return mir.MixedSchema[bls12_377.Element, M]{}, SourceMap{}, errs
 	}
 	// Compile each module into the schema
-	comp := NewCompiler(circuit, srcmap, externs).SetDebug(config.Debug)
+	comp := NewCompiler(circuit, srcmap, externs).
+		SetDebug(config.Debug)
 	// Configure register allocator (if requested)
 	if config.Legacy {
 		comp.SetAllocator(compiler.LegacyAllocator)
