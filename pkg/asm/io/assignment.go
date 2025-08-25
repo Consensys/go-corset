@@ -13,9 +13,7 @@
 package io
 
 import (
-	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -129,10 +127,6 @@ func (p Assignment[F, T]) trace(row uint, trace tr.Module[F], iomap Map) []State
 		// update state pc
 		state.Goto(pc)
 	}
-	//
-	if pc == FAIL {
-		panic(fmt.Sprintf("failed expanding trace for %s", p.instanceId(row, trace, iomap)))
-	}
 	// Done
 	return states
 }
@@ -220,35 +214,6 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 			cols[ret].Set(uint(row), zero)
 		}
 	}
-}
-
-func (p Assignment[F, T]) instanceId(row uint, trace tr.Module[F], io Map) string {
-	var (
-		state   = p.initialState(row, trace, io)
-		builder strings.Builder
-		first   = true
-	)
-	//
-	builder.WriteString(p.name)
-	builder.WriteString("(")
-	//
-	for i, reg := range p.registers {
-		var rid = schema.NewRegisterId(uint(i))
-		//
-		if reg.IsInput() && !first {
-			builder.WriteString(",")
-		}
-		//
-		if reg.IsInput() {
-			builder.WriteString(state.Load(rid).String())
-			//
-			first = false
-		}
-	}
-	//
-	builder.WriteString(")")
-	//
-	return builder.String()
 }
 
 // Finalising a given state does two things: firstly, it clones the state;

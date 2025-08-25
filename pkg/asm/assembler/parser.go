@@ -195,12 +195,12 @@ func (p *Parser[F]) parseOptionalPadding() (big.Int, []source.SyntaxError) {
 	)
 	//
 	if !p.match(EQUALS) {
-		// no optional padding
+		// no optional padding provided
 		return padding, nil
 	} else if lookahead, errs = p.expect(NUMBER); len(errs) > 0 {
 		return padding, errs
 	}
-	//
+	// Yes, optional padding provided
 	return p.number(lookahead), nil
 }
 

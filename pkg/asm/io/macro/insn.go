@@ -101,6 +101,7 @@ func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big
 func init() {
 	gob.Register(Instruction(&Add{}))
 	gob.Register(Instruction(&Call{}))
+	gob.Register(Instruction(&Fail{}))
 	gob.Register(Instruction(&Goto{}))
 	gob.Register(Instruction(&IfGoto{}))
 	gob.Register(Instruction(&Mul{}))
