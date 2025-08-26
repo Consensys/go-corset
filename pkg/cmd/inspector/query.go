@@ -22,17 +22,18 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-const qVAR = 0
-const qNUM = 1
-const qOR = 2
-const qAND = 3
-const qEQ = 4
-const qNEQ = 5
-const qLT = 6
-const qLTEQ = 7
-const qADD = 8
-const qMUL = 9
-const qSUB = 10
+const qROW = 0
+const qVAR = 1
+const qNUM = 2
+const qOR = 3
+const qAND = 4
+const qEQ = 5
+const qNEQ = 6
+const qLT = 7
+const qLTEQ = 8
+const qADD = 9
+const qMUL = 10
+const qSUB = 11
 
 // Query represents a boolean expression which can be evaluated over a
 // given set of columns.
@@ -51,8 +52,13 @@ type Query[F field.Element[F]] struct {
 func (p *Query[F]) Variable(name string) *Query[F] {
 	var query Query[F]
 	//
-	query.op = qVAR
-	query.name = name
+	if name == "$" {
+		query.op = qROW
+		query.name = name
+	} else {
+		query.op = qVAR
+		query.name = name
+	}
 	//
 	return &query
 }
@@ -146,6 +152,9 @@ func (p *Query[F]) String() string {
 // Eval evaluates the given query in the given environment.
 func (p *Query[F]) Eval(row uint, env map[string]tr.Column[F]) F {
 	switch p.op {
+	case qROW:
+		var val F
+		return val.SetUint64(uint64(row))
 	case qVAR:
 		if col, ok := env[p.name]; ok {
 			return col.Get(int(row))
@@ -293,7 +302,7 @@ func query_string[F field.Element[F]](p Query[F], braces ...int) string {
 	var str string
 	//
 	switch p.op {
-	case qVAR:
+	case qVAR, qROW:
 		return p.name
 	case qNUM:
 		return p.number.String()

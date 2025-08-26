@@ -36,7 +36,11 @@ func (p *NavigationMode[F]) Activate(parent *Inspector[F]) {
 	parent.cmdBar.AddLeft(termio.NewColouredText("[t]", termio.TERM_YELLOW))
 	parent.cmdBar.AddLeft(termio.NewText("oggle computed :: "))
 	parent.cmdBar.AddLeft(termio.NewColouredText("[s]", termio.TERM_YELLOW))
-	parent.cmdBar.AddLeft(termio.NewText("scan :: "))
+	parent.cmdBar.AddLeft(termio.NewText("can :: "))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[n]", termio.TERM_YELLOW))
+	parent.cmdBar.AddLeft(termio.NewText("ext match :: "))
+	parent.cmdBar.AddLeft(termio.NewColouredText("[p]", termio.TERM_YELLOW))
+	parent.cmdBar.AddLeft(termio.NewText("revious match :: "))
 	//p.cmdbar.Add(termio.NewFormattedText("[p]erspectives"))
 	parent.cmdBar.AddLeft(termio.NewColouredText("[q]", termio.TERM_RED))
 	parent.cmdBar.AddLeft(termio.NewText("uit"))
@@ -94,6 +98,10 @@ func (p *NavigationMode[F]) KeyPressed(parent *Inspector[F], key uint16) bool {
 		parent.toggleColumnFilter()
 	case 's':
 		parent.EnterMode(p.scanInputMode(parent))
+	case 'n':
+		parent.nextScanResult(true)
+	case 'p':
+		parent.nextScanResult(false)
 	case '#':
 		parent.clearColumnFilter()
 	case '+':
@@ -129,7 +137,7 @@ func (p *NavigationMode[F]) filterInputMode(parent *Inspector[F]) Mode[F] {
 
 func (p *NavigationMode[F]) scanInputMode(parent *Inspector[F]) Mode[F] {
 	var (
-		prompt        = termio.NewColouredText("[history ↑/↓] expression? ", termio.TERM_YELLOW)
+		prompt        = termio.NewColouredText("[history ↑/↓] where $=row, expression? ", termio.TERM_YELLOW)
 		history       = parent.currentView().scanHistory
 		history_index = uint(len(history))
 		columns       set.SortedSet[string]
@@ -140,7 +148,7 @@ func (p *NavigationMode[F]) scanInputMode(parent *Inspector[F]) Mode[F] {
 	}
 	// Construct environment
 	env := func(col string) bool {
-		return columns.Contains(col)
+		return columns.Contains(col) || col == "$"
 	}
 	// Construct input mode
 	return newInputMode[F](prompt, history_index, history, newQueryHandler(env, parent.matchQuery))

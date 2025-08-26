@@ -44,8 +44,10 @@ type ModuleState[F field.Element[F]] struct {
 	columnFilter SourceColumnFilter
 	// Set of column filters used (regexes only).
 	columnFilterHistory []string
-	// Histor for scan commands
+	// History for scan commands
 	scanHistory []string
+	// Last executed query for next scan
+	lastQuery *Query[F]
 }
 
 // SourceColumn provides key information to the inspector about source-level
@@ -177,26 +179,45 @@ func (p *ModuleState[F]) applyColumnFilter(filter SourceColumnFilter, history bo
 
 // Evaluate a query on the current module using those values from the given
 // trace, looking for the first row where the query holds.
-func (p *ModuleState[F]) matchQuery(query *Query[F]) termio.FormattedText {
+func (p *ModuleState[F]) matchQuery(row uint, forwards bool, query *Query[F]) termio.FormattedText {
+	var (
+		env = make(map[string]tr.Column[F])
+		dir string
+	)
+	// set direction
+	if forwards {
+		dir = "forwards"
+	} else {
+		dir = "backwards"
+	}
 	// Always update history
 	p.scanHistory = history_append(p.scanHistory, query.String())
-	// Proceed
-	env := make(map[string]tr.Column[F])
+	p.lastQuery = query
 	// construct environment
 	for _, col := range p.columns {
 		env[col.Name] = p.trace.Column(col.Register)
 	}
 	// evaluate forward
-	for i := uint(0); i < p.height(); i++ {
+	for i := row; i < p.height(); {
 		val := query.Eval(i, env)
 		//
 		if val.IsZero() {
 			r := p.setRowOffset(i)
-			return termio.NewColouredText(fmt.Sprintf("Matched row %d", r), termio.TERM_GREEN)
+			msg := fmt.Sprintf("%s from row %d, matched row %d", dir, row, r)
+
+			return termio.NewColouredText(msg, termio.TERM_GREEN)
+		}
+		//
+		if forwards {
+			i++
+		} else {
+			i--
 		}
 	}
 	//
-	return termio.NewColouredText("Matched nothing", termio.TERM_YELLOW)
+	msg := fmt.Sprintf("%s from row %d, matched nothing", dir, row)
+	//
+	return termio.NewColouredText(msg, termio.TERM_YELLOW)
 }
 
 // History append will append a given item to the end of the history.  However,
