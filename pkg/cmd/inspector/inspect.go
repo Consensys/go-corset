@@ -261,8 +261,28 @@ func (p *Inspector[F]) toggleColumnFilter() bool {
 	return true
 }
 
+func (p *Inspector[F]) nextScanResult(forwards bool) {
+	var (
+		current = p.currentView()
+		msg     termio.FormattedText
+	)
+	//
+	if current.lastQuery == nil {
+		msg = termio.NewColouredText("no previous scan", termio.TERM_RED)
+	} else if forwards {
+		// Dig out the last query
+		msg = p.CurrentModule().matchQuery(current.view.row+1, forwards, current.lastQuery)
+	} else {
+		msg = p.CurrentModule().matchQuery(current.view.row-1, forwards, current.lastQuery)
+	}
+	//
+	p.SetStatus(msg)
+}
+
 func (p *Inspector[F]) matchQuery(query *Query[F]) termio.FormattedText {
-	return p.CurrentModule().matchQuery(query)
+	var current = p.currentView()
+	//
+	return p.CurrentModule().matchQuery(current.view.row, true, query)
 }
 
 // ==================================================================
