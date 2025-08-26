@@ -144,7 +144,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
 			return
 		}
-	case ".lt":
+	case ".lt", ".ltv2":
 		bytes, err = tracefile.MarshalBinary()
 		//
 		if err == nil {
@@ -181,7 +181,7 @@ func ReadTraceFile(filename string) lt.TraceFile {
 			if err == nil {
 				return lt.NewTraceFile(nil, pool, columns)
 			}
-		case ".lt":
+		case ".lt", ".ltv2":
 			// Check for legacy format
 			if !lt.IsTraceFile(data) {
 				// legacy format

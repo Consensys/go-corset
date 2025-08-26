@@ -99,7 +99,11 @@ func IsTraceFile(data []byte) bool {
 
 // MarshalBinary converts the TraceFile into a sequence of bytes.
 func (p *TraceFile) MarshalBinary() ([]byte, error) {
-	var buffer bytes.Buffer
+	var (
+		buffer      bytes.Buffer
+		columnBytes []byte
+		err         error
+	)
 	// Bytes header
 	headerBytes, err := p.Header.MarshalBinary()
 	// Error check
@@ -108,8 +112,15 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	}
 	// Encode header
 	buffer.Write(headerBytes)
-	// Bytes column data
-	columnBytes, err := ToBytesLegacy(p.Columns)
+	// Write column data
+	switch p.Header.MajorVersion {
+	case 1:
+		columnBytes, err = ToBytesLegacy(p.Columns)
+	case 2:
+		columnBytes, err = ToBytes(p.Heap, p.Columns)
+	default:
+		err = fmt.Errorf("unknown lt major file format %d", p.Header.MajorVersion)
+	}
 	// Error check
 	if err != nil {
 		return nil, err

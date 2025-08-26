@@ -79,6 +79,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	filter := GetString(cmd, "filter")
 	output := GetString(cmd, "out")
 	metadata := GetFlag(cmd, "metadata")
+	ltv2 := GetFlag(cmd, "ltv2")
 	// Read in constraint files
 	schemas := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
 	builder := schemas.TraceBuilder().WithPadding(padding)
@@ -133,6 +134,13 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Write out results (if requested)
 	if output != "" {
+		// Upgrade to ltv2 if requested
+		if ltv2 {
+			for i := range traces {
+				traces[i].Header.MajorVersion = lt.LTV2_MAJOR_VERSION
+			}
+		}
+		//
 		writeBatchedTracesFile(output, traces...)
 	}
 }
@@ -154,6 +162,7 @@ func init() {
 	traceCmd.Flags().Bool("batched", false,
 		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
 	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
+	traceCmd.Flags().Bool("ltv2", false, "Use ltv2 file format")
 }
 
 // RawColumn provides a convenient alias
