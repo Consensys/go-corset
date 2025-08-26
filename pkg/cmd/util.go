@@ -166,7 +166,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 func ReadTraceFile(filename string) lt.TraceFile {
 	var (
 		columns []trace.RawColumn[word.BigEndian]
-		builder word.ArrayBuilder[word.BigEndian]
+		pool    word.LocalHeap[word.BigEndian]
 	)
 	// Read data file
 	data, err := os.ReadFile(filename)
@@ -177,17 +177,17 @@ func ReadTraceFile(filename string) lt.TraceFile {
 		//
 		switch ext {
 		case ".json":
-			builder, columns, err = json.FromBytes(data)
+			pool, columns, err = json.FromBytes(data)
 			if err == nil {
-				return lt.NewTraceFile(nil, builder, columns)
+				return lt.NewTraceFile(nil, pool, columns)
 			}
 		case ".lt":
 			// Check for legacy format
 			if !lt.IsTraceFile(data) {
 				// legacy format
-				builder, columns, err = lt.FromBytesLegacy(data)
+				pool, columns, err = lt.FromBytesLegacy(data)
 				if err == nil {
-					return lt.NewTraceFile(nil, builder, columns)
+					return lt.NewTraceFile(nil, pool, columns)
 				}
 			} else {
 				// versioned format

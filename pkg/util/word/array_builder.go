@@ -19,22 +19,13 @@ import (
 // ArrayBuilder is a mechanism for constructing arrays which aims to select the
 // right representation for a given array.
 type ArrayBuilder[T any] interface {
-	// Clone this array builder, including any pools contained therein.
-	Clone() ArrayBuilder[T]
 	// NewArray constructs a new array of the given height holding elements of the given bitwidth
 	NewArray(height uint, bitwidth uint) array.MutArray[T]
 }
 
-// NewDynamicArrayBuilder constructs a new array builder for dynamic words.
-func NewDynamicArrayBuilder[T DynamicWord[T]]() ArrayBuilder[T] {
-	var builder = &dynamicArrayBuilder[T]{}
-	//
-	builder.heap8 = NewBytePool[T]()
-	builder.heap16 = NewWordPool[T]()
-	builder.heap = NewSharedHeap[T]()
-	//
-	return builder
-}
+// ============================================================================
+// Static Builder
+// ============================================================================
 
 // NewStaticArrayBuilder constructs a new array builder for dynamic words.
 func NewStaticArrayBuilder[T Word[T]]() ArrayBuilder[T] {
@@ -47,52 +38,11 @@ func NewStaticArrayBuilder[T Word[T]]() ArrayBuilder[T] {
 	return builder
 }
 
-// dynamicArrayBuilder is for handling static words only.
-type dynamicArrayBuilder[T DynamicWord[T]] struct {
-	heap8  SmallPool[uint8, T]
-	heap16 SmallPool[uint16, T]
-	heap   *SharedHeap[T]
-}
-
-// NewArray constructs a new word array with a given capacity.
-func (p *dynamicArrayBuilder[T]) Clone() ArrayBuilder[T] {
-	return &dynamicArrayBuilder[T]{
-		p.heap8,
-		p.heap16,
-		p.heap.Clone(),
-	}
-}
-
-// NewArray constructs a new word array with a given capacity.
-func (p *dynamicArrayBuilder[T]) NewArray(height uint, bitwidth uint) array.MutArray[T] {
-	switch {
-	case bitwidth == 0:
-		return NewZeroArray[T](height)
-	case bitwidth == 1:
-		return NewBitArray[T](height)
-	case bitwidth <= 8:
-		return NewPoolArray(height, bitwidth, p.heap8)
-	case bitwidth <= 16:
-		return NewPoolArray(height, bitwidth, p.heap16)
-	default:
-		return NewPoolArray(height, bitwidth, p.heap)
-	}
-}
-
 // staticArrayBuilder is for handling static words only.
 type staticArrayBuilder[T Word[T]] struct {
 	heap8  SmallPool[uint8, T]
 	heap16 SmallPool[uint16, T]
 	heap   *SharedIndex[T]
-}
-
-// NewArray constructs a new word array with a given capacity.
-func (p *staticArrayBuilder[T]) Clone() ArrayBuilder[T] {
-	return &staticArrayBuilder[T]{
-		p.heap8,
-		p.heap16,
-		p.heap.Clone(),
-	}
 }
 
 // NewArray constructs a new word array with a given capacity.
@@ -111,5 +61,41 @@ func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) array.MutAr
 		// array builder.  Each array getting its own heap is sub-optimal.
 		// However, at this stage, this is done for performance reasons.
 		return NewPoolArray(height, bitwidth, NewLocalIndex[T]())
+	}
+}
+
+// ============================================================================
+// Dynamic Builder
+// ============================================================================
+
+// NewDynamicBuilder constructs a new array builder for dynamic words.
+func NewDynamicBuilder[T DynamicWord[T], P Pool[uint32, T]](heap P) DynamicBuilder[T, P] {
+	return DynamicBuilder[T, P]{
+		heap8:  NewBytePool[T](),
+		heap16: NewWordPool[T](),
+		heap:   heap,
+	}
+}
+
+// DynamicBuilder is for handling dynamic words only.
+type DynamicBuilder[T DynamicWord[T], P Pool[uint32, T]] struct {
+	heap8  SmallPool[uint8, T]
+	heap16 SmallPool[uint16, T]
+	heap   P
+}
+
+// NewArray constructs a new word array with a given capacity.
+func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) array.MutArray[T] {
+	switch {
+	case bitwidth == 0:
+		return NewZeroArray[T](height)
+	case bitwidth == 1:
+		return NewBitArray[T](height)
+	case bitwidth <= 8:
+		return NewPoolArray(height, bitwidth, p.heap8)
+	case bitwidth <= 16:
+		return NewPoolArray(height, bitwidth, p.heap16)
+	default:
+		return NewPoolArray(height, bitwidth, p.heap)
 	}
 }

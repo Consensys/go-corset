@@ -20,11 +20,23 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// LT_MAJOR_VERSION givesn the major version of the binary file format.  No
+// ArrayBuilder provides a usefuil alias
+type ArrayBuilder = word.DynamicBuilder[word.BigEndian, *word.SharedHeap[word.BigEndian]]
+
+// WordHeap provides a usefuil alias
+type WordHeap = word.LocalHeap[word.BigEndian]
+
+// LT_MAJOR_VERSION givesn the major version of the (currently supported) legacy
+// binary file format.  No matter what version, we should always have the
+// ZKBINARY identifier first, followed by a GOB encoding of the header.  What
+// follows after that, however, is determined by the major version.
+const LT_MAJOR_VERSION uint16 = 1
+
+// LTV2_MAJOR_VERSION gives the major version of the binary file format.  No
 // matter what version, we should always have the ZKBINARY identifier first,
 // followed by a GOB encoding of the header.  What follows after that, however,
 // is determined by the major version.
-const LT_MAJOR_VERSION uint16 = 1
+const LTV2_MAJOR_VERSION uint16 = 2
 
 // LT_MINOR_VERSION gives the minor version of the binary file format.  The
 // expected interpretation is that older versions are compatible with newer
@@ -40,14 +52,14 @@ type TraceFile struct {
 	// Header for the binary file
 	Header Header
 	// Word pool
-	Builder ArrayBuilder
+	Heap WordHeap
 	// Column data
 	Columns []trace.RawColumn[word.BigEndian]
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(metadata []byte, pool ArrayBuilder, columns []trace.RawColumn[word.BigEndian]) TraceFile {
+func NewTraceFile(metadata []byte, pool WordHeap, columns []trace.RawColumn[word.BigEndian]) TraceFile {
 	return TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		pool,
@@ -65,7 +77,7 @@ func (p *TraceFile) Clone() TraceFile {
 	//
 	return TraceFile{
 		p.Header,
-		p.Builder.Clone(),
+		p.Heap.Clone(),
 		cols,
 	}
 }
@@ -115,14 +127,22 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	//
 	buffer := bytes.NewBuffer(data)
 	// Read header
-	if err = p.Header.UnmarshalBinary(buffer); err == nil && p.Header.IsCompatible() {
-		// Decode column data
-		p.Builder, p.Columns, err = FromBytesLegacy(buffer.Bytes())
-		// Done
+	if err = p.Header.UnmarshalBinary(buffer); err != nil {
 		return err
-	} else if err == nil {
-		err = fmt.Errorf("incompatible binary file was v%d.%d, but expected v%d.%d)",
+	} else if !p.Header.IsCompatible() {
+		return fmt.Errorf("incompatible binary file was v%d.%d, but expected v%d.%d)",
 			p.Header.MajorVersion, p.Header.MinorVersion, LT_MAJOR_VERSION, LT_MINOR_VERSION)
+	}
+	//
+	switch p.Header.MajorVersion {
+	case 1:
+		// Legacy Format
+		p.Heap, p.Columns, err = FromBytesLegacy(buffer.Bytes())
+	case 2:
+		// New format
+		p.Heap, p.Columns, err = FromBytes(buffer.Bytes())
+	default:
+		panic("unreachable")
 	}
 	//
 	return err

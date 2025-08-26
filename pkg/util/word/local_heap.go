@@ -14,6 +14,7 @@ package word
 
 import (
 	"math"
+	"slices"
 )
 
 // LocalHeap maintains a heap of bytes representing the words which is *not* thread
@@ -48,6 +49,29 @@ func NewLocalHeap[T DynamicWord[T]]() *LocalHeap[T] {
 	return p
 }
 
+// Clone implementation for SharedPool interface.
+func (p *LocalHeap[T]) Clone() LocalHeap[T] {
+	var (
+		heap    = make([]byte, len(p.heap))
+		lengths = make([]uint8, len(p.lengths))
+		buckets = make([][]uint32, len(p.buckets))
+	)
+	//
+	copy(heap, p.heap)
+	copy(lengths, p.lengths)
+	//
+	for i := range len(p.buckets) {
+		buckets[i] = slices.Clone(p.buckets[i])
+	}
+	//
+	return LocalHeap[T]{
+		heap:    heap,
+		lengths: lengths,
+		buckets: buckets,
+		count:   p.count,
+	}
+}
+
 // Get implementation for the Pool interface.
 func (p *LocalHeap[T]) Get(index uint32) T {
 	// Determine length of word in heap
@@ -71,6 +95,17 @@ func (p *LocalHeap[T]) Put(word T) uint32 {
 	}
 	//
 	return index
+}
+
+// MarshalBinary converts this heap into a sequence of bytes.
+func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
+	panic("todo")
+}
+
+// UnmarshalBinary initialises this heap from a given set of data bytes. This
+// should match exactly the encoding above.
+func (p *LocalHeap[T]) UnmarshalBinary(data []byte) error {
+	panic("todo")
 }
 
 // Allocate a new word into the heap, returning its address.  This method is not
