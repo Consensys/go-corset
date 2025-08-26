@@ -5,22 +5,18 @@
 ;; instruction generated an out-of-gas exception (rather than some
 ;; other exception kind).
 fn gas(GAS_COST u64, GAS_ACTUAL u64, XAHOY u1, OOGX u1) {
-  ;; Check gas_cost >= 0
-  ;; Check gas_actual >= 0
-  ;; if xahoy == 0 check gas_cost <= gas_actual
-  ;; if oogx == 1 check gas_actual < gas_cost
   var tmp u64
   var b u1
   ;;
-  b, tmp = gas_actual - gas_cost
+  b, tmp = GAS_ACTUAL - GAS_COST
   ;;
-  if xahoy == 1 goto check_oogx
-  ;; no exception generated, therefore ensure enough gas
+  if XAHOY == 1 goto check_oogx
+  ;; no exception, so check was enough gas
   if b == 0 goto exit
   fail
 check_oogx:
-  ;; exception raise, check if out-of-gas or not
-  if oogx == 0 goto exit
+  ;;  exception, so check was out-of-gas
+  if OOGX == 0 goto exit
   if b == 1 goto exit
   fail
 exit:

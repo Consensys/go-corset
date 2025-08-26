@@ -115,13 +115,12 @@ func (p *Parser[F]) parseFunction(id schema.ModuleId) (MacroFunction[F], []sourc
 	if inputs, errs = p.parseArgsList(schema.INPUT_REGISTER); len(errs) > 0 {
 		return MacroFunction[F]{}, errs
 	}
-	// Parse '->'
-	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
-		return MacroFunction[F]{}, errs
-	}
-	// Parse outputs
-	if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
-		return MacroFunction[F]{}, errs
+	// Parse optional '->'
+	if p.match(RIGHTARROW) {
+		// Parse returns
+		if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
+			return MacroFunction[F]{}, errs
+		}
 	}
 	// Update register list with inputs/outputs
 	env.registers = append(env.registers, inputs...)
