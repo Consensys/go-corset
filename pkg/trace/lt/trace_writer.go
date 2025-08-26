@@ -13,11 +13,46 @@
 package lt
 
 import (
+	"bytes"
+	"encoding/binary"
+
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ToBytes writes a given trace file as an array of  bytes.
-func ToBytes(builder ArrayBuilder, columns []trace.RawColumn[word.BigEndian]) ([]byte, error) {
+func ToBytes(heap WordHeap, columns []trace.RawColumn[word.BigEndian]) ([]byte, error) {
+	var (
+		buf         bytes.Buffer
+		err         error
+		headerBytes []byte
+		heapBytes   []byte
+	)
+	// Construct header data
+	if headerBytes, err = toHeaderBytes(columns); err != nil {
+		return nil, err
+	}
+	// Construct heap data
+	if heapBytes, err = toHeapBytes(heap); err != nil {
+		return nil, err
+	}
+	// Write header size
+	if err := binary.Write(&buf, binary.BigEndian, uint32(len(headerBytes))); err != nil {
+		return nil, err
+	}
+	// Write heap size
+	if err := binary.Write(&buf, binary.BigEndian, uint32(len(heapBytes))); err != nil {
+		return nil, err
+	}
+	//
+	return buf.Bytes(), nil
+}
+
+func toHeaderBytes(columns []trace.RawColumn[word.BigEndian]) ([]byte, error) {
 	panic("todo")
+}
+
+func toHeapBytes(heap WordHeap) ([]byte, error) {
+	// FOR NOW!
+	return nil, nil
 }

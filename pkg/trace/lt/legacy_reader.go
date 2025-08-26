@@ -29,7 +29,6 @@ import (
 // (i.e. without any additional header information prepended, etc).
 func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error) {
 	var (
-		// Construct new bytes.Reader
 		buf     = bytes.NewReader(data)
 		heap    = word.NewSharedHeap[word.BigEndian]()
 		builder = word.NewDynamicBuilder(heap)
@@ -40,11 +39,11 @@ func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], 
 		return WordHeap{}, nil, err
 	}
 	// Construct empty environment
-	headers := make([]columnHeader, ncols)
+	headers := make([]legacyColumnHeader, ncols)
 	columns := make([]trace.RawColumn[word.BigEndian], ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
-		header, err := readColumnHeader(buf)
+		header, err := readLegacyColumnHeader(buf)
 		// Read column
 		if err != nil {
 			// Handle error
@@ -84,15 +83,15 @@ func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], 
 	return *heap.Localise(), columns, nil
 }
 
-type columnHeader struct {
+type legacyColumnHeader struct {
 	name   string
 	length uint
 	width  uint
 }
 
 // Read the meta-data for a specific column in this trace file.
-func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
-	var header columnHeader
+func readLegacyColumnHeader(buf *bytes.Reader) (legacyColumnHeader, error) {
+	var header legacyColumnHeader
 	// Qualified column name length
 	var nameLen uint16
 	// Read column name length
@@ -124,7 +123,7 @@ func readColumnHeader(buf *bytes.Reader) (columnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header columnHeader, bytes []byte, heap ArrayBuilder) array.MutArray[word.BigEndian] {
+func readColumnData(header legacyColumnHeader, bytes []byte, heap ArrayBuilder) array.MutArray[word.BigEndian] {
 	// Handle special cases
 	switch header.width {
 	case 1:
@@ -140,7 +139,7 @@ func readColumnData(header columnHeader, bytes []byte, heap ArrayBuilder) array.
 	return readArbitraryColumnData(header, bytes, heap)
 }
 
-func readByteColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readByteColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	arr := builder.NewArray(header.length, header.width*8)
 	//
 	for i := uint(0); i < header.length; i++ {
@@ -151,7 +150,7 @@ func readByteColumnData(header columnHeader, bytes []byte, builder ArrayBuilder)
 	return arr
 }
 
-func readWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
 		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
@@ -167,7 +166,7 @@ func readWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder)
 	return arr
 }
 
-func readDWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readDWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
 		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
@@ -183,7 +182,7 @@ func readDWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder
 	return arr
 }
 
-func readQWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readQWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
 		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
@@ -200,7 +199,8 @@ func readQWordColumnData(header columnHeader, bytes []byte, builder ArrayBuilder
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(header columnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readArbitraryColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder,
+) array.MutArray[word.BigEndian] {
 	var (
 		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
