@@ -28,6 +28,10 @@ import (
 // function.
 const RETURN uint = math.MaxUint
 
+// FAIL is used to signal that a given instruction returns with an exception
+// from the enclosing function.
+const FAIL uint = math.MaxUint - 1
+
 // State collects together local state necessary for executing a given
 // instruction.  This contrasts with an I/O Map which represents the non-local
 // state.

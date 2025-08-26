@@ -228,7 +228,7 @@ func (p Instruction) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 func validateWrites(cc uint, writes bit.Set, codes []Code, fn schema.RegisterMap) error {
 	//
 	switch code := codes[cc].(type) {
-	case *Ret, *Jmp:
+	case *Fail, *Ret, *Jmp:
 		return nil
 	case *Skip:
 		if err := validateWrites(cc+code.Skip+1, writes.Clone(), codes, fn); err != nil {

@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
@@ -152,7 +153,7 @@ func (p *Compiler[F1, F2, T, E, M]) initModule(busId uint, fn MicroFunction[F1])
 	bus.columns = make([]T, len(fn.Registers()))
 	//
 	for i, reg := range fn.Registers() {
-		bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width)
+		bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width, reg.Padding)
 	}
 	//
 	p.buses[busId] = bus
@@ -172,12 +173,14 @@ func (p *Compiler[F1, F2, T, E, M]) initFunctionFraming(busId uint, fn MicroFunc
 func (p *Compiler[F1, F2, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction[F1]) Framing[T, E] {
 	var (
 		module = p.modules[busId]
+		// padding defaults to zero
+		padding big.Int
 		// determine suitable width of PC register
 		pcWidth = bit.Width(uint(1 + len(fn.Code())))
 		// allocate PC register
-		pc = module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth)
+		pc = module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth, padding)
 		// allocate return line
-		ret = module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1)
+		ret = module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1, padding)
 	)
 	// NOTE: a key requirement for the following constraints is that they don't
 	// need an inverse computation for a shifted row (i.e. no spillage is

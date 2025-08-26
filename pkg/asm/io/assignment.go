@@ -118,7 +118,7 @@ func (p Assignment[F, T]) trace(row uint, trace tr.Module[F], iomap Map) []State
 		pc uint = 0
 	)
 	// Keep executing until we're done.
-	for pc != RETURN {
+	for pc != RETURN && pc != FAIL {
 		insn := code[pc]
 		// execute given instruction
 		pc = insn.Execute(state)
