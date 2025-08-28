@@ -47,6 +47,11 @@ func NewBitArray[T word.Word[T]](height uint) *BitArray[T] {
 	return &BitArray[T]{elements, height}
 }
 
+// Encode returns the byte encoding of this array.
+func (p *BitArray[T]) Encode() Encoding {
+	panic("todo")
+}
+
 // Len returns the number of elements in this word array.
 func (p *BitArray[T]) Len() uint {
 	return p.height

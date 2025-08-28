@@ -46,6 +46,11 @@ func (p *ZeroArray[T]) Clone() MutArray[T] {
 	return &ZeroArray[T]{p.height}
 }
 
+// Encode returns the byte encoding of this array.
+func (p *ZeroArray[T]) Encode() Encoding {
+	panic("todo")
+}
+
 // Len returns the number of elements in this word array.
 func (p *ZeroArray[T]) Len() uint {
 	return p.height

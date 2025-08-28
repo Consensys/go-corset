@@ -15,9 +15,8 @@ package lt
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 
-	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -39,15 +38,15 @@ import (
 // represents a collection of indexed word data.  Finally, COLUMNS contains
 // concrete column data which is either represented explicitly (for narrow
 // words, like u8) or using indexes into the heap (for wide words, like u256).
-func FromBytes(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error) {
+func FromBytes(data []byte) (WordHeap, []RawColumn, error) {
 	var (
-		err     error
-		buf     = bytes.NewReader(data)
-		heap    pool.LocalHeap[word.BigEndian]
-		columns []trace.RawColumn[word.BigEndian]
-		//builder                = word.NewDynamicBuilder(heap)
+		err                    error
+		buf                    = bytes.NewReader(data)
+		heap                   pool.LocalHeap[word.BigEndian]
+		columns                []RawColumn
 		headerBytes, heapBytes uint32
 		headers                []moduleHeader
+		offset                 uint
 	)
 	// Determine sizes of all three sections
 	if headerBytes, heapBytes, err = readSectionSizes(buf); err != nil {
@@ -57,17 +56,29 @@ func FromBytes(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error)
 	if headers, err = readModuleHeaders(buf, headerBytes+heapBytes); err != nil {
 		return WordHeap{}, nil, err
 	}
-	//
-	for _, m := range headers {
-		fmt.Printf("Module %s has height %d\n", m.name, m.height)
-	}
 	// Read heap
 	if err := heap.UnmarshalBinary(data[8+headerBytes : 8+headerBytes+heapBytes]); err != nil {
 		return WordHeap{}, nil, err
 	}
 	//
-	fmt.Printf("Heap has %d entries\n", heap.Size())
-	// Read column data
+	offset = uint(8 + headerBytes + heapBytes)
+	// Read column data (sequentially)
+	for _, module := range headers {
+		for _, column := range module.columns {
+			var encoding = array.Encoding{
+				Encoding: column.encoding,
+				Bytes:    data[offset : offset+uint(column.length)],
+			}
+			// Decode array data
+			data := array.Decode(encoding, &heap)
+			// Include it
+			columns = append(columns, RawColumn{
+				Module: module.name,
+				Name:   column.name,
+				Data:   data,
+			})
+		}
+	}
 	// Done
 	return heap, columns, nil
 }
@@ -85,7 +96,7 @@ func readSectionSizes(buf *bytes.Reader) (headerBytes, heapBytes uint32, err err
 	return headerBytes, heapBytes, nil
 }
 
-func readModuleHeaders(buf *bytes.Reader, columnOffset uint32) (headers []moduleHeader, err error) {
+func readModuleHeaders(buf *bytes.Reader, offset uint32) (headers []moduleHeader, err error) {
 	var nModules uint32
 	// Read number of modules
 	if err := binary.Read(buf, binary.BigEndian, &nModules); err != nil {
@@ -95,7 +106,7 @@ func readModuleHeaders(buf *bytes.Reader, columnOffset uint32) (headers []module
 	headers = make([]moduleHeader, nModules)
 	//
 	for i := range headers {
-		if headers[i], err = readModuleHeader(buf, columnOffset); err != nil {
+		if headers[i], offset, err = readModuleHeader(buf, offset); err != nil {
 			return headers, err
 		}
 	}
@@ -103,19 +114,19 @@ func readModuleHeaders(buf *bytes.Reader, columnOffset uint32) (headers []module
 	return headers, nil
 }
 
-func readModuleHeader(buf *bytes.Reader, columnOffset uint32) (header moduleHeader, err error) {
+func readModuleHeader(buf *bytes.Reader, columnOffset uint32) (header moduleHeader, offset uint32, err error) {
 	var nColumns uint32
 	// Read module name
 	if header.name, err = readName(buf); err != nil {
-		return header, err
+		return header, columnOffset, err
 	}
 	// Read module height
 	if err := binary.Read(buf, binary.BigEndian, &header.height); err != nil {
-		return header, err
+		return header, columnOffset, err
 	}
 	// Read number of columns
 	if err := binary.Read(buf, binary.BigEndian, &nColumns); err != nil {
-		return header, err
+		return header, columnOffset, err
 	}
 	// Read columns
 	header.columns = make([]columnHeader, nColumns)
@@ -123,13 +134,13 @@ func readModuleHeader(buf *bytes.Reader, columnOffset uint32) (header moduleHead
 	//
 	for i := range header.columns {
 		if header.columns[i], err = readColumnHeader(buf, columnOffset); err != nil {
-			return header, err
+			return header, columnOffset, err
 		}
 		//
 		columnOffset += header.columns[i].length
 	}
 	//
-	return header, nil
+	return header, columnOffset, nil
 }
 
 func readColumnHeader(buf *bytes.Reader, columnOffset uint32) (header columnHeader, err error) {
@@ -190,7 +201,7 @@ type columnHeader struct {
 	// Length (in bytes) of column data
 	length uint32
 	// encoding scheme used for column data
-	encoding uint16
+	encoding uint32
 	// Bitwidth of column
 	bitwidth uint16
 }

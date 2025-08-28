@@ -19,12 +19,16 @@ import (
 	"io"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
+// RawColumn provides a convenient alias
+type RawColumn = trace.RawColumn[word.BigEndian]
+
 // ToBytes writes a given trace file as an array of bytes.  See FromBytes for
 // more information on the layout of data in this format.
-func ToBytes(heap WordHeap, rawColumns []trace.RawColumn[word.BigEndian]) ([]byte, error) {
+func ToBytes(heap WordHeap, rawColumns []RawColumn) ([]byte, error) {
 	var (
 		buf         bytes.Buffer
 		err         error
@@ -32,9 +36,9 @@ func ToBytes(heap WordHeap, rawColumns []trace.RawColumn[word.BigEndian]) ([]byt
 		heapBytes   []byte
 	)
 	// For now we do an ugly split
-	columns := splitRawColumns(rawColumns)
+	columns, moduleEncodings := splitRawColumns(rawColumns)
 	// Construct header data
-	if headerBytes, err = toHeaderBytes(columns); err != nil {
+	if headerBytes, err = toHeaderBytes(columns, moduleEncodings); err != nil {
 		return nil, err
 	}
 	// Construct heap data
@@ -61,16 +65,25 @@ func ToBytes(heap WordHeap, rawColumns []trace.RawColumn[word.BigEndian]) ([]byt
 	} else if n != len(heapBytes) {
 		return nil, fmt.Errorf("wrote insufficient heap bytes (%d v %d)", n, len(heapBytes))
 	}
-	//
-	fmt.Printf("Wrote %d heap bytes with %d entries\n", len(heapBytes), heap.Size())
+	// Write column data
+	for _, columnEncodings := range moduleEncodings {
+		for _, encoding := range columnEncodings {
+			if n, err := buf.Write(encoding.Bytes); err != nil {
+				return nil, err
+			} else if n != len(heapBytes) {
+				return nil, fmt.Errorf("wrote insufficient encoded column bytes (%d v %d)", n, len(encoding.Bytes))
+			}
+		}
+	}
 	//
 	return buf.Bytes(), nil
 }
 
-func splitRawColumns(rawColumns []trace.RawColumn[word.BigEndian]) [][]trace.RawColumn[word.BigEndian] {
+func splitRawColumns(rawColumns []RawColumn) ([][]RawColumn, [][]array.Encoding) {
 	var (
-		mapping = make(map[string]uint)
-		columns [][]trace.RawColumn[word.BigEndian]
+		mapping   = make(map[string]uint)
+		columns   [][]RawColumn
+		encodings [][]array.Encoding
 	)
 	//
 	for _, col := range rawColumns {
@@ -80,23 +93,25 @@ func splitRawColumns(rawColumns []trace.RawColumn[word.BigEndian]) [][]trace.Raw
 			// no
 			mapping[col.Module] = uint(len(columns))
 			columns = append(columns, nil)
+			encodings = append(encodings, nil)
 		}
 		//
 		columns[mid] = append(columns[mid], col)
+		encodings[mid] = append(encodings[mid], col.Data.Encode())
 	}
 	//
-	return columns
+	return columns, encodings
 }
 
-func toHeaderBytes(modules [][]trace.RawColumn[word.BigEndian]) ([]byte, error) {
+func toHeaderBytes(modules [][]RawColumn, encodings [][]array.Encoding) ([]byte, error) {
 	var buf bytes.Buffer
 	// Write number of modules
 	if err := binary.Write(&buf, binary.BigEndian, uint32(len(modules))); err != nil {
 		return nil, err
 	}
 	//
-	for _, module := range modules {
-		if err := writeModuleHeader(&buf, module); err != nil {
+	for i, module := range modules {
+		if err := writeModuleHeader(&buf, module, encodings[i]); err != nil {
 			return nil, err
 		}
 	}
@@ -104,7 +119,7 @@ func toHeaderBytes(modules [][]trace.RawColumn[word.BigEndian]) ([]byte, error) 
 	return buf.Bytes(), nil
 }
 
-func writeModuleHeader(buf io.Writer, columns []trace.RawColumn[word.BigEndian]) (err error) {
+func writeModuleHeader(buf io.Writer, columns []RawColumn, encodings []array.Encoding) (err error) {
 	var (
 		name   string
 		height uint32
@@ -127,8 +142,8 @@ func writeModuleHeader(buf io.Writer, columns []trace.RawColumn[word.BigEndian])
 		return err
 	}
 	// Write column info
-	for _, col := range columns {
-		if err = writeColumnHeader(buf, col); err != nil {
+	for i, col := range columns {
+		if err = writeColumnHeader(buf, col, encodings[i]); err != nil {
 			return err
 		}
 	}
@@ -136,22 +151,21 @@ func writeModuleHeader(buf io.Writer, columns []trace.RawColumn[word.BigEndian])
 	return nil
 }
 
-func writeColumnHeader(buf io.Writer, column trace.RawColumn[word.BigEndian]) (err error) {
+func writeColumnHeader(buf io.Writer, column RawColumn, encoding array.Encoding) (err error) {
 	var (
-		length   uint32 // in bytes
-		encoding uint16
 		bitwidth uint16 = uint16(column.Data.BitWidth())
+		len      uint32 = uint32(len(encoding.Bytes))
 	)
 	// Write column name
 	if err = writeName(buf, column.Name); err != nil {
 		return err
 	}
 	// Write column data length
-	if err := binary.Write(buf, binary.BigEndian, length); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, len); err != nil {
 		return err
 	}
 	// Write column data encoding schema
-	if err := binary.Write(buf, binary.BigEndian, encoding); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, encoding.Encoding); err != nil {
 		return err
 	}
 	// Write column bitwidth

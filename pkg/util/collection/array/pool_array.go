@@ -59,6 +59,11 @@ func (p *PoolArray[K, T, P]) Clone() MutArray[T] {
 	return &PoolArray[K, T, P]{p.pool, nindex, p.bitwidth}
 }
 
+// Encode returns the byte encoding of this array.
+func (p *PoolArray[K, T, P]) Encode() Encoding {
+	panic("todo")
+}
+
 // Len returns the number of elements in this word array.
 func (p *PoolArray[K, T, P]) Len() uint {
 	return uint(len(p.index))

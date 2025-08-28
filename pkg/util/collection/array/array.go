@@ -12,20 +12,27 @@
 // SPDX-License-Identifier: Apache-2.0
 package array
 
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
+	"github.com/consensys/go-corset/pkg/util/word"
+)
+
 // Predicate abstracts the notion of a function which identifies something.
 type Predicate[T any] = func(T) bool
 
 // Array provides a generice interface to an array of elements.  Typically, we
 // are interested in arrays of field elements here.
 type Array[T any] interface {
-	// Clone this array producing a mutable copy
-	Clone() MutArray[T]
-	// Returns the number of elements in this array.
-	Len() uint
-	// Get returns the element at the given index in this array.
-	Get(uint) T
 	// Return the number of bits required to store an element of this array.
 	BitWidth() uint
+	// Clone this array producing a mutable copy
+	Clone() MutArray[T]
+	// Encode returns the byte encoding of this array.
+	Encode() Encoding
+	// Get returns the element at the given index in this array.
+	Get(uint) T
+	// Returns the number of elements in this array.
+	Len() uint
 	// Slice out a subregion of this array.
 	Slice(uint, uint) Array[T]
 }
@@ -42,4 +49,10 @@ type MutArray[T any] interface {
 	// Insert n copies of T at start of the array and m copies at the back
 	// producing an updated array.
 	Pad(uint, uint, T)
+}
+
+// Decode reconstructs an array from an array encoding, given the pool as it was
+// when the encoding was made.
+func Decode[K any, T word.Word[T], P pool.Pool[K, T]](encoding Encoding, pool P) MutArray[T] {
+	panic("todo")
 }
