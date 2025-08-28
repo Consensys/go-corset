@@ -22,7 +22,7 @@ fn reduction_u8(z u16) -> (RESULT u8) {
    var discard_bit_shift u8
    var res u8
    var red u8
-   var c0, c1, c2 u1
+   var c0, c1 u1
 
    ninv_mod_R = 205
    n = 251
@@ -41,20 +41,6 @@ fn reduction_u8(z u16) -> (RESULT u8) {
 
    ;; dividend / R
    res, discard_bit_shift = dividend
-
-   ;; old version that contained a bug
-   ;; leaving it here to show David the compiler issue
-
-      ;; limb 1 of result
-      ;; z / R
-      ;; z_div_R, discard_bit_shift = z
-
-      ;; limb 2 of result
-      ;; ( m * n ) / R
-      ;; m_times_n_div_R, discard_bit_shift = m * n
-
-      ;; compute the result of the reduction limb1 + limb2
-      ;; c2, res = z_div_R + m_times_n_div_R
 
    c0, red = res - n
    if c0==0 goto exit_1
