@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 )
 
 // Scope represents a region of code in which an expression can be evaluated.
@@ -30,10 +31,10 @@ type Scope interface {
 	Bind(ast.Symbol) bool
 
 	// Bindings returns all binding identifiers within a given path.
-	Bindings(util.Path) []BindingId
+	Bindings(file.Path) []BindingId
 
 	// Check whether a given path is within the enclosing module, or not.
-	IsWithin(util.Path) bool
+	IsWithin(file.Path) bool
 
 	// Check whether the given symbol is in the process of being defined in the
 	// enclose scope.  Thus, if we encounter an this symbol within e.g. some
@@ -83,7 +84,7 @@ type ModuleScope struct {
 	// Selector determining when this module is active.
 	selector util.Option[string]
 	// Absolute path
-	path util.Path
+	path file.Path
 	// Map identifiers to indices within the bindings array.
 	ids map[BindingId]uint
 	// The set of bindings in the order of declaration.
@@ -100,7 +101,7 @@ type ModuleScope struct {
 func NewModuleScope() *ModuleScope {
 	return &ModuleScope{
 		util.None[string](),
-		util.NewAbsolutePath(),
+		file.NewAbsolutePath(),
 		make(map[BindingId]uint),
 		nil,
 		nil,
@@ -110,7 +111,7 @@ func NewModuleScope() *ModuleScope {
 }
 
 // Path returns the absolute path of this module.
-func (p *ModuleScope) Path() *util.Path {
+func (p *ModuleScope) Path() *file.Path {
 	return &p.path
 }
 
@@ -129,7 +130,7 @@ func (p *ModuleScope) Virtual() bool {
 }
 
 // IsWithin checks whether a given path is local to the enclosing module, or not.
-func (p *ModuleScope) IsWithin(path util.Path) bool {
+func (p *ModuleScope) IsWithin(path file.Path) bool {
 	return !path.IsAbsolute() || (p.parent != nil && p.path.PrefixOf(path))
 }
 
@@ -152,7 +153,7 @@ func (p *ModuleScope) IsVisible(symbol ast.Symbol) bool {
 	return visible
 }
 
-func (p *ModuleScope) isVisibleInner(path util.Path, symbol ast.Symbol) (found, visible bool) {
+func (p *ModuleScope) isVisibleInner(path file.Path, symbol ast.Symbol) (found, visible bool) {
 	var id = BindingId{path.Tail(), symbol.Arity()}
 	//
 	if submod, ok := p.submodmap[path.Head()]; ok && path.Depth() > 1 {
@@ -189,7 +190,7 @@ func (p *ModuleScope) Selector() util.Option[string] {
 func (p *ModuleScope) DestructuredColumns() []RegisterSource {
 	var (
 		sources []RegisterSource
-		owner   util.Path = p.Owner().path
+		owner   file.Path = p.Owner().path
 	)
 	//
 	for _, b := range p.bindings {
@@ -289,7 +290,7 @@ func (p *ModuleScope) Bind(symbol ast.Symbol) bool {
 // InnerBind is really a helper which allows us to split out the symbol path
 // from the symbol itself.  This then lets us "traverse" the path as we go
 // looking through submodules, etc.
-func (p *ModuleScope) innerBind(path *util.Path, symbol ast.Symbol) bool {
+func (p *ModuleScope) innerBind(path *file.Path, symbol ast.Symbol) bool {
 	// Relative path.  Then, either it refers to something in this scope, or
 	// something in a subscope.
 	if path.Depth() == 1 {
@@ -311,7 +312,7 @@ func (p *ModuleScope) innerBind(path *util.Path, symbol ast.Symbol) bool {
 }
 
 // Bindings returns all binding identifiers within a given path.
-func (p *ModuleScope) Bindings(path util.Path) []BindingId {
+func (p *ModuleScope) Bindings(path file.Path) []BindingId {
 	var bindings []BindingId
 	// Split the two cases: absolute versus relative.
 	if path.IsAbsolute() && p.parent != nil {
@@ -325,7 +326,7 @@ func (p *ModuleScope) Bindings(path util.Path) []BindingId {
 	return append(bindings, p.innerBindings(path)...)
 }
 
-func (p *ModuleScope) innerBindings(path util.Path) []BindingId {
+func (p *ModuleScope) innerBindings(path file.Path) []BindingId {
 	if path.Depth() == 0 {
 		var bindings []BindingId
 		//
@@ -455,7 +456,7 @@ func (p *ModuleScope) Flattern() []*ModuleScope {
 	return modules
 }
 
-func (p *ModuleScope) destructureColumn(column *ast.ColumnBinding, ctx util.Path, path util.Path,
+func (p *ModuleScope) destructureColumn(column *ast.ColumnBinding, ctx file.Path, path file.Path,
 	datatype ast.Type) []RegisterSource {
 	// Check for base base
 	if int_t, ok := datatype.(*ast.IntType); ok {
@@ -469,7 +470,7 @@ func (p *ModuleScope) destructureColumn(column *ast.ColumnBinding, ctx util.Path
 }
 
 // Allocate an array type
-func (p *ModuleScope) destructureArrayColumn(col *ast.ColumnBinding, ctx util.Path, path util.Path,
+func (p *ModuleScope) destructureArrayColumn(col *ast.ColumnBinding, ctx file.Path, path file.Path,
 	arrtype *ast.ArrayType) []RegisterSource {
 	//
 	var sources []RegisterSource
@@ -484,7 +485,7 @@ func (p *ModuleScope) destructureArrayColumn(col *ast.ColumnBinding, ctx util.Pa
 }
 
 // Destructure atomic column
-func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx util.Path, path util.Path,
+func (p *ModuleScope) destructureAtomicColumn(column *ast.ColumnBinding, ctx file.Path, path file.Path,
 	bitwidth uint) []RegisterSource {
 	// Construct register source.
 	source := RegisterSource{
@@ -614,7 +615,7 @@ func (p LocalScope) IsConstant() bool {
 }
 
 // IsWithin checks whether a given path is local to the enclosing module, or not.
-func (p LocalScope) IsWithin(path util.Path) bool {
+func (p LocalScope) IsWithin(path file.Path) bool {
 	return p.enclosing.IsWithin(path)
 }
 
@@ -643,7 +644,7 @@ func (p LocalScope) Bind(symbol ast.Symbol) bool {
 }
 
 // Bindings returns all binding identifiers within a given path.
-func (p LocalScope) Bindings(path util.Path) []BindingId {
+func (p LocalScope) Bindings(path file.Path) []BindingId {
 	// Split the two cases: absolute versus relative.
 	if path.IsAbsolute() && p.enclosing != nil {
 		// Absolute path, and this is not the root scope.  Therefore, simply

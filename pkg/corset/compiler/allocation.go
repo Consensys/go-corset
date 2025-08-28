@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/file"
 )
 
 // Register encapsulates information about a "register" in the underlying
@@ -147,9 +147,9 @@ func constructRegisterName(names []string) string {
 type RegisterSource struct {
 	// Context is a prefix of name which, when they differ, indicates a virtual
 	// column (i.e. one which is subject to register allocation).
-	Context util.Path
+	Context file.Path
 	// Fully qualified (i.e. absolute) Name of source-level column.
-	Name util.Path
+	Name file.Path
 	// Length Multiplier of source-level column.
 	Multiplier uint
 	// Underlying bitwidth of the source-level column.

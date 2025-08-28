@@ -22,14 +22,15 @@ import (
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ArrayBuilder provides a usefuil alias
-type ArrayBuilder = word.DynamicBuilder[word.BigEndian, *word.LocalHeap[word.BigEndian]]
+type ArrayBuilder = array.DynamicBuilder[word.BigEndian, *pool.LocalHeap[word.BigEndian]]
 
 // WordHeap provides a usefuil alias
-type WordHeap = word.LocalHeap[word.BigEndian]
+type WordHeap = pool.LocalHeap[word.BigEndian]
 
 // FromBytes parses a trace expressed in JSON notation.  For example, {"X":
 // [0], "Y": [1]} is a trace containing one row of data each for two columns "X"
@@ -46,8 +47,8 @@ func FromBytes(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error)
 		return FromBytesLegacy(data)
 	}
 	// Intialise builder
-	heap := word.NewLocalHeap[word.BigEndian]()
-	builder := word.NewDynamicBuilder(heap)
+	heap := pool.NewLocalHeap[word.BigEndian]()
+	builder := array.NewDynamicBuilder(heap)
 	//
 	for mod, modData := range rawData {
 		for name, rawInts := range modData {
@@ -77,8 +78,8 @@ func FromBytes(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error)
 func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error) {
 	var (
 		rawData map[string][]big.Int
-		heap    = word.NewLocalHeap[word.BigEndian]()
-		builder = word.NewDynamicBuilder(heap)
+		heap    = pool.NewLocalHeap[word.BigEndian]()
+		builder = array.NewDynamicBuilder(heap)
 	)
 	// Unmarshall
 	jsonErr := json.Unmarshal(data, &rawData)

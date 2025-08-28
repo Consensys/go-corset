@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package pool
 
 import (
 	"bytes"
@@ -18,11 +18,13 @@ import (
 	"fmt"
 	"math"
 	"slices"
+
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // LocalHeap maintains a heap of bytes representing the words which is *not* thread
 // safe.
-type LocalHeap[T DynamicWord[T]] struct {
+type LocalHeap[T word.DynamicWord[T]] struct {
 	// heap of bytes
 	heap []byte
 	// byte lengths for each chunk in the pool
@@ -34,7 +36,7 @@ type LocalHeap[T DynamicWord[T]] struct {
 }
 
 // NewLocalHeap constructs a new thread-unsafe heap
-func NewLocalHeap[T DynamicWord[T]]() *LocalHeap[T] {
+func NewLocalHeap[T word.DynamicWord[T]]() *LocalHeap[T] {
 	// zero-sized word
 	var (
 		empty T

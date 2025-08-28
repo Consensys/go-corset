@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -24,10 +25,10 @@ import (
 // representation into the appropriate field representation without performing
 // any splitting.  This is only required for traces which are "pre-expanded".
 // Such traces typically arise in testing, etc.
-func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (word.ArrayBuilder[F], []trace.RawColumn[F]) {
+func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (array.Builder[F], []trace.RawColumn[F]) {
 	var (
 		stats   = util.NewPerfStats()
-		builder word.ArrayBuilder[F]
+		builder array.Builder[F]
 		cols    []trace.RawColumn[F]
 	)
 	//
@@ -42,12 +43,12 @@ func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (word.Arr
 	return builder, cols
 }
 
-func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.ArrayBuilder[F],
+func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (array.Builder[F],
 	[]trace.RawColumn[F]) {
 	//
 	var (
 		loweredColumns []trace.RawColumn[F]
-		builder        = word.NewStaticArrayBuilder[F]()
+		builder        = array.NewStaticBuilder[F]()
 	)
 	//
 	for _, ith := range columns {
@@ -58,13 +59,13 @@ func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.
 	return builder, loweredColumns
 }
 
-func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (word.ArrayBuilder[F],
+func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (array.Builder[F],
 	[]trace.RawColumn[F]) {
 	//
 	var (
 		loweredColumns []trace.RawColumn[F] = make([]trace.RawColumn[F], len(columns))
 		// Construct new pool
-		builder = word.NewStaticArrayBuilder[F]()
+		builder = array.NewStaticBuilder[F]()
 		// Construct a communication channel split columns.
 		c = make(chan util.Pair[int, trace.RawColumn[F]], len(columns))
 	)
@@ -87,7 +88,7 @@ func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.Bi
 }
 
 // lowerRawColumn lowers a given raw column into a given field implementation.
-func lowerRawColumn[F field.Element[F]](column trace.RawColumn[word.BigEndian], builder word.ArrayBuilder[F],
+func lowerRawColumn[F field.Element[F]](column trace.RawColumn[word.BigEndian], builder array.Builder[F],
 ) trace.RawColumn[F] {
 	var (
 		data  = column.Data

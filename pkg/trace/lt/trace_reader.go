@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -42,7 +43,7 @@ func FromBytes(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error)
 	var (
 		err     error
 		buf     = bytes.NewReader(data)
-		heap    word.LocalHeap[word.BigEndian]
+		heap    pool.LocalHeap[word.BigEndian]
 		columns []trace.RawColumn[word.BigEndian]
 		//builder                = word.NewDynamicBuilder(heap)
 		headerBytes, heapBytes uint32

@@ -24,8 +24,9 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/word"
 	"github.com/spf13/cobra"
 )
@@ -166,7 +167,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 func ReadTraceFile(filename string) lt.TraceFile {
 	var (
 		columns []trace.RawColumn[word.BigEndian]
-		pool    word.LocalHeap[word.BigEndian]
+		pool    pool.LocalHeap[word.BigEndian]
 	)
 	// Read data file
 	data, err := os.ReadFile(filename)
@@ -212,7 +213,7 @@ func ReadTraceFile(filename string) lt.TraceFile {
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as
 // JSON, where each trace is on a separate line.
 func ReadBatchedTraceFile(filename string) []lt.TraceFile {
-	lines := util.ReadInputFile(filename)
+	lines := file.ReadInputFile(filename)
 	traces := make([]lt.TraceFile, 0)
 	// Read constraints line by line
 	for i, line := range lines {

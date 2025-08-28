@@ -12,8 +12,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package iter
 
-import "github.com/consensys/go-corset/pkg/util/collection/array"
-
 type unitIterator[T any] struct {
 	item  T
 	index uint
@@ -81,7 +79,7 @@ func (p *unitIterator[T]) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *unitIterator[T]) Find(predicate array.Predicate[T]) (uint, bool) {
+func (p *unitIterator[T]) Find(predicate Predicate[T]) (uint, bool) {
 	if predicate(p.item) {
 		// Success
 		return 0, true

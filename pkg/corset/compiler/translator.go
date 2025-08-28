@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -200,7 +201,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 
 // Translate all assignment or constraint declarations in the circuit.
 func (t *translator) translateDeclarations(circuit *ast.Circuit) []SyntaxError {
-	rootPath := util.NewAbsolutePath()
+	rootPath := file.NewAbsolutePath()
 	errors := t.translateDeclarationsInModule(rootPath, circuit.Declarations)
 	// Translate each module
 	for _, m := range circuit.Modules {
@@ -214,7 +215,7 @@ func (t *translator) translateDeclarations(circuit *ast.Circuit) []SyntaxError {
 
 // Translate all assignment or constraint declarations in a given module within
 // the circuit.
-func (t *translator) translateDeclarationsInModule(path util.Path, decls []ast.Declaration) []SyntaxError {
+func (t *translator) translateDeclarationsInModule(path file.Path, decls []ast.Declaration) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, d := range decls {
@@ -226,7 +227,7 @@ func (t *translator) translateDeclarationsInModule(path util.Path, decls []ast.D
 }
 
 // Translate an assignment or constraint declaration which occurs within a given module.
-func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) []SyntaxError {
+func (t *translator) translateDeclaration(decl ast.Declaration, path file.Path) []SyntaxError {
 	var errors []SyntaxError
 	//
 	switch d := decl.(type) {
@@ -268,7 +269,7 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path util.Path) 
 }
 
 // Translate a "defcomputedcolumn" declaration.
-func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path util.Path) []SyntaxError {
+func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path file.Path) []SyntaxError {
 	var (
 		// Determine enclosing module
 		module = t.moduleOf(d.Computation.Context())
@@ -304,7 +305,7 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path u
 }
 
 // Translate a "defcomputed" declaration.
-func (t *translator) translateDefComputed(decl *ast.DefComputed, path util.Path) []SyntaxError {
+func (t *translator) translateDefComputed(decl *ast.DefComputed, path file.Path) []SyntaxError {
 	var context ast.Context = ast.VoidContext()
 	//
 	targets := make([]schema.RegisterRef, len(decl.Targets))
@@ -519,7 +520,7 @@ func (t *translator) translateDefInRange(decl *ast.DefInRange) []SyntaxError {
 
 // Translate a "definterleaved" declaration.
 // nolint
-func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util.Path) []SyntaxError {
+func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path file.Path) []SyntaxError {
 	//
 	var (
 		errors []SyntaxError
@@ -569,7 +570,7 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path util
 }
 
 // Translate a "defpermutation" declaration.
-func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path util.Path) []SyntaxError {
+func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path file.Path) []SyntaxError {
 	//
 	var (
 		context     ast.Context = ast.VoidContext()
@@ -1081,7 +1082,7 @@ func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
 }
 
 // Map columns to appropriate module register identifiers.
-func (t *translator) registerOf(path *util.Path, shift int) *mirRegisterAccess {
+func (t *translator) registerOf(path *file.Path, shift int) *mirRegisterAccess {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//
@@ -1093,7 +1094,7 @@ func (t *translator) registerOf(path *util.Path, shift int) *mirRegisterAccess {
 }
 
 // Map columns to appropriate module register identifiers.
-func (t *translator) registerIndexOf(path *util.Path) schema.RegisterId {
+func (t *translator) registerIndexOf(path *file.Path) schema.RegisterId {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//
@@ -1108,7 +1109,7 @@ func (t *translator) registerIndexOf(path *util.Path) schema.RegisterId {
 	panic("unreachable")
 }
 
-func (t *translator) registerRefOf(path *util.Path) schema.RegisterRef {
+func (t *translator) registerRefOf(path *file.Path) schema.RegisterRef {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//

@@ -12,7 +12,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package gf8209
 
-import "github.com/consensys/go-corset/pkg/util/collection/array"
+import "github.com/consensys/go-corset/pkg/util/word"
 
 const (
 	offset64 uint64 = 14695981039346656037
@@ -36,7 +36,7 @@ func (x Element) Hash() uint64 {
 func (x Element) SetBytes(bs []byte) Element {
 	var v uint32
 	//
-	for _, b := range array.TrimLeadingZeros(bs) {
+	for _, b := range word.TrimLeadingZeros(bs) {
 		v = (v << 8) | uint32(b)
 	}
 	//

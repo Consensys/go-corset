@@ -13,7 +13,7 @@
 package array
 
 // Predicate abstracts the notion of a function which identifies something.
-type Predicate[T any] func(T) bool
+type Predicate[T any] = func(T) bool
 
 // Array provides a generice interface to an array of elements.  Typically, we
 // are interested in arrays of field elements here.

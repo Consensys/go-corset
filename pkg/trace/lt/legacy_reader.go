@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -30,8 +31,8 @@ import (
 func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error) {
 	var (
 		buf     = bytes.NewReader(data)
-		heap    = word.NewSharedHeap[word.BigEndian]()
-		builder = word.NewDynamicBuilder(heap)
+		heap    = pool.NewSharedHeap[word.BigEndian]()
+		builder = array.NewDynamicBuilder(heap)
 	)
 	// Read Number of BytesColumns
 	var ncols uint32

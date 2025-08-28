@@ -10,17 +10,17 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package array
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // StaticArray implements an array of elements simply using an underlying array.
-type StaticArray[T Word[T]] struct {
+type StaticArray[T word.Word[T]] struct {
 	// The data stored in this column (as bytes).
 	data []T
 	// Bitwidth of each word in this array
@@ -28,7 +28,7 @@ type StaticArray[T Word[T]] struct {
 }
 
 // NewStaticArray constructs a new word array with a given capacity.
-func NewStaticArray[T Word[T]](height uint, bitwidth uint) *StaticArray[T] {
+func NewStaticArray[T word.Word[T]](height uint, bitwidth uint) *StaticArray[T] {
 	var (
 		elements = make([]T, height)
 	)
@@ -64,7 +64,7 @@ func (p *StaticArray[T]) Set(index uint, word T) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *StaticArray[T]) Clone() array.MutArray[T] {
+func (p *StaticArray[T]) Clone() MutArray[T] {
 	// Allocate sufficient memory
 	ndata := make([]T, uint(len(p.data)))
 	// Copy over the data
@@ -74,7 +74,7 @@ func (p *StaticArray[T]) Clone() array.MutArray[T] {
 }
 
 // Slice out a subregion of this array.
-func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
+func (p *StaticArray[T]) Slice(start uint, end uint) Array[T] {
 	return &StaticArray[T]{
 		p.data[start:end], p.bitwidth,
 	}

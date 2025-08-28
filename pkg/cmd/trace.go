@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
@@ -175,8 +176,8 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], 
 		// Construct expanded tr
 		tr, errs = bldr.Build(schema, tf)
 		//
-		heap       = word.NewLocalHeap[word.BigEndian]()
-		arrBuilder = word.NewDynamicBuilder(heap)
+		heap       = pool.NewLocalHeap[word.BigEndian]()
+		arrBuilder = array.NewDynamicBuilder(heap)
 	)
 	// Handle errors
 	if len(errs) > 0 {
@@ -195,7 +196,7 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], 
 			rcols = append(rcols, RawColumn{
 				Module: module.Name(),
 				Name:   ith.Name(),
-				Data:   word.CloneArray(ith.Data(), &arrBuilder),
+				Data:   array.CloneArray(ith.Data(), &arrBuilder),
 			})
 		}
 	}

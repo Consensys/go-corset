@@ -10,25 +10,27 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package pool
 
 import (
 	"math"
+
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // LocalIndex represents a pool which stores words "as is", and does not attempt
 // to compress them into shorter byte sequences.
-type LocalIndex[T Word[T]] struct {
+type LocalIndex[T word.Word[T]] struct {
 	// heap of bytes
 	words []T
 	// hash buckets
 	buckets [][]uint32
 }
 
-var _ Pool[uint32, BigEndian] = &LocalIndex[BigEndian]{}
+var _ Pool[uint32, word.BigEndian] = &LocalIndex[word.BigEndian]{}
 
 // NewLocalIndex constructs a new shared index
-func NewLocalIndex[T Word[T]]() *LocalIndex[T] {
+func NewLocalIndex[T word.Word[T]]() *LocalIndex[T] {
 	var (
 		empty T
 		//

@@ -18,6 +18,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -81,7 +82,7 @@ func (e *Add) Dependencies() []Symbol {
 
 // ArrayAccess represents the a given value taken to a power.
 type ArrayAccess struct {
-	Name         util.Path
+	Name         file.Path
 	Arg          Expr
 	ArrayBinding Binding
 }
@@ -104,7 +105,7 @@ func (e *ArrayAccess) AsConstant() *big.Int {
 }
 
 // Path returns the given path of this symbol.
-func (e *ArrayAccess) Path() *util.Path {
+func (e *ArrayAccess) Path() *file.Path {
 	return &e.Name
 }
 
@@ -1089,7 +1090,7 @@ func (e *Shift) Dependencies() []Symbol {
 // VariableAccess represents reading the value of a given local variable (such
 // as a function parameter).
 type VariableAccess struct {
-	Name    util.Path
+	Name    file.Path
 	FnArity util.Option[uint]
 	binding Binding
 }
@@ -1097,7 +1098,7 @@ type VariableAccess struct {
 // NewVariableAccess creates a new variable access with the given (optionally
 // qualified) path that may (or may not) refer to a function, and which has a
 // given initial binding (which can be nil).
-func NewVariableAccess(path util.Path, arity util.Option[uint], binding Binding) *VariableAccess {
+func NewVariableAccess(path file.Path, arity util.Option[uint], binding Binding) *VariableAccess {
 	return &VariableAccess{path, arity, binding}
 }
 
@@ -1112,7 +1113,7 @@ func (e *VariableAccess) AsConstant() *big.Int {
 }
 
 // Path returns the given path of this symbol.
-func (e *VariableAccess) Path() *util.Path {
+func (e *VariableAccess) Path() *file.Path {
 	return &e.Name
 }
 

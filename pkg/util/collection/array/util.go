@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"math"
 	"slices"
+
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Comparable interface which can be implemented by non-primitive types.
@@ -331,12 +333,21 @@ func forceFlatten[T any](items []T, fn func(T) []T) []T {
 	return nitems
 }
 
-// TrimLeadingZeros any leading zeros from this array
-func TrimLeadingZeros(bytes []byte) []byte {
-	// trim any leading zeros to ensure words are in a canonical form.
-	for len(bytes) > 0 && bytes[0] == 0 {
-		bytes = bytes[1:]
-	}
+// CloneArray converts a word array for one word geometry into a mutable array
+// for another geometry.
+func CloneArray[W1 word.Word[W1], W2 word.Word[W2]](arr Array[W1], builder Builder[W2]) MutArray[W2] {
+	var res = builder.NewArray(arr.Len(), arr.BitWidth())
 	//
-	return bytes
+	for i := range arr.Len() {
+		var (
+			w1 = arr.Get(i)
+			w2 W2
+		)
+		// Convert words
+		w2 = w2.SetBytes(w1.Bytes())
+		// Assign into new array
+		res.Set(i, w2)
+	}
+	// Done
+	return res
 }

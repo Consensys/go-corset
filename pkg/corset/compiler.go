@@ -23,8 +23,8 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -247,7 +247,7 @@ func constructSourceModule(schema schema.AnySchema[bls12_377.Element], scope *co
 
 // Determine the reference reference in the schema which corresponds with a
 // given (Corset) path.
-func determineRegisterRef[F any](path util.Path, sc schema.AnySchema[F], env compiler.GlobalEnvironment,
+func determineRegisterRef[F any](path file.Path, sc schema.AnySchema[F], env compiler.GlobalEnvironment,
 ) schema.RegisterRef {
 	var (
 		mid schema.ModuleId

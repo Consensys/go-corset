@@ -25,7 +25,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // SortedPermutation declares one or more columns as sorted permutations of
@@ -180,7 +179,7 @@ func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 // efficient.  In particular, would be better to do the sort directly
 // on the columns array without projecting into the row-wise form.
 func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool,
-	builder word.ArrayBuilder[F]) []array.MutArray[F] {
+	builder array.Builder[F]) []array.MutArray[F] {
 	//
 	var (
 		n = sources[0].Len()

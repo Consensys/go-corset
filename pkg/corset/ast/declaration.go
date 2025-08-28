@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -222,7 +223,7 @@ func NewDefColumn(binding ColumnBinding) *DefColumn {
 // NewDefComputedColumn constructs a new column declaration for a computed
 // column.  Such a column cannot be finalised yet, since its type and multiplier
 // remains to be determined, etc.
-func NewDefComputedColumn(context util.Path, name util.Path) *DefColumn {
+func NewDefComputedColumn(context file.Path, name file.Path) *DefColumn {
 	var padding big.Int
 	//
 	binding := ColumnBinding{context, name, nil, false, 0, COMPUTED, padding, "hex"}
@@ -256,7 +257,7 @@ func (e *DefColumn) Name() string {
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
-func (e *DefColumn) Path() *util.Path {
+func (e *DefColumn) Path() *file.Path {
 	return &e.binding.Path
 }
 
@@ -496,7 +497,7 @@ func (e *DefConstUnit) Name() string {
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
-func (e *DefConstUnit) Path() *util.Path {
+func (e *DefConstUnit) Path() *file.Path {
 	return &e.ConstBinding.Path
 }
 
@@ -1000,7 +1001,7 @@ func (p *DefPerspective) Name() string {
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
-func (p *DefPerspective) Path() *util.Path {
+func (p *DefPerspective) Path() *file.Path {
 	return &p.symbol.path
 }
 
@@ -1229,7 +1230,7 @@ func (p *DefFun) Name() string {
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
-func (p *DefFun) Path() *util.Path {
+func (p *DefFun) Path() *file.Path {
 	return &p.symbol.path
 }
 

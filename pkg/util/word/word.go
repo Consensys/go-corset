@@ -14,14 +14,15 @@ package word
 
 import (
 	"fmt"
-
-	"github.com/consensys/go-corset/pkg/util/collection/hash"
 )
 
 // Word abstracts a sequence of n bits.
 type Word[T any] interface {
 	fmt.Stringer
-	hash.Hasher[T]
+	// Check whether two items are equal (or not).
+	Equals(T) bool
+	// Return a suitable hashcode.
+	Hash() uint64
 	// Returns the raw bytes of this word.  Observe that, if the word is encoded
 	// (e.g. in Montgomerry form), then the *encoded* bytes are returned.
 	Bytes() []byte
@@ -50,24 +51,6 @@ type DynamicWord[T any] interface {
 	// Write contents of this word into given byte array.  If the given byte
 	// array is not big enough, a new array is allocated and returned.
 	PutBytes([]byte) []byte
-}
-
-// Pool provides an abstraction for referring to large words by a smaller index
-// value.  The pool stores the actual word data, and provides fast access via an
-// index.  This makes sense when we have a relatively small number of values
-// which can be referred to many times over.
-type Pool[K any, T any] interface {
-	// Lookup a given word in the pool using an index.
-	Get(K) T
-	// Allocate word into pool, returning its index.
-	Put(T) K
-}
-
-// SharedPool represents a pool which can be safely shared amongst threads.
-type SharedPool[K any, T any, P any] interface {
-	Pool[K, T]
-	// Localise this pool
-	Localise() P
 }
 
 // Uint64 constructs a word from a given uint64 value.

@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -49,8 +50,8 @@ func (p *NativeDefinition) Name() string {
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
-func (p *NativeDefinition) Path() *util.Path {
-	path := util.NewAbsolutePath(p.name)
+func (p *NativeDefinition) Path() *file.Path {
+	path := file.NewAbsolutePath(p.name)
 	return &path
 }
 

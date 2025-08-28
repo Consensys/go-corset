@@ -10,17 +10,19 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package pool
 
 import (
 	"math"
 	"slices"
 	"sync"
+
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // SharedIndex represents a pool which stores words "as is", and does not attempt
 // to compress them into shorter byte sequences.
-type SharedIndex[T Word[T]] struct {
+type SharedIndex[T word.Word[T]] struct {
 	// heap of bytes
 	words []T
 	// hash buckets
@@ -29,10 +31,10 @@ type SharedIndex[T Word[T]] struct {
 	mux sync.RWMutex
 }
 
-var _ Pool[uint32, BigEndian] = &SharedIndex[BigEndian]{}
+var _ Pool[uint32, word.BigEndian] = &SharedIndex[word.BigEndian]{}
 
 // NewSharedIndex constructs a new shared index
-func NewSharedIndex[T Word[T]]() *SharedIndex[T] {
+func NewSharedIndex[T word.Word[T]]() *SharedIndex[T] {
 	var (
 		empty T
 		//

@@ -10,43 +10,44 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package array
 
 import (
-	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// ArrayBuilder is a mechanism for constructing arrays which aims to select the
+// Builder is a mechanism for constructing arrays which aims to select the
 // right representation for a given array.
-type ArrayBuilder[T any] interface {
+type Builder[T any] interface {
 	// NewArray constructs a new array of the given height holding elements of the given bitwidth
-	NewArray(height uint, bitwidth uint) array.MutArray[T]
+	NewArray(height uint, bitwidth uint) MutArray[T]
 }
 
 // ============================================================================
 // Static Builder
 // ============================================================================
 
-// NewStaticArrayBuilder constructs a new array builder for dynamic words.
-func NewStaticArrayBuilder[T Word[T]]() ArrayBuilder[T] {
+// NewStaticBuilder constructs a new array builder for dynamic words.
+func NewStaticBuilder[T word.Word[T]]() Builder[T] {
 	var builder = &staticArrayBuilder[T]{}
 	//
-	builder.heap8 = NewBytePool[T]()
-	builder.heap16 = NewWordPool[T]()
-	builder.heap = NewSharedIndex[T]()
+	builder.heap8 = pool.NewBytePool[T]()
+	builder.heap16 = pool.NewWordPool[T]()
+	builder.heap = pool.NewSharedIndex[T]()
 	//
 	return builder
 }
 
 // staticArrayBuilder is for handling static words only.
-type staticArrayBuilder[T Word[T]] struct {
-	heap8  SmallPool[uint8, T]
-	heap16 SmallPool[uint16, T]
-	heap   *SharedIndex[T]
+type staticArrayBuilder[T word.Word[T]] struct {
+	heap8  pool.SmallPool[uint8, T]
+	heap16 pool.SmallPool[uint16, T]
+	heap   *pool.SharedIndex[T]
 }
 
 // NewArray constructs a new word array with a given capacity.
-func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) array.MutArray[T] {
+func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) MutArray[T] {
 	switch {
 	case bitwidth == 0:
 		return NewZeroArray[T](height)
@@ -60,7 +61,7 @@ func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) array.MutAr
 		// FIXME: for now, this actually defeats the only purpose of the shared
 		// array builder.  Each array getting its own heap is sub-optimal.
 		// However, at this stage, this is done for performance reasons.
-		return NewPoolArray(height, bitwidth, NewLocalIndex[T]())
+		return NewPoolArray(height, bitwidth, pool.NewLocalIndex[T]())
 	}
 }
 
@@ -69,23 +70,23 @@ func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) array.MutAr
 // ============================================================================
 
 // NewDynamicBuilder constructs a new array builder for dynamic words.
-func NewDynamicBuilder[T DynamicWord[T], P Pool[uint32, T]](heap P) DynamicBuilder[T, P] {
+func NewDynamicBuilder[T word.DynamicWord[T], P pool.Pool[uint32, T]](heap P) DynamicBuilder[T, P] {
 	return DynamicBuilder[T, P]{
-		heap8:  NewBytePool[T](),
-		heap16: NewWordPool[T](),
+		heap8:  pool.NewBytePool[T](),
+		heap16: pool.NewWordPool[T](),
 		heap:   heap,
 	}
 }
 
 // DynamicBuilder is for handling dynamic words only.
-type DynamicBuilder[T DynamicWord[T], P Pool[uint32, T]] struct {
-	heap8  SmallPool[uint8, T]
-	heap16 SmallPool[uint16, T]
+type DynamicBuilder[T word.DynamicWord[T], P pool.Pool[uint32, T]] struct {
+	heap8  pool.SmallPool[uint8, T]
+	heap16 pool.SmallPool[uint16, T]
 	heap   P
 }
 
 // NewArray constructs a new word array with a given capacity.
-func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) array.MutArray[T] {
+func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] {
 	switch {
 	case bitwidth == 0:
 		return NewZeroArray[T](height)

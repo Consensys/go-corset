@@ -10,12 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package pool
 
 import (
 	"math"
 	"slices"
 	"sync"
+
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // HEAP_POOL_INIT_BUCKETS determines the initial number of buckets to use for
@@ -29,7 +31,7 @@ const HEAP_POOL_LOADING = 75
 
 // SharedHeap maintains a heap of bytes representing the words which is
 // thread safe and is protected by an RWMutex.
-type SharedHeap[T DynamicWord[T]] struct {
+type SharedHeap[T word.DynamicWord[T]] struct {
 	// heap of bytes
 	heap []byte
 	// byte lengths for each chunk in the pool
@@ -43,7 +45,7 @@ type SharedHeap[T DynamicWord[T]] struct {
 }
 
 // NewSharedHeap constructs a new thread-safe heap
-func NewSharedHeap[T DynamicWord[T]]() *SharedHeap[T] {
+func NewSharedHeap[T word.DynamicWord[T]]() *SharedHeap[T] {
 	// zero-sized word
 	var (
 		empty T
@@ -59,6 +61,11 @@ func NewSharedHeap[T DynamicWord[T]]() *SharedHeap[T] {
 	p.heap = []byte{0}
 	//
 	return p
+}
+
+// Size returns the number of distinct entries in this heap.
+func (p *SharedHeap[T]) Size() uint {
+	return p.count
 }
 
 // Clone implementation for SharedPool interface.
@@ -86,7 +93,12 @@ func (p *SharedHeap[T]) Clone() *SharedHeap[T] {
 
 // Localise implementation for SharedPool interface.
 func (p *SharedHeap[T]) Localise() *LocalHeap[T] {
-	return NewLocalHeap[T]()
+	return &LocalHeap[T]{
+		heap:    p.heap,
+		lengths: p.lengths,
+		buckets: p.buckets,
+		count:   p.count,
+	}
 }
 
 // Get implementation for the Pool interface.

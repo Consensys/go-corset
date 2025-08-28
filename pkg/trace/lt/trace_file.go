@@ -17,14 +17,16 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ArrayBuilder provides a usefuil alias
-type ArrayBuilder = word.DynamicBuilder[word.BigEndian, *word.SharedHeap[word.BigEndian]]
+type ArrayBuilder = array.DynamicBuilder[word.BigEndian, *pool.SharedHeap[word.BigEndian]]
 
 // WordHeap provides a usefuil alias
-type WordHeap = word.LocalHeap[word.BigEndian]
+type WordHeap = pool.LocalHeap[word.BigEndian]
 
 // LT_MAJOR_VERSION givesn the major version of the (currently supported) legacy
 // binary file format.  No matter what version, we should always have the

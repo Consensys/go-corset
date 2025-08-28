@@ -23,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // LexicographicSort provides the necessary computation for filling out columns
@@ -197,7 +196,7 @@ func (p *LexicographicSort[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 // ============================================================================
 
 func lexSortNativeFunction[F field.Element[F]](sources []array.Array[F], signs []bool,
-	builder word.ArrayBuilder[F]) []array.MutArray[F] {
+	builder array.Builder[F]) []array.MutArray[F] {
 	//
 	var (
 		nrows = sources[0].Len()

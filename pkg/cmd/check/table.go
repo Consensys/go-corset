@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/file"
 )
 
 // CellRefSet defines a type for sets of cell references.
@@ -85,7 +86,7 @@ func determineSourceColumns[F field.Element[F]](cells CellRefSet, trace tr.Trace
 	//
 	mod := determineEnclosingModule(cells, trace, srcmap.Root)
 	// Reuse existing functionality from inspector to determine set of all modules.
-	columns := inspector.ExtractSourceColumns(util.NewAbsolutePath(""), mod.Selector, mod.Columns, mod.Submodules)
+	columns := inspector.ExtractSourceColumns(file.NewAbsolutePath(""), mod.Selector, mod.Columns, mod.Submodules)
 	//
 	for _, c := range cells.ToArray() {
 		index := c.Column.Index(trace.Width())
