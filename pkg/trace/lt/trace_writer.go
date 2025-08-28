@@ -70,7 +70,7 @@ func ToBytes(heap WordHeap, rawColumns []RawColumn) ([]byte, error) {
 		for _, encoding := range columnEncodings {
 			if n, err := buf.Write(encoding.Bytes); err != nil {
 				return nil, err
-			} else if n != len(heapBytes) {
+			} else if n != len(encoding.Bytes) {
 				return nil, fmt.Errorf("wrote insufficient encoded column bytes (%d v %d)", n, len(encoding.Bytes))
 			}
 		}

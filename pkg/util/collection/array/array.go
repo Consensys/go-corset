@@ -53,6 +53,14 @@ type MutArray[T any] interface {
 
 // Decode reconstructs an array from an array encoding, given the pool as it was
 // when the encoding was made.
-func Decode[K any, T word.Word[T], P pool.Pool[K, T]](encoding Encoding, pool P) MutArray[T] {
-	panic("todo")
+func Decode[K any, T word.Word[T], P pool.Pool[K, T]](encoding Encoding, p P) MutArray[T] {
+	switch encoding.Encoding {
+	case 1:
+		var arr PoolArray[uint8, T, pool.SmallPool[uint8, T]]
+		arr.Decode(encoding.Bytes)
+		//
+		return &arr
+	default:
+		panic("todo")
+	}
 }

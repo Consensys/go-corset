@@ -15,13 +15,14 @@ package array
 import (
 	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // PoolArray implements an array of elements simply using an underlying array.
-type PoolArray[K any, T word.Word[T], P pool.Pool[K, T]] struct {
+type PoolArray[K uint8 | uint16 | uint32, T word.Word[T], P pool.Pool[K, T]] struct {
 	// pool of values
 	pool P
 	// indices into pool
@@ -31,7 +32,9 @@ type PoolArray[K any, T word.Word[T], P pool.Pool[K, T]] struct {
 }
 
 // NewPoolArray constructs a new indexed array.
-func NewPoolArray[K any, T word.Word[T], P pool.Pool[K, T]](height uint, bitwidth uint, pool P) *PoolArray[K, T, P] {
+func NewPoolArray[K uint8 | uint16 | uint32, T word.Word[T], P pool.Pool[K, T]](height uint, bitwidth uint,
+	pool P) *PoolArray[K, T, P] {
+	//
 	index := make([]K, height)
 	//
 	return &PoolArray[K, T, P]{pool, index, bitwidth}
@@ -59,9 +62,46 @@ func (p *PoolArray[K, T, P]) Clone() MutArray[T] {
 	return &PoolArray[K, T, P]{p.pool, nindex, p.bitwidth}
 }
 
+// Decode an array of bytes into a given array.
+func (p *PoolArray[K, T, P]) Decode(bytes []byte) {
+	var (
+		n = uint(unsafe.Sizeof(K(0)))
+	)
+	//
+	p.index = make([]K, uint(len(bytes))/n)
+	//
+	for i := range p.index {
+		var (
+			val    K
+			offset = n * uint(i)
+		)
+		// Read in bytes
+		for j := range n {
+			//nolint
+			val = (val << 8) + K(bytes[offset+j])
+		}
+		// Write
+		p.index[i] = val
+	}
+}
+
 // Encode returns the byte encoding of this array.
 func (p *PoolArray[K, T, P]) Encode() Encoding {
-	panic("todo")
+	var (
+		n     = uint(unsafe.Sizeof(K(0)))
+		bytes = make([]byte, p.Len()*n)
+	)
+	//
+	for i := range bytes {
+		j := uint(i) / n
+		k := uint(i) % n
+		bytes[i] = byte(p.index[j] >> (k * 8))
+	}
+	//
+	return Encoding{
+		Encoding: uint32(n), // TODO
+		Bytes:    bytes,
+	}
 }
 
 // Len returns the number of elements in this word array.
