@@ -1,3 +1,1 @@
-;; Test for add function
-{ "add": { "x": [249], "y": [1], "RESULT": [250] }}
-;;{ "add": { "x": [102], "y": [196], "RESULT": [160] }}
+{ "add": { "x": [249], "y": [1], "RESULT": [250] } }
