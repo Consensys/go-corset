@@ -38,7 +38,7 @@ func ToBytes(heap WordHeap, rawColumns []trace.RawColumn[word.BigEndian]) ([]byt
 		return nil, err
 	}
 	// Construct heap data
-	if heapBytes, err = toHeapBytes(heap); err != nil {
+	if heapBytes, err = heap.MarshalBinary(); err != nil {
 		return nil, err
 	}
 	// Write header size
@@ -53,14 +53,16 @@ func ToBytes(heap WordHeap, rawColumns []trace.RawColumn[word.BigEndian]) ([]byt
 	if n, err := buf.Write(headerBytes); err != nil {
 		return nil, err
 	} else if n != len(headerBytes) {
-		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", n, len(headerBytes))
+		return nil, fmt.Errorf("wrote insufficient header bytes (%d v %d)", n, len(headerBytes))
 	}
 	// Write heap bytes
 	if n, err := buf.Write(heapBytes); err != nil {
 		return nil, err
 	} else if n != len(heapBytes) {
-		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", n, len(heapBytes))
+		return nil, fmt.Errorf("wrote insufficient heap bytes (%d v %d)", n, len(heapBytes))
 	}
+	//
+	fmt.Printf("Wrote %d heap bytes with %d entries\n", len(heapBytes), heap.Size())
 	//
 	return buf.Bytes(), nil
 }
@@ -158,12 +160,6 @@ func writeColumnHeader(buf io.Writer, column trace.RawColumn[word.BigEndian]) (e
 	}
 	// Done
 	return nil
-}
-
-func toHeapBytes(heap WordHeap) ([]byte, error) {
-	var buf bytes.Buffer
-	// FOR NOW!
-	return buf.Bytes(), nil
 }
 
 func writeName(buf io.Writer, name string) (err error) {

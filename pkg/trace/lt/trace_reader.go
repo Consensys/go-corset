@@ -42,7 +42,7 @@ func FromBytes(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error)
 	var (
 		err     error
 		buf     = bytes.NewReader(data)
-		heap    = word.NewLocalHeap[word.BigEndian]()
+		heap    word.LocalHeap[word.BigEndian]
 		columns []trace.RawColumn[word.BigEndian]
 		//builder                = word.NewDynamicBuilder(heap)
 		headerBytes, heapBytes uint32
@@ -61,9 +61,14 @@ func FromBytes(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error)
 		fmt.Printf("Module %s has height %d\n", m.name, m.height)
 	}
 	// Read heap
+	if err := heap.UnmarshalBinary(data[8+headerBytes : 8+headerBytes+heapBytes]); err != nil {
+		return WordHeap{}, nil, err
+	}
+	//
+	fmt.Printf("Heap has %d entries\n", heap.Size())
 	// Read column data
 	// Done
-	return *heap, columns, nil
+	return heap, columns, nil
 }
 
 func readSectionSizes(buf *bytes.Reader) (headerBytes, heapBytes uint32, err error) {

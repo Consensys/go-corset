@@ -13,6 +13,9 @@
 package word
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"math"
 	"slices"
 )
@@ -97,15 +100,59 @@ func (p *LocalHeap[T]) Put(word T) uint32 {
 	return index
 }
 
+// Size returns the number of distinct entries in this heap.
+func (p *LocalHeap[T]) Size() uint {
+	return p.count
+}
+
 // MarshalBinary converts this heap into a sequence of bytes.
 func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
-	panic("todo")
+	var (
+		buf bytes.Buffer
+		n   = len(p.lengths)
+	)
+	// write heap length
+	if err := binary.Write(&buf, binary.BigEndian, uint32(len(p.heap))); err != nil {
+		return nil, err
+	}
+	// sanity check (TEMPORARY)
+	if len(p.heap) != n {
+		panic("error")
+	}
+	// write lengths
+	if m, err := buf.Write(p.lengths); err != nil {
+		return nil, err
+	} else if m != n {
+		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, n)
+	}
+	// write bytes
+	if m, err := buf.Write(p.lengths); err != nil {
+		return nil, err
+	} else if m != n {
+		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, n)
+	}
+	// Done
+	return buf.Bytes(), nil
 }
 
 // UnmarshalBinary initialises this heap from a given set of data bytes. This
 // should match exactly the encoding above.
 func (p *LocalHeap[T]) UnmarshalBinary(data []byte) error {
-	panic("todo")
+	var (
+		buf = bytes.NewReader(data)
+		n   uint32
+	)
+	// Read bytes length
+	if err := binary.Read(buf, binary.BigEndian, &n); err != nil {
+		return err
+	}
+	// Allocate space
+	p.lengths = data[4 : n+4]
+	p.heap = data[n+4 : n+n+4]
+	// Reconstruct hash
+	p.reconstruct()
+	// Done
+	return nil
 }
 
 // Allocate a new word into the heap, returning its address.  This method is not
@@ -182,5 +229,43 @@ func (p *LocalHeap[T]) rehash() {
 			// Record index in relevant bucket
 			p.buckets[hash] = append(p.buckets[hash], index)
 		}
+	}
+}
+
+func (p *LocalHeap[T]) reconstruct() {
+	var n = uint32(len(p.lengths))
+	//
+	p.count = 1
+	// Determine the count
+	for index := range n {
+		// TODO: handle first word.
+		if p.lengths[index] != 0 {
+			p.count++
+		}
+	}
+	//
+	p.buckets = make([][]uint32, numOfBuckets(p.count))
+	// Reconstruct hash
+	for index := range n {
+		if index == 0 || p.lengths[index] != 0 {
+			v := p.innerGet(index)
+			hash := v.Hash() % uint64(len(p.buckets))
+			// Record index in relevant bucket
+			p.buckets[hash] = append(p.buckets[hash], index)
+		}
+	}
+}
+
+func numOfBuckets(count uint) uint {
+	var nBuckets = uint(HEAP_POOL_INIT_BUCKETS)
+	//
+	for {
+		load := (100 * count) / nBuckets
+		//
+		if load <= HEAP_POOL_INIT_BUCKETS {
+			return nBuckets
+		}
+		//
+		nBuckets *= 3
 	}
 }
