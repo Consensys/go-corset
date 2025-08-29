@@ -65,11 +65,17 @@ func (p *Encoding) Set(opcode uint8, operand uint16) {
 func decode_static[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
 	var bitwidth = encoding.Operand()
 	//
-	switch bitwidth {
-	case 1:
+	switch {
+	case bitwidth == 1:
 		return decode_bits[T](encoding.Bytes)
+	case bitwidth <= 8:
+		return decode_small8[T](encoding)
+	case bitwidth <= 16:
+		return decode_small16[T](encoding)
+	case bitwidth <= 32:
+		return decode_small32[T](encoding)
 	default:
-		panic("todo")
+		panic("unsupported static array")
 	}
 }
 
@@ -86,51 +92,24 @@ func decode_bits[T word.DynamicWord[T]](bytes []byte) MutArray[T] {
 	return &arr
 }
 
-func encode_bits[T word.DynamicWord[T]](array *BitArray[T]) []byte {
-	var (
-		unused = (len(array.data) * 8) - int(array.height)
-	)
-	//
-	return append(array.data, uint8(unused))
-}
-
-// ============================================================================
-// Pool Array
-// ============================================================================
-
-func decode_pool[T word.DynamicWord[T], P Pool[T]](encoding Encoding, builder DynamicBuilder[T, P]) MutArray[T] {
-	var bitwidth = encoding.Operand()
-	//
-	switch {
-	case bitwidth <= 8:
-		return decode_smallpool8(encoding, builder)
-	case bitwidth <= 16:
-		return decode_smallpool16(encoding, builder)
-	default:
-		return decode_pool32(encoding, builder)
-	}
-}
-
 // Decode an array of bytes into a given array.
-func decode_smallpool8[T word.DynamicWord[T], P Pool[T]](encoding Encoding, builder DynamicBuilder[T, P]) MutArray[T] {
-	var arr PoolArray[uint8, T, pool.SmallPool[uint8, T]]
+func decode_small8[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
+	var arr SmallArray[uint8, T]
 	//
-	arr.index = encoding.Bytes
+	arr.data = encoding.Bytes
 	arr.bitwidth = uint(encoding.Operand())
-	arr.pool = builder.heap8
 	//
 	return &arr
 }
 
-func decode_smallpool16[T word.DynamicWord[T], P Pool[T]](encoding Encoding, builder DynamicBuilder[T, P]) MutArray[T] {
+func decode_small16[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
 	var (
-		arr PoolArray[uint16, T, pool.SmallPool[uint16, T]]
+		arr SmallArray[uint16, T]
 		n   = uint(len(encoding.Bytes) / 2)
 	)
 	//
-	arr.index = make([]uint16, n)
+	arr.data = make([]uint16, n)
 	arr.bitwidth = uint(encoding.Operand())
-	arr.pool = builder.heap16
 	//
 	for i := range n {
 		var (
@@ -139,13 +118,90 @@ func decode_smallpool16[T word.DynamicWord[T], P Pool[T]](encoding Encoding, bui
 			low    = uint16(encoding.Bytes[offset+1])
 		)
 		// Assign ith element
-		arr.index[i] = (high << 8) + low
+		arr.data[i] = (high << 8) + low
 	}
 	//
 	return &arr
 }
 
-func decode_pool32[T word.DynamicWord[T], P Pool[T]](encoding Encoding, builder DynamicBuilder[T, P]) MutArray[T] {
+func decode_small32[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
+	var (
+		arr SmallArray[uint32, T]
+		n   = uint(len(encoding.Bytes) / 4)
+	)
+	//
+	arr.data = make([]uint32, n)
+	arr.bitwidth = uint(encoding.Operand())
+	//
+	for i := range n {
+		var (
+			offset = i * 2
+			b3     = uint32(encoding.Bytes[offset])
+			b2     = uint32(encoding.Bytes[offset+1])
+			b1     = uint32(encoding.Bytes[offset+2])
+			b0     = uint32(encoding.Bytes[offset+3])
+		)
+		// Assign ith element
+		arr.data[i] = (b3 << 24) + (b2 << 16) + (b1 << 8) + b0
+	}
+	//
+	return &arr
+}
+
+func encode_bits[T word.DynamicWord[T]](array *BitArray[T]) []byte {
+	var (
+		unused = (len(array.data) * 8) - int(array.height)
+	)
+	//
+	return append(array.data, uint8(unused))
+}
+
+func encode_small8[T word.DynamicWord[T]](array *SmallArray[uint8, T]) []byte {
+	return array.data
+}
+
+func encode_small16[T word.DynamicWord[T]](array *SmallArray[uint16, T]) []byte {
+	var bytes = make([]byte, array.Len()*2)
+	//
+	for i := range array.Len() {
+		var (
+			ith    = array.data[i]
+			offset = i * 2
+			low    = uint8(ith)
+			high   = uint8(ith >> 8)
+		)
+		// big endian form
+		bytes[offset] = high
+		bytes[offset+1] = low
+	}
+	//
+	return bytes
+}
+
+// Encode returns the byte encoding of this array.
+func encode_small32[T word.DynamicWord[T]](array *SmallArray[uint32, T]) []byte {
+	var bytes = make([]byte, array.Len()*4)
+	//
+	for i := range array.Len() {
+		var (
+			ith    = array.data[i]
+			offset = i * 4
+		)
+		// big endian form
+		bytes[offset] = uint8(ith >> 24)
+		bytes[offset+1] = uint8(ith >> 16)
+		bytes[offset+2] = uint8(ith >> 8)
+		bytes[offset+3] = uint8(ith)
+	}
+	//
+	return bytes
+}
+
+// ============================================================================
+// Pool Array
+// ============================================================================
+
+func decode_pool[T word.DynamicWord[T], P Pool[T]](encoding Encoding, builder DynamicBuilder[T, P]) MutArray[T] {
 	var (
 		arr PoolArray[uint32, T, P]
 		n   = uint(len(encoding.Bytes) / 4)
@@ -184,28 +240,6 @@ func encode_pool[T word.DynamicWord[T], P Pool[T]](array *PoolArray[uint32, T, P
 		bytes[offset+1] = uint8(ith >> 16)
 		bytes[offset+2] = uint8(ith >> 8)
 		bytes[offset+3] = uint8(ith)
-	}
-	//
-	return bytes
-}
-
-func encode_smallpool8[T word.DynamicWord[T], P pool.Pool[uint8, T]](array *PoolArray[uint8, T, P]) []byte {
-	return array.index
-}
-
-func encode_smallpool16[T word.DynamicWord[T], P pool.Pool[uint16, T]](array *PoolArray[uint16, T, P]) []byte {
-	var bytes = make([]byte, array.Len()*2)
-	//
-	for i := range array.Len() {
-		var (
-			ith    = array.index[i]
-			offset = i * 2
-			low    = uint8(ith)
-			high   = uint8(ith >> 8)
-		)
-		// big endian form
-		bytes[offset] = high
-		bytes[offset+1] = low
 	}
 	//
 	return bytes

@@ -75,17 +75,13 @@ func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) MutArray[T]
 // NewDynamicBuilder constructs a new array builder for dynamic words.
 func NewDynamicBuilder[T word.DynamicWord[T], P pool.Pool[uint32, T]](heap P) DynamicBuilder[T, P] {
 	return DynamicBuilder[T, P]{
-		heap8:  pool.NewBytePool[T](),
-		heap16: pool.NewWordPool[T](),
-		heap:   heap,
+		heap: heap,
 	}
 }
 
 // DynamicBuilder is for handling dynamic words only.
 type DynamicBuilder[T word.DynamicWord[T], P pool.Pool[uint32, T]] struct {
-	heap8  pool.SmallPool[uint8, T]
-	heap16 pool.SmallPool[uint16, T]
-	heap   P
+	heap P
 }
 
 // NewArray constructs a new word array with a given capacity.
@@ -96,9 +92,11 @@ func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] 
 	case bitwidth == 1:
 		return NewBitArray[T](height)
 	case bitwidth <= 8:
-		return NewPoolArray(height, bitwidth, p.heap8)
+		return NewSmallArray[uint8, T](height, bitwidth)
 	case bitwidth <= 16:
-		return NewPoolArray(height, bitwidth, p.heap16)
+		return NewSmallArray[uint16, T](height, bitwidth)
+	case bitwidth <= 32:
+		return NewSmallArray[uint32, T](height, bitwidth)
 	default:
 		return NewPoolArray(height, bitwidth, p.heap)
 	}
@@ -119,30 +117,39 @@ func (p *DynamicBuilder[T, P]) Decode(encoding Encoding) MutArray[T] {
 
 // Encode a given array as a sequence of bytes suitable for serialisation.
 func (p *DynamicBuilder[T, P]) Encode(array Array[T]) Encoding {
-	var encoding Encoding
+	var (
+		encoding Encoding
+		bitwidth = uint16(array.BitWidth())
+	)
 	//
-	switch t := array.(type) {
-	// STATIC ARRAYS
-	case *BitArray[T]:
-		encoding.Bytes = encode_bits(t)
-		encoding.Set(ENCODING_STATIC, uint16(t.BitWidth()))
-	// POOL ARRAYS
-	case *PoolArray[uint8, T, pool.SmallPool[uint8, T]]:
-		encoding.Bytes = encode_smallpool8(t)
-		encoding.Set(ENCODING_POOL, uint16(t.BitWidth()))
-	case *PoolArray[uint16, T, pool.SmallPool[uint16, T]]:
-		encoding.Bytes = encode_smallpool16(t)
-		encoding.Set(ENCODING_POOL, uint16(t.BitWidth()))
-	case *PoolArray[uint32, T, P]:
-		encoding.Bytes = encode_pool(t)
-		encoding.Set(ENCODING_POOL, uint16(t.BitWidth()))
-	case *PoolArray[uint32, T, *pool.SharedHeap[T]]:
-		// FIXME: this use case is only support for legacy reasons whilst the
-		// existing legacy trace file format exists.
-		encoding.Bytes = encode_pool(t)
-		encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
+	switch {
+	case bitwidth == 0:
+	case bitwidth == 1:
+		encoding.Bytes = encode_bits(array.(*BitArray[T]))
+		encoding.Set(ENCODING_STATIC, bitwidth)
+	case bitwidth <= 8:
+		encoding.Bytes = encode_small8(array.(*SmallArray[uint8, T]))
+		encoding.Set(ENCODING_STATIC, bitwidth)
+	case bitwidth <= 16:
+		encoding.Bytes = encode_small16(array.(*SmallArray[uint16, T]))
+		encoding.Set(ENCODING_STATIC, bitwidth)
+	case bitwidth <= 32:
+		encoding.Bytes = encode_small32(array.(*SmallArray[uint32, T]))
+		encoding.Set(ENCODING_STATIC, bitwidth)
 	default:
-		panic(fmt.Sprintf("unknown array type: %s", reflect.TypeOf(t).String()))
+		switch t := array.(type) {
+		// POOL ARRAYS
+		case *PoolArray[uint32, T, P]:
+			encoding.Bytes = encode_pool(t)
+			encoding.Set(ENCODING_POOL, uint16(t.BitWidth()))
+		case *PoolArray[uint32, T, *pool.SharedHeap[T]]:
+			// FIXME: this use case is only support for legacy reasons whilst the
+			// existing legacy trace file format exists.
+			encoding.Bytes = encode_pool(t)
+			encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
+		default:
+			panic(fmt.Sprintf("unknown array type: %s", reflect.TypeOf(t).String()))
+		}
 	}
 	//
 	return encoding
