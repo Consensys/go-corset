@@ -11,7 +11,12 @@ func TestReduce(t *testing.T) {
 		lhs := New(i)
 		//
 		actual := lhs.ToByte()
-		fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }}", "\n")
+		fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }, \"add\": { \"x\": [0], \"y\": [0], \"RESULT\": [0] }}", "\n")
+
+		fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }, \"add\": { \"x\": [249], \"y\": [1], \"RESULT\": [250] }}", "\n")
+
+		fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }, \"add\": { \"x\": [250], \"y\": [1], \"RESULT\": [1] }}", "\n")
+
 		//
 		if actual != i {
 			t.Errorf("matched %d\n", i)
