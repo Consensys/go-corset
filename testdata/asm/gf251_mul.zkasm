@@ -12,13 +12,9 @@ fn reduction_u8(z u16) -> (RESULT u8) {
    var n u8
    var ninv_mod_R u8
 
-   var z_mod_R u8
-   var tmp_z_mod_R u8
-
-   var m u8
-   var tmp_m u8
-   var m_times_n u16
-   var dividend u16
+   var quot u8
+   var tmp_quot u16
+   var quot_times_n u16
    var discard_bit_shift u8
    var res u8
    var red u8
@@ -29,23 +25,17 @@ fn reduction_u8(z u16) -> (RESULT u8) {
 
    ;; z is a u16
    ;; compute z mod R by masking
-   tmp_z_mod_R, z_mod_R = z
-
-   ;; find m
+   ;; find quot
    ;; compute mod R by masking
-   tmp_m, m = z_mod_R * ninv_mod_R
+   tmp_quot, quot = z * ninv_mod_R
 
    ;; compute the dividend
-   m_times_n = m * n
-   c1, dividend = z + m_times_n
-
-   ;; dividend / R
-   res, discard_bit_shift = dividend
+   ;; and / R with a bit shift
+   quot_times_n = quot * n
+   c1, res, discard_bit_shift = z + quot_times_n
 
    c0, red = res - n
    if c0==0 goto exit_1
-   goto exit_0
-exit_0:
    RESULT = res
    return
 exit_1:
