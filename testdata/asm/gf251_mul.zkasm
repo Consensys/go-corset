@@ -34,7 +34,12 @@ fn reduction_u8(z u16) -> (RESULT u8) {
    quot_times_n = quot * n
    c1, res, discard_bit_shift = z + quot_times_n
 
+   ;; precompute red before checking the carries
    c0, red = res - n
+
+   ;; if c1 == 1, it means res was >= 256 so we return red
+   if c1==1 goto exit_1
+   ;; if c0 == 0, (res - n) is positive and res >= 251 so we return red as well
    if c0==0 goto exit_1
    RESULT = res
    return
