@@ -117,10 +117,6 @@ func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
 	if err := binary.Write(&buf, binary.BigEndian, uint32(len(p.heap))); err != nil {
 		return nil, err
 	}
-	// sanity check (TEMPORARY)
-	if len(p.heap) != n {
-		panic("error")
-	}
 	// write lengths
 	if m, err := buf.Write(p.lengths); err != nil {
 		return nil, err
@@ -128,7 +124,7 @@ func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
 		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, n)
 	}
 	// write bytes
-	if m, err := buf.Write(p.lengths); err != nil {
+	if m, err := buf.Write(p.heap); err != nil {
 		return nil, err
 	} else if m != n {
 		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, n)

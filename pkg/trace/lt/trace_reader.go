@@ -42,7 +42,8 @@ func FromBytes(data []byte) (WordHeap, []RawColumn, error) {
 	var (
 		err                    error
 		buf                    = bytes.NewReader(data)
-		heap                   pool.LocalHeap[word.BigEndian]
+		heap                   = pool.NewLocalHeap[word.BigEndian]()
+		builder                = array.NewDynamicBuilder(heap)
 		columns                []RawColumn
 		headerBytes, heapBytes uint32
 		headers                []moduleHeader
@@ -53,7 +54,7 @@ func FromBytes(data []byte) (WordHeap, []RawColumn, error) {
 		return WordHeap{}, nil, err
 	}
 	// Read header
-	if headers, err = readModuleHeaders(buf, headerBytes+heapBytes); err != nil {
+	if headers, err = readModuleHeaders(buf); err != nil {
 		return WordHeap{}, nil, err
 	}
 	// Read heap
@@ -70,17 +71,19 @@ func FromBytes(data []byte) (WordHeap, []RawColumn, error) {
 				Bytes:    data[offset : offset+uint(column.length)],
 			}
 			// Decode array data
-			data := array.Decode(encoding, &heap)
+			data := builder.Decode(encoding)
 			// Include it
 			columns = append(columns, RawColumn{
 				Module: module.name,
 				Name:   column.name,
 				Data:   data,
 			})
+			// Move read offset
+			offset += uint(column.length)
 		}
 	}
 	// Done
-	return heap, columns, nil
+	return *heap, columns, nil
 }
 
 func readSectionSizes(buf *bytes.Reader) (headerBytes, heapBytes uint32, err error) {
@@ -96,7 +99,7 @@ func readSectionSizes(buf *bytes.Reader) (headerBytes, heapBytes uint32, err err
 	return headerBytes, heapBytes, nil
 }
 
-func readModuleHeaders(buf *bytes.Reader, offset uint32) (headers []moduleHeader, err error) {
+func readModuleHeaders(buf *bytes.Reader) (headers []moduleHeader, err error) {
 	var nModules uint32
 	// Read number of modules
 	if err := binary.Read(buf, binary.BigEndian, &nModules); err != nil {
@@ -106,7 +109,7 @@ func readModuleHeaders(buf *bytes.Reader, offset uint32) (headers []moduleHeader
 	headers = make([]moduleHeader, nModules)
 	//
 	for i := range headers {
-		if headers[i], offset, err = readModuleHeader(buf, offset); err != nil {
+		if headers[i], err = readModuleHeader(buf); err != nil {
 			return headers, err
 		}
 	}
@@ -114,42 +117,38 @@ func readModuleHeaders(buf *bytes.Reader, offset uint32) (headers []moduleHeader
 	return headers, nil
 }
 
-func readModuleHeader(buf *bytes.Reader, columnOffset uint32) (header moduleHeader, offset uint32, err error) {
+func readModuleHeader(buf *bytes.Reader) (header moduleHeader, err error) {
 	var nColumns uint32
 	// Read module name
 	if header.name, err = readName(buf); err != nil {
-		return header, columnOffset, err
+		return header, err
 	}
 	// Read module height
 	if err := binary.Read(buf, binary.BigEndian, &header.height); err != nil {
-		return header, columnOffset, err
+		return header, err
 	}
 	// Read number of columns
 	if err := binary.Read(buf, binary.BigEndian, &nColumns); err != nil {
-		return header, columnOffset, err
+		return header, err
 	}
 	// Read columns
 	header.columns = make([]columnHeader, nColumns)
 	//
 	//
 	for i := range header.columns {
-		if header.columns[i], err = readColumnHeader(buf, columnOffset); err != nil {
-			return header, columnOffset, err
+		if header.columns[i], err = readColumnHeader(buf); err != nil {
+			return header, err
 		}
-		//
-		columnOffset += header.columns[i].length
 	}
 	//
-	return header, columnOffset, nil
+	return header, nil
 }
 
-func readColumnHeader(buf *bytes.Reader, columnOffset uint32) (header columnHeader, err error) {
+func readColumnHeader(buf *bytes.Reader) (header columnHeader, err error) {
 	// Read column name
 	if header.name, err = readName(buf); err != nil {
 		return header, err
 	}
-	// Assign column data offset
-	header.offset = columnOffset
 	// Read column data length (in bytes)
 	if err := binary.Read(buf, binary.BigEndian, &header.length); err != nil {
 		return header, err
@@ -196,8 +195,6 @@ type moduleHeader struct {
 type columnHeader struct {
 	// Name of the column
 	name string
-	// Starting offset of column data
-	offset uint32
 	// Length (in bytes) of column data
 	length uint32
 	// encoding scheme used for column data

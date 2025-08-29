@@ -13,6 +13,9 @@
 package array
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -99,4 +102,36 @@ func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] 
 	default:
 		return NewPoolArray(height, bitwidth, p.heap)
 	}
+}
+
+// Decode reconstructs an array from an array encoding, given the pool as it was
+// when the encoding was made.
+func (p *DynamicBuilder[T, P]) Decode(encoding Encoding) MutArray[T] {
+	switch encoding.OpCode() {
+	case ENCODING_POOL:
+		return decode_pool(encoding, *p)
+	default:
+		panic("todo")
+	}
+}
+
+// Encode a given array as a sequence of bytes suitable for serialisation.
+func (p *DynamicBuilder[T, P]) Encode(array Array[T]) Encoding {
+	var encoding Encoding
+	//
+	switch t := array.(type) {
+	case *PoolArray[uint8, T, pool.SmallPool[uint8, T]]:
+		encoding.Bytes = encode_smallpool8(t)
+		encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
+	case *PoolArray[uint16, T, pool.SmallPool[uint16, T]]:
+		encoding.Bytes = encode_smallpool16(t)
+		encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
+	case *PoolArray[uint32, T, P]:
+		encoding.Bytes = encode_pool(t)
+		encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
+	default:
+		panic(fmt.Sprintf("unknown array type: %s", reflect.TypeOf(t).String()))
+	}
+	//
+	return encoding
 }

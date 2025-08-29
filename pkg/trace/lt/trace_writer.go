@@ -26,17 +26,21 @@ import (
 // RawColumn provides a convenient alias
 type RawColumn = trace.RawColumn[word.BigEndian]
 
+// WordArrayBuilder provides a convenient aliasO
+type WordArrayBuilder = array.DynamicBuilder[word.BigEndian, *WordHeap]
+
 // ToBytes writes a given trace file as an array of bytes.  See FromBytes for
 // more information on the layout of data in this format.
 func ToBytes(heap WordHeap, rawColumns []RawColumn) ([]byte, error) {
 	var (
 		buf         bytes.Buffer
 		err         error
+		builder     = array.NewDynamicBuilder(&heap)
 		headerBytes []byte
 		heapBytes   []byte
 	)
 	// For now we do an ugly split
-	columns, moduleEncodings := splitRawColumns(rawColumns)
+	columns, moduleEncodings := splitRawColumns(rawColumns, builder)
 	// Construct header data
 	if headerBytes, err = toHeaderBytes(columns, moduleEncodings); err != nil {
 		return nil, err
@@ -79,7 +83,7 @@ func ToBytes(heap WordHeap, rawColumns []RawColumn) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func splitRawColumns(rawColumns []RawColumn) ([][]RawColumn, [][]array.Encoding) {
+func splitRawColumns(rawColumns []RawColumn, builder WordArrayBuilder) ([][]RawColumn, [][]array.Encoding) {
 	var (
 		mapping   = make(map[string]uint)
 		columns   [][]RawColumn
@@ -97,7 +101,7 @@ func splitRawColumns(rawColumns []RawColumn) ([][]RawColumn, [][]array.Encoding)
 		}
 		//
 		columns[mid] = append(columns[mid], col)
-		encodings[mid] = append(encodings[mid], col.Data.Encode())
+		encodings[mid] = append(encodings[mid], builder.Encode(col.Data))
 	}
 	//
 	return columns, encodings
