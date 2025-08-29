@@ -133,7 +133,7 @@ func readColumnData(header legacyColumnHeader, bytes []byte, heap ArrayBuilder) 
 			return readBitColumnData(header, bytes)
 		}
 		//
-		return readByteColumnData(header, bytes)
+		return readByteColumnData(header.length, bytes, 0, 1)
 	case 2:
 		return readWordColumnData(header, bytes)
 	case 4:
@@ -166,13 +166,18 @@ func readBitColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[w
 	return &arr
 }
 
-func readByteColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
+func readByteColumnData(length uint, bytes []byte, start, stride uint) array.MutArray[word.BigEndian] {
 	//
-	arr := array.NewSmallArray[uint8, word.BigEndian](header.length, header.width*8)
+	var (
+		arr    = array.NewSmallArray[uint8, word.BigEndian](length, 8)
+		offset = start
+	)
 	//
-	for i := uint(0); i < header.length; i++ {
-		ith := bytes[i]
+	for i := uint(0); i < length; i++ {
+		ith := bytes[offset]
 		arr.SetRaw(i, ith)
+		//
+		offset += stride
 	}
 	// Done
 	return &arr
@@ -182,17 +187,27 @@ func readWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[
 	var (
 		arr    = array.NewSmallArray[uint16, word.BigEndian](header.length, header.width*8)
 		offset = uint(0)
+		mx     uint16
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		var (
-			b1 = uint16(bytes[offset])
-			b0 = uint16(bytes[offset+1])
+			b1  = uint16(bytes[offset])
+			b0  = uint16(bytes[offset+1])
+			ith = (b1 << 8) | b0
 		)
 		// Construct ith element
-		arr.SetRaw(i, (b1<<8)+b0)
+		arr.SetRaw(i, ith)
 		// Move offset to next element
 		offset += 2
+		mx = max(mx, ith)
+	}
+	//
+	switch {
+	case mx == 0:
+		return array.NewZeroArray[word.BigEndian](header.length)
+	case mx < 256:
+		return readByteColumnData(header.length, bytes, 1, 2)
 	}
 	// Done
 	return &arr
@@ -212,7 +227,7 @@ func readDWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray
 			b0 = uint32(bytes[offset+3])
 		)
 		// Construct ith element
-		arr.SetRaw(i, (b3<<24)+(b2<<16)+(b1<<8)+b0)
+		arr.SetRaw(i, (b3<<24)|(b2<<16)|(b1<<8)|b0)
 		// Move offset to next element
 		offset += 4
 	}

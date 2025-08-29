@@ -111,12 +111,14 @@ func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] 
 // when the encoding was made.
 func (p *DynamicBuilder[T, P]) Decode(encoding Encoding) MutArray[T] {
 	switch encoding.OpCode() {
+	case ENCODING_ZERO:
+		return decode_zero[T](encoding)
 	case ENCODING_STATIC:
 		return decode_static[T](encoding)
 	case ENCODING_POOL:
 		return decode_pool(encoding, *p)
 	default:
-		panic("todo")
+		panic(fmt.Sprintf("unsupported encoding (%d)", encoding.OpCode()))
 	}
 }
 
@@ -129,6 +131,8 @@ func (p *DynamicBuilder[T, P]) Encode(array Array[T]) Encoding {
 	//
 	switch {
 	case bitwidth == 0:
+		encoding.Bytes = encode_zero(array.(*ZeroArray[T]))
+		encoding.Set(ENCODING_ZERO, bitwidth)
 	case bitwidth == 1:
 		encoding.Bytes = encode_bits(array.(*BitArray[T]))
 		encoding.Set(ENCODING_STATIC, bitwidth)

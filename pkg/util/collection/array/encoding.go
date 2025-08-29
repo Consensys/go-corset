@@ -13,12 +13,14 @@
 package array
 
 import (
+	"encoding/binary"
+
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// ENCODING_CONSTANT is for arrays which hold constant values.
-const ENCODING_CONSTANT = 0
+// ENCODING_ZERO is for arrays which hold constant values.
+const ENCODING_ZERO = 0
 
 // ENCODING_STATIC is for arrays which hold their values explicitly.
 const ENCODING_STATIC = 1
@@ -59,6 +61,23 @@ func (p *Encoding) Set(opcode uint8, operand uint16) {
 }
 
 // ============================================================================
+// Constant Arrays
+// ============================================================================
+
+func decode_zero[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
+	var len = binary.BigEndian.Uint32(encoding.Bytes)
+	return NewZeroArray[T](uint(len))
+}
+
+func encode_zero[T word.DynamicWord[T]](array *ZeroArray[T]) []byte {
+	var bytes [4]byte
+	//
+	binary.BigEndian.PutUint32(bytes[:], uint32(array.Len()))
+	//
+	return bytes[:]
+}
+
+// ============================================================================
 // Static Arrays
 // ============================================================================
 
@@ -92,6 +111,14 @@ func decode_bits[T word.DynamicWord[T]](bytes []byte) MutArray[T] {
 	return &arr
 }
 
+func encode_bits[T word.DynamicWord[T]](array *BitArray[T]) []byte {
+	var (
+		unused = (len(array.data) * 8) - int(array.height)
+	)
+	//
+	return append(array.data, uint8(unused))
+}
+
 // Decode an array of bytes into a given array.
 func decode_small8[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
 	var arr SmallArray[uint8, T]
@@ -100,6 +127,10 @@ func decode_small8[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
 	arr.bitwidth = uint(encoding.Operand())
 	//
 	return &arr
+}
+
+func encode_small8[T word.DynamicWord[T]](array *SmallArray[uint8, T]) []byte {
+	return array.data
 }
 
 func decode_small16[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
@@ -114,14 +145,30 @@ func decode_small16[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
 	for i := range n {
 		var (
 			offset = i * 2
-			high   = uint16(encoding.Bytes[offset])
-			low    = uint16(encoding.Bytes[offset+1])
+			b1     = uint16(encoding.Bytes[offset])
+			b0     = uint16(encoding.Bytes[offset+1])
 		)
 		// Assign ith element
-		arr.data[i] = (high << 8) + low
+		arr.data[i] = (b1 << 8) | b0
 	}
 	//
 	return &arr
+}
+
+func encode_small16[T word.DynamicWord[T]](array *SmallArray[uint16, T]) []byte {
+	var bytes = make([]byte, array.Len()*2)
+	//
+	for i := range array.Len() {
+		var (
+			ith    = array.data[i]
+			offset = i * 2
+		)
+		// big endian form
+		bytes[offset] = uint8(ith >> 8)
+		bytes[offset+1] = uint8(ith)
+	}
+	//
+	return bytes
 }
 
 func decode_small32[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
@@ -135,47 +182,17 @@ func decode_small32[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
 	//
 	for i := range n {
 		var (
-			offset = i * 2
+			offset = i * 4
 			b3     = uint32(encoding.Bytes[offset])
 			b2     = uint32(encoding.Bytes[offset+1])
 			b1     = uint32(encoding.Bytes[offset+2])
 			b0     = uint32(encoding.Bytes[offset+3])
 		)
 		// Assign ith element
-		arr.data[i] = (b3 << 24) + (b2 << 16) + (b1 << 8) + b0
+		arr.data[i] = (b3 << 24) | (b2 << 16) | (b1 << 8) | b0
 	}
 	//
 	return &arr
-}
-
-func encode_bits[T word.DynamicWord[T]](array *BitArray[T]) []byte {
-	var (
-		unused = (len(array.data) * 8) - int(array.height)
-	)
-	//
-	return append(array.data, uint8(unused))
-}
-
-func encode_small8[T word.DynamicWord[T]](array *SmallArray[uint8, T]) []byte {
-	return array.data
-}
-
-func encode_small16[T word.DynamicWord[T]](array *SmallArray[uint16, T]) []byte {
-	var bytes = make([]byte, array.Len()*2)
-	//
-	for i := range array.Len() {
-		var (
-			ith    = array.data[i]
-			offset = i * 2
-			low    = uint8(ith)
-			high   = uint8(ith >> 8)
-		)
-		// big endian form
-		bytes[offset] = high
-		bytes[offset+1] = low
-	}
-	//
-	return bytes
 }
 
 // Encode returns the byte encoding of this array.
