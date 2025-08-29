@@ -95,7 +95,9 @@ func splitRawColumns(rawColumns []RawColumn, builder WordArrayBuilder) ([][]RawC
 		// Check whether module seen before
 		if !ok {
 			// no
-			mapping[col.Module] = uint(len(columns))
+			mid = uint(len(columns))
+			mapping[col.Module] = mid
+			//
 			columns = append(columns, nil)
 			encodings = append(encodings, nil)
 		}

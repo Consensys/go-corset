@@ -108,6 +108,8 @@ func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] 
 // when the encoding was made.
 func (p *DynamicBuilder[T, P]) Decode(encoding Encoding) MutArray[T] {
 	switch encoding.OpCode() {
+	case ENCODING_STATIC:
+		return decode_static[T](encoding)
 	case ENCODING_POOL:
 		return decode_pool(encoding, *p)
 	default:
@@ -120,13 +122,23 @@ func (p *DynamicBuilder[T, P]) Encode(array Array[T]) Encoding {
 	var encoding Encoding
 	//
 	switch t := array.(type) {
+	// STATIC ARRAYS
+	case *BitArray[T]:
+		encoding.Bytes = encode_bits(t)
+		encoding.Set(ENCODING_STATIC, uint16(t.BitWidth()))
+	// POOL ARRAYS
 	case *PoolArray[uint8, T, pool.SmallPool[uint8, T]]:
 		encoding.Bytes = encode_smallpool8(t)
-		encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
+		encoding.Set(ENCODING_POOL, uint16(t.BitWidth()))
 	case *PoolArray[uint16, T, pool.SmallPool[uint16, T]]:
 		encoding.Bytes = encode_smallpool16(t)
-		encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
+		encoding.Set(ENCODING_POOL, uint16(t.BitWidth()))
 	case *PoolArray[uint32, T, P]:
+		encoding.Bytes = encode_pool(t)
+		encoding.Set(ENCODING_POOL, uint16(t.BitWidth()))
+	case *PoolArray[uint32, T, *pool.SharedHeap[T]]:
+		// FIXME: this use case is only support for legacy reasons whilst the
+		// existing legacy trace file format exists.
 		encoding.Bytes = encode_pool(t)
 		encoding.Set(ENCODING_POOL, uint16(t.bitwidth))
 	default:

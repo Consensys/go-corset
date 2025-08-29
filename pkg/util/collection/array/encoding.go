@@ -59,6 +59,42 @@ func (p *Encoding) Set(opcode uint8, operand uint16) {
 }
 
 // ============================================================================
+// Static Arrays
+// ============================================================================
+
+func decode_static[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
+	var bitwidth = encoding.Operand()
+	//
+	switch bitwidth {
+	case 1:
+		return decode_bits[T](encoding.Bytes)
+	default:
+		panic("todo")
+	}
+}
+
+func decode_bits[T word.DynamicWord[T]](bytes []byte) MutArray[T] {
+	var (
+		n      = uint(len(bytes) - 1)
+		unused = uint(bytes[n])
+		arr    BitArray[T]
+	)
+	//
+	arr.data = bytes[:n]
+	arr.height = uint(len(arr.data)*8) - unused
+	//
+	return &arr
+}
+
+func encode_bits[T word.DynamicWord[T]](array *BitArray[T]) []byte {
+	var (
+		unused = (len(array.data) * 8) - int(array.height)
+	)
+	//
+	return append(array.data, uint8(unused))
+}
+
+// ============================================================================
 // Pool Array
 // ============================================================================
 

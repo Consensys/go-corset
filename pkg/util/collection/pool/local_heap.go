@@ -102,6 +102,11 @@ func (p *LocalHeap[T]) Put(word T) uint32 {
 	return index
 }
 
+// Bytes returns the raw bytes in this heap.
+func (p *LocalHeap[T]) Bytes() []byte {
+	return p.heap
+}
+
 // Size returns the number of distinct entries in this heap.
 func (p *LocalHeap[T]) Size() uint {
 	return p.count
