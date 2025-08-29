@@ -10,15 +10,28 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package pool
 
 import (
 	"math"
+	"slices"
+	"sync"
+
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// LocalHeap maintains a heap of bytes representing the words which is *not* thread
-// safe.
-type LocalHeap[T DynamicWord[T]] struct {
+// HEAP_POOL_INIT_BUCKETS determines the initial number of buckets to use for
+// any instance.  Since we are geared towards large pools, we set this figure
+// quite high.
+const HEAP_POOL_INIT_BUCKETS = 1024
+
+// HEAP_POOL_LOADING determines the loading point, overwhich rehashing will
+// occur.  This is currently set to 75% capacity forces a rehashing.
+const HEAP_POOL_LOADING = 75
+
+// SharedHeap maintains a heap of bytes representing the words which is
+// thread safe and is protected by an RWMutex.
+type SharedHeap[T word.DynamicWord[T]] struct {
 	// heap of bytes
 	heap []byte
 	// byte lengths for each chunk in the pool
@@ -27,14 +40,16 @@ type LocalHeap[T DynamicWord[T]] struct {
 	buckets [][]uint32
 	// count of words stored
 	count uint
+	// mutex required to ensure thread safety.
+	mux sync.RWMutex
 }
 
-// NewLocalHeap constructs a new thread-unsafe heap
-func NewLocalHeap[T DynamicWord[T]]() *LocalHeap[T] {
+// NewSharedHeap constructs a new thread-safe heap
+func NewSharedHeap[T word.DynamicWord[T]]() *SharedHeap[T] {
 	// zero-sized word
 	var (
 		empty T
-		p     = &LocalHeap[T]{
+		p     = &SharedHeap[T]{
 			lengths: []uint8{0},
 			buckets: make([][]uint32, HEAP_POOL_INIT_BUCKETS),
 			heap:    nil,
@@ -48,34 +63,93 @@ func NewLocalHeap[T DynamicWord[T]]() *LocalHeap[T] {
 	return p
 }
 
+// Size returns the number of distinct entries in this heap.
+func (p *SharedHeap[T]) Size() uint {
+	return p.count
+}
+
+// Clone implementation for SharedPool interface.
+func (p *SharedHeap[T]) Clone() *SharedHeap[T] {
+	var (
+		heap    = make([]byte, len(p.heap))
+		lengths = make([]uint8, len(p.lengths))
+		buckets = make([][]uint32, len(p.buckets))
+	)
+	//
+	copy(heap, p.heap)
+	copy(lengths, p.lengths)
+	//
+	for i := range len(p.buckets) {
+		buckets[i] = slices.Clone(p.buckets[i])
+	}
+	//
+	return &SharedHeap[T]{
+		heap:    heap,
+		lengths: lengths,
+		buckets: buckets,
+		count:   p.count,
+	}
+}
+
+// Localise implementation for SharedPool interface.
+func (p *SharedHeap[T]) Localise() *LocalHeap[T] {
+	return &LocalHeap[T]{
+		heap:    p.heap,
+		lengths: p.lengths,
+		buckets: p.buckets,
+		count:   p.count,
+	}
+}
+
 // Get implementation for the Pool interface.
-func (p *LocalHeap[T]) Get(index uint32) T {
+func (p *SharedHeap[T]) Get(index uint32) T {
+	// Obtain read lock
+	p.mux.RLock()
 	// Determine length of word in heap
-	return p.innerGet(index)
+	word := p.innerGet(index)
+	// Release read lock
+	p.mux.RUnlock()
+	// Initialise word
+	return word
 }
 
 // Put implementation for the Pool interface.  This is somewhat challenging
 // because it must be thread safe.  Since we anticipate a large number of cache
 // hits compared with cache misses, we employ a Read/Write lock.
-func (p *LocalHeap[T]) Put(word T) uint32 {
-	// Check whether word stored in heap already
+func (p *SharedHeap[T]) Put(word T) uint32 {
+	p.mux.RLock()
+	// Check whether word already stored
+	index, _ := p.has(word)
+	// Release read lock
+	p.mux.RUnlock()
+	// Check whether we found it
+	if index != math.MaxUint32 {
+		// Yes, therefore return it.
+		return index
+	}
+	// No, therefore begin critical section
+	p.mux.Lock()
+	// Recheck whether word stored in between read lock being released
+	// (unlikely, but it is possible).
 	index, hash := p.has(word)
 	//
 	if index == math.MaxUint32 {
-		// Word not present, so add it.
+		// Word still not present, so add it.
 		index = p.alloc(word)
 		// Record entry in relevant bucket
 		p.buckets[hash] = append(p.buckets[hash], index)
 		// Rehash (if necessary)
 		p.rehashIfOverloaded()
 	}
+	// end critical section
+	p.mux.Unlock()
 	//
 	return index
 }
 
 // Allocate a new word into the heap, returning its address.  This method is not
 // threadsafe.
-func (p *LocalHeap[T]) alloc(word T) uint32 {
+func (p *SharedHeap[T]) alloc(word T) uint32 {
 	var (
 		address = uint32(len(p.heap))
 		// Determine length of word
@@ -97,7 +171,7 @@ func (p *LocalHeap[T]) alloc(word T) uint32 {
 }
 
 // Check whether the hash map is exceed its loading factor and, if so, rehash.
-func (p *LocalHeap[T]) rehashIfOverloaded() {
+func (p *SharedHeap[T]) rehashIfOverloaded() {
 	load := (100 * p.count) / uint(len(p.buckets))
 	//
 	if load > HEAP_POOL_LOADING {
@@ -107,7 +181,7 @@ func (p *LocalHeap[T]) rehashIfOverloaded() {
 }
 
 // Has checks whether a given word is stored in this heap, or not.
-func (p *LocalHeap[T]) has(word T) (uint32, uint64) {
+func (p *SharedHeap[T]) has(word T) (uint32, uint64) {
 	hash := word.Hash() % uint64(len(p.buckets))
 	// Attempt to lookup word
 	for _, index := range p.buckets[hash] {
@@ -120,7 +194,7 @@ func (p *LocalHeap[T]) has(word T) (uint32, uint64) {
 }
 
 // unsynchronized version of Get to be used when a lock is already acquired.
-func (p *LocalHeap[T]) innerGet(index uint32) T {
+func (p *SharedHeap[T]) innerGet(index uint32) T {
 	var (
 		word T
 		// Determine length of word in heap
@@ -132,7 +206,7 @@ func (p *LocalHeap[T]) innerGet(index uint32) T {
 	return word.SetBytes(bytes)
 }
 
-func (p *LocalHeap[T]) rehash() {
+func (p *SharedHeap[T]) rehash() {
 	var (
 		oldBuckets = p.buckets
 		n          = uint64(len(oldBuckets) * 3)

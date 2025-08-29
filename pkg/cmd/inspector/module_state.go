@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -109,7 +110,7 @@ func newModuleState[F field.Element[F]](module *corset.SourceModule, trace tr.Tr
 	state.columnFilter.Computed = true
 	state.columnFilter.UserDefined = true
 	// Extract source columns from module tree
-	state.columns = ExtractSourceColumns(util.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
+	state.columns = ExtractSourceColumns(file.NewAbsolutePath(""), module.Selector, module.Columns, submodules)
 	// Sort all column names so that, for example, columns in the same
 	// perspective are grouped together.
 	slices.SortFunc(state.columns, func(l SourceColumn, r SourceColumn) int {
@@ -234,7 +235,7 @@ func history_append[T comparable](history []T, item T) []T {
 // based on the corset source mapping.  This is particularly useful when you
 // want to show the original name for a column (e.g. when its in a perspective),
 // rather than the raw register name.
-func ExtractSourceColumns(path util.Path, selector util.Option[string], columns []corset.SourceColumn,
+func ExtractSourceColumns(path file.Path, selector util.Option[string], columns []corset.SourceColumn,
 	submodules []corset.SourceModule) []SourceColumn {
 	//
 	var srcColumns []SourceColumn

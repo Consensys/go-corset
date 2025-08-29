@@ -14,6 +14,7 @@ package ast
 
 import (
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -27,7 +28,7 @@ var NON_FUNCTION util.Option[uint] = util.None[uint]()
 type Symbol interface {
 	Node
 	// Path returns the given path of this symbol.
-	Path() *util.Path
+	Path() *file.Path
 	// Indicates whether or not this is a function and, if so, what arity (i.e.
 	// how many arguments) the function has.
 	Arity() util.Option[uint]
@@ -63,7 +64,7 @@ type SymbolDefinition interface {
 	Name() string
 	// Path returns the qualified name (i.e. absolute path) of this symbol.  For
 	// example, "m1.X" for a column X defined in module m1.
-	Path() *util.Path
+	Path() *file.Path
 	// Indicates whether or not this is a function and, if so, what arity (i.e.
 	// how many arguments) the function has.
 	Arity() util.Option[uint]
@@ -76,7 +77,7 @@ type SymbolDefinition interface {
 type FunctionName = Name[*DefunBinding]
 
 // NewFunctionName construct a new column name which is (initially) unresolved.
-func NewFunctionName(path util.Path, binding *DefunBinding) *FunctionName {
+func NewFunctionName(path file.Path, binding *DefunBinding) *FunctionName {
 	arity := uint(len(binding.ParamTypes))
 	return &FunctionName{path, util.Some(arity), binding, true}
 }
@@ -86,7 +87,7 @@ func NewFunctionName(path util.Path, binding *DefunBinding) *FunctionName {
 type PerspectiveName = Name[*PerspectiveBinding]
 
 // NewPerspectiveName construct a new column name which is (initially) unresolved.
-func NewPerspectiveName(path util.Path, binding *PerspectiveBinding) *PerspectiveName {
+func NewPerspectiveName(path file.Path, binding *PerspectiveBinding) *PerspectiveName {
 	return &PerspectiveName{path, NON_FUNCTION, binding, true}
 }
 
@@ -95,7 +96,7 @@ func NewPerspectiveName(path util.Path, binding *PerspectiveBinding) *Perspectiv
 // information.
 type Name[T Binding] struct {
 	// Name of symbol
-	path util.Path
+	path file.Path
 	// Indicates whether represents function or something else.
 	arity util.Option[uint]
 	// Binding constructed for symbol.
@@ -105,7 +106,7 @@ type Name[T Binding] struct {
 }
 
 // NewUnboundName construct a new name which is (initially) unresolved.
-func NewUnboundName[T Binding](path util.Path, arity util.Option[uint]) *Name[T] {
+func NewUnboundName[T Binding](path file.Path, arity util.Option[uint]) *Name[T] {
 	// Default value for type T
 	var empty T
 	// Construct the name
@@ -113,7 +114,7 @@ func NewUnboundName[T Binding](path util.Path, arity util.Option[uint]) *Name[T]
 }
 
 // NewBoundName construct a new name which is already unresolved.
-func NewBoundName[T Binding](path util.Path, arity util.Option[uint], binding T) *Name[T] {
+func NewBoundName[T Binding](path file.Path, arity util.Option[uint], binding T) *Name[T] {
 	// Construct the name
 	return &Name[T]{path, arity, binding, false}
 }
@@ -126,7 +127,7 @@ func (e *Name[T]) Name() string {
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
-func (e *Name[T]) Path() *util.Path {
+func (e *Name[T]) Path() *file.Path {
 	return &e.path
 }
 

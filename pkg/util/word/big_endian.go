@@ -16,12 +16,12 @@ import (
 	"bytes"
 	"cmp"
 	"encoding/binary"
-	"hash/fnv"
 	"math/big"
+)
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/collection/hash"
+const (
+	offset64 uint64 = 14695981039346656037
+	prime64  uint64 = 1099511628211
 )
 
 // BigEndian captures the notion of an array of bytes represented in big endian
@@ -31,30 +31,15 @@ type BigEndian struct {
 	bytes []byte
 }
 
-var _ hash.Hasher[BigEndian] = BigEndian{}
-
 // NewBigEndian constructs a new big endian byte array.
 func NewBigEndian(bytes []byte) BigEndian {
-	return BigEndian{array.TrimLeadingZeros(bytes)}
+	return BigEndian{TrimLeadingZeros(bytes)}
 }
 
 // AsBigInt returns a freshly allocated big integer from the given bytes.
 func (p BigEndian) AsBigInt() big.Int {
 	var val big.Int
 	return *val.SetBytes(p.bytes)
-}
-
-// Bit returnsthe bit at a given offset in this word, where offsets always start
-// with the least-significant.
-func (p BigEndian) Bit(offset uint) bool {
-	var bitwidth = p.ByteWidth()
-	// If offset is past the end of the available bits, then it must have been
-	// in the trimmed region and, therefore, was 0.
-	if offset < bitwidth {
-		return bit.ReadBigEndian(p.bytes, offset)
-	}
-	//
-	return false
 }
 
 // ByteWidth implementation for the Word interface.
@@ -161,10 +146,15 @@ func (p BigEndian) Equals(o BigEndian) bool {
 
 // Hash implementation for the hash.Hasher interface.
 func (p BigEndian) Hash() uint64 {
-	hash := fnv.New64a()
-	hash.Write(p.bytes)
-	// Done
-	return hash.Sum64()
+	// FNV1a hash implementation
+	hash := offset64
+	//
+	for _, c := range p.bytes {
+		hash ^= uint64(c)
+		hash *= prime64
+	}
+	//
+	return hash
 }
 
 // IsZero implementation for the Word interface
@@ -200,7 +190,7 @@ func (p BigEndian) PutBytes(bytes []byte) []byte {
 
 // SetBytes implementation for Word interface.
 func (p BigEndian) SetBytes(bytes []byte) BigEndian {
-	return BigEndian{array.TrimLeadingZeros(bytes)}
+	return BigEndian{TrimLeadingZeros(bytes)}
 }
 
 // SetUint64 implementation for Word interface.
@@ -209,7 +199,7 @@ func (p BigEndian) SetUint64(value uint64) BigEndian {
 	// Write big endian bytes
 	binary.BigEndian.PutUint64(bytes[:], value)
 	// Trim off leading zeros
-	return BigEndian{array.TrimLeadingZeros(bytes[:])}
+	return BigEndian{TrimLeadingZeros(bytes[:])}
 }
 
 // Uint64 implementation for Word interface.

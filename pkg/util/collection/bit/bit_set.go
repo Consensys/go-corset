@@ -17,10 +17,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/enum"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
+
+// Predicate abstracts the notion of a function which identifies something.
+type Predicate[T any] = func(T) bool
 
 // Set provides a straightforward bitset implementation. That is, a set of
 // (unsigned) integer values implemented as an array of bits.
@@ -251,7 +253,7 @@ func (p *iterator) Count() uint {
 // return false if no match is found.
 //
 //nolint:revive
-func (p *iterator) Find(predicate array.Predicate[uint]) (uint, bool) {
+func (p *iterator) Find(predicate Predicate[uint]) (uint, bool) {
 	return enum.Find(p, predicate)
 }
 

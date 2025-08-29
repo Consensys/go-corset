@@ -10,17 +10,18 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package array
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // PoolArray implements an array of elements simply using an underlying array.
-type PoolArray[K any, T Word[T], P Pool[K, T]] struct {
+type PoolArray[K uint8 | uint16 | uint32, T word.Word[T], P pool.Pool[K, T]] struct {
 	// pool of values
 	pool P
 	// indices into pool
@@ -30,7 +31,9 @@ type PoolArray[K any, T Word[T], P Pool[K, T]] struct {
 }
 
 // NewPoolArray constructs a new indexed array.
-func NewPoolArray[K any, T Word[T], P Pool[K, T]](height uint, bitwidth uint, pool P) *PoolArray[K, T, P] {
+func NewPoolArray[K uint8 | uint16 | uint32, T word.Word[T], P pool.Pool[K, T]](height uint, bitwidth uint,
+	pool P) *PoolArray[K, T, P] {
+	//
 	index := make([]K, height)
 	//
 	return &PoolArray[K, T, P]{pool, index, bitwidth}
@@ -49,7 +52,7 @@ func (p *PoolArray[K, T, P]) Append(element T) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *PoolArray[K, T, P]) Clone() array.MutArray[T] {
+func (p *PoolArray[K, T, P]) Clone() MutArray[T] {
 	// Allocate sufficient memory
 	nindex := make([]K, uint(len(p.index)))
 	// Copy over the data
@@ -102,7 +105,7 @@ func (p *PoolArray[K, T, P]) Set(index uint, word T) {
 }
 
 // Slice out a subregion of this array.
-func (p *PoolArray[K, T, P]) Slice(start uint, end uint) array.Array[T] {
+func (p *PoolArray[K, T, P]) Slice(start uint, end uint) Array[T] {
 	return &PoolArray[K, T, P]{
 		p.pool,
 		p.index[start:end],

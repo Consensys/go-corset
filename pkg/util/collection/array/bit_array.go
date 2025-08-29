@@ -10,14 +10,14 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package array
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // bitOne is the byte-level binary representation of 1.
@@ -30,7 +30,7 @@ var bitOne = []byte{1}
 // BitArray implements an array of single bit words simply using an underlying
 // array of packed bytes.  That is, where eight bits are packed into a single
 // byte.
-type BitArray[T Word[T]] struct {
+type BitArray[T word.Word[T]] struct {
 	// The data stored in this column (as bytes).
 	data []byte
 	// Actual height of column
@@ -38,13 +38,13 @@ type BitArray[T Word[T]] struct {
 }
 
 // NewBitArray constructs a new word array with a given capacity.
-func NewBitArray[T Word[T]](height uint) *BitArray[T] {
+func NewBitArray[T word.Word[T]](height uint) BitArray[T] {
 	var (
-		bytewidth = ByteWidth(height)
+		bytewidth = word.ByteWidth(height)
 		elements  = make([]byte, bytewidth)
 	)
 	//
-	return &BitArray[T]{elements, height}
+	return BitArray[T]{elements, height}
 }
 
 // Len returns the number of elements in this word array.
@@ -63,7 +63,7 @@ func (p *BitArray[T]) BitWidth() uint {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *BitArray[T]) Clone() array.MutArray[T] {
+func (p *BitArray[T]) Clone() MutArray[T] {
 	// Allocate sufficient memory
 	ndata := make([]byte, uint(len(p.data)))
 	// Copy over the data
@@ -104,11 +104,17 @@ func (p *BitArray[T]) Set(index uint, word T) {
 	bit.Write(val, p.data, index)
 }
 
+// SetRaw sets a raw bit at the given index in this array, overwriting the
+// original value.
+func (p *BitArray[T]) SetRaw(index uint, val bool) {
+	bit.Write(val, p.data, index)
+}
+
 // Slice out a subregion of this array.
-func (p *BitArray[T]) Slice(start uint, end uint) array.Array[T] {
+func (p *BitArray[T]) Slice(start uint, end uint) Array[T] {
 	var (
 		height    = end - start
-		bytewidth = ByteWidth(height)
+		bytewidth = word.ByteWidth(height)
 	)
 	// Check for aligned slice (since this is a fast case).
 	if start%8 == 0 {
@@ -148,7 +154,7 @@ func (p *BitArray[T]) String() string {
 func (p *BitArray[T]) insertBits(n uint, padding T) {
 	var (
 		height    = p.height + n
-		bytewidth = ByteWidth(height)
+		bytewidth = word.ByteWidth(height)
 		data      = make([]byte, bytewidth)
 	)
 	// copy
@@ -165,7 +171,7 @@ func (p *BitArray[T]) insertBits(n uint, padding T) {
 func (p *BitArray[T]) appendBits(n uint, padding T) {
 	var (
 		height    = p.height + n
-		bytewidth = ByteWidth(height)
+		bytewidth = word.ByteWidth(height)
 		data      = make([]byte, bytewidth)
 	)
 	// copy

@@ -184,8 +184,6 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 		// unbatched (i.e. normal) mode
 		traces = []lt.TraceFile{ReadTraceFile(tracefile)}
 	}
-	//
-	stats.Log("Reading trace file")
 	// Go!
 	for i, schema := range schemas.ConcreteSchemas() {
 		ir := schemas.ConcreteIrName(uint(i))

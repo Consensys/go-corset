@@ -25,7 +25,9 @@ import (
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/word"
 	"github.com/spf13/cobra"
 )
@@ -144,7 +146,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
 			return
 		}
-	case ".lt":
+	case ".lt", ".ltv2":
 		bytes, err = tracefile.MarshalBinary()
 		//
 		if err == nil {
@@ -165,8 +167,10 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 // (i.e. binary or json) is based on the extension.
 func ReadTraceFile(filename string) lt.TraceFile {
 	var (
-		columns []trace.RawColumn[word.BigEndian]
-		builder word.ArrayBuilder[word.BigEndian]
+		stats     = util.NewPerfStats()
+		columns   []trace.RawColumn[word.BigEndian]
+		pool      pool.LocalHeap[word.BigEndian]
+		tracefile lt.TraceFile
 	)
 	// Read data file
 	data, err := os.ReadFile(filename)
@@ -177,30 +181,31 @@ func ReadTraceFile(filename string) lt.TraceFile {
 		//
 		switch ext {
 		case ".json":
-			builder, columns, err = json.FromBytes(data)
+			pool, columns, err = json.FromBytes(data)
 			if err == nil {
-				return lt.NewTraceFile(nil, builder, columns)
+				tracefile = lt.NewTraceFile(nil, pool, columns)
 			}
-		case ".lt":
+		case ".lt", ".ltv2":
 			// Check for legacy format
 			if !lt.IsTraceFile(data) {
 				// legacy format
-				builder, columns, err = lt.FromBytesLegacy(data)
+				pool, columns, err = lt.FromBytesLegacy(data)
 				if err == nil {
-					return lt.NewTraceFile(nil, builder, columns)
+					tracefile = lt.NewTraceFile(nil, pool, columns)
 				}
 			} else {
-				// versioned format
-				var tracefile lt.TraceFile
-				//
-				if err = tracefile.UnmarshalBinary(data); err == nil {
-					return tracefile
-				}
+				err = tracefile.UnmarshalBinary(data)
 			}
 			//
 		default:
 			err = fmt.Errorf("unknown trace file format: %s", ext)
 		}
+	}
+	//
+	stats.Log("Reading trace file")
+	//
+	if err == nil {
+		return tracefile
 	}
 	// Handle error
 	fmt.Println(err)
@@ -212,8 +217,11 @@ func ReadTraceFile(filename string) lt.TraceFile {
 // ReadBatchedTraceFile reads a file containing zero or more traces expressed as
 // JSON, where each trace is on a separate line.
 func ReadBatchedTraceFile(filename string) []lt.TraceFile {
-	lines := util.ReadInputFile(filename)
-	traces := make([]lt.TraceFile, 0)
+	var (
+		stats  = util.NewPerfStats()
+		lines  = file.ReadInputFile(filename)
+		traces = make([]lt.TraceFile, 0)
+	)
 	// Read constraints line by line
 	for i, line := range lines {
 		// Parse input line as JSON
@@ -227,7 +235,9 @@ func ReadBatchedTraceFile(filename string) []lt.TraceFile {
 			traces = append(traces, lt.NewTraceFile(nil, pool, cols))
 		}
 	}
-
+	//
+	stats.Log("Reading trace file")
+	//
 	return traces
 }
 

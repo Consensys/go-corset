@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -42,8 +43,8 @@ func (p *IntrinsicDefinition) Name() string {
 
 // Path returns the qualified name (i.e. absolute path) of this symbol.  For
 // example, "m1.X" for a column X defined in module m1.
-func (p *IntrinsicDefinition) Path() *util.Path {
-	path := util.NewAbsolutePath(p.name)
+func (p *IntrinsicDefinition) Path() *file.Path {
+	path := file.NewAbsolutePath(p.name)
 	return &path
 }
 
@@ -138,7 +139,7 @@ func intrinsicNaryBody(arity uint) []ast.Expr {
 	//
 	for i := uint(0); i != arity; i++ {
 		name := fmt.Sprintf("$%d", i)
-		path := util.NewAbsolutePath(name)
+		path := file.NewAbsolutePath(name)
 		binding := &ast.LocalVariableBinding{Name: name, DataType: nil, Index: i}
 		args[i] = ast.NewVariableAccess(path, util.Some(arity), binding)
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/file"
 )
 
 // SourceMap is a binary file attribute which provides debugging
@@ -50,7 +51,7 @@ func (p *SourceMap) Flattern(predicate func(*SourceModule) bool) []SourceModule 
 // source map.  This is typically done in conjunction with a substitution
 // through the schema, in order to keep them both in sync.
 func (p *SourceMap) SubstituteConstants(mapping map[string]big.Int) {
-	path := util.NewAbsolutePath()
+	path := file.NewAbsolutePath()
 	p.Root.SubstituteConstants(path, mapping)
 }
 
@@ -123,7 +124,7 @@ func (p *SourceModule) Flattern(predicate func(*SourceModule) bool) []SourceModu
 // SubstituteConstants updates the recorded value of constants within this
 // source map.  This is typically done in conjunction with a substitution
 // through the schema, in order to keep them both in sync.
-func (p *SourceModule) SubstituteConstants(path util.Path, mapping map[string]big.Int) {
+func (p *SourceModule) SubstituteConstants(path file.Path, mapping map[string]big.Int) {
 	// check all local constants
 	for i := range p.Constants {
 		ith := &p.Constants[i]

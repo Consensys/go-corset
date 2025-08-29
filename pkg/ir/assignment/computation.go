@@ -25,7 +25,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Computation currently describes a native computation which accepts a set of
@@ -143,7 +142,7 @@ func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 
 // NativeComputation defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation[F any] func([]array.Array[F], word.ArrayBuilder[F]) []array.MutArray[F]
+type NativeComputation[F any] func([]array.Array[F], array.Builder[F]) []array.MutArray[F]
 
 func computeNative[F field.Element[F]](sources []sc.RegisterRef, fn NativeComputation[F], trace tr.Trace[F],
 ) []array.MutArray[F] {
@@ -189,7 +188,7 @@ func findNative[F field.Element[F]](name string) NativeComputation[F] {
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ word.ArrayBuilder[F],
+func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ array.Builder[F],
 ) []array.MutArray[F] {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
@@ -200,7 +199,7 @@ func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ word.Array
 
 // interleaving constructs a single interleaved column from a give set of source
 // columns.  The assumption is that the height of all columns is the same.
-func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	var (
 		height     = sources[0].Len()
@@ -233,7 +232,7 @@ func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], buil
 // filter assigns the target column with the corresponding value of the source
 // column *when* a given selector column is non-zero.  Otherwise, the target
 // column remains zero at the given position.
-func filterNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func filterNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) != 2 {
@@ -261,7 +260,7 @@ func filterNativeFunction[F field.Element[F]](sources []array.Array[F], builder 
 }
 
 // apply a key-value map conditionally.
-func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	//
 	n := len(sources) - 3
@@ -337,7 +336,7 @@ func extractIthKey[F field.Element[F]](index uint, cols []array.Array[F]) hash.A
 }
 
 // determines changes of a given set of columns within a given region.
-func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
@@ -376,7 +375,7 @@ func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 	return []array.MutArray[F]{data}
 }
 
-func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) < 2 {
@@ -420,7 +419,7 @@ func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[
 }
 
 // determines changes of a given set of columns within a given region.
-func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) < 2 {
@@ -460,7 +459,7 @@ func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 	return []array.MutArray[F]{data}
 }
 
-func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) != 3 {
@@ -492,7 +491,7 @@ func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], b
 	return []array.MutArray[F]{data}
 }
 
-func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder word.ArrayBuilder[F],
+func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	//
 	if len(sources) != 3 {

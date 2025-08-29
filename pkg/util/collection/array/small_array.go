@@ -10,99 +10,109 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package array
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// StaticArray implements an array of elements simply using an underlying array.
-type StaticArray[T Word[T]] struct {
+// SmallArray implements an array of elements simply using an underlying array.
+type SmallArray[K uint8 | uint16 | uint32 | uint64, T word.Word[T]] struct {
 	// The data stored in this column (as bytes).
-	data []T
+	data []K
 	// Bitwidth of each word in this array
 	bitwidth uint
 }
 
-// NewStaticArray constructs a new word array with a given capacity.
-func NewStaticArray[T Word[T]](height uint, bitwidth uint) *StaticArray[T] {
+// NewSmallArray constructs a new word array with a given capacity.
+func NewSmallArray[K uint8 | uint16 | uint32 | uint64, T word.Word[T]](height uint, bitwidth uint) SmallArray[K, T] {
 	var (
-		elements = make([]T, height)
+		elements = make([]K, height)
 	)
 	//
-	return &StaticArray[T]{elements, bitwidth}
+	return SmallArray[K, T]{elements, bitwidth}
 }
 
 // Append new word on this array
-func (p *StaticArray[T]) Append(word T) {
+func (p *SmallArray[K, T]) Append(word T) {
 	p.Pad(0, 1, word)
 }
 
 // Len returns the number of elements in this word array.
-func (p *StaticArray[T]) Len() uint {
+func (p *SmallArray[K, T]) Len() uint {
 	//
 	return uint(len(p.data))
 }
 
 // BitWidth returns the width (in bits) of elements in this array.
-func (p *StaticArray[T]) BitWidth() uint {
+func (p *SmallArray[K, T]) BitWidth() uint {
 	return p.bitwidth
 }
 
-// Get returns the field element at the given index in this array.
-func (p *StaticArray[T]) Get(index uint) T {
-	return p.data[index]
-}
-
-// Set sets the field element at the given index in this array, overwriting the
-// original value.
-func (p *StaticArray[T]) Set(index uint, word T) {
-	p.data[index] = word
-}
-
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *StaticArray[T]) Clone() array.MutArray[T] {
+func (p *SmallArray[K, T]) Clone() MutArray[T] {
 	// Allocate sufficient memory
-	ndata := make([]T, uint(len(p.data)))
+	ndata := make([]K, uint(len(p.data)))
 	// Copy over the data
 	copy(ndata, p.data)
 	//
-	return &StaticArray[T]{ndata, p.bitwidth}
+	return &SmallArray[K, T]{ndata, p.bitwidth}
+}
+
+// Get returns the word at the given index in this array.
+func (p *SmallArray[K, T]) Get(index uint) T {
+	var val T
+	//
+	return val.SetUint64(uint64(p.data[index]))
+}
+
+// Set the word at the given index in this array, overwriting the
+// original value.
+func (p *SmallArray[K, T]) Set(index uint, word T) {
+	p.data[index] = K(word.Uint64())
+}
+
+// SetRaw sets a raw value at the given index in this array, overwriting the
+// original value.
+func (p *SmallArray[K, T]) SetRaw(index uint, val K) {
+	p.data[index] = val
 }
 
 // Slice out a subregion of this array.
-func (p *StaticArray[T]) Slice(start uint, end uint) array.Array[T] {
-	return &StaticArray[T]{
+func (p *SmallArray[K, T]) Slice(start uint, end uint) Array[T] {
+	return &SmallArray[K, T]{
 		p.data[start:end], p.bitwidth,
 	}
 }
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *StaticArray[T]) Pad(n uint, m uint, padding T) {
+func (p *SmallArray[K, T]) Pad(n uint, m uint, padding T) {
 	var (
 		// Determine new length
 		l = n + m + p.Len()
 		// Initialise new array
-		data = make([]T, l)
+		data = make([]K, l)
+		//
+		val = K(padding.Uint64())
 	)
 	// copy
 	copy(data[n:], p.data)
 	p.data = data
 	// Front padding!
 	for i := range n {
-		p.Set(i, padding)
+		p.data[i] = val
 	}
 	// Back padding!
 	for i := l - m; i < l; i++ {
-		p.Set(i, padding)
+		p.data[i] = val
 	}
 }
 
-func (p *StaticArray[T]) String() string {
+func (p *SmallArray[K, T]) String() string {
 	var sb strings.Builder
 
 	sb.WriteString("[")
@@ -112,7 +122,7 @@ func (p *StaticArray[T]) String() string {
 			sb.WriteString(",")
 		}
 
-		sb.WriteString(fmt.Sprintf("%v", p.Get(i)))
+		sb.WriteString(fmt.Sprintf("%v", p.data[i]))
 	}
 
 	sb.WriteString("]")

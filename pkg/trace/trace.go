@@ -15,14 +15,13 @@ package trace
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Trace describes a set of named columns.  Columns are not required to have the
 // same height and can be either "data" columns or "computed" columns.
 type Trace[F any] interface {
 	// Provides agnostic mechanism for constructing arrays
-	Builder() word.ArrayBuilder[F]
+	Builder() array.Builder[F]
 	// Access a given column difrtly via a reference.
 	Column(ColumnRef) Column[F]
 	// Determine whether this trace has a module with the given name and, if so,

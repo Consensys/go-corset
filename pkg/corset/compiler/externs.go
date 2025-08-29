@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -23,7 +24,7 @@ import (
 // way that they can then be resolved against.
 func DeclareExterns[F any, M schema.Module[F]](scope *ModuleScope, externs ...M) {
 	for _, e := range externs {
-		path := util.NewAbsolutePath(e.Name())
+		path := file.NewAbsolutePath(e.Name())
 		// Declare external module
 		scope.Declare(e.Name(), util.None[string]())
 		// Define external symbol
@@ -41,7 +42,7 @@ type ExternSymbolDefinition struct {
 
 // NewExternSymbolDefinition creates a new external symbol definition for a
 // given register in a given module.
-func NewExternSymbolDefinition(path util.Path, reg schema.Register) *ExternSymbolDefinition {
+func NewExternSymbolDefinition(path file.Path, reg schema.Register) *ExternSymbolDefinition {
 	var kind uint8 = ast.NOT_COMPUTED
 	//
 	if reg.IsComputed() {
@@ -77,7 +78,7 @@ func (p *ExternSymbolDefinition) Name() string {
 }
 
 // Path implementation for SymbolDefinition interface.
-func (p *ExternSymbolDefinition) Path() *util.Path {
+func (p *ExternSymbolDefinition) Path() *file.Path {
 	return &p.binding.Path
 }
 

@@ -29,12 +29,12 @@ import (
 
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
-func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (word.ArrayBuilder[F],
+func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
 	[]trace.RawColumn[F], []error) {
 	//
 	var (
 		stats   = util.NewPerfStats()
-		builder word.ArrayBuilder[F]
+		builder array.Builder[F]
 		cols    []trace.RawColumn[F]
 		err     []error
 	)
@@ -50,13 +50,13 @@ func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping 
 	return builder, cols, err
 }
 
-func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, gmap schema.LimbsMap) (word.ArrayBuilder[F],
+func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, gmap schema.LimbsMap) (array.Builder[F],
 	[]trace.RawColumn[F], []error) {
 	//
 	var (
 		splitColumns []trace.RawColumn[F]
 		// Allocate fresh array builder
-		builder = word.NewStaticArrayBuilder[F]()
+		builder = array.NewStaticBuilder[F]()
 		errors  []error
 	)
 	//
@@ -69,13 +69,13 @@ func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, gmap schema.L
 	return builder, splitColumns, errors
 }
 
-func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (word.ArrayBuilder[F],
+func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
 	[]trace.RawColumn[F], []error) {
 	//
 	var (
 		splits = make([][]trace.RawColumn[F], len(tf.Columns))
 		// Allocate fresh array builder
-		builder = word.NewStaticArrayBuilder[F]()
+		builder = array.NewStaticBuilder[F]()
 		// Construct a communication channel split columns.
 		c = make(chan splitResult[F], len(tf.Columns))
 		//
@@ -122,7 +122,7 @@ func flatten[W any](total int, splits [][]trace.RawColumn[W]) []trace.RawColumn[
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn[F field.Element[F]](col trace.RawColumn[word.BigEndian], builder word.ArrayBuilder[F],
+func splitRawColumn[F field.Element[F]](col trace.RawColumn[word.BigEndian], builder array.Builder[F],
 	mapping schema.LimbsMap) ([]trace.RawColumn[F], []error) {
 	//
 	var (

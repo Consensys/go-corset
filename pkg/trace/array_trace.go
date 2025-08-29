@@ -19,14 +19,13 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ArrayTrace provides an implementation of Trace which stores columns as an
 // array.
 type ArrayTrace[T any] struct {
 	// Internal memory pool
-	builder word.ArrayBuilder[T]
+	builder array.Builder[T]
 	// Holds the height of each module in this trace.  The index of each
 	// module in this array uniquely identifies it, and is referred to as the
 	// "module index".
@@ -34,7 +33,7 @@ type ArrayTrace[T any] struct {
 }
 
 // NewArrayTrace constructs a trace from a given set of indexed modules and columns.
-func NewArrayTrace[T any](builder word.ArrayBuilder[T], modules []ArrayModule[T]) *ArrayTrace[T] {
+func NewArrayTrace[T any](builder array.Builder[T], modules []ArrayModule[T]) *ArrayTrace[T] {
 	return &ArrayTrace[T]{builder, modules}
 }
 
@@ -84,7 +83,7 @@ func (p *ArrayTrace[T]) Pad(module uint, front uint, back uint) {
 }
 
 // Builder implementation for Trace interface.
-func (p *ArrayTrace[T]) Builder() word.ArrayBuilder[T] {
+func (p *ArrayTrace[T]) Builder() array.Builder[T] {
 	return p.builder
 }
 

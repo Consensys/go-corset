@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package pool
 
 import (
 	"fmt"
@@ -20,17 +20,18 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // SmallPool is a pool implementation for handling small domains (i.e. where all
 // elements can be enumerated).
-type SmallPool[K uint8 | uint16, W Word[W]] struct {
+type SmallPool[K uint8 | uint16, W word.Word[W]] struct {
 	index []W
 }
 
 // NewBytePool constructs a new pool which uses a given key type for
 // indexing.
-func NewBytePool[W Word[W]]() SmallPool[uint8, W] {
+func NewBytePool[W word.Word[W]]() SmallPool[uint8, W] {
 	index := getIndex[W]()
 	//
 	return SmallPool[uint8, W]{index}
@@ -38,7 +39,7 @@ func NewBytePool[W Word[W]]() SmallPool[uint8, W] {
 
 // NewWordPool constructs a new pool which uses a given key type for
 // indexing.
-func NewWordPool[W Word[W]]() SmallPool[uint16, W] {
+func NewWordPool[W word.Word[W]]() SmallPool[uint16, W] {
 	index := getIndex[W]()
 	//
 	return SmallPool[uint16, W]{index}
@@ -76,9 +77,9 @@ var koalabear_index []koalabear.Element
 var bls12_377_index []bls12_377.Element
 
 // Index for the bigendian word
-var bigendian_index []BigEndian
+var bigendian_index []word.BigEndian
 
-func getIndex[W Word[W]]() []W {
+func getIndex[W word.Word[W]]() []W {
 	var (
 		dummy W
 		index []W
@@ -93,7 +94,7 @@ func getIndex[W Word[W]]() []W {
 		index = any(koalabear_index).([]W)
 	case bls12_377.Element:
 		index = any(bls12_377_index).([]W)
-	case BigEndian:
+	case word.BigEndian:
 		index = any(bigendian_index).([]W)
 	default:
 		panic(fmt.Sprintf("small pool not supported for %s", reflect.TypeOf(dummy).String()))
@@ -102,7 +103,7 @@ func getIndex[W Word[W]]() []W {
 	return index
 }
 
-func initIndex[W Word[W]]() []W {
+func initIndex[W word.Word[W]]() []W {
 	var index = make([]W, 65536)
 	//
 	for i := range uint64(65536) {
@@ -119,5 +120,5 @@ func init() {
 	gf8209_index = initIndex[gf8209.Element]()
 	koalabear_index = initIndex[koalabear.Element]()
 	bls12_377_index = initIndex[bls12_377.Element]()
-	bigendian_index = initIndex[BigEndian]()
+	bigendian_index = initIndex[word.BigEndian]()
 }
