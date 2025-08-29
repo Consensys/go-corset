@@ -38,13 +38,13 @@ type BitArray[T word.Word[T]] struct {
 }
 
 // NewBitArray constructs a new word array with a given capacity.
-func NewBitArray[T word.Word[T]](height uint) *BitArray[T] {
+func NewBitArray[T word.Word[T]](height uint) BitArray[T] {
 	var (
 		bytewidth = word.ByteWidth(height)
 		elements  = make([]byte, bytewidth)
 	)
 	//
-	return &BitArray[T]{elements, height}
+	return BitArray[T]{elements, height}
 }
 
 // Len returns the number of elements in this word array.
@@ -101,6 +101,12 @@ func (p *BitArray[T]) Set(index uint, word T) {
 	// if byte length is 0, the word represents 0.  otherwise, it must be 1.
 	var val = !word.IsZero()
 	//
+	bit.Write(val, p.data, index)
+}
+
+// SetRaw sets a raw bit at the given index in this array, overwriting the
+// original value.
+func (p *BitArray[T]) SetRaw(index uint, val bool) {
 	bit.Write(val, p.data, index)
 }
 

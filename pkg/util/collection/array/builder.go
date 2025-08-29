@@ -55,7 +55,8 @@ func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) MutArray[T]
 	case bitwidth == 0:
 		return NewZeroArray[T](height)
 	case bitwidth == 1:
-		return NewBitArray[T](height)
+		arr := NewBitArray[T](height)
+		return &arr
 	case bitwidth <= 8:
 		return NewPoolArray(height, bitwidth, p.heap8)
 	case bitwidth <= 16:
@@ -90,13 +91,17 @@ func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] 
 	case bitwidth == 0:
 		return NewZeroArray[T](height)
 	case bitwidth == 1:
-		return NewBitArray[T](height)
+		arr := NewBitArray[T](height)
+		return &arr
 	case bitwidth <= 8:
-		return NewSmallArray[uint8, T](height, bitwidth)
+		arr := NewSmallArray[uint8, T](height, bitwidth)
+		return &arr
 	case bitwidth <= 16:
-		return NewSmallArray[uint16, T](height, bitwidth)
+		arr := NewSmallArray[uint16, T](height, bitwidth)
+		return &arr
 	case bitwidth <= 32:
-		return NewSmallArray[uint32, T](height, bitwidth)
+		arr := NewSmallArray[uint32, T](height, bitwidth)
+		return &arr
 	default:
 		return NewPoolArray(height, bitwidth, p.heap)
 	}

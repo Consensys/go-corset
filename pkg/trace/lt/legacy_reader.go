@@ -128,11 +128,16 @@ func readColumnData(header legacyColumnHeader, bytes []byte, heap ArrayBuilder) 
 	// Handle special cases
 	switch header.width {
 	case 1:
-		return readByteColumnData(header, bytes, heap)
+		// Check whether can optimise this case
+		if areAllBits(bytes) {
+			return readBitColumnData(header, bytes)
+		}
+		//
+		return readByteColumnData(header, bytes)
 	case 2:
-		return readWordColumnData(header, bytes, heap)
+		return readWordColumnData(header, bytes)
 	case 4:
-		return readDWordColumnData(header, bytes, heap)
+		return readDWordColumnData(header, bytes)
 	case 8:
 		return readQWordColumnData(header, bytes, heap)
 	}
@@ -140,47 +145,79 @@ func readColumnData(header legacyColumnHeader, bytes []byte, heap ArrayBuilder) 
 	return readArbitraryColumnData(header, bytes, heap)
 }
 
-func readByteColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
-	arr := builder.NewArray(header.length, header.width*8)
-	//
-	for i := uint(0); i < header.length; i++ {
-		// Construct ith field element
-		arr.Set(i, word.NewBigEndian(bytes[i:i+1]))
+func areAllBits(bytes []byte) bool {
+	for _, b := range bytes {
+		if b > 1 {
+			return false
+		}
 	}
-	// Done
-	return arr
+	//
+	return true
 }
 
-func readWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readBitColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
+	arr := array.NewBitArray[word.BigEndian](header.length)
+	//
+	for i := uint(0); i < header.length; i++ {
+		ith := bytes[i]
+		arr.SetRaw(i, ith > 0)
+	}
+	// Done
+	return &arr
+}
+
+func readByteColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
+	//
+	arr := array.NewSmallArray[uint8, word.BigEndian](header.length, header.width*8)
+	//
+	for i := uint(0); i < header.length; i++ {
+		ith := bytes[i]
+		arr.SetRaw(i, ith)
+	}
+	// Done
+	return &arr
+}
+
+func readWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
 	var (
-		arr    = builder.NewArray(header.length, header.width*8)
+		arr    = array.NewSmallArray[uint16, word.BigEndian](header.length, header.width*8)
 		offset = uint(0)
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
+		var (
+			b1 = uint16(bytes[offset])
+			b0 = uint16(bytes[offset+1])
+		)
 		// Construct ith element
-		arr.Set(i, word.NewBigEndian(bytes[offset:offset+2]))
+		arr.SetRaw(i, (b1<<8)+b0)
 		// Move offset to next element
 		offset += 2
 	}
 	// Done
-	return arr
+	return &arr
 }
 
-func readDWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readDWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
 	var (
-		arr    = builder.NewArray(header.length, header.width*8)
+		arr    = array.NewSmallArray[uint32, word.BigEndian](header.length, header.width*8)
 		offset = uint(0)
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
+		var (
+			b3 = uint32(bytes[offset])
+			b2 = uint32(bytes[offset+1])
+			b1 = uint32(bytes[offset+2])
+			b0 = uint32(bytes[offset+3])
+		)
 		// Construct ith element
-		arr.Set(i, word.NewBigEndian(bytes[offset:offset+4]))
+		arr.SetRaw(i, (b3<<24)+(b2<<16)+(b1<<8)+b0)
 		// Move offset to next element
 		offset += 4
 	}
 	// Done
-	return arr
+	return &arr
 }
 
 func readQWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {

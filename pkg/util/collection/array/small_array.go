@@ -28,12 +28,12 @@ type SmallArray[K uint8 | uint16 | uint32 | uint64, T word.Word[T]] struct {
 }
 
 // NewSmallArray constructs a new word array with a given capacity.
-func NewSmallArray[K uint8 | uint16 | uint32 | uint64, T word.Word[T]](height uint, bitwidth uint) *SmallArray[K, T] {
+func NewSmallArray[K uint8 | uint16 | uint32 | uint64, T word.Word[T]](height uint, bitwidth uint) SmallArray[K, T] {
 	var (
 		elements = make([]K, height)
 	)
 	//
-	return &SmallArray[K, T]{elements, bitwidth}
+	return SmallArray[K, T]{elements, bitwidth}
 }
 
 // Append new word on this array
@@ -62,17 +62,23 @@ func (p *SmallArray[K, T]) Clone() MutArray[T] {
 	return &SmallArray[K, T]{ndata, p.bitwidth}
 }
 
-// Get returns the field element at the given index in this array.
+// Get returns the word at the given index in this array.
 func (p *SmallArray[K, T]) Get(index uint) T {
 	var val T
 	//
 	return val.SetUint64(uint64(p.data[index]))
 }
 
-// Set sets the field element at the given index in this array, overwriting the
+// Set the word at the given index in this array, overwriting the
 // original value.
 func (p *SmallArray[K, T]) Set(index uint, word T) {
 	p.data[index] = K(word.Uint64())
+}
+
+// SetRaw sets a raw value at the given index in this array, overwriting the
+// original value.
+func (p *SmallArray[K, T]) SetRaw(index uint, val K) {
+	p.data[index] = val
 }
 
 // Slice out a subregion of this array.
