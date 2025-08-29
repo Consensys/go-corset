@@ -118,6 +118,8 @@ func subdivideFunction[F Element[F]](mapping sc.LimbsMap, fn *MicroFunction[F]) 
 	}
 	// Done
 	nf := io.NewFunction[F](fn.Id(), fn.Name(), env.Limbs(), ninsns)
+	// Infer padding as needed
+	io.InferPadding(nf)
 	//
 	return &nf
 }

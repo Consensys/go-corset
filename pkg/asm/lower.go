@@ -49,8 +49,6 @@ func lowerFunction[F field.Element[F]](vectorize bool, f MacroFunction[F]) Micro
 	if vectorize {
 		fn = vectorizeFunction(fn)
 	}
-	// Infer padding as needed
-	io.InferPadding(fn)
 	//
 	return fn
 }
