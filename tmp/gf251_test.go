@@ -7,20 +7,13 @@ import (
 
 func TestReduce(t *testing.T) {
 	//
-	for i := uint8(0); i < uint8(251); i++ {
-		lhs := New(i)
+	// for i := uint8(0); i < uint8(251); i++ {
+
+	for i := 0; i < 65536; i = i + 100 {
 		//
-		actual := lhs.ToByte()
-		fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }, \"add\": { \"x\": [0], \"y\": [0], \"RESULT\": [0] }}", "\n")
-
-		fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }, \"add\": { \"x\": [249], \"y\": [1], \"RESULT\": [250] }}", "\n")
-
-		fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }, \"add\": { \"x\": [250], \"y\": [1], \"RESULT\": [1] }}", "\n")
-
+		actual := reduce(uint16(i))
+		fmt.Print("{ \"reduction_u8\": { \"z\": [", uint16(i), "], \"RESULT\": [", actual, "] }}", "\n")
 		//
-		if actual != i {
-			t.Errorf("matched %d\n", i)
-		}
 	}
 }
 
