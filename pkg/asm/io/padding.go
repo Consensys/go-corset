@@ -21,12 +21,20 @@ import (
 // InferPadding attempts to infer suitable padding values for a function, based
 // on those padding values provided for its inputs (which default to 0).  In
 // essence, this constructs a witness for the function in question.
-func InferPadding[F field.Element[F], T Instruction[T]](fn Function[F, T]) {
+func InferPadding[F field.Element[F], T Instruction[T]](fns []*Function[F, T]) {
+	for i := range fns {
+		inferPaddingForFunction(i, fns)
+	}
+}
+
+func inferPaddingForFunction[F field.Element[F], T Instruction[T]](i int, fns []*Function[F, T]) {
+	var fn = fns[i]
+	//
 	if fn.IsAtomic() {
 		// Only infer padding for one-line functions.
 		var (
 			insn  = fn.code[0]
-			state = initialState(fn.registers, nil)
+			state = initialState(fn.registers, fns)
 		)
 		// Execute the one instruction
 		_ = insn.Execute(state)

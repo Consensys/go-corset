@@ -14,6 +14,7 @@ package trace
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/gob"
 	"math"
 )
@@ -31,14 +32,16 @@ func NewCellRef(Column ColumnRef, Row int) CellRef {
 	return CellRef{Column, Row}
 }
 
-// LessEq implements a comparator as required for the util.Comparable interface.
-// This allows a CellRef to be used in an AnySortedSet.
-func (p CellRef) LessEq(q CellRef) bool {
-	if p.Column == q.Column {
-		return p.Row <= q.Row
+// Cmp implementation for the set.Comparable interface. This allows a CellRef to
+// be used in an AnySortedSet.
+func (p CellRef) Cmp(q CellRef) int {
+	var c = p.Column.Cmp(q.Column)
+	//
+	if c == 0 {
+		c = cmp.Compare(p.Row, q.Row)
 	}
 	//
-	return p.Column.LessEq(q.Column)
+	return c
 }
 
 // ============================================================================
@@ -66,14 +69,16 @@ func NewIndexedColumnRef(index uint, width uint) ColumnRef {
 	return NewColumnRef(mid, NewColumnId(rid))
 }
 
-// LessEq implements a comparator as required for the util.Comparable interface.
-// This allows a CellRef to be used in an AnySortedSet.
-func (p ColumnRef) LessEq(q ColumnRef) bool {
-	if p.mid == q.mid {
-		return p.rid.Unwrap() <= q.rid.Unwrap()
+// Cmp implementation for the set.Comparable interface. This allows a CellRef to
+// be used in an AnySortedSet.
+func (p ColumnRef) Cmp(q ColumnRef) int {
+	var c = cmp.Compare(p.mid, q.mid)
+	//
+	if c == 0 {
+		c = cmp.Compare(p.rid.Unwrap(), q.rid.Unwrap())
 	}
 	//
-	return p.mid <= q.mid
+	return c
 }
 
 // Index returns a unique index for this column, assuming a given number of
