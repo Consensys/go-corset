@@ -1,0 +1,57 @@
+;; GF251 curve
+;; Mul on u8, to be able to test all cases
+
+;; u8 version of mul and reduction to be able to test all cases
+
+fn reduction_u8(z u16) -> (RESULT u8) {
+   ;; constants recap
+   ;; R = 256 = 2^8
+   ;; n = 251
+   ;; ninv mod R = 205
+
+   var n u8
+   var ninv_mod_R u8
+
+   var quot u8
+   var tmp_quot u16
+   var quot_times_n u16
+   var discard_bit_shift u8
+   var res u8
+   var red u8
+   var c0, c1 u1
+
+   ninv_mod_R = 205
+   n = 251
+
+   ;; z is a u16
+   ;; compute z mod R by masking
+   ;; find quot
+   ;; compute mod R by masking
+   tmp_quot, quot = z * ninv_mod_R
+
+   ;; compute the dividend
+   ;; and / R with a bit shift
+   quot_times_n = quot * n
+   c1, res, discard_bit_shift = z + quot_times_n
+
+   ;; precompute red before checking the carries
+   c0, red = res - n
+
+   ;; if c1 == 1, it means res was >= 256 so we return red
+   if c1==1 goto exit_1
+   ;; if c0 == 0, (res - n) is positive and res >= 251 so we return red as well
+   if c0==0 goto exit_1
+   RESULT = res
+   return
+exit_1:
+   RESULT = red
+   return
+}
+
+;; TODO: uncomment once fn call in fn is fixed
+;;fn mul_u8(x u8, y u8) -> (RESULT u8) {
+;;    var z u16
+;;    z = x * y
+;;    RESULT = reduction_u8(z)
+;;    return
+;;}

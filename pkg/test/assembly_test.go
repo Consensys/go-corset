@@ -104,7 +104,17 @@ func Test_Asm_Trim(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/trim", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-// Recursion
+func Test_Asm_Gf251_Add(t *testing.T) {
+	test_util.Check(t, false, "asm/gf251_add")
+}
+
+func Test_Asm_Gf251_Mul(t *testing.T) {
+	// Testing reduce_u8 for now
+	// Test mul once fn call in fn has been fixed
+	test_util.Check(t, false, "asm/gf251_mul")
+}
+
+// Recusion
 //
 // func Test_Asm_RecPow(t *testing.T) {
 // 	test_util.Check(t, false, "asm/rec_pow")
