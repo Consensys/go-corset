@@ -32,7 +32,13 @@ type IoState struct {
 // Observe that, since functions are always deterministic, this only considers
 // the inputs (as the outputs follow directly from this).
 func (p IoState) Cmp(other IoState) int {
-	panic("todo")
+	for i := range p.ninputs {
+		if c := p.state[i].Cmp(&other.state[i]); c != 0 {
+			return c
+		}
+	}
+	//
+	return 0
 }
 
 // Outputs returns the output values for this function instance.

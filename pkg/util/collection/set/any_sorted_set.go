@@ -86,7 +86,7 @@ func (p *AnySortedSet[T]) Insert(element T) {
 		return element.Cmp(data[i]) <= 0
 	})
 	// Check whether item existed or not.
-	if i >= len(data) || data[i].Cmp(element) == 0 {
+	if i >= len(data) || data[i].Cmp(element) != 0 {
 		// No, item was not found
 		ndata := make([]T, len(data)+1)
 		copy(ndata, data[0:i])
