@@ -13,6 +13,7 @@
 package asm
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -24,14 +25,19 @@ import (
 // returns) for a particular instance of a given function.
 type IoState struct {
 	ninputs uint
-	state   []byte
+	state   []big.Int
 }
 
-// LessEq comparator for the I/O registers of a particular function instance.
+// Cmp comparator for the I/O registers of a particular function instance.
 // Observe that, since functions are always deterministic, this only considers
 // the inputs (as the outputs follow directly from this).
-func (p IoState) LessEq(other IoState) bool {
+func (p IoState) Cmp(other IoState) int {
 	panic("todo")
+}
+
+// Outputs returns the output values for this function instance.
+func (p IoState) Outputs() []big.Int {
+	return p.state[p.ninputs:]
 }
 
 // Executor provides a mechanism for executing a program efficiently and
@@ -42,15 +48,59 @@ type Executor[F field.Element[F], T io.Instruction[T]] struct {
 	states  []set.AnySortedSet[IoState]
 }
 
-// NewExectutor constructs a new executor.
-func NewExecutor[F field.Element[F], T io.Instruction[T]](program io.Program[F, T]) Executor[F, T] {
-	return Executor[F, T]{program}
+// NewExecutor constructs a new executor.
+func NewExecutor[F field.Element[F], T io.Instruction[T]](program io.Program[F, T]) *Executor[F, T] {
+	// Construct initially empty set of states
+	states := make([]set.AnySortedSet[IoState], len(program.Functions()))
+	// Construct new executor
+	return &Executor[F, T]{program, states}
 }
 
+// Read implementation for the io.Map interface.
 func (p *Executor[F, T]) Read(bus uint, address []big.Int) []big.Int {
-	panic("todo")
+	var (
+		iostate = IoState{uint(len(address)), address}
+		states  = p.states[bus]
+	)
+	// Check whether this instance has already been computed.
+	if index := states.Find(iostate); index != math.MaxUint {
+		// Yes, therefore return precomputed outputs
+		return states[index].Outputs()
+	}
+	// Execute function to determine new outputs.
+	return p.call(bus, address)
 }
 
+// Write implementation for the io.Map interface.
 func (p *Executor[F, T]) Write(bus uint, address []big.Int, values []big.Int) {
 	panic("todo")
+}
+
+func (p *Executor[F, T]) call(bus uint, inputs []big.Int) []big.Int {
+	var (
+		fn = p.program.Function(bus)
+		// Determine how many I/O registers
+		nio = fn.NumInputs() + fn.NumOutputs()
+		//
+		pc = uint(0)
+		//
+		states = make([]big.Int, len(fn.Registers()))
+	)
+	// Initialise input arguments
+	copy(states, inputs)
+	// Construct initial state
+	state := io.InitialState(states, fn.Registers(), p)
+	// Keep executing until we're done.
+	for pc != io.RETURN && pc != io.FAIL {
+		insn := fn.CodeAt(pc)
+		// execute given instruction
+		pc = insn.Execute(state)
+		// update state pc
+		state.Goto(pc)
+	}
+	// Cache I/O instance
+	instance := IoState{fn.NumInputs(), states[:nio]}
+	p.states[bus].Insert(instance)
+	// Extract outputs
+	return state.Outputs()
 }

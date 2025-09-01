@@ -130,6 +130,20 @@ func CountUnique[T cmp.Ordered](items []T) uint {
 	return count
 }
 
+// CountMatching counts the number of items in the given array for which the
+// predicate returns true.
+func CountMatching[T any](items []T, predicate Predicate[T]) uint {
+	var count = uint(0)
+	//
+	for _, item := range items {
+		if predicate(item) {
+			count++
+		}
+	}
+	// Done
+	return count
+}
+
 // ReplaceFirstOrPanic replaces the first occurrence of a given item (from) in an
 // array with another item (to).  If not match is found, then this will panic.
 // In otherwords, we are expecting a match.

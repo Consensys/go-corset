@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -61,28 +60,9 @@ func EmptyState(pc uint, registers []schema.Register, io Map) State {
 
 // InitialState constructs a suitable initial state for executing a given
 // function with the given arguments.
-func InitialState[F field.Element[F], T Instruction[T]](arguments []big.Int, fn Function[F, T], io Map) State {
-	var (
-		state = EmptyState(0, fn.registers, io)
-		index = 0
-	)
-	// Initialise arguments
-	for i, reg := range fn.Registers() {
-		if reg.IsInput() {
-			var (
-				rid = schema.NewRegisterId(uint(i))
-				val = arguments[index]
-				ith big.Int
-			)
-			// Clone big int
-			ith.Set(&val)
-			state.Store(rid, ith)
-			//
-			index = index + 1
-		}
-	}
+func InitialState(state []big.Int, registers []schema.Register, io Map) State {
 	// Construct state
-	return state
+	return State{0, false, state, registers, io}
 }
 
 // Clone this state, producing a disjoint state.

@@ -14,6 +14,7 @@ package set
 
 import (
 	"cmp"
+	"math"
 	"sort"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -50,10 +51,9 @@ func (p *AnySortedSet[T]) ToArray() []T {
 	return *p
 }
 
-// Contains returns true if a given element is in the set.
-//
-//nolint:revive
-func (p *AnySortedSet[T]) Contains(element T) bool {
+// Find returns the index of the matching element in this set, or it returns
+// MaxUInt.
+func (p *AnySortedSet[T]) Find(element T) uint {
 	data := *p
 	// Find index where element either does occur, or should occur.
 	i := sort.Search(len(data), func(i int) bool {
@@ -61,7 +61,18 @@ func (p *AnySortedSet[T]) Contains(element T) bool {
 		return element.Cmp(data[i]) <= 0
 	})
 	// Check whether item existed or not.
-	return i < len(data) && data[i].Cmp(element) == 0
+	if i < len(data) && data[i].Cmp(element) == 0 {
+		return uint(i)
+	}
+	// not found
+	return math.MaxUint
+}
+
+// Contains returns true if a given element is in the set.
+//
+//nolint:revive
+func (p *AnySortedSet[T]) Contains(element T) bool {
+	return p.Find(element) != math.MaxUint
 }
 
 // Insert an element into this sorted set.
