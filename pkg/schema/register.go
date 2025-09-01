@@ -14,6 +14,7 @@ package schema
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/gob"
 	"fmt"
 	"math/big"
@@ -68,6 +69,12 @@ func NewRegisterRef(mid ModuleId, rid RegisterId) RegisterRef {
 // represents an input column, and output column or a computed register, etc.
 type RegisterType struct {
 	kind uint8
+}
+
+// Cmp implementation for register types, where inputs come first, followed by
+// outputs then computed registers.
+func (p RegisterType) Cmp(o RegisterType) int {
+	return cmp.Compare(p.kind, o.kind)
 }
 
 var (

@@ -460,16 +460,16 @@ type RegisterSlot struct {
 	register uint
 }
 
-// LessEq implements the necessary comparator for register slots.
-func (p RegisterSlot) LessEq(other RegisterSlot) bool {
+// Cmp implements the necessary comparator for register slots.
+func (p RegisterSlot) Cmp(other RegisterSlot) int {
 	if p.slot < other.slot {
-		return true
+		return -1
 	} else if p.slot == other.slot {
 		// This should be unreachable.
 		panic("multiple registers allocated to same slot")
 	}
 	//
-	return false
+	return 1
 }
 
 // RegisterGroup represents a group of registers which (eventually) will be
