@@ -19,9 +19,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
-	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/file"
@@ -54,18 +54,18 @@ type CompilationConfig struct {
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles[M schema.Module[bls12_377.Element]](config CompilationConfig, srcfiles []*source.File,
-	externs ...M) (mir.MixedSchema[bls12_377.Element, M], SourceMap, []SyntaxError) {
+func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File, extern asm.MacroProgram,
+) (asm.MixedMacroProgram[bls12_377.Element], SourceMap, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
 	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, config.EnforceTypes)
 	// Check for parsing errors
 	if errs != nil {
-		return mir.MixedSchema[bls12_377.Element, M]{}, SourceMap{}, errs
+		return asm.MixedMacroProgram[bls12_377.Element]{}, SourceMap{}, errs
 	}
 	// Compile each module into the schema
-	comp := NewCompiler(circuit, srcmap, externs).
+	comp := NewCompiler(circuit, srcmap, extern).
 		SetDebug(config.Debug)
 	// Configure register allocator (if requested)
 	if config.Legacy {
@@ -81,22 +81,24 @@ func CompileSourceFiles[M schema.Module[bls12_377.Element]](config CompilationCo
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile[M schema.Module[bls12_377.Element]](config CompilationConfig,
-	srcfile *source.File) (mir.MixedSchema[bls12_377.Element, M], SourceMap, []SyntaxError) {
+func CompileSourceFile(config CompilationConfig, srcfile *source.File) (asm.MixedMacroProgram[bls12_377.Element],
+	SourceMap, []SyntaxError) {
 	//
-	return CompileSourceFiles[M](config, []*source.File{srcfile})
+	var macroProgram asm.MacroProgram
+	//
+	return CompileSourceFiles(config, []*source.File{srcfile}, macroProgram)
 }
 
 // Compiler packages up everything needed to compile a given set of module
 // definitions down into an HIR schema.  Observe that the compiler may fail if
 // the modules definitions are malformed in some way (e.g. fail type checking).
-type Compiler[M schema.Module[bls12_377.Element]] struct {
+type Compiler struct {
 	// The register allocation algorithm to be used by this compiler.
 	allocator func(compiler.RegisterAllocation)
 	// A high-level definition of a Corset circuit.
 	circuit ast.Circuit
 	// Externally defined modules
-	externs []M
+	asmProgram asm.MacroProgram
 	// Determines whether debug
 	debug bool
 	// Determines whether to apply sanity checks
@@ -108,21 +110,20 @@ type Compiler[M schema.Module[bls12_377.Element]] struct {
 }
 
 // NewCompiler constructs a new compiler for a given set of modules.
-func NewCompiler[M schema.Module[bls12_377.Element]](circuit ast.Circuit, srcmaps *source.Maps[ast.Node],
-	externs []M) *Compiler[M] {
+func NewCompiler(circuit ast.Circuit, srcmaps *source.Maps[ast.Node], extern asm.MacroProgram) *Compiler {
 	//
-	return &Compiler[M]{compiler.DEFAULT_ALLOCATOR, circuit, externs, false, true, srcmaps}
+	return &Compiler{compiler.DEFAULT_ALLOCATOR, circuit, extern, false, true, srcmaps}
 }
 
 // SetDebug enables or disables debug mode.  In debug mode, debug constraints
 // will be compiled in.
-func (p *Compiler[M]) SetDebug(flag bool) *Compiler[M] {
+func (p *Compiler) SetDebug(flag bool) *Compiler {
 	p.debug = flag
 	return p
 }
 
 // SetAllocator overrides the default register allocator.
-func (p *Compiler[M]) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler[M] {
+func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Compiler {
 	p.allocator = allocator
 	return p
 }
@@ -132,31 +133,31 @@ func (p *Compiler[M]) SetAllocator(allocator func(compiler.RegisterAllocation)) 
 // ways if the given modules are malformed in some way.  For example, if some
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
-func (p *Compiler[M]) Compile() (mir.MixedSchema[bls12_377.Element, M], SourceMap, []SyntaxError) {
+func (p *Compiler) Compile() (asm.MixedMacroProgram[bls12_377.Element], SourceMap, []SyntaxError) {
 	var (
 		scope  *compiler.ModuleScope
 		errors []SyntaxError
 	)
 	// Resolve variables (via nested scopes)
-	scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit, p.externs...)
+	scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit, p.asmProgram.Functions()...)
 	// Type check circuit.
 	errors = append(errors, compiler.TypeCheckCircuit(p.srcmap, &p.circuit)...)
 	// Catch errors
 	if len(errors) > 0 {
-		return mir.MixedSchema[bls12_377.Element, M]{}, SourceMap{}, errors
+		return asm.MixedMacroProgram[bls12_377.Element]{}, SourceMap{}, errors
 	}
 	// Preprocess circuit to remove invocations, reductions, etc.
 	if errors = compiler.PreprocessCircuit(p.debug, p.srcmap, &p.circuit); len(errors) > 0 {
-		return mir.MixedSchema[bls12_377.Element, M]{}, SourceMap{}, errors
+		return asm.MixedMacroProgram[bls12_377.Element]{}, SourceMap{}, errors
 	}
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Translate everything and add it to the schema.
-	mixedSchema, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.externs...)
+	asmProgram, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.asmProgram)
 	// Sanity check for errors
 	if len(errs) > 0 {
-		return mir.MixedSchema[bls12_377.Element, M]{}, SourceMap{}, errs
-	} else if cerrs := mixedSchema.Consistent(); len(cerrs) > 0 {
+		return asm.MixedMacroProgram[bls12_377.Element]{}, SourceMap{}, errs
+	} else if cerrs := asmProgram.Consistent(math.MaxUint); len(cerrs) > 0 {
 		// Should be unreachable.
 		for _, err := range cerrs {
 			fmt.Println(err.Error())
@@ -165,9 +166,9 @@ func (p *Compiler[M]) Compile() (mir.MixedSchema[bls12_377.Element, M], SourceMa
 		panic("inconsistent schema?")
 	}
 	// Construct source map
-	source_map := constructSourceMap(mixedSchema, scope, environment)
+	source_map := constructSourceMap(&asmProgram, scope, environment)
 	// Construct binary file
-	return mixedSchema, *source_map, errs
+	return asmProgram, *source_map, errs
 }
 
 func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {

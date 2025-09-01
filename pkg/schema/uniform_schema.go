@@ -41,11 +41,11 @@ func (p UniformSchema[F, M]) Assignments() iter.Iterator[Assignment[F]] {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p UniformSchema[F, M]) Consistent() []error {
+func (p UniformSchema[F, M]) Consistent(fieldWidth uint) []error {
 	var errors []error
 	// Check modules
 	for _, m := range p.modules {
-		errors = append(errors, m.Consistent(p)...)
+		errors = append(errors, m.Consistent(fieldWidth, p)...)
 	}
 	// Done
 	return errors

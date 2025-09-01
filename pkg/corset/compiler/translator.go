@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -52,24 +53,24 @@ type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mirConstraint, mirTerm]
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit[M schema.Module[bls12_377.Element]](
+func TranslateCircuit(
 	env Environment,
 	srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit,
-	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mirModule], []SyntaxError) {
+	extern asm.MacroProgram) (asm.MixedMacroProgram[bls12_377.Element], []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm](externs...)
+	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm](extern.Functions()...)
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
 	// Translate everything else
 	if errs := t.translateDeclarations(circuit); len(errs) > 0 {
-		return schema.MixedSchema[bls12_377.Element, M, mirModule]{}, errs
+		return asm.MixedMacroProgram[bls12_377.Element]{}, errs
 	}
 	// Build concrete modules from schema
 	modules := ir.BuildSchema[mirModule](t.schema)
-	// Finally, construct the mixed schema
-	return schema.NewMixedSchema(externs, modules), nil
+	// Finally, construct the asm program
+	return asm.NewMixedProgram[bls12_377.Element](extern, modules...), nil
 }
 
 // Translator packages up information necessary for translating a circuit into

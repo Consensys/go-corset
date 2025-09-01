@@ -54,10 +54,10 @@ func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 		}
 		//
 		switch ith := ith.(type) {
-		case *asm.MacroFunction[F]:
-			printAssemblyFunction(*ith)
-		case *asm.MicroFunction[F]:
-			printAssemblyFunction(*ith)
+		case *asm.MacroModule[F]:
+			printAssemblyFunction(ith.Function())
+		case *asm.MicroModule[F]:
+			printAssemblyFunction(ith.Function())
 		default:
 			printModule(ith, schema, width)
 		}
@@ -174,7 +174,7 @@ func isEmptyModule[F any](module schema.Module[F]) bool {
 // Assembly Function
 // ==================================================================
 
-func printAssemblyFunction[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
+func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
 	printAssemblySignature(f)
 	printAssemblyRegisters(f)
 	//
@@ -185,7 +185,7 @@ func printAssemblyFunction[F field.Element[F], T io.Instruction[T]](f io.Functio
 	fmt.Println("}")
 }
 
-func printAssemblySignature[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
+func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 	first := true
 	//
 	fmt.Printf("fn %s(", f.Name())
@@ -221,7 +221,7 @@ func printAssemblySignature[F field.Element[F], T io.Instruction[T]](f io.Functi
 	fmt.Println(") {")
 }
 
-func printAssemblyRegisters[F field.Element[F], T io.Instruction[T]](f io.Function[F, T]) {
+func printAssemblyRegisters[T io.Instruction[T]](f io.Function[T]) {
 	for _, r := range f.Registers() {
 		if !r.IsInput() && !r.IsOutput() {
 			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)

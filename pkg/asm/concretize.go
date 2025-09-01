@@ -76,43 +76,51 @@ func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MixedMicro
 ) (UniformSchema[F2], sc.LimbsMap) {
 	var (
 		mapping = agnostic.NewLimbsMap(cfg, p.Modules().Collect()...)
-		n       = len(p.LeftModules())
+		n       = len(p.Functions())
 		// Construct compiler
-		comp    = compiler.NewCompiler[F1, F2, schema.RegisterId, compiler.MirExpr[F2], compiler.MirModule[F2]]()
+		comp    = compiler.NewCompiler[F2, schema.RegisterId, compiler.MirExpr[F2], compiler.MirModule[F2]]()
 		modules = make([]mir.Module[F2], p.Width())
 	)
 	// Split registers in assembly functions
-	splitModules := subdivide(mapping, p.LeftModules())
+	splitProgram := subdivideProgram(mapping, p.program)
 	// Compile subdivided assembly components into MIR
-	comp.Compile(splitModules...)
+	comp.Compile(splitProgram)
 	// Copy over compiled components
 	for i, m := range comp.Modules() {
 		modules[i] = ir.BuildModule[F2, mir.Constraint[F2], mir.Term[F2], mir.Module[F2]](*m.Module)
 	}
-	// Copy over legacy components
-	copy(modules[n:], mir.Concretize[F1, F2](mapping, p.RightModules()))
+	// Concretize legacy components
+	copy(modules[n:], mir.Concretize[F1, F2](mapping, p.Externs()))
 	// Done
 	return schema.NewUniformSchema(modules), mapping
 }
 
-func subdivide[F Element[F]](mapping sc.LimbsMap, fns []*MicroFunction[F]) []*MicroFunction[F] {
+// Subdivide a given program.  In principle, this should be located within
+// io.Program, however this would require io.Instruction to have a
+// SplitRegisters method (which we want to avoid right now).
+func subdivideProgram(mapping schema.LimbsMap, p MicroProgram) MicroProgram {
 	var (
-		nfns     = make([]*MicroFunction[F], len(fns))
-		executor = NewExecutor(io.NewProgram(fns...))
+		fns      = p.Functions()
+		nfns     = make([]*MicroFunction, len(fns))
+		executor = io.NewExecutor(p)
 	)
 	// Split functions
 	for i, fn := range fns {
-		nfns[i] = subdivideFunction(mapping, fn)
+		ith := subdivideFunction(mapping, *fn)
+		nfns[i] = &ith
 	}
 	// Infer padding
 	for _, nfn := range nfns {
-		InferPadding(*nfn, executor)
+		io.InferPadding(*nfn, executor)
 	}
 	// Done
-	return nfns
+	return io.NewProgram(nfns)
 }
 
-func subdivideFunction[F Element[F]](mapping sc.LimbsMap, fn *MicroFunction[F]) *MicroFunction[F] {
+// Subdivide a given function.  In principle, this should be located within
+// io.Function, however this would require io.Instruction to have a
+// SplitRegisters method (which we want to avoid right now).
+func subdivideFunction(mapping sc.LimbsMap, fn MicroFunction) MicroFunction {
 	var (
 		// Construct suitable splitting environment
 		env = sc.NewAllocator(mapping.ModuleOf(fn.Name()))
@@ -124,7 +132,5 @@ func subdivideFunction[F Element[F]](mapping sc.LimbsMap, fn *MicroFunction[F]) 
 		ninsns = append(ninsns, insn.SplitRegisters(env))
 	}
 	// Done
-	nf := io.NewFunction[F](fn.Id(), fn.Name(), env.Limbs(), ninsns)
-	//
-	return &nf
+	return io.NewFunction(fn.Name(), env.Limbs(), ninsns)
 }

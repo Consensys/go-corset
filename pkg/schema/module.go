@@ -52,7 +52,7 @@ type Module[F any] interface {
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent(AnySchema[F]) []error
+	Consistent(fieldWidth uint, schema AnySchema[F]) []error
 	// Identifies the length multiplier for this module.  For every trace, the
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
@@ -118,7 +118,7 @@ func (p *Table[F, C]) Constraints() iter.Iterator[Constraint[F]] {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *Table[F, C]) Consistent(schema AnySchema[F]) []error {
+func (p *Table[F, C]) Consistent(fieldWidth uint, schema AnySchema[F]) []error {
 	var errors []error
 	// Check constraints
 	for _, c := range p.constraints {

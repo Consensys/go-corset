@@ -17,6 +17,8 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -35,18 +37,13 @@ type MirModule[F field.Element[F]] struct {
 }
 
 // Initialise this module
-func (p MirModule[F]) Initialise(fn MicroFunction[F], mid uint) MirModule[F] {
-	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid,
-		fn.LengthMultiplier(), fn.AllowPadding())
-	// Add any assignments defined for this function.  Observe that, generally
-	// speaking, function's consist of exactly one assignment and this is what
-	// is being added here.
-	for iter := fn.Assignments(); iter.HasNext(); {
-		builder.AddAssignment(iter.Next())
-	}
+func (p MirModule[F]) Initialise(mid uint, fn MicroFunction, iomap io.Map) MirModule[F] {
+	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid, 1, false)
+	// Add corresponding assignment for this function.
+	builder.AddAssignment(program.NewAssignment[F](mid, fn, iomap))
 	//
 	p.Module = builder
-
+	//
 	return p
 }
 

@@ -22,7 +22,7 @@ import (
 
 // DeclareExterns adds externally defined symbols to the given scope in such a
 // way that they can then be resolved against.
-func DeclareExterns[F any, M schema.Module[F]](scope *ModuleScope, externs ...M) {
+func DeclareExterns[M schema.RegisterMap](scope *ModuleScope, externs ...M) {
 	for _, e := range externs {
 		path := file.NewAbsolutePath(e.Name())
 		// Declare external module

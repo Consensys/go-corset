@@ -20,9 +20,7 @@ import (
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 const (
@@ -48,9 +46,7 @@ const (
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
-type Function[F field.Element[F], T Instruction[T]] struct {
-	// unique module identifier
-	id sc.ModuleId
+type Function[T Instruction[T]] struct {
 	// Unique name of this function.
 	name string
 	// Registers describes zero or more registers of a given width.  Each
@@ -65,8 +61,7 @@ type Function[F field.Element[F], T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[F field.Element[F], T Instruction[T]](id sc.ModuleId, name string, registers []Register, code []T,
-) Function[F, T] {
+func NewFunction[T Instruction[T]](name string, registers []Register, code []T) Function[T] {
 	var (
 		numInputs  = array.CountMatching(registers, func(r Register) bool { return r.IsInput() })
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
@@ -76,60 +71,30 @@ func NewFunction[F field.Element[F], T Instruction[T]](id sc.ModuleId, name stri
 		panic("function registers ordered incorrectly")
 	}
 	// All good
-	return Function[F, T]{id, name, registers, numInputs, numOutputs, code}
-}
-
-// Assignments returns an iterator over the assignments of this schema.
-// These are the computations used to assign values to all computed columns
-// in this module.
-func (p *Function[F, T]) Assignments() iter.Iterator[sc.Assignment[F]] {
-	var assignment = Assignment[F, T]{p.id, p.name, p.registers, p.numInputs, p.numOutputs, p.code}
-	//
-	return iter.NewUnitIterator[sc.Assignment[F]](assignment)
+	return Function[T]{name, registers, numInputs, numOutputs, code}
 }
 
 // CodeAt returns the ith instruction making up the body of this function.
-func (p *Function[F, T]) CodeAt(i uint) T {
+func (p *Function[T]) CodeAt(i uint) T {
 	return p.code[i]
 }
 
 // Code returns the instructions making up the body of this function.
-func (p *Function[F, T]) Code() []T {
+func (p *Function[T]) Code() []T {
 	return p.code
-}
-
-// Constraints provides access to those constraints associated with this
-// function.
-func (p *Function[F, T]) Constraints() iter.Iterator[sc.Constraint[F]] {
-	var constraint Constraint[F, T] = Constraint[F, T]{p.id, p.name, p.registers, p.numInputs, p.numOutputs, p.code}
-	//
-	return iter.NewUnitIterator[sc.Constraint[F]](constraint)
-}
-
-// Consistent applies a number of internal consistency checks.  Whilst not
-// strictly necessary, these can highlight otherwise hidden problems as an aid
-// to debugging.
-func (p *Function[F, T]) Consistent(sc.AnySchema[F]) []error {
-	// TODO: add checks?
-	return nil
-}
-
-// Id returns the unique module identifier for this function.
-func (p *Function[F, T]) Id() sc.ModuleId {
-	return p.id
 }
 
 // IsAtomic determines whether or not this is a "one line function".  That is,
 // where every instance of this function occupies exactly one line in the
 // corresponding trace.  This is useful to know, as certain optimisations can be
 // applied for one line functions (e.g. no PC register is required).
-func (p *Function[F, T]) IsAtomic() bool {
+func (p *Function[T]) IsAtomic() bool {
 	return len(p.code) == 1
 }
 
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
-func (p *Function[F, T]) HasRegister(name string) (RegisterId, bool) {
+func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
 	for i, r := range p.registers {
 		if r.Name == name {
 			return sc.NewRegisterId(uint(i)), true
@@ -140,63 +105,44 @@ func (p *Function[F, T]) HasRegister(name string) (RegisterId, bool) {
 }
 
 // Inputs returns the set of input registers for this function.
-func (p *Function[F, T]) Inputs() []Register {
+func (p *Function[T]) Inputs() []Register {
 	return p.registers[:p.numInputs]
 }
 
-// LengthMultiplier identifies the length multiplier for this module.  For every
-// trace, the height of the corresponding module must be a multiple of this.
-// This is used specifically to support interleaving constraints.
-func (p *Function[F, T]) LengthMultiplier() uint {
-	return 1
-}
-
 // NumInputs returns the number of input registers for this function.
-func (p *Function[F, T]) NumInputs() uint {
+func (p *Function[T]) NumInputs() uint {
 	return p.numInputs
 }
 
 // NumOutputs returns the number of output registers for this function.
-func (p *Function[F, T]) NumOutputs() uint {
+func (p *Function[T]) NumOutputs() uint {
 	return p.numOutputs
 }
 
-// AllowPadding determines whether the given module supports padding at the
-// beginning of the module.  Assembly modules do not support padding, as this
-// causes various problems of its own.
-func (p *Function[F, T]) AllowPadding() bool {
-	return false
-}
-
 // Name returns the name of this function.
-func (p *Function[F, T]) Name() string {
+func (p *Function[T]) Name() string {
 	return p.name
 }
 
 // Outputs returns the set of output registers for this function.
-func (p *Function[F, T]) Outputs() []Register {
+func (p *Function[T]) Outputs() []Register {
 	return p.registers[p.numInputs : p.numInputs+p.numOutputs]
 }
 
 // Register returns the ith register used in this function.
-func (p *Function[F, T]) Register(id sc.RegisterId) Register {
+func (p *Function[T]) Register(id sc.RegisterId) Register {
 	return p.registers[id.Unwrap()]
 }
 
 // Registers returns the set of all registers used during execution of this
 // function.
-func (p *Function[F, T]) Registers() []Register {
+func (p *Function[T]) Registers() []Register {
 	return p.registers
-}
-
-// Width identifiers the number of registers in this function.
-func (p *Function[F, T]) Width() uint {
-	return uint(len(p.registers))
 }
 
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[F, T]) AllocateRegister(kind sc.RegisterType, name string, width uint) RegisterId {
+func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width uint) RegisterId {
 	var (
 		index = uint(len(p.registers))
 		// Default padding (for now)
@@ -212,18 +158,31 @@ func (p *Function[F, T]) AllocateRegister(kind sc.RegisterType, name string, wid
 	return sc.NewRegisterId(index)
 }
 
+// Validate that this function and all instructions contained therein is
+// well-formed.  For example, that instructions have no conflicting writes, that
+// all temporaries have been allocated, etc.  The maximum bit capacity of the
+// underlying field is needed for this calculation, to allow instructions to
+// check it does not overflow the underlying field.
+func (p *Function[T]) Validate(fieldWidth uint) []error {
+	var errors []error
+	//
+	for _, insn := range p.code {
+		if err := insn.Validate(fieldWidth, p); err != nil {
+			errors = append(errors, err)
+		}
+	}
+	//
+	return errors
+}
+
 // ============================================================================
 // Encoding / Decoding
 // ============================================================================
 
 // nolint
-func (p *Function[F, T]) GobEncode() ([]byte, error) {
+func (p *Function[T]) GobEncode() ([]byte, error) {
 	var buffer bytes.Buffer
 	gobEncoder := gob.NewEncoder(&buffer)
-	//
-	if err := gobEncoder.Encode(p.id); err != nil {
-		return nil, err
-	}
 	//
 	if err := gobEncoder.Encode(p.name); err != nil {
 		return nil, err
@@ -241,15 +200,11 @@ func (p *Function[F, T]) GobEncode() ([]byte, error) {
 }
 
 // nolint
-func (p *Function[F, T]) GobDecode(data []byte) error {
+func (p *Function[T]) GobDecode(data []byte) error {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
 	)
-	//
-	if err := gobDecoder.Decode(&p.id); err != nil {
-		return err
-	}
 	//
 	if err := gobDecoder.Decode(&p.name); err != nil {
 		return err

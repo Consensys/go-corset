@@ -147,6 +147,11 @@ func (p *State) Pc() uint {
 	return p.pc
 }
 
+// Registers returns the set of registers used within this state.
+func (p *State) Registers() []schema.Register {
+	return p.registers
+}
+
 // Store value to a given register from this state.
 func (p *State) Store(reg RegisterId, value big.Int) {
 	index := reg.Unwrap()

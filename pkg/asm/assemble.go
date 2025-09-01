@@ -19,8 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -31,43 +30,49 @@ type Register = io.Register
 // MacroFunction is a function whose instructions are themselves macro
 // instructions.  A macro function must be compiled down into a micro function
 // before we can generate constraints.
-type MacroFunction[F field.Element[F]] = io.Function[F, macro.Instruction]
+type MacroFunction = io.Function[macro.Instruction]
 
 // MicroFunction is a function whose instructions are themselves micro
 // instructions.  A micro function represents the lowest representation of a
 // function, where each instruction is made up of microcodes.
-type MicroFunction[F field.Element[F]] = io.Function[F, micro.Instruction]
+type MicroFunction = io.Function[micro.Instruction]
 
 // MacroProgram represents a set of components at the macro level.
-type MacroProgram[F field.Element[F]] = io.Program[F, macro.Instruction]
+type MacroProgram = io.Program[macro.Instruction]
 
 // MicroProgram represents a set of components at the micro level.
-type MicroProgram[F field.Element[F]] = io.Program[F, micro.Instruction]
+type MicroProgram = io.Program[micro.Instruction]
 
-// MixedMacroProgram is a schema comprised of both macro assembly components and
-// MIR components (hence the term mixed).
-type MixedMacroProgram[F field.Element[F]] = schema.MixedSchema[F, *MacroFunction[F], mir.Module[F]]
+// MixedMacroProgram represents a mixed assembly and legacy program, where
+// assembly functions are composed from macro instructions.
+type MixedMacroProgram[F field.Element[F]] = MixedProgram[F, macro.Instruction]
 
-// MixedMicroProgram is a schema comprised of both micro assembly components and
-// MIR components (hence the term mixed).
-type MixedMicroProgram[F field.Element[F]] = schema.MixedSchema[F, *MicroFunction[F], mir.Module[F]]
+// MixedMicroProgram represents a mixed assembly and legacy program, where
+// assembly functions are composed from micro instructions.
+type MixedMicroProgram[F field.Element[F]] = MixedProgram[F, micro.Instruction]
+
+// MacroModule is an instance of schema.Module which encapsulates a MacroFunction[F].
+type MacroModule[F field.Element[F]] = program.Module[F, macro.Instruction]
+
+// MicroModule is an instance of schema.Module which encapsulates a MicroFunction[F].
+type MicroModule[F field.Element[F]] = program.Module[F, micro.Instruction]
 
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble[F field.Element[F]](assembly ...source.File) (
-	MacroProgram[F], source.Maps[any], []source.SyntaxError) {
+func Assemble(assembly ...source.File) (
+	MacroProgram, source.Maps[any], []source.SyntaxError) {
 	//
 	var (
-		items   []assembler.AssemblyItem[F]
-		errors  []source.SyntaxError
-		program MacroProgram[F]
-		srcmaps source.Maps[any]
+		items      []assembler.AssemblyItem
+		errors     []source.SyntaxError
+		components []*MacroFunction
+		srcmaps    source.Maps[any]
 	)
 	// Parse each file in turn.
 	for _, asm := range assembly {
 		// Parse source file
-		cs, errs := assembler.Parse[F](&asm)
+		cs, errs := assembler.Parse(&asm)
 		if len(errs) == 0 {
 			items = append(items, cs)
 		}
@@ -76,32 +81,36 @@ func Assemble[F field.Element[F]](assembly ...source.File) (
 	}
 	// Link assembly
 	if len(errors) != 0 {
-		return program, srcmaps, errors
+		return MacroProgram{}, srcmaps, errors
 	}
 	// Link assembly and resolve buses
-	program, srcmaps = assembler.Link[F](items...)
+	components, srcmaps = assembler.Link(items...)
 	// Well-formedness checks (assuming unlimited field width).
-	errors = assembler.Validate(math.MaxUint, program, srcmaps)
+	errors = assembler.Validate(math.MaxUint, components, srcmaps)
 	// Done
-	return program, srcmaps, errors
+	return io.NewProgram(components), srcmaps, errors
 }
 
 // LowerMixedMacroProgram a mixed macro program (i.e. schema) into a mixed micro program, using
 // vectorisation if desired.  Specifically, any macro modules within the schema
 // are lowered into "micro" modules (i.e. those using only micro instructions).
 // This does not impact any externally defined (e.g. MIR) modules in the schema.
-func LowerMixedMacroProgram[F field.Element[F]](vectorize bool, p MixedMacroProgram[F]) MixedMicroProgram[F] {
-	functions := make([]*MicroFunction[F], len(p.LeftModules()))
+func LowerMixedMacroProgram[F field.Element[F]](vectorize bool, program MixedMacroProgram[F]) MixedMicroProgram[F] {
+	var microProgram = lowerMacroProgram(vectorize, program.program)
+	// Done
+	return NewMixedProgram[F, micro.Instruction](microProgram, program.externs...)
+}
+
+func lowerMacroProgram(vectorize bool, p MacroProgram) MicroProgram {
+	functions := make([]*MicroFunction, len(p.Functions()))
 	//
-	for i, f := range p.LeftModules() {
+	for i, f := range p.Functions() {
 		nf := lowerFunction(vectorize, *f)
 		functions[i] = &nf
 	}
-	// Construct program for validation
-	program := io.NewProgram(functions...)
 	// Validate generated program.  Whilst not strictly necessary, it is useful
 	// from a debugging perspective.
-	assembler.ValidateMicro(math.MaxUint, program)
-	// Construct mixed micro schema
-	return schema.NewMixedSchema(functions, p.RightModules())
+	assembler.ValidateMicro(math.MaxUint, functions)
+	//
+	return io.NewProgram(functions)
 }

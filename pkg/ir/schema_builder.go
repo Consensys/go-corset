@@ -69,18 +69,18 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] str
 	// Externs represent modules which have already been constructed.  These
 	// will be given the lower module identifiers, since they are already
 	// packaged and, hence, we must avoid breaking thein linkage.
-	externs []schema.Module[F]
+	externs []schema.RegisterMap
 	// Modules being constructed
 	modules []*ModuleBuilder[F, C, T]
 }
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], E schema.Module[F]](externs ...E,
+func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], E schema.RegisterMap](externs ...E,
 ) SchemaBuilder[F, C, T] {
 	var (
 		modmap   = make(map[string]uint, 0)
-		nexterns = make([]schema.Module[F], len(externs))
+		nexterns = make([]schema.RegisterMap, len(externs))
 	)
 	// Initialise module map
 	for i, m := range externs {
@@ -174,7 +174,7 @@ func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](
 // NewExternModuleBuilder constructs a new builder suitable for external
 // modules.  These are just used for linking purposes.
 func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](mid schema.ModuleId,
-	module schema.Module[F]) *ModuleBuilder[F, C, T] {
+	module schema.RegisterMap) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
 	// Initialise register map
@@ -214,7 +214,7 @@ func (p *ModuleBuilder[F, C, T]) Assignments() iter.Iterator[schema.Assignment[F
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *ModuleBuilder[F, C, T]) Consistent(schema schema.AnySchema[F]) []error {
+func (p *ModuleBuilder[F, C, T]) Consistent(fieldWidth uint, schema schema.AnySchema[F]) []error {
 	var errors []error
 	// Check constraints
 	for _, c := range p.constraints {
