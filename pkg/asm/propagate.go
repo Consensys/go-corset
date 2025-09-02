@@ -14,14 +14,9 @@ package asm
 
 import (
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
-
-// RawColumn provides a convenient alias
-type RawColumn = trace.RawColumn[word.BigEndian]
 
 // PropagateAll propagates secondary (i.e. derivative) function instances
 // throughout one or more traces.  NOTES:
@@ -34,7 +29,7 @@ func PropagateAll[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T],
 	var ntraces = make([]lt.TraceFile, len(ts))
 	//
 	for i, trace := range ts {
-		ntraces[i] = Propagate(p.program, trace)
+		ntraces[i] = Propagate(p, trace)
 	}
 	//
 	return ntraces
@@ -48,30 +43,38 @@ func PropagateAll[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T],
 // make the trace complete with respect to the original instance. Trace
 // propagation is about figuring out what secondary instances are required, and
 // adding them to the trace.
-func Propagate[T io.Instruction[T]](program io.Program[T], trace lt.TraceFile) lt.TraceFile {
-	// Construct suitable executior for the given program
-	var (
-		executor = io.NewExecutor(program)
-		// Clone heap in trace file, since will mutate this.
-		heap = trace.Heap.Clone()
-	)
-	// Write seed instances
-	writeInstances(trace.Modules, executor)
-	// Read out generated instances
-	modules := readInstances(&heap, executor)
-	//
-	return lt.NewTraceFile(trace.Header.MetaData, heap, modules)
+//
+// NOTES:
+//
+// Parallelism?
+// Validation?
+// Batch size?
+// Recursion limit (to prevent infinite loops)
+func Propagate[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T], trace lt.TraceFile) lt.TraceFile {
+	// // Construct suitable executior for the given program
+	// var (
+	// 	executor = io.NewExecutor(program)
+	// 	// Clone heap in trace file, since will mutate this.
+	// 	heap = trace.Heap.Clone()
+	// )
+	// // Write seed instances
+	// writeInstances(trace.Modules, executor)
+	// // Read out generated instances
+	// modules := readInstances(&heap, executor)
+	// //
+	// return lt.NewTraceFile(trace.Header.MetaData, heap, modules)
+	return trace
 }
 
-// WriteInstances writes all of the instances defined in the given trace columns
-// into the executor which, in turn, forces it to execute the relevant
-// functions, and functions they call, etc.
-func writeInstances[T io.Instruction[T]](trace []lt.Module[word.BigEndian], executor *io.Executor[T]) {
-	panic("todo")
-}
+// // WriteInstances writes all of the instances defined in the given trace columns
+// // into the executor which, in turn, forces it to execute the relevant
+// // functions, and functions they call, etc.
+// func writeInstances[T io.Instruction[T]](trace []lt.Module[word.BigEndian], executor *io.Executor[T]) {
+// 	panic("todo")
+// }
 
-// ReadInstances simply traverses all internal states generated within the
-// executor and converts them back into raw columns.
-func readInstances[T io.Instruction[T]](heap *lt.WordHeap, executor *io.Executor[T]) []lt.Module[word.BigEndian] {
-	panic("todo")
-}
+// // ReadInstances simply traverses all internal states generated within the
+// // executor and converts them back into raw columns.
+// func readInstances[T io.Instruction[T]](heap *lt.WordHeap, executor *io.Executor[T]) []lt.Module[word.BigEndian] {
+// 	panic("todo")
+// }

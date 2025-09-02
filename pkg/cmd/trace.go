@@ -20,6 +20,8 @@ import (
 	"strings"
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
+	"github.com/consensys/go-corset/pkg/asm"
+	cmd "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -102,7 +104,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	} else if builder.Expanding() {
 		// Expand all the traces
 		for i, cols := range traces {
-			traces[i] = expandColumns(cols, schemas.UniqueConcreteSchema(), builder)
+			traces[i] = expandColumns(cols, schemas, builder)
 		}
 	}
 	// Now manipulate traces
@@ -168,24 +170,39 @@ func init() {
 // RawColumn provides a convenient alias
 type RawColumn = lt.Column[word.BigEndian]
 
-func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], bldr ir.TraceBuilder[F]) lt.TraceFile {
+func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F], bldr ir.TraceBuilder[F],
+) lt.TraceFile {
 	//
 	var (
-		expanded = make([]lt.Module[word.BigEndian], schema.Width())
-		// Construct expanded tr
-		tr, errs = bldr.Build(schema, tf)
-		//
-		heap       = pool.NewLocalHeap[word.BigEndian]()
-		arrBuilder = array.NewDynamicBuilder(heap)
+		schema = stack.BinaryFile().Schema
+		errors []error
+		tr     trace.Trace[F]
 	)
+	// Apply trace propagation
+	if bldr.Expanding() {
+		tf = asm.Propagate(schema, tf)
+	}
+	// Construct expanded trace
+	tr, errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
 	// Handle errors
-	if len(errs) > 0 {
-		for _, err := range errs {
+	if len(errors) > 0 {
+		for _, err := range errors {
 			fmt.Println(err)
 		}
 		//
 		os.Exit(1)
 	}
+	// Now, reconstruct it!
+	return reconstructRawTrace(tf.Header.MetaData, tr)
+}
+
+func reconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F]) lt.TraceFile {
+	var (
+		expanded = make([]lt.Module[word.BigEndian], tr.Width())
+		// Construct fresh heap for this trace
+		heap       = pool.NewLocalHeap[word.BigEndian]()
+		arrBuilder = array.NewDynamicBuilder(heap)
+	)
 	//
 	for mid := range tr.Width() {
 		var (
@@ -208,7 +225,7 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], 
 		}
 	}
 	//
-	return lt.NewTraceFile(tf.Header.MetaData, *heap, expanded)
+	return lt.NewTraceFile(metadata, *heap, expanded)
 }
 
 // Construct a new trace containing only those columns from the original who
@@ -276,10 +293,16 @@ func printTraceFileHeader(header *lt.Header) {
 func printTrace(start uint, max_width uint, tf lt.TraceFile) {
 	for i, module := range tf.Modules {
 		if i != 0 {
-			fmt.Printf("\n")
+			fmt.Println()
 		}
 		//
-		printModuleTrace(start, max_width, module)
+		if len(module.Columns) > 0 {
+			if module.Name != "" {
+				fmt.Printf("%s:\n", module.Name)
+			}
+			//
+			printModuleTrace(start, max_width, module)
+		}
 	}
 }
 
@@ -296,11 +319,9 @@ func printModuleTrace(start uint, max_width uint, mod lt.Module[word.BigEndian])
 	}
 
 	for i := uint(0); i < n; i++ {
-		var (
-			ith  = cols[i].Data
-			name = fmt.Sprintf("%s.%s", mod.Name, cols[i].Name)
-		)
-		tbl.Set(0, i+1, termio.NewText(name))
+		var ith = cols[i].Data
+		//
+		tbl.Set(0, i+1, termio.NewText(cols[i].Name))
 
 		for j := uint(0); j < ith.Len(); j++ {
 			jth := ith.Get(j)

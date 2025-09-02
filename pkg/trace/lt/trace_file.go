@@ -99,10 +99,15 @@ func (p *TraceFile) Clone() TraceFile {
 		var columns = make([]Column[word.BigEndian], len(mod.Columns))
 		//
 		for j, col := range mod.Columns {
+			var data = col.Data
+			// Clone data (if it exists)
+			if data != nil {
+				data = col.Data.Clone()
+			}
 			// Clone colunm data
 			columns[j] = Column[word.BigEndian]{
 				col.Name,
-				col.Data.Clone(),
+				data,
 			}
 		}
 		//

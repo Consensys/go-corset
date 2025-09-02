@@ -13,7 +13,6 @@
 package builder
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema"
@@ -65,8 +64,9 @@ func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schem
 			modmap  = mapping.ModuleOf(ith.Name)
 		)
 		//
-		for _, jth := range ith.Columns {
-			split, errs := splitRawColumn(jth, builder, modmap)
+		for j, jth := range ith.Columns {
+			rid := schema.NewRegisterId(uint(j))
+			split, errs := splitRawColumn(rid, jth, builder, modmap)
 			columns = append(columns, split...)
 			errors = append(errors, errs...)
 		}
@@ -83,15 +83,13 @@ func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.
 	var (
 		ncols = lt.NumberOfColumns(tf.Modules)
 		//
-		splits = make([][][]lt.Column[F], ncols)
+		splits = make([][][]lt.Column[F], len(tf.Modules))
 		// Allocate fresh array builder
 		builder = array.NewStaticBuilder[F]()
 		// Construct a communication channel split columns.
 		c = make(chan splitResult[F], ncols)
 		//
 		errors []error
-		//
-		total int
 	)
 	// Split column concurrently
 	for i, ith := range tf.Modules {
@@ -101,30 +99,29 @@ func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.
 		splits[i] = make([][]lt.Column[F], len(ith.Columns))
 		//
 		for j, jth := range ith.Columns {
-			go func(mid int, cid int, column lt.Column[word.BigEndian], mapping schema.LimbsMap) {
+			// Start go-routine for this column
+			go func(mid, cid int, column lt.Column[word.BigEndian], mapping schema.LimbsMap) {
 				// Send outcome back
-				data, errors := splitRawColumn(column, builder, modmap)
+				data, errors := splitRawColumn(schema.NewRegisterId(uint(cid)), column, builder, modmap)
 				c <- splitResult[F]{mid, cid, data, errors}
 			}(i, j, jth, mapping)
 		}
 	}
 	// Collect results
-	for range len(splits) {
+	for range ncols {
 		// Read from channel
 		res := <-c
 		// Assign split
 		splits[res.module][res.column] = res.data
-		//
-		total += len(res.data)
 		errors = append(errors, res.errors...)
 	}
 	// Flatten split
-	return builder, flatten(total, tf, splits), errors
+	return builder, flatten(tf, splits), errors
 }
 
-func flatten[W any](total int, tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.Module[W] {
+func flatten[W any](tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.Module[W] {
 	var (
-		modules = make([]lt.Module[W], total)
+		modules = make([]lt.Module[W], len(splits))
 		index   = 0
 	)
 	// Flattern all columns
@@ -143,21 +140,17 @@ func flatten[W any](total int, tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder array.Builder[F],
+func splitRawColumn[F field.Element[F]](rid schema.RegisterId, col lt.Column[word.BigEndian], builder array.Builder[F],
 	modmap schema.RegisterLimbsMap) ([]lt.Column[F], []error) {
 	//
-	var (
+	var height uint
+	// Calculate register height.  Observe that computed registers will have nil
+	// for their data at this point since they haven't been computed yet.
+	if col.Data != nil {
 		height = col.Data.Len()
-		//
-		reg, regExists = modmap.HasRegister(col.Name)
-	)
-	// Check whether register is known
-	if !regExists {
-		// Unknown register --- this is an error
-		return nil, []error{fmt.Errorf("unknown register \"%s\"", col.Name)}
 	}
 	// Determine register id for this column (we can assume it exists)
-	limbIds := modmap.LimbIds(reg)
+	limbIds := modmap.LimbIds(rid)
 	//
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
@@ -165,7 +158,7 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 		return []lt.Column[F]{lowerRawColumn(col, builder)}, nil
 	}
 	// Yes, must split into two or more limbs of given widths.
-	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
+	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(rid))
 	// Determine limbs of this register
 	limbs := agnostic.LimbsOf(modmap, limbIds)
 	// Construct temporary place holder for new array data.

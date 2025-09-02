@@ -18,13 +18,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
-
-// RawColumn provides a convenient alias
-type RawColumn = trace.RawColumn[word.BigEndian]
 
 // WordArrayBuilder provides a convenient aliasO
 type WordArrayBuilder = array.DynamicBuilder[word.BigEndian, *WordHeap]

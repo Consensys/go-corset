@@ -90,6 +90,11 @@ func (p *Module[F, T]) LengthMultiplier() uint {
 	return 1
 }
 
+// IsSynthetic implementation for schema.Module interface.
+func (p *Module[F, T]) IsSynthetic() bool {
+	panic("unsupported operation")
+}
+
 // Width implementation for schema.Module interface.
 func (p *Module[F, T]) Width() uint {
 	return uint(len(p.function.Registers()))

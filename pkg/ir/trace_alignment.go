@@ -13,9 +13,11 @@
 package ir
 
 import (
+	"fmt"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // AlignTrace performs "trace alignment" on a given trace file.  That is, it
@@ -24,113 +26,97 @@ import (
 // columns within each module match (i.e. align with) those of the corresponding
 // schema module.  If any columns or modules are missing, then one or more
 // errors will be reported.
-func AlignTrace[F field.Element[F]](schema sc.AnySchema[F], tf lt.TraceFile) []error {
-	panic("todo")
+//
+// NOTE: alignment is impacted by whether or not the trace is being expanded or
+// not. Specifically, expanding traces don't need to include data for computed
+// columns, since these will be added during expansion.
+func AlignTrace[F any](schema sc.AnySchema[F], modules []lt.Module[F], expanding bool,
+) ([]lt.Module[F], []error) {
+	var errors []error
+	// First, align modules
+	if modules, errors = alignModules(schema, modules, expanding); len(errors) > 0 {
+		return nil, errors
+	}
+	// Second, align columns within modules
+	for i := range schema.Width() {
+		cols, errs := alignColumns(schema.Module(i), modules[i].Columns, expanding)
+		errors = append(errors, errs...)
+		modules[i].Columns = cols
+	}
+	// Done
+	return modules, errors
 }
 
-// func alignRawTrace[F field.Element[F]](expanded bool, schema sc.AnySchema[F], modmap map[string]uint,
-// 	rawTrace []lt.Module[F]) ([][]trace.RawColumn[F], []error) {
-// 	//
-// 	var (
-// 		// Errs contains the set of filling errors which are accumulated
-// 		errs []error
-// 		//
-// 		seen map[columnKey]bool = make(map[columnKey]bool, 0)
-// 	)
-// 	//
-// 	colmap, modules := initialiseColumnMap(expanded, schema)
-// 	// Assign data from each input column given
-// 	for _, col := range cols {
-// 		// Lookup the module
-// 		if _, ok := modmap[col.Module]; !ok {
-// 			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", col.Module))
-// 		} else {
-// 			key := columnKey{col.Module, col.Name}
-// 			// Determine enclosiong module height
-// 			cid, ok := colmap[key]
-// 			// More sanity checks
-// 			if !ok {
-// 				errs = append(errs, fmt.Errorf("unknown column '%s' in trace", col.QualifiedName()))
-// 			} else if _, ok := seen[key]; ok {
-// 				errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", col.QualifiedName()))
-// 			} else {
-// 				seen[key] = true
-// 				modules[cid.module][cid.column] = col
-// 			}
-// 		}
-// 	}
-// 	// Sanity check everything was assigned
-// 	for i, m := range modules {
-// 		mod := schema.Module(uint(i))
-// 		//
-// 		for j, c := range m {
-// 			rid := sc.NewRegisterId(uint(j))
-// 			reg := mod.Register(rid)
-// 			//
-// 			if reg.IsInputOutput() && c.Data == nil {
-// 				errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", c.QualifiedName()))
-// 			} else if expanded && c.Data == nil {
-// 				errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", c.QualifiedName()))
-// 			}
-// 		}
-// 	}
-// 	//
-// 	return modules, errs
-// }
+func alignModules[F any](schema sc.AnySchema[F], modules []lt.Module[F], expanding bool) ([]lt.Module[F], []error) {
+	//
+	var (
+		modmap = make(map[string]uint)
+		nmods  = make([]lt.Module[F], max(schema.Width()))
+		errs   []error
+	)
+	// Initialise module mapping
+	for i := range schema.Width() {
+		ith := schema.Module(i)
+		nmods[i].Name = ith.Name()
+		modmap[ith.Name()] = i
+	}
+	// Rearrange layout
+	for _, m := range modules {
+		if index, ok := modmap[m.Name]; ok {
+			nmods[index] = m
+		} else if expanding {
+			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", m.Name))
+		}
+	}
+	//
+	return nmods, errs
+}
 
-// func initialiseModuleMap[F any](schema sc.AnySchema[F]) map[string]uint {
-// 	modmap := make(map[string]uint, 100)
-// 	// Initialise modules
-// 	for i := uint(0); i != schema.Width(); i++ {
-// 		m := schema.Module(i)
-// 		// Sanity check module
-// 		if _, ok := modmap[m.Name()]; ok {
-// 			panic(fmt.Sprintf("duplicate module '%s' in schema", m.Name()))
-// 		}
-
-// 		modmap[m.Name()] = i
-// 	}
-// 	// Done
-// 	return modmap
-// }
-
-// func initialiseColumnMap[F field.Element[F]](expanded bool, schema sc.AnySchema[F]) (map[columnKey]columnId,
-// 	[][]trace.RawColumn[F]) {
-// 	//
-// 	var (
-// 		colmap  = make(map[columnKey]columnId, 100)
-// 		modules = make([][]trace.RawColumn[F], schema.Width())
-// 	)
-// 	// Initialise modules
-// 	for i := uint(0); i != schema.Width(); i++ {
-// 		m := schema.Module(i)
-// 		columns := make([]trace.RawColumn[F], m.Width())
-// 		//
-// 		for j := uint(0); j != m.Width(); j++ {
-// 			var (
-// 				rid = sc.NewRegisterId(j)
-// 				col = m.Register(rid)
-// 				key = columnKey{m.Name(), col.Name}
-// 				id  = columnId{i, j}
-// 			)
-// 			//
-// 			if _, ok := colmap[key]; ok {
-// 				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
-// 			}
-// 			// Add initially empty column
-// 			columns[j] = trace.RawColumn[F]{
-// 				Module: m.Name(),
-// 				Name:   col.Name,
-// 				Data:   nil,
-// 			}
-// 			// Set column as expected if appropriate.
-// 			if expanded || col.IsInputOutput() {
-// 				colmap[key] = id
-// 			}
-// 		}
-// 		// Initialise empty columns for this module.
-// 		modules[i] = columns
-// 	}
-// 	// Done
-// 	return colmap, modules
-// }
+func alignColumns[F any](mod sc.Module[F], columns []lt.Column[F], expanding bool) ([]lt.Column[F], []error) {
+	var (
+		// Errs contains the set of filling errors which are accumulated
+		errs []error
+		//
+		colmap = make(map[string]uint, mod.Width())
+		seen   = make([]bool, mod.Width())
+		//
+		ncols = make([]lt.Column[F], mod.Width())
+	)
+	// Initialise column map
+	for i := range mod.Width() {
+		ith := mod.Register(sc.NewRegisterId(i))
+		ncols[i].Name = ith.Name
+		colmap[ith.Name] = i
+	}
+	// Assign data for each column given
+	for _, col := range columns {
+		// Determine enclosiong module height
+		cid, ok := colmap[col.Name]
+		// More sanity checks
+		if !ok {
+			errs = append(errs, fmt.Errorf("unknown column '%s' in trace", tr.QualifiedColumnName(mod.Name(), col.Name)))
+		} else if ok := seen[cid]; ok {
+			errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", tr.QualifiedColumnName(mod.Name(), col.Name)))
+		} else {
+			seen[cid] = true
+			ncols[cid] = col
+		}
+	}
+	// Sanity check everything was assigned
+	for i := range mod.Width() {
+		var (
+			reg = mod.Register(sc.NewRegisterId(i))
+			col = ncols[i]
+		)
+		//
+		if reg.IsInputOutput() && col.Data == nil {
+			name := tr.QualifiedColumnName(mod.Name(), reg.Name)
+			errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", name))
+		} else if !expanding && col.Data == nil {
+			name := tr.QualifiedColumnName(mod.Name(), reg.Name)
+			errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", name))
+		}
+	}
+	//
+	return ncols, errs
+}

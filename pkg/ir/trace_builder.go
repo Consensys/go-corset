@@ -64,17 +64,6 @@ type TraceBuilder[F field.Element[F]] struct {
 	mapping sc.LimbsMap
 }
 
-// A column key is used as a key for the column map
-type columnKey struct {
-	module string
-	column string
-}
-
-type columnId struct {
-	module uint
-	column uint
-}
-
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
 // could then be customized as needed following the builder pattern.
 func NewTraceBuilder[F field.Element[F]]() TraceBuilder[F] {
@@ -187,6 +176,10 @@ func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.
 		// Lower raw columns
 		arrBuilder, modules = builder.TraceLowering[F](tb.parallel, tf)
 	}
+	// Realign trace for the given schema after lowering.
+	if modules, errors = AlignTrace(schema, modules, tb.expand); len(errors) > 0 {
+		return nil, errors
+	}
 	// Initialise the actual trace object
 	tr := initialiseTrace(schema, arrBuilder, modules)
 	//
@@ -237,19 +230,23 @@ func initialiseTrace[F field.Element[F]](schema sc.AnySchema[F], pool array.Buil
 
 func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F]) trace.ArrayModule[F] {
 	var (
-		traceColumns = make([]trace.ArrayColumn[F], len(rawModule.Columns))
+		traceColumns = make([]trace.ArrayColumn[F], mod.Width())
 	)
 	//
 	for i := range traceColumns {
 		var (
-			ith     = rawModule.Columns[i]
+			data    array.MutArray[F]
 			reg     = mod.Register(sc.NewRegisterId(uint(i)))
 			padding F
 		)
 		//
+		if i < len(rawModule.Columns) {
+			data = rawModule.Columns[i].Data
+		}
+		// Set padding for this column
 		padding = padding.SetBytes(reg.Padding.Bytes())
 		//
-		traceColumns[i] = trace.NewArrayColumn(ith.Name, ith.Data, padding)
+		traceColumns[i] = trace.NewArrayColumn(reg.Name, data, padding)
 	}
 	//
 	return trace.NewArrayModule(mod.Name(), mod.LengthMultiplier(), traceColumns)

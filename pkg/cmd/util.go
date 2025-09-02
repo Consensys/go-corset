@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
@@ -260,16 +259,6 @@ func WriteBinaryFile(binfile *binfile.BinaryFile, filename string) {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-}
-
-func maxHeightColumns(cols []trace.RawColumn[word.BigEndian]) uint {
-	h := uint(0)
-	// Iterate over modules
-	for _, col := range cols {
-		h = max(h, col.Data.Len())
-	}
-	// Done
-	return h
 }
 
 func printTypedMetadata(indent uint, metadata typed.Map) {

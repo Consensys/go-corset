@@ -24,7 +24,7 @@ import (
 // the various required components.  This provides a useful way for constructing
 // modules once all the various pieces of information have been finalised.
 type BuildableModule[F any, C schema.Constraint[F], M any] interface {
-	Init(name string, multiplier uint, padding bool) M
+	Init(name string, multiplier uint, padding, synthetic bool) M
 	// Add one or more assignments to this buildable module
 	AddAssignments(assignments ...schema.Assignment[F])
 	// Add one or more constraints to this buildable module
@@ -52,7 +52,7 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T Term[F, T], M Bui
 	//
 	var module M
 	// Build it
-	module = module.Init(m.name, m.multiplier, m.padding)
+	module = module.Init(m.name, m.multiplier, m.padding, m.synthetic)
 	module.AddRegisters(m.registers...)
 	module.AddAssignments(m.assignments...)
 	module.AddConstraints(m.constraints...)
@@ -101,14 +101,14 @@ func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], 
 
 // NewModule constructs a new, empty module and returns its unique module
 // identifier.
-func (p *SchemaBuilder[F, C, T]) NewModule(name string, multiplier uint, padding bool) uint {
+func (p *SchemaBuilder[F, C, T]) NewModule(name string, multiplier uint, padding, synthetic bool) uint {
 	var mid = uint(len(p.externs) + len(p.modules))
 	// Sanity check this module is not already declared
 	if _, ok := p.modmap[name]; ok {
 		panic(fmt.Sprintf("module \"%s\" already declared", name))
 	}
 	//
-	p.modules = append(p.modules, NewModuleBuilder[F, C, T](name, mid, multiplier, padding))
+	p.modules = append(p.modules, NewModuleBuilder[F, C, T](name, mid, multiplier, padding, synthetic))
 	p.modmap[name] = mid
 	//
 	return mid
@@ -153,6 +153,8 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] str
 	multiplier uint
 	// Indicates whether padding supported for this module
 	padding bool
+	// Indicates whether this is a synthetic module or not
+	synthetic bool
 	// Maps register names (including aliases) to the register number.
 	regmap map[string]uint
 	// Registers declared for this module
@@ -165,10 +167,10 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] str
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
 func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](name string, mid schema.ModuleId,
-	multiplier uint, padding bool) *ModuleBuilder[F, C, T] {
+	multiplier uint, padding, synthetic bool) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
-	return &ModuleBuilder[F, C, T]{false, name, mid, multiplier, padding, regmap, nil, nil, nil}
+	return &ModuleBuilder[F, C, T]{false, name, mid, multiplier, padding, synthetic, regmap, nil, nil, nil}
 }
 
 // NewExternModuleBuilder constructs a new builder suitable for external
@@ -182,7 +184,7 @@ func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F
 		regmap[r.Name] = uint(i)
 	}
 	// Done
-	return &ModuleBuilder[F, C, T]{true, module.Name(), mid, 1, false, regmap, module.Registers(), nil, nil}
+	return &ModuleBuilder[F, C, T]{true, module.Name(), mid, 1, false, false, regmap, module.Registers(), nil, nil}
 }
 
 // AddAssignment adds a new assignment to this module.  Assignments are
@@ -252,6 +254,12 @@ func (p *ModuleBuilder[F, C, T]) LengthMultiplier() uint {
 // initial padding row.
 func (p *ModuleBuilder[F, C, T]) AllowPadding() bool {
 	return p.padding
+}
+
+// IsSynthetic modules are generated during compilation, rather than being
+// provided by the user.
+func (p *ModuleBuilder[F, C, T]) IsSynthetic() bool {
+	return p.synthetic
 }
 
 // Width returns the number of registers in this module.

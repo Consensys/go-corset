@@ -80,12 +80,12 @@ func FromBytesLegacy(data []byte) (WordHeap, []Module[word.BigEndian], error) {
 			// Calculate length (in bytes) of this column
 			nbytes := jth.width * jth.length
 			// Dispatch go-routine
-			go func(mid, cid int, offset uint) {
+			go func(mid, cid int, offset uint, header legacyColumnHeader) {
 				// Read column data
-				elements := readColumnData(jth, data[offset:offset+nbytes], builder)
+				elements := readColumnData(header, data[offset:offset+nbytes], builder)
 				// Package result
 				c <- legacyResult{mid, cid, elements}
-			}(i, j, offset)
+			}(i, j, offset, jth)
 			// Update byte offset
 			offset += nbytes
 		}

@@ -105,15 +105,21 @@ type result[F any] struct {
 func lowerRawColumn[F field.Element[F]](column lt.Column[word.BigEndian], builder array.Builder[F]) lt.Column[F] {
 	var (
 		data  = column.Data
-		ndata = builder.NewArray(data.Len(), data.BitWidth())
+		ndata array.MutArray[F]
 	)
-	//
-	for i := range data.Len() {
-		var val F
-		// Initial word from big endian bytes.
-		val = val.SetBytes(data.Get(i).Bytes())
+	// Observe that computed registers will have nil for their data at this
+	// point since they haven't been computed yet.  Therefore, we don't need to
+	// do anything with them.
+	if data != nil {
+		ndata = builder.NewArray(data.Len(), data.BitWidth())
 		//
-		ndata.Set(i, val)
+		for i := range data.Len() {
+			var val F
+			// Initial word from big endian bytes.
+			val = val.SetBytes(data.Get(i).Bytes())
+			//
+			ndata.Set(i, val)
+		}
 	}
 	//
 	return lt.Column[F]{

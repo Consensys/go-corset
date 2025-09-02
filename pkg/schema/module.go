@@ -61,6 +61,9 @@ type Module[F any] interface {
 	AllowPadding() bool
 	// Module name
 	Name() string
+	// IsSynthetic modules are generated during compilation, rather than being
+	// provided by the user.
+	IsSynthetic() bool
 	// Returns the number of registers in this module.
 	Width() uint
 }
@@ -87,19 +90,20 @@ type Table[F any, C Constraint[F]] struct {
 	name        string
 	multiplier  uint
 	padding     bool
+	synthetic   bool
 	registers   []Register
 	constraints []C
 	assignments []Assignment[F]
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding bool) *Table[F, C] {
-	return &Table[F, C]{name, multiplier, padding, nil, nil, nil}
+func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding, synthetic bool) *Table[F, C] {
+	return &Table[F, C]{name, multiplier, padding, synthetic, nil, nil, nil}
 }
 
 // Init implementation for ir.InitModule interface.
-func (p *Table[F, C]) Init(name string, multiplier uint, padding bool) *Table[F, C] {
-	return &Table[F, C]{name, multiplier, padding, nil, nil, nil}
+func (p *Table[F, C]) Init(name string, multiplier uint, padding, synthetic bool) *Table[F, C] {
+	return &Table[F, C]{name, multiplier, padding, synthetic, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -161,6 +165,12 @@ func (p *Table[F, C]) LengthMultiplier() uint {
 // initial padding row, and allow defensive padding as well.
 func (p *Table[F, C]) AllowPadding() bool {
 	return p.padding
+}
+
+// IsSynthetic modules are generated during compilation, rather than being
+// provided by the user.
+func (p *Table[F, C]) IsSynthetic() bool {
+	return p.synthetic
 }
 
 // RawAssignments provides raw access to those assignments defined as part of this
@@ -228,7 +238,7 @@ func (p *Table[F, C]) Subdivide(mapping LimbsMap) *Table[F, C] {
 		}
 	}
 	//
-	return &Table[F, C]{p.name, p.multiplier, p.padding, registers, constraints, assignments}
+	return &Table[F, C]{p.name, p.multiplier, p.padding, p.synthetic, registers, constraints, assignments}
 }
 
 // ============================================================================

@@ -109,6 +109,13 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 
 func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
 	stack cmd_util.SchemaStack[F]) {
+	//
+	if cfg.expand {
+		// Extract root schema
+		schema := stack.BinaryFile().Schema
+		// Apply trace propagation
+		traces = asm.PropagateAll(schema, traces)
+	}
 	// Run checks using schema compiled from source
 	checkCompilerOptimisations(t, test, cfg, traces, stack)
 	// Construct binary schema using primary stack

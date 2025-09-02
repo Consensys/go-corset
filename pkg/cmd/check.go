@@ -168,8 +168,10 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	schemas cmd_util.SchemaStack[F]) {
 	//
 	var (
-		traces []lt.TraceFile
-		ok     bool = true
+		errors    []error
+		traces    []lt.TraceFile
+		ok        bool = true
+		expanding      = schemas.TraceBuilder().Expanding()
 	)
 	//
 	stats := util.NewPerfStats()
@@ -185,15 +187,23 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 		// unbatched (i.e. normal) mode
 		traces = []lt.TraceFile{ReadTraceFile(tracefile)}
 	}
-	// Apply trace propagation to all traces
-	traces = asm.PropagateAll(schemas.BinaryFile().Schema, traces)
+	//
+	schema := schemas.BinaryFile().Schema
+	// Apply trace propagation
+	if expanding {
+		traces = asm.PropagateAll(schema, traces)
+	}
 	// Go!
 	for i, schema := range schemas.ConcreteSchemas() {
 		ir := schemas.ConcreteIrName(uint(i))
 		ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
 	}
-	//
-	if !ok {
+	// Handle errors
+	if !ok || len(errors) > 0 {
+		for _, err := range errors {
+			log.Errorf("%s\n", err.Error())
+		}
+		//
 		os.Exit(1)
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
@@ -73,6 +74,8 @@ func FromBytesLegacy(data []byte) (WordHeap, []lt.Module[word.BigEndian], error)
 		// Sanity check existing module data
 		if strData[mod] == nil {
 			strData[mod] = make(map[string][]big.Int)
+		} else if _, ok := strData[mod][col]; ok {
+			return WordHeap{}, nil, fmt.Errorf("duplicate column %s encountered", trace.QualifiedColumnName(mod, col))
 		}
 		// Assign values
 		strData[mod][col] = rawInts
