@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"runtime/pprof"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/check"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
@@ -184,6 +185,8 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 		// unbatched (i.e. normal) mode
 		traces = []lt.TraceFile{ReadTraceFile(tracefile)}
 	}
+	// Apply trace propagation to all traces
+	traces = asm.PropagateAll(schemas.BinaryFile().Schema, traces)
 	// Go!
 	for i, schema := range schemas.ConcreteSchemas() {
 		ir := schemas.ConcreteIrName(uint(i))

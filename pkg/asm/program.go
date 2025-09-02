@@ -153,7 +153,7 @@ func (p *MixedProgram[F, T]) GobEncode() (data []byte, err error) {
 	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Left modules
-	if err := gobEncoder.Encode(p.program); err != nil {
+	if err := gobEncoder.Encode(&p.program); err != nil {
 		return nil, err
 	}
 	// Right modules
