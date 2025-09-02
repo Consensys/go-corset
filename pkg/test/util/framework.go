@@ -192,7 +192,7 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 					// in production); therefore, we just restrict how much its used.
 					var parallel = (i == 0)
 					//
-					if tf.Columns != nil {
+					if tf.Modules != nil {
 						// Construct trace identifier
 						id := traceId{stack.RegisterMapping().Field().Name, ir, test,
 							cfg.expected, cfg.expand, cfg.validate, opt, parallel, i + 1, padding}

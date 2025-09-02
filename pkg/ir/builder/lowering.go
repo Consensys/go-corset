@@ -13,7 +13,6 @@
 package builder
 
 import (
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -25,17 +24,17 @@ import (
 // representation into the appropriate field representation without performing
 // any splitting.  This is only required for traces which are "pre-expanded".
 // Such traces typically arise in testing, etc.
-func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (array.Builder[F], []trace.RawColumn[F]) {
+func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (array.Builder[F], []lt.Module[F]) {
 	var (
 		stats   = util.NewPerfStats()
 		builder array.Builder[F]
-		cols    []trace.RawColumn[F]
+		cols    []lt.Module[F]
 	)
 	//
 	if parallel {
-		builder, cols = parallelTraceLowering[F](tf.Columns)
+		builder, cols = parallelLowering[F](tf.Modules)
 	} else {
-		builder, cols = sequentialTraceLowering[F](tf.Columns)
+		builder, cols = sequentialLowering[F](tf.Modules)
 	}
 	//
 	stats.Log("Trace lowering")
@@ -43,53 +42,67 @@ func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (array.Bu
 	return builder, cols
 }
 
-func sequentialTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (array.Builder[F],
-	[]trace.RawColumn[F]) {
-	//
+func sequentialLowering[F field.Element[F]](modules []lt.Module[word.BigEndian]) (array.Builder[F], []lt.Module[F]) {
 	var (
-		loweredColumns []trace.RawColumn[F]
+		loweredModules = make([]lt.Module[F], len(modules))
 		builder        = array.NewStaticBuilder[F]()
 	)
 	//
-	for _, ith := range columns {
-		lowered := lowerRawColumn(ith, builder)
-		loweredColumns = append(loweredColumns, lowered)
+	for i, m := range modules {
+		loweredColumns := make([]lt.Column[F], len(m.Columns))
+
+		for j, c := range m.Columns {
+			loweredColumns[j] = lowerRawColumn(c, builder)
+		}
+		//
+		loweredModules[i] = lt.Module[F]{Name: m.Name, Columns: loweredColumns}
 	}
 	//
-	return builder, loweredColumns
+	return builder, loweredModules
 }
 
-func parallelTraceLowering[F field.Element[F]](columns []trace.RawColumn[word.BigEndian]) (array.Builder[F],
-	[]trace.RawColumn[F]) {
+func parallelLowering[F field.Element[F]](modules []lt.Module[word.BigEndian]) (array.Builder[F], []lt.Module[F]) {
 	//
 	var (
-		loweredColumns []trace.RawColumn[F] = make([]trace.RawColumn[F], len(columns))
+		ncols = lt.NumberOfColumns(modules)
+		//
+		loweredModules []lt.Module[F] = make([]lt.Module[F], len(modules))
 		// Construct new pool
 		builder = array.NewStaticBuilder[F]()
 		// Construct a communication channel split columns.
-		c = make(chan util.Pair[int, trace.RawColumn[F]], len(columns))
+		c = make(chan result[F], ncols)
 	)
 	// Split column concurrently
-	for i, ith := range columns {
-		go func(index int, column trace.RawColumn[word.BigEndian]) {
-			// Send outcome back
-			c <- util.NewPair(index, lowerRawColumn(column, builder))
-		}(i, ith)
+	for i, ith := range modules {
+		// Construct enough blank columns
+		loweredModules[i].Columns = make([]lt.Column[F], len(ith.Columns))
+		// Dispatch go-routines to fill them
+		for j, jth := range ith.Columns {
+			go func(mid int, cid int, column lt.Column[word.BigEndian]) {
+				// Send outcome back
+				c <- result[F]{mid, cid, lowerRawColumn(column, builder)}
+			}(i, j, jth)
+		}
 	}
 	// Collect results
-	for range len(columns) {
+	for range ncols {
 		// Read from channel
 		res := <-c
 		// Assign split
-		loweredColumns[res.Left] = res.Right
+		loweredModules[res.module].Columns[res.column] = res.data
 	}
 	// Done
-	return builder, loweredColumns
+	return builder, loweredModules
+}
+
+type result[F any] struct {
+	module int
+	column int
+	data   lt.Column[F]
 }
 
 // lowerRawColumn lowers a given raw column into a given field implementation.
-func lowerRawColumn[F field.Element[F]](column trace.RawColumn[word.BigEndian], builder array.Builder[F],
-) trace.RawColumn[F] {
+func lowerRawColumn[F field.Element[F]](column lt.Column[word.BigEndian], builder array.Builder[F]) lt.Column[F] {
 	var (
 		data  = column.Data
 		ndata = builder.NewArray(data.Len(), data.BitWidth())
@@ -103,9 +116,8 @@ func lowerRawColumn[F field.Element[F]](column trace.RawColumn[word.BigEndian], 
 		ndata.Set(i, val)
 	}
 	//
-	return trace.RawColumn[F]{
-		Module: column.Module,
-		Name:   column.Name,
-		Data:   ndata,
+	return lt.Column[F]{
+		Name: column.Name,
+		Data: ndata,
 	}
 }

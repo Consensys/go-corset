@@ -171,29 +171,26 @@ func (tb TraceBuilder[F]) BatchSize() uint {
 func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.Trace[F], []error) {
 	var (
 		arrBuilder array.Builder[F]
-		cols       []trace.RawColumn[F]
+		modules    []lt.Module[F]
 		errors     []error
 	)
 	// If expansion is enabled, then we must split the trace according to the
 	// given mapping; otherwise, we simply lower the trace as is.
 	if tb.mapping != nil && tb.expand {
 		// Split raw columns, and handle any errors arising.
-		arrBuilder, cols, errors = builder.TraceSplitting[F](tb.parallel, tf, tb.mapping)
+		arrBuilder, modules, errors = builder.TraceSplitting[F](tb.parallel, tf, tb.mapping)
 		// Sanity check for errors
 		if len(errors) > 0 {
 			return nil, errors
 		}
 	} else {
 		// Lower raw columns
-		arrBuilder, cols = builder.TraceLowering[F](tb.parallel, tf)
+		arrBuilder, modules = builder.TraceLowering[F](tb.parallel, tf)
 	}
 	// Initialise the actual trace object
-	tr, errors := initialiseTrace(!tb.expand, schema, arrBuilder, cols)
+	tr := initialiseTrace(schema, arrBuilder, modules)
 	//
-	if len(errors) > 0 {
-		// Critical failure
-		return nil, errors
-	} else if tb.expand {
+	if tb.expand {
 		// Save original line counts
 		moduleHeights := determineModuleHeights(tr)
 		// Apply spillage
@@ -212,7 +209,7 @@ func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.
 		if tb.validate {
 			// Run (parallel) trace validation
 			if errs := builder.TraceValidation(tb.parallel, schema, tr); len(errs) > 0 {
-				return nil, append(errors, errs...)
+				return nil, errs
 			}
 		}
 	}
@@ -224,141 +221,28 @@ func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.
 	return tr, errors
 }
 
-func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema[F], pool array.Builder[F],
-	cols []trace.RawColumn[F]) (*trace.ArrayTrace[F], []error) {
+func initialiseTrace[F field.Element[F]](schema sc.AnySchema[F], pool array.Builder[F], rawTrace []lt.Module[F],
+) *trace.ArrayTrace[F] {
 	//
-	var (
-		// Initialise modules
-		modmap  = initialiseModuleMap(schema)
-		modules = make([]trace.ArrayModule[F], schema.Width())
-	)
-	//
-	columns, errors := splitTraceColumns(expanded, schema, modmap, cols)
+	var modules = make([]trace.ArrayModule[F], schema.Width())
 	//
 	for i := uint(0); i != schema.Width(); i++ {
 		var mod = schema.Module(i)
 		//
-		modules[i] = fillTraceModule(mod, columns[i])
+		modules[i] = fillTraceModule(mod, rawTrace[i])
 	}
 	// Done
-	return trace.NewArrayTrace(pool, modules), errors
+	return trace.NewArrayTrace(pool, modules)
 }
 
-func initialiseModuleMap[F any](schema sc.AnySchema[F]) map[string]uint {
-	modmap := make(map[string]uint, 100)
-	// Initialise modules
-	for i := uint(0); i != schema.Width(); i++ {
-		m := schema.Module(i)
-		// Sanity check module
-		if _, ok := modmap[m.Name()]; ok {
-			panic(fmt.Sprintf("duplicate module '%s' in schema", m.Name()))
-		}
-
-		modmap[m.Name()] = i
-	}
-	// Done
-	return modmap
-}
-
-func splitTraceColumns[F field.Element[F]](expanded bool, schema sc.AnySchema[F], modmap map[string]uint,
-	cols []trace.RawColumn[F]) ([][]trace.RawColumn[F], []error) {
-	//
+func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F]) trace.ArrayModule[F] {
 	var (
-		// Errs contains the set of filling errors which are accumulated
-		errs []error
-		//
-		seen map[columnKey]bool = make(map[columnKey]bool, 0)
-	)
-	//
-	colmap, modules := initialiseColumnMap(expanded, schema)
-	// Assign data from each input column given
-	for _, col := range cols {
-		// Lookup the module
-		if _, ok := modmap[col.Module]; !ok {
-			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", col.Module))
-		} else {
-			key := columnKey{col.Module, col.Name}
-			// Determine enclosiong module height
-			cid, ok := colmap[key]
-			// More sanity checks
-			if !ok {
-				errs = append(errs, fmt.Errorf("unknown column '%s' in trace", col.QualifiedName()))
-			} else if _, ok := seen[key]; ok {
-				errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", col.QualifiedName()))
-			} else {
-				seen[key] = true
-				modules[cid.module][cid.column] = col
-			}
-		}
-	}
-	// Sanity check everything was assigned
-	for i, m := range modules {
-		mod := schema.Module(uint(i))
-		//
-		for j, c := range m {
-			rid := sc.NewRegisterId(uint(j))
-			reg := mod.Register(rid)
-			//
-			if reg.IsInputOutput() && c.Data == nil {
-				errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", c.QualifiedName()))
-			} else if expanded && c.Data == nil {
-				errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", c.QualifiedName()))
-			}
-		}
-	}
-	//
-	return modules, errs
-}
-
-func initialiseColumnMap[F field.Element[F]](expanded bool, schema sc.AnySchema[F]) (map[columnKey]columnId,
-	[][]trace.RawColumn[F]) {
-	//
-	var (
-		colmap  = make(map[columnKey]columnId, 100)
-		modules = make([][]trace.RawColumn[F], schema.Width())
-	)
-	// Initialise modules
-	for i := uint(0); i != schema.Width(); i++ {
-		m := schema.Module(i)
-		columns := make([]trace.RawColumn[F], m.Width())
-		//
-		for j := uint(0); j != m.Width(); j++ {
-			var (
-				rid = sc.NewRegisterId(j)
-				col = m.Register(rid)
-				key = columnKey{m.Name(), col.Name}
-				id  = columnId{i, j}
-			)
-			//
-			if _, ok := colmap[key]; ok {
-				panic(fmt.Sprintf("duplicate column '%s' in schema", trace.QualifiedColumnName(m.Name(), col.Name)))
-			}
-			// Add initially empty column
-			columns[j] = trace.RawColumn[F]{
-				Module: m.Name(),
-				Name:   col.Name,
-				Data:   nil,
-			}
-			// Set column as expected if appropriate.
-			if expanded || col.IsInputOutput() {
-				colmap[key] = id
-			}
-		}
-		// Initialise empty columns for this module.
-		modules[i] = columns
-	}
-	// Done
-	return colmap, modules
-}
-
-func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawColumns []trace.RawColumn[F]) trace.ArrayModule[F] {
-	var (
-		traceColumns = make([]trace.ArrayColumn[F], len(rawColumns))
+		traceColumns = make([]trace.ArrayColumn[F], len(rawModule.Columns))
 	)
 	//
 	for i := range traceColumns {
 		var (
-			ith     = rawColumns[i]
+			ith     = rawModule.Columns[i]
 			reg     = mod.Register(sc.NewRegisterId(uint(i)))
 			padding F
 		)

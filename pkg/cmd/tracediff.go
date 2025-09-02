@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -50,36 +51,46 @@ func runTraceDiffCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	tracefile1 := ReadTraceFile(filename1)
 	tracefile2 := ReadTraceFile(filename2)
 	// Extract column names
-	trace1cols := extractColumnNames(tracefile1.Columns)
-	trace2cols := extractColumnNames(tracefile2.Columns)
+	t1names, t1cols := extractColumnNames(tracefile1.Modules)
+	t2names, t2cols := extractColumnNames(tracefile2.Modules)
 	// Sanity check
-	if !slices.Equal(trace1cols, trace2cols) {
+	if !slices.Equal(t1names, t2names) {
 		var common set.SortedSet[string]
 		//
-		common.InsertSorted(&trace1cols)
-		common.Intersect(&trace2cols)
+		common.InsertSorted(&t1names)
+		common.Intersect(&t2names)
 		//
-		reportExtraColumns(filename1, trace1cols, common)
-		reportExtraColumns(filename2, trace2cols, common)
-		tracefile1.Columns = filterCommonColumns(tracefile1.Columns, common)
-		tracefile2.Columns = filterCommonColumns(tracefile2.Columns, common)
+		reportExtraColumns(filename1, t1names, common)
+		reportExtraColumns(filename2, t2names, common)
+		t1cols = filterCommonColumns(t1cols, common)
+		t2cols = filterCommonColumns(t2cols, common)
 	}
 	//
-	errors := parallelDiff(tracefile1.Columns, tracefile2.Columns)
+	errors := parallelDiff(t1cols, t2cols)
 	// report any differences
 	for _, err := range errors {
 		fmt.Println(err)
 	}
 }
 
-func extractColumnNames(columns []RawColumn) set.SortedSet[string] {
-	var names set.SortedSet[string]
+func extractColumnNames(modules []lt.Module[word.BigEndian]) (set.SortedSet[string], []RawColumn) {
+	var (
+		names   set.SortedSet[string]
+		columns []RawColumn
+	)
 	//
-	for _, c := range columns {
-		names.Insert(c.QualifiedName())
+	for _, ith := range modules {
+		for _, jth := range ith.Columns {
+			name := fmt.Sprintf("%s.%s", ith.Name, jth.Name)
+			names.Insert(name)
+			columns = append(columns, RawColumn{
+				Name: name,
+				Data: jth.Data,
+			})
+		}
 	}
 	//
-	return names
+	return names, columns
 }
 
 func reportExtraColumns(name string, columns []string, common set.SortedSet[string]) {
@@ -96,7 +107,7 @@ func filterCommonColumns(columns []RawColumn, common set.SortedSet[string],
 	var ncolumns []RawColumn
 	//
 	for _, c := range columns {
-		if common.Contains(c.QualifiedName()) {
+		if common.Contains(c.Name) {
 			ncolumns = append(ncolumns, c)
 		}
 	}
@@ -128,7 +139,7 @@ func parallelDiff(columns1 []RawColumn, columns2 []RawColumn) []error {
 
 func diffColumns(index int, columns1 []RawColumn, columns2 []RawColumn) []error {
 	errors := make([]error, 0)
-	name := columns1[index].QualifiedName()
+	name := columns1[index].Name
 	data1 := columns1[index].Data
 	data2 := findColumn(name, columns2).Data
 	// Sanity check
@@ -202,7 +213,7 @@ func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] 
 
 func findColumn(name string, columns []RawColumn) *RawColumn {
 	for _, c := range columns {
-		if c.QualifiedName() == name {
+		if c.Name == name {
 			return &c
 		}
 	}

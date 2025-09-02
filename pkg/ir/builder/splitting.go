@@ -18,7 +18,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -30,105 +29,125 @@ import (
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
 func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
-	[]trace.RawColumn[F], []error) {
+	[]lt.Module[F], []error) {
 	//
 	var (
 		stats   = util.NewPerfStats()
 		builder array.Builder[F]
-		cols    []trace.RawColumn[F]
+		modules []lt.Module[F]
 		err     []error
 	)
 	//
 	if parallel {
-		builder, cols, err = parallelTraceSplitting[F](tf, mapping)
+		builder, modules, err = parallelTraceSplitting[F](tf, mapping)
 	} else {
-		builder, cols, err = sequentialTraceSplitting[F](tf, mapping)
+		builder, modules, err = sequentialTraceSplitting[F](tf, mapping)
 	}
 	//
 	stats.Log("Trace splitting")
 	//
-	return builder, cols, err
+	return builder, modules, err
 }
 
-func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, gmap schema.LimbsMap) (array.Builder[F],
-	[]trace.RawColumn[F], []error) {
+func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
+	[]lt.Module[F], []error) {
 	//
 	var (
-		splitColumns []trace.RawColumn[F]
+		modules = make([]lt.Module[F], len(tf.Modules))
 		// Allocate fresh array builder
 		builder = array.NewStaticBuilder[F]()
 		errors  []error
 	)
 	//
-	for _, ith := range tf.Columns {
-		split, errs := splitRawColumn(ith, builder, gmap)
-		splitColumns = append(splitColumns, split...)
-		errors = append(errors, errs...)
+	for i, ith := range tf.Modules {
+		var (
+			columns []lt.Column[F] // Access mapping for enclosing module
+			modmap  = mapping.ModuleOf(ith.Name)
+		)
+		//
+		for _, jth := range ith.Columns {
+			split, errs := splitRawColumn(jth, builder, modmap)
+			columns = append(columns, split...)
+			errors = append(errors, errs...)
+		}
+		//
+		modules[i] = lt.Module[F]{Name: ith.Name, Columns: columns}
 	}
 	//
-	return builder, splitColumns, errors
+	return builder, modules, errors
 }
 
 func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
-	[]trace.RawColumn[F], []error) {
+	[]lt.Module[F], []error) {
 	//
 	var (
-		splits = make([][]trace.RawColumn[F], len(tf.Columns))
+		ncols = lt.NumberOfColumns(tf.Modules)
+		//
+		splits = make([][][]lt.Column[F], ncols)
 		// Allocate fresh array builder
 		builder = array.NewStaticBuilder[F]()
 		// Construct a communication channel split columns.
-		c = make(chan splitResult[F], len(tf.Columns))
+		c = make(chan splitResult[F], ncols)
 		//
 		errors []error
 		//
 		total int
 	)
 	// Split column concurrently
-	for i, ith := range tf.Columns {
-		go func(index int, column trace.RawColumn[word.BigEndian], mapping schema.LimbsMap) {
-			// Send outcome back
-			data, errors := splitRawColumn(column, builder, mapping)
-			c <- splitResult[F]{index, data, errors}
-		}(i, ith, mapping)
+	for i, ith := range tf.Modules {
+		// Access mapping for enclosing module
+		modmap := mapping.ModuleOf(ith.Name)
+		// Initiali split array
+		splits[i] = make([][]lt.Column[F], len(ith.Columns))
+		//
+		for j, jth := range ith.Columns {
+			go func(mid int, cid int, column lt.Column[word.BigEndian], mapping schema.LimbsMap) {
+				// Send outcome back
+				data, errors := splitRawColumn(column, builder, modmap)
+				c <- splitResult[F]{mid, cid, data, errors}
+			}(i, j, jth, mapping)
+		}
 	}
 	// Collect results
 	for range len(splits) {
 		// Read from channel
 		res := <-c
 		// Assign split
-		splits[res.id] = res.data
+		splits[res.module][res.column] = res.data
 		//
 		total += len(res.data)
 		errors = append(errors, res.errors...)
 	}
 	// Flatten split
-	return builder, flatten(total, splits), errors
+	return builder, flatten(total, tf, splits), errors
 }
 
-func flatten[W any](total int, splits [][]trace.RawColumn[W]) []trace.RawColumn[W] {
+func flatten[W any](total int, tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.Module[W] {
 	var (
-		columns = make([]trace.RawColumn[W], total)
+		modules = make([]lt.Module[W], total)
 		index   = 0
 	)
 	// Flattern all columns
-	for _, ith := range splits {
+	for i, ith := range splits {
+		var columns []lt.Column[W]
+		//
 		for _, jth := range ith {
-			columns[index] = jth
+			columns = append(columns, jth...)
 			index++
 		}
+		//
+		modules[i] = lt.Module[W]{Name: tf.Modules[i].Name, Columns: columns}
 	}
 	//
-	return columns
+	return modules
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn[F field.Element[F]](col trace.RawColumn[word.BigEndian], builder array.Builder[F],
-	mapping schema.LimbsMap) ([]trace.RawColumn[F], []error) {
+func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder array.Builder[F],
+	modmap schema.RegisterLimbsMap) ([]lt.Column[F], []error) {
 	//
 	var (
 		height = col.Data.Len()
-		// Access mapping for enclosing module
-		modmap = mapping.ModuleOf(col.Module)
 		//
 		reg, regExists = modmap.HasRegister(col.Name)
 	)
@@ -143,7 +162,7 @@ func splitRawColumn[F field.Element[F]](col trace.RawColumn[word.BigEndian], bui
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
-		return []trace.RawColumn[F]{lowerRawColumn(col, builder)}, nil
+		return []lt.Column[F]{lowerRawColumn(col, builder)}, nil
 	}
 	// Yes, must split into two or more limbs of given widths.
 	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
@@ -163,13 +182,12 @@ func splitRawColumn[F field.Element[F]](col trace.RawColumn[word.BigEndian], bui
 		setSplitWord(ith, i, arrays, limbWidths)
 	}
 	// Construct final columns
-	columns := make([]trace.RawColumn[F], len(limbIds))
+	columns := make([]lt.Column[F], len(limbIds))
 	// Construct final columns
 	for i, limb := range limbs {
-		columns[i] = trace.RawColumn[F]{
-			Module: col.Module,
-			Name:   limb.Name,
-			Data:   arrays[i]}
+		columns[i] = lt.Column[F]{
+			Name: limb.Name,
+			Data: arrays[i]}
 	}
 	// Done
 	return columns, nil
@@ -227,7 +245,8 @@ func sum(vals ...uint) uint {
 
 // SplitResult is returned by worker threads during parallel trace splitting.
 type splitResult[W any] struct {
-	id     int
-	data   []trace.RawColumn[W]
+	module int
+	column int
+	data   []lt.Column[W]
 	errors []error
 }

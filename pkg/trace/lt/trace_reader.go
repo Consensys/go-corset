@@ -38,13 +38,12 @@ import (
 // represents a collection of indexed word data.  Finally, COLUMNS contains
 // concrete column data which is either represented explicitly (for narrow
 // words, like u8) or using indexes into the heap (for wide words, like u256).
-func FromBytes(data []byte) (WordHeap, []RawColumn, error) {
+func FromBytes(data []byte) (WordHeap, []Module[word.BigEndian], error) {
 	var (
 		err                    error
 		buf                    = bytes.NewReader(data)
 		heap                   = pool.NewLocalHeap[word.BigEndian]()
 		builder                = array.NewDynamicBuilder(heap)
-		columns                []RawColumn
 		headerBytes, heapBytes uint32
 		headers                []moduleHeader
 		offset                 uint
@@ -62,28 +61,35 @@ func FromBytes(data []byte) (WordHeap, []RawColumn, error) {
 		return WordHeap{}, nil, err
 	}
 	//
+	modules := make([]Module[word.BigEndian], len(headers))
 	offset = uint(8 + headerBytes + heapBytes)
 	// Read column data (sequentially)
-	for _, module := range headers {
-		for _, column := range module.columns {
+	for i, ith := range headers {
+		var columns = make([]Column[word.BigEndian], len(ith.columns))
+		//
+		for j, jth := range ith.columns {
 			var encoding = array.Encoding{
-				Encoding: column.encoding,
-				Bytes:    data[offset : offset+uint(column.length)],
+				Encoding: jth.encoding,
+				Bytes:    data[offset : offset+uint(jth.length)],
 			}
 			// Decode array data
 			data := builder.Decode(encoding)
 			// Include it
-			columns = append(columns, RawColumn{
-				Module: module.name,
-				Name:   column.name,
-				Data:   data,
-			})
+			columns[j] = Column[word.BigEndian]{
+				Name: jth.name,
+				Data: data,
+			}
 			// Move read offset
-			offset += uint(column.length)
+			offset += uint(jth.length)
+		}
+		//
+		modules[i] = Module[word.BigEndian]{
+			Name:    ith.name,
+			Columns: columns,
 		}
 	}
 	// Done
-	return *heap, columns, nil
+	return *heap, modules, nil
 }
 
 func readSectionSizes(buf *bytes.Reader) (headerBytes, heapBytes uint32, err error) {

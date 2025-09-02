@@ -31,7 +31,7 @@ type WordArrayBuilder = array.DynamicBuilder[word.BigEndian, *WordHeap]
 
 // ToBytes writes a given trace file as an array of bytes.  See FromBytes for
 // more information on the layout of data in this format.
-func ToBytes(heap WordHeap, rawColumns []RawColumn) ([]byte, error) {
+func ToBytes(heap WordHeap, rawModules []Module[word.BigEndian]) ([]byte, error) {
 	var (
 		buf         bytes.Buffer
 		err         error
@@ -40,9 +40,9 @@ func ToBytes(heap WordHeap, rawColumns []RawColumn) ([]byte, error) {
 		heapBytes   []byte
 	)
 	// For now we do an ugly split
-	columns, moduleEncodings := splitRawColumns(rawColumns, builder)
+	moduleEncodings := splitRawColumns(rawModules, builder)
 	// Construct header data
-	if headerBytes, err = toHeaderBytes(columns, moduleEncodings); err != nil {
+	if headerBytes, err = toHeaderBytes(rawModules, moduleEncodings); err != nil {
 		return nil, err
 	}
 	// Construct heap data
@@ -83,33 +83,23 @@ func ToBytes(heap WordHeap, rawColumns []RawColumn) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func splitRawColumns(rawColumns []RawColumn, builder WordArrayBuilder) ([][]RawColumn, [][]array.Encoding) {
-	var (
-		mapping   = make(map[string]uint)
-		columns   [][]RawColumn
-		encodings [][]array.Encoding
-	)
+func splitRawColumns(rawModules []Module[word.BigEndian], builder WordArrayBuilder) [][]array.Encoding {
+	var encodings = make([][]array.Encoding, len(rawModules))
 	//
-	for _, col := range rawColumns {
-		mid, ok := mapping[col.Module]
-		// Check whether module seen before
-		if !ok {
-			// no
-			mid = uint(len(columns))
-			mapping[col.Module] = mid
-			//
-			columns = append(columns, nil)
-			encodings = append(encodings, nil)
+	for i, ith := range rawModules {
+		var ithEncodings = make([]array.Encoding, len(ith.Columns))
+		//
+		for j, jth := range ith.Columns {
+			ithEncodings[j] = builder.Encode(jth.Data)
 		}
 		//
-		columns[mid] = append(columns[mid], col)
-		encodings[mid] = append(encodings[mid], builder.Encode(col.Data))
+		encodings[i] = ithEncodings
 	}
 	//
-	return columns, encodings
+	return encodings
 }
 
-func toHeaderBytes(modules [][]RawColumn, encodings [][]array.Encoding) ([]byte, error) {
+func toHeaderBytes(modules []Module[word.BigEndian], encodings [][]array.Encoding) ([]byte, error) {
 	var buf bytes.Buffer
 	// Write number of modules
 	if err := binary.Write(&buf, binary.BigEndian, uint32(len(modules))); err != nil {
@@ -125,18 +115,10 @@ func toHeaderBytes(modules [][]RawColumn, encodings [][]array.Encoding) ([]byte,
 	return buf.Bytes(), nil
 }
 
-func writeModuleHeader(buf io.Writer, columns []RawColumn, encodings []array.Encoding) (err error) {
-	var (
-		name   string
-		height uint32
-	)
-	//
-	if len(columns) > 0 {
-		name = columns[0].Module
-		height = uint32(columns[0].Data.Len())
-	}
+func writeModuleHeader(buf io.Writer, module Module[word.BigEndian], encodings []array.Encoding) (err error) {
+	var height = uint32(module.Height())
 	// Write module name
-	if err = writeName(buf, name); err != nil {
+	if err = writeName(buf, module.Name); err != nil {
 		return err
 	}
 	// Write module height
@@ -144,11 +126,11 @@ func writeModuleHeader(buf io.Writer, columns []RawColumn, encodings []array.Enc
 		return err
 	}
 	// Write column count
-	if err := binary.Write(buf, binary.BigEndian, uint32(len(columns))); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, uint32(len(module.Columns))); err != nil {
 		return err
 	}
 	// Write column info
-	for i, col := range columns {
+	for i, col := range module.Columns {
 		if err = writeColumnHeader(buf, col, encodings[i]); err != nil {
 			return err
 		}
@@ -157,7 +139,7 @@ func writeModuleHeader(buf io.Writer, columns []RawColumn, encodings []array.Enc
 	return nil
 }
 
-func writeColumnHeader(buf io.Writer, column RawColumn, encoding array.Encoding) (err error) {
+func writeColumnHeader(buf io.Writer, column Column[word.BigEndian], encoding array.Encoding) (err error) {
 	var (
 		bitwidth uint16 = uint16(column.Data.BitWidth())
 		len      uint32 = uint32(len(encoding.Bytes))

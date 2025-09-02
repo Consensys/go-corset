@@ -56,22 +56,22 @@ func Propagate[T io.Instruction[T]](program io.Program[T], trace lt.TraceFile) l
 		heap = trace.Heap.Clone()
 	)
 	// Write seed instances
-	writeInstances(trace.Columns, executor)
+	writeInstances(trace.Modules, executor)
 	// Read out generated instances
-	columns := readInstances(&heap, executor)
+	modules := readInstances(&heap, executor)
 	//
-	return lt.NewTraceFile(trace.Header.MetaData, heap, columns)
+	return lt.NewTraceFile(trace.Header.MetaData, heap, modules)
 }
 
 // WriteInstances writes all of the instances defined in the given trace columns
 // into the executor which, in turn, forces it to execute the relevant
 // functions, and functions they call, etc.
-func writeInstances[T io.Instruction[T]](columns []RawColumn, executor *io.Executor[T]) []RawColumn {
+func writeInstances[T io.Instruction[T]](trace []lt.Module[word.BigEndian], executor *io.Executor[T]) {
 	panic("todo")
 }
 
 // ReadInstances simply traverses all internal states generated within the
 // executor and converts them back into raw columns.
-func readInstances[T io.Instruction[T]](heap *lt.WordHeap, executor *io.Executor[T]) []RawColumn {
+func readInstances[T io.Instruction[T]](heap *lt.WordHeap, executor *io.Executor[T]) []lt.Module[word.BigEndian] {
 	panic("todo")
 }
