@@ -13,14 +13,15 @@
 package compiler
 
 import (
+	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -89,20 +90,22 @@ func (p MirModule[F]) NewLookup(name string, from []MirExpr[F], targetMid uint, 
 	var (
 		sources = unwrapMirExprs(from...)
 		targets = unwrapMirExprs(to...)
-		unused  = ir.NewRegisterAccess[F, mir.Term[F]](schema.NewUnusedRegisterId(), 0)
 	)
-	// Preprend (unused) selectors.  Eventually, we will most likely want to support selectors.
-	sources = array.Prepend(unused, sources)
-	targets = array.Prepend(unused, targets)
 	// FIXME: exploit conditional lookups
-	target := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector[F](p.Module.Id(), targets...)}
-	source := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector[F](targetMid, sources...)}
+	target := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector(targetMid, targets...)}
+	source := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector(p.Module.Id(), sources...)}
 	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
 }
 
 // String returns an appropriately formatted representation of the module.
 func (p MirModule[F]) String() string {
-	panic("todo")
+	var builder strings.Builder
+	//
+	for _, r := range p.Module.Registers() {
+		builder.WriteString(fmt.Sprintf("var %s\n", r.String()))
+	}
+	//
+	return builder.String()
 }
 
 // MirExpr is a wrapper around a corset expression which provides the

@@ -23,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Assignment represents a wrapper around an instruction in order for it to
@@ -155,7 +154,7 @@ func (p Assignment[F, T]) initialState(row uint, trace tr.Module[F], io Map) Sta
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[F, T]) states2columns(width uint, states []State, builder word.ArrayBuilder[F]) []array.MutArray[F] {
+func (p Assignment[F, T]) states2columns(width uint, states []State, builder array.Builder[F]) []array.MutArray[F] {
 	var (
 		cols      = make([]array.MutArray[F], width)
 		nrows     = uint(len(states))
@@ -188,7 +187,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []State, builder wor
 }
 
 func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], states []State,
-	builder word.ArrayBuilder[F]) {
+	builder array.Builder[F]) {
 	//
 	var (
 		zero  = field.Zero[F]()

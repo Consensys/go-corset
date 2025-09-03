@@ -10,34 +10,46 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package io
+package asm
 
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // InferPadding attempts to infer suitable padding values for a function, based
 // on those padding values provided for its inputs (which default to 0).  In
 // essence, this constructs a witness for the function in question.
-func InferPadding[F field.Element[F], T Instruction[T]](fn Function[F, T]) {
+func InferPadding[F field.Element[F], T io.Instruction[T]](fn io.Function[F, T], executor *Executor[F, T]) {
+	//
 	if fn.IsAtomic() {
 		// Only infer padding for one-line functions.
 		var (
-			insn  = fn.code[0]
-			state = initialState(fn.registers, nil)
+			insn      = fn.CodeAt(0)
+			registers = fn.Registers()
+			state     = initialState(registers, executor)
 		)
 		// Execute the one instruction
 		_ = insn.Execute(state)
 		// Assign padding values
-		for i := range fn.registers {
-			fn.registers[i].Padding = state.state[i]
+		for i := range registers {
+			var (
+				val big.Int
+				rid = schema.NewRegisterId(uint(i))
+			)
+			// Load ith register value
+			val.Set(state.Load(rid))
+			// Update padding value
+			registers[i].Padding = val
 		}
 	}
 }
 
-func initialState(registers []Register, io Map) State {
+// Construct initial state from the given padding values.
+func initialState(registers []Register, iomap io.Map) io.State {
 	var (
 		state = make([]big.Int, len(registers))
 		index = 0
@@ -54,5 +66,5 @@ func initialState(registers []Register, io Map) State {
 		}
 	}
 	//
-	return State{0, false, state, registers, io}
+	return io.InitialState(state, registers, iomap)
 }

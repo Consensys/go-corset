@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
+	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
@@ -79,6 +80,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	filter := GetString(cmd, "filter")
 	output := GetString(cmd, "out")
 	metadata := GetFlag(cmd, "metadata")
+	ltv2 := GetFlag(cmd, "ltv2")
 	// Read in constraint files
 	schemas := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
 	builder := schemas.TraceBuilder().WithPadding(padding)
@@ -133,6 +135,13 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Write out results (if requested)
 	if output != "" {
+		// Upgrade to ltv2 if requested
+		if ltv2 {
+			for i := range traces {
+				traces[i].Header.MajorVersion = lt.LTV2_MAJOR_VERSION
+			}
+		}
+		//
 		writeBatchedTracesFile(output, traces...)
 	}
 }
@@ -154,6 +163,7 @@ func init() {
 	traceCmd.Flags().Bool("batched", false,
 		"specify trace file is batched (i.e. contains multiple traces, one for each line)")
 	traceCmd.Flags().Bool("metadata", false, "Print embedded metadata")
+	traceCmd.Flags().Bool("ltv2", false, "Use ltv2 file format")
 }
 
 // RawColumn provides a convenient alias
@@ -166,7 +176,8 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], 
 		// Construct expanded tr
 		tr, errs = bldr.Build(schema, tf)
 		//
-		arrBuilder = word.NewDynamicArrayBuilder[word.BigEndian]()
+		heap       = pool.NewLocalHeap[word.BigEndian]()
+		arrBuilder = array.NewDynamicBuilder(heap)
 	)
 	// Handle errors
 	if len(errs) > 0 {
@@ -185,12 +196,12 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, schema sc.AnySchema[F], 
 			rcols = append(rcols, RawColumn{
 				Module: module.Name(),
 				Name:   ith.Name(),
-				Data:   word.CloneArray(ith.Data(), arrBuilder),
+				Data:   array.CloneArray(ith.Data(), &arrBuilder),
 			})
 		}
 	}
 	//
-	return lt.NewTraceFile(tf.Header.MetaData, arrBuilder, rcols)
+	return lt.NewTraceFile(tf.Header.MetaData, *heap, rcols)
 }
 
 // Construct a new trace containing only those columns from the original who
@@ -214,7 +225,7 @@ func filterColumns(tf lt.TraceFile, regex string) lt.TraceFile {
 		}
 	}
 	// Done
-	return lt.NewTraceFile(tf.Header.MetaData, tf.Builder, ncols)
+	return lt.NewTraceFile(tf.Header.MetaData, tf.Heap, ncols)
 }
 
 // Construct a new trace where all columns are sliced to a given region.  In

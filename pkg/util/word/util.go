@@ -14,28 +14,7 @@ package word
 
 import (
 	"math"
-
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
-
-// CloneArray converts a word array for one word geometry into a mutable array
-// for another geometry.
-func CloneArray[W1 Word[W1], W2 Word[W2]](arr array.Array[W1], builder ArrayBuilder[W2]) array.MutArray[W2] {
-	var res = builder.NewArray(arr.Len(), arr.BitWidth())
-	//
-	for i := range arr.Len() {
-		var (
-			w1 = arr.Get(i)
-			w2 W2
-		)
-		// Convert words
-		w2 = w2.SetBytes(w1.Bytes())
-		// Assign into new array
-		res.Set(i, w2)
-	}
-	// Done
-	return res
-}
 
 // ByteWidth returns the least number of bytes required to store an element of
 // the given width.
@@ -76,4 +55,14 @@ func ByteWidth16(value uint16) uint {
 	}
 	//
 	return 0
+}
+
+// TrimLeadingZeros any leading zeros from this array
+func TrimLeadingZeros(bytes []byte) []byte {
+	// trim any leading zeros to ensure words are in a canonical form.
+	for len(bytes) > 0 && bytes[0] == 0 {
+		bytes = bytes[1:]
+	}
+	//
+	return bytes
 }

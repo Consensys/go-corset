@@ -20,8 +20,8 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // TraceBuilder provides a mechanical means of constructing a trace from a given
@@ -170,7 +170,7 @@ func (tb TraceBuilder[F]) BatchSize() uint {
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
 func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.Trace[F], []error) {
 	var (
-		arrBuilder word.ArrayBuilder[F]
+		arrBuilder array.Builder[F]
 		cols       []trace.RawColumn[F]
 		errors     []error
 	)
@@ -224,7 +224,7 @@ func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.
 	return tr, errors
 }
 
-func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema[F], pool word.ArrayBuilder[F],
+func initialiseTrace[F field.Element[F]](expanded bool, schema sc.AnySchema[F], pool array.Builder[F],
 	cols []trace.RawColumn[F]) (*trace.ArrayTrace[F], []error) {
 	//
 	var (

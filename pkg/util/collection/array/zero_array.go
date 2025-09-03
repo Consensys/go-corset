@@ -10,13 +10,13 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package word
+package array
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // =================================================================================
@@ -26,13 +26,13 @@ import (
 // ZeroArray implements an array of single bit words simply using an underlying
 // array of packed bytes.  That is, where eight bits are packed into a single
 // byte.
-type ZeroArray[T Word[T]] struct {
+type ZeroArray[T word.Word[T]] struct {
 	// Actual height of column
 	height uint
 }
 
 // NewZeroArray constructs a new word array with a given capacity.
-func NewZeroArray[T Word[T]](height uint) *ZeroArray[T] {
+func NewZeroArray[T word.Word[T]](height uint) *ZeroArray[T] {
 	return &ZeroArray[T]{height}
 }
 
@@ -42,7 +42,7 @@ func (p *ZeroArray[T]) Append(word T) {
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *ZeroArray[T]) Clone() array.MutArray[T] {
+func (p *ZeroArray[T]) Clone() MutArray[T] {
 	return &ZeroArray[T]{p.height}
 }
 
@@ -58,7 +58,7 @@ func (p *ZeroArray[T]) BitWidth() uint {
 
 // Build implementation for the array.Builder interface.  This simply means that
 // a static array is its own builder.
-func (p *ZeroArray[T]) Build() array.Array[T] {
+func (p *ZeroArray[T]) Build() Array[T] {
 	return p
 }
 
@@ -81,7 +81,7 @@ func (p *ZeroArray[T]) Pad(n uint, m uint, padding T) {
 }
 
 // Slice out a subregion of this array.
-func (p *ZeroArray[T]) Slice(start uint, end uint) array.Array[T] {
+func (p *ZeroArray[T]) Slice(start uint, end uint) Array[T] {
 	var (
 		height = end - start
 	)

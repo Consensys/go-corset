@@ -96,10 +96,17 @@ func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MixedMicro
 }
 
 func subdivide[F Element[F]](mapping sc.LimbsMap, fns []*MicroFunction[F]) []*MicroFunction[F] {
-	var nfns = make([]*MicroFunction[F], len(fns))
+	var (
+		nfns     = make([]*MicroFunction[F], len(fns))
+		executor = NewExecutor(io.NewProgram(fns...))
+	)
 	// Split functions
 	for i, fn := range fns {
 		nfns[i] = subdivideFunction(mapping, fn)
+	}
+	// Infer padding
+	for _, nfn := range nfns {
+		InferPadding(*nfn, executor)
 	}
 	// Done
 	return nfns

@@ -88,7 +88,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	for i, input := range p.Sources {
 		var source agnostic.Polynomial
 
-		source.Set(poly.NewMonomial[io.RegisterId](one, input))
+		source = source.Set(poly.NewMonomial(one, input))
 		insn := &micro.Assign{Targets: []io.RegisterId{address[i]}, Source: source}
 		code = append(code, insn)
 	}
@@ -99,7 +99,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	for i, output := range p.Targets {
 		var source agnostic.Polynomial
 
-		source.Set(poly.NewMonomial[io.RegisterId](one, data[i]))
+		source = source.Set(poly.NewMonomial(one, data[i]))
 		insn := &micro.Assign{Targets: []io.RegisterId{output}, Source: source}
 		code = append(code, insn)
 	}

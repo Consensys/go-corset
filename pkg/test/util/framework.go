@@ -28,12 +28,12 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/file"
 )
 
 // TestDir determines the (relative) location of the test directory.  That is
@@ -325,7 +325,7 @@ func (p *traceId) String() string {
 // ReadTracesFile reads a file containing zero or more traces expressed as JSON, where
 // each trace is on a separate line.
 func ReadTracesFile(filename string) []lt.TraceFile {
-	lines := util.ReadInputFile(filename)
+	lines := file.ReadInputFile(filename)
 	traces := make([]lt.TraceFile, len(lines))
 	// Read constraints line by line
 	for i, line := range lines {

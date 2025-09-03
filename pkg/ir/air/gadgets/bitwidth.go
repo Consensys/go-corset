@@ -469,7 +469,7 @@ func determineLimbSplit(bitwidth uint) (uint, uint) {
 // Combine all values from the given source registers into a single array of
 // data, whilst eliminating duplicates.
 func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F], padding []F,
-	pool word.ArrayBuilder[F]) array.MutArray[F] {
+	pool array.Builder[F]) array.MutArray[F] {
 	//
 	var (
 		n    = sources[0].Len()
@@ -505,7 +505,7 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 }
 
 func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.MutArray[F],
-	builder word.ArrayBuilder[F]) []array.MutArray[F] {
+	builder array.Builder[F]) []array.MutArray[F] {
 	//
 	var (
 		vLoArr = builder.NewArray(vArr.Len(), loWidth)
@@ -639,7 +639,7 @@ func splitColumnRanges[F field.Element[F]](nbits uint) []F {
 }
 
 func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array.Array[F],
-	builder word.ArrayBuilder[F]) []array.MutArray[F] {
+	builder array.Builder[F]) []array.MutArray[F] {
 	//
 	var (
 		source  = sources[0]

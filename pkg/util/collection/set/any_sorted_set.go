@@ -14,6 +14,7 @@ package set
 
 import (
 	"cmp"
+	"math"
 	"sort"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -21,8 +22,9 @@ import (
 
 // Comparable provides an interface which types used in a AnySortedSet must implement.
 type Comparable[T any] interface {
-	comparable
-	LessEq(T) bool
+	// Cmp returns < 0 if this is less than other, or 0 if they are equal, or >
+	// 0 if this is greater than other.
+	Cmp(other T) int
 }
 
 // Order provides a wrapper around primtive types for use with an AnySortedSet.
@@ -31,9 +33,9 @@ type Order[T cmp.Ordered] struct {
 	Item T
 }
 
-// LessEq wraps the respective primitive comparison.
-func (lhs Order[T]) LessEq(rhs Order[T]) bool {
-	return lhs.Item <= rhs.Item
+// Cmp implementation for the Comparable interface.
+func (lhs Order[T]) Cmp(rhs Order[T]) int {
+	return cmp.Compare(lhs.Item, rhs.Item)
 }
 
 // AnySortedSet is an array of unique sorted values (i.e. no duplicates).
@@ -49,18 +51,28 @@ func (p *AnySortedSet[T]) ToArray() []T {
 	return *p
 }
 
-// Contains returns true if a given element is in the set.
-//
-//nolint:revive
-func (p *AnySortedSet[T]) Contains(element T) bool {
+// Find returns the index of the matching element in this set, or it returns
+// MaxUInt.
+func (p *AnySortedSet[T]) Find(element T) uint {
 	data := *p
 	// Find index where element either does occur, or should occur.
 	i := sort.Search(len(data), func(i int) bool {
 		// element <= data[i]
-		return element.LessEq(data[i])
+		return element.Cmp(data[i]) <= 0
 	})
 	// Check whether item existed or not.
-	return i < len(data) && data[i] == element
+	if i < len(data) && data[i].Cmp(element) == 0 {
+		return uint(i)
+	}
+	// not found
+	return math.MaxUint
+}
+
+// Contains returns true if a given element is in the set.
+//
+//nolint:revive
+func (p *AnySortedSet[T]) Contains(element T) bool {
+	return p.Find(element) != math.MaxUint
 }
 
 // Insert an element into this sorted set.
@@ -71,10 +83,10 @@ func (p *AnySortedSet[T]) Insert(element T) {
 	// Find index where element either does occur, or should occur.
 	i := sort.Search(len(data), func(i int) bool {
 		// element <= data[i]
-		return element.LessEq(data[i])
+		return element.Cmp(data[i]) <= 0
 	})
 	// Check whether item existed or not.
-	if i >= len(data) || data[i] != element {
+	if i >= len(data) || data[i].Cmp(element) != 0 {
 		// No, item was not found
 		ndata := make([]T, len(data)+1)
 		copy(ndata, data[0:i])
@@ -141,11 +153,11 @@ func anyCountDuplicates[T Comparable[T]](left []T, right []T) int {
 	n := 0
 
 	for i < len(left) && j < len(right) {
-		if left[i] == right[j] {
+		if left[i].Cmp(right[j]) == 0 {
 			i++
 			j++
 			n++ // duplicate detected
-		} else if left[i].LessEq(right[j]) {
+		} else if left[i].Cmp(right[j]) < 0 {
 			i++
 		} else {
 			j++
@@ -163,11 +175,11 @@ func anyMergeSorted[T Comparable[T]](target []T, left []T, right []T) {
 	k := 0
 	// Merge overlap of both sets
 	for ; i < len(left) && j < len(right); k++ {
-		if left[i] == right[j] {
+		if left[i].Cmp(right[j]) == 0 {
 			target[k] = left[i]
 			i++
 			j++
-		} else if left[i].LessEq(right[j]) {
+		} else if left[i].Cmp(right[j]) < 0 {
 			target[k] = left[i]
 			i++
 		} else {

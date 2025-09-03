@@ -14,7 +14,7 @@ package compiler
 
 import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 )
 
 // Environment provides an interface into the global scope which can be used for
@@ -31,7 +31,7 @@ type Environment interface {
 	// RegisterOf identifies the register (i.e. underlying (HIR) column) to
 	// which a given source-level (i.e. corset) column is allocated.  This
 	// expects an absolute path.
-	RegisterOf(path *util.Path) uint
+	RegisterOf(path *file.Path) uint
 	// RegistersOf identifies the set of registers (i.e. underlying (HIR)
 	// columns) associated with a given module.
 	RegistersOf(module string) []uint
@@ -91,7 +91,7 @@ func (p GlobalEnvironment) Register(index uint) *Register {
 
 // RegisterOf identifies the register (i.e. underlying (HIR) column) to
 // which a given source-level (i.e. corset) column is allocated.
-func (p GlobalEnvironment) RegisterOf(column *util.Path) uint {
+func (p GlobalEnvironment) RegisterOf(column *file.Path) uint {
 	regId := p.columnMap[column.String()]
 	// Lookup register info
 	return regId

@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -101,7 +102,7 @@ func ParseSourceFile(srcfile *source.File, enforceTypes bool) (ast.Circuit, *sou
 	var (
 		circuit ast.Circuit
 		errors  []SyntaxError
-		path    util.Path = util.NewAbsolutePath()
+		path    file.Path = file.NewAbsolutePath()
 	)
 	// Parse bytes into an S-Expression
 	terms, srcmap, err := sexp.ParseAll(srcfile)
@@ -127,7 +128,7 @@ func ParseSourceFile(srcfile *source.File, enforceTypes bool) (ast.Circuit, *sou
 			return circuit, nil, errors
 		}
 		// Parse module contents
-		path = util.NewAbsolutePath(name)
+		path = file.NewAbsolutePath(name)
 		if decls, terms, errors = p.parseModuleContents(path, terms[1:]); len(errors) > 0 {
 			return circuit, nil, errors
 		} else if len(decls) != 0 {
@@ -214,7 +215,7 @@ func (p *Parser) mapSourceNode(from sexp.SExp, to ast.Node) {
 }
 
 // Extract all declarations associated with a given module and package them up.
-func (p *Parser) parseModuleContents(path util.Path, terms []sexp.SExp) ([]ast.Declaration, []sexp.SExp,
+func (p *Parser) parseModuleContents(path file.Path, terms []sexp.SExp) ([]ast.Declaration, []sexp.SExp,
 	[]SyntaxError) {
 	//
 	var errors []SyntaxError
@@ -269,7 +270,7 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
 	return name, errors
 }
 
-func (p *Parser) parseDeclaration(module util.Path, s *sexp.List) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDeclaration(module file.Path, s *sexp.List) (ast.Declaration, []SyntaxError) {
 	var (
 		decl   ast.Declaration
 		errors []SyntaxError
@@ -343,7 +344,7 @@ func (p *Parser) parseDefAlias(elements []sexp.SExp) (ast.Declaration, []SyntaxE
 			errors = append(errors, *p.translator.SyntaxError(elements[i+1], "invalid alias definition"))
 		} else {
 			alias := ast.NewDefAlias(elements[i].AsSymbol().Value)
-			path := util.NewRelativePath(elements[i+1].AsSymbol().Value)
+			path := file.NewRelativePath(elements[i+1].AsSymbol().Value)
 			name := ast.NewUnboundName[ast.Binding](path, ast.NON_FUNCTION)
 			//
 			p.mapSourceNode(elements[i], alias)
@@ -358,7 +359,7 @@ func (p *Parser) parseDefAlias(elements []sexp.SExp) (ast.Declaration, []SyntaxE
 }
 
 // Parse a column declaration
-func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefColumns(module file.Path, l *sexp.List) (ast.Declaration, []SyntaxError) {
 	columns := make([]*ast.DefColumn, l.Len()-1)
 	// Sanity check declaration
 	if len(l.Elements) == 1 {
@@ -385,7 +386,7 @@ func (p *Parser) parseDefColumns(module util.Path, l *sexp.List) (ast.Declaratio
 	return ast.NewDefColumns(columns), nil
 }
 
-func (p *Parser) parseColumnDeclaration(context util.Path, path util.Path, computed bool, multiplier int,
+func (p *Parser) parseColumnDeclaration(context file.Path, path file.Path, computed bool, multiplier int,
 	e sexp.SExp) (*ast.DefColumn, *SyntaxError) {
 	//
 	var (
@@ -571,7 +572,7 @@ func (p *Parser) parseArrayDimension(s sexp.SExp) (uint, uint, *SyntaxError) {
 }
 
 // Parse a defcomputed declaration
-func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefComputed(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors      []SyntaxError
 		sexpTargets *sexp.List = elements[1].AsList()
@@ -632,7 +633,7 @@ func (p *Parser) parseDefComputed(module util.Path, elements []sexp.SExp) (ast.D
 }
 
 // Parse a defcomputedcolumn declaration
-func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefComputedColumn(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors []SyntaxError
 		target *ast.DefColumn
@@ -664,7 +665,7 @@ func (p *Parser) parseDefComputedColumn(module util.Path, elements []sexp.SExp) 
 }
 
 // Parse a constant declaration
-func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefConst(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		constants []*ast.DefConstUnit
@@ -686,7 +687,7 @@ func (p *Parser) parseDefConst(module util.Path, elements []sexp.SExp) (ast.Decl
 	return &ast.DefConst{Constants: constants}, errors
 }
 
-func (p *Parser) parseDefConstUnit(module util.Path, head sexp.SExp,
+func (p *Parser) parseDefConstUnit(module file.Path, head sexp.SExp,
 	value sexp.SExp) (*ast.DefConstUnit, []SyntaxError) {
 	//
 	var (
@@ -760,7 +761,7 @@ func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseDefConstraint(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefConstraint(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var errors []SyntaxError
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
@@ -782,7 +783,7 @@ func (p *Parser) parseDefConstraint(module util.Path, elements []sexp.SExp) (ast
 }
 
 // Parse a interleaved declaration
-func (p *Parser) parseDefInterleaved(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefInterleaved(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors      []SyntaxError
 		err         *SyntaxError
@@ -1017,7 +1018,7 @@ func (p *Parser) parseDefLookupSources(handle string, element sexp.SExp) ([]ast.
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefPermutation(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefPermutation(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors  []SyntaxError
 		sources []ast.Symbol
@@ -1212,7 +1213,7 @@ func (p *Parser) parsePermutedColumnSign(sign *sexp.Symbol) (*bool, *SyntaxError
 }
 
 // Parse a perspective declaration
-func (p *Parser) parseDefPerspective(module util.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefPerspective(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		errors       []SyntaxError
 		sexp_columns *sexp.List = elements[3].AsList()
@@ -1325,7 +1326,7 @@ func (p *Parser) parsePropertyAttributes(attributes sexp.SExp) (domain util.Opti
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefFun(module util.Path, pure bool, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefFun(module file.Path, pure bool, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	var (
 		name      *sexp.Symbol
 		ret       ast.Type
@@ -1507,7 +1508,7 @@ func bitwidth(bound int) uint {
 	return math.MaxUint
 }
 
-func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SExp) (domain util.Option[int],
+func (p *Parser) parseConstraintAttributes(module file.Path, attributes sexp.SExp) (domain util.Option[int],
 	guard ast.Expr, perspective *ast.PerspectiveName, err []SyntaxError) {
 	//
 	var errors []SyntaxError
@@ -1554,7 +1555,7 @@ func (p *Parser) parseConstraintAttributes(module util.Path, attributes sexp.SEx
 }
 
 // Parse a symbol name, which will include a binding.
-func parseSymbolName[T ast.Binding](p *Parser, symbol sexp.SExp, module util.Path, arity util.Option[uint],
+func parseSymbolName[T ast.Binding](p *Parser, symbol sexp.SExp, module file.Path, arity util.Option[uint],
 	binding T) (*ast.Name[T], []SyntaxError) {
 	//
 	if !isEitherOrIdentifier(symbol, arity.HasValue()) {
@@ -1805,7 +1806,7 @@ func reduceParserRule(p *Parser) sexp.ListRule[ast.Expr] {
 			return nil, errors
 		}
 		//
-		path := util.NewRelativePath(name.Value)
+		path := file.NewRelativePath(name.Value)
 		arity := util.Some(uint(2))
 		varaccess := ast.NewVariableAccess(path, arity, nil)
 		p.mapSourceNode(name, varaccess)
@@ -2046,7 +2047,7 @@ func parseConstant(symbol string) (constant big.Int, ok bool, err error) {
 
 // Parse a name which can be (optionally) adorned with either a module or
 // perspective qualifier, or both.
-func parseQualifiableName(qualName string) (path util.Path, err error) {
+func parseQualifiableName(qualName string) (path file.Path, err error) {
 	// Look for module qualification
 	split := strings.Split(qualName, ".")
 	switch len(split) {
@@ -2063,14 +2064,14 @@ func parseQualifiableName(qualName string) (path util.Path, err error) {
 }
 
 // Parse a name which can (optionally) adorned with a perspective qualifier
-func parsePerspectifiableName(qualName string) (path util.Path, err error) {
+func parsePerspectifiableName(qualName string) (path file.Path, err error) {
 	// Look for module qualification
 	split := strings.Split(qualName, "/")
 	switch len(split) {
 	case 1:
-		return util.NewRelativePath(split[0]), nil
+		return file.NewRelativePath(split[0]), nil
 	case 2:
-		return util.NewRelativePath(split[0], split[1]), nil
+		return file.NewRelativePath(split[0], split[1]), nil
 	default:
 		return path, errors.New("malformed qualified name")
 	}

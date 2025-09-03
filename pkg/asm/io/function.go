@@ -19,7 +19,9 @@ import (
 	"math/big"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -42,17 +44,6 @@ const (
 	UNUSED_REGISTER = math.MaxUint
 )
 
-// FunctionInstance represents a specific instance of a function.  That is, a
-// mapping from input values to expected output values.
-type FunctionInstance struct {
-	// Identifies corresponding function.
-	Function uint
-	// Inputs identifies the input arguments
-	Inputs map[string]big.Int
-	// Outputs identifies the outputs
-	Outputs map[string]big.Int
-}
-
 // Function defines a distinct functional entity within the system.  Functions
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
@@ -65,6 +56,10 @@ type Function[F field.Element[F], T Instruction[T]] struct {
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
 	registers []Register
+	// Number of input registers
+	numInputs uint
+	// Number of output registers
+	numOutputs uint
 	// Code defines the body of this function.
 	code []T
 }
@@ -72,14 +67,23 @@ type Function[F field.Element[F], T Instruction[T]] struct {
 // NewFunction constructs a new function with the given components.
 func NewFunction[F field.Element[F], T Instruction[T]](id sc.ModuleId, name string, registers []Register, code []T,
 ) Function[F, T] {
-	return Function[F, T]{id, name, registers, code}
+	var (
+		numInputs  = array.CountMatching(registers, func(r Register) bool { return r.IsInput() })
+		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
+	)
+	// Check registers sorted as: inputs, outputs then internal.
+	if !set.IsSorted(registers, func(r Register) sc.RegisterType { return r.Kind }) {
+		panic("function registers ordered incorrectly")
+	}
+	// All good
+	return Function[F, T]{id, name, registers, numInputs, numOutputs, code}
 }
 
 // Assignments returns an iterator over the assignments of this schema.
 // These are the computations used to assign values to all computed columns
 // in this module.
 func (p *Function[F, T]) Assignments() iter.Iterator[sc.Assignment[F]] {
-	var assignment = Assignment[F, T]{p.id, p.name, p.registers, p.code}
+	var assignment = Assignment[F, T]{p.id, p.name, p.registers, p.numInputs, p.numOutputs, p.code}
 	//
 	return iter.NewUnitIterator[sc.Assignment[F]](assignment)
 }
@@ -97,7 +101,7 @@ func (p *Function[F, T]) Code() []T {
 // Constraints provides access to those constraints associated with this
 // function.
 func (p *Function[F, T]) Constraints() iter.Iterator[sc.Constraint[F]] {
-	var constraint Constraint[F, T] = Constraint[F, T]{p.id, p.name, p.registers, p.code}
+	var constraint Constraint[F, T] = Constraint[F, T]{p.id, p.name, p.registers, p.numInputs, p.numOutputs, p.code}
 	//
 	return iter.NewUnitIterator[sc.Constraint[F]](constraint)
 }
@@ -137,15 +141,7 @@ func (p *Function[F, T]) HasRegister(name string) (RegisterId, bool) {
 
 // Inputs returns the set of input registers for this function.
 func (p *Function[F, T]) Inputs() []Register {
-	var inputs []Register
-	//
-	for _, r := range p.registers {
-		if r.IsInput() {
-			inputs = append(inputs, r)
-		}
-	}
-	//
-	return inputs
+	return p.registers[:p.numInputs]
 }
 
 // LengthMultiplier identifies the length multiplier for this module.  For every
@@ -153,6 +149,16 @@ func (p *Function[F, T]) Inputs() []Register {
 // This is used specifically to support interleaving constraints.
 func (p *Function[F, T]) LengthMultiplier() uint {
 	return 1
+}
+
+// NumInputs returns the number of input registers for this function.
+func (p *Function[F, T]) NumInputs() uint {
+	return p.numInputs
+}
+
+// NumOutputs returns the number of output registers for this function.
+func (p *Function[F, T]) NumOutputs() uint {
+	return p.numOutputs
 }
 
 // AllowPadding determines whether the given module supports padding at the
@@ -169,15 +175,7 @@ func (p *Function[F, T]) Name() string {
 
 // Outputs returns the set of output registers for this function.
 func (p *Function[F, T]) Outputs() []Register {
-	var outputs []Register
-	//
-	for _, r := range p.registers {
-		if r.IsOutput() {
-			outputs = append(outputs, r)
-		}
-	}
-	//
-	return outputs
+	return p.registers[p.numInputs : p.numInputs+p.numOutputs]
 }
 
 // Register returns the ith register used in this function.
@@ -204,7 +202,11 @@ func (p *Function[F, T]) AllocateRegister(kind sc.RegisterType, name string, wid
 		// Default padding (for now)
 		padding big.Int
 	)
-
+	// Sanity check
+	if kind != sc.COMPUTED_REGISTER {
+		panic("cannot allocate input / output register")
+	}
+	//
 	p.registers = append(p.registers, sc.NewRegister(kind, name, width, padding))
 	// Done
 	return sc.NewRegisterId(index)
@@ -218,6 +220,10 @@ func (p *Function[F, T]) AllocateRegister(kind sc.RegisterType, name string, wid
 func (p *Function[F, T]) GobEncode() ([]byte, error) {
 	var buffer bytes.Buffer
 	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.id); err != nil {
+		return nil, err
+	}
 	//
 	if err := gobEncoder.Encode(p.name); err != nil {
 		return nil, err
@@ -241,6 +247,10 @@ func (p *Function[F, T]) GobDecode(data []byte) error {
 		gobDecoder = gob.NewDecoder(buffer)
 	)
 	//
+	if err := gobDecoder.Decode(&p.id); err != nil {
+		return err
+	}
+	//
 	if err := gobDecoder.Decode(&p.name); err != nil {
 		return err
 	}
@@ -252,6 +262,9 @@ func (p *Function[F, T]) GobDecode(data []byte) error {
 	if err := gobDecoder.Decode(&p.code); err != nil {
 		return err
 	}
-	//
+	// Recompute internal values
+	p.numInputs = array.CountMatching(p.registers, func(r Register) bool { return r.IsInput() })
+	p.numOutputs = array.CountMatching(p.registers, func(r Register) bool { return r.IsOutput() })
+	// Done
 	return nil
 }

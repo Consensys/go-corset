@@ -141,6 +141,6 @@ func (p *Header) UnmarshalBinary(buffer *bytes.Buffer) error {
 func (p *Header) IsCompatible() bool {
 	//
 	return p.Identifier == ZKTRACER &&
-		p.MajorVersion == LT_MAJOR_VERSION &&
+		(p.MajorVersion == LT_MAJOR_VERSION || p.MajorVersion == LTV2_MAJOR_VERSION) &&
 		p.MinorVersion <= LT_MINOR_VERSION
 }

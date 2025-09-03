@@ -16,7 +16,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -123,10 +123,10 @@ type ColumnBinding struct {
 	// column, and should always be a prefix of the path.   If this column was
 	// declared in a perspective then it will be the perspective's enclosing
 	// module.  Otherwise, it will exactly match the path's parent.
-	ColumnContext util.Path
+	ColumnContext file.Path
 	// Absolute Path of column.  This determines the name of the column, its
 	// enclosing module and/or perspective.
-	Path util.Path
+	Path file.Path
 	// Column's datatype
 	DataType Type
 	// Determines whether this column must be proven (or not).
@@ -142,7 +142,7 @@ type ColumnBinding struct {
 }
 
 // AbsolutePath returns the fully resolved (absolute) path of the column in question.
-func (p *ColumnBinding) AbsolutePath() *util.Path {
+func (p *ColumnBinding) AbsolutePath() *file.Path {
 	return &p.Path
 }
 
@@ -179,7 +179,7 @@ func (p *ColumnBinding) Context() Context {
 
 // ConstantBinding represents a constant definition
 type ConstantBinding struct {
-	Path util.Path
+	Path file.Path
 	// Explicit type for this constant.  This maybe nil if no type was given
 	// and, instead, the type should be inferred from context.
 	DataType Type
@@ -196,7 +196,7 @@ type ConstantBinding struct {
 
 // NewConstantBinding creates a new constant binding (which is initially not
 // finalised).
-func NewConstantBinding(path util.Path, datatype Type, value Expr, extern bool) ConstantBinding {
+func NewConstantBinding(path file.Path, datatype Type, value Expr, extern bool) ConstantBinding {
 	return ConstantBinding{path, datatype, value, extern, false}
 }
 
