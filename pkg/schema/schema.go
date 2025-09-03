@@ -42,7 +42,7 @@ type Schema[F any, C any] interface {
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent() []error
+	Consistent(fieldWidth uint) []error
 	// Constraints returns an iterator over all constraints defined in this
 	// schema.  Observe that this does include assertions which, strictly
 	// speaking, are not constraints in the true sense.  That is, they are never

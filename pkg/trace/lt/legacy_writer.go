@@ -26,8 +26,8 @@ import (
 // ToBytesLegacy writes a given trace file as an array of (legacy) bytes.  The
 // output represents the legacy format if the bytes are used "as is" without any
 // additional header information being preprended.
-func ToBytesLegacy(columns []trace.RawColumn[word.BigEndian]) ([]byte, error) {
-	buf, err := ToBytesBuffer(columns)
+func ToBytesLegacy(modules []Module[word.BigEndian]) ([]byte, error) {
+	buf, err := ToBytesBuffer(modules)
 	if err != nil {
 		return nil, err
 	}
@@ -36,9 +36,9 @@ func ToBytesLegacy(columns []trace.RawColumn[word.BigEndian]) ([]byte, error) {
 }
 
 // ToBytesBuffer writes a given trace file into a byte buffer.
-func ToBytesBuffer(columns []trace.RawColumn[word.BigEndian]) (*bytes.Buffer, error) {
+func ToBytesBuffer(modules []Module[word.BigEndian]) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
-	if err := WriteBytes(columns, &buf); err != nil {
+	if err := WriteBytes(modules, &buf); err != nil {
 		return nil, err
 	}
 
@@ -46,48 +46,50 @@ func ToBytesBuffer(columns []trace.RawColumn[word.BigEndian]) (*bytes.Buffer, er
 }
 
 // WriteBytes a given trace file to an io.Writer.
-func WriteBytes(columns []trace.RawColumn[word.BigEndian], buf io.Writer) error {
-	ncols := len(columns)
+func WriteBytes(modules []Module[word.BigEndian], buf io.Writer) error {
+	ncols := NumberOfColumns(modules)
 	// Write column count
 	if err := binary.Write(buf, binary.BigEndian, uint32(ncols)); err != nil {
 		return err
 	}
 	// Write header information
-	for i := 0; i < ncols; i++ {
-		col := columns[i]
-		data := col.Data
-		name := trace.QualifiedColumnName(col.Module, col.Name)
-		// Write name length
-		nameBytes := []byte(name)
-		nameLen := uint16(len(nameBytes))
+	for _, ith := range modules {
+		for _, jth := range ith.Columns {
+			data := jth.Data
+			name := trace.QualifiedColumnName(ith.Name, jth.Name)
+			// Write name length
+			nameBytes := []byte(name)
+			nameLen := uint16(len(nameBytes))
 
-		if err := binary.Write(buf, binary.BigEndian, nameLen); err != nil {
-			return err
-		}
-		// Write name bytes
-		n, err := buf.Write(nameBytes)
-		if n != int(nameLen) || err != nil {
-			log.Fatal(err)
-		}
-		// Determine number of bytes required to hold element of this column.
-		byteWidth := data.BitWidth() / 8
-		if data.BitWidth()%8 != 0 {
-			byteWidth++
-		}
-		// Write bytes per element
-		if err := binary.Write(buf, binary.BigEndian, uint8(byteWidth)); err != nil {
-			log.Fatal(err)
-		}
-		// Write Data length
-		if err := binary.Write(buf, binary.BigEndian, uint32(data.Len())); err != nil {
-			log.Fatal(err)
+			if err := binary.Write(buf, binary.BigEndian, nameLen); err != nil {
+				return err
+			}
+			// Write name bytes
+			n, err := buf.Write(nameBytes)
+			if n != int(nameLen) || err != nil {
+				log.Fatal(err)
+			}
+			// Determine number of bytes required to hold element of this column.
+			byteWidth := data.BitWidth() / 8
+			if data.BitWidth()%8 != 0 {
+				byteWidth++
+			}
+			// Write bytes per element
+			if err := binary.Write(buf, binary.BigEndian, uint8(byteWidth)); err != nil {
+				log.Fatal(err)
+			}
+			// Write Data length
+			if err := binary.Write(buf, binary.BigEndian, uint32(data.Len())); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 	// Write column data information
-	for i := 0; i < ncols; i++ {
-		col := columns[i]
-		if err := writeArrayBytes(buf, col.Data); err != nil {
-			return err
+	for _, ith := range modules {
+		for _, jth := range ith.Columns {
+			if err := writeArrayBytes(buf, jth.Data); err != nil {
+				return err
+			}
 		}
 	}
 	// Done

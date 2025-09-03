@@ -17,47 +17,54 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ToJsonString converts a trace into a JSON string.
-func ToJsonString(columns []trace.RawColumn[word.BigEndian]) string {
-	var builder strings.Builder
+func ToJsonString(modules []lt.Module[word.BigEndian]) string {
+	var (
+		builder strings.Builder
+		first   = true
+	)
 	//
 	builder.WriteString("{")
 	//
-	for i := 0; i < len(columns); i++ {
-		ith := columns[i]
-		//
-		if i != 0 {
-			builder.WriteString(", ")
-		}
-		//
-		builder.WriteString("\"")
-		// Construct qualified column name
-		name := trace.QualifiedColumnName(ith.Module, ith.Name)
-		// Apply bitwidth restrictions (if applicable)
-		if bitwidth := ith.Data.BitWidth(); bitwidth < 256 {
-			// For now, always assume unsigned int.
-			name = fmt.Sprintf("%s@u%d", name, bitwidth)
-		}
-		// Write out column name
-		builder.WriteString(name)
-		//
-		builder.WriteString("\": [")
-
-		data := ith.Data
-
-		for j := range data.Len() {
-			if j != 0 {
+	for _, ith := range modules {
+		for _, jth := range ith.Columns {
+			//
+			if !first {
 				builder.WriteString(", ")
 			}
+			//
+			first = false
+			//
+			builder.WriteString("\"")
+			// Construct qualified column name
+			name := trace.QualifiedColumnName(ith.Name, jth.Name)
+			// Apply bitwidth restrictions (if applicable)
+			if bitwidth := jth.Data.BitWidth(); bitwidth < 256 {
+				// For now, always assume unsigned int.
+				name = fmt.Sprintf("%s@u%d", name, bitwidth)
+			}
+			// Write out column name
+			builder.WriteString(name)
+			//
+			builder.WriteString("\": [")
 
-			jth := data.Get(j)
-			builder.WriteString(jth.String())
+			data := jth.Data
+
+			for j := range data.Len() {
+				if j != 0 {
+					builder.WriteString(", ")
+				}
+
+				jth := data.Get(j)
+				builder.WriteString(jth.String())
+			}
+
+			builder.WriteString("]")
 		}
-
-		builder.WriteString("]")
 	}
 	//
 	builder.WriteString("}")

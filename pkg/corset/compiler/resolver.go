@@ -34,7 +34,7 @@ type DeclPredicate = array.Predicate[ast.Declaration]
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit[F any, M schema.Module[F]](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
+func ResolveCircuit[M schema.RegisterMap](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
 	externs ...M) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
 	scope := NewModuleScope()

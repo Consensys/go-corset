@@ -20,7 +20,6 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // LoweringConfig provides configuration options for configuring the lowering
@@ -37,14 +36,14 @@ type LoweringConfig struct {
 	Vectorize bool
 }
 
-func lowerFunction[F field.Element[F]](vectorize bool, f MacroFunction[F]) MicroFunction[F] {
+func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.
 	for pc, insn := range f.Code() {
 		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
-	fn := io.NewFunction[F](f.Id(), f.Name(), f.Registers(), insns)
+	fn := io.NewFunction(f.Name(), f.Registers(), insns)
 	// Apply vectorisation (if enabled).
 	if vectorize {
 		fn = vectorizeFunction(fn)
@@ -57,7 +56,7 @@ func lowerFunction[F field.Element[F]](vectorize bool, f MacroFunction[F]) Micro
 // possible.  For example, consider two micro instructions "x = y" and "a = b".
 // Since this instructions do not conflict over any assigned register, they can
 // be combined into a vector instruction "x=y;a=b".
-func vectorizeFunction[F field.Element[F]](f MicroFunction[F]) MicroFunction[F] {
+func vectorizeFunction(f MicroFunction) MicroFunction {
 	var insns = slices.Clone(f.Code())
 	// Vectorize instructions as much as possible.
 	for pc := range insns {
@@ -66,7 +65,7 @@ func vectorizeFunction[F field.Element[F]](f MicroFunction[F]) MicroFunction[F] 
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return io.NewFunction[F](f.Id(), f.Name(), f.Registers(), insns)
+	return io.NewFunction(f.Name(), f.Registers(), insns)
 }
 
 func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {

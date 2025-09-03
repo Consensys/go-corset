@@ -10,11 +10,12 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package io
+package program
 
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -27,7 +28,27 @@ import (
 
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
-type Assignment[F field.Element[F], T Instruction[T]] Function[F, T]
+type Assignment[F field.Element[F], T io.Instruction[T]] struct {
+	id        sc.ModuleId
+	name      string
+	registers []io.Register
+	code      []T
+	iomap     io.Map
+}
+
+// NewAssignment constructs a new assignment capable of trace filling for a
+// given function.
+func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn io.Function[T], iomap io.Map,
+) *Assignment[F, T] {
+	//
+	return &Assignment[F, T]{
+		id:        id,
+		name:      fn.Name(),
+		registers: fn.Registers(),
+		code:      fn.Code(),
+		iomap:     iomap,
+	}
+}
 
 // Bounds implementation for schema.Assignment interface.
 func (p Assignment[F, T]) Bounds(module uint) util.Bounds {
@@ -39,11 +60,11 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]
 	//
 	var (
 		trModule = trace.Module(p.id)
-		states   []State
+		states   []io.State
 	)
 	//
 	for i := range trModule.Height() {
-		sts := p.trace(i, trModule, nil)
+		sts := p.trace(i, trModule)
 		states = append(states, sts...)
 	}
 	//
@@ -107,22 +128,22 @@ func (p Assignment[F, T]) RegistersWritten() []sc.RegisterRef {
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.
-func (p Assignment[F, T]) trace(row uint, trace tr.Module[F], iomap Map) []State {
+func (p Assignment[F, T]) trace(row uint, trace tr.Module[F]) []io.State {
 	var (
 		code   = p.code
-		states []State
+		states []io.State
 		// Construct local state
-		state = p.initialState(row, trace, iomap)
+		state = p.initialState(row, trace, p.iomap)
 		// Program counter position
 		pc uint = 0
 	)
 	// Keep executing until we're done.
-	for pc != RETURN && pc != FAIL {
+	for pc != io.RETURN && pc != io.FAIL {
 		insn := code[pc]
 		// execute given instruction
 		pc = insn.Execute(state)
 		// record internal state
-		states = append(states, finaliseState(row, pc == RETURN, state, trace))
+		states = append(states, finaliseState(row, pc == io.RETURN, state, trace))
 		// update state pc
 		state.Goto(pc)
 	}
@@ -130,7 +151,7 @@ func (p Assignment[F, T]) trace(row uint, trace tr.Module[F], iomap Map) []State
 	return states
 }
 
-func (p Assignment[F, T]) initialState(row uint, trace tr.Module[F], io Map) State {
+func (p Assignment[F, T]) initialState(row uint, trace tr.Module[F], iomap io.Map) io.State {
 	var (
 		state = make([]big.Int, len(p.registers))
 		index = 0
@@ -150,11 +171,11 @@ func (p Assignment[F, T]) initialState(row uint, trace tr.Module[F], io Map) Sta
 		}
 	}
 	// Construct state
-	return State{0, false, state, p.registers, io}
+	return io.InitialState(state, p.registers, iomap)
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[F, T]) states2columns(width uint, states []State, builder array.Builder[F]) []array.MutArray[F] {
+func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder array.Builder[F]) []array.MutArray[F] {
 	var (
 		cols      = make([]array.MutArray[F], width)
 		nrows     = uint(len(states))
@@ -186,7 +207,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []State, builder arr
 	return cols
 }
 
-func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], states []State,
+func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], states []io.State,
 	builder array.Builder[F]) {
 	//
 	var (
@@ -218,12 +239,12 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
-func finaliseState[F field.Element[F]](row uint, terminated bool, state State, trace tr.Module[F]) State {
+func finaliseState[F field.Element[F]](row uint, terminated bool, state io.State, trace tr.Module[F]) io.State {
 	// Clone state
 	var nstate = state.Clone()
 	// Now, ensure output registers retain their original values.
 	if terminated {
-		for i, reg := range state.registers {
+		for i, reg := range state.Registers() {
 			if reg.IsOutput() {
 				var (
 					val = trace.Column(uint(i)).Data().Get(row)

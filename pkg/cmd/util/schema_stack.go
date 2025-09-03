@@ -216,10 +216,10 @@ func (p *SchemaStack[F]) Read(filenames ...string) {
 // schemas.
 func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	var (
-		asmSchema  asm.MixedMacroProgram[bls12_377.Element]
-		uasmSchema asm.MixedMicroProgram[bls12_377.Element]
-		mirSchema  mir.Schema[F]
-		airSchema  air.Schema[F]
+		asmProgram  asm.MixedMacroProgram[bls12_377.Element]
+		uasmProgram asm.MixedMicroProgram[bls12_377.Element]
+		mirSchema   mir.Schema[F]
+		airSchema   air.Schema[F]
 	)
 	// Set binary
 	p.binfile = binfile
@@ -230,21 +230,21 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)
 	// Read out the mixed macro schema
-	asmSchema = p.BinaryFile().Schema
+	asmProgram = p.BinaryFile().Schema
 	// Lower to mixed micro schema
-	uasmSchema = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmSchema)
+	uasmProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
 	// Apply register splitting for field agnosticity
-	mirSchema, mapping := asm.Concretize[bls12_377.Element, F](p.asmConfig.Field, uasmSchema)
+	mirSchema, mapping := asm.Concretize[bls12_377.Element, F](p.asmConfig.Field, uasmProgram)
 	// Record mapping
 	p.mapping = mapping
 	// Include (Macro) Assembly Layer (if requested)
 	if p.layers.Contains(MACRO_ASM_LAYER) {
-		p.abstractSchemas = append(p.abstractSchemas, asmSchema)
+		p.abstractSchemas = append(p.abstractSchemas, &asmProgram)
 		p.names = append(p.names, "ASM")
 	}
 	// Include (Micro) Assembly Layer (if requested)
 	if p.layers.Contains(MICRO_ASM_LAYER) {
-		p.abstractSchemas = append(p.abstractSchemas, uasmSchema)
+		p.abstractSchemas = append(p.abstractSchemas, &uasmProgram)
 		p.names = append(p.names, "UASM")
 	}
 	// Include Mid-level IR layer (if requested)
@@ -292,14 +292,14 @@ func readConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringC
 }
 
 // ReadAssemblyProgram reads a given set of assembly files into a (macro) assembly program.
-func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram[bls12_377.Element], source.Maps[any]) {
+func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram, source.Maps[any]) {
 	srcfiles, err := source.ReadFiles(filenames...)
 	//
 	if err != nil {
 		panic(err)
 	}
 	//
-	program, srcmaps, errs := asm.Assemble[bls12_377.Element](srcfiles...)
+	program, srcmaps, errs := asm.Assemble(srcfiles...)
 	//
 	if len(errs) == 0 {
 		return program, srcmaps
@@ -311,7 +311,7 @@ func ReadAssemblyProgram(filenames ...string) (asm.MacroProgram[bls12_377.Elemen
 	// Fail
 	os.Exit(4)
 	// Unreachable
-	return nil, srcmaps
+	return asm.MacroProgram{}, srcmaps
 }
 
 // ReadBinaryFile reads a binfile which includes the metadata bytes, along with
@@ -343,10 +343,10 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	filenames []string) binfile.BinaryFile {
 	//
 	var (
-		errors   []source.SyntaxError
-		schema   schema.MixedSchema[bls12_377.Element, *asm.MacroFunction[bls12_377.Element], mir.Module[bls12_377.Element]]
-		srcmap   corset.SourceMap
-		srcfiles = make([]*source.File, len(filenames))
+		errors            []source.SyntaxError
+		srcmap            corset.SourceMap
+		srcfiles          = make([]*source.File, len(filenames))
+		mixedMacroProgram asm.MixedMacroProgram[bls12_377.Element]
 	)
 	// Read each file
 	for i, n := range filenames {
@@ -364,15 +364,15 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	// Separate Corset from ASM files.
 	corsetFiles, asmFiles := splitSourceFiles(srcfiles)
 	// Compile ASM files
-	macroProgram, _, errors := asm.Assemble[bls12_377.Element](asmFiles...)
+	macroProgram, _, errors := asm.Assemble(asmFiles...)
 	// Continue if no errors
 	if len(errors) == 0 {
 		// Parse and compile source files
-		schema, srcmap, errors = corset.CompileSourceFiles(config, corsetFiles, macroProgram.Functions()...)
+		mixedMacroProgram, srcmap, errors = corset.CompileSourceFiles(config, corsetFiles, macroProgram)
 		// Check for any errors
 		if len(errors) == 0 {
 			attributes := []binfile.Attribute{&srcmap}
-			return *binfile.NewBinaryFile(nil, attributes, schema)
+			return *binfile.NewBinaryFile(nil, attributes, mixedMacroProgram)
 		}
 	}
 	// Report errors
@@ -489,7 +489,7 @@ func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 			biMapping[split[0]] = biElement
 		}
 		// Substitute through constraints
-		mir.SubstituteConstants(binf.Schema, frMapping)
+		mir.SubstituteConstants(&binf.Schema, frMapping)
 		// Update source mapping
 		srcmap.SubstituteConstants(biMapping)
 	}

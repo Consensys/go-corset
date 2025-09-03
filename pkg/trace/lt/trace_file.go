@@ -16,7 +16,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -56,31 +55,69 @@ type TraceFile struct {
 	// Word pool
 	Heap WordHeap
 	// Column data
-	Columns []trace.RawColumn[word.BigEndian]
+	Modules []Module[word.BigEndian]
+}
+
+// Module groups together columns from the same module.
+type Module[F any] struct {
+	Name    string
+	Columns []Column[F]
+}
+
+// Height returns the height of this module in the trace.
+func (p *Module[F]) Height() uint {
+	if len(p.Columns) == 0 || p.Columns[0].Data == nil {
+		return 0
+	}
+	//
+	return p.Columns[0].Data.Len()
+}
+
+// Column captures the raw data for a given column.
+type Column[F any] struct {
+	// Name of the column
+	Name string
+	// Data held in the column
+	Data array.MutArray[F]
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
 // currently supported version.
-func NewTraceFile(metadata []byte, pool WordHeap, columns []trace.RawColumn[word.BigEndian]) TraceFile {
+func NewTraceFile(metadata []byte, pool WordHeap, modules []Module[word.BigEndian]) TraceFile {
 	return TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		pool,
-		columns,
+		modules,
 	}
 }
 
 // Clone a trace file producing an unaliased copy
 func (p *TraceFile) Clone() TraceFile {
-	var cols = make([]trace.RawColumn[word.BigEndian], len(p.Columns))
+	var modules = make([]Module[word.BigEndian], len(p.Modules))
 	//
-	for i := range cols {
-		cols[i] = p.Columns[i].Clone()
+	for i, mod := range p.Modules {
+		var columns = make([]Column[word.BigEndian], len(mod.Columns))
+		//
+		for j, col := range mod.Columns {
+			var data = col.Data
+			// Clone data (if it exists)
+			if data != nil {
+				data = col.Data.Clone()
+			}
+			// Clone colunm data
+			columns[j] = Column[word.BigEndian]{
+				col.Name,
+				data,
+			}
+		}
+		//
+		modules[i] = Module[word.BigEndian]{mod.Name, columns}
 	}
 	//
 	return TraceFile{
 		p.Header,
 		p.Heap.Clone(),
-		cols,
+		modules,
 	}
 }
 
@@ -117,9 +154,9 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	// Write column data
 	switch p.Header.MajorVersion {
 	case 1:
-		columnBytes, err = ToBytesLegacy(p.Columns)
+		columnBytes, err = ToBytesLegacy(p.Modules)
 	case 2:
-		columnBytes, err = ToBytes(p.Heap, p.Columns)
+		columnBytes, err = ToBytes(p.Heap, p.Modules)
 	default:
 		err = fmt.Errorf("unknown lt major file format %d", p.Header.MajorVersion)
 	}
@@ -150,13 +187,27 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	switch p.Header.MajorVersion {
 	case 1:
 		// Legacy Format
-		p.Heap, p.Columns, err = FromBytesLegacy(buffer.Bytes())
+		p.Heap, p.Modules, err = FromBytesLegacy(buffer.Bytes())
 	case 2:
 		// New format
-		p.Heap, p.Columns, err = FromBytes(buffer.Bytes())
+		p.Heap, p.Modules, err = FromBytes(buffer.Bytes())
 	default:
 		panic("unreachable")
 	}
 	//
 	return err
+}
+
+// NumberOfColumns determines the total number of columns in a given array of
+// modules.
+func NumberOfColumns[F any](modules []Module[F]) uint {
+	var count = uint(0)
+	//
+	for _, ith := range modules {
+		for range ith.Columns {
+			count++
+		}
+	}
+	//
+	return count
 }

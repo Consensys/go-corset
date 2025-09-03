@@ -109,6 +109,17 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 
 func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
 	stack cmd_util.SchemaStack[F]) {
+	//
+	if cfg.expand {
+		var errors []error
+		// Extract root schema
+		schema := stack.BinaryFile().Schema
+		// Apply trace propagation
+		if traces, errors = asm.PropagateAll(schema, traces); len(errors) != 0 {
+			t.Errorf("Trace propagation failed (%s): %s", test, errors)
+			return
+		}
+	}
 	// Run checks using schema compiled from source
 	checkCompilerOptimisations(t, test, cfg, traces, stack)
 	// Construct binary schema using primary stack
@@ -192,7 +203,7 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 					// in production); therefore, we just restrict how much its used.
 					var parallel = (i == 0)
 					//
-					if tf.Columns != nil {
+					if tf.Modules != nil {
 						// Construct trace identifier
 						id := traceId{stack.RegisterMapping().Field().Name, ir, test,
 							cfg.expected, cfg.expand, cfg.validate, opt, parallel, i + 1, padding}

@@ -10,20 +10,18 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package asm
+package io
 
 import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// IoState captures the mapping from inputs (i.e. parameters) to outputs (i.e.
+// FunctionInstance captures the mapping from inputs (i.e. parameters) to outputs (i.e.
 // returns) for a particular instance of a given function.
-type IoState struct {
+type FunctionInstance struct {
 	ninputs uint
 	state   []big.Int
 }
@@ -31,7 +29,7 @@ type IoState struct {
 // Cmp comparator for the I/O registers of a particular function instance.
 // Observe that, since functions are always deterministic, this only considers
 // the inputs (as the outputs follow directly from this).
-func (p IoState) Cmp(other IoState) int {
+func (p FunctionInstance) Cmp(other FunctionInstance) int {
 	for i := range p.ninputs {
 		if c := p.state[i].Cmp(&other.state[i]); c != 0 {
 			return c
@@ -42,30 +40,35 @@ func (p IoState) Cmp(other IoState) int {
 }
 
 // Outputs returns the output values for this function instance.
-func (p IoState) Outputs() []big.Int {
+func (p FunctionInstance) Outputs() []big.Int {
 	return p.state[p.ninputs:]
+}
+
+// Get value of given input or output argument for this instance.
+func (p FunctionInstance) Get(arg uint) big.Int {
+	return p.state[arg]
 }
 
 // Executor provides a mechanism for executing a program efficiently and
 // generating a suitable top-level trace.  Executor implements the io.Map
 // interface.
-type Executor[F field.Element[F], T io.Instruction[T]] struct {
-	program io.Program[F, T]
-	states  []set.AnySortedSet[IoState]
+type Executor[T Instruction[T]] struct {
+	program Program[T]
+	states  []set.AnySortedSet[FunctionInstance]
 }
 
 // NewExecutor constructs a new executor.
-func NewExecutor[F field.Element[F], T io.Instruction[T]](program io.Program[F, T]) *Executor[F, T] {
+func NewExecutor[T Instruction[T]](program Program[T]) *Executor[T] {
 	// Construct initially empty set of states
-	states := make([]set.AnySortedSet[IoState], len(program.Functions()))
+	states := make([]set.AnySortedSet[FunctionInstance], len(program.Functions()))
 	// Construct new executor
-	return &Executor[F, T]{program, states}
+	return &Executor[T]{program, states}
 }
 
 // Read implementation for the io.Map interface.
-func (p *Executor[F, T]) Read(bus uint, address []big.Int) []big.Int {
+func (p *Executor[T]) Read(bus uint, address []big.Int) []big.Int {
 	var (
-		iostate = IoState{uint(len(address)), address}
+		iostate = FunctionInstance{uint(len(address)), address}
 		states  = p.states[bus]
 	)
 	// Check whether this instance has already been computed.
@@ -77,12 +80,18 @@ func (p *Executor[F, T]) Read(bus uint, address []big.Int) []big.Int {
 	return p.call(bus, address)
 }
 
-// Write implementation for the io.Map interface.
-func (p *Executor[F, T]) Write(bus uint, address []big.Int, values []big.Int) {
-	panic("todo")
+// Instances returns accrued function instances for the given bus.
+func (p *Executor[T]) Instances(bus uint) []FunctionInstance {
+	return p.states[bus]
 }
 
-func (p *Executor[F, T]) call(bus uint, inputs []big.Int) []big.Int {
+// Write implementation for the io.Map interface.
+func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
+	// At this stage, there no components use this functionality.
+	panic("unsupported operation")
+}
+
+func (p *Executor[T]) call(bus uint, inputs []big.Int) []big.Int {
 	var (
 		fn = p.program.Function(bus)
 		// Determine how many I/O registers
@@ -95,9 +104,9 @@ func (p *Executor[F, T]) call(bus uint, inputs []big.Int) []big.Int {
 	// Initialise input arguments
 	copy(states, inputs)
 	// Construct initial state
-	state := io.InitialState(states, fn.Registers(), p)
+	state := InitialState(states, fn.Registers(), p)
 	// Keep executing until we're done.
-	for pc != io.RETURN && pc != io.FAIL {
+	for pc != RETURN && pc != FAIL {
 		insn := fn.CodeAt(pc)
 		// execute given instruction
 		pc = insn.Execute(state)
@@ -105,7 +114,7 @@ func (p *Executor[F, T]) call(bus uint, inputs []big.Int) []big.Int {
 		state.Goto(pc)
 	}
 	// Cache I/O instance
-	instance := IoState{fn.NumInputs(), states[:nio]}
+	instance := FunctionInstance{fn.NumInputs(), states[:nio]}
 	p.states[bus].Insert(instance)
 	// Extract outputs
 	return state.Outputs()

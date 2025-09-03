@@ -12,40 +12,114 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
-import "github.com/consensys/go-corset/pkg/util/field"
+import (
+	"bytes"
+	"encoding/gob"
+	"math/big"
 
-// Program represents a complete set of functions and related declarations
-// defining a program.
-type Program[F field.Element[F], T Instruction[T]] interface {
-	// Function returns the ith function in this program.
-	Function(uint) Function[F, T]
-	// Functions returns the set of functions defined in this program.
-	Functions() []*Function[F, T]
+	"github.com/consensys/go-corset/pkg/schema"
+)
+
+// Program encapsulates one of more functions together, such that one may call
+// another, etc.  Furthermore, it provides an interface between assembly
+// components and the notion of a Schema.
+type Program[T Instruction[T]] struct {
+	functions []*Function[T]
 }
 
 // NewProgram constructs a new program using a given level of instruction.
-func NewProgram[F field.Element[F], T Instruction[T]](components ...*Function[F, T]) Program[F, T] {
-	fns := make([]*Function[F, T], len(components))
+func NewProgram[T Instruction[T]](components []*Function[T]) Program[T] {
+	//
+	fns := make([]*Function[T], len(components))
 	copy(fns, components)
 
-	return &program[F, T]{fns}
-}
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-// Simple implementation of Program[T]
-type program[F field.Element[F], T Instruction[T]] struct {
-	functions []*Function[F, T]
+	return Program[T]{fns}
 }
 
 // Function returns the ith function in this program.
-func (p *program[F, T]) Function(id uint) Function[F, T] {
+func (p *Program[T]) Function(id uint) Function[T] {
 	return *p.functions[id]
 }
 
 // Functions returns all functions making up this program.
-func (p *program[F, T]) Functions() []*Function[F, T] {
+func (p *Program[T]) Functions() []*Function[T] {
 	return p.functions
+}
+
+// InferPadding attempts to infer suitable padding values for a function, based
+// on those padding values provided for its inputs (which default to 0).  In
+// essence, this constructs a witness for the function in question.
+func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
+	//
+	if fn.IsAtomic() {
+		// Only infer padding for one-line functions.
+		var (
+			insn      = fn.CodeAt(0)
+			registers = fn.Registers()
+			state     = initialState(registers, executor)
+		)
+		// Execute the one instruction
+		_ = insn.Execute(state)
+		// Assign padding values
+		for i := range registers {
+			var (
+				val big.Int
+				rid = schema.NewRegisterId(uint(i))
+			)
+			// Load ith register value
+			val.Set(state.Load(rid))
+			// Update padding value
+			registers[i].Padding = val
+		}
+	}
+}
+
+// Construct initial state from the given padding values.
+func initialState(registers []Register, iomap Map) State {
+	var (
+		state = make([]big.Int, len(registers))
+		index = 0
+	)
+	// Initialise arguments
+	for i, reg := range registers {
+		if reg.IsInput() {
+			var ith big.Int
+			// Clone big int.
+			ith.SetBytes(reg.Padding.Bytes())
+			// Assign to ith register
+			state[i] = ith
+			index = index + 1
+		}
+	}
+	//
+	return InitialState(state, registers, iomap)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p *Program[T]) GobEncode() (data []byte, err error) {
+	var buffer bytes.Buffer
+	//
+	gobEncoder := gob.NewEncoder(&buffer)
+	// Left modules
+	if err := gobEncoder.Encode(p.functions); err != nil {
+		return nil, err
+	}
+	// Done
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *Program[T]) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Left modules
+	if err := gobDecoder.Decode(&p.functions); err != nil {
+		return err
+	}
+	// Success!
+	return nil
 }
