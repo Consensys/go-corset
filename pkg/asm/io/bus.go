@@ -26,9 +26,9 @@ type Bus struct {
 	// functions and components.
 	BusId uint
 	// Determines the address lines of this bus.
-	address []RegisterId
+	AddressLines []RegisterId
 	// Determiunes the data lines of this bus.
-	data []RegisterId
+	DataLines []RegisterId
 }
 
 // IsUnlinked checks whether a given bus has been linked already or not.
@@ -51,18 +51,18 @@ func NewBus(name string, id uint, address []RegisterId, data []RegisterId) Bus {
 // Address returns the "address lines" for this bus.  That is, the registers
 // which hold the various components of the address.
 func (p *Bus) Address() []RegisterId {
-	return p.address
+	return p.AddressLines
 }
 
 // Data returns the "data lines" for this bus.  That is, the registers which
 // hold the various data values (either being read or written).
 func (p *Bus) Data() []RegisterId {
-	return p.data
+	return p.DataLines
 }
 
 // AddressData returns the "address" and "data" lines for this bus (in that
 // order).  That is, the registers which hold the various components of the
 // address.
 func (p *Bus) AddressData() []RegisterId {
-	return append(p.address, p.data...)
+	return append(p.AddressLines, p.DataLines...)
 }
