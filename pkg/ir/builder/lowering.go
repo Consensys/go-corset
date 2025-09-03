@@ -76,6 +76,7 @@ func parallelLowering[F field.Element[F]](modules []lt.Module[word.BigEndian]) (
 	for i, ith := range modules {
 		// Construct enough blank columns
 		loweredModules[i].Columns = make([]lt.Column[F], len(ith.Columns))
+		loweredModules[i].Name = ith.Name
 		// Dispatch go-routines to fill them
 		for j, jth := range ith.Columns {
 			go func(mid int, cid int, column lt.Column[word.BigEndian]) {

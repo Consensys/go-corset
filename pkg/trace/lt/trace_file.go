@@ -66,7 +66,7 @@ type Module[F any] struct {
 
 // Height returns the height of this module in the trace.
 func (p *Module[F]) Height() uint {
-	if len(p.Columns) == 0 {
+	if len(p.Columns) == 0 || p.Columns[0].Data == nil {
 		return 0
 	}
 	//

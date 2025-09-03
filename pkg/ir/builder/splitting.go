@@ -13,6 +13,7 @@
 package builder
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema"
@@ -64,9 +65,8 @@ func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schem
 			modmap  = mapping.ModuleOf(ith.Name)
 		)
 		//
-		for j, jth := range ith.Columns {
-			rid := schema.NewRegisterId(uint(j))
-			split, errs := splitRawColumn(rid, jth, builder, modmap)
+		for _, jth := range ith.Columns {
+			split, errs := splitRawColumn(jth, builder, modmap)
 			columns = append(columns, split...)
 			errors = append(errors, errs...)
 		}
@@ -102,7 +102,7 @@ func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.
 			// Start go-routine for this column
 			go func(mid, cid int, column lt.Column[word.BigEndian], mapping schema.LimbsMap) {
 				// Send outcome back
-				data, errors := splitRawColumn(schema.NewRegisterId(uint(cid)), column, builder, modmap)
+				data, errors := splitRawColumn(column, builder, modmap)
 				c <- splitResult[F]{mid, cid, data, errors}
 			}(i, j, jth, mapping)
 		}
@@ -140,17 +140,26 @@ func flatten[W any](tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.Module[W] {
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn[F field.Element[F]](rid schema.RegisterId, col lt.Column[word.BigEndian], builder array.Builder[F],
+func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder array.Builder[F],
 	modmap schema.RegisterLimbsMap) ([]lt.Column[F], []error) {
 	//
-	var height uint
+	var (
+		height uint
+		//
+		reg, regExists = modmap.HasRegister(col.Name)
+	)
+	// Check whether register is known
+	if !regExists {
+		// Unknown register --- this is an error
+		return nil, []error{fmt.Errorf("unknown register \"%s\"", col.Name)}
+	}
 	// Calculate register height.  Observe that computed registers will have nil
 	// for their data at this point since they haven't been computed yet.
 	if col.Data != nil {
 		height = col.Data.Len()
 	}
 	// Determine register id for this column (we can assume it exists)
-	limbIds := modmap.LimbIds(rid)
+	limbIds := modmap.LimbIds(reg)
 	//
 	if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
@@ -158,7 +167,7 @@ func splitRawColumn[F field.Element[F]](rid schema.RegisterId, col lt.Column[wor
 		return []lt.Column[F]{lowerRawColumn(col, builder)}, nil
 	}
 	// Yes, must split into two or more limbs of given widths.
-	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(rid))
+	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Determine limbs of this register
 	limbs := agnostic.LimbsOf(modmap, limbIds)
 	// Construct temporary place holder for new array data.

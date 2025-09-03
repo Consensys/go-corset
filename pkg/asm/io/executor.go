@@ -44,6 +44,11 @@ func (p FunctionInstance) Outputs() []big.Int {
 	return p.state[p.ninputs:]
 }
 
+// Get value of given input or output argument for this instance.
+func (p FunctionInstance) Get(arg uint) big.Int {
+	return p.state[arg]
+}
+
 // Executor provides a mechanism for executing a program efficiently and
 // generating a suitable top-level trace.  Executor implements the io.Map
 // interface.
@@ -75,9 +80,15 @@ func (p *Executor[T]) Read(bus uint, address []big.Int) []big.Int {
 	return p.call(bus, address)
 }
 
+// Instances returns accrued function instances for the given bus.
+func (p *Executor[T]) Instances(bus uint) []FunctionInstance {
+	return p.states[bus]
+}
+
 // Write implementation for the io.Map interface.
 func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
-	panic("todo")
+	// At this stage, there no components use this functionality.
+	panic("unsupported operation")
 }
 
 func (p *Executor[T]) call(bus uint, inputs []big.Int) []big.Int {

@@ -88,10 +88,12 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	if expanding {
 		// Apply trace propagation
-		tracefile = asm.Propagate(binf.Schema, tracefile)
+		tracefile, errors = asm.Propagate(binf.Schema, tracefile)
 	}
 	// Apply trace expansion
-	trace, errors = schemas.TraceBuilder().Build(schema, tracefile)
+	if len(errors) == 0 {
+		trace, errors = schemas.TraceBuilder().Build(schema, tracefile)
+	}
 	//
 	if len(errors) == 0 {
 		// Run the inspector.

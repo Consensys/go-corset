@@ -111,10 +111,14 @@ func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, 
 	stack cmd_util.SchemaStack[F]) {
 	//
 	if cfg.expand {
+		var errors []error
 		// Extract root schema
 		schema := stack.BinaryFile().Schema
 		// Apply trace propagation
-		traces = asm.PropagateAll(schema, traces)
+		if traces, errors = asm.PropagateAll(schema, traces); len(errors) != 0 {
+			t.Errorf("Trace propagation failed (%s): %s", test, errors)
+			return
+		}
 	}
 	// Run checks using schema compiled from source
 	checkCompilerOptimisations(t, test, cfg, traces, stack)

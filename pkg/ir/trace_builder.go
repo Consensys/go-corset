@@ -176,8 +176,8 @@ func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.
 		// Lower raw columns
 		arrBuilder, modules = builder.TraceLowering[F](tb.parallel, tf)
 	}
-	// Realign trace for the given schema after lowering.
-	if modules, errors = AlignTrace(schema, modules, tb.expand); len(errors) > 0 {
+	// Apply trace alignment to after lowering.
+	if modules, errors = AlignTrace(schema.Modules().Collect(), modules, tb.expand); len(errors) > 0 {
 		return nil, errors
 	}
 	// Initialise the actual trace object

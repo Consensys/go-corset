@@ -30,38 +30,40 @@ import (
 // NOTE: alignment is impacted by whether or not the trace is being expanded or
 // not. Specifically, expanding traces don't need to include data for computed
 // columns, since these will be added during expansion.
-func AlignTrace[F any](schema sc.AnySchema[F], modules []lt.Module[F], expanding bool,
+func AlignTrace[F any, M sc.RegisterMap](schema []M, trace []lt.Module[F], expanding bool,
 ) ([]lt.Module[F], []error) {
+	//
 	var errors []error
 	// First, align modules
-	if modules, errors = alignModules(schema, modules, expanding); len(errors) > 0 {
+	if trace, errors = alignModules(schema, trace, expanding); len(errors) > 0 {
 		return nil, errors
 	}
 	// Second, align columns within modules
-	for i := range schema.Width() {
-		cols, errs := alignColumns(schema.Module(i), modules[i].Columns, expanding)
+	for i, m := range schema {
+		cols, errs := alignColumns(m, trace[i].Columns, expanding)
 		errors = append(errors, errs...)
-		modules[i].Columns = cols
+		trace[i].Columns = cols
 	}
 	// Done
-	return modules, errors
+	return trace, errors
 }
 
-func alignModules[F any](schema sc.AnySchema[F], modules []lt.Module[F], expanding bool) ([]lt.Module[F], []error) {
+func alignModules[F any, M sc.RegisterMap](schema []M, mods []lt.Module[F], expanding bool) ([]lt.Module[F], []error) {
 	//
 	var (
+		width  = uint(len(schema))
 		modmap = make(map[string]uint)
-		nmods  = make([]lt.Module[F], max(schema.Width()))
+		nmods  = make([]lt.Module[F], width)
 		errs   []error
 	)
 	// Initialise module mapping
-	for i := range schema.Width() {
-		ith := schema.Module(i)
+	for i := range width {
+		ith := schema[i]
 		nmods[i].Name = ith.Name()
 		modmap[ith.Name()] = i
 	}
 	// Rearrange layout
-	for _, m := range modules {
+	for _, m := range mods {
 		if index, ok := modmap[m.Name]; ok {
 			nmods[index] = m
 		} else if expanding {
@@ -72,19 +74,26 @@ func alignModules[F any](schema sc.AnySchema[F], modules []lt.Module[F], expandi
 	return nmods, errs
 }
 
-func alignColumns[F any](mod sc.Module[F], columns []lt.Column[F], expanding bool) ([]lt.Column[F], []error) {
+func alignColumns[F any](mapping sc.RegisterMap, columns []lt.Column[F], expanding bool) ([]lt.Column[F], []error) {
 	var (
 		// Errs contains the set of filling errors which are accumulated
-		errs []error
+		errs  []error
+		width = uint(len(mapping.Registers()))
+		// Height is used to sanity check the height of all columns in this
+		// modules to ensure they are consistent.
+		height uint
+		// isEmpty is used to determine whether or not this is an "empty
+		// module".  This is one which did not actually feature in the trace.
+		isEmpty bool = true
 		//
-		colmap = make(map[string]uint, mod.Width())
-		seen   = make([]bool, mod.Width())
+		colmap = make(map[string]uint, width)
+		seen   = make([]bool, width)
 		//
-		ncols = make([]lt.Column[F], mod.Width())
+		ncols = make([]lt.Column[F], width)
 	)
 	// Initialise column map
-	for i := range mod.Width() {
-		ith := mod.Register(sc.NewRegisterId(i))
+	for i := range width {
+		ith := mapping.Register(sc.NewRegisterId(i))
 		ncols[i].Name = ith.Name
 		colmap[ith.Name] = i
 	}
@@ -94,26 +103,35 @@ func alignColumns[F any](mod sc.Module[F], columns []lt.Column[F], expanding boo
 		cid, ok := colmap[col.Name]
 		// More sanity checks
 		if !ok {
-			errs = append(errs, fmt.Errorf("unknown column '%s' in trace", tr.QualifiedColumnName(mod.Name(), col.Name)))
+			errs = append(errs, fmt.Errorf("unknown column '%s' in trace", tr.QualifiedColumnName(mapping.Name(), col.Name)))
 		} else if ok := seen[cid]; ok {
-			errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", tr.QualifiedColumnName(mod.Name(), col.Name)))
+			errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", tr.QualifiedColumnName(mapping.Name(), col.Name)))
 		} else {
 			seen[cid] = true
 			ncols[cid] = col
+			// Update height
+			if isEmpty && col.Data != nil {
+				height = col.Data.Len()
+				isEmpty = false
+			} else if col.Data != nil && col.Data.Len() != height {
+				name := tr.QualifiedColumnName(mapping.Name(), col.Name)
+				errs = append(errs,
+					fmt.Errorf("inconsistent height for column '%s' in trace (was %d vs %d)", name, col.Data.Len(), height))
+			}
 		}
 	}
-	// Sanity check everything was assigned
-	for i := range mod.Width() {
+	// Sanity check everything we expected was assigned
+	for i := range width {
 		var (
-			reg = mod.Register(sc.NewRegisterId(i))
+			reg = mapping.Register(sc.NewRegisterId(i))
 			col = ncols[i]
 		)
 		//
-		if reg.IsInputOutput() && col.Data == nil {
-			name := tr.QualifiedColumnName(mod.Name(), reg.Name)
+		if reg.IsInputOutput() && col.Data == nil && !isEmpty {
+			name := tr.QualifiedColumnName(mapping.Name(), reg.Name)
 			errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", name))
 		} else if !expanding && col.Data == nil {
-			name := tr.QualifiedColumnName(mod.Name(), reg.Name)
+			name := tr.QualifiedColumnName(mapping.Name(), reg.Name)
 			errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", name))
 		}
 	}

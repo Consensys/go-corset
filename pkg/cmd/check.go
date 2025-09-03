@@ -191,12 +191,14 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	schema := schemas.BinaryFile().Schema
 	// Apply trace propagation
 	if expanding {
-		traces = asm.PropagateAll(schema, traces)
+		traces, errors = asm.PropagateAll(schema, traces)
 	}
 	// Go!
-	for i, schema := range schemas.ConcreteSchemas() {
-		ir := schemas.ConcreteIrName(uint(i))
-		ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
+	if len(errors) == 0 {
+		for i, schema := range schemas.ConcreteSchemas() {
+			ir := schemas.ConcreteIrName(uint(i))
+			ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
+		}
 	}
 	// Handle errors
 	if !ok || len(errors) > 0 {

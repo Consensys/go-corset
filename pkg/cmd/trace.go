@@ -180,10 +180,13 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 	)
 	// Apply trace propagation
 	if bldr.Expanding() {
-		tf = asm.Propagate(schema, tf)
+		tf, errors = asm.Propagate(schema, tf)
 	}
-	// Construct expanded trace
-	tr, errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
+	//
+	if len(errors) == 0 {
+		// Construct expanded trace
+		tr, errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
+	}
 	// Handle errors
 	if len(errors) > 0 {
 		for _, err := range errors {
