@@ -23,14 +23,14 @@ func Test_Asm_Add(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/add", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-// Recusion
-//
-//	func Test_Asm_Byte(t *testing.T) {
-//		test_util.Check(t, false, "asm/byte")
-//	}
+func Test_Asm_Byte(t *testing.T) {
+	test_util.Check(t, false, "asm/byte")
+}
+
 func Test_Asm_Dec4(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/dec4", sc.BLS12_377)
 }
+
 func Test_Asm_Dec251(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/dec251", sc.BLS12_377, sc.KOALABEAR_16)
 }
@@ -104,14 +104,10 @@ func Test_Asm_Trim(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/trim", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-// Recursion
-//
 // func Test_Asm_RecPow(t *testing.T) {
 // 	test_util.Check(t, false, "asm/rec_pow")
 // }
 
-// Recursion
-//
 // func Test_Asm_Shift(t *testing.T) {
 // 	test_util.Check(t, false, "asm/shift")
 // }

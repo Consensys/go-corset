@@ -10,12 +10,13 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package io
+package program
 
 import (
 	"fmt"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -54,7 +55,12 @@ func (p *ConstraintFailure[F]) String() string {
 
 // Constraint represents a wrapper around an instruction in order for it to
 // conform to the constraint interface.
-type Constraint[F field.Element[F], T Instruction[T]] Function[F, T]
+type Constraint[F field.Element[F], T io.Instruction[T]] struct {
+	id        sc.ModuleId
+	name      string
+	registers []io.Register
+	code      []T
+}
 
 // Accepts implementation for schema.Constraint interface.
 func (p Constraint[F, T]) Accepts(trace tr.Trace[F], _ sc.AnySchema[F],
@@ -62,8 +68,8 @@ func (p Constraint[F, T]) Accepts(trace tr.Trace[F], _ sc.AnySchema[F],
 	// Extract relevant part of the trace
 	var (
 		coverage bit.Set
-		trModule       = trace.Module(p.id)
-		state    State = EmptyState(RETURN, p.registers, nil)
+		trModule = trace.Module(p.id)
+		state    = io.EmptyState(io.RETURN, p.registers, nil)
 	)
 	//
 	for i := range trModule.Height() {
@@ -127,9 +133,9 @@ func (p Constraint[F, T]) Substitute(map[string]F) {
 	// employ labelled constants.
 }
 
-func extractState[F field.Element[F]](row int, state State, trace tr.Module[F]) State {
+func extractState[F field.Element[F]](row int, state io.State, trace tr.Module[F]) io.State {
 	//
-	for i := range state.registers {
+	for i := range state.Registers() {
 		var (
 			rid   = sc.NewRegisterId(uint(i))
 			col   = trace.Column(uint(i))
@@ -145,7 +151,7 @@ func extractState[F field.Element[F]](row int, state State, trace tr.Module[F]) 
 	return state
 }
 
-func checkState[F field.Element[F]](row int, state State, mid sc.ModuleId, trace tr.Module[F]) sc.Failure {
+func checkState[F field.Element[F]](row int, state io.State, mid sc.ModuleId, trace tr.Module[F]) sc.Failure {
 	// Check each regsiter in turn
 	for i := range trace.Width() {
 		var (
@@ -160,7 +166,7 @@ func checkState[F field.Element[F]](row int, state State, mid sc.ModuleId, trace
 		// Sanity check they match
 		if biVal.Cmp(stVal) != 0 {
 			msg := fmt.Sprintf("invalid register state (%s holds 0x%s, expected 0x%s)",
-				state.registers[i].Name, biVal.Text(16), stVal.Text(16))
+				state.Registers()[i].Name, biVal.Text(16), stVal.Text(16))
 			//
 			return &ConstraintFailure[F]{mid, uint(row), msg}
 		}

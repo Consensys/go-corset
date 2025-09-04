@@ -16,10 +16,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/inspector"
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -49,6 +51,10 @@ var inspectCmds = []FieldAgnosticCmd{
 }
 
 func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var (
+		errors []error
+		trace  trace.Trace[F]
+	)
 	//
 	if len(args) != 2 {
 		fmt.Println(cmd.UsageString())
@@ -60,6 +66,8 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	stats := util.NewPerfStats()
 	// Parse constraints
 	binf := schemas.BinaryFile()
+	// Determine whether expansion is being performed
+	expanding := schemas.TraceBuilder().Expanding()
 	// Sanity check debug information is available.
 	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 	//
@@ -77,8 +85,15 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	schema := schemas.UniqueConcreteSchema()
 	//
 	stats.Log("Reading trace file")
-	// Build the trace
-	trace, errors := schemas.TraceBuilder().Build(schema, tracefile)
+	//
+	if expanding {
+		// Apply trace propagation
+		tracefile, errors = asm.Propagate(binf.Schema, tracefile)
+	}
+	// Apply trace expansion
+	if len(errors) == 0 {
+		trace, errors = schemas.TraceBuilder().Build(schema, tracefile)
+	}
 	//
 	if len(errors) == 0 {
 		// Run the inspector.

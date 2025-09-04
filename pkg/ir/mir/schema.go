@@ -31,8 +31,6 @@ import (
 
 // Following types capture top-level abstractions at the MIR level.
 type (
-	// MixedSchema captures the notion of two distinct modules types mixed together.
-	MixedSchema[F field.Element[F], M schema.Module[F]] = schema.MixedSchema[F, M, Module[F]]
 	// Module captures the essence of a module at the MIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the MIR level.
 	Module[F field.Element[F]] = *schema.Table[F, Constraint[F]]
@@ -136,8 +134,7 @@ type (
 
 // SubstituteConstants substitutes the value of matching labelled constants for
 // all expressions used within the schema.
-func SubstituteConstants[F field.Element[F], M schema.Module[F]](schema schema.MixedSchema[F, M, Module[F]],
-	mapping map[string]F) {
+func SubstituteConstants[F field.Element[F]](schema schema.AnySchema[F], mapping map[string]F) {
 	// Constraints
 	for iter := schema.Constraints(); iter.HasNext(); {
 		constraint := iter.Next()

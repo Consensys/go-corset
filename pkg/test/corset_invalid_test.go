@@ -20,8 +20,6 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -894,7 +892,7 @@ func CheckInvalid(t *testing.T, test string) {
 	// Package up as source file
 	srcfile := source.NewSourceFile(filename, bytes)
 	// Parse terms into an HIR schema
-	_, _, errs := corset.CompileSourceFile[schema.Module[bls12_377.Element]](corsetConfig, srcfile)
+	_, _, errs := corset.CompileSourceFile(corsetConfig, srcfile)
 	// Extract expected errors for comparison
 	expectedErrs, lineOffsets := extractExpectedErrors(bytes)
 	// Check program did not compile!

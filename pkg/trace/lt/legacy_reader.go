@@ -17,7 +17,6 @@ import (
 	"encoding/binary"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
@@ -28,7 +27,50 @@ import (
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], error) {
+func FromBytesLegacy(data []byte) (WordHeap, []Module[word.BigEndian], error) {
+	var modules []Module[word.BigEndian]
+	// Read out all column data
+	heap, columns, error := readLegacyBytes(data)
+	// Post process into structured form
+	if error == nil {
+		modules = groupLegacyColumns(columns)
+	}
+	//
+	return heap, modules, error
+}
+
+type legacyHeader struct {
+	name   string
+	length uint
+	width  uint
+}
+
+func groupLegacyColumns(columns []Column[word.BigEndian]) []Module[word.BigEndian] {
+	var (
+		modules []Module[word.BigEndian]
+		modmap  map[string]int = make(map[string]int)
+	)
+	// Process each column one by one
+	for _, column := range columns {
+		mod, col := splitQualifiedColumnName(column.Name)
+		// Check whether module already allocated
+		index, ok := modmap[mod]
+		//
+		if !ok {
+			index = len(modules)
+			modules = append(modules, Module[word.BigEndian]{mod, nil})
+			modmap[mod] = index
+		}
+		// Update column name
+		column.Name = col
+		// Group it
+		modules[index].Columns = append(modules[index].Columns, column)
+	}
+	//
+	return modules
+}
+
+func readLegacyBytes(data []byte) (WordHeap, []Column[word.BigEndian], error) {
 	var (
 		buf     = bytes.NewReader(data)
 		heap    = pool.NewSharedHeap[word.BigEndian]()
@@ -40,8 +82,8 @@ func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], 
 		return WordHeap{}, nil, err
 	}
 	// Construct empty environment
-	headers := make([]legacyColumnHeader, ncols)
-	columns := make([]trace.RawColumn[word.BigEndian], ncols)
+	headers := make([]legacyHeader, ncols)
+	columns := make([]Column[word.BigEndian], ncols)
 	// Read column headers
 	for i := uint32(0); i < ncols; i++ {
 		header, err := readLegacyColumnHeader(buf)
@@ -76,23 +118,17 @@ func FromBytesLegacy(data []byte) (WordHeap, []trace.RawColumn[word.BigEndian], 
 		// Read packaged result from channel
 		res := <-c
 		// Split qualified column name
-		mod, col := splitQualifiedColumnName(headers[res.Left].name)
+		name := headers[res.Left].name
 		// Construct appropriate slice
-		columns[res.Left] = trace.RawColumn[word.BigEndian]{Module: mod, Name: col, Data: res.Right}
+		columns[res.Left] = Column[word.BigEndian]{Name: name, Data: res.Right}
 	}
 	// Done
 	return *heap.Localise(), columns, nil
 }
 
-type legacyColumnHeader struct {
-	name   string
-	length uint
-	width  uint
-}
-
 // Read the meta-data for a specific column in this trace file.
-func readLegacyColumnHeader(buf *bytes.Reader) (legacyColumnHeader, error) {
-	var header legacyColumnHeader
+func readLegacyColumnHeader(buf *bytes.Reader) (legacyHeader, error) {
+	var header legacyHeader
 	// Qualified column name length
 	var nameLen uint16
 	// Read column name length
@@ -124,7 +160,7 @@ func readLegacyColumnHeader(buf *bytes.Reader) (legacyColumnHeader, error) {
 	return header, nil
 }
 
-func readColumnData(header legacyColumnHeader, bytes []byte, heap ArrayBuilder) array.MutArray[word.BigEndian] {
+func readColumnData(header legacyHeader, bytes []byte, heap ArrayBuilder) array.MutArray[word.BigEndian] {
 	// Handle special cases
 	switch header.width {
 	case 1:
@@ -155,7 +191,7 @@ func areAllBits(bytes []byte) bool {
 	return true
 }
 
-func readBitColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
+func readBitColumnData(header legacyHeader, bytes []byte) array.MutArray[word.BigEndian] {
 	arr := array.NewBitArray[word.BigEndian](header.length)
 	//
 	for i := uint(0); i < header.length; i++ {
@@ -183,7 +219,7 @@ func readByteColumnData(length uint, bytes []byte, start, stride uint) array.Mut
 	return &arr
 }
 
-func readWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
+func readWordColumnData(header legacyHeader, bytes []byte) array.MutArray[word.BigEndian] {
 	var (
 		arr    = array.NewSmallArray[uint16, word.BigEndian](header.length, header.width*8)
 		offset = uint(0)
@@ -213,7 +249,7 @@ func readWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[
 	return &arr
 }
 
-func readDWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray[word.BigEndian] {
+func readDWordColumnData(header legacyHeader, bytes []byte) array.MutArray[word.BigEndian] {
 	var (
 		arr    = array.NewSmallArray[uint32, word.BigEndian](header.length, header.width*8)
 		offset = uint(0)
@@ -235,7 +271,7 @@ func readDWordColumnData(header legacyColumnHeader, bytes []byte) array.MutArray
 	return &arr
 }
 
-func readQWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
+func readQWordColumnData(header legacyHeader, bytes []byte, builder ArrayBuilder) array.MutArray[word.BigEndian] {
 	var (
 		arr    = builder.NewArray(header.length, header.width*8)
 		offset = uint(0)
@@ -252,7 +288,7 @@ func readQWordColumnData(header legacyColumnHeader, bytes []byte, builder ArrayB
 }
 
 // Read column data which is has arbitrary width
-func readArbitraryColumnData(header legacyColumnHeader, bytes []byte, builder ArrayBuilder,
+func readArbitraryColumnData(header legacyHeader, bytes []byte, builder ArrayBuilder,
 ) array.MutArray[word.BigEndian] {
 	var (
 		arr    = builder.NewArray(header.length, header.width*8)

@@ -64,29 +64,3 @@ type Column[T any] interface {
 	// Padding returns the value which will be used for padding this column.
 	Padding() T
 }
-
-// RawColumn represents a raw column of data which has not (yet) been indexed as
-// part of a trace, etc.  Raw columns are typically read difrtly from trace
-// files, and subsequently indexed into a trace during the expansion process.
-type RawColumn[T any] struct {
-	// Name of the enclosing module
-	Module string
-	// Name of the column
-	Name string
-	// Data held in the column
-	Data array.MutArray[T]
-}
-
-// QualifiedName returns the fully qualified name of this column.
-func (p *RawColumn[T]) QualifiedName() string {
-	return QualifiedColumnName(p.Module, p.Name)
-}
-
-// Clone this raw column producing an unaliased copy.
-func (p *RawColumn[T]) Clone() RawColumn[T] {
-	return RawColumn[T]{
-		p.Module,
-		p.Name,
-		p.Data.Clone(),
-	}
-}

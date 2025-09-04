@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -52,24 +53,24 @@ type ModuleBuilder = ir.ModuleBuilder[bls12_377.Element, mirConstraint, mirTerm]
 // easily.  Thus, whilst syntax errors can be returned here, this should never
 // happen.  The mechanism is supported, however, to simplify development of new
 // features, etc.
-func TranslateCircuit[M schema.Module[bls12_377.Element]](
+func TranslateCircuit(
 	env Environment,
 	srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit,
-	externs ...M) (schema.MixedSchema[bls12_377.Element, M, mirModule], []SyntaxError) {
+	extern asm.MacroProgram) (asm.MixedMacroProgram[bls12_377.Element], []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm](externs...)
+	builder := ir.NewSchemaBuilder[bls12_377.Element, mirConstraint, mirTerm](extern.Functions()...)
 	t := translator{env, srcmap, builder}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
 	// Translate everything else
 	if errs := t.translateDeclarations(circuit); len(errs) > 0 {
-		return schema.MixedSchema[bls12_377.Element, M, mirModule]{}, errs
+		return asm.MixedMacroProgram[bls12_377.Element]{}, errs
 	}
 	// Build concrete modules from schema
 	modules := ir.BuildSchema[mirModule](t.schema)
-	// Finally, construct the mixed schema
-	return schema.NewMixedSchema(externs, modules), nil
+	// Finally, construct the asm program
+	return asm.NewMixedProgram[bls12_377.Element](extern, modules...), nil
 }
 
 // Translator packages up information necessary for translating a circuit into
@@ -102,7 +103,7 @@ func (t *translator) translateModules(circuit *ast.Circuit) {
 // one MIR module.
 func (t *translator) translateModule(name string) {
 	// Always include module with base multiplier (even if empty).
-	t.schema.NewModule(name, 1, true)
+	t.schema.NewModule(name, 1, true, false)
 	// Initialise the corresponding family of MIR modules.
 	for _, regIndex := range t.env.RegistersOf(name) {
 		var (
@@ -114,7 +115,7 @@ func (t *translator) translateModule(name string) {
 		// Check whether module created this already (or not)
 		if _, ok := t.schema.HasModule(moduleName); !ok {
 			// No, therefore create new module.
-			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier(), true)
+			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier(), true, false)
 		}
 	}
 	// Translate all corset registers in this module into MIR registers across

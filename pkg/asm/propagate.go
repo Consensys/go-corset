@@ -1,0 +1,248 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package asm
+
+import (
+	"fmt"
+	"math/big"
+	"strings"
+
+	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/trace/lt"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
+)
+
+// RawModule provides a convenient alias
+type RawModule = lt.Module[word.BigEndian]
+
+// PropagateAll propagates secondary (i.e. derivative) function instances
+// throughout one or more traces.  NOTES:
+//
+// Parallelism?
+// Validation?
+// Batch size?
+// Recursion limit (to prevent infinite loops)
+func PropagateAll[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T], ts []lt.TraceFile,
+) ([]lt.TraceFile, []error) {
+	var (
+		errors  []error
+		ntraces = make([]lt.TraceFile, len(ts))
+	)
+	//
+	for i, trace := range ts {
+		var errs []error
+		// NOTE: its possible to get empty traces which arise from comment lines
+		// in a trace batch.  Whilst it is kind of awkward, we want to preserve
+		// the empty traces as this helps error reporting with respect to line
+		// numbers.
+		if trace.Modules != nil {
+			ntraces[i], errs = Propagate(p, trace)
+			errors = append(errors, errs...)
+		}
+	}
+	//
+	return ntraces, errors
+}
+
+// Propagate secondary (i.e. derivative) function instances throughout a trace.
+// For example, suppose two functions "f(x)" and "g(y)", where f(x) calls g(y).
+// Then, consider a trace which contains exactly one instance "f(a)=b". Since
+// f(x) calls g(y) we may (depending on the exact implementation of f(x) and the
+// parameter given) require a secondary instance, say "g(y)=c", to be added to
+// make the trace complete with respect to the original instance. Trace
+// propagation is about figuring out what secondary instances are required, and
+// adding them to the trace.
+//
+// NOTES:
+//
+// Parallelism?
+// Validation?
+// Batch size?
+// Recursion limit (to prevent infinite loops)
+func Propagate[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T], trace lt.TraceFile,
+) (lt.TraceFile, []error) {
+	// Construct suitable executior for the given program
+	var (
+		errors []error
+		n      = len(p.program.Functions())
+		//
+		executor = io.NewExecutor(p.program)
+		// Clone heap in trace file, since will mutate this.
+		heap = trace.Heap.Clone()
+	)
+	// Perform trace alignment
+	trace.Modules, errors = ir.AlignTrace(p.Modules().Collect(), trace.Modules, true)
+	// Sanity check for errors
+	if len(errors) > 0 {
+		return lt.TraceFile{}, errors
+	}
+	// Write seed instances
+	errors = writeInstances(p.program, trace.Modules[:n], executor)
+	// Read out generated instances
+	modules := readInstances(&heap, p.program, executor)
+	// Append external modules (which are unaffected by propagation).
+	modules = append(modules, trace.Modules[n:]...)
+	// Done
+	return lt.NewTraceFile(trace.Header.MetaData, heap, modules), errors
+}
+
+// WriteInstances writes all of the instances defined in the given trace columns
+// into the executor which, in turn, forces it to execute the relevant
+// functions, and functions they call, etc.
+func writeInstances[T io.Instruction[T]](p io.Program[T], trace []lt.Module[word.BigEndian],
+	executor *io.Executor[T]) []error {
+	//
+	var errors []error
+	//
+	for i, m := range trace {
+		errs := writeFunctionInstances(uint(i), p, m, executor)
+		errors = append(errors, errs...)
+	}
+	//
+	return errors
+}
+
+func writeFunctionInstances[T io.Instruction[T]](fid uint, p io.Program[T], mod RawModule,
+	executor *io.Executor[T]) []error {
+	//
+	var (
+		height = mod.Height()
+		fn     = p.Function(fid)
+		inputs = make([]big.Int, fn.NumInputs())
+		errors []error
+	)
+	// Invoke each instance in turn
+	for i := range height {
+		// Extract function inputs
+		extractFunctionColumns(i, 0, mod, inputs)
+		// Execute function call to produce outputs
+		outputs := executor.Read(fid, inputs)
+		// Sanity check outputs match expected outputs
+		errors = append(errors, checkFunctionOutputs(i, fn, mod, inputs, outputs)...)
+	}
+	//
+	return errors
+}
+
+func checkFunctionOutputs[T io.Instruction[T]](row uint, fn io.Function[T], mod RawModule, inputs []big.Int,
+	outputs []big.Int) []error {
+	//
+	var (
+		givenOutputs = make([]big.Int, len(outputs))
+		errors       []error
+	)
+	// Extract outputs from columns to enable comparison
+	extractFunctionColumns(row, fn.NumInputs(), mod, givenOutputs)
+	//
+	for i := uint(0); i < fn.NumOutputs(); i++ {
+		given := givenOutputs[i]
+		computed := outputs[i]
+		// Check input value
+		if given.Cmp(&computed) != 0 {
+			ins := toArgumentString(inputs)
+			outs := toArgumentString(givenOutputs)
+			errors = append(errors, fmt.Errorf("inconsistent instance %s(%s)=%s in trace", fn.Name(), ins, outs))
+		}
+	}
+	//
+	return errors
+}
+
+func extractFunctionColumns(row, offset uint, mod RawModule, buf []big.Int) {
+	for i := uint(0); i < uint(len(buf)); i++ {
+		var (
+			col   = mod.Columns[i+offset]
+			input big.Int
+		)
+		// Assign value
+		input.SetBytes(col.Data.Get(row).Bytes())
+		//
+		buf[i] = input
+	}
+}
+
+// ReadInstances simply traverses all internal states generated within the
+// executor and converts them back into raw columns.
+func readInstances[T io.Instruction[T]](heap *lt.WordHeap, p io.Program[T], executor *io.Executor[T],
+) []lt.Module[word.BigEndian] {
+	var (
+		modules = make([]lt.Module[word.BigEndian], len(p.Functions()))
+		builder = array.NewDynamicBuilder(heap)
+	)
+	//
+	for i := range p.Functions() {
+		fn := p.Function(uint(i))
+		instances := executor.Instances(uint(i))
+		modules[i] = readFunctionInstances(fn, instances, &builder)
+	}
+	//
+	return modules
+}
+
+func readFunctionInstances[T io.Instruction[T]](fn io.Function[T], instances []io.FunctionInstance,
+	builder array.Builder[word.BigEndian]) lt.Module[word.BigEndian] {
+	var (
+		registers = fn.Registers()
+		columns   = make([]lt.Column[word.BigEndian], fn.NumInputs()+fn.NumOutputs())
+	)
+	//
+	for i := range columns {
+		data := readFunctionInputOutputs(uint(i), registers, instances, builder)
+		//
+		columns[i] = lt.Column[word.BigEndian]{
+			Name: registers[i].Name,
+			Data: data,
+		}
+	}
+	//
+	return lt.Module[word.BigEndian]{
+		Name:    fn.Name(),
+		Columns: columns,
+	}
+}
+
+func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.FunctionInstance,
+	builder array.Builder[word.BigEndian]) array.MutArray[word.BigEndian] {
+	var (
+		height = uint(len(instances))
+		arr    = builder.NewArray(height, registers[arg].Width)
+	)
+	//
+	for i, instance := range instances {
+		var (
+			ith big.Int = instance.Get(arg)
+			w   word.BigEndian
+		)
+		//
+		arr.Set(uint(i), w.SetBytes(ith.Bytes()))
+	}
+	//
+	return arr
+}
+
+func toArgumentString(args []big.Int) string {
+	var builder strings.Builder
+	//
+	for i, arg := range args {
+		if i != 0 {
+			builder.WriteString(", ")
+		}
+
+		builder.WriteString(arg.String())
+	}
+	//
+	return builder.String()
+}

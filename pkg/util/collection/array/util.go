@@ -344,3 +344,15 @@ func forceFlatten[T any](items []T, fn func(T) []T) []T {
 	// no change
 	return nitems
 }
+
+// Map an array from one type to another using a given mapping (or projection)
+// function.
+func Map[S, T any](items []S, mapping func(uint, S) T) []T {
+	nitems := make([]T, len(items))
+	//
+	for i, t := range items {
+		nitems[i] = mapping(uint(i), t)
+	}
+	//
+	return nitems
+}

@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
@@ -119,7 +118,7 @@ func writeBatchedTracesFile(filename string, traces ...lt.TraceFile) {
 	}
 	// Always write JSON in batched mode
 	for _, trace := range traces {
-		js := json.ToJsonString(trace.Columns)
+		js := json.ToJsonString(trace.Modules)
 		buf.WriteString(js)
 		buf.WriteString("\n")
 	}
@@ -141,7 +140,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 	//
 	switch ext {
 	case ".json":
-		js := json.ToJsonString(tracefile.Columns)
+		js := json.ToJsonString(tracefile.Modules)
 		//
 		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
 			return
@@ -168,7 +167,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 func ReadTraceFile(filename string) lt.TraceFile {
 	var (
 		stats     = util.NewPerfStats()
-		columns   []trace.RawColumn[word.BigEndian]
+		modules   []lt.Module[word.BigEndian]
 		pool      pool.LocalHeap[word.BigEndian]
 		tracefile lt.TraceFile
 	)
@@ -181,17 +180,17 @@ func ReadTraceFile(filename string) lt.TraceFile {
 		//
 		switch ext {
 		case ".json":
-			pool, columns, err = json.FromBytes(data)
+			pool, modules, err = json.FromBytes(data)
 			if err == nil {
-				tracefile = lt.NewTraceFile(nil, pool, columns)
+				tracefile = lt.NewTraceFile(nil, pool, modules)
 			}
 		case ".lt", ".ltv2":
 			// Check for legacy format
 			if !lt.IsTraceFile(data) {
 				// legacy format
-				pool, columns, err = lt.FromBytesLegacy(data)
+				pool, modules, err = lt.FromBytesLegacy(data)
 				if err == nil {
-					tracefile = lt.NewTraceFile(nil, pool, columns)
+					tracefile = lt.NewTraceFile(nil, pool, modules)
 				}
 			} else {
 				err = tracefile.UnmarshalBinary(data)
@@ -260,16 +259,6 @@ func WriteBinaryFile(binfile *binfile.BinaryFile, filename string) {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-}
-
-func maxHeightColumns(cols []trace.RawColumn[word.BigEndian]) uint {
-	h := uint(0)
-	// Iterate over modules
-	for _, col := range cols {
-		h = max(h, col.Data.Len())
-	}
-	// Done
-	return h
 }
 
 func printTypedMetadata(indent uint, metadata typed.Map) {
