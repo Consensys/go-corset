@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -25,7 +24,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
-	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -147,11 +145,6 @@ func (e *PseudoInverse[F]) LispOld(global bool, mapping schema.RegisterMap) sexp
 	})
 }
 
-// AsConstant determines whether this is a constant expression.  If
-// so, the constant is returned; otherwise, nil is returned.  NOTE: this
-// does not perform any form of simplification to determine this.
-func (e *PseudoInverse[F]) AsConstant() *fr.Element { return nil }
-
 // RequiredRegisters returns the set of registers on which this term depends.
 // That is, registers whose values may be accessed when evaluating this term on
 // a given trace.
@@ -165,23 +158,8 @@ func (e *PseudoInverse[F]) RequiredCells(row int, mid trace.ModuleId) *set.AnySo
 	return e.Expr.RequiredCells(row, mid)
 }
 
-// IsDefined implementation for Evaluable interface.
-func (e *PseudoInverse[F]) IsDefined() bool {
-	// NOTE: this is technically safe given the limited way that IsDefined is
-	// used for lookup selectors.
-	return true
-}
-
 // Substitute implementation for Substitutable interface.
 func (e *PseudoInverse[F]) Substitute(map[string]F) {
-	panic("unreachable")
-}
-
-// ValueRange implementation for Term interface.
-func (e *PseudoInverse[F]) ValueRange(schema.RegisterMap) util_math.Interval {
-	// This could be managed by having a mechanism for representing infinity
-	// (e.g. nil). For now, this is never actually used, so we can just ignore
-	// it.
 	panic("unreachable")
 }
 
