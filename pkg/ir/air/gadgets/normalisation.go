@@ -15,7 +15,6 @@ package gadgets
 import (
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
@@ -46,20 +45,24 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 		// Construct inverse computation
 		ie = &assignment.PseudoInverse[F]{Expr: e}
 		// Determine computed column name
-		name = ie.Lisp(true, module).String(false)
+		name = ie.LispOld(true, module).String(false)
 		// Look up column
 		index, ok = module.HasRegister(name)
 		// Default padding (for now)
-		padding big.Int = ir.PaddingFor(ie, module)
+		padding = ir.PaddingFor(e, module)
 	)
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Indicate column has "field element width".
 		var bitwidth uint = math.MaxUint
+
 		// Add computed register.
 		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth, padding))
-		// Add assignment
-		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), ie, true))
+		ie.Target = sc.NewRegisterRef(module.Id(), index)
+
+		// Add inverse assignment
+		module.AddAssignment(ie)
+
 		// Construct proof of 1/e
 		inv_e := ir.NewRegisterAccess[F, air.Term[F]](index, 0)
 		// Construct e/e

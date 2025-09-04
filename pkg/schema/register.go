@@ -40,7 +40,7 @@ type RegisterMap interface {
 
 // RegisterId captures the notion of a register index.  That is, for each
 // module, every register is allocated a given index starting from 0.  The
-// purpose of the wrapper is avoid confusion between uint values and things
+// purpose of the wrapper is to avoid confusion between uint values and things
 // which are expected to identify Columns.
 type RegisterId = trace.ColumnId
 
@@ -103,7 +103,7 @@ type Register struct {
 	Name string
 	// Width (in bits) of this register
 	Width uint
-	// Determies what value will be used to padd this register.
+	// Determines what value will be used to padd this register.
 	Padding big.Int
 }
 
@@ -222,7 +222,7 @@ func (p RegisterType) GobEncode() (data []byte, err error) {
 		gobEncoder = gob.NewEncoder(&buffer)
 	)
 	//
-	if err := gobEncoder.Encode(&p.kind); err != nil {
+	if err = gobEncoder.Encode(&p.kind); err != nil {
 		return nil, err
 	}
 	// Done
