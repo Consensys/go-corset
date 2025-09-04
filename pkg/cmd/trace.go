@@ -294,12 +294,16 @@ func printTraceFileHeader(header *lt.Header) {
 }
 
 func printTrace(start uint, max_width uint, tf lt.TraceFile) {
-	for i, module := range tf.Modules {
-		if i != 0 {
-			fmt.Println()
-		}
-		//
+	var first = true
+
+	for _, module := range tf.Modules {
 		if len(module.Columns) > 0 {
+			if !first {
+				fmt.Println()
+			}
+			//
+			first = false
+			//
 			if module.Name != "" {
 				fmt.Printf("%s:\n", module.Name)
 			}

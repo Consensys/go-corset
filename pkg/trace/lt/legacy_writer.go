@@ -87,7 +87,7 @@ func WriteBytes(modules []Module[word.BigEndian], buf io.Writer) error {
 	// Write column data information
 	for _, ith := range modules {
 		for _, jth := range ith.Columns {
-			if err := writeArrayBytes(buf, jth.Data); err != nil {
+			if err := writeArrayBytes(buf, jth.Data, jth.Data.BitWidth()); err != nil {
 				return err
 			}
 		}
@@ -96,13 +96,25 @@ func WriteBytes(modules []Module[word.BigEndian], buf io.Writer) error {
 	return nil
 }
 
-func writeArrayBytes(w io.Writer, data array.Array[word.BigEndian]) error {
+func writeArrayBytes(w io.Writer, data array.Array[word.BigEndian], bitwidth uint) error {
+	var (
+		bytewidth = word.ByteWidth(bitwidth)
+		padding   = make([]byte, bytewidth)
+	)
+	//
 	for i := range data.Len() {
-		ith := data.Get(i)
-		// Read exactly 32 bytes
-		bytes := ith.Bytes()
-		// Write them out
-		if _, err := w.Write(bytes[:]); err != nil {
+		var (
+			ith   = data.Get(i)
+			bytes = ith.Bytes()
+			// Determine padding bytes required
+			n = bytewidth - uint(len(bytes))
+		)
+		// Write most significant (i.e. padding) bytes
+		if _, err := w.Write(padding[0:n]); err != nil {
+			return err
+		}
+		// Write least significant (i.e. content) bytes
+		if _, err := w.Write(bytes); err != nil {
 			return err
 		}
 	}
