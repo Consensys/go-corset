@@ -136,9 +136,9 @@ type (
 // all expressions used within the schema.
 func SubstituteConstants[F field.Element[F]](schema schema.AnySchema[F], mapping map[string]F) {
 	// Constraints
-	for iter := schema.Constraints(); iter.HasNext(); {
-		constraint := iter.Next()
-		constraint.Substitute(mapping)
+	for iter := schema.Modules(); iter.HasNext(); {
+		module := iter.Next()
+		module.Substitute(mapping)
 	}
 }
 
