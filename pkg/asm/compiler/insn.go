@@ -75,7 +75,6 @@ func (p *StateTranslator[F, T, E, M]) translateInOut(cc uint, codes []micro.Code
 	// NOTE: we have to pretend that we've written registers here, otherwise
 	// forwarding will not be enabled.
 	p.WriteRegisters(code.RegistersWritten())
-	p.WriteRegister(code.Bus().EnableLine)
 	// Enable line must be set high
 	enabled := p.ReadRegister(code.Bus().EnableLine).Equals(Number[T, E](1))
 	//

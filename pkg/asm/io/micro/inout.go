@@ -82,11 +82,15 @@ func (p *InOut) RegistersRead() []io.RegisterId {
 
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *InOut) RegistersWritten() []io.RegisterId {
+	// Wrutes always include the enable line
+	var writes = []io.RegisterId{p.bus.EnableLine}
+	//
 	if p.input {
-		return p.bus.Data()
+		// input instruction considered as a write to data lines.
+		writes = append(writes, p.bus.Data()...)
 	}
 	//
-	return nil
+	return writes
 }
 
 // Split this micro code using registers of arbirary width into one or more
