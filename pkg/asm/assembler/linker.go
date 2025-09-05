@@ -108,9 +108,10 @@ func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components 
 		return bus
 	}
 	// No, therefore create new bus.
+	enableLine := allocateIoEnableRegister(busName, fn)
 	addressLines := allocateIoRegisters(busName, inputs, fn)
 	dataLines := allocateIoRegisters(busName, outputs, fn)
-	bus := io.NewBus(busName, busId, addressLines, dataLines)
+	bus := io.NewBus(busName, busId, enableLine, addressLines, dataLines)
 	// Update local bus map
 	localBuses[busId] = bus
 	// Done
@@ -136,4 +137,11 @@ func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunct
 	}
 	//
 	return lines
+}
+
+func allocateIoEnableRegister(busName string, fn *MacroFunction) io.RegisterId {
+	// Determine suitable register name
+	regName := fmt.Sprintf("%s~%s", fn.Name(), busName)
+	// Allocate register
+	return fn.AllocateRegister(schema.COMPUTED_REGISTER, regName, 1)
 }

@@ -45,6 +45,11 @@ type FunctionMapping[T any] struct {
 	columns []T
 }
 
+// ColumnOf returns the underlying column identifier for a given register.
+func (p *FunctionMapping[T]) ColumnOf(register io.RegisterId) T {
+	return p.columns[register.Unwrap()]
+}
+
 // ColumnsOf returns the underlying column identifiers for a given set of zero
 // or more registers.
 func (p *FunctionMapping[T]) ColumnsOf(registers ...io.RegisterId) []T {
@@ -245,11 +250,12 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) {
 	for _, bus := range localBuses(fn) {
 		// Callee represents the function being called by this Bus.
 		var (
-			name        = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
-			callerBus   = p.buses[caller].ColumnsOf(bus.AddressData()...)
-			callerLines = make([]E, len(callerBus))
-			calleeBus   = p.buses[bus.BusId].Bus()
-			calleeLines = make([]E, len(calleeBus))
+			name         = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
+			callerEnable = p.buses[caller].ColumnOf(bus.EnableLine)
+			callerBus    = p.buses[caller].ColumnsOf(bus.AddressData()...)
+			callerLines  = make([]E, len(callerBus))
+			calleeBus    = p.buses[bus.BusId].Bus()
+			calleeLines  = make([]E, len(calleeBus))
 		)
 		// Initialise caller lines
 		for i, r := range callerBus {
@@ -260,7 +266,7 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) {
 			calleeLines[i] = Variable[T, E](r, 0)
 		}
 		// Add lookup constraint
-		module.NewLookup(name, callerLines, bus.BusId, calleeLines)
+		module.NewLookup(name, Variable[T, E](callerEnable, 0), callerLines, bus.BusId, calleeLines)
 	}
 }
 

@@ -89,7 +89,8 @@ func (p *InOut) Split(env schema.RegisterAllocator) []Code {
 	// Split bus
 	address := agnostic.ApplyMapping(env, p.bus.Address())
 	data := agnostic.ApplyMapping(env, p.bus.Data())
-	bus := io.NewBus(p.bus.Name, p.bus.BusId, address, data)
+	// NOTE: enable line never needs splitting as it is binary.
+	bus := io.NewBus(p.bus.Name, p.bus.BusId, p.bus.EnableLine, address, data)
 	// Done
 	return []Code{&InOut{p.input, bus}}
 }

@@ -12,6 +12,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
+import "github.com/consensys/go-corset/pkg/schema"
+
 // Bus describes an I/O bus referred to within a function.  Every function can
 // connect with zero or more buses.  For example, making a function call
 // requires a bus for the target function.  Each bus consists of some number of
@@ -25,6 +27,8 @@ type Bus struct {
 	// Global bus identifier.  This uniquely identifies the bus across all
 	// functions and components.
 	BusId uint
+	// Enables the bus (when pulled high).
+	EnableLine RegisterId
 	// Determines the address lines of this bus.
 	AddressLines []RegisterId
 	// Determiunes the data lines of this bus.
@@ -40,12 +44,12 @@ func (p *Bus) IsUnlinked() bool {
 // Rather it simply has a name which will be used later to establish the
 // connection.
 func UnlinkedBus(name string) Bus {
-	return Bus{name, UNKNOWN_BUS, nil, nil}
+	return Bus{name, UNKNOWN_BUS, schema.NewUnusedRegisterId(), nil, nil}
 }
 
 // NewBus constructs a new bus with the given components.
-func NewBus(name string, id uint, address []RegisterId, data []RegisterId) Bus {
-	return Bus{name, id, address, data}
+func NewBus(name string, id uint, enable RegisterId, address []RegisterId, data []RegisterId) Bus {
+	return Bus{name, id, enable, address, data}
 }
 
 // Address returns the "address lines" for this bus.  That is, the registers

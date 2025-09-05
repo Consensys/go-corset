@@ -48,7 +48,7 @@ type Module[F field.Element[F], T any, E Expr[T, E], M any] interface {
 	NewConstraint(name string, domain util.Option[int], expr E)
 
 	// NewLookup constructs a new lookup constraint
-	NewLookup(name string, from []E, target uint, to []E)
+	NewLookup(name string, enable E, from []E, target uint, to []E)
 
 	// String returns an appropriately formatted representation of the module.
 	String() string
