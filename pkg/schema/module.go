@@ -200,6 +200,10 @@ func (p *Table[F, C]) Registers() []Register {
 
 // Substitute any matchined labelled constants within this module
 func (p *Table[F, C]) Substitute(mapping map[string]F) {
+	for _, c := range p.assignments {
+		c.Substitute(mapping)
+	}
+	//
 	for _, c := range p.constraints {
 		c.Substitute(mapping)
 	}

@@ -149,6 +149,11 @@ func (p *LexicographicSort[F]) RegistersWritten() []sc.RegisterRef {
 	return p.targets
 }
 
+// Substitute any matchined labelled constants within this assignment
+func (p *LexicographicSort[F]) Substitute(mapping map[string]F) {
+	// Nothing to do here.
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================

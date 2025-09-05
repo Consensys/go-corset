@@ -100,6 +100,11 @@ func (p *Computation[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
 	return p
 }
 
+// Substitute any matchined labelled constants within this assignment
+func (p *Computation[F]) Substitute(map[string]F) {
+	// Nothing to do here.
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================

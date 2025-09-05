@@ -125,6 +125,12 @@ func (p Assignment[F, T]) RegistersWritten() []sc.RegisterRef {
 	return regs
 }
 
+// Substitute implementation for schema.Assignment interface.
+func (p Assignment[F, T]) Substitute(map[string]F) {
+	// Do nothing since assembly instructions do not (at the time of writing)
+	// employ labelled constants.
+}
+
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.

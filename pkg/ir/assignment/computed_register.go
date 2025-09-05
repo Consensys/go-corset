@@ -165,6 +165,11 @@ func (p *ComputedRegister[F, E]) Subdivide(mapping schema.LimbsMap) sc.Assignmen
 	return p
 }
 
+// Substitute any matchined labelled constants within this assignment
+func (p *ComputedRegister[F, E]) Substitute(mapping map[string]F) {
+	p.Expr.Substitute(mapping)
+}
+
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive

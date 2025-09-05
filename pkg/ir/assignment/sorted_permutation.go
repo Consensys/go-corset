@@ -118,6 +118,11 @@ func (p *SortedPermutation[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[
 	return p
 }
 
+// Substitute any matchined labelled constants within this assignment
+func (p *SortedPermutation[F]) Substitute(mapping map[string]F) {
+	// Nothing to do here.
+}
+
 // ============================================================================
 // Lispify Interface
 // ============================================================================
