@@ -54,6 +54,8 @@ type Assignment[F any] interface {
 	RegistersRead() []RegisterRef
 	// Identifier registers assigned by this assignment.
 	RegistersWritten() []RegisterRef
+	// Substitute any matchined labelled constants within this assignment
+	Substitute(map[string]F)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
 	Lisp(AnySchema[F]) sexp.SExp

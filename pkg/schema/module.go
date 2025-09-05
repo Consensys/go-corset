@@ -64,6 +64,8 @@ type Module[F any] interface {
 	// IsSynthetic modules are generated during compilation, rather than being
 	// provided by the user.
 	IsSynthetic() bool
+	// Substitute any matchined labelled constants within this module
+	Substitute(map[string]F)
 	// Returns the number of registers in this module.
 	Width() uint
 }
@@ -194,6 +196,17 @@ func (p *Table[F, C]) Register(id RegisterId) Register {
 // Specifically, the index of a register in this array is its register index.
 func (p *Table[F, C]) Registers() []Register {
 	return p.registers
+}
+
+// Substitute any matchined labelled constants within this module
+func (p *Table[F, C]) Substitute(mapping map[string]F) {
+	for _, c := range p.assignments {
+		c.Substitute(mapping)
+	}
+	//
+	for _, c := range p.constraints {
+		c.Substitute(mapping)
+	}
 }
 
 // Width returns the number of registers in this Table.
