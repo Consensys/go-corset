@@ -14,11 +14,14 @@ package micro
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
+
+var one big.Int
 
 // InOut captures input / output instructions for reading / writing to a bus.
 type InOut struct {
@@ -56,11 +59,14 @@ func (p *InOut) Clone() Code {
 // over" when executing the enclosing instruction or, if skip==0, a destination
 // program counter (which can signal return of enclosing function).
 func (p *InOut) MicroExecute(state io.State) (uint, uint) {
+	// Set address / data lines
 	if p.input {
 		state.In(p.bus)
 	} else {
 		state.Out(p.bus)
 	}
+	// Enable bus
+	state.Store(p.bus.EnableLine, one)
 	//
 	return 1, 0
 }
@@ -76,11 +82,15 @@ func (p *InOut) RegistersRead() []io.RegisterId {
 
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *InOut) RegistersWritten() []io.RegisterId {
+	// Wrutes always include the enable line
+	var writes = []io.RegisterId{p.bus.EnableLine}
+	//
 	if p.input {
-		return p.bus.Data()
+		// input instruction considered as a write to data lines.
+		writes = append(writes, p.bus.Data()...)
 	}
 	//
-	return nil
+	return writes
 }
 
 // Split this micro code using registers of arbirary width into one or more
@@ -89,7 +99,8 @@ func (p *InOut) Split(env schema.RegisterAllocator) []Code {
 	// Split bus
 	address := agnostic.ApplyMapping(env, p.bus.Address())
 	data := agnostic.ApplyMapping(env, p.bus.Data())
-	bus := io.NewBus(p.bus.Name, p.bus.BusId, address, data)
+	// NOTE: enable line never needs splitting as it is binary.
+	bus := io.NewBus(p.bus.Name, p.bus.BusId, p.bus.EnableLine, address, data)
 	// Done
 	return []Code{&InOut{p.input, bus}}
 }
@@ -105,4 +116,8 @@ func (p *InOut) String(fn schema.RegisterMap) string {
 // Validate checks whether or not this instruction is correctly balanced.
 func (p *InOut) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return nil
+}
+
+func init() {
+	one = *big.NewInt(1)
 }
