@@ -202,17 +202,17 @@ func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ array.Buil
 func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	var (
+		bitwidth   uint
 		height     = sources[0].Len()
-		bitwidth   = sources[0].BitWidth()
 		multiplier = uint(len(sources))
 	)
 	// Sanity check column heights
 	for _, src := range sources {
 		if src.Len() != height {
-			panic("inconsistent column height for interleaving")
-		} else if src.BitWidth() != bitwidth {
-			panic("inconsistent column bitwidth for interleaving")
+			panic(fmt.Sprintf("inconsistent column height for interleaving (%d v %d)", src.Len(), height))
 		}
+		//
+		bitwidth = max(bitwidth, src.BitWidth())
 	}
 	// Construct interleaved column
 	target := builder.NewArray(height*multiplier, bitwidth)
