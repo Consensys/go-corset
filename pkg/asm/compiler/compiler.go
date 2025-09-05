@@ -135,12 +135,13 @@ func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction) {
 	// Setup framing columns / constraints
 	framing := p.initFunctionFraming(busId, fn)
 	// Initialise buses required for this code sequence
-	p.initBuses(busId, fn)
+	ioLines := p.initBuses(busId, fn)
 	// Construct appropriate mapping
 	mapping := Translator[F, T, E, M]{
 		Module:    p.modules[busId],
 		Framing:   framing,
 		Registers: fn.Registers(),
+		ioLines:   ioLines,
 		Columns:   p.buses[busId].columns,
 	}
 	// Compile each instruction in turn
@@ -244,8 +245,11 @@ func (p *Compiler[F, T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFun
 }
 
 // Initialise the buses linked in a given function.
-func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) {
-	var module = p.modules[caller]
+func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set {
+	var (
+		module      = p.modules[caller]
+		ioRegisters bit.Set
+	)
 	//
 	for _, bus := range localBuses(fn) {
 		// Callee represents the function being called by this Bus.
@@ -267,7 +271,15 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) {
 		}
 		// Add lookup constraint
 		module.NewLookup(name, Variable[T, E](callerEnable, 0), callerLines, bus.BusId, calleeLines)
+		// Mark caller lines as bus registers
+		ioRegisters.Insert(bus.EnableLine.Unwrap())
+		//
+		for _, r := range bus.AddressData() {
+			ioRegisters.Insert(r.Unwrap())
+		}
 	}
+	//
+	return ioRegisters
 }
 
 // Determine the set of buses used within a function, by inspecting each

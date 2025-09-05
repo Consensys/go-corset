@@ -14,11 +14,14 @@ package micro
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
+
+var one big.Int
 
 // InOut captures input / output instructions for reading / writing to a bus.
 type InOut struct {
@@ -56,11 +59,14 @@ func (p *InOut) Clone() Code {
 // over" when executing the enclosing instruction or, if skip==0, a destination
 // program counter (which can signal return of enclosing function).
 func (p *InOut) MicroExecute(state io.State) (uint, uint) {
+	// Set address / data lines
 	if p.input {
 		state.In(p.bus)
 	} else {
 		state.Out(p.bus)
 	}
+	// Enable bus
+	state.Store(p.bus.EnableLine, one)
 	//
 	return 1, 0
 }
@@ -106,4 +112,8 @@ func (p *InOut) String(fn schema.RegisterMap) string {
 // Validate checks whether or not this instruction is correctly balanced.
 func (p *InOut) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return nil
+}
+
+func init() {
+	one = *big.NewInt(1)
 }
