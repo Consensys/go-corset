@@ -39,6 +39,8 @@ type MicroProgram = io.Program[micro.Instruction]
 type FunctionMapping[T any] struct {
 	// Name of the Bus
 	name string
+	// Atomic tells us whether this is a one-line function or not.
+	atomic bool
 	// Registers
 	registers []io.Register
 	// Underlying column ids for registers
@@ -69,6 +71,28 @@ func (p *FunctionMapping[T]) Bus() []T {
 	}
 	//
 	return columns
+}
+
+// ProgramCounter returns the corresponding column
+func (p *FunctionMapping[T]) ProgramCounter() T {
+	var n = len(p.registers)
+	//
+	if p.atomic {
+		panic("no program counter for atomic function")
+	}
+	//
+	return p.columns[n]
+}
+
+// ReturnLine returns the corresponding column
+func (p *FunctionMapping[T]) ReturnLine() T {
+	var n = len(p.registers)
+	//
+	if p.atomic {
+		panic("no return line for atomic function")
+	}
+	//
+	return p.columns[n+1]
 }
 
 // Compiler packages up everything needed to compile a given assembly down into
@@ -152,6 +176,10 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction) {
 	var (
 		module M
 		bus    FunctionMapping[T]
+		// padding defaults to zero
+		padding big.Int
+		// determine suitable width of PC register
+		pcWidth = bit.Width(uint(1 + len(fn.Code())))
 	)
 	// Initialise module correctly
 	module = module.Initialise(busId, fn, &p.executor)
@@ -159,10 +187,20 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction) {
 	//
 	bus.name = fn.Name()
 	bus.registers = fn.Registers()
+	bus.atomic = fn.IsAtomic()
 	bus.columns = make([]T, len(fn.Registers()))
 	//
 	for i, reg := range fn.Registers() {
 		bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width, reg.Padding)
+	}
+	//
+	if !bus.atomic {
+		// Create program counter
+		bus.columns = append(bus.columns,
+			module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth, padding))
+		// Create return line
+		bus.columns = append(bus.columns,
+			module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1, padding))
 	}
 	//
 	p.buses[busId] = bus
@@ -182,14 +220,9 @@ func (p *Compiler[F, T, E, M]) initFunctionFraming(busId uint, fn MicroFunction)
 func (p *Compiler[F, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction) Framing[T, E] {
 	var (
 		module = p.modules[busId]
-		// padding defaults to zero
-		padding big.Int
-		// determine suitable width of PC register
-		pcWidth = bit.Width(uint(1 + len(fn.Code())))
 		// allocate PC register
-		pc = module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth, padding)
-		// allocate return line
-		ret = module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1, padding)
+		pc  = p.buses[busId].ProgramCounter()
+		ret = p.buses[busId].ReturnLine()
 	)
 	// NOTE: a key requirement for the following constraints is that they don't
 	// need an inverse computation for a shifted row (i.e. no spillage is
@@ -249,11 +282,12 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 	for _, bus := range fn.Buses() {
 		// Callee represents the function being called by this Bus.
 		var (
-			name        = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
-			callerBus   = p.buses[caller].ColumnsOf(bus.AddressData()...)
-			callerLines = make([]E, len(callerBus))
-			calleeBus   = p.buses[bus.BusId].Bus()
-			calleeLines = make([]E, len(calleeBus))
+			name         = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
+			callerBus    = p.buses[caller].ColumnsOf(bus.AddressData()...)
+			callerLines  = make([]E, len(callerBus))
+			calleeBus    = p.buses[bus.BusId].Bus()
+			calleeLines  = make([]E, len(calleeBus))
+			calleeEnable *E
 		)
 		// Initialise caller lines
 		for i, r := range callerBus {
@@ -263,8 +297,13 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 		for i, r := range calleeBus {
 			calleeLines[i] = Variable[T, E](r, 0)
 		}
+		//
+		if b := p.buses[bus.BusId]; !b.atomic {
+			v := Variable[T, E](b.ReturnLine(), 0)
+			calleeEnable = &v
+		}
 		// Add lookup constraint
-		module.NewLookup(name, callerLines, bus.BusId, calleeLines)
+		module.NewLookup(name, callerLines, bus.BusId, calleeLines, calleeEnable)
 		// Mark caller address / data lines as io registers
 		for _, r := range bus.AddressData() {
 			ioRegisters.Insert(r.Unwrap())

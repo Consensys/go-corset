@@ -83,14 +83,22 @@ func (p MirModule[F]) NewConstraint(name string, domain util.Option[int], constr
 }
 
 // NewLookup constructs a new lookup constraint
-func (p MirModule[F]) NewLookup(name string, from []MirExpr[F], targetMid uint, to []MirExpr[F]) {
+func (p MirModule[F]) NewLookup(name string, from []MirExpr[F], targetMid uint, to []MirExpr[F], enable *MirExpr[F]) {
 	var (
 		sources = unwrapMirExprs(from...)
 		targets = unwrapMirExprs(to...)
+		target  []lookup.Vector[F, mir.Term[F]]
+		source  []lookup.Vector[F, mir.Term[F]]
 	)
-	// FIXME: exploit conditional lookups
-	target := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector(targetMid, targets...)}
-	source := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector(p.Module.Id(), sources...)}
+	//
+	if enable == nil {
+		target = append(target, lookup.UnfilteredVector(targetMid, targets...))
+	} else {
+		en := enable.expr.Simplify(true)
+		target = append(target, lookup.FilteredVector(targetMid, en, targets...))
+	}
+	//
+	source = append(source, lookup.UnfilteredVector(p.Module.Id(), sources...))
 	//
 	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
 }

@@ -81,6 +81,9 @@ func Test_Asm_Max256(t *testing.T) {
 func Test_Asm_MixedSmall(t *testing.T) {
 	test_util.Check(t, false, "asm/mixed_small")
 }
+func Test_Asm_MultiLine(t *testing.T) {
+	test_util.Check(t, false, "asm/multiline")
+}
 
 func Test_Asm_MixedLarge(t *testing.T) {
 	test_util.Check(t, false, "asm/mixed_large")
