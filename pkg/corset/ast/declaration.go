@@ -763,6 +763,9 @@ type DefLookup struct {
 	// Unique handle given to this constraint.  This is primarily useful for
 	// debugging (i.e. so we know which constraint failed, etc).
 	Handle string
+	// Checked determines whether or not "type checking" is enabled for source /
+	// target pairs.
+	Checked bool
 	// Source selector expressions (nil entries mean no selector for corresponding source).
 	SourceSelectors []Expr
 	// Source expressions for lookup (i.e. these values must all be contained
@@ -778,10 +781,10 @@ type DefLookup struct {
 }
 
 // NewDefLookup creates a new (unfinalised) lookup constraint.
-func NewDefLookup(handle string, sourceSelectors []Expr, sources [][]Expr,
+func NewDefLookup(handle string, checked bool, sourceSelectors []Expr, sources [][]Expr,
 	targetSelectors []Expr, targets [][]Expr) *DefLookup {
 	//
-	return &DefLookup{handle, sourceSelectors, sources, targetSelectors, targets, false}
+	return &DefLookup{handle, checked, sourceSelectors, sources, targetSelectors, targets, false}
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe

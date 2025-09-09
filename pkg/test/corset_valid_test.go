@@ -819,6 +819,13 @@ func Test_Valid_Lookup_25(t *testing.T) {
 	test_util.Check(t, false, "valid/lookup_25")
 }
 
+func Test_Valid_Lookup_26(t *testing.T) {
+	test_util.Check(t, false, "valid/lookup_26")
+}
+func Test_Valid_Lookup_27(t *testing.T) {
+	test_util.Check(t, false, "valid/lookup_27")
+}
+
 // ===================================================================
 // Interleaving
 // ===================================================================

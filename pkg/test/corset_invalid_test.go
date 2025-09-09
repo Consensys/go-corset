@@ -503,6 +503,15 @@ func Test_Invalid_Lookup_13(t *testing.T) {
 func Test_Invalid_Lookup_14(t *testing.T) {
 	CheckInvalid(t, "invalid/lookup_invalid_14")
 }
+func Test_Invalid_Lookup_15(t *testing.T) {
+	CheckInvalid(t, "invalid/lookup_invalid_15")
+}
+func Test_Invalid_Lookup_16(t *testing.T) {
+	CheckInvalid(t, "invalid/lookup_invalid_16")
+}
+func Test_Invalid_Lookup_17(t *testing.T) {
+	CheckInvalid(t, "invalid/lookup_invalid_17")
+}
 
 // ===================================================================
 // Interleavings

@@ -64,6 +64,27 @@ func LeastUpperBound(types ...Type) Type {
 	return datatype
 }
 
+// LeastUpperBounds returns, for two arrays, the LUB of each type in each
+// position.  Either array can be nil, in which case the other is returned.
+// Otherwise, they must have matching lengths (otherwise this will panic).
+func LeastUpperBounds(lhs []Type, rhs []Type) []Type {
+	if lhs == nil {
+		return rhs
+	} else if rhs == nil {
+		return lhs
+	} else if len(lhs) != len(rhs) {
+		panic(fmt.Sprintf("incompatible type arrays (%d vs %d items)", len(lhs), len(rhs)))
+	}
+	//
+	datatypes := make([]Type, len(lhs))
+	//
+	for i := range len(lhs) {
+		datatypes[i] = LeastUpperBound(lhs[i], rhs[i])
+	}
+	//
+	return datatypes
+}
+
 // ============================================================================
 // AnyType
 // ============================================================================
