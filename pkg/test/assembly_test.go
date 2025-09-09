@@ -47,6 +47,10 @@ func Test_Asm_Counter256(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/counter256", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
+func Test_Asm_Exp(t *testing.T) {
+	test_util.Check(t, false, "asm/exp")
+}
+
 func Test_Asm_FastPow(t *testing.T) {
 	test_util.Check(t, false, "asm/fast_pow")
 }

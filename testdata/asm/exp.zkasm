@@ -1,0 +1,42 @@
+;;
+fn exp(INST=60938 u16, ARG_1 u256, ARG_2 u256) -> (RES=0 u128) {
+   var tmp u5
+   var tmp2 u6
+   ;;
+   if INST==60938 goto explog
+   if INST==60933 goto modexplog
+   fail
+explog:
+   if ARG_1 != 0 goto explog2
+   RES = 0
+   return
+explog2:
+   ;; calculate log
+   tmp = log256(ARG_1)
+   ;; increment
+   tmp2 = tmp + 1
+   ;; multiply by G_expbyte
+   RES = tmp2 * 50
+   return
+modexplog:
+   ;; TEMPORARY
+   fail
+}
+
+;; Compute log256 of word
+fn log256(arg u256) -> (res u5) {
+  var tmp u256
+  var b u8
+  var c u1
+  ;; strip off first byte
+  tmp,b = arg
+  res = 0
+loop:
+  if tmp == 0 goto exit
+  ;; strip least significant byte
+  tmp,b = tmp
+  c, res = res + 1
+  goto loop
+exit:
+  return
+}
