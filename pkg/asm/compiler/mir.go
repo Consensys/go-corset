@@ -91,6 +91,7 @@ func (p MirModule[F]) NewLookup(name string, from []MirExpr[F], targetMid uint, 
 	// FIXME: exploit conditional lookups
 	target := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector(targetMid, targets...)}
 	source := []lookup.Vector[F, mir.Term[F]]{lookup.UnfilteredVector(p.Module.Id(), sources...)}
+	//
 	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
 }
 

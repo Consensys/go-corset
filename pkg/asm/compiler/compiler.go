@@ -246,7 +246,7 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 		ioRegisters bit.Set
 	)
 	//
-	for _, bus := range localBuses(fn) {
+	for _, bus := range fn.Buses() {
 		// Callee represents the function being called by this Bus.
 		var (
 			name        = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
@@ -272,32 +272,4 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 	}
 	//
 	return ioRegisters
-}
-
-// Determine the set of buses used within a function, by inspecting each
-// instruction in turn.  Observe the resulting array does not contain duplicate
-// entries.
-func localBuses(fn MicroFunction) []io.Bus {
-	var (
-		insns = fn.Code()
-		// Set of buses already seen
-		seen bit.Set
-		// Collected buses
-		buses []io.Bus
-	)
-	//
-	for _, insn := range insns {
-		for _, ucode := range insn.Codes {
-			if bi, ok := ucode.(io.InOutInstruction); ok {
-				Bus := bi.Bus()
-				//
-				if !seen.Contains(Bus.BusId) {
-					buses = append(buses, Bus)
-					seen.Insert(Bus.BusId)
-				}
-			}
-		}
-	}
-	//
-	return buses
 }

@@ -150,7 +150,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	// Finalise labels
 	env.BindLabels(code)
 	// Done
-	return io.NewFunction(name, env.registers, code), nil
+	return io.NewFunction(name, env.registers, env.buses, code), nil
 }
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {

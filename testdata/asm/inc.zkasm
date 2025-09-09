@@ -1,6 +1,6 @@
 ;; a very simple one-line function whose purpose in life is to test
 ;; handling of padding for one-line functions.
-fn inc(x u16) -> (r u17) {
+fn inc(x u16) -> (r=1 u17) {
   r = x + 1
   return
 }

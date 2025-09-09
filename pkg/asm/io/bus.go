@@ -12,6 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package io
 
+import (
+	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+)
+
 // Bus describes an I/O bus referred to within a function.  Every function can
 // connect with zero or more buses.  For example, making a function call
 // requires a bus for the target function.  Each bus consists of some number of
@@ -65,4 +70,14 @@ func (p *Bus) Data() []RegisterId {
 // address.
 func (p *Bus) AddressData() []RegisterId {
 	return append(p.AddressLines, p.DataLines...)
+}
+
+// Split this micro code using registers of arbirary width into one or more
+// micro codes using registers of a fixed maximum width.
+func (p *Bus) Split(env schema.RegisterAllocator) Bus {
+	// Split bus
+	address := agnostic.ApplyMapping(env, p.AddressLines)
+	data := agnostic.ApplyMapping(env, p.DataLines)
+	//
+	return NewBus(p.Name, p.BusId, address, data)
 }

@@ -189,7 +189,7 @@ func (p Register) QualifiedName(mod RegisterMap) string {
 }
 
 func (p Register) String() string {
-	return fmt.Sprintf("%s:u%d", p.Name, p.Width)
+	return fmt.Sprintf("%s:u%d:0x%s", p.Name, p.Width, p.Padding.Text(16))
 }
 
 // ============================================================================

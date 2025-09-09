@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -119,58 +120,90 @@ func writeFunctionInstances[T io.Instruction[T]](fid uint, p io.Program[T], mod 
 	executor *io.Executor[T]) []error {
 	//
 	var (
-		height = mod.Height()
-		fn     = p.Function(fid)
-		inputs = make([]big.Int, fn.NumInputs())
-		errors []error
+		height  = mod.Height()
+		fn      = p.Function(fid)
+		inputs  = make([]big.Int, fn.NumInputs())
+		outputs = make([]big.Int, fn.NumOutputs())
+		errors  []error
 	)
-	// Invoke each instance in turn
+	// Invoke padding instance
+	extractFunctionPadding(fn.Registers(), inputs, outputs)
+	// Execute function call to produce outputs
+	errors = executeAndCheck(fid, fn.Name(), inputs, outputs, executor)
+	// Invoke each user-defined instance in turn
 	for i := range height {
 		// Extract function inputs
-		extractFunctionColumns(i, 0, mod, inputs)
+		extractFunctionColumns(i, mod, inputs, outputs)
 		// Execute function call to produce outputs
-		outputs := executor.Read(fid, inputs)
-		// Sanity check outputs match expected outputs
-		errors = append(errors, checkFunctionOutputs(i, fn, mod, inputs, outputs)...)
+		errs := executeAndCheck(fid, fn.Name(), inputs, outputs, executor)
+		errors = append(errors, errs...)
 	}
 	//
 	return errors
 }
 
-func checkFunctionOutputs[T io.Instruction[T]](row uint, fn io.Function[T], mod RawModule, inputs []big.Int,
-	outputs []big.Int) []error {
-	//
+func executeAndCheck[T io.Instruction[T]](fid uint, name string, inputs, outputs []big.Int,
+	executor *io.Executor[T]) []error {
 	var (
-		givenOutputs = make([]big.Int, len(outputs))
-		errors       []error
+		errors []error
+		// Execute function call to produce actual outputs
+		actual = executor.Read(fid, inputs)
 	)
-	// Extract outputs from columns to enable comparison
-	extractFunctionColumns(row, fn.NumInputs(), mod, givenOutputs)
-	//
-	for i := uint(0); i < fn.NumOutputs(); i++ {
-		given := givenOutputs[i]
-		computed := outputs[i]
+	// Sanity actual outputs match expected outputs
+	for i := range len(outputs) {
+		given := outputs[i]
+		computed := actual[i]
 		// Check input value
 		if given.Cmp(&computed) != 0 {
 			ins := toArgumentString(inputs)
-			outs := toArgumentString(givenOutputs)
-			errors = append(errors, fmt.Errorf("inconsistent instance %s(%s)=%s in trace", fn.Name(), ins, outs))
+			outs := toArgumentString(outputs)
+			acts := toArgumentString(actual)
+			errors = append(errors, fmt.Errorf("inconsistent instance %s(%s)=%s in trace (expected %s(%s)=%s)",
+				name, ins, outs, name, ins, acts))
 		}
 	}
 	//
 	return errors
 }
 
-func extractFunctionColumns(row, offset uint, mod RawModule, buf []big.Int) {
-	for i := uint(0); i < uint(len(buf)); i++ {
+func extractFunctionColumns(row uint, mod RawModule, inputs, outputs []big.Int) {
+	var (
+		numInputs  = uint(len(inputs))
+		numOutputs = uint(len(outputs))
+	)
+	//
+	for i := range numInputs {
 		var (
-			col   = mod.Columns[i+offset]
+			col   = mod.Columns[i]
 			input big.Int
 		)
 		// Assign value
 		input.SetBytes(col.Data.Get(row).Bytes())
 		//
-		buf[i] = input
+		inputs[i] = input
+	}
+	//
+	for i := range numOutputs {
+		var (
+			col    = mod.Columns[i+numInputs]
+			output big.Int
+		)
+		// Assign value
+		output.SetBytes(col.Data.Get(row).Bytes())
+		//
+		outputs[i] = output
+	}
+}
+
+func extractFunctionPadding(registers []schema.Register, inputs, outputs []big.Int) {
+	var numInputs = len(inputs)
+	//
+	for i := range len(inputs) {
+		inputs[i] = registers[i].Padding
+	}
+
+	for i := range len(outputs) {
+		outputs[i] = registers[i+numInputs].Padding
 	}
 }
 

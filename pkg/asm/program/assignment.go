@@ -32,6 +32,8 @@ type Assignment[F field.Element[F], T io.Instruction[T]] struct {
 	id        sc.ModuleId
 	name      string
 	registers []io.Register
+	buses     []io.Bus
+	numInputs uint
 	code      []T
 	iomap     io.Map
 }
@@ -45,6 +47,8 @@ func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn i
 		id:        id,
 		name:      fn.Name(),
 		registers: fn.Registers(),
+		buses:     fn.Buses(),
+		numInputs: fn.NumInputs(),
 		code:      fn.Code(),
 		iomap:     iomap,
 	}
@@ -62,9 +66,10 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]
 		trModule = trace.Module(p.id)
 		states   []io.State
 	)
-	//
+	// Trace given rows
 	for i := range trModule.Height() {
-		sts := p.trace(i, trModule)
+		inputs := inputsOf(i, trModule, p.numInputs)
+		sts := p.trace(inputs)
 		states = append(states, sts...)
 	}
 	//
@@ -134,12 +139,12 @@ func (p Assignment[F, T]) Substitute(map[string]F) {
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.
-func (p Assignment[F, T]) trace(row uint, trace tr.Module[F]) []io.State {
+func (p Assignment[F, T]) trace(inputs []big.Int) []io.State {
 	var (
 		code   = p.code
 		states []io.State
 		// Construct local state
-		state = p.initialState(row, trace, p.iomap)
+		state = io.InitialState(inputs, p.registers, p.buses, p.iomap)
 		// Program counter position
 		pc uint = 0
 	)
@@ -149,35 +154,12 @@ func (p Assignment[F, T]) trace(row uint, trace tr.Module[F]) []io.State {
 		// execute given instruction
 		pc = insn.Execute(state)
 		// record internal state
-		states = append(states, finaliseState(row, pc == io.RETURN, state, trace))
+		states = append(states, finaliseState(pc == io.RETURN, state))
 		// update state pc
 		state.Goto(pc)
 	}
 	// Done
 	return states
-}
-
-func (p Assignment[F, T]) initialState(row uint, trace tr.Module[F], iomap io.Map) io.State {
-	var (
-		state = make([]big.Int, len(p.registers))
-		index = 0
-	)
-	// Initialise arguments
-	for i, reg := range p.registers {
-		if reg.IsInput() {
-			var (
-				val = trace.Column(uint(i)).Data().Get(row)
-				ith big.Int
-			)
-			// Clone big int.
-			ith.SetBytes(val.Bytes())
-			// Assign to ith register
-			state[i] = ith
-			index = index + 1
-		}
-	}
-	// Construct state
-	return io.InitialState(state, p.registers, iomap)
 }
 
 // Convert a given set of states into a corresponding set of array columns.
@@ -242,27 +224,31 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 	}
 }
 
+func inputsOf[F field.Element[F]](row uint, mod tr.Module[F], numInputs uint) []big.Int {
+	inputs := make([]big.Int, numInputs)
+	// Initialise arguments
+	for i := range numInputs {
+		var (
+			val = mod.Column(i).Data().Get(row)
+			ith big.Int
+		)
+		// Clone big int.
+		ith.SetBytes(val.Bytes())
+		// Assign to ith register
+		inputs[i] = ith
+	}
+	//
+	return inputs
+}
+
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
-func finaliseState[F field.Element[F]](row uint, terminated bool, state io.State, trace tr.Module[F]) io.State {
+func finaliseState(terminated bool, state io.State) io.State {
 	// Clone state
 	var nstate = state.Clone()
-	// Now, ensure output registers retain their original values.
+	// Cheeck whether terminal state
 	if terminated {
-		for i, reg := range state.Registers() {
-			if reg.IsOutput() {
-				var (
-					val = trace.Column(uint(i)).Data().Get(row)
-					rid = sc.NewRegisterId(uint(i))
-					ith big.Int
-				)
-				// Clone big int.
-				ith.SetBytes(val.Bytes())
-				//
-				nstate.Store(rid, ith)
-			}
-		}
 		// Mark state as terminated
 		nstate.Terminate()
 	}
