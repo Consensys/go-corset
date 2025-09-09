@@ -859,15 +859,12 @@ func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (ast.TypedSy
 // Parse a lookup declaration
 func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	// Extract items
-	handle := elements[1]
+	handle, checked, errors := p.parseLookupHandle(elements[1])
 	targets, tgtErrors := p.parseDefLookupSources("target", elements[2])
 	sources, srcErrors := p.parseDefLookupSources("source", elements[3])
 	// Combine any and all errors
-	errors := append(srcErrors, tgtErrors...)
-	// Check Handle
-	if !isIdentifier(handle) {
-		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
-	}
+	errors = append(errors, srcErrors...)
+	errors = append(errors, tgtErrors...)
 	// Sanity check length of sources / targets
 	if len(sources) != len(targets) {
 		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", len(sources), len(targets))
@@ -881,8 +878,8 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 	targetSelectors := make([]ast.Expr, len(targets))
 	sourceSelectors := make([]ast.Expr, len(sources))
 	// Done
-	return ast.NewDefLookup(handle.AsSymbol().Value,
-		true,
+	return ast.NewDefLookup(handle,
+		checked,
 		sourceSelectors, [][]ast.Expr{sources},
 		targetSelectors, [][]ast.Expr{targets}), nil
 }
@@ -891,11 +888,12 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	// Extract items
 	var (
-		handle                         = elements[1]
 		targets, sources               []ast.Expr
 		targetSelector, sourceSelector ast.Expr
 		errs1, errs2, errs3, errs4     []SyntaxError
 	)
+	//
+	handle, checked, errors := p.parseLookupHandle(elements[1])
 	//
 	if len(elements) == 6 {
 		targetSelector, errs1 = p.translator.Translate(elements[2])
@@ -908,15 +906,11 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 		sourceSelector, errs2 = p.translator.Translate(elements[3])
 		sources, errs3 = p.parseDefLookupSources("source", elements[4])
 	}
-	//
-	errors := append(errs1, errs2...)
+	// Combine any and all errors
+	errors = append(errors, errs1...)
+	errors = append(errors, errs2...)
 	errors = append(errors, errs3...)
 	errors = append(errors, errs4...)
-	// Combine any and all errors
-	// Check Handle
-	if !isIdentifier(handle) {
-		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
-	}
 	// Sanity check length of sources / targets
 	if len(sources) != len(targets) {
 		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", len(sources), len(targets))
@@ -927,8 +921,8 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefLookup(handle.AsSymbol().Value,
-		true,
+	return ast.NewDefLookup(handle,
+		checked,
 		[]ast.Expr{sourceSelector},
 		[][]ast.Expr{sources},
 		[]ast.Expr{targetSelector},
@@ -937,15 +931,12 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 
 func (p *Parser) parseDefMultiLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
 	// Extract items
-	handle := elements[1]
+	handle, checked, errors := p.parseLookupHandle(elements[1])
 	m, targets, tgtErrors := p.parseDefLookupMultiSources("target", elements[2])
 	n, sources, srcErrors := p.parseDefLookupMultiSources("source", elements[3])
 	// Combine any and all errors
-	errors := append(srcErrors, tgtErrors...)
-	// Check Handle
-	if !isIdentifier(handle) {
-		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
-	}
+	errors = append(errors, srcErrors...)
+	errors = append(errors, tgtErrors...)
 	// Sanity check length of sources / targets
 	if n != m {
 		msg := fmt.Sprintf("differing number of source and target columns (%d v %d)", n, m)
@@ -959,7 +950,55 @@ func (p *Parser) parseDefMultiLookup(elements []sexp.SExp) (ast.Declaration, []S
 	targetSelectors := make([]ast.Expr, len(targets))
 	sourceSelectors := make([]ast.Expr, len(sources))
 	// Done
-	return ast.NewDefLookup(handle.AsSymbol().Value, true, sourceSelectors, sources, targetSelectors, targets), nil
+	return ast.NewDefLookup(handle, checked, sourceSelectors, sources, targetSelectors, targets), nil
+}
+
+func (p *Parser) parseLookupHandle(element sexp.SExp) (string, bool, []SyntaxError) {
+	var (
+		checked = true
+		errors  []SyntaxError
+		list    = element.AsList()
+		handle  string
+	)
+	// Extract handle from list
+	if list != nil && list.Len() > 0 {
+		handle, checked, errors = p.parseLookupAttributes(list)
+	} else if !isIdentifier(element) {
+		return "", checked, p.translator.SyntaxErrors(element, "malformed handle")
+	} else {
+		handle = element.AsSymbol().Value
+	}
+	//
+	return handle, checked, errors
+}
+
+func (p *Parser) parseLookupAttributes(list *sexp.List) (string, bool, []SyntaxError) {
+	var (
+		checked = true
+		handle  string
+		errors  []SyntaxError
+	)
+	// Sanity check handle
+	if !isIdentifier(list.Get(0)) {
+		errors = p.translator.SyntaxErrors(list.Get(0), "malformed handle")
+	} else {
+		handle = list.Get(0).AsSymbol().Value
+	}
+	// Sanity check attributes
+	for i := 1; i < list.Len(); i++ {
+		if ith := list.Get(i).AsSymbol(); ith != nil {
+			switch ith.Value {
+			case ":unchecked":
+				checked = false
+			default:
+				errors = p.translator.SyntaxErrors(list.Get(i), "unknown attribute")
+			}
+		} else {
+			errors = p.translator.SyntaxErrors(list.Get(i), "malformed attribute")
+		}
+	}
+	//
+	return handle, checked, errors
 }
 
 func (p *Parser) parseDefLookupMultiSources(handle string, element sexp.SExp) (int, [][]ast.Expr, []SyntaxError) {
