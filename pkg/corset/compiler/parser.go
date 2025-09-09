@@ -882,6 +882,7 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 	sourceSelectors := make([]ast.Expr, len(sources))
 	// Done
 	return ast.NewDefLookup(handle.AsSymbol().Value,
+		true,
 		sourceSelectors, [][]ast.Expr{sources},
 		targetSelectors, [][]ast.Expr{targets}), nil
 }
@@ -927,6 +928,7 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 	}
 	// Done
 	return ast.NewDefLookup(handle.AsSymbol().Value,
+		true,
 		[]ast.Expr{sourceSelector},
 		[][]ast.Expr{sources},
 		[]ast.Expr{targetSelector},
@@ -957,7 +959,7 @@ func (p *Parser) parseDefMultiLookup(elements []sexp.SExp) (ast.Declaration, []S
 	targetSelectors := make([]ast.Expr, len(targets))
 	sourceSelectors := make([]ast.Expr, len(sources))
 	// Done
-	return ast.NewDefLookup(handle.AsSymbol().Value, sourceSelectors, sources, targetSelectors, targets), nil
+	return ast.NewDefLookup(handle.AsSymbol().Value, true, sourceSelectors, sources, targetSelectors, targets), nil
 }
 
 func (p *Parser) parseDefLookupMultiSources(handle string, element sexp.SExp) (int, [][]ast.Expr, []SyntaxError) {
