@@ -16,6 +16,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
@@ -65,6 +66,25 @@ func NewExecutor[T Instruction[T]](program Program[T]) *Executor[T] {
 	return &Executor[T]{program, states}
 }
 
+// Instance returns a valid instance of the given bus.
+func (p *Executor[T]) Instance(bus uint) FunctionInstance {
+	var (
+		fn     = p.program.Function(bus)
+		inputs = make([]big.Int, fn.NumInputs())
+	)
+	// Intialise inputs values
+	for i := range fn.NumInputs() {
+		var (
+			ith big.Int
+			reg = fn.Register(schema.NewRegisterId(i))
+		)
+		// Initialise input from padding value
+		inputs[i] = *ith.Set(&reg.Padding)
+	}
+	// Compute function instance
+	return p.call(bus, inputs)
+}
+
 // Read implementation for the io.Map interface.
 func (p *Executor[T]) Read(bus uint, address []big.Int) []big.Int {
 	var (
@@ -77,7 +97,7 @@ func (p *Executor[T]) Read(bus uint, address []big.Int) []big.Int {
 		return states[index].Outputs()
 	}
 	// Execute function to determine new outputs.
-	return p.call(bus, address)
+	return p.call(bus, address).Outputs()
 }
 
 // Instances returns accrued function instances for the given bus.
@@ -91,7 +111,7 @@ func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
 	panic("unsupported operation")
 }
 
-func (p *Executor[T]) call(bus uint, inputs []big.Int) []big.Int {
+func (p *Executor[T]) call(bus uint, inputs []big.Int) FunctionInstance {
 	var (
 		fn = p.program.Function(bus)
 		// Determine how many I/O registers
@@ -99,12 +119,8 @@ func (p *Executor[T]) call(bus uint, inputs []big.Int) []big.Int {
 		//
 		pc = uint(0)
 		//
-		states = make([]big.Int, len(fn.Registers()))
+		state = InitialState(inputs, fn.Registers(), fn.Buses(), p)
 	)
-	// Initialise input arguments
-	copy(states, inputs)
-	// Construct initial state
-	state := InitialState(states, fn.Registers(), p)
 	// Keep executing until we're done.
 	for pc != RETURN && pc != FAIL {
 		insn := fn.CodeAt(pc)
@@ -114,8 +130,8 @@ func (p *Executor[T]) call(bus uint, inputs []big.Int) []big.Int {
 		state.Goto(pc)
 	}
 	// Cache I/O instance
-	instance := FunctionInstance{fn.NumInputs(), states[:nio]}
+	instance := FunctionInstance{fn.NumInputs(), state.state[:nio]}
 	p.states[bus].Insert(instance)
-	// Extract outputs
-	return state.Outputs()
+	// Done
+	return instance
 }

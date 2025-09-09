@@ -81,6 +81,9 @@ func Test_Asm_Max256(t *testing.T) {
 func Test_Asm_MixedSmall(t *testing.T) {
 	test_util.Check(t, false, "asm/mixed_small")
 }
+func Test_Asm_MultiLine(t *testing.T) {
+	test_util.Check(t, false, "asm/multiline")
+}
 
 func Test_Asm_MixedLarge(t *testing.T) {
 	test_util.Check(t, false, "asm/mixed_large")
@@ -104,13 +107,13 @@ func Test_Asm_Trim(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/trim", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-// func Test_Asm_RecPow(t *testing.T) {
-// 	test_util.Check(t, false, "asm/rec_pow")
-// }
+func Test_Asm_RecPow(t *testing.T) {
+	test_util.Check(t, false, "asm/rec_pow")
+}
 
-// func Test_Asm_Shift(t *testing.T) {
-// 	test_util.Check(t, false, "asm/shift")
-// }
+func Test_Asm_Shift(t *testing.T) {
+	test_util.Check(t, false, "asm/shift")
+}
 
 // Field Element Out-Of-Bounds
 func Test_Asm_Wcp(t *testing.T) {

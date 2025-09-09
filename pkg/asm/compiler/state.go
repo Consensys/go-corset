@@ -32,6 +32,10 @@ type Translator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] s
 	Framing Framing[T, E]
 	// Registers of the given machine
 	Registers []io.Register
+	// ioLines identifies which registers are used purely for buses.  This is
+	// because these registers can be treated in a more relaxed fashion than
+	// other registers.
+	ioLines bit.Set
 	// Mapping from registers to column IDs in the underlying constraint system.
 	Columns []T
 }
@@ -73,7 +77,10 @@ func NewStateTranslator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, 
 	var constants bit.Set
 	// Initially include all registers
 	for i := range mapping.Registers {
-		constants.Insert(uint(i))
+		// I/O lines are never considered global constants.
+		if !mapping.ioLines.Contains(uint(i)) {
+			constants.Insert(uint(i))
+		}
 	}
 	// Remove those which are actually modified
 	for _, code := range insn.Codes {
@@ -188,10 +195,10 @@ func (p *StateTranslator[F, T, E, M]) ReadRegisters(sources []io.RegisterId) []E
 // mutated by a given branch through an instruction.
 func (p *StateTranslator[F, T, E, M]) WithLocalConstancies(condition E) E {
 	if p.pc > 0 {
-		for i, r := range p.mapping.Registers {
+		for i := range p.mapping.Registers {
 			rid := p.mapping.Columns[i]
 			//
-			if !r.IsInput() && !p.constants.Contains(uint(i)) && !p.mutated.Contains(uint(i)) {
+			if p.IsLocalConstancy(uint(i)) {
 				r_i := Variable[T, E](rid, 0)
 				r_im1 := Variable[T, E](rid, -1)
 				constancy := r_i.Equals(r_im1)
@@ -202,6 +209,15 @@ func (p *StateTranslator[F, T, E, M]) WithLocalConstancies(condition E) E {
 	}
 	//
 	return condition
+}
+
+// IsLocalConstancy determines whether a given register should be given a
+// constancy constraint to ensure its current value matches its previous value.
+func (p *StateTranslator[F, T, E, M]) IsLocalConstancy(id uint) bool {
+	r := p.mapping.Registers[id]
+	//
+	return !r.IsInput() && !p.constants.Contains(id) &&
+		!p.mutated.Contains(id) && !p.mapping.ioLines.Contains(id)
 }
 
 // WithGlobalConstancies adds constancy constraints for all registers not

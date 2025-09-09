@@ -1,5 +1,5 @@
 ;; compute n^k
-fn pow(n u16, k u16) -> (res u16) {
+fn pow(n u16, k u16) -> (res=1 u16) {
   var tmp u32
   var nk2, i u16
   var b u1

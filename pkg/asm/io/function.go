@@ -52,6 +52,8 @@ type Function[T Instruction[T]] struct {
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
 	registers []Register
+	// Buses describes any buses used within this function.
+	buses []Bus
 	// Number of input registers
 	numInputs uint
 	// Number of output registers
@@ -61,7 +63,7 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](name string, registers []Register, code []T) Function[T] {
+func NewFunction[T Instruction[T]](name string, registers []Register, buses []Bus, code []T) Function[T] {
 	var (
 		numInputs  = array.CountMatching(registers, func(r Register) bool { return r.IsInput() })
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
@@ -71,7 +73,13 @@ func NewFunction[T Instruction[T]](name string, registers []Register, code []T) 
 		panic("function registers ordered incorrectly")
 	}
 	// All good
-	return Function[T]{name, registers, numInputs, numOutputs, code}
+	return Function[T]{name, registers, buses, numInputs, numOutputs, code}
+}
+
+// Buses returns the set of all buses used by any instruction within this
+// function.
+func (p *Function[T]) Buses() []Bus {
+	return p.buses
 }
 
 // CodeAt returns the ith instruction making up the body of this function.
@@ -142,11 +150,9 @@ func (p *Function[T]) Registers() []Register {
 
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width uint) RegisterId {
+func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width uint, padding big.Int) RegisterId {
 	var (
 		index = uint(len(p.registers))
-		// Default padding (for now)
-		padding big.Int
 	)
 	// Sanity check
 	if kind != sc.COMPUTED_REGISTER {
@@ -192,6 +198,10 @@ func (p *Function[T]) GobEncode() ([]byte, error) {
 		return nil, err
 	}
 	//
+	if err := gobEncoder.Encode(p.buses); err != nil {
+		return nil, err
+	}
+	//
 	if err := gobEncoder.Encode(p.code); err != nil {
 		return nil, err
 	}
@@ -211,6 +221,10 @@ func (p *Function[T]) GobDecode(data []byte) error {
 	}
 	//
 	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.buses); err != nil {
 		return err
 	}
 	//
