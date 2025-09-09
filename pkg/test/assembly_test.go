@@ -62,6 +62,9 @@ func Test_Asm_Gas(t *testing.T) {
 func Test_Asm_Inc(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/inc", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
+func Test_Asm_Log2(t *testing.T) {
+	test_util.Check(t, false, "asm/log2")
+}
 
 func Test_Asm_Log256(t *testing.T) {
 	test_util.Check(t, false, "asm/log256")
@@ -111,8 +114,8 @@ func Test_Asm_SimpleOnCurve(t *testing.T) {
 // 	test_util.Check(t, false, "asm/shf")
 // }
 
-func Test_Asm_Trim(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/trim", sc.BLS12_377, sc.KOALABEAR_16)
+func Test_Asm_Trm(t *testing.T) {
+	test_util.CheckWithFields(t, false, "asm/trm", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Asm_RecPow(t *testing.T) {
