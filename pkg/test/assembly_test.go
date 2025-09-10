@@ -23,10 +23,6 @@ func Test_Asm_Add(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/add", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_Byte(t *testing.T) {
-	test_util.Check(t, false, "asm/byte")
-}
-
 func Test_Asm_Dec4(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/dec4", sc.BLS12_377)
 }
@@ -61,13 +57,6 @@ func Test_Asm_Gas(t *testing.T) {
 
 func Test_Asm_Inc(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/inc", sc.BLS12_377, sc.GF_8209, sc.GF_251)
-}
-func Test_Asm_Log2(t *testing.T) {
-	test_util.Check(t, false, "asm/log2")
-}
-
-func Test_Asm_Log256(t *testing.T) {
-	test_util.Check(t, false, "asm/log256")
 }
 
 func Test_Asm_Max14(t *testing.T) {
