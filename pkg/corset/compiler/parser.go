@@ -218,9 +218,11 @@ func (p *Parser) mapSourceNode(from sexp.SExp, to ast.Node) {
 func (p *Parser) parseModuleContents(path file.Path, terms []sexp.SExp) ([]ast.Declaration, []sexp.SExp,
 	[]SyntaxError) {
 	//
-	var errors []SyntaxError
-	//
-	decls := make([]ast.Declaration, 0)
+	var (
+		errors  []SyntaxError
+		handles = make(map[string]bool)
+		decls   = make([]ast.Declaration, 0)
+	)
 	//
 	for i, s := range terms {
 		e, ok := s.(*sexp.List)
@@ -230,7 +232,7 @@ func (p *Parser) parseModuleContents(path file.Path, terms []sexp.SExp) ([]ast.D
 			errors = append(errors, *err)
 		} else if e.MatchSymbols(2, "module") {
 			return decls, terms[i:], errors
-		} else if decl, errs := p.parseDeclaration(path, e); len(errs) > 0 {
+		} else if decl, errs := p.parseDeclaration(path, e, handles); len(errs) > 0 {
 			errors = append(errors, errs...)
 		} else {
 			// Continue accumulating declarations for this module.
@@ -270,7 +272,9 @@ func (p *Parser) parseModuleStart(s sexp.SExp) (string, []SyntaxError) {
 	return name, errors
 }
 
-func (p *Parser) parseDeclaration(module file.Path, s *sexp.List) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDeclaration(module file.Path, s *sexp.List,
+	handles map[string]bool) (ast.Declaration, []SyntaxError) {
+	//
 	var (
 		decl   ast.Declaration
 		errors []SyntaxError
@@ -285,7 +289,7 @@ func (p *Parser) parseDeclaration(module file.Path, s *sexp.List) (ast.Declarati
 	} else if s.Len() > 1 && s.MatchSymbols(1, "defconst") {
 		decl, errors = p.parseDefConst(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defconstraint") {
-		decl, errors = p.parseDefConstraint(module, s.Elements)
+		decl, errors = p.parseDefConstraint(module, s.Elements, handles)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defpurefun") {
 		decl, errors = p.parseDefFun(module, true, s.Elements)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defun") {
@@ -295,21 +299,21 @@ func (p *Parser) parseDeclaration(module file.Path, s *sexp.List) (ast.Declarati
 	} else if s.Len() == 3 && s.MatchSymbols(1, "definterleaved") {
 		decl, errors = p.parseDefInterleaved(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(1, "deflookup") {
-		decl, errors = p.parseDefLookup(s.Elements)
+		decl, errors = p.parseDefLookup(s.Elements, handles)
 	} else if (s.Len() == 5 || s.Len() == 6) && s.MatchSymbols(1, "defclookup") {
-		decl, errors = p.parseDefConditionalLookup(s.Elements)
+		decl, errors = p.parseDefConditionalLookup(s.Elements, handles)
 	} else if s.Len() == 4 && s.MatchSymbols(1, "defmlookup") {
-		decl, errors = p.parseDefMultiLookup(s.Elements)
+		decl, errors = p.parseDefMultiLookup(s.Elements, handles)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defpermutation") {
 		decl, errors = p.parseDefPermutation(module, s.Elements)
 	} else if s.Len() == 4 && s.MatchSymbols(2, "defperspective") {
 		decl, errors = p.parseDefPerspective(module, s.Elements)
 	} else if 3 <= s.Len() && s.Len() <= 4 && s.MatchSymbols(2, "defproperty") {
-		decl, errors = p.parseDefProperty(s.Elements)
+		decl, errors = p.parseDefProperty(s.Elements, handles)
 	} else if s.Len() == 3 && s.MatchSymbols(2, "defsorted") {
-		decl, errors = p.parseDefSorted(false, s.Elements)
+		decl, errors = p.parseDefSorted(false, s.Elements, handles)
 	} else if 3 <= s.Len() && s.Len() <= 4 && s.MatchSymbols(2, "defstrictsorted") {
-		decl, errors = p.parseDefSorted(true, s.Elements)
+		decl, errors = p.parseDefSorted(true, s.Elements, handles)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputedcolumn") {
 		decl, errors = p.parseDefComputedColumn(module, s.Elements)
 	} else {
@@ -761,11 +765,23 @@ func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool
 }
 
 // Parse a vanishing declaration
-func (p *Parser) parseDefConstraint(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
-	var errors []SyntaxError
+func (p *Parser) parseDefConstraint(module file.Path, elements []sexp.SExp,
+	handles map[string]bool) (ast.Declaration, []SyntaxError) {
+	var (
+		errors []SyntaxError
+		handle string
+	)
 	// Initial sanity checks
 	if !isIdentifier(elements[1]) {
 		return nil, p.translator.SyntaxErrors(elements[1], "invalid constraint handle")
+	} else {
+		handle = elements[1].AsSymbol().Value
+	}
+	// Check for duplicate
+	if _, ok := handles[handle]; ok {
+		return nil, p.translator.SyntaxErrors(elements[1], "duplicate handle")
+	} else {
+		handles[handle] = true
 	}
 	// Vanishing constraints do not have global scope, hence qualified column
 	// accesses are not permitted.
@@ -779,7 +795,7 @@ func (p *Parser) parseDefConstraint(module file.Path, elements []sexp.SExp) (ast
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefConstraint(elements[1].AsSymbol().Value, domain, guard, perspective, expr), nil
+	return ast.NewDefConstraint(handle, domain, guard, perspective, expr), nil
 }
 
 // Parse a interleaved declaration
@@ -857,9 +873,9 @@ func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (ast.TypedSy
 }
 
 // Parse a lookup declaration
-func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefLookup(elements []sexp.SExp, handles map[string]bool) (ast.Declaration, []SyntaxError) {
 	// Extract items
-	handle, checked, errors := p.parseLookupHandle(elements[1])
+	handle, checked, errors := p.parseLookupHandle(elements[1], handles)
 	targets, tgtErrors := p.parseDefLookupSources("target", elements[2])
 	sources, srcErrors := p.parseDefLookupSources("source", elements[3])
 	// Combine any and all errors
@@ -885,7 +901,8 @@ func (p *Parser) parseDefLookup(elements []sexp.SExp) (ast.Declaration, []Syntax
 }
 
 // Parse a conditional lookup declaration
-func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp,
+	handles map[string]bool) (ast.Declaration, []SyntaxError) {
 	// Extract items
 	var (
 		targets, sources               []ast.Expr
@@ -893,7 +910,7 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 		errs1, errs2, errs3, errs4     []SyntaxError
 	)
 	//
-	handle, checked, errors := p.parseLookupHandle(elements[1])
+	handle, checked, errors := p.parseLookupHandle(elements[1], handles)
 	//
 	if len(elements) == 6 {
 		targetSelector, errs1 = p.translator.Translate(elements[2])
@@ -929,9 +946,9 @@ func (p *Parser) parseDefConditionalLookup(elements []sexp.SExp) (ast.Declaratio
 		[][]ast.Expr{targets}), nil
 }
 
-func (p *Parser) parseDefMultiLookup(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefMultiLookup(elements []sexp.SExp, handles map[string]bool) (ast.Declaration, []SyntaxError) {
 	// Extract items
-	handle, checked, errors := p.parseLookupHandle(elements[1])
+	handle, checked, errors := p.parseLookupHandle(elements[1], handles)
 	m, targets, tgtErrors := p.parseDefLookupMultiSources("target", elements[2])
 	n, sources, srcErrors := p.parseDefLookupMultiSources("source", elements[3])
 	// Combine any and all errors
@@ -953,7 +970,7 @@ func (p *Parser) parseDefMultiLookup(elements []sexp.SExp) (ast.Declaration, []S
 	return ast.NewDefLookup(handle, checked, sourceSelectors, sources, targetSelectors, targets), nil
 }
 
-func (p *Parser) parseLookupHandle(element sexp.SExp) (string, bool, []SyntaxError) {
+func (p *Parser) parseLookupHandle(element sexp.SExp, handles map[string]bool) (string, bool, []SyntaxError) {
 	var (
 		checked = true
 		errors  []SyntaxError
@@ -967,6 +984,13 @@ func (p *Parser) parseLookupHandle(element sexp.SExp) (string, bool, []SyntaxErr
 		return "", checked, p.translator.SyntaxErrors(element, "malformed handle")
 	} else {
 		handle = element.AsSymbol().Value
+	}
+	// Check for duplicate handle
+	if _, ok := handles[handle]; ok {
+		return "", checked, p.translator.SyntaxErrors(element, "duplicate handle")
+	} else if len(errors) == 0 {
+		// Done
+		handles[handle] = true
 	}
 	//
 	return handle, checked, errors
@@ -1129,7 +1153,9 @@ func (p *Parser) parseDefPermutation(module file.Path, elements []sexp.SExp) (as
 }
 
 // Parse a permutation declaration
-func (p *Parser) parseDefSorted(strict bool, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefSorted(strict bool, elements []sexp.SExp,
+	handles map[string]bool) (ast.Declaration, []SyntaxError) {
+	//
 	var (
 		selector           util.Option[ast.Expr]
 		errors             []SyntaxError
@@ -1137,10 +1163,9 @@ func (p *Parser) parseDefSorted(strict bool, elements []sexp.SExp) (ast.Declarat
 		sexpSourcesElement sexp.SExp
 		sexpSources        *sexp.List
 		signs              []bool
+		handle             string
 	)
-	// Extract items
-	handle := elements[1]
-
+	//
 	if len(elements) == 3 {
 		// selector not provided
 		sexpSourcesElement = elements[2]
@@ -1156,8 +1181,17 @@ func (p *Parser) parseDefSorted(strict bool, elements []sexp.SExp) (ast.Declarat
 	//
 	sexpSources = sexpSourcesElement.AsList()
 	// Check Handle
-	if !isIdentifier(handle) {
+	if !isIdentifier(elements[1]) {
 		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
+	} else {
+		handle = elements[1].AsSymbol().Value
+	}
+	// Check for duplicate handle
+	if _, ok := handles[handle]; ok {
+		return nil, p.translator.SyntaxErrors(elements[1], "duplicate handle")
+	} else if len(errors) == 0 {
+		// Record handle
+		handles[handle] = true
 	}
 	// Check source Expressions
 	if sexpSources == nil {
@@ -1199,7 +1233,7 @@ func (p *Parser) parseDefSorted(strict bool, elements []sexp.SExp) (ast.Declarat
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefSorted(handle.AsSymbol().Value, selector, sources, signs, strict), nil
+	return ast.NewDefSorted(handle, selector, sources, signs, strict), nil
 }
 
 func (p *Parser) parsePermutedColumnAccess(e sexp.SExp) (*ast.VariableAccess, *bool, *SyntaxError) {
@@ -1297,18 +1331,27 @@ func (p *Parser) parseDefPerspective(module file.Path, elements []sexp.SExp) (as
 }
 
 // Parse a property assertion
-func (p *Parser) parseDefProperty(elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+func (p *Parser) parseDefProperty(elements []sexp.SExp, handles map[string]bool) (ast.Declaration, []SyntaxError) {
 	var (
 		errors    []SyntaxError
 		assertion int = len(elements) - 1
 		domain    util.Option[int]
+		handle    string
 	)
-	// Initial sanity checks
+	// Check Handle
 	if !isIdentifier(elements[1]) {
-		errors = p.translator.SyntaxErrors(elements[1], "expected constraint handle")
+		errors = append(errors, *p.translator.SyntaxError(elements[1], "malformed handle"))
+	} else {
+		// Extract handle
+		handle = elements[1].AsSymbol().Value
 	}
-	// Extract handle
-	handle := elements[1].AsSymbol()
+	// Check for duplicate handle
+	if _, ok := handles[handle]; ok {
+		return nil, p.translator.SyntaxErrors(elements[1], "duplicate handle")
+	} else if len(errors) == 0 {
+		// Record handle
+		handles[handle] = true
+	}
 	// Check for any attributes
 	if len(elements) > 3 {
 		var errs []SyntaxError
@@ -1324,7 +1367,7 @@ func (p *Parser) parseDefProperty(elements []sexp.SExp) (ast.Declaration, []Synt
 		return nil, errors
 	}
 	// Done
-	return ast.NewDefProperty(handle.Value, domain, expr), nil
+	return ast.NewDefProperty(handle, domain, expr), nil
 }
 
 func (p *Parser) parsePropertyAttributes(attributes sexp.SExp) (domain util.Option[int], err []SyntaxError) {
