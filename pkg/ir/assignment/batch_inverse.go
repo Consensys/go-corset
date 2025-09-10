@@ -177,8 +177,11 @@ func invert[F field.Element[F]](
 			return err
 		}
 		//
-		data.Set(i, val.Inverse())
+		data.Set(i, val)
 	}
+
+	field.BatchInvert(data)
+
 	//
 	return nil
 }

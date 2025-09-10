@@ -13,12 +13,13 @@
 package field
 
 import (
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 // BatchInvert efficiently inverts the list of elements s, in place.
-func BatchInvert[T Element[T]](s []T) {
-	if len(s) == 0 {
+func BatchInvert[T Element[T]](s array.MutArray[T]) {
+	if s.Len() == 0 {
 		return
 	}
 	//
@@ -26,42 +27,45 @@ func BatchInvert[T Element[T]](s []T) {
 		zero = Zero[T]()
 		one  = One[T]()
 		// identifies entries which are zero
-		isZero = bit.NewSet(len(s))
+		isZero = bit.NewSet(s.Len())
 
-		m = make([]T, len(s)) // m[i] = s[i] * s[i+1] * ...
+		m = make([]T, s.Len()) // m[i] = s[i] * s[i+1] * ...
 	)
 	//
-	isZero.Set(len(s)-1, s[len(s)-1].IsZero())
+	isZero.Set(s.Len()-1, s.Get(s.Len()-1).IsZero())
 
-	if isZero.Get(len(s) - 1) {
-		s[len(s)-1] = one
+	if isZero.Get(s.Len() - 1) {
+		s.Set(s.Len()-1, one)
 	}
 
-	m[len(s)-1] = s[len(s)-1]
+	m[s.Len()-1] = s.Get(s.Len() - 1)
 
-	for i := len(s) - 2; i >= 0; i-- {
-		isZero.Set(i, s[i].IsZero())
+	for i := int(s.Len()) - 2; i >= 0; i-- {
+		isZero.Set(uint(i), s.Get(uint(i)).IsZero())
 
-		if isZero.Get(i) {
-			s[i] = one
+		if isZero.Get(uint(i)) {
+			s.Set(uint(i), one)
 		}
 
-		m[i] = m[i+1].Mul(s[i])
+		m[i] = m[i+1].Mul(s.Get(uint(i)))
 	}
 
 	inv := m[0].Inverse() // inv = s[0]⁻¹ * s[1]⁻¹ * ...
 
-	for i := range len(s) - 1 {
+	for i := range s.Len() - 1 {
 		// inv = s[i]⁻¹ * s[i+1]⁻¹ * ...
-		s[i], inv = inv.Mul(m[i+1]), inv.Mul(s[i])
+		newInv := inv.Mul(s.Get(i))
+		s.Set(i, inv.Mul(m[i+1]))
+		inv = newInv
 		// inv = s[i+1]⁻¹ * s[i+2]⁻¹ * ...
 		if isZero.Get(i) {
-			s[i] = zero
+			s.Set(i, zero)
 		}
 	}
 
-	s[len(s)-1] = inv
-	if isZero.Get(len(s) - 1) {
-		s[len(s)-1] = zero
+	s.Set(s.Len()-1, inv)
+
+	if isZero.Get(s.Len() - 1) {
+		s.Set(s.Len()-1, zero)
 	}
 }

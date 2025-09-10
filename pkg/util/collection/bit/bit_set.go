@@ -120,12 +120,12 @@ func (p *Set) Count() uint {
 }
 
 // NewSet creates a Set of the given size.
-func NewSet(size int) *Set {
+func NewSet(size uint) *Set {
 	return &Set{make([]uint64, (size+63)/64)}
 }
 
 // Set the iᵗʰ bit to v
-func (p *Set) Set(i int, v bool) {
+func (p *Set) Set(i uint, v bool) {
 	x := uint64(1) << (i % 64)
 	i = i / 64
 
@@ -137,7 +137,7 @@ func (p *Set) Set(i int, v bool) {
 }
 
 // Get the value of the iᵗʰ bit
-func (p *Set) Get(i int) bool {
+func (p *Set) Get(i uint) bool {
 	return p.words[i/64]&(1<<(i%64)) != 0
 }
 
