@@ -104,6 +104,12 @@ func (p *Interval) BitWidth() (width uint, signed bool) {
 	pMax := p.max.IntVal()
 	// Determine whether signed or not
 	signed = pMin.Sign() < 0
+	//
+	if signed {
+		// In signed arithmetic, we can represent e.g. -16..15 in 4bits of
+		// magnitude plus the sign bit.
+		pMin.Add(&pMin, big.NewInt(1))
+	}
 	// Done
 	return uint(max(pMin.BitLen(), pMax.BitLen())), signed
 }

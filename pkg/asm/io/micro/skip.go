@@ -136,13 +136,13 @@ func (p *Skip) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 		rw := fn.Register(p.Right).Width
 		//
 		if lw != rw {
-			return fmt.Errorf("bit mismatch (%dbits vs %dbits)", lw, rw)
+			return fmt.Errorf("bit mismatch (u%d vs u%d)", lw, rw)
 		}
 	} else {
 		cw := uint(p.Constant.BitLen())
 		//
 		if lw < cw {
-			return fmt.Errorf("bit overflow (%dbits vs %dbits)", lw, cw)
+			return fmt.Errorf("bit overflow (u%d into u%d)", lw, cw)
 		}
 	}
 	//
