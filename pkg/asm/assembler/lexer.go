@@ -51,41 +51,50 @@ const SEMICOLON uint = 9
 // NUMBER signals an integer number
 const NUMBER uint = 10
 
-// IDENTIFIER signals a column variable.
-const IDENTIFIER uint = 11
+// STRING signals a quoted string
+const STRING uint = 11
+
+// IDENTIFIER signals a column variable
+const IDENTIFIER uint = 20
+
+// KEYWORD_INCLUDE signals an include declaration
+const KEYWORD_INCLUDE uint = 21
+
+// KEYWORD_FN signals a function declaration
+const KEYWORD_FN uint = 22
 
 // RIGHTARROW signals "->"
-const RIGHTARROW uint = 12
+const RIGHTARROW uint = 30
 
 // EQUALS signals "="
-const EQUALS uint = 13
+const EQUALS uint = 31
 
 // EQUALS_EQUALS signals "=="
-const EQUALS_EQUALS uint = 14
+const EQUALS_EQUALS uint = 32
 
 // NOT_EQUALS signals "!="
-const NOT_EQUALS uint = 15
+const NOT_EQUALS uint = 33
 
 // LESS_THAN signals "<"
-const LESS_THAN uint = 16
+const LESS_THAN uint = 34
 
 // LESS_THAN_EQUALS signals "<="
-const LESS_THAN_EQUALS uint = 17
+const LESS_THAN_EQUALS uint = 35
 
 // GREATER_THAN signals ">"
-const GREATER_THAN uint = 18
+const GREATER_THAN uint = 36
 
 // GREATER_THAN_EQUALS signals ">="
-const GREATER_THAN_EQUALS uint = 19
+const GREATER_THAN_EQUALS uint = 37
 
 // ADD signals "+"
-const ADD uint = 20
+const ADD uint = 38
 
 // SUB signals "-"
-const SUB uint = 21
+const SUB uint = 39
 
 // MUL signals "*"
-const MUL uint = 22
+const MUL uint = 40
 
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
@@ -140,6 +149,9 @@ var identifierRest lex.Scanner[rune] = lex.Many(lex.Or(
 // Rule for describing identifiers
 var identifier lex.Scanner[rune] = lex.And(identifierStart, identifierRest)
 
+// Rule for describing strings in quotes
+var strung lex.Scanner[rune] = lex.Sequence(lex.Unit('"'), lex.Many(lex.Not('"')), lex.Unit('"'))
+
 // Comments start with ';;'
 var commentStart lex.Scanner[rune] = lex.Unit(';', ';')
 
@@ -171,6 +183,9 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('*'), MUL),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
+	lex.Rule(strung, STRING),
+	lex.Rule(lex.String("include"), KEYWORD_INCLUDE),
+	lex.Rule(lex.String("fn"), KEYWORD_FN),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
 }
