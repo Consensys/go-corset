@@ -1,0 +1,17 @@
+;; Replace n bytes starting from a specific offset in the given word
+;; with a given value.  For example, consider this word:
+;;
+;; 0xffeeddccbbaa99887766554433221100
+;;
+;; Filling 3 bytes of this word with 0s starting at offset 2 gives the
+;; following:
+;;
+;; 0xffeeddccbbaa99887766550000001100
+;;                         <---^^
+;;
+;; Here, we see the cursor starts at offset 2 and keeps going until
+;; n==0.  The key is that all other bytes remain unchanged.  Note, the
+;; cursor wraps around to the beginning upon overflow.
+fn fill_bytes(word u256, n u5, m u5, value u8) -> (res u256) {
+   fail
+}
