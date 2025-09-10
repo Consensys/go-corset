@@ -69,21 +69,23 @@ exit_1:
 }
 
 fn mul_u8(x u8, y u8) -> (RESULT u8) {
-    var new_x u16
-    var new_y u16
-    var tmp_x u8
-    var tmp_y u8
+    var a u16
+    var b u16
+    var new_x u8
+    var new_y u8
+    var tmp_x u16
+    var tmp_y u16
     ;; R² mod n is 25
-    new_x = x * 25
-    new_y = y * 25
-    tmp_x = reduction_u8(new_x)
-    tmp_y = reduction_u8(new_y)
-    var z u16
-    var zz u8
-    var zzz u16
-    z = tmp_x * tmp_y
-    zz = reduction_u8(z)
-    zzz = zz
-    RESULT = reduction_u8(zzz)
+    tmp_x = x * 25
+    tmp_y = y * 25
+    new_x = reduction_u8(tmp_x)
+    new_y = reduction_u8(tmp_y)
+    var tmp_z u16
+    var z u8
+    var zz u16
+    tmp_z = new_x * new_y
+    z = reduction_u8(tmp_z)
+    zz = z
+    RESULT = reduction_u8(zz)
     return
 }
