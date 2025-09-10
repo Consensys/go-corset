@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/corset/ast"
@@ -170,16 +171,32 @@ func (p *typeChecker) typeCheckDefFunInModule(decl *ast.DefFun) []SyntaxError {
 //
 //nolint:staticcheck
 func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
-	var errors []SyntaxError
+	var (
+		errors   []SyntaxError
+		srcTypes []ast.Type
+		dstTypes []ast.Type
+	)
 	// typeCheck source expressions
 	for i := range decl.Sources {
-		_, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources[i], true)
+		ts, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources[i], true)
 		errors = append(errors, errs...)
+		srcTypes = ast.LeastUpperBounds(srcTypes, ts)
 	}
 	// typeCheck all target expressions
 	for i := range decl.Targets {
-		_, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets[i], true)
+		ts, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets[i], true)
 		errors = append(errors, errs...)
+		dstTypes = ast.LeastUpperBounds(dstTypes, ts)
+	}
+	// Check the types (if checking is enabled and no other upstream errors)
+	if decl.Checked && len(srcTypes) == len(dstTypes) {
+		for i := range srcTypes {
+			if !srcTypes[i].SubtypeOf(dstTypes[i]) {
+				msg := fmt.Sprintf("expected %s, found %s", dstTypes[i].String(), srcTypes[i].String())
+				err := p.srcmap.SyntaxError(decl.Sources[0][i], msg)
+				errors = append(errors, *err)
+			}
+		}
 	}
 	// Combine errors
 	return errors
@@ -346,8 +363,9 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	case *ast.VariableAccess:
 		result, errors = p.typeCheckVariableInModule(e)
 	case *ast.Concat:
-		_, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
-		result = ast.INT_TYPE
+		ts, errors := p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		//
+		return typeOfConcat(ts...), errors
 	default:
 		msg := fmt.Sprintf("unknown expression encountered during typing (%s)", reflect.TypeOf(expr).String())
 		return nil, p.srcmap.SyntaxErrors(expr, msg)
@@ -584,4 +602,31 @@ func typeOfProduct(types ...ast.Type) ast.Type {
 	}
 	//
 	return ast.NewIntType(values)
+}
+
+func typeOfConcat(types ...ast.Type) ast.Type {
+	var (
+		width uint
+		zero  big.Int
+		one   = big.NewInt(1)
+	)
+	//
+	for _, t := range types {
+		it, ok := t.(*ast.IntType)
+		// sanity check what we've got
+		if !ok || !t.HasUnderlying() {
+			// Unknown
+			return ast.INT_TYPE
+		}
+		// append bitwidth
+		width += it.BitWidth()
+	}
+	//
+	var bound = big.NewInt(2)
+	// Determine bound for static type check
+	bound.Exp(bound, big.NewInt(int64(width)), nil)
+	// Subtract 1 because interval is inclusive.
+	bound.Sub(bound, one)
+	//
+	return ast.NewIntType(math.NewInterval(zero, *bound))
 }

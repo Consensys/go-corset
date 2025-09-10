@@ -43,7 +43,7 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
-	fn := io.NewFunction(f.Name(), f.Registers(), insns)
+	fn := io.NewFunction(f.Name(), f.Registers(), f.Buses(), insns)
 	// Apply vectorisation (if enabled).
 	if vectorize {
 		fn = vectorizeFunction(fn)
@@ -65,7 +65,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return io.NewFunction(f.Name(), f.Registers(), insns)
+	return io.NewFunction(f.Name(), f.Registers(), f.Buses(), insns)
 }
 
 func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {

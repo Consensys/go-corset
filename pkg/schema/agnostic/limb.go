@@ -106,7 +106,7 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 	//
 	maxWidth = CommonLimbWidth(maxWidth, width)
 	//
-	for i := uint(0); i < nlimbs; i++ {
+	for i := range nlimbs {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
 		ith_width := min(maxWidth, width)
 		limbs[i] = sc.Register{
@@ -131,7 +131,7 @@ func LimbWidths(maxWidth, regWidth uint) []uint {
 	//
 	maxWidth = CommonLimbWidth(maxWidth, regWidth)
 	//
-	for i := uint(0); i < nlimbs; i++ {
+	for i := range nlimbs {
 		limbWidths[i] = min(maxWidth, regWidth)
 		regWidth -= maxWidth
 	}

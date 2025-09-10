@@ -126,11 +126,16 @@ func subdivideFunction(mapping sc.LimbsMap, fn MicroFunction) MicroFunction {
 		env = sc.NewAllocator(mapping.ModuleOf(fn.Name()))
 		// Updated instruction sequence
 		ninsns []micro.Instruction
+		nbuses []io.Bus = make([]io.Bus, len(fn.Buses()))
 	)
 	// Split instructions
 	for _, insn := range fn.Code() {
 		ninsns = append(ninsns, insn.SplitRegisters(env))
 	}
+	// Split buses
+	for i, bus := range fn.Buses() {
+		nbuses[i] = bus.Split(env)
+	}
 	// Done
-	return io.NewFunction(fn.Name(), env.Limbs(), ninsns)
+	return io.NewFunction(fn.Name(), env.Limbs(), nbuses, ninsns)
 }

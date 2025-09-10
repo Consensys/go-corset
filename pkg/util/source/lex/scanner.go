@@ -92,6 +92,17 @@ func String(s string) Scanner[int32] {
 	}
 }
 
+// Not matches everything except the given item.
+func Not[T comparable](item T) Scanner[T] {
+	return func(items []T) uint {
+		if len(items) != 0 && items[0] != item {
+			return 1
+		}
+		// fail
+		return 0
+	}
+}
+
 // Within accepts any character within a given range.
 func Within[T cmp.Ordered](lowest T, highest T) Scanner[T] {
 	return func(items []T) uint {

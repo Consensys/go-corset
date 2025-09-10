@@ -73,9 +73,10 @@ func NewParser(srcfile *source.File) *Parser {
 // some number of syntax errors.
 func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	var (
-		item   AssemblyItem
-		errors []source.SyntaxError
-		fn     MacroFunction
+		item    AssemblyItem
+		include *string
+		errors  []source.SyntaxError
+		fn      MacroFunction
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
@@ -83,7 +84,21 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
-		fn, errors = p.parseFunction()
+		lookahead := p.lookahead()
+		// Determine type of declaration
+		switch lookahead.Kind {
+		case KEYWORD_INCLUDE:
+			include, errors = p.parseInclude()
+			if len(errors) == 0 {
+				item.Includes = append(item.Includes, include)
+			}
+			// Avoid appending to components
+			continue
+		case KEYWORD_FN:
+			fn, errors = p.parseFunction()
+		default:
+			errors = p.syntaxErrors(lookahead, "unknown declaration")
+		}
 		//
 		if len(errors) > 0 {
 			return item, errors
@@ -97,6 +112,27 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	return item, nil
 }
 
+func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
+	// Parse include declaration
+	if _, errs := p.expect(KEYWORD_INCLUDE); len(errs) > 0 {
+		return nil, errs
+	}
+	//
+	tok, errs := p.expect(STRING)
+	//
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	// Process string
+	str := p.string(tok)
+	str = str[1 : len(str)-1]
+	pStr := &str
+	// Store for error reporting.
+	p.srcmap.Put(pStr, tok.Span)
+	// Done
+	return pStr, errs
+}
+
 func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	var (
 		env             Environment
@@ -108,7 +144,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 		pc              uint
 	)
 	// Parse function declaration
-	if name, errs = p.parseIdentifier(); len(errs) > 0 || name != "fn" {
+	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
 		return MacroFunction{}, errs
 	}
 	// Parse function name
@@ -150,7 +186,7 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	// Finalise labels
 	env.BindLabels(code)
 	// Done
-	return io.NewFunction(name, env.registers, code), nil
+	return io.NewFunction(name, env.registers, env.buses, code), nil
 }
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
@@ -633,7 +669,7 @@ func (p *Parser) lookahead() lex.Token {
 	return p.tokens[p.index]
 }
 
-// Expect panics if the next token is not what was expected.
+// Expect reurns an arror if the next token is not what was expected.
 func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	//

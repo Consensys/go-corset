@@ -95,6 +95,12 @@ func (p *Module[F, T]) IsSynthetic() bool {
 	panic("unsupported operation")
 }
 
+// Substitute any matchined labelled constants within this module
+func (p *Module[F, T]) Substitute(mapping map[string]F) {
+	// For now, this is a no-operation because assembly has no concept of
+	// labelled constants.  In the future, we might expect this to change.
+}
+
 // Width implementation for schema.Module interface.
 func (p *Module[F, T]) Width() uint {
 	return uint(len(p.function.Registers()))

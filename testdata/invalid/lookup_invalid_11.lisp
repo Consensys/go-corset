@@ -1,3 +1,3 @@
-;;error:3:16-23:signed term encountered
+;;error:3:29-36:signed term encountered
 (defcolumns (X :u16) (Y :u16))
-(deflookup l1 ((- 1 X)) (Y))
+(deflookup (l1 :unchecked) ((- 1 X)) (Y))

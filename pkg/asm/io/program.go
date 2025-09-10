@@ -56,7 +56,7 @@ func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
 		var (
 			insn      = fn.CodeAt(0)
 			registers = fn.Registers()
-			state     = initialState(registers, executor)
+			state     = initialState(registers, fn.Buses(), executor)
 		)
 		// Execute the one instruction
 		_ = insn.Execute(state)
@@ -75,7 +75,7 @@ func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
 }
 
 // Construct initial state from the given padding values.
-func initialState(registers []Register, iomap Map) State {
+func initialState(registers []Register, buses []Bus, iomap Map) State {
 	var (
 		state = make([]big.Int, len(registers))
 		index = 0
@@ -91,8 +91,15 @@ func initialState(registers []Register, iomap Map) State {
 			index = index + 1
 		}
 	}
+	// Initialie I/O buses
+	for _, bus := range buses {
+		// Initialise state from padding
+		for _, rid := range bus.AddressData() {
+			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+		}
+	}
 	//
-	return InitialState(state, registers, iomap)
+	return NewState(state, registers, iomap)
 }
 
 // ============================================================================

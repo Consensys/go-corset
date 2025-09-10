@@ -262,6 +262,13 @@ func (p *ModuleBuilder[F, C, T]) IsSynthetic() bool {
 	return p.synthetic
 }
 
+// Substitute any matchined labelled constants within this module
+func (p *ModuleBuilder[F, C, T]) Substitute(mapping map[string]F) {
+	for _, c := range p.constraints {
+		c.Substitute(mapping)
+	}
+}
+
 // Width returns the number of registers in this module.
 func (p *ModuleBuilder[F, C, T]) Width() uint {
 	return uint(len(p.registers))

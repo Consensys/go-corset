@@ -26,6 +26,7 @@ import (
 // not fully known.  Hence, when multiple assembly items come together we must
 // "align buses appropriately between them.
 type AssemblyItem struct {
+	Includes []*string
 	// Components making up this assembly item.
 	Components []MacroFunction
 	// Mapping of instructions back to the source file.
@@ -74,9 +75,16 @@ func linkComponent(index uint, components []*MacroFunction, busmap map[string]ui
 	// Mapping of bus names to allocated buses
 	var (
 		fn         = components[index]
+		buses      = fn.Buses()
 		code       = fn.Code()
 		localBuses = make(map[uint]io.Bus, 0)
 	)
+	// Allocate buses
+	for i, bus := range buses {
+		busId := busmap[bus.Name]
+		// Allocate bus
+		buses[i] = allocateBus(busId, localBuses, index, components)
+	}
 	//
 	for i := range code {
 		insn := code[i]
@@ -85,7 +93,7 @@ func linkComponent(index uint, components []*MacroFunction, busmap map[string]ui
 			// Determine global bus identifier
 			busId := busmap[bi.Bus().Name]
 			// allocate & link bus
-			bi.Link(allocateBus(busId, localBuses, index, components))
+			bi.Link(localBuses[busId])
 		}
 	}
 }
@@ -102,18 +110,13 @@ func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components 
 		inputs  = components[busId].Inputs()
 		outputs = components[busId].Outputs()
 	)
-	// Check whether previously allocated, or not.
-	if bus, ok := localBuses[busId]; ok {
-		// Yes, so just return previously created bus.
-		return bus
-	}
-	// No, therefore create new bus.
+	// Create new bus.
 	addressLines := allocateIoRegisters(busName, inputs, fn)
 	dataLines := allocateIoRegisters(busName, outputs, fn)
 	bus := io.NewBus(busName, busId, addressLines, dataLines)
 	// Update local bus map
 	localBuses[busId] = bus
-	// Done
+	//
 	return bus
 }
 
@@ -132,7 +135,7 @@ func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunct
 			panic("unreachable")
 		}
 		// Allocate register
-		lines = append(lines, fn.AllocateRegister(schema.COMPUTED_REGISTER, regName, reg.Width))
+		lines = append(lines, fn.AllocateRegister(schema.COMPUTED_REGISTER, regName, reg.Width, reg.Padding))
 	}
 	//
 	return lines

@@ -58,11 +58,27 @@ func EmptyState(pc uint, registers []schema.Register, io Map) State {
 	return State{pc, false, state, registers, io}
 }
 
-// InitialState constructs a suitable initial state for executing a given
-// function with the given arguments.
-func InitialState(state []big.Int, registers []schema.Register, io Map) State {
+// NewState constructs a new state instance from the given state values.
+func NewState(state []big.Int, registers []schema.Register, io Map) State {
 	// Construct state
 	return State{0, false, state, registers, io}
+}
+
+// InitialState constructs a suitable initial state for executing a given
+// function with the given arguments.
+func InitialState(inputs []big.Int, registers []schema.Register, buses []Bus, iomap Map) State {
+	state := make([]big.Int, len(registers))
+	// Initialise input arguments
+	copy(state, inputs)
+	// Initialie I/O buses
+	for _, bus := range buses {
+		// Initialise state from padding
+		for _, rid := range bus.AddressData() {
+			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+		}
+	}
+	//
+	return NewState(state, registers, iomap)
 }
 
 // Clone this state, producing a disjoint state.

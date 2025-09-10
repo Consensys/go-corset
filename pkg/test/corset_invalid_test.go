@@ -101,6 +101,11 @@ func Test_Invalid_Basic_17(t *testing.T) {
 func Test_Invalid_Basic_18(t *testing.T) {
 	CheckInvalid(t, "invalid/basic_invalid_18")
 }
+
+func Test_Invalid_Basic_19(t *testing.T) {
+	CheckInvalid(t, "invalid/basic_invalid_19")
+}
+
 func Test_Invalid_Logic_01(t *testing.T) {
 	CheckInvalid(t, "invalid/logic_invalid_01")
 }
@@ -502,6 +507,15 @@ func Test_Invalid_Lookup_13(t *testing.T) {
 }
 func Test_Invalid_Lookup_14(t *testing.T) {
 	CheckInvalid(t, "invalid/lookup_invalid_14")
+}
+func Test_Invalid_Lookup_15(t *testing.T) {
+	CheckInvalid(t, "invalid/lookup_invalid_15")
+}
+func Test_Invalid_Lookup_16(t *testing.T) {
+	CheckInvalid(t, "invalid/lookup_invalid_16")
+}
+func Test_Invalid_Lookup_17(t *testing.T) {
+	CheckInvalid(t, "invalid/lookup_invalid_17")
 }
 
 // ===================================================================
