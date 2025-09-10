@@ -1,5 +1,25 @@
 ;; GF251 curve
+;; Add on u256
 ;; Mul on u8, to be able to test all cases
+
+fn add(x u256, y u256) -> (RESULT u256) {
+
+   var c0, c1  u1
+   var res u256
+   var red u256
+
+   c0, res = x + y
+   c1, red = res - 251
+   ;; if c1 is 0, it means the diff is positive and res is >= 251
+   ;; if c1 is 1, diff is negative, res < 251
+   if c1==0 goto exit0
+   RESULT = res
+   return
+exit0:
+   RESULT = red
+   return
+
+}
 
 ;; u8 version of mul and reduction to be able to test all cases
 
@@ -48,10 +68,9 @@ exit_1:
    return
 }
 
-;; TODO: uncomment once fn call in fn is fixed
-;;fn mul_u8(x u8, y u8) -> (RESULT u8) {
-;;    var z u16
-;;    z = x * y
-;;    RESULT = reduction_u8(z)
-;;    return
-;;}
+fn mul_u8(x u8, y u8) -> (RESULT u8) {
+    var z u16
+    z = x * y
+    RESULT = reduction_u8(z)
+    return
+}
