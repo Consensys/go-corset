@@ -166,9 +166,7 @@ func subSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register
 	vals.Sub(math.NewInterval(constant, constant))
 	// Check minimal bitwidth
 	bitwidth, signed := vals.BitWidth()
-	//
-	fmt.Printf("GOT: %d, %t from %s\n", bitwidth, signed, vals.String())
-	//
+	// For signed arithmetic, we need a specific sign bit.
 	if signed {
 		return bitwidth + 1
 	}
