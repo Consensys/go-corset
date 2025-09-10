@@ -51,7 +51,6 @@ func (e *PseudoInverse[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F]
 	var (
 		trModule = tr.Module(e.Target.Module())
 		scModule = schema.Module(e.Target.Module())
-		wrapper  = recursiveModule[F]{e.Target.Column().Unwrap(), nil, trModule}
 		err      error
 	)
 	// Determine multiplied height
@@ -62,17 +61,15 @@ func (e *PseudoInverse[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F]
 	// values outside the range of the computed register, but which we still
 	// want to check are actually rejected (i.e. since they are simulating what
 	// an attacker might do).
-	wrapper.data = tr.Builder().NewArray(height, math.MaxUint)
+	data := tr.Builder().NewArray(height, math.MaxUint)
 	// Expand the trace
-
-	err = invert(wrapper.data, e.Expr, trModule, scModule)
-
+	err = invert(data, e.Expr, trModule, scModule)
 	// Sanity check
 	if err != nil {
 		return nil, err
 	}
 	// Done
-	return []array.MutArray[F]{wrapper.data}, err
+	return []array.MutArray[F]{data}, err
 }
 
 // Consistent performs some simple checks that the given assignment is
