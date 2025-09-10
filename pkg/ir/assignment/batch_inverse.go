@@ -128,7 +128,7 @@ func (e *PseudoInverse[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	}
 	//
 	return sexp.NewList(
-		[]sexp.SExp{sexp.NewSymbol("inverse"),
+		[]sexp.SExp{sexp.NewSymbol("inv"),
 			sexp.NewList([]sexp.SExp{
 				sexp.NewSymbol(target.QualifiedName(module)),
 				sexp.NewSymbol(datatype)}),
@@ -140,7 +140,7 @@ func (e *PseudoInverse[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 // so it can be printed.
 func (e *PseudoInverse[F]) LispOld(global bool, mapping schema.RegisterMap) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("inverse"),
+		sexp.NewSymbol("inv"),
 		e.Expr.Lisp(global, mapping),
 	})
 }
