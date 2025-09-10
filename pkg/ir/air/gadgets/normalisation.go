@@ -55,7 +55,6 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 	if !ok {
 		// Indicate column has "field element width".
 		var bitwidth uint = math.MaxUint
-
 		// Add computed register.
 		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth, padding))
 		ie.Target = sc.NewRegisterRef(module.Id(), index)
