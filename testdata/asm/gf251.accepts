@@ -35,5 +35,5 @@
 { "reduction_u8": { "z": [52797], "RESULT": [168] }}
 ;; add function testing
 { "mul_u8": { "x": [0], "y": [0], "RESULT": [0] } }
-{ "mul_u8": { "x": [1], "y": [1], "RESULT": [201] }}
-{ "mul_u8": { "x": [232], "y": [232], "RESULT": [22] }}
+{ "mul_u8": { "x": [1], "y": [1], "RESULT": [1] }}
+{ "mul_u8": { "x": [232], "y": [232], "RESULT": [110] }}

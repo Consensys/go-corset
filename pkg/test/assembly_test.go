@@ -109,7 +109,6 @@ func Test_Asm_Trim(t *testing.T) {
 
 func Test_Asm_Gf251(t *testing.T) {
 	// Testing reduce_u8 for now
-	// Test mul once fn call in fn has been fixed
 	test_util.Check(t, false, "asm/gf251")
 }
 
