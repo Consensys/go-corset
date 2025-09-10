@@ -26,7 +26,7 @@ import (
 // not fully known.  Hence, when multiple assembly items come together we must
 // "align buses appropriately between them.
 type AssemblyItem struct {
-	Includes []string
+	Includes []*string
 	// Components making up this assembly item.
 	Components []MacroFunction
 	// Mapping of instructions back to the source file.

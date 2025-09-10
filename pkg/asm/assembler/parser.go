@@ -74,7 +74,7 @@ func NewParser(srcfile *source.File) *Parser {
 func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	var (
 		item    AssemblyItem
-		include string
+		include *string
 		errors  []source.SyntaxError
 		fn      MacroFunction
 	)
@@ -112,13 +112,25 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	return item, nil
 }
 
-func (p *Parser) parseInclude() (string, []source.SyntaxError) {
+func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 	// Parse include declaration
 	if _, errs := p.expect(KEYWORD_INCLUDE); len(errs) > 0 {
-		return "", errs
+		return nil, errs
 	}
-	// Parse include path
-	return p.parseString()
+	//
+	tok, errs := p.expect(STRING)
+	//
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	// Process string
+	str := p.string(tok)
+	str = str[1 : len(str)-1]
+	pStr := &str
+	// Store for error reporting.
+	p.srcmap.Put(pStr, tok.Span)
+	// Done
+	return pStr, errs
 }
 
 func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
@@ -606,18 +618,6 @@ func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 	}
 	//
 	return p.string(tok), nil
-}
-
-func (p *Parser) parseString() (string, []source.SyntaxError) {
-	tok, errs := p.expect(STRING)
-	//
-	if len(errs) > 0 {
-		return "", errs
-	}
-	//
-	str := p.string(tok)
-	//
-	return str[1 : len(str)-1], nil
 }
 
 func (p *Parser) parseComparator() (uint8, []source.SyntaxError) {

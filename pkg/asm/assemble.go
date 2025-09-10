@@ -14,6 +14,7 @@ package asm
 
 import (
 	"math"
+	"path/filepath"
 
 	"github.com/consensys/go-corset/pkg/asm/assembler"
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -60,7 +61,7 @@ type MicroModule[F field.Element[F]] = program.Module[F, micro.Instruction]
 // Assemble takes a given set of assembly files, and parses them into a given
 // set of functions.  This includes performing various checks on the files, such
 // as type checking, etc.
-func Assemble(assembly ...source.File) (
+func Assemble(files ...source.File) (
 	MacroProgram, source.Maps[any], []source.SyntaxError) {
 	//
 	var (
@@ -68,15 +69,27 @@ func Assemble(assembly ...source.File) (
 		errors     []source.SyntaxError
 		components []*MacroFunction
 		srcmaps    source.Maps[any]
+		visited    map[string]bool = make(map[string]bool)
 	)
 	// Parse each file in turn.
-	for _, asm := range assembly {
-		// Parse source file
-		cs, errs := assembler.Parse(&asm)
-		if len(errs) == 0 {
-			items = append(items, cs)
-		}
+	for len(files) > 0 {
+		var (
+			asm      = files[0]
+			errs     []source.SyntaxError
+			included []source.File
+			cs       assembler.AssemblyItem
+		)
 		//
+		files = files[1:]
+		// Parse source file
+		if cs, errs = assembler.Parse(&asm); len(errs) == 0 {
+			items = append(items, cs)
+			// Process included source files
+			included, errs = readIncludedFiles(asm, cs, visited)
+			// Append any new files for processing
+			files = append(files, included...)
+		}
+		// Include all errors
 		errors = append(errors, errs...)
 	}
 	// Link assembly
@@ -91,6 +104,32 @@ func Assemble(assembly ...source.File) (
 	return io.NewProgram(components), srcmaps, errors
 }
 
+func readIncludedFiles(file source.File, item assembler.AssemblyItem,
+	visited map[string]bool) ([]source.File, []source.SyntaxError) {
+	//
+	var (
+		dir    = filepath.Dir(file.Filename())
+		files  []source.File
+		errors []source.SyntaxError
+	)
+	//
+	for _, include := range item.Includes {
+		filename := filepath.Join(dir, *include)
+		// Check filename not already parsed
+		if seen, ok := visited[filename]; seen && ok {
+			// file already loaded, therefore ignore.
+		} else if fs, err := source.ReadFiles(filename); err == nil {
+			files = append(files, fs...)
+		} else {
+			errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
+		}
+		// Record that we've seen this file now.
+		visited[filename] = true
+	}
+	//
+	return files, errors
+}
+
 // LowerMixedMacroProgram a mixed macro program (i.e. schema) into a mixed micro program, using
 // vectorisation if desired.  Specifically, any macro modules within the schema
 // are lowered into "micro" modules (i.e. those using only micro instructions).
@@ -98,7 +137,7 @@ func Assemble(assembly ...source.File) (
 func LowerMixedMacroProgram[F field.Element[F]](vectorize bool, program MixedMacroProgram[F]) MixedMicroProgram[F] {
 	var microProgram = lowerMacroProgram(vectorize, program.program)
 	// Done
-	return NewMixedProgram[F, micro.Instruction](microProgram, program.externs...)
+	return NewMixedProgram(microProgram, program.externs...)
 }
 
 func lowerMacroProgram(vectorize bool, p MacroProgram) MicroProgram {
