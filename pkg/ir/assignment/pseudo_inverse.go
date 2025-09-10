@@ -36,6 +36,15 @@ type PseudoInverse[F field.Element[F]] struct {
 	Expr air.Term[F]
 }
 
+// NewPseudoInverse constructs a new pseudo-inverse assignment for the given
+// target register and expression.
+func NewPseudoInverse[F field.Element[F]](target schema.RegisterRef, expr air.Term[F]) *PseudoInverse[F] {
+	return &PseudoInverse[F]{
+		Target: target,
+		Expr:   expr,
+	}
+}
+
 // Bounds determines the well-definedness bounds for this assignment.
 // It is the same as that of the expression it is inverting.
 func (e *PseudoInverse[F]) Bounds(mid schema.ModuleId) util.Bounds {
@@ -131,15 +140,6 @@ func (e *PseudoInverse[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 				sexp.NewSymbol(datatype)}),
 			e.Expr.Lisp(false, module),
 		})
-}
-
-// LispOld converts this schema element into a simple S-Expression, for example
-// so it can be printed.
-func (e *PseudoInverse[F]) LispOld(global bool, mapping schema.RegisterMap) sexp.SExp {
-	return sexp.NewList([]sexp.SExp{
-		sexp.NewSymbol("inv"),
-		e.Expr.Lisp(global, mapping),
-	})
 }
 
 // RequiredRegisters returns the set of registers on which this term depends.
