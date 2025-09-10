@@ -162,9 +162,9 @@ func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	)
 	// check
 	if lhs_bits < rhs_bits {
-		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
 	} else if rhs_bits > fieldWidth {
-		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
+		return fmt.Errorf("field overflow (u%d into u%d field)", rhs_bits, fieldWidth)
 	}
 	//
 	return io.CheckTargetRegisters(p.Targets, regs)

@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -127,9 +128,9 @@ func (p *Sub) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	)
 	// check
 	if lhs_bits < rhs_bits {
-		return fmt.Errorf("bit overflow (%d bits into %d bits)", rhs_bits, lhs_bits)
+		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
 	} else if rhs_bits > fieldWidth {
-		return fmt.Errorf("field overflow (%d bits into %d bit field)", rhs_bits, fieldWidth)
+		return fmt.Errorf("field overflow (u%d into u%d field)", rhs_bits, fieldWidth)
 	} else if err := checkSignBit(p.Targets, regs); err != nil {
 		return err
 	}
@@ -155,13 +156,22 @@ func checkSignBit(targets []io.RegisterId, regs []io.Register) error {
 }
 
 func subSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
-	var rhs big.Int = *regs[sources[0].Unwrap()].MaxValue()
+	var vals = math.NewInterval(zero, *regs[sources[0].Unwrap()].MaxValue())
 	// Now, add negative components
 	for _, target := range sources[1:] {
-		rhs.Add(&rhs, regs[target.Unwrap()].MaxValue())
+		ith := math.NewInterval(zero, *regs[target.Unwrap()].MaxValue())
+		vals.Sub(ith)
 	}
 	// Include constant (if relevant)
-	rhs.Add(&rhs, &constant)
-	// lhs must be able to hold both.
-	return uint(rhs.BitLen())
+	vals.Sub(math.NewInterval(constant, constant))
+	// Check minimal bitwidth
+	bitwidth, signed := vals.BitWidth()
+	//
+	fmt.Printf("GOT: %d, %t from %s\n", bitwidth, signed, vals.String())
+	//
+	if signed {
+		return bitwidth + 1
+	}
+	//
+	return bitwidth
 }
