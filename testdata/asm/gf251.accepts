@@ -1,0 +1,39 @@
+;; add function testing
+{ "add": { "x": [0], "y": [0], "RESULT": [0] } }
+{ "add": { "x": [249], "y": [1], "RESULT": [250] }}
+{ "add": { "x": [250], "y": [1], "RESULT": [0] }}
+;; Sample reduction_u8 testing
+{ "reduction_u8": { "z": [35762], "RESULT": [24] }}
+{ "reduction_u8": { "z": [4500], "RESULT": [147] }}
+{ "reduction_u8": { "z": [789], "RESULT": [208] }}
+{ "reduction_u8": { "z": [6813], "RESULT": [208] }}
+{ "reduction_u8": { "z": [38185], "RESULT": [107] }}
+{ "reduction_u8": { "z": [48523], "RESULT": [16] }}
+{ "reduction_u8": { "z": [59879], "RESULT": [229] }}
+{ "reduction_u8": { "z": [21014], "RESULT": [237] }}
+{ "reduction_u8": { "z": [2086], "RESULT": [116] }}
+{ "reduction_u8": { "z": [39580], "RESULT": [135] }}
+{ "reduction_u8": { "z": [27408], "RESULT": [60] }}
+{ "reduction_u8": { "z": [47161], "RESULT": [95] }}
+{ "reduction_u8": { "z": [34804], "RESULT": [234] }}
+{ "reduction_u8": { "z": [34429], "RESULT": [159] }}
+{ "reduction_u8": { "z": [64506], "RESULT": [50] }}
+{ "reduction_u8": { "z": [15154], "RESULT": [69] }}
+{ "reduction_u8": { "z": [61300], "RESULT": [212] }}
+{ "reduction_u8": { "z": [30339], "RESULT": [94] }}
+{ "reduction_u8": { "z": [46744], "RESULT": [112] }}
+{ "reduction_u8": { "z": [35608], "RESULT": [194] }}
+{ "reduction_u8": { "z": [49715], "RESULT": [154] }}
+{ "reduction_u8": { "z": [44827], "RESULT": [80] }}
+{ "reduction_u8": { "z": [4979], "RESULT": [42] }}
+{ "reduction_u8": { "z": [56211], "RESULT": [148] }}
+{ "reduction_u8": { "z": [50776], "RESULT": [65] }}
+{ "reduction_u8": { "z": [47703], "RESULT": [103] }}
+{ "reduction_u8": { "z": [17809], "RESULT": [98] }}
+{ "reduction_u8": { "z": [43469], "RESULT": [210] }}
+{ "reduction_u8": { "z": [33652], "RESULT": [104] }}
+{ "reduction_u8": { "z": [52797], "RESULT": [168] }}
+;; add function testing
+{ "mul_u8": { "x": [0], "y": [0], "RESULT": [0] } }
+{ "mul_u8": { "x": [1], "y": [1], "RESULT": [201] }}
+{ "mul_u8": { "x": [232], "y": [232], "RESULT": [22] }}
