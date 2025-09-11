@@ -100,21 +100,24 @@ func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MixedMicro
 // SplitRegisters method (which we want to avoid right now).
 func subdivideProgram(mapping schema.LimbsMap, p MicroProgram) MicroProgram {
 	var (
-		fns      = p.Functions()
-		nfns     = make([]*MicroFunction, len(fns))
-		executor = io.NewExecutor(p)
+		fns  = p.Functions()
+		nfns = make([]*MicroFunction, len(fns))
 	)
 	// Split functions
 	for i, fn := range fns {
 		ith := subdivideFunction(mapping, *fn)
 		nfns[i] = &ith
 	}
+	// Constuct subdivided program
+	p = io.NewProgram(nfns)
+	// Construct executor for padding inference
+	executor := io.NewExecutor(p)
 	// Infer padding
 	for _, nfn := range nfns {
 		io.InferPadding(*nfn, executor)
 	}
 	// Done
-	return io.NewProgram(nfns)
+	return p
 }
 
 // Subdivide a given function.  In principle, this should be located within
