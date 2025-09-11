@@ -35,13 +35,11 @@ type Assignment[F field.Element[F], T io.Instruction[T]] struct {
 	buses     []io.Bus
 	numInputs uint
 	code      []T
-	iomap     io.Map
 }
 
 // NewAssignment constructs a new assignment capable of trace filling for a
 // given function.
-func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn io.Function[T], iomap io.Map,
-) *Assignment[F, T] {
+func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn io.Function[T]) *Assignment[F, T] {
 	//
 	return &Assignment[F, T]{
 		id:        id,
@@ -50,7 +48,6 @@ func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn i
 		buses:     fn.Buses(),
 		numInputs: fn.NumInputs(),
 		code:      fn.Code(),
-		iomap:     iomap,
 	}
 }
 
@@ -65,11 +62,12 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]
 	var (
 		trModule = trace.Module(p.id)
 		states   []io.State
+		iomap    io.Map // TODO
 	)
 	// Trace given rows
 	for i := range trModule.Height() {
 		inputs := inputsOf(i, trModule, p.numInputs)
-		sts := p.trace(inputs)
+		sts := p.trace(inputs, iomap)
 		states = append(states, sts...)
 	}
 	//
@@ -139,12 +137,12 @@ func (p Assignment[F, T]) Substitute(map[string]F) {
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
 // traces.
-func (p Assignment[F, T]) trace(inputs []big.Int) []io.State {
+func (p Assignment[F, T]) trace(inputs []big.Int, iomap io.Map) []io.State {
 	var (
 		code   = p.code
 		states []io.State
 		// Construct local state
-		state = io.InitialState(inputs, p.registers, p.buses, p.iomap)
+		state = io.InitialState(inputs, p.registers, p.buses, iomap)
 		// Program counter position
 		pc uint = 0
 	)
