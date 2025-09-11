@@ -68,13 +68,6 @@ func (p *Bus) Data() []RegisterId {
 	return p.DataLines
 }
 
-// AddressData returns the "address" and "data" lines for this bus (in that
-// order).  That is, the registers which hold the various components of the
-// address.
-func (p *Bus) AddressData() []RegisterId {
-	return append(p.AddressLines, p.DataLines...)
-}
-
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
 func (p *Bus) Split(env schema.RegisterAllocator) Bus {

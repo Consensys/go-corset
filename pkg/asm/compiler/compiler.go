@@ -282,16 +282,21 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 	for _, bus := range fn.Buses() {
 		// Callee represents the function being called by this Bus.
 		var (
-			name         = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
-			callerBus    = p.buses[caller].ColumnsOf(bus.AddressData()...)
-			callerLines  = make([]E, len(callerBus))
-			calleeBus    = p.buses[bus.BusId].Bus()
-			calleeLines  = make([]E, len(calleeBus))
-			calleeEnable *E
+			name          = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
+			callerAddress = p.buses[caller].ColumnsOf(bus.Address()...)
+			callerData    = p.buses[caller].ColumnsOf(bus.Data()...)
+			callerLines   = make([]E, len(callerAddress)+len(callerData))
+			calleeBus     = p.buses[bus.BusId].Bus()
+			calleeLines   = make([]E, len(calleeBus))
+			calleeEnable  *E
 		)
-		// Initialise caller lines
-		for i, r := range callerBus {
+		// Initialise caller address lines
+		for i, r := range callerAddress {
 			callerLines[i] = Variable[T, E](r, 0)
+		}
+		// Initialise caller data lines
+		for i, r := range callerData {
+			callerLines[i+len(callerAddress)] = Variable[T, E](r, 0)
 		}
 		// Initialise callee lines
 		for i, r := range calleeBus {
@@ -305,7 +310,11 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 		// Add lookup constraint
 		module.NewLookup(name, callerLines, bus.BusId, calleeLines, calleeEnable)
 		// Mark caller address / data lines as io registers
-		for _, r := range bus.AddressData() {
+		for _, r := range bus.Address() {
+			ioRegisters.Insert(r.Unwrap())
+		}
+		// Mark caller data lines as io registers
+		for _, r := range bus.Data() {
 			ioRegisters.Insert(r.Unwrap())
 		}
 	}
