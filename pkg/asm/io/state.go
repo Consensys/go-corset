@@ -39,6 +39,10 @@ type State struct {
 	pc uint
 	// Terminate indicates this is a terminating state
 	terminal bool
+	// Number of input registers
+	numInputs uint
+	// Number of output registers
+	numOutputs uint
 	// Values for each register in this state excluding the program counter
 	// (since this is held above).  Thus, this array has one less item than
 	// registers.
@@ -53,15 +57,39 @@ type State struct {
 // EmptyState constructs an initially empty state at the given PC value.  One
 // can then set register values as needed via Store.
 func EmptyState(pc uint, registers []schema.Register, io Map) State {
-	var state = make([]big.Int, len(registers))
+	var (
+		state      = make([]big.Int, len(registers))
+		numInputs  uint
+		numOutputs uint
+	)
+	//
+	for _, r := range registers {
+		if r.IsInput() {
+			numInputs++
+		} else if r.IsOutput() {
+			numOutputs++
+		}
+	}
 	// Construct state
-	return State{pc, false, state, registers, io}
+	return State{pc, false, numInputs, numOutputs, state, registers, io}
 }
 
 // NewState constructs a new state instance from the given state values.
 func NewState(state []big.Int, registers []schema.Register, io Map) State {
+	var (
+		numInputs  uint
+		numOutputs uint
+	)
+	//
+	for _, r := range registers {
+		if r.IsInput() {
+			numInputs++
+		} else if r.IsOutput() {
+			numOutputs++
+		}
+	}
 	// Construct state
-	return State{0, false, state, registers, io}
+	return State{0, false, numInputs, numOutputs, state, registers, io}
 }
 
 // InitialState constructs a suitable initial state for executing a given
@@ -72,8 +100,12 @@ func InitialState(inputs []big.Int, registers []schema.Register, buses []Bus, io
 	copy(state, inputs)
 	// Initialie I/O buses
 	for _, bus := range buses {
-		// Initialise state from padding
-		for _, rid := range bus.AddressData() {
+		// Initialise address lines from padding
+		for _, rid := range bus.Address() {
+			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+		}
+		// Initialise data lines from padding
+		for _, rid := range bus.Data() {
 			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
 		}
 	}
@@ -86,6 +118,8 @@ func (p *State) Clone() State {
 	return State{
 		p.pc,
 		p.terminal,
+		p.numInputs,
+		p.numOutputs,
 		slices.Clone(p.state),
 		p.registers,
 		p.io,
@@ -120,12 +154,10 @@ func (p *State) In(bus Bus) {
 // Outputs extracts values from output registers of the given state.
 func (p *State) Outputs() []big.Int {
 	// Construct outputs
-	outputs := make([]big.Int, 0)
+	outputs := make([]big.Int, p.numOutputs)
 	//
-	for i, reg := range p.registers {
-		if reg.IsOutput() {
-			outputs = append(outputs, p.state[i])
-		}
+	for i := range p.numOutputs {
+		outputs[i] = p.state[i+p.numInputs]
 	}
 	//
 	return outputs

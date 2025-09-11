@@ -93,8 +93,12 @@ func initialState(registers []Register, buses []Bus, iomap Map) State {
 	}
 	// Initialie I/O buses
 	for _, bus := range buses {
-		// Initialise state from padding
-		for _, rid := range bus.AddressData() {
+		// Initialise address lines from padding
+		for _, rid := range bus.Address() {
+			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+		}
+		// Initialise data lines from padding
+		for _, rid := range bus.Data() {
 			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
 		}
 	}
