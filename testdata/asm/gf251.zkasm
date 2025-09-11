@@ -9,12 +9,14 @@ fn add(x u8, y u8) -> (RESULT u8) {
 
    c0, res = x + y
    c1, red = res - 251
-   ;; if c1 is 0, it means the diff is positive and res is >= 251
+   ;; if c1 == 1, it means res was >= 256 so we return red
+   if c0==1 goto exit_0
+   ;; if c1 is 0, it means the diff is positive and res is >= 251, so we return red
    ;; if c1 is 1, diff is negative, res < 251
-   if c1==0 goto exit0
+   if c1==0 goto exit_0
    RESULT = res
    return
-exit0:
+exit_0:
    RESULT = red
    return
 
@@ -49,32 +51,36 @@ fn reduction(z u16) -> (RESULT u8) {
    c0, red = res - 251
 
    ;; if c1 == 1, it means res was >= 256 so we return red
-   if c1==1 goto exit_1
+   if c1==1 goto exit_0
    ;; if c0 == 0, (res - n) is positive and res >= 251 so we return red as well
-   if c0==0 goto exit_1
+   if c0==0 goto exit_0
    RESULT = res
    return
-exit_1:
+exit_0:
    RESULT = red
    return
 }
 
 fn mul(x u8, y u8) -> (RESULT u8) {
-    var new_x u8
-    var new_y u8
     var tmp_x u16
     var tmp_y u16
+    var new_x u8
+    var new_y u8
     ;; R² mod n is 25
     tmp_x = x * 25
     tmp_y = y * 25
+    ;; reduction of T is equivalent to (T * R⁻1) mod n
+    ;; reduction gives new_x = (x * R²) R⁻1 mod n = (x * R) mod n
     new_x = reduction(tmp_x)
     new_y = reduction(tmp_y)
     var tmp_z u16
     var z_u8 u8
     var z_u16 u16
     tmp_z = new_x * new_y
+    ;; reduction gives (x * y * R) mod n
     z_u8 = reduction(tmp_z)
     z_u16 = z_u8
+    ;; last reduction gives (x * y) mod n
     RESULT = reduction(z_u16)
     return
 }
