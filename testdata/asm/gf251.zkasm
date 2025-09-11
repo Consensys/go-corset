@@ -69,8 +69,6 @@ exit_1:
 }
 
 fn mul_u8(x u8, y u8) -> (RESULT u8) {
-    var a u16
-    var b u16
     var new_x u8
     var new_y u8
     var tmp_x u16
@@ -81,11 +79,11 @@ fn mul_u8(x u8, y u8) -> (RESULT u8) {
     new_x = reduction_u8(tmp_x)
     new_y = reduction_u8(tmp_y)
     var tmp_z u16
-    var z u8
-    var zz u16
+    var z_u8 u8
+    var z_u16 u16
     tmp_z = new_x * new_y
-    z = reduction_u8(tmp_z)
-    zz = z
-    RESULT = reduction_u8(zz)
+    z_u8 = reduction_u8(tmp_z)
+    z_u16 = z_u8
+    RESULT = reduction_u8(z_u16)
     return
 }
