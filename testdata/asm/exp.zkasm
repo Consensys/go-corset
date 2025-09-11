@@ -1,25 +1,40 @@
-include "log256.zkasm"
+include "util/fill_bytes.zkasm"
+include "util/min.zkasm"
+include "util/log2.zkasm"
+include "util/log256.zkasm"
 ;;
-fn exp(INST=60938 u16, ARG_1 u256, ARG_2 u256) -> (RES=0 u128) {
+fn exp(INST=60938 u16, ARG u256, CDS u6, EBS u6) -> (RES=0 u128) {
    var tmp u5
    var tmp2 u6
+   var zero, tmp3 u8
+   var cutoff u6
+   var word u256
    ;;
    if INST==60938 goto explog
    if INST==60933 goto modexplog
    fail
 explog:
-   if ARG_1 != 0 goto explog2
+   if ARG != 0 goto explog2
    RES = 0
    return
 explog2:
    ;; calculate log
-   tmp = log256(ARG_1)
+   tmp = log256(ARG)
    ;; increment
    tmp2 = tmp + 1
    ;; multiply by G_expbyte
    RES = tmp2 * 50
    return
 modexplog:
-   ;; TEMPORARY
-   fail
+   ;;
+   zero = 0
+   ;; calculate min cutoff
+   cutoff = min6(CDS,EBS)
+   ;; trim tail
+   word = fill_bytes_from(ARG,cutoff,zero)
+   ;; cast
+   tmp3 = log2(word)
+   RES = tmp3
+   ;;
+   return
 }
