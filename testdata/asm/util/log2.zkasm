@@ -1,4 +1,3 @@
-
 ;; Compute log256 of word
 fn log2(arg u256) -> (res u8) {
   var hi, lo u128
