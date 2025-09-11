@@ -13,6 +13,9 @@
 package io
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 )
@@ -80,4 +83,14 @@ func (p *Bus) Split(env schema.RegisterAllocator) Bus {
 	data := agnostic.ApplyMapping(env, p.DataLines)
 	//
 	return NewBus(p.Name, p.BusId, address, data)
+}
+
+func (p *Bus) String() string {
+	var builder strings.Builder
+	//
+	builder.WriteString(fmt.Sprintf("%s(%d)", p.Name, p.BusId))
+	builder.WriteString(fmt.Sprintf("%v", p.AddressLines))
+	builder.WriteString(fmt.Sprintf("%v", p.DataLines))
+	//
+	return builder.String()
 }
