@@ -90,7 +90,13 @@ type pseudoInverse[F field.Element[F]] struct {
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
 func (e *pseudoInverse[F]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
-	panic("unreachable")
+	// Convert expression into something which can be evaluated, then evaluate
+	// it.
+	val, err := e.Expr.EvalAt(k, tr, sc)
+	// Go syntax huh?
+	inv := val.Inverse()
+	// Done
+	return inv, err
 }
 
 // Bounds returns max shift in either the negative (left) or positive
