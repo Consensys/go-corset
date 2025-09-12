@@ -111,8 +111,12 @@ func Test_Asm_RecPow(t *testing.T) {
 	test_util.Check(t, false, "asm/rec_pow")
 }
 
-func Test_Asm_Shift(t *testing.T) {
-	test_util.Check(t, false, "asm/shift")
+func Test_Asm_BitShift(t *testing.T) {
+	test_util.Check(t, false, "asm/util/bit_shift")
+}
+
+func Test_Asm_ByteShift(t *testing.T) {
+	test_util.Check(t, false, "asm/util/byte_shift")
 }
 
 // Field Element Out-Of-Bounds

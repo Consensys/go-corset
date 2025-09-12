@@ -1,0 +1,71 @@
+;; Shift a u256 word a given number of bits to the left.  To shift by
+;; n bits, this operation makes n calls.  Since this is used in
+;; conjunction with the byte_shl, it only supports n <= 7.
+fn bit_shl256(word u256, n u3) -> (res u256) {
+  var head u1
+  var tail u255
+  var acc u256
+  var b u1
+  var m u3
+  ;; check for base case
+  if n == 0 goto base
+  ;; split of lead bit
+  head, tail = word
+  ;; shift left
+  acc = tail * 2
+  ;; decrement counter
+  b,m = n - 1
+  res = bit_shl256(acc,m)
+  return
+base:
+  res = word
+  return
+}
+
+;; Shift a u256 word a given number of bits to the right.  To shift by
+;; n bits, this operation makes n calls.  Since this is used in
+;; conjunction with the byte_shr, it only supports n <= 7.
+fn bit_shr256(word u256, n u3) -> (res u256) {
+  var head u1
+  var tail u255
+  var acc u256
+  var b u1
+  var m u3
+  ;; check for base case
+  if n == 0 goto base
+  ;; split of trailing bit
+  tail,head = word
+  ;; cast
+  acc = tail
+  ;; decrement counter
+  b,m = n - 1
+  res = bit_shr256(acc,m)
+  return
+base:
+  res = word
+  return
+}
+
+fn bit_sar256(word u256, n u3) -> (res u256) {
+  var head u1
+  var tail u254
+  var sign u1
+  var extension u256
+  var acc u256
+  var b,o u1
+  var m u3
+  ;; check for base case
+  if n == 0 goto base
+  ;; split of trailing bit
+  sign,tail,head = word
+  ;; determine extension
+  extension = sign * 0xC000000000000000000000000000000000000000000000000000000000000000
+  o,acc = extension + tail
+  ;; decrement counter
+  b,m = n - 1
+  res = bit_sar256(acc,m)
+  return
+base:
+  res = word
+  return
+}
