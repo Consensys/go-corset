@@ -48,7 +48,7 @@ func Normalise[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) 
 func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) air.Term[F] {
 	var (
 		// Construct inverse computation
-		ie = &psuedoInverse[F]{Expr: e}
+		ie = &pseudoInverse[F]{Expr: e}
 		// Determine computed column name
 		name = ie.Lisp(true, module).String(false)
 		// Look up column
@@ -80,45 +80,39 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 	return ir.NewRegisterAccess[F, air.Term[F]](index, 0)
 }
 
-// psuedoInverse represents a computation which computes the multiplicative
+// pseudoInverse represents a computation which computes the multiplicative
 // inverse of a given expression.  This is only needed now for the padding
 // computation.
-type psuedoInverse[F field.Element[F]] struct {
+type pseudoInverse[F field.Element[F]] struct {
 	Expr air.Term[F]
 }
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *psuedoInverse[F]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
-	// Convert expression into something which can be evaluated, then evaluate
-	// it.
-	val, err := e.Expr.EvalAt(k, tr, sc)
-	// Go syntax huh?
-	inv := val.Inverse()
-	// Done
-	return inv, err
+func (e *pseudoInverse[F]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
+	panic("unreachable")
 }
 
 // Bounds returns max shift in either the negative (left) or positive
 // direction (right).
-func (e *psuedoInverse[F]) Bounds() util.Bounds { return e.Expr.Bounds() }
+func (e *pseudoInverse[F]) Bounds() util.Bounds { return e.Expr.Bounds() }
 
 // RequiredRegisters returns the set of registers on which this term depends.
 // That is, registers whose values may be accessed when evaluating this term on
 // a given trace.
-func (e *psuedoInverse[F]) RequiredRegisters() *set.SortedSet[uint] {
+func (e *pseudoInverse[F]) RequiredRegisters() *set.SortedSet[uint] {
 	return e.Expr.RequiredRegisters()
 }
 
 // RequiredCells returns the set of trace cells on which this term depends.
 // In this case, that is the empty set.
-func (e *psuedoInverse[F]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
+func (e *pseudoInverse[F]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
 	return e.Expr.RequiredCells(row, mid)
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *psuedoInverse[F]) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
+func (e *pseudoInverse[F]) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
 		e.Expr.Lisp(global, mapping),
@@ -126,12 +120,12 @@ func (e *psuedoInverse[F]) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
 }
 
 // Substitute implementation for Substitutable interface.
-func (e *psuedoInverse[F]) Substitute(mapping map[string]F) {
+func (e *pseudoInverse[F]) Substitute(mapping map[string]F) {
 	panic("unreachable")
 }
 
 // ValueRange implementation for Term interface.
-func (e *psuedoInverse[F]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
+func (e *pseudoInverse[F]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
 	// This could be managed by having a mechanism for representing infinity
 	// (e.g. nil). For now, this is never actually used, so we can just ignore
 	// it.

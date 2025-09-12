@@ -102,7 +102,7 @@ func (p *AirLowering[F]) InitialiseModule(index uint) {
 	airModule.NewRegisters(mirModule.Registers()...)
 }
 
-// LowerModule lowers the given MIR module into the correspondind AIR module.
+// LowerModule lowers the given MIR module into the corresponding AIR module.
 // This includes all constraints and assignments.
 func (p *AirLowering[F]) LowerModule(index uint) {
 	var (
