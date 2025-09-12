@@ -103,6 +103,10 @@ func Test_Asm_SimpleOnCurve(t *testing.T) {
 	test_util.Check(t, false, "asm/simple_on_curve_u16")
 }
 
+func Test_Asm_Shf(t *testing.T) {
+	test_util.CheckWithFields(t, false, "asm/shf", sc.BLS12_377, sc.KOALABEAR_16)
+}
+
 func Test_Asm_Trim(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/trim", sc.BLS12_377, sc.KOALABEAR_16)
 }
