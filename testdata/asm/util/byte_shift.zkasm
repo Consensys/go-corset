@@ -1,6 +1,6 @@
 ;; Shift a u256 word a given number of bytes to the left.  To shift by
 ;; n bytes, this operation makes n calls.
-fn shl256(word u256, n u5) -> (res u256) {
+fn byte_shl256(word u256, n u5) -> (res u256) {
   var head u8
   var tail u248
   var acc u256
@@ -14,7 +14,7 @@ fn shl256(word u256, n u5) -> (res u256) {
   acc = tail * 256
   ;; decrement counter
   b,m = n - 1
-  res = shl256(acc,m)
+  res = byte_shl256(acc,m)
   return
 base:
   res = word
@@ -23,7 +23,7 @@ base:
 
 ;; Shift a u256 word a given number of bytes to the right.  To shift
 ;; by n bytes, this operation makes n calls.
-fn shr256(word u256, n u5) -> (res u256) {
+fn byte_shr256(word u256, n u5) -> (res u256) {
   var head u8
   var tail u248
   var acc u256
@@ -37,7 +37,7 @@ fn shr256(word u256, n u5) -> (res u256) {
   acc = tail
   ;; decrement counter
   b,m = n - 1
-  res = shr256(acc,m)
+  res = byte_shr256(acc,m)
   return
 base:
   res = word
@@ -47,7 +47,7 @@ base:
 ;; Shift an i256 (i.e. signed) word a given number of bytes to the
 ;; right.  To shift by n bytes, this operation makes n calls.  Since
 ;; the word is signed, this extends the sign bit accordingly.
-fn sar256(word u256, n u5) -> (res u256) {
+fn byte_sar256(word u256, n u5) -> (res u256) {
   var head u8
   var tail u247
   var sign u1
@@ -64,7 +64,7 @@ fn sar256(word u256, n u5) -> (res u256) {
   o,acc = extension + tail
   ;; decrement counter
   b,m = n - 1
-  res = sar256(acc,m)
+  res = byte_sar256(acc,m)
   return
 base:
   res = word
