@@ -175,9 +175,9 @@ func (p *ComputedRegister[F, E]) Substitute(mapping map[string]F) {
 //nolint:revive
 func (p *ComputedRegister[F, E]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	var (
-		module          = schema.Module(p.Target.Module())
-		target          = module.Register(p.Target.Register())
-		datatype string = "𝔽"
+		module   = schema.Module(p.Target.Module())
+		target   = module.Register(p.Target.Register())
+		datatype = "𝔽"
 	)
 	//
 	if target.Width != math.MaxUint {

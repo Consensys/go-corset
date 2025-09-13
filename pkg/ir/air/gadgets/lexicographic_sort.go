@@ -192,7 +192,7 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 	// Add binary constraints for selector bits
 	for i := uint(0); i < ncols; i++ {
 		ref := sc.NewRegisterRef(mid, sc.NewRegisterId(bitIndex+i))
-		// Add binarity constraints (i.e. to enfoce that this column is a bit).
+		// Add binarity constraints (i.e. to enforce that this column is a bit).
 		NewBitwidthGadget(schema).Constrain(ref, 1)
 	}
 	// Apply constraints to ensure at most one is set.
@@ -252,8 +252,8 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 
 // Construct the lexicographic delta constraint.  This states that the delta
 // column either holds 0 or the difference Ci[k] - Ci[k-1] (adjusted
-// appropriately for the sign) between the ith column whose multiplexor bit is
-// set. This is assumes that multiplexor bits are mutually exclusive (i.e. at
+// appropriately for the sign) between the ith column whose multiplexer bit is
+// set. This is assumes that multiplexer bits are mutually exclusive (i.e. at
 // most is one).
 func constructLexicographicDeltaConstraint[F field.Element[F]](deltaIndex sc.RegisterId, columns []sc.RegisterId,
 	signs []bool) air.Term[F] {

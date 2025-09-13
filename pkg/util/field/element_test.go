@@ -14,9 +14,11 @@ package field
 
 import (
 	"math/rand"
+	"slices"
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/util/assert"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 )
@@ -28,9 +30,9 @@ func init() {
 }
 
 func TestBatchInvert(t *testing.T) {
-	s := make([]koalabear.Element, 4000)
-	sInv := make([]koalabear.Element, len(s))
-	scratch := make([]koalabear.Element, len(s))
+	s := make(elementArray, 4000)
+	sInv := make(elementArray, len(s))
+	scratch := make(elementArray, len(s))
 
 	for i := range s {
 		s[i] = koalabear.Element{rand.Uint32()}
@@ -47,4 +49,38 @@ func TestBatchInvert(t *testing.T) {
 			assert.Equal(t, sInv[j][0], scratch[j][0], "on slice %v, at index %d", s[:i], j)
 		}
 	}
+}
+
+type elementArray []koalabear.Element
+
+func (e elementArray) BitWidth() uint {
+	panic("not implemented")
+}
+
+func (e elementArray) Clone() array.MutArray[koalabear.Element] {
+	return slices.Clone(e)
+}
+
+func (e elementArray) Get(u uint) koalabear.Element {
+	return e[u]
+}
+
+func (e elementArray) Len() uint {
+	return uint(len(e))
+}
+
+func (e elementArray) Slice(u uint, u2 uint) array.Array[koalabear.Element] {
+	return e[u:u2]
+}
+
+func (e elementArray) Append(t koalabear.Element) {
+	panic("not implemented")
+}
+
+func (e elementArray) Set(u uint, t koalabear.Element) {
+	e[u] = t
+}
+
+func (e elementArray) Pad(u uint, u2 uint, t koalabear.Element) {
+	panic("not implemented")
 }
