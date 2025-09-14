@@ -15,6 +15,7 @@ package io
 import (
 	"math"
 	"math/big"
+	"sync"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -82,8 +83,12 @@ func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
 // (thread-safe) API for calling to compute its output for a given set of
 // inputs.
 type FunctionTrace[T Instruction[T]] struct {
-	fn        *Function[T]
+	// Function whose instances are captured here
+	fn *Function[T]
+	// Cached instances of the given function
 	instances set.AnySortedSet[FunctionInstance]
+	// mutex required to ensure thread safety.
+	mux sync.RWMutex
 }
 
 // NewFunctionTrace constructs an empty trace for a given function.
@@ -91,8 +96,8 @@ func NewFunctionTrace[T Instruction[T]](fn *Function[T]) *FunctionTrace[T] {
 	instances := set.NewAnySortedSet[FunctionInstance]()
 	//
 	return &FunctionTrace[T]{
-		fn,
-		*instances,
+		fn:        fn,
+		instances: *instances,
 	}
 }
 
@@ -101,8 +106,14 @@ func NewFunctionTrace[T Instruction[T]](fn *Function[T]) *FunctionTrace[T] {
 // it will execute the function to determine the correct outputs.
 func (p *FunctionTrace[T]) Call(inputs []big.Int, iomap Map) FunctionInstance {
 	var iostate = FunctionInstance{uint(len(inputs)), inputs}
-	// Check whether this instance has already been computed.
-	if index := p.instances.Find(iostate); index != math.MaxUint {
+	// Obtain read lock
+	p.mux.RLock()
+	// Look for cached instance
+	index := p.instances.Find(iostate)
+	// Release read lock
+	p.mux.RUnlock()
+	// Check for cache hit.
+	if index != math.MaxUint {
 		// Yes, therefore return precomputed outputs
 		return p.instances[index]
 	}
@@ -115,6 +126,12 @@ func (p *FunctionTrace[T]) Call(inputs []big.Int, iomap Map) FunctionInstance {
 // so it can be reused rather than recomputed in the future.  This function is
 // thread-safe, and will acquire the write lock on the cached instances
 // momentarily to insert the new instance.
+//
+// NOTE: this does not attempt any form of thread blocking (e.g. when a desired
+// instance if being computed by another thread). Instead, it eagerly computes
+// instances --- even if that means, occasionally, an instance is computed more
+// than once.  This is safe since instances are always deterministic (i.e. same
+// output for a given input).
 func (p *FunctionTrace[T]) executeCall(inputs []big.Int, iomap Map) FunctionInstance {
 	var (
 		fn = p.fn
@@ -135,7 +152,12 @@ func (p *FunctionTrace[T]) executeCall(inputs []big.Int, iomap Map) FunctionInst
 	}
 	// Cache I/O instance
 	instance := FunctionInstance{fn.NumInputs(), state.state[:nio]}
+	// Obtain  write lock
+	p.mux.Lock()
+	// Insert new instance
 	p.instances.Insert(instance)
+	// Release write lock
+	p.mux.Unlock()
 	// Done
 	return instance
 }

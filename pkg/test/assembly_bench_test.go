@@ -23,17 +23,17 @@ func Test_Asm_Add(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/add", sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-// func Test_Asm_Exp(t *testing.T) {
-// 	test_util.Check(t, false, "asm/bench/exp")
-// }
+func Test_Asm_Exp(t *testing.T) {
+	test_util.Check(t, false, "asm/bench/exp")
+}
 
 func Test_Asm_Gas(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/gas", sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-// func Test_Asm_Shf(t *testing.T) {
-// 	test_util.Check(t, false, "asm/bench/shf")
-// }
+func Test_Asm_Shf(t *testing.T) {
+	test_util.Check(t, false, "asm/bench/shf")
+}
 
 func Test_Asm_Trm(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/trm", sc.BLS12_377, sc.KOALABEAR_16)
