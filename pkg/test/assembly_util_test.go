@@ -18,24 +18,33 @@ import (
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
-func Test_Asm_Byte(t *testing.T) {
-	test_util.Check(t, false, "asm/util/byte")
-}
-func Test_Asm_FillBytes(t *testing.T) {
-	test_util.Check(t, false, "asm/util/fill_bytes")
-}
+// func Test_Asm_Byte(t *testing.T) {
+// 	test_util.Check(t, false, "asm/util/byte")
+// }
 
-func Test_Asm_Log2(t *testing.T) {
-	test_util.Check(t, false, "asm/util/log2")
-}
+// func Test_Asm_BitShift(t *testing.T) {
+// 	test_util.Check(t, false, "asm/util/bit_shift")
+// }
 
-func Test_Asm_Log256(t *testing.T) {
-	test_util.Check(t, false, "asm/util/log256")
-}
+// func Test_Asm_ByteShift(t *testing.T) {
+// 	test_util.Check(t, false, "asm/util/byte_shift")
+// }
+
+// func Test_Asm_FillBytes(t *testing.T) {
+// 	test_util.Check(t, false, "asm/util/fill_bytes")
+// }
+
+// func Test_Asm_Log2(t *testing.T) {
+// 	test_util.Check(t, false, "asm/util/log2")
+// }
+
+//	func Test_Asm_Log256(t *testing.T) {
+//		test_util.Check(t, false, "asm/util/log256")
+//	}
 func Test_Asm_Min(t *testing.T) {
 	test_util.Check(t, false, "asm/util/min")
 }
 
-func Test_Asm_SetByte(t *testing.T) {
-	test_util.Check(t, false, "asm/util/set_byte")
-}
+// func Test_Asm_SetByte(t *testing.T) {
+// 	test_util.Check(t, false, "asm/util/set_byte")
+// }

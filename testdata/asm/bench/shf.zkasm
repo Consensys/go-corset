@@ -1,5 +1,5 @@
-include "util/bit_shift.zkasm"
-include "util/byte_shift.zkasm"
+include "../util/bit_shift.zkasm"
+include "../util/byte_shift.zkasm"
 
 ;; The Shift Module (SHF) deals with bitwise shifting of 256bit words
 ;; (signed or unsigned).  For any call to shf, the "inst" argument

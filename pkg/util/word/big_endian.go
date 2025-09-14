@@ -279,3 +279,10 @@ func (p BigEndian) String() string {
 	//
 	return bi.String()
 }
+
+// Text returns a string representation of this word in a given base.
+func (p BigEndian) Text(base int) string {
+	bi := p.AsBigInt()
+	//
+	return bi.Text(base)
+}
