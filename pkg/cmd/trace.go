@@ -332,7 +332,8 @@ func printModuleTrace(start uint, max_width uint, mod lt.Module[word.BigEndian])
 
 		for j := uint(0); j < ith.Len(); j++ {
 			jth := ith.Get(j)
-			tbl.Set(j+1, i+1, termio.NewText(jth.String()))
+			contents := fmt.Sprintf("0x%s", jth.Text(16))
+			tbl.Set(j+1, i+1, termio.NewText(contents))
 		}
 	}
 	//
