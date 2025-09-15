@@ -19,16 +19,22 @@ import (
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
+// ASM_MAX_PADDING determines the maximum amount of padding to use when testing.
+// Specifically, every trace is tested with varying amounts of padding upto this
+// value.  NOTE: assembly modules don't need to be tested for higher padding
+// values, since they only ever do unit shifts.
+const ASM_MAX_PADDING uint = 2
+
 func Test_Asm_Add(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/bench/add", sc.BLS12_377, sc.KOALABEAR_16)
+	test_util.CheckWithFields(t, false, "asm/bench/add", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Asm_Exp(t *testing.T) {
-	test_util.Check(t, false, "asm/bench/exp")
+	test_util.CheckWithFields(t, false, "asm/bench/exp", ASM_MAX_PADDING, sc.BLS12_377)
 }
 
 func Test_Asm_Gas(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/bench/gas", sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	test_util.CheckWithFields(t, false, "asm/bench/gas", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Asm_Shf(t *testing.T) {
@@ -36,10 +42,10 @@ func Test_Asm_Shf(t *testing.T) {
 }
 
 func Test_Asm_Trm(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/bench/trm", sc.BLS12_377, sc.KOALABEAR_16)
+	test_util.CheckWithFields(t, false, "asm/bench/trm", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 // Field Element Out-Of-Bounds
 func Test_Asm_Wcp(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/bench/wcp", sc.BLS12_377, sc.KOALABEAR_16)
+	test_util.CheckWithFields(t, false, "asm/bench/wcp", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
