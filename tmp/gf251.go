@@ -36,6 +36,9 @@ type Element [1]uint8
 // New constructs a new field element from a given unsigned integer.  This will
 // panic if the supplised value is too large.
 func New(val uint8) Element {
+	if val >= N {
+		panic("invalid GF251 element")
+	}
 	// Encode our integer val into the form (val*R) % N.
 	element := (uint16(val) << BITWIDTH) % N
 	//
@@ -72,14 +75,18 @@ func (p Element) ToByte() uint8 {
 func reduce(val uint16) uint8 {
 	// Divide by -N
 	quot := uint8(val) * negInvN
+	// fmt.Print("quot", quot, "\n")
 	// Determine remainder
 	rem := uint32(val) + (uint32(quot) * N)
+	// fmt.Print("rem", rem, "\n")
 	// Divide by R
 	rem = rem >> BITWIDTH
+	// fmt.Print("rem", rem, "\n")
 	// Reduce to (x*R) % N.
 	if rem >= N {
 		rem -= N
 	}
 	// Done
+	// fmt.Print("rem-final", rem, "\n")
 	return uint8(rem)
 }

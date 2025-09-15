@@ -2,41 +2,42 @@ package gf251
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strconv"
 	"testing"
 )
 
 func TestReduce(t *testing.T) {
 	//
-	for j := uint16(0); j <= uint16(65535); j++ {
-		//lhs := New(i)
-		//actual := lhs.ToByte()
-		res := reduce(j)
-		fmt.Print("i: ", j, " and ", res, "\n")
-		//fmt.Print("{ \"mul\": { \"x\": [", i, "], \"y\": [", j, "], \"RESULT\": [", res, "] } }", "\n")
-		//
-		/*if actual != i {
-			t.Errorf("matched %d\n", i)
-		}*/
+	// for i := uint8(0); i < uint8(251); i++ {
 
+	for i := 0; i < 65536; i = i + 100 {
+		//
+		actual := reduce(uint16(i))
+		fmt.Print("{ \"reduction_u8\": { \"z\": [", uint16(i), "], \"RESULT\": [", actual, "] }}", "\n")
+		//
 	}
 }
 
+func TestReduceSpecific(t *testing.T) {
+	//
+	lhs := New(5)
+	//
+	actual := lhs.ToByte()
+	fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs, ", \"RESULT\": [", actual, "] }}", "\n")
+	//
+}
+
 func TestAdd(t *testing.T) {
-	for i := uint32(100); i < 155; i++ {
-		for j := uint32(0); j <= i; j++ {
+	for i := uint32(0); i < N; i++ {
+		for j := uint32(0); j < N; j++ {
 			var (
 				expected = uint8((i + j) % N)
 				lhs      = New(uint8(i))
 				rhs      = New(uint8(j))
 			)
-
 			//
 			actual := lhs.Add(rhs).ToByte()
 
-			fmt.Print("{ \"add\": { \"x\": [", i, "], \"y\": [", j, "], \"RESULT\": [", actual, "] } }", "\n")
+			fmt.Print("{ \"add\": { \"x\": ", lhs, ", \"y\": ", rhs, ", \"RESULT\": [", actual, "] }}", "\n")
 			//
 			if expected != actual {
 				t.Errorf("*** %d + %d = %d (but expected %d)", i, j, actual, expected)
@@ -46,8 +47,8 @@ func TestAdd(t *testing.T) {
 }
 
 func TestMul(t *testing.T) {
-	for i := uint32(0); i < 256; i++ {
-		for j := i; j < 256; j++ {
+	for i := uint32(0); i < N; i++ {
+		for j := i; j < N; j++ {
 			var (
 				expected = uint8((i * j) % N)
 				lhs      = New(uint8(i))
@@ -55,19 +56,8 @@ func TestMul(t *testing.T) {
 			)
 			//
 			actual := lhs.Mul(rhs).ToByte()
+			fmt.Print("{ \"reduction_u8\": { \"z\": ", lhs.Mul(rhs), ", \"RESULT\": [", actual, "] }}", "\n")
 
-			// If the file doesn't exist, create it, or append to the file
-			f, err := os.OpenFile("test.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			if _, err := f.Write([]byte("{ \"mul\": { \"x\": [" + strconv.Itoa(int(i)) + "], \"y\": [" + strconv.Itoa(int(j)) + "], \"RESULT\": [" + strconv.Itoa(int(actual)) + "] } }" + "\n")); err != nil {
-				log.Fatal(err)
-			}
-			if err := f.Close(); err != nil {
-				log.Fatal(err)
-			}
-			// fmt.Print("{ \"mul\": { \"x\": [", i, "], \"y\": [", j, "], \"RESULT\": [", actual, "] } }", "\n")
 			//
 			if expected != actual {
 				t.Errorf("*** %d * %d = %d (but expected %d)", i, j, actual, expected)
