@@ -41,22 +41,22 @@ import (
 // (accepts/rejects) are found.
 const TestDir = "../../testdata"
 
-// MAX_PADDING determines the maximum amount of padding to use when testing.
+// DEFAULT_MAX_PADDING determines the maximum amount of padding to use when testing.
 // Specifically, every trace is tested with varying amounts of padding upto this
 // value.
-const MAX_PADDING uint = 7
+const DEFAULT_MAX_PADDING uint = 7
 
 // Check that all traces which we expect to be accepted are accepted by a given
 // set of constraints, and all traces that we expect to be rejected are
 // rejected.  A default field is used for these tests (BLS12_377)
 func Check(t *testing.T, stdlib bool, test string) {
-	CheckWithFields(t, stdlib, test, schema.BLS12_377)
+	CheckWithFields(t, stdlib, test, DEFAULT_MAX_PADDING, schema.BLS12_377)
 }
 
 // CheckWithFields checks that all traces which we expect to be accepted are
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
-func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.FieldConfig) {
+func CheckWithFields(t *testing.T, stdlib bool, test string, maxPadding uint, fields ...schema.FieldConfig) {
 	// Sanity check
 	if len(fields) == 0 {
 		panic("no field configurations")
@@ -66,20 +66,22 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, fields ...schema.Fi
 		// Dispatch based on field config
 		switch field {
 		case schema.GF_251:
-			checkWithField[gf251.Element](t, stdlib, test, field)
+			checkWithField[gf251.Element](t, stdlib, test, maxPadding, field)
 		case schema.GF_8209:
-			checkWithField[gf8209.Element](t, stdlib, test, field)
+			checkWithField[gf8209.Element](t, stdlib, test, maxPadding, field)
 		case schema.KOALABEAR_16:
-			checkWithField[koalabear.Element](t, stdlib, test, field)
+			checkWithField[koalabear.Element](t, stdlib, test, maxPadding, field)
 		case schema.BLS12_377:
-			checkWithField[bls12_377.Element](t, stdlib, test, field)
+			checkWithField[bls12_377.Element](t, stdlib, test, maxPadding, field)
 		default:
 			panic(fmt.Sprintf("unknown field configuration: %s", field.Name))
 		}
 	}
 }
 
-func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, field schema.FieldConfig) {
+func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, maxPadding uint,
+	field schema.FieldConfig) {
+	//
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack for the given field.
@@ -96,7 +98,7 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 		traces = ReadTracesFile(testFilename)
 		if len(traces) > 0 {
 			// Run tests
-			fullCheckTraces(t, testFilename, cfg, traces, stacks)
+			fullCheckTraces(t, testFilename, cfg, maxPadding, traces, stacks)
 		}
 		// Record how many tests we found
 		nTests += len(traces)
@@ -107,7 +109,7 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 	}
 }
 
-func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
+func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, maxPadding uint, traces []lt.TraceFile,
 	stack cmd_util.SchemaStack[F]) {
 	//
 	if cfg.expand {
@@ -125,7 +127,7 @@ func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, 
 	// Construct binary schema using primary stack
 	checkBinaryEncoding(t, test, cfg, traces, stack)
 	// Perform checks with different fields
-	checkPadding(t, test, cfg, traces, stack)
+	checkPadding(t, test, cfg, maxPadding, traces, stack)
 }
 
 // Sanity check same outcome for all optimisation levels
@@ -166,7 +168,7 @@ func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Conf
 
 // Run default optimisation over all fields, and check padding for the primary
 // stack only.
-func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
+func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, maxPadding uint, traces []lt.TraceFile,
 	stack cmd_util.SchemaStack[F]) {
 	//
 	if cfg.field == "" || cfg.field == stack.Field().Name {
@@ -175,7 +177,7 @@ func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, tra
 		// Configure stack
 		stack.Apply(*stack.BinaryFile())
 		// Apply stack
-		checkTraces(t, test, MAX_PADDING, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
+		checkTraces(t, test, maxPadding, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
 	}
 }
 
