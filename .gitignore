@@ -21,5 +21,6 @@ bin
 *.lt
 *.bin
 
-tmp/
+tmp
+
 
