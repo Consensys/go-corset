@@ -2,7 +2,6 @@ include "../util/byte_shift.zkasm"
 include "../util/fill_bytes.zkasm"
 include "../util/log2.zkasm"
 include "../util/log256.zkasm"
-include "../util/min.zkasm"
 
 ;; The Exponentiation Module (EXP) is a small module which carries out
 ;; intermediate computations (e.g. logarithms) required for the gas
