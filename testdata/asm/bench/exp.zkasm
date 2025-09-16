@@ -43,7 +43,7 @@ explog2:
 modexplog:
    ;; fill as necessary
    zero = 0
-   filled_word = fill_bytes_from(ARG, CDS, zero)
+   filled_word = fill_bytes_between(ARG, CDS, EBS, zero)
    ;; determine shift amount
    tmp2 = 32
    s, b, tmp1 = tmp2 - EBS
