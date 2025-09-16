@@ -23,9 +23,17 @@ test:
 	@echo ">>> Running All Tests..."
 	go test --timeout 0 ./...
 
-asm-test:
-	@echo ">>> Running Assembly Tests..."
-	go test --timeout 0 -run "Test_Asm" ./...
+asm-bench-test:
+	@echo ">>> Running Assembly Benchmark Tests..."
+	go test --timeout 0 -run "Test_AsmBench" ./...
+
+asm-util-test:
+	@echo ">>> Running Assembly Util Tests..."
+	go test --timeout 0 -run "Test_AsmUtil" ./...
+
+asm-unit-test:
+	@echo ">>> Running Assembly Unit Tests..."
+	go test --timeout 0 -run "Test_AsmUnit" ./...
 
 corset-test:
 	@echo ">>> Running Corset Tests..."

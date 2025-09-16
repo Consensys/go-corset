@@ -19,33 +19,33 @@ import (
 	test_util "github.com/consensys/go-corset/pkg/test/util"
 )
 
-func Test_Asm_Byte(t *testing.T) {
+func Test_AsmUtil_Byte(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/byte", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_BitShift(t *testing.T) {
+func Test_AsmUtil_BitShift(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/bit_shift", ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_ByteShift(t *testing.T) {
+func Test_AsmUtil_ByteShift(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/byte_shift", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_FillBytes(t *testing.T) {
+func Test_AsmUtil_FillBytes(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/fill_bytes", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_Log2(t *testing.T) {
+func Test_AsmUtil_Log2(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/log2", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_Log256(t *testing.T) {
+func Test_AsmUtil_Log256(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/log256", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
-func Test_Asm_Min(t *testing.T) {
+func Test_AsmUtil_Min(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/min", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_SetByte(t *testing.T) {
+func Test_AsmUtil_SetByte(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/util/set_byte", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }

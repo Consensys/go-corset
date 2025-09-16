@@ -25,27 +25,31 @@ import (
 // values, since they only ever do unit shifts.
 const ASM_MAX_PADDING uint = 2
 
-func Test_Asm_Add(t *testing.T) {
+func Test_AsmBench_Add(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/add", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_Exp(t *testing.T) {
+func Test_AsmBench_Exp(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/exp", ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_Gas(t *testing.T) {
+func Test_AsmBench_Gas(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/gas", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_Shf(t *testing.T) {
+func Test_AsmBench_Shf(t *testing.T) {
 	test_util.Check(t, false, "asm/bench/shf")
 }
 
-func Test_Asm_Trm(t *testing.T) {
+func Test_AsmBench_Stp(t *testing.T) {
+	test_util.Check(t, false, "asm/bench/stp")
+}
+
+func Test_AsmBench_Trm(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/trm", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 // Field Element Out-Of-Bounds
-func Test_Asm_Wcp(t *testing.T) {
+func Test_AsmBench_Wcp(t *testing.T) {
 	test_util.CheckWithFields(t, false, "asm/bench/wcp", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
