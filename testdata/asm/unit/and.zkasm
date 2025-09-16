@@ -1,36 +1,41 @@
 ;; and module
 
 fn and_u8(x u8, y u8) -> (RESULT u8) {
-  var x_lo, x_hi, y_lo, y_hi, res_hi, res_lo, limb1 u4
+  var x_lo, x_hi, y_lo, y_hi, res_hi, res_lo u4
+  var limb1 u8
+  var c0 u1
   x_hi, x_lo = x
   y_hi, y_lo = y
   res_hi = and_u4(x_hi, y_hi)
   res_lo = and_u4(x_lo, y_lo)
   limb1 = res_hi * 16
-  RESULT = limb1 + res_lo
+  ;; we discard the carry as in this situation, we are sure the sum is a u8
+  c0, RESULT = limb1 + res_lo
   return
 }
 
 fn and_u4(x u4, y u4) -> (RESULT u4) {
-  var x_lo, x_hi, y_lo, y_hi, res_hi, res_lo, limb1 u2
+  var x_lo, x_hi, y_lo, y_hi, res_hi, res_lo u2
+  var limb1 u4
+  var c0 u1
   x_hi, x_lo = x
   y_hi, y_lo = y
   res_hi = and_u2(x_hi, y_hi)
   res_lo = and_u2(x_lo, y_lo)
   limb1 = res_hi * 4
-  RESULT =  limb1 + res_lo
+  c0, RESULT =  limb1 + res_lo
   return
 }
 
 fn and_u2(x u2, y u2) -> (RESULT u2) {
-  var x_lo, x_hi, y_lo, y_hi, res_hi, res_lo u1
+  var x_lo, x_hi, y_lo, y_hi, res_hi, res_lo, c0 u1
   var limb1 u2
   x_hi, x_lo = x
   y_hi, y_lo = y
   res_hi = and_u1(x_hi, y_hi)
   res_lo = and_u1(x_lo, y_lo)
   limb1 = res_hi * 2
-  RESULT =  limb1 + res_lo
+  c0, RESULT =  limb1 + res_lo
   return
 }
 
