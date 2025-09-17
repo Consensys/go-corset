@@ -16,16 +16,11 @@ import (
 	"testing"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	test_util "github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/test/util"
 )
 
-// CORSET_MAX_PADDING determines the maximum amount of padding to use when
-// testing. Specifically, every trace is tested with varying amounts of padding
-// upto this value.
-const CORSET_MAX_PADDING uint = 7
-
 func Test_Agnostic_Padding_01(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/padding_01", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/padding_01", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 // func Test_Agnostic_Vanish_01(t *testing.T) {
@@ -37,32 +32,32 @@ func Test_Agnostic_Padding_01(t *testing.T) {
 // }
 
 func Test_Agnostic_Lookup_01(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_01", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_01", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_02(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_02", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_02", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_03(t *testing.T) {
 	// NOTE: BLS12_377 generates an irregular lookup (which, at the time of
 	// writing, are not supported).
-	test_util.CheckWithFields(t, false, "agnostic/lookup_03", CORSET_MAX_PADDING, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_03", util.CORSET_MAX_PADDING, sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_04(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_04", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_04", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_Agnostic_Lookup_05(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_05", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_05", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_Agnostic_Lookup_06(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_06", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_06", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_Agnostic_Lookup_07(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_07", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_07", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_Agnostic_Lookup_08(t *testing.T) {
-	test_util.CheckWithFields(t, false, "agnostic/lookup_08", CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "agnostic/lookup_08", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }

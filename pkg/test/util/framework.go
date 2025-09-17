@@ -41,16 +41,22 @@ import (
 // (accepts/rejects) are found.
 const TestDir = "../../testdata"
 
-// DEFAULT_MAX_PADDING determines the maximum amount of padding to use when testing.
+// ASM_MAX_PADDING determines the maximum amount of padding to use when testing.
 // Specifically, every trace is tested with varying amounts of padding upto this
-// value.
-const DEFAULT_MAX_PADDING uint = 7
+// value.  NOTE: assembly modules don't need to be tested for higher padding
+// values, since they only ever do unit shifts.
+const ASM_MAX_PADDING uint = 2
+
+// CORSET_MAX_PADDING determines the maximum amount of padding to use when
+// testing. Specifically, every trace is tested with varying amounts of padding
+// upto this value.
+const CORSET_MAX_PADDING uint = 7
 
 // Check that all traces which we expect to be accepted are accepted by a given
 // set of constraints, and all traces that we expect to be rejected are
 // rejected.  A default field is used for these tests (BLS12_377)
 func Check(t *testing.T, stdlib bool, test string) {
-	CheckWithFields(t, stdlib, test, DEFAULT_MAX_PADDING, schema.BLS12_377)
+	CheckWithFields(t, stdlib, test, CORSET_MAX_PADDING, schema.BLS12_377)
 }
 
 // CheckWithFields checks that all traces which we expect to be accepted are

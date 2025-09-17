@@ -16,81 +16,81 @@ import (
 	"testing"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	test_util "github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/test/util"
 )
 
-func Test_Asm_Dec4(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/dec4", ASM_MAX_PADDING, sc.BLS12_377)
+func Test_AsmUnit_Dec4(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/dec4", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_Dec251(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/dec251", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+func Test_AsmUnit_Dec251(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/dec251", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_ParseNonDecimal(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/parse_nondecimal", ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+func Test_AsmUnit_ParseNonDecimal(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/parse_nondecimal", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-func Test_Asm_Counter(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/counter", ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+func Test_AsmUnit_Counter(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/counter", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-func Test_Asm_Counter256(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/counter256", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+func Test_AsmUnit_Counter256(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/counter256", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_FastPow(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/fast_pow", ASM_MAX_PADDING, sc.BLS12_377)
+func Test_AsmUnit_FastPow(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/fast_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_Inc(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/inc", ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+func Test_AsmUnit_Inc(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/inc", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-func Test_Asm_Max14(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/max14", ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+func Test_AsmUnit_Max14(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/max14", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
-func Test_Asm_Max15(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/max15", ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
-}
-
-func Test_Asm_Max16(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/max16", ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+func Test_AsmUnit_Max15(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/max15", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-func Test_Asm_Max256(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/max256", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+func Test_AsmUnit_Max16(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/max16", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
-func Test_Asm_MixedSmall(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/mixed_small", ASM_MAX_PADDING, sc.BLS12_377)
-}
-func Test_Asm_MultiLine(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/multiline", ASM_MAX_PADDING, sc.BLS12_377)
+func Test_AsmUnit_Max256(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/max256", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Asm_MixedLarge(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/mixed_large", ASM_MAX_PADDING, sc.BLS12_377)
+func Test_AsmUnit_MixedSmall(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/mixed_small", util.ASM_MAX_PADDING, sc.BLS12_377)
+}
+func Test_AsmUnit_MultiLine(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/multiline", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_SlowPow(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/slow_pow", ASM_MAX_PADDING, sc.BLS12_377)
+func Test_AsmUnit_MixedLarge(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/mixed_large", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_Sub(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/sub", ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+func Test_AsmUnit_SlowPow(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/slow_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_SimpleOnCurve(t *testing.T) {
+func Test_AsmUnit_Sub(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/sub", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+}
+
+func Test_AsmUnit_SimpleOnCurve(t *testing.T) {
 	// Check(t, false, "asm/unit/simple_on_curve")
 	// To be replaced once splitting algorithm is available
-	test_util.CheckWithFields(t, false, "asm/unit/simple_on_curve_u16", ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/simple_on_curve_u16", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_RecPow(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/unit/rec_pow", ASM_MAX_PADDING, sc.BLS12_377)
+func Test_AsmUnit_RecPow(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_Asm_Gf251(t *testing.T) {
-	test_util.Check(t, false, "asm/unit/gf251")
+func Test_AsmUnit_Gf251(t *testing.T) {
+	util.Check(t, false, "asm/unit/gf251")
 }
