@@ -16,36 +16,36 @@ import (
 	"testing"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	test_util "github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/test/util"
 )
 
 func Test_AsmUtil_Byte(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/byte", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/byte", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUtil_BitShift(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/bit_shift", ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/util/bit_shift", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
 func Test_AsmUtil_ByteShift(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/byte_shift", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/byte_shift", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUtil_FillBytes(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/fill_bytes", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/fill_bytes", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUtil_Log2(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/log2", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/log2", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUtil_Log256(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/log256", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/log256", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_AsmUtil_Min(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/min", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/min", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUtil_SetByte(t *testing.T) {
-	test_util.CheckWithFields(t, false, "asm/util/set_byte", ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/set_byte", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
