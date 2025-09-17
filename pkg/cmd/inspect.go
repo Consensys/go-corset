@@ -61,19 +61,20 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	// Read in constraint files
-	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
+	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
+	stack := stacker.Build()
 	//
 	stats := util.NewPerfStats()
 	// Parse constraints
-	binf := schemas.BinaryFile()
+	binf := stacker.BinaryFile()
 	// Determine whether expansion is being performed
-	expanding := schemas.TraceBuilder().Expanding()
+	expanding := stack.TraceBuilder().Expanding()
 	// Sanity check debug information is available.
 	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
 	//
 	if !srcmap_ok {
 		fmt.Printf("binary file \"%s\" missing source map", args[1])
-	} else if !schemas.HasUniqueSchema() {
+	} else if !stack.HasUniqueSchema() {
 		fmt.Println("must specify exactly one of --air/mir/uasm/asm")
 		os.Exit(2)
 	}
@@ -82,7 +83,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	// Parse trace file
 	tracefile := ReadTraceFile(args[0])
 	// Extract scheam
-	schema := schemas.UniqueConcreteSchema()
+	schema := stack.UniqueConcreteSchema()
 	//
 	stats.Log("Reading trace file")
 	//
@@ -92,7 +93,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Apply trace expansion
 	if len(errors) == 0 {
-		trace, errors = schemas.TraceBuilder().Build(schema, tracefile)
+		trace, errors = stack.TraceBuilder().Build(schema, tracefile)
 	}
 	//
 	if len(errors) == 0 {

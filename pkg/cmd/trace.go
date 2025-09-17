@@ -83,8 +83,9 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	metadata := GetFlag(cmd, "metadata")
 	ltv2 := GetFlag(cmd, "ltv2")
 	// Read in constraint files
-	schemas := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
-	builder := schemas.TraceBuilder().WithPadding(padding)
+	stacker := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
+	stack := stacker.Build()
+	builder := stack.TraceBuilder().WithPadding(padding)
 	// Parse trace file(s)
 	if batched {
 		// batched mode
@@ -98,13 +99,13 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 	}
 	//
-	if builder.Expanding() && !schemas.HasUniqueSchema() {
+	if builder.Expanding() && !stack.HasUniqueSchema() {
 		fmt.Println("must specify one of --asm/uasm/mir/air")
 		os.Exit(2)
 	} else if builder.Expanding() {
 		// Expand all the traces
 		for i, cols := range traces {
-			traces[i] = expandColumns(cols, schemas, builder)
+			traces[i] = expandColumns(cols, stack, builder)
 		}
 	}
 	// Now manipulate traces
