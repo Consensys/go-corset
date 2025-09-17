@@ -195,10 +195,7 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 	// Go!
 	if len(errors) == 0 {
-		for i, schema := range schemas.ConcreteSchemas() {
-			ir := schemas.ConcreteIrName(uint(i))
-			ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
-		}
+		ok = checkTraces(traces, schemas, schemas.TraceBuilder(), cfg) && ok
 	}
 	// Handle errors
 	if !ok || len(errors) > 0 {
@@ -210,31 +207,39 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 }
 
-func checkTrace[F field.Element[F]](ir string, traces []lt.TraceFile, schema sc.AnySchema[F],
+func checkTraces[F field.Element[F]](traces []lt.TraceFile, stack cmd_util.SchemaStack[F],
 	builder ir.TraceBuilder[F], cfg checkConfig) bool {
 	//
 	for _, tf := range traces {
+		//
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-			//
-			stats := util.NewPerfStats()
-			trace, errs := builder.WithPadding(n).Build(schema, tf)
-			// Log cost of expansion
-			stats.Log("Expanding trace columns")
-			// Report any errors
-			reportErrors(ir, errs)
-			// Check whether considered unrecoverable
-			if trace == nil || len(errs) > 0 {
-				return false
-			}
-			//
-			stats = util.NewPerfStats()
-			// Check constraints
-			if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
-				reportFailures(ir, errs, trace, cfg)
-				return false
-			}
+			// Configure stack.  This is important to ensure true separation
+			// between runs (e.g. for the io.Executor).
+			stack.Apply(*stack.BinaryFile())
+			// Run each concrete schema separately
+			for i, schema := range stack.ConcreteSchemas() {
+				ir := stack.ConcreteIrName(uint(i))
+				//
+				stats := util.NewPerfStats()
+				trace, errs := builder.WithPadding(n).Build(schema, tf)
+				// Log cost of expansion
+				stats.Log("Expanding trace columns")
+				// Report any errors
+				reportErrors(ir, errs)
+				// Check whether considered unrecoverable
+				if trace == nil || len(errs) > 0 {
+					return false
+				}
+				//
+				stats = util.NewPerfStats()
+				// Check constraints
+				if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
+					reportFailures(ir, errs, trace, cfg)
+					return false
+				}
 
-			stats.Log("Checking constraints")
+				stats.Log("Checking constraints")
+			}
 		}
 	}
 	// Done

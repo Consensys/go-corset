@@ -145,8 +145,6 @@ func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, c
 		if opt != mir.DEFAULT_OPTIMISATION_INDEX {
 			// Set optimisation level
 			stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[opt])
-			// Configure stack
-			stack.Apply(*stack.BinaryFile())
 			// Apply stack
 			checkTraces(t, test, 0, opt, cfg, traces, stack)
 		}
@@ -164,8 +162,6 @@ func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Conf
 		opt := cfg.optlevels[0]
 		// Set optimisation level
 		stack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[opt])
-		// Reset the stack for given binary file
-		stack.Apply(*binSchema)
 		// Run checks using schema from binary file.  Observe, to try and reduce
 		// overhead of repeating all the tests we don't consider padding.
 		checkTraces(t, name, 0, opt, cfg, traces, stack)
@@ -180,8 +176,6 @@ func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, max
 	if cfg.field == "" || cfg.field == stack.Field().Name {
 		// Set default optimisation level
 		stack.WithOptimisationConfig(mir.DEFAULT_OPTIMISATION_LEVEL)
-		// Configure stack
-		stack.Apply(*stack.BinaryFile())
 		// Apply stack
 		checkTraces(t, test, maxPadding, mir.DEFAULT_OPTIMISATION_INDEX, cfg, traces, stack)
 	}
@@ -210,6 +204,9 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 					// However, we still want to test the pipeline (i.e. since that is used
 					// in production); therefore, we just restrict how much its used.
 					var parallel = (i == 0)
+					// Configure stack.  This is important to ensure true separation
+					// between runs (e.g. for the io.Executor).
+					stack.Apply(*stack.BinaryFile())
 					//
 					if tf.Modules != nil {
 						// Construct trace identifier
