@@ -41,9 +41,22 @@ func NewPerfStats() *PerfStats {
 	return &PerfStats{startTime, m.TotalAlloc, m.NumGC}
 }
 
+// Reset the performance counter
+func (p *PerfStats) Reset() {
+	var m runtime.MemStats
+	//
+	p.startTime = time.Now()
+	//
+	runtime.ReadMemStats(&m)
+	//
+	p.startMem = m.TotalAlloc
+	p.startGc = m.NumGC
+}
+
 // Log logs the difference between the state now and as it was when the PerfStats object was created.
 func (p *PerfStats) Log(prefix string) {
 	log.Debugf("%s took %s", prefix, p.String())
+	p.Reset()
 }
 
 // String provides a string representation of the usage thus far.

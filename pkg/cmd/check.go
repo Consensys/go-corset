@@ -190,7 +190,11 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	schema := schemas.BinaryFile().Schema
 	// Apply trace propagation
 	if expanding {
+		perf := util.NewPerfStats()
+		//
 		traces, errors = asm.PropagateAll(schema, traces)
+		//
+		perf.Log("Trace propagation")
 	}
 	// Go!
 	if len(errors) == 0 {
