@@ -413,12 +413,9 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 
 func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
-		lhs      []io.RegisterId
-		rhs      []io.RegisterId
-		constant big.Int
-		errs     []source.SyntaxError
-		kind     uint
-		insn     macro.Instruction
+		lhs  []io.RegisterId
+		rhs  macro.Expr
+		errs []source.SyntaxError
 	)
 	// parse left-hand side
 	if lhs, errs = p.parseAssignmentLhs(env); len(errs) > 0 {
@@ -437,22 +434,11 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 		// eventually should be updated to retain the given order.
 		lhs = array.Reverse(lhs)
 		// Parse right-hand side
-		if kind, rhs, constant, errs = p.parseAssignmentRhs(env); len(errs) > 0 {
+		if rhs, errs = p.parseExpression(env); len(errs) > 0 {
 			return nil, errs
 		}
-		//
-		switch kind {
-		case ADD:
-			insn = &macro.Add{Targets: lhs, Sources: rhs, Constant: constant}
-		case SUB:
-			insn = &macro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
-		case MUL:
-			insn = &macro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
-		default:
-			panic("unreachable")
-		}
 		// Done
-		return insn, nil
+		return &macro.Assign{Targets: lhs, Source: rhs}, nil
 	}
 }
 
@@ -460,6 +446,23 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 	lhs, errs := p.parseRegisterList(env)
 	//
 	return lhs, errs
+}
+
+func (p *Parser) parseExpression(env *Environment) (macro.Expr, []source.SyntaxError) {
+	lookahead := p.lookahead()
+	switch lookahead.Kind {
+	case IDENTIFIER:
+		reg, errs := p.parseRegister(env)
+		//
+		return &macro.RegisterAccessExpr{Register: reg}, errs
+	case NUMBER:
+		//
+		val := p.number(lookahead)
+		//
+		return &macro.ConstantExpr{Constant: val}, nil
+	default:
+		return nil, p.syntaxErrors(lookahead, "unexpected token")
+	}
 }
 
 func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []io.RegisterId, big.Int, []source.SyntaxError) {
