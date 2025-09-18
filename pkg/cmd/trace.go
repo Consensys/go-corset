@@ -208,34 +208,50 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 
 func reconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F]) lt.TraceFile {
 	var (
+		perf     = util.NewPerfStats()
 		expanded = make([]lt.Module[word.BigEndian], tr.Width())
 		// Construct fresh heap for this trace
-		heap       = pool.NewLocalHeap[word.BigEndian]()
+		heap       = pool.NewSharedHeap[word.BigEndian]()
 		arrBuilder = array.NewDynamicBuilder(heap)
+		n          = trace.NumberOfColumns(tr)
+		c          = make(chan colData, n)
 	)
 	//
 	for mid := range tr.Width() {
-		var (
-			module  = tr.Module(mid)
-			columns = make([]lt.Column[word.BigEndian], module.Width())
-		)
-		//
-		for cid := range module.Width() {
-			ith := module.Column(cid)
-			//
-			columns[cid] = lt.Column[word.BigEndian]{
-				Name: ith.Name(),
-				Data: array.CloneArray(ith.Data(), &arrBuilder),
-			}
-		}
-		//
+		var module = tr.Module(mid)
+		// Initialise modules
 		expanded[mid] = lt.Module[word.BigEndian]{
 			Name:    module.Name(),
-			Columns: columns,
+			Columns: make([]lt.Column[word.BigEndian], module.Width()),
+		}
+		// Dispatch go-routines
+		for cid := range module.Width() {
+			go func(mid, cid uint, col trace.Column[F]) {
+				data := lt.Column[word.BigEndian]{
+					Name: col.Name(),
+					Data: array.CloneArray(col.Data(), &arrBuilder),
+				}
+				//
+				c <- colData{mid, cid, data}
+			}(mid, cid, module.Column(cid))
 		}
 	}
+	// collect go routines
+	for range n {
+		res := <-c
+		// Assign column data
+		expanded[res.mid].Columns[res.cid] = res.data
+	}
 	//
-	return lt.NewTraceFile(metadata, *heap, expanded)
+	perf.Log("Trace reconstruction")
+	//
+	return lt.NewTraceFile(metadata, *heap.Localise(), expanded)
+}
+
+type colData struct {
+	mid  uint
+	cid  uint
+	data lt.Column[word.BigEndian]
 }
 
 // Construct a new trace containing only those columns from the original who
@@ -354,8 +370,6 @@ func listModules(max_width uint, sort_col uint, tf lt.TraceFile) {
 		summarisers = moduleSumarisers
 		m           = 1 + uint(len(summarisers))
 		n           = uint(len(tf.Modules))
-		//
-		perf = util.NewPerfStats()
 		// Go!
 		tbl = termio.NewTablePrinter(m, n+1)
 	)
@@ -369,8 +383,6 @@ func listModules(max_width uint, sort_col uint, tf lt.TraceFile) {
 		// Set row
 		tbl.SetRow(uint(i+1), row...)
 	}
-	//
-	perf.Log("module summarisation")
 	//
 	tbl.SetMaxWidths(max_width)
 	tbl.Sort(1, termio.NewTableSorter().
@@ -483,21 +495,12 @@ func summariseModule(mod lt.Module[word.BigEndian], summarisers []ModuleSummaris
 	var (
 		m   = 1 + uint(len(summarisers))
 		row = make([]termio.FormattedText, m)
-		c   = make(chan util.Pair[int, termio.FormattedText], len(summarisers))
 	)
 	//
 	row[0] = termio.NewText(mod.Name)
 	//
 	for j, s := range summarisers {
-		go func(index int, s ModuleSummariser) {
-			text := termio.NewText(s.summary(mod.Columns))
-			c <- util.NewPair(index, text)
-		}(j, s)
-	}
-	// collect results
-	for range len(summarisers) {
-		res := <-c
-		row[res.Left+1] = res.Right
+		row[j+1] = termio.NewText(s.summary(mod.Columns))
 	}
 	//
 	return row
