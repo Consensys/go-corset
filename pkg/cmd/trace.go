@@ -82,6 +82,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	output := GetString(cmd, "out")
 	metadata := GetFlag(cmd, "metadata")
 	ltv2 := GetFlag(cmd, "ltv2")
+	sort := GetUint(cmd, "sort")
 	// Read in constraint files
 	stacker := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
 	stack := stacker.Build()
@@ -120,11 +121,11 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 
 		if columns {
-			listColumns(max_width, traces[i], includes)
+			listColumns(max_width, sort, traces[i], includes)
 		}
 
 		if modules {
-			listModules(max_width, traces[i])
+			listModules(max_width, sort, traces[i])
 		}
 
 		if stats {
@@ -156,6 +157,7 @@ func init() {
 		fmt.Sprintf("specify information to include in column listing: %s", summariserOptions()))
 	traceCmd.Flags().Bool("stats", false, "show overall stats for the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
+	traceCmd.Flags().Uint("sort", 0, "sort table column")
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
@@ -346,12 +348,14 @@ func printModuleTrace(start uint, max_width uint, mod lt.Module[word.BigEndian])
 	tbl.Print(true)
 }
 
-func listModules(max_width uint, tf lt.TraceFile) {
+func listModules(max_width uint, sort_col uint, tf lt.TraceFile) {
 	var (
 		//
 		summarisers = moduleSumarisers
 		m           = 1 + uint(len(summarisers))
 		n           = uint(len(tf.Modules))
+		//
+		perf = util.NewPerfStats()
 		// Go!
 		tbl = termio.NewTablePrinter(m, n+1)
 	)
@@ -361,22 +365,21 @@ func listModules(max_width uint, tf lt.TraceFile) {
 	}
 	// Compute column data
 	for i, mod := range tf.Modules {
-		row := make([]termio.FormattedText, m)
-		//
-		row[0] = termio.NewText(mod.Name)
-		//
-		for j, s := range summarisers {
-			row[j+1] = termio.NewText(s.summary(mod.Columns))
-		}
-		//
+		row := summariseModule(mod, moduleSumarisers)
+		// Set row
 		tbl.SetRow(uint(i+1), row...)
 	}
 	//
+	perf.Log("module summarisation")
+	//
 	tbl.SetMaxWidths(max_width)
+	tbl.Sort(1, termio.NewTableSorter().
+		SortNumericalColumn(sort_col).
+		Invert())
 	tbl.Print(true)
 }
 
-func listColumns(max_width uint, tf lt.TraceFile, includes []string) {
+func listColumns(max_width, sort_col uint, tf lt.TraceFile, includes []string) {
 	var (
 		summarisers = selectColumnSummarisers(includes)
 		m           = 1 + uint(len(summarisers))
@@ -407,7 +410,7 @@ func listColumns(max_width uint, tf lt.TraceFile, includes []string) {
 		}
 	}
 	// Collect results
-	for i := uint(0); i < n; i++ {
+	for range n {
 		// Read packaged result from channel
 		res := <-c
 		// Set row
@@ -415,6 +418,9 @@ func listColumns(max_width uint, tf lt.TraceFile, includes []string) {
 	}
 	//
 	tbl.SetMaxWidths(max_width)
+	tbl.Sort(1, termio.NewTableSorter().
+		SortNumericalColumn(sort_col).
+		Invert())
 	tbl.Print(true)
 }
 
@@ -471,6 +477,30 @@ func flattenIncludes(includes []string) []string {
 	}
 	// Done
 	return includes
+}
+
+func summariseModule(mod lt.Module[word.BigEndian], summarisers []ModuleSummariser) []termio.FormattedText {
+	var (
+		m   = 1 + uint(len(summarisers))
+		row = make([]termio.FormattedText, m)
+		c   = make(chan util.Pair[int, termio.FormattedText], len(summarisers))
+	)
+	//
+	row[0] = termio.NewText(mod.Name)
+	//
+	for j, s := range summarisers {
+		go func(index int, s ModuleSummariser) {
+			text := termio.NewText(s.summary(mod.Columns))
+			c <- util.NewPair(index, text)
+		}(j, s)
+	}
+	// collect results
+	for range len(summarisers) {
+		res := <-c
+		row[res.Left+1] = res.Right
+	}
+	//
+	return row
 }
 
 func summariseColumn(module string, column RawColumn, summarisers []ColumnSummariser) []termio.FormattedText {
