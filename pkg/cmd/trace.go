@@ -181,7 +181,11 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 	)
 	// Apply trace propagation
 	if bldr.Expanding() {
+		perf := util.NewPerfStats()
+		//
 		tf, errors = asm.Propagate(schema, tf)
+		//
+		perf.Log("Trace propagation")
 	}
 	//
 	if len(errors) == 0 {
