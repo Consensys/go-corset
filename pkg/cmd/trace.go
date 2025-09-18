@@ -203,55 +203,47 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 		os.Exit(1)
 	}
 	// Now, reconstruct it!
-	return reconstructRawTrace(tf.Header.MetaData, tr)
+	return seqReconstructRawTrace(tf.Header.MetaData, tr)
 }
 
-func reconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F]) lt.TraceFile {
+// NOTE: parallelising this algorithm did not improve performance as there is
+// (presumably) too much contention.  A better solution would be to construct
+// local heaps for each column in parallel and then merge them at the end.  But
+// that remains complex since the indexing will be different.
+func seqReconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F]) lt.TraceFile {
 	var (
 		perf     = util.NewPerfStats()
 		expanded = make([]lt.Module[word.BigEndian], tr.Width())
 		// Construct fresh heap for this trace
-		heap       = pool.NewSharedHeap[word.BigEndian]()
+		heap       = pool.NewLocalHeap[word.BigEndian]()
 		arrBuilder = array.NewDynamicBuilder(heap)
-		n          = trace.NumberOfColumns(tr)
-		c          = make(chan colData, n)
 	)
 	//
 	for mid := range tr.Width() {
-		var module = tr.Module(mid)
+		var (
+			module  = tr.Module(mid)
+			columns = make([]lt.Column[word.BigEndian], module.Width())
+		)
 		// Initialise modules
-		expanded[mid] = lt.Module[word.BigEndian]{
-			Name:    module.Name(),
-			Columns: make([]lt.Column[word.BigEndian], module.Width()),
-		}
 		// Dispatch go-routines
 		for cid := range module.Width() {
-			go func(mid, cid uint, col trace.Column[F]) {
-				data := lt.Column[word.BigEndian]{
-					Name: col.Name(),
-					Data: array.CloneArray(col.Data(), &arrBuilder),
-				}
-				//
-				c <- colData{mid, cid, data}
-			}(mid, cid, module.Column(cid))
+			col := module.Column(cid)
+			//
+			columns[cid] = lt.Column[word.BigEndian]{
+				Name: col.Name(),
+				Data: array.CloneArray(col.Data(), &arrBuilder),
+			}
 		}
-	}
-	// collect go routines
-	for range n {
-		res := <-c
-		// Assign column data
-		expanded[res.mid].Columns[res.cid] = res.data
+		//
+		expanded[mid] = lt.Module[word.BigEndian]{
+			Name:    module.Name(),
+			Columns: columns,
+		}
 	}
 	//
 	perf.Log("Trace reconstruction")
 	//
-	return lt.NewTraceFile(metadata, *heap.Localise(), expanded)
-}
-
-type colData struct {
-	mid  uint
-	cid  uint
-	data lt.Column[word.BigEndian]
+	return lt.NewTraceFile(metadata, *heap, expanded)
 }
 
 // Construct a new trace containing only those columns from the original who
