@@ -110,13 +110,17 @@ func (p *FunctionTrace[T]) Call(inputs []big.Int, iomap Map) FunctionInstance {
 	p.mux.RLock()
 	// Look for cached instance
 	index := p.instances.Find(iostate)
-	// Release read lock
-	p.mux.RUnlock()
 	// Check for cache hit.
 	if index != math.MaxUint {
 		// Yes, therefore return precomputed outputs
-		return p.instances[index]
+		instance := p.instances[index]
+		// Release read lock
+		p.mux.RUnlock()
+		//
+		return instance
 	}
+	// Release read lock
+	p.mux.RUnlock()
 	// Execute function to determine new outputs.
 	return p.executeCall(inputs, iomap)
 }

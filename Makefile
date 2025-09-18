@@ -23,21 +23,29 @@ test:
 	@echo ">>> Running All Tests..."
 	go test --timeout 0 ./...
 
-asm-bench-test:
+asm-racer:
+	@echo ">>> Running Assembly Racer Tests..."
+	go test -race --timeout 0 -run "Test_AsmUtil_FillBytes" ./...
+
+asm-bench:
 	@echo ">>> Running Assembly Benchmark Tests..."
 	go test --timeout 0 -run "Test_AsmBench" ./...
 
-asm-util-test:
+asm-util:
 	@echo ">>> Running Assembly Util Tests..."
 	go test --timeout 0 -run "Test_AsmUtil" ./...
 
-asm-unit-test:
+asm-unit:
 	@echo ">>> Running Assembly Unit Tests..."
-	go test --timeout 0 -run "Test_AsmUnit" ./...
+	go test -race --timeout 0 -run "Test_AsmUnit" ./...
 
 corset-test:
 	@echo ">>> Running Corset Tests..."
 	go test --timeout 0 -run "Test_Agnostic|Test_Valid|Test_Invalid" ./...
+
+corset-racer:
+	@echo ">>> Running Corset Racer Tests..."
+	go test -race --timeout 0 -run "Test_Bench_Bin|Test_Bench_Euc|Test_Bench_Mul" ./...
 
 corset-bench:
 	@echo ">>> Running Corset Benchmark Tests..."

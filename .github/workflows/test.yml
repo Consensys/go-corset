@@ -8,7 +8,7 @@ jobs:
   test:
     strategy:
       matrix:
-        test: [asm-bench-test,asm-util-test,asm-unit-test,corset-test,corset-bench,unit-test]
+        test: [asm-bench,asm-racer,asm-util,asm-unit,corset-bench,corset-racer,corset-test,unit-test]
       fail-fast: false
     runs-on: gha-runner-scale-set-ubuntu-22.04-amd64-large
     steps:

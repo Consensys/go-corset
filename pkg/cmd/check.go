@@ -24,7 +24,6 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/check"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
@@ -165,7 +164,7 @@ type checkConfig struct {
 
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, tracefile string,
-	schemas cmd_util.SchemaStack[F]) {
+	schemas cmd_util.SchemaStacker[F]) {
 	//
 	var (
 		errors    []error
@@ -195,10 +194,7 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 	// Go!
 	if len(errors) == 0 {
-		for i, schema := range schemas.ConcreteSchemas() {
-			ir := schemas.ConcreteIrName(uint(i))
-			ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
-		}
+		ok = checkTraces(traces, schemas, cfg) && ok
 	}
 	// Handle errors
 	if !ok || len(errors) > 0 {
@@ -210,31 +206,39 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 }
 
-func checkTrace[F field.Element[F]](ir string, traces []lt.TraceFile, schema sc.AnySchema[F],
-	builder ir.TraceBuilder[F], cfg checkConfig) bool {
+func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F], cfg checkConfig) bool {
 	//
 	for _, tf := range traces {
+		//
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-			//
-			stats := util.NewPerfStats()
-			trace, errs := builder.WithPadding(n).Build(schema, tf)
-			// Log cost of expansion
-			stats.Log("Expanding trace columns")
-			// Report any errors
-			reportErrors(ir, errs)
-			// Check whether considered unrecoverable
-			if trace == nil || len(errs) > 0 {
-				return false
-			}
-			//
-			stats = util.NewPerfStats()
-			// Check constraints
-			if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
-				reportFailures(ir, errs, trace, cfg)
-				return false
-			}
+			// Configure stack.  This is important to ensure true separation
+			// between runs (e.g. for the io.Executor).
+			stack := stacker.Build()
+			// configure trace builder
+			builder := stack.TraceBuilder().WithPadding(n)
+			// Run each concrete schema separately
+			for i, schema := range stack.ConcreteSchemas() {
+				ir := stack.ConcreteIrName(uint(i))
+				stats := util.NewPerfStats()
+				trace, errs := builder.Build(schema, tf)
+				// Log cost of expansion
+				stats.Log("Expanding trace columns")
+				// Report any errors
+				reportErrors(ir, errs)
+				// Check whether considered unrecoverable
+				if trace == nil || len(errs) > 0 {
+					return false
+				}
+				//
+				stats = util.NewPerfStats()
+				// Check constraints
+				if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
+					reportFailures(ir, errs, trace, cfg)
+					return false
+				}
 
-			stats.Log("Checking constraints")
+				stats.Log("Checking constraints")
+			}
 		}
 	}
 	// Done

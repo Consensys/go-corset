@@ -28,13 +28,13 @@ import (
 // JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
 func JavaTraceInterfaceUnion[F field.Element[F]](filename string, pkgname string,
-	stacks []cmd_util.SchemaStack[F]) (string, error) {
+	stacks []cmd_util.SchemaStacker[F]) (string, error) {
 	//
 	return javaTraceInterface(filename, pkgname, true, stacks)
 }
 
 func javaTraceInterface[F field.Element[F]](filename string, pkgname string, union bool,
-	stacks []cmd_util.SchemaStack[F]) (string, error) {
+	stacks []cmd_util.SchemaStacker[F]) (string, error) {
 	//
 	var root corset.SourceModule
 	// Combine roots to determine set of common functionality.
