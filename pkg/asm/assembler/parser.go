@@ -450,12 +450,14 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 
 func (p *Parser) parseExpression(env *Environment) (macro.Expr, []source.SyntaxError) {
 	lookahead := p.lookahead()
+
 	switch lookahead.Kind {
 	case IDENTIFIER:
 		reg, errs := p.parseRegister(env)
 		//
 		return &macro.RegisterAccessExpr{Register: reg}, errs
 	case NUMBER:
+		p.match(NUMBER)
 		//
 		val := p.number(lookahead)
 		//

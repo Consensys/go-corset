@@ -108,7 +108,7 @@ func (p *Add) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	var (
 		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)
-		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
+		rhs_bits = sumSourceBits2(p.Sources, p.Constant, regs)
 	)
 	// check
 	if lhs_bits < rhs_bits {
@@ -120,7 +120,7 @@ func (p *Add) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return io.CheckTargetRegisters(p.Targets, regs)
 }
 
-func sumSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
+func sumSourceBits2(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
 	var rhs big.Int
 	//
 	for _, target := range sources {
@@ -130,15 +130,4 @@ func sumSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register
 	rhs.Add(&rhs, &constant)
 	//
 	return uint(rhs.BitLen())
-}
-
-// Sum the total number of bits used by the given set of target registers.
-func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
-	sum := uint(0)
-	//
-	for _, target := range targets {
-		sum += regs[target.Unwrap()].Width
-	}
-	//
-	return sum
 }

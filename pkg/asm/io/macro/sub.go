@@ -13,7 +13,6 @@
 package macro
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -136,23 +135,6 @@ func (p *Sub) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	}
 	// Finally, ensure unique targets
 	return io.CheckTargetRegisters(p.Targets, regs)
-}
-
-// the sign bit check is necessary to ensure there is always exactly one sign bit.
-func checkSignBit(targets []io.RegisterId, regs []io.Register) error {
-	var n = len(targets) - 1
-	// Sanity check targets
-	if n < 0 {
-		return errors.New("malformed assignment")
-	}
-	// Determine width of sign bit
-	signBitWidth := regs[targets[n].Unwrap()].Width
-	// Check it is a single bit
-	if signBitWidth == 1 {
-		return nil
-	}
-	// Problem, no alignment.
-	return fmt.Errorf("missing sign bit (found u%d most significant bits)", signBitWidth)
 }
 
 func subSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {

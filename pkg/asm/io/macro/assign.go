@@ -13,6 +13,10 @@
 package macro
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -50,7 +54,13 @@ func (p *Assign) Execute(state io.State) uint {
 
 // Lower this instruction into a exactly one more micro instruction.
 func (p *Assign) Lower(pc uint) micro.Instruction {
-	panic("todo")
+	//
+	code := &micro.Assign{
+		Targets: p.Targets,
+		Source:  p.Source.Polynomial(),
+	}
+	// Lowering here produces an instruction containing a single microcode.
+	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -74,10 +84,76 @@ func (p *Assign) RegistersWritten() []io.RegisterId {
 }
 
 func (p *Assign) String(fn schema.RegisterMap) string {
-	panic("todo")
+	var builder strings.Builder
+	//
+	builder.WriteString(io.RegistersReversedToString(p.Targets, fn.Registers()))
+	builder.WriteString(" = ")
+	builder.WriteString(p.Source.String(fn))
+	//
+	return builder.String()
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
 func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
-	panic("todo")
+	var (
+		regs             = fn.Registers()
+		lhs_bits         = sumTargetBits(p.Targets, regs)
+		rhs_bits, signed = sumSourceBits(p.Source, fn)
+	)
+	// check
+	if lhs_bits < rhs_bits {
+		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
+	} else if rhs_bits > fieldWidth {
+		return fmt.Errorf("field overflow (u%d into u%d field)", rhs_bits, fieldWidth)
+	} else if signed {
+		// Sign bit required, so check there is one.
+		if err := checkSignBit(p.Targets, regs); err != nil {
+			return err
+		}
+	}
+	//
+	return io.CheckTargetRegisters(p.Targets, regs)
+}
+
+// Sum the total number of bits used by the given set of target registers.
+func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
+	sum := uint(0)
+	//
+	for _, target := range targets {
+		sum += regs[target.Unwrap()].Width
+	}
+	//
+	return sum
+}
+
+func sumSourceBits(source Expr, mapping schema.RegisterMap) (uint, bool) {
+	var (
+		// Determine set of all values that right-hand side can evaluate to
+		values = source.ValueRange(mapping)
+		// Determine bitwidth required to contain all values
+		bitwidth, signed = values.BitWidth()
+	)
+	// For signed arithmetic, we need a specific sign bit.
+	if signed {
+		bitwidth++
+	}
+	//
+	return bitwidth, signed
+}
+
+// the sign bit check is necessary to ensure there is always exactly one sign bit.
+func checkSignBit(targets []io.RegisterId, regs []io.Register) error {
+	var n = len(targets) - 1
+	// Sanity check targets
+	if n < 0 {
+		return errors.New("malformed assignment")
+	}
+	// Determine width of sign bit
+	signBitWidth := regs[targets[n].Unwrap()].Width
+	// Check it is a single bit
+	if signBitWidth == 1 {
+		return nil
+	}
+	// Problem, no alignment.
+	return fmt.Errorf("missing sign bit (found u%d most significant bits)", signBitWidth)
 }
