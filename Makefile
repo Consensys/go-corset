@@ -25,7 +25,7 @@ test:
 
 asm-racer:
 	@echo ">>> Running Assembly Racer Tests..."
-	go test -race --timeout 0 -run "Test_AsmBench_Shf|Test_AsmUtil_FillBytes" ./...
+	go test -race --timeout 0 -run "Test_AsmUtil_FillBytes" ./...
 
 asm-bench:
 	@echo ">>> Running Assembly Benchmark Tests..."
@@ -45,7 +45,7 @@ corset-test:
 
 corset-racer:
 	@echo ">>> Running Corset Racer Tests..."
-	go test -race --timeout 0 -run "Test_Bench_Exp" ./...
+	go test -race --timeout 0 -run "Test_Bench_Bin|Test_Bench_Euc|Test_Bench_Mul" ./...
 
 corset-bench:
 	@echo ">>> Running Corset Benchmark Tests..."
