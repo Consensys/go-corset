@@ -94,3 +94,7 @@ func Test_AsmUnit_RecPow(t *testing.T) {
 func Test_AsmUnit_Gf251(t *testing.T) {
 	util.Check(t, false, "asm/unit/gf251")
 }
+
+func Test_Asm_And(t *testing.T) {
+	test_util.Check(t, false, "asm/unit/and")
+}
