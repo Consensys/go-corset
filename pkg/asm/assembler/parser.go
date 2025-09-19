@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -46,6 +47,9 @@ func Parse(srcfile *source.File) (AssemblyItem, []source.SyntaxError) {
 	// Parse functions
 	return parser.Parse()
 }
+
+// BINOPS captures the set of binary operations
+var BINOPS = []uint{SUB, MUL, ADD}
 
 // ============================================================================
 // Assembler
@@ -425,21 +429,15 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs
 	}
-	// Check what we've got
-	if p.follows(IDENTIFIER, LBRACE) {
-		// function call
-		return p.parseCallRhs(lhs, env)
-	} else {
-		// Reverse items so that least significant comes first.  NOTE:
-		// eventually should be updated to retain the given order.
-		lhs = array.Reverse(lhs)
-		// Parse right-hand side
-		if rhs, errs = p.parseExpression(env); len(errs) > 0 {
-			return nil, errs
-		}
-		// Done
-		return &macro.Assign{Targets: lhs, Source: rhs}, nil
+	// Reverse items so that least significant comes first.  NOTE:
+	// eventually should be updated to retain the given order.
+	lhs = array.Reverse(lhs)
+	// Parse right-hand side
+	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
+		return nil, errs
 	}
+	// Done
+	return &macro.Assign{Targets: lhs, Source: rhs}, nil
 }
 
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
@@ -448,7 +446,45 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 	return lhs, errs
 }
 
-func (p *Parser) parseExpression(env *Environment) (macro.Expr, []source.SyntaxError) {
+func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
+	var (
+		expr, errs = p.parseUnitExpr(env)
+		exprs      []macro.Expr
+		tmp        macro.Expr
+	)
+	// initialise lookahead
+	kind := p.lookahead().Kind
+	//
+	for len(errs) == 0 && p.follows(BINOPS...) {
+		// Sanity check
+		if !p.follows(kind) {
+			return tmp, p.syntaxErrors(p.lookahead(), "braces required")
+		}
+		// Consume connective
+		p.expect(p.lookahead().Kind)
+		//
+		tmp, errs = p.parseUnitExpr(env)
+		// Accumulate arguments
+		exprs = append(exprs, tmp)
+	}
+	//
+	switch {
+	case len(errs) != 0:
+		return expr, errs
+	case len(exprs) == 0:
+		return expr, nil
+	case kind == ADD:
+		return &macro.AddExpr{Exprs: exprs}, nil
+	case kind == MUL:
+		panic("todo")
+	case kind == SUB:
+		panic("todo")
+	}
+	//
+	panic("unreachable")
+}
+
+func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
 	lookahead := p.lookahead()
 
 	switch lookahead.Kind {
@@ -462,6 +498,17 @@ func (p *Parser) parseExpression(env *Environment) (macro.Expr, []source.SyntaxE
 		val := p.number(lookahead)
 		//
 		return &macro.ConstantExpr{Constant: val}, nil
+	case LBRACE:
+		p.match(LBRACE)
+		expr, errs := p.parseExpr(env)
+		//
+		if len(errs) > 0 {
+			return nil, errs
+		} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		return expr, nil
 	default:
 		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
@@ -699,19 +746,11 @@ func (p *Parser) match(kind uint) bool {
 	return false
 }
 
-// Follows attempts to check what follows the current position.
-func (p *Parser) follows(kinds ...uint) bool {
-	for i, kind := range kinds {
-		n := i + p.index
-		if n >= len(p.tokens) {
-			return false
-		} else if p.tokens[n].Kind != kind {
-			return false
-		}
-	}
-	//
-	return true
+// Follows checks whether one of the given token kinds is next.
+func (p *Parser) follows(options ...uint) bool {
+	return slices.Contains(options, p.lookahead().Kind)
 }
+
 func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
 	start := p.tokens[firstToken].Span.Start()
 	end := p.tokens[lastToken].Span.End()
