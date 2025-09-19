@@ -113,6 +113,7 @@ var (
 	decimalRest  = lex.Or(
 		lex.Within('0', '9'),
 		lex.Unit('_'),
+		lex.Unit('^'),
 	)
 
 	hexDigit = lex.Or(

@@ -22,13 +22,13 @@ fn set_byte256(word u256, n u5, value u8) -> (res u256) {
   ;; update hi word
   v = set_byte128(hi, m, value)
   ;; Recombine
-  res = (v * 340282366920938463463374607431768211456) + lo
+  res = (v * 2^128) + lo
   return
 exit_lo:
   ;; update lo word
   v = set_byte128(lo, m, value)
   ;; Recombine
-  res = (hi * 340282366920938463463374607431768211456) + v
+  res = (hi * 2^128) + v
   return
 }
 
@@ -45,13 +45,13 @@ fn set_byte128(word u128, n u4, value u8) -> (res u128) {
   ;; update hi word
   v = set_byte64(hi, m, value)
   ;; Recombine
-  res = (v * 18446744073709551616) + lo
+  res = (v * 2^64) + lo
   return
 exit_lo:
   ;; update lo word
   v = set_byte64(lo, m, value)
   ;; Recombine
-  res = (hi * 18446744073709551616) + v
+  res = (hi * 2^64) + v
   return
 }
 
@@ -68,13 +68,13 @@ fn set_byte64(word u64, n u3, value u8) -> (res u64) {
   ;; update hi word
   v = set_byte32(hi, m, value)
   ;; Recombine
-  res = (v * 4294967296) + lo
+  res = (v * 2^32) + lo
   return
 exit_lo:
   ;; update lo word
   v = set_byte32(lo, m, value)
   ;; Recombine
-  res = (hi * 4294967296) + v
+  res = (hi * 2^32) + v
   return
 }
 
@@ -90,13 +90,13 @@ fn set_byte32(word u32, n u2, value u8) -> (res u32) {
   ;; update hi word
   v = set_byte16(hi, m, value)
   ;; Recombine
-  res = (v * 65536) + lo
+  res = (v * 2^16) + lo
   return
 exit_lo:
   ;; update lo word
   v = set_byte16(lo, m, value)
   ;; Recombine
-  res = (hi * 65536) + v
+  res = (hi * 2^16) + v
   return
 }
 
@@ -106,10 +106,10 @@ fn set_byte16(word u16, n u1, value u8) -> (res u16) {
   hi,lo = word
   ;;
   if n == 1 goto exit_lo
-  res = (value * 256) + lo
+  res = (value * 2^8) + lo
   return
 exit_lo:
   ;; Recombine
-  res = (hi * 256) + value
+  res = (hi * 2^8) + value
   return
 }
