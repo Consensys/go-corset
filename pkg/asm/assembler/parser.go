@@ -244,7 +244,7 @@ func (p *Parser) parseOptionalPadding() (big.Int, []source.SyntaxError) {
 		return padding, errs
 	}
 	// Yes, optional padding provided
-	return p.number(lookahead), nil
+	return p.number(lookahead)
 }
 
 func (p *Parser) parseType() (uint, []source.SyntaxError) {
@@ -500,10 +500,10 @@ func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxErr
 	case NUMBER:
 		p.match(NUMBER)
 		//
-		val := p.number(lookahead)
+		val, errs := p.number(lookahead)
 		base := p.baserOfNumber(lookahead)
 		//
-		return macro.Constant(val, base), nil
+		return macro.Constant(val, base), errs
 	case LBRACE:
 		p.match(LBRACE)
 		expr, errs := p.parseExpr(env)
@@ -581,7 +581,7 @@ func (p *Parser) parseRegisterOrConstant(env *Environment) (io.RegisterId, big.I
 		p.match(NUMBER)
 		//
 		reg = schema.NewUnusedRegisterId()
-		constant = p.number(lookahead)
+		constant, errs = p.number(lookahead)
 	default:
 		errs = p.syntaxErrors(lookahead, "expecting register or constant")
 	}
@@ -659,12 +659,25 @@ func (p *Parser) string(token lex.Token) string {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) number(token lex.Token) big.Int {
-	var number big.Int
+func (p *Parser) number(token lex.Token) (big.Int, []source.SyntaxError) {
+	var (
+		number, exponent big.Int
+		numstr           = p.string(token)
+		splits           = strings.Split(numstr, "^")
+	)
 	//
-	number.SetString(p.string(token), 0)
+	if len(splits) == 0 || len(splits) > 2 {
+		return number, p.syntaxErrors(token, "malformed numeric literal")
+	} else if len(splits) == 1 {
+		// non-exponent case
+		number.SetString(numstr, 0)
+	} else {
+		number.SetString(splits[0], 0)
+		exponent.SetString(splits[1], 0)
+		number.Exp(&number, &exponent, nil)
+	}
 	//
-	return number
+	return number, nil
 }
 
 // Get the text representing the given token as a string.

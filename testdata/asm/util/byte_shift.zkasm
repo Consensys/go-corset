@@ -50,18 +50,15 @@ base:
 fn byte_sar256(word u256, n u5) -> (res u256) {
   var head u8
   var tail u247
-  var sign u1
-  var extension u256
+  var sign,b u1
   var acc u256
-  var b,o u1
   var m u5
   ;; check for base case
   if n == 0 goto base
   ;; split of trailing byte
   sign,tail,head = word
   ;; determine extension
-  extension = sign * 0xFF80000000000000000000000000000000000000000000000000000000000000
-  o,acc = extension + tail
+  acc = (sign * 0xFF80 * 256^30) + tail
   ;; decrement counter
   b,m = n - 1
   res = byte_sar256(acc,m)
