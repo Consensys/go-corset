@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -46,6 +47,9 @@ func Parse(srcfile *source.File) (AssemblyItem, []source.SyntaxError) {
 	// Parse functions
 	return parser.Parse()
 }
+
+// BINOPS captures the set of binary operations
+var BINOPS = []uint{SUB, MUL, ADD}
 
 // ============================================================================
 // Assembler
@@ -413,12 +417,9 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 
 func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
-		lhs      []io.RegisterId
-		rhs      []io.RegisterId
-		constant big.Int
-		errs     []source.SyntaxError
-		kind     uint
-		insn     macro.Instruction
+		lhs  []io.RegisterId
+		rhs  macro.Expr
+		errs []source.SyntaxError
 	)
 	// parse left-hand side
 	if lhs, errs = p.parseAssignmentLhs(env); len(errs) > 0 {
@@ -429,31 +430,19 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 		return nil, errs
 	}
 	// Check what we've got
-	if p.follows(IDENTIFIER, LBRACE) {
+	if p.following(IDENTIFIER, LBRACE) {
 		// function call
 		return p.parseCallRhs(lhs, env)
-	} else {
-		// Reverse items so that least significant comes first.  NOTE:
-		// eventually should be updated to retain the given order.
-		lhs = array.Reverse(lhs)
-		// Parse right-hand side
-		if kind, rhs, constant, errs = p.parseAssignmentRhs(env); len(errs) > 0 {
-			return nil, errs
-		}
-		//
-		switch kind {
-		case ADD:
-			insn = &macro.Add{Targets: lhs, Sources: rhs, Constant: constant}
-		case SUB:
-			insn = &macro.Sub{Targets: lhs, Sources: rhs, Constant: constant}
-		case MUL:
-			insn = &macro.Mul{Targets: lhs, Sources: rhs, Constant: constant}
-		default:
-			panic("unreachable")
-		}
-		// Done
-		return insn, nil
 	}
+	// Reverse items so that least significant comes first.  NOTE:
+	// eventually should be updated to retain the given order.
+	lhs = array.Reverse(lhs)
+	// Parse right-hand side
+	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// Done
+	return &macro.Assign{Targets: lhs, Source: rhs}, nil
 }
 
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
@@ -462,58 +451,72 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 	return lhs, errs
 }
 
-func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []io.RegisterId, big.Int, []source.SyntaxError) {
+func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
 	var (
-		constant big.Int
-		rhs      []io.RegisterId
-		kind     uint = ADD
-		reg      io.RegisterId
-		errs     []source.SyntaxError
+		expr, errs = p.parseUnitExpr(env)
+		exprs      = []macro.Expr{expr}
+		tmp        macro.Expr
 	)
+	// initialise lookahead
+	kind := p.lookahead().Kind
 	//
-	for p.lookahead().Kind == IDENTIFIER {
-		if reg, errs = p.parseRegister(env); len(errs) > 0 {
-			return 0, nil, constant, errs
+	for len(errs) == 0 && p.follows(BINOPS...) {
+		// Sanity check
+		if !p.follows(kind) {
+			return tmp, p.syntaxErrors(p.lookahead(), "braces required")
 		}
-		// Append reg
-		rhs = append(rhs, reg)
-		// Parse trailing + / - / *
-		if tok, ok := p.parseAssignmentOp(); !ok {
-			// Special case for multiply!
-			if kind == MUL {
-				constant = *big.NewInt(1)
-			}
-			//
-			return kind, rhs, constant, nil
-		} else if len(rhs) == 1 {
-			// first time around
-			kind = tok.Kind
-		} else if kind != tok.Kind {
-			// subsequent times around
-			return 0, nil, constant, p.syntaxErrors(tok, "inconsistent operation")
-		}
-	}
-	// If we get here, we are expecting a constant.
-	lookahead, errs := p.expect(NUMBER)
-	//
-	if len(errs) > 0 {
-		return 0, nil, constant, errs
+		// Consume connective
+		p.expect(p.lookahead().Kind)
+		//
+		tmp, errs = p.parseUnitExpr(env)
+		// Accumulate arguments
+		exprs = append(exprs, tmp)
 	}
 	//
-	return kind, rhs, p.number(lookahead), errs
+	switch {
+	case len(errs) != 0:
+		return expr, errs
+	case len(exprs) == 1:
+		return expr, nil
+	case kind == ADD:
+		return macro.Sum(exprs...), nil
+	case kind == MUL:
+		return macro.Product(exprs...), nil
+	case kind == SUB:
+		return macro.Subtract(exprs...), nil
+	}
+	//
+	panic("unreachable")
 }
 
-func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
+func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
 	lookahead := p.lookahead()
-	//
+
 	switch lookahead.Kind {
-	case ADD, SUB, MUL:
-		// Match the token
-		p.match(lookahead.Kind)
+	case IDENTIFIER:
+		reg, errs := p.parseRegister(env)
 		//
-		return lookahead, true
+		return macro.RegisterAccess(reg), errs
+	case NUMBER:
+		p.match(NUMBER)
+		//
+		val := p.number(lookahead)
+		base := p.baserOfNumber(lookahead)
+		//
+		return macro.Constant(val, base), nil
+	case LBRACE:
+		p.match(LBRACE)
+		expr, errs := p.parseExpr(env)
+		//
+		if len(errs) > 0 {
+			return nil, errs
+		} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		return expr, nil
 	default:
-		return lex.Token{}, false
+		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
 }
 
@@ -664,6 +667,19 @@ func (p *Parser) number(token lex.Token) big.Int {
 	return number
 }
 
+// Get the text representing the given token as a string.
+func (p *Parser) baserOfNumber(token lex.Token) uint {
+	var str = p.string(token)
+	//
+	if strings.HasPrefix(str, "0x") {
+		return 16
+	} else if strings.HasPrefix(str, "0b") {
+		return 2
+	}
+	//
+	return 10
+}
+
 // Lookahead returns the next token.  This must exist because EOF is always
 // appended at the end of the token stream.
 func (p *Parser) lookahead() lex.Token {
@@ -694,8 +710,13 @@ func (p *Parser) match(kind uint) bool {
 	return false
 }
 
-// Follows attempts to check what follows the current position.
-func (p *Parser) follows(kinds ...uint) bool {
+// Follows checks whether one of the given token kinds is next.
+func (p *Parser) follows(options ...uint) bool {
+	return slices.Contains(options, p.lookahead().Kind)
+}
+
+// Following attempts to check what follows the current position.
+func (p *Parser) following(kinds ...uint) bool {
 	for i, kind := range kinds {
 		n := i + p.index
 		if n >= len(p.tokens) {
@@ -707,6 +728,7 @@ func (p *Parser) follows(kinds ...uint) bool {
 	//
 	return true
 }
+
 func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
 	start := p.tokens[firstToken].Span.Start()
 	end := p.tokens[lastToken].Span.End()

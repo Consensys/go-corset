@@ -13,25 +13,23 @@
 package macro
 
 import (
+	"errors"
 	"fmt"
-	"math/big"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
-	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
-// Add represents a generic operation of the following form:
+// Assign represents a generic assignment of the following form:
 //
-// tn, .., t0 := s0 + ... + sm + c
+// tn, .., t0 := e
 //
 // Here, t0 .. tn are the *target registers*, of which tn is the *most
 // significant*.  These must be disjoint as we cannot assign simultaneously to
-// the same register.  Likewise, s0 ... sm are the source registers, and c is a
-// given (non-negative) constant. Observe the n == m is not required, meaning
-// one can assign multiple registers.  For example, consider this case:
+// the same register.  Likewise, e is the source expression.  For example,
+// consider this case:
 //
 // c, r0 := r1 + 1
 //
@@ -39,27 +37,19 @@ import (
 // result of r1 + 1 occupies 17bits, of which the first 16 are written to r0
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
-type Add struct {
-	// Target registers for addition
+type Assign struct {
+	// Target registers for assignment
 	Targets []io.RegisterId
-	// Source register for addition
-	Sources []io.RegisterId
-	// Constant value (if applicable)
-	Constant big.Int
+	// Source expresion for assignment
+	Source Expr
 }
 
 // Execute this instruction with the given local and global state.  The next
 // program counter position is returned, or io.RETURN if the enclosing
 // function has terminated (i.e. because a return instruction was
 // encountered).
-func (p *Add) Execute(state io.State) uint {
-	var value big.Int
-	// Add constant
-	value.Set(&p.Constant)
-	// Add register values
-	for _, src := range p.Sources {
-		value.Add(&value, state.Load(src))
-	}
+func (p *Assign) Execute(state io.State) uint {
+	value := p.Source.Eval(state.Internal())
 	// Write value across targets
 	state.StoreAcross(value, p.Targets...)
 	//
@@ -67,69 +57,66 @@ func (p *Add) Execute(state io.State) uint {
 }
 
 // Lower this instruction into a exactly one more micro instruction.
-func (p *Add) Lower(pc uint) micro.Instruction {
-	var (
-		source    agnostic.Polynomial
-		monomials []agnostic.Monomial = make([]agnostic.Monomial, len(p.Sources)+1)
-	)
-	// Include source terms
-	for i, src := range p.Sources {
-		monomials[i] = poly.NewMonomial(one, src)
-	}
-	// Include source constant
-	monomials[len(p.Sources)] = poly.NewMonomial[io.RegisterId](p.Constant)
-	// Construct source polynomial
-	source = source.Set(monomials...)
+func (p *Assign) Lower(pc uint) micro.Instruction {
 	//
 	code := &micro.Assign{
 		Targets: p.Targets,
-		Source:  source,
+		Source:  p.Source.Polynomial(),
 	}
 	// Lowering here produces an instruction containing a single microcode.
 	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func (p *Add) RegistersRead() []io.RegisterId {
-	return p.Sources
+func (p *Assign) RegistersRead() []io.RegisterId {
+	var (
+		reads []io.RegisterId
+		bits  = p.Source.RegistersRead()
+	)
+	for iter := bits.Iter(); iter.HasNext(); {
+		next := iter.Next()
+		//
+		reads = append(reads, schema.NewRegisterId(next))
+	}
+	//
+	return reads
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
-func (p *Add) RegistersWritten() []io.RegisterId {
+func (p *Assign) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Add) String(fn schema.RegisterMap) string {
-	return assignmentToString(p.Targets, p.Sources, p.Constant, fn, zero, " + ")
+func (p *Assign) String(fn schema.RegisterMap) string {
+	var builder strings.Builder
+	//
+	builder.WriteString(io.RegistersReversedToString(p.Targets, fn.Registers()))
+	builder.WriteString(" = ")
+	builder.WriteString(p.Source.String(fn))
+	//
+	return builder.String()
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Add) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	var (
-		regs     = fn.Registers()
-		lhs_bits = sumTargetBits(p.Targets, regs)
-		rhs_bits = sumSourceBits(p.Sources, p.Constant, regs)
+		regs             = fn.Registers()
+		lhs_bits         = sumTargetBits(p.Targets, regs)
+		rhs_bits, signed = sumSourceBits(p.Source, fn)
 	)
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
 	} else if rhs_bits > fieldWidth {
 		return fmt.Errorf("field overflow (u%d into u%d field)", rhs_bits, fieldWidth)
+	} else if signed {
+		// Sign bit required, so check there is one.
+		if err := checkSignBit(p.Targets, regs); err != nil {
+			return err
+		}
 	}
 	//
 	return io.CheckTargetRegisters(p.Targets, regs)
-}
-
-func sumSourceBits(sources []io.RegisterId, constant big.Int, regs []io.Register) uint {
-	var rhs big.Int
-	//
-	for _, target := range sources {
-		rhs.Add(&rhs, regs[target.Unwrap()].MaxValue())
-	}
-	// Include constant (if relevant)
-	rhs.Add(&rhs, &constant)
-	//
-	return uint(rhs.BitLen())
 }
 
 // Sum the total number of bits used by the given set of target registers.
@@ -141,4 +128,36 @@ func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	}
 	//
 	return sum
+}
+
+func sumSourceBits(source Expr, mapping schema.RegisterMap) (uint, bool) {
+	var (
+		// Determine set of all values that right-hand side can evaluate to
+		values = source.ValueRange(mapping)
+		// Determine bitwidth required to contain all values
+		bitwidth, signed = values.BitWidth()
+	)
+	// For signed arithmetic, we need a specific sign bit.
+	if signed {
+		bitwidth++
+	}
+	//
+	return bitwidth, signed
+}
+
+// the sign bit check is necessary to ensure there is always exactly one sign bit.
+func checkSignBit(targets []io.RegisterId, regs []io.Register) error {
+	var n = len(targets) - 1
+	// Sanity check targets
+	if n < 0 {
+		return errors.New("malformed assignment")
+	}
+	// Determine width of sign bit
+	signBitWidth := regs[targets[n].Unwrap()].Width
+	// Check it is a single bit
+	if signBitWidth == 1 {
+		return nil
+	}
+	// Problem, no alignment.
+	return fmt.Errorf("missing sign bit (found u%d most significant bits)", signBitWidth)
 }

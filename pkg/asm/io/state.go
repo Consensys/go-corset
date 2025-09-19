@@ -163,6 +163,12 @@ func (p *State) Outputs() []big.Int {
 	return outputs
 }
 
+// Internal provides access to the internal state.  Obviously care should be
+// taken with this.
+func (p *State) Internal() []big.Int {
+	return p.state
+}
+
 // Load value of a given register from this state.
 func (p *State) Load(reg RegisterId) *big.Int {
 	return &p.state[reg.Unwrap()]
