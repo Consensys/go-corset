@@ -29,6 +29,11 @@ type Const struct {
 	Base     uint
 }
 
+// Eval implementation for the Expr interface.
+func (p *Const) Eval([]big.Int) big.Int {
+	return p.Constant
+}
+
 // Polynomial implementation for the Expr interface.
 func (p *Const) Polynomial() agnostic.Polynomial {
 	var (

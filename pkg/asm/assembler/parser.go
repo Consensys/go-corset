@@ -520,61 +520,6 @@ func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxErr
 	}
 }
 
-func (p *Parser) parseAssignmentRhs(env *Environment) (uint, []io.RegisterId, big.Int, []source.SyntaxError) {
-	var (
-		constant big.Int
-		rhs      []io.RegisterId
-		kind     uint = ADD
-		reg      io.RegisterId
-		errs     []source.SyntaxError
-	)
-	//
-	for p.lookahead().Kind == IDENTIFIER {
-		if reg, errs = p.parseRegister(env); len(errs) > 0 {
-			return 0, nil, constant, errs
-		}
-		// Append reg
-		rhs = append(rhs, reg)
-		// Parse trailing + / - / *
-		if tok, ok := p.parseAssignmentOp(); !ok {
-			// Special case for multiply!
-			if kind == MUL {
-				constant = *big.NewInt(1)
-			}
-			//
-			return kind, rhs, constant, nil
-		} else if len(rhs) == 1 {
-			// first time around
-			kind = tok.Kind
-		} else if kind != tok.Kind {
-			// subsequent times around
-			return 0, nil, constant, p.syntaxErrors(tok, "inconsistent operation")
-		}
-	}
-	// If we get here, we are expecting a constant.
-	lookahead, errs := p.expect(NUMBER)
-	//
-	if len(errs) > 0 {
-		return 0, nil, constant, errs
-	}
-	//
-	return kind, rhs, p.number(lookahead), errs
-}
-
-func (p *Parser) parseAssignmentOp() (lex.Token, bool) {
-	lookahead := p.lookahead()
-	//
-	switch lookahead.Kind {
-	case ADD, SUB, MUL:
-		// Match the token
-		p.match(lookahead.Kind)
-		//
-		return lookahead, true
-	default:
-		return lex.Token{}, false
-	}
-}
-
 func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs []source.SyntaxError

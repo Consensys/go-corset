@@ -60,7 +60,7 @@ func check(t *testing.T, input string, points [][]uint) {
 		for _, pnt := range points {
 			env := make(map[string]big.Int)
 			env["a"] = *big.NewInt(int64(pnt[1]))
-			actual := Eval(p, env)
+			actual := Eval(p, func(v string) big.Int { return env[v] })
 			expected := big.NewInt(int64(pnt[0]))
 			// Evaluate and check
 			if actual.Cmp(expected) != 0 {

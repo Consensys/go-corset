@@ -13,6 +13,7 @@
 package expr
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math/big"
 	"strings"
@@ -30,6 +31,8 @@ var (
 
 // Expr represents an arbitrary expression used within an instruction.
 type Expr interface {
+	// Evaluate this expression in a given environment producing a given value.
+	Eval([]big.Int) big.Int
 	// Polynomial returns this expression flatterned into a polynomial form.
 	Polynomial() agnostic.Polynomial
 	// RegistersRead returns the set of registers read by this expression
@@ -108,4 +111,12 @@ func needsBraces(e Expr) bool {
 	default:
 		return true
 	}
+}
+
+func init() {
+	gob.Register(Expr(&Add{}))
+	gob.Register(Expr(&Const{}))
+	gob.Register(Expr(&Mul{}))
+	gob.Register(Expr(&RegAccess{}))
+	gob.Register(Expr(&Sub{}))
 }

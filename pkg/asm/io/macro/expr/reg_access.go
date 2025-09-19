@@ -28,6 +28,11 @@ type RegAccess struct {
 	Register io.RegisterId
 }
 
+// Eval implementation for the Expr interface.
+func (p *RegAccess) Eval(env []big.Int) big.Int {
+	return env[p.Register.Unwrap()]
+}
+
 // Polynomial implementation for the Expr interface.
 func (p *RegAccess) Polynomial() agnostic.Polynomial {
 	var (

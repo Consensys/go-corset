@@ -14,23 +14,14 @@ package macro
 
 import (
 	"encoding/gob"
-	"fmt"
 	"math/big"
-	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
 )
-
-// Alias for big integer representation of 0.
-var zero big.Int = *big.NewInt(0)
 
 // Alias for big integer representation of 1.
 var one big.Int = *big.NewInt(1)
-
-// Alias for big integer representation of -1.
-var minusOne big.Int = *big.NewInt(-1)
 
 // Register is an alias for insn.Register
 type Register = io.Register
@@ -61,50 +52,11 @@ type IoInstruction interface {
 	Link(bus io.Bus)
 }
 
-func assignmentToString(dsts []io.RegisterId, srcs []io.RegisterId, constant big.Int, fn schema.RegisterMap,
-	c big.Int, op string) string {
-	//
-	var (
-		builder strings.Builder
-		regs    = fn.Registers()
-	)
-	//
-	builder.WriteString(io.RegistersReversedToString(dsts, regs))
-	builder.WriteString(" = ")
-	//
-	for i, id := range srcs {
-		r := id.Unwrap()
-		//
-		if i != 0 {
-			builder.WriteString(op)
-		}
-		//
-		if r < uint(len(regs)) {
-			builder.WriteString(regs[r].Name)
-		} else {
-			builder.WriteString(fmt.Sprintf("?%d", r))
-		}
-	}
-	//
-	if len(srcs) == 0 || constant.Cmp(&c) != 0 {
-		if len(srcs) > 0 {
-			builder.WriteString(op)
-		}
-		//
-		builder.WriteString("0x")
-		builder.WriteString(constant.Text(16))
-	}
-	//
-	return builder.String()
-}
-
 func init() {
-	gob.Register(Instruction(&Add{}))
+	gob.Register(Instruction(&Assign{}))
 	gob.Register(Instruction(&Call{}))
 	gob.Register(Instruction(&Fail{}))
 	gob.Register(Instruction(&Goto{}))
 	gob.Register(Instruction(&IfGoto{}))
-	gob.Register(Instruction(&Mul{}))
 	gob.Register(Instruction(&Return{}))
-	gob.Register(Instruction(&Sub{}))
 }

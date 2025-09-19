@@ -13,6 +13,8 @@
 package expr
 
 import (
+	"math/big"
+
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -22,6 +24,23 @@ import (
 // Sub represents an expresion which subtracts zero or more terms from a given term.
 type Sub struct {
 	Exprs []Expr
+}
+
+// Eval implementation for the Expr interface.
+func (p *Sub) Eval(env []big.Int) big.Int {
+	var result big.Int
+	//
+	for i, e := range p.Exprs {
+		ith := e.Eval(env)
+
+		if i == 0 {
+			result.Set(&ith)
+		} else {
+			result.Sub(&result, &ith)
+		}
+	}
+	// Done
+	return result
 }
 
 // Polynomial implementation for the Expr interface.

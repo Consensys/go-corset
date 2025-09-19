@@ -49,7 +49,11 @@ type Assign struct {
 // function has terminated (i.e. because a return instruction was
 // encountered).
 func (p *Assign) Execute(state io.State) uint {
-	panic("todo")
+	value := p.Source.Eval(state.Internal())
+	// Write value across targets
+	state.StoreAcross(value, p.Targets...)
+	//
+	return state.Pc() + 1
 }
 
 // Lower this instruction into a exactly one more micro instruction.
