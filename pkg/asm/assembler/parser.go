@@ -662,19 +662,26 @@ func (p *Parser) string(token lex.Token) string {
 func (p *Parser) number(token lex.Token) (big.Int, []source.SyntaxError) {
 	var (
 		number, exponent big.Int
+		ok               bool
 		numstr           = p.string(token)
 		splits           = strings.Split(numstr, "^")
 	)
 	//
 	if len(splits) == 0 || len(splits) > 2 {
-		return number, p.syntaxErrors(token, "malformed numeric literal")
+		ok = false
 	} else if len(splits) == 1 {
 		// non-exponent case
-		number.SetString(numstr, 0)
+		_, ok = number.SetString(numstr, 0)
+	} else if len(splits[0]) == 0 || len(splits[1]) == 0 {
+		ok = false
 	} else {
-		number.SetString(splits[0], 0)
+		_, ok = number.SetString(splits[0], 0)
 		exponent.SetString(splits[1], 0)
 		number.Exp(&number, &exponent, nil)
+	}
+	//
+	if !ok {
+		return number, p.syntaxErrors(token, "malformed numeric literal")
 	}
 	//
 	return number, nil
