@@ -429,6 +429,11 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs
 	}
+	// Check what we've got
+	if p.following(IDENTIFIER, LBRACE) {
+		// function call
+		return p.parseCallRhs(lhs, env)
+	}
 	// Reverse items so that least significant comes first.  NOTE:
 	// eventually should be updated to retain the given order.
 	lhs = array.Reverse(lhs)
@@ -449,7 +454,7 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
 	var (
 		expr, errs = p.parseUnitExpr(env)
-		exprs      []macro.Expr
+		exprs      = []macro.Expr{expr}
 		tmp        macro.Expr
 	)
 	// initialise lookahead
@@ -471,14 +476,14 @@ func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) 
 	switch {
 	case len(errs) != 0:
 		return expr, errs
-	case len(exprs) == 0:
+	case len(exprs) == 1:
 		return expr, nil
 	case kind == ADD:
-		return &macro.AddExpr{Exprs: exprs}, nil
+		return macro.Sum(exprs...), nil
 	case kind == MUL:
-		panic("todo")
+		return macro.Product(exprs...), nil
 	case kind == SUB:
-		panic("todo")
+		return macro.Subtract(exprs...), nil
 	}
 	//
 	panic("unreachable")
@@ -491,13 +496,14 @@ func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxErr
 	case IDENTIFIER:
 		reg, errs := p.parseRegister(env)
 		//
-		return &macro.RegisterAccessExpr{Register: reg}, errs
+		return macro.RegisterAccess(reg), errs
 	case NUMBER:
 		p.match(NUMBER)
 		//
 		val := p.number(lookahead)
+		base := p.baserOfNumber(lookahead)
 		//
-		return &macro.ConstantExpr{Constant: val}, nil
+		return macro.Constant(val, base), nil
 	case LBRACE:
 		p.match(LBRACE)
 		expr, errs := p.parseExpr(env)
@@ -716,6 +722,19 @@ func (p *Parser) number(token lex.Token) big.Int {
 	return number
 }
 
+// Get the text representing the given token as a string.
+func (p *Parser) baserOfNumber(token lex.Token) uint {
+	var str = p.string(token)
+	//
+	if strings.HasPrefix(str, "0x") {
+		return 16
+	} else if strings.HasPrefix(str, "0b") {
+		return 2
+	}
+	//
+	return 10
+}
+
 // Lookahead returns the next token.  This must exist because EOF is always
 // appended at the end of the token stream.
 func (p *Parser) lookahead() lex.Token {
@@ -749,6 +768,20 @@ func (p *Parser) match(kind uint) bool {
 // Follows checks whether one of the given token kinds is next.
 func (p *Parser) follows(options ...uint) bool {
 	return slices.Contains(options, p.lookahead().Kind)
+}
+
+// Following attempts to check what follows the current position.
+func (p *Parser) following(kinds ...uint) bool {
+	for i, kind := range kinds {
+		n := i + p.index
+		if n >= len(p.tokens) {
+			return false
+		} else if p.tokens[n].Kind != kind {
+			return false
+		}
+	}
+	//
+	return true
 }
 
 func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
