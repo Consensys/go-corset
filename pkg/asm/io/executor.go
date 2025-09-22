@@ -69,6 +69,17 @@ func (p *Executor[T]) Instances(bus uint) []FunctionInstance {
 	return p.functions[bus].instances
 }
 
+// Count the total number of instances currently recorded in this executor.
+func (p *Executor[T]) Count() uint {
+	var count uint
+	//
+	for _, fn := range p.functions {
+		count += fn.Count()
+	}
+	//
+	return count
+}
+
 // Write implementation for the io.Map interface.
 func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
 	// At this stage, there no components use this functionality.
@@ -99,6 +110,15 @@ func NewFunctionTrace[T Instruction[T]](fn *Function[T]) *FunctionTrace[T] {
 		fn:        fn,
 		instances: *instances,
 	}
+}
+
+// Count the number of instances recorded as part of this function's trace.
+func (p *FunctionTrace[T]) Count() uint {
+	p.mux.RLock()
+	count := uint(len(p.instances))
+	p.mux.RUnlock()
+	//
+	return count
 }
 
 // Call this function to determine its outputs for a given set of inputs.  If
