@@ -22,6 +22,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -77,10 +78,10 @@ func NewParser(srcfile *source.File) *Parser {
 // some number of syntax errors.
 func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	var (
-		item    AssemblyItem
-		include *string
-		errors  []source.SyntaxError
-		fn      MacroFunction
+		item      AssemblyItem
+		include   *string
+		errors    []source.SyntaxError
+		component AssemblyComponent
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
@@ -91,6 +92,8 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 		lookahead := p.lookahead()
 		// Determine type of declaration
 		switch lookahead.Kind {
+		case KEYWORD_CONST:
+			component, errors = p.parseConstant()
 		case KEYWORD_INCLUDE:
 			include, errors = p.parseInclude()
 			if len(errors) == 0 {
@@ -99,7 +102,7 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 			// Avoid appending to components
 			continue
 		case KEYWORD_FN:
-			fn, errors = p.parseFunction()
+			component, errors = p.parseFunction()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -108,12 +111,44 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 			return item, errors
 		}
 		//
-		item.Components = append(item.Components, fn)
+		item.Components = append(item.Components, component)
 	}
 	// Copy over source map
 	item.SourceMap = *p.srcmap
 	//
 	return item, nil
+}
+
+func (p *Parser) parseConstant() (*AssemblyConstant, []source.SyntaxError) {
+	var (
+		start     = p.index
+		errs      []source.SyntaxError
+		lookahead lex.Token
+		name      string
+	)
+	// Parse include declaration
+	if _, errs := p.expect(KEYWORD_CONST); len(errs) > 0 {
+		return nil, errs
+	} else if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(EQUALS); len(errs) > 0 {
+		return nil, errs
+	} else if lookahead, errs = p.expect(NUMBER); len(errs) > 0 {
+		return nil, errs
+	}
+	// Save for source map
+	end := p.index
+	// So far, so good.
+	val, errs := p.number(lookahead)
+	base := p.baserOfNumber(lookahead)
+	//
+	component := &AssemblyConstant{
+		name, val, base,
+	}
+	//
+	p.srcmap.Put(component, p.spanOf(start, end))
+	//
+	return component, errs
 }
 
 func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
@@ -137,8 +172,9 @@ func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 	return pStr, errs
 }
 
-func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
+func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 	var (
+		start           = p.index
 		env             Environment
 		inst            macro.Instruction
 		name            string
@@ -149,34 +185,36 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	)
 	// Parse function declaration
 	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse function name
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse inputs
 	if inputs, errs = p.parseArgsList(schema.INPUT_REGISTER); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse optional '->'
 	if p.match(RIGHTARROW) {
 		// Parse returns
 		if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
-			return MacroFunction{}, errs
+			return nil, errs
 		}
 	}
+	// Save for source map
+	end := p.index
 	// Update register list with inputs/outputs
 	env.registers = append(env.registers, inputs...)
 	env.registers = append(env.registers, outputs...)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
 		if inst, errs = p.parseMacroInstruction(pc, &env); len(errs) > 0 {
-			return MacroFunction{}, errs
+			return nil, errs
 		}
 		//
 		if inst != nil {
@@ -189,8 +227,12 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	p.match(RCURLY)
 	// Finalise labels
 	env.BindLabels(code)
+	// Construct function
+	fn := io.NewFunction(name, env.registers, env.buses, code)
+	//
+	p.srcmap.Put(&fn, p.spanOf(start, end))
 	// Done
-	return io.NewFunction(name, env.registers, env.buses, code), nil
+	return &fn, nil
 }
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
@@ -380,13 +422,15 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
+		rhsExpr  macro.Expr
 		lhs, rhs io.RegisterId
 		constant big.Int
 		label    string
+		target   string
 		cond     uint8
 	)
 	// Parse left hand side
-	if lhs, errs = p.parseRegister(env); len(errs) > 0 {
+	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// save lookahead for error reporting
@@ -394,15 +438,24 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhs, constant, errs = p.parseRegisterOrConstant(env); len(errs) > 0 {
+	if rhsExpr, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
+	}
+	// Dispatch on rhs expression form
+	switch e := rhsExpr.(type) {
+	case *expr.Const:
+		rhs = schema.NewUnusedRegisterId()
+		constant = e.Constant
+		label = e.Label
+	case *expr.RegAccess:
+		rhs = e.Register
 	}
 	// Parse "goto"
 	if errs = p.parseKeyword("goto"); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse target label
-	if label, errs = p.parseIdentifier(); len(errs) > 0 {
+	if target, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	//
@@ -411,7 +464,8 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 		Left:     lhs,
 		Right:    rhs,
 		Constant: constant,
-		Target:   env.BindLabel(label),
+		Label:    label,
+		Target:   env.BindLabel(target),
 	}, nil
 }
 
@@ -453,6 +507,7 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 
 func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
 	var (
+		start      = p.index
 		expr, errs = p.parseUnitExpr(env)
 		exprs      = []macro.Expr{expr}
 		tmp        macro.Expr
@@ -479,31 +534,24 @@ func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) 
 	case len(exprs) == 1:
 		return expr, nil
 	case kind == ADD:
-		return macro.Sum(exprs...), nil
+		expr = macro.Sum(exprs...)
 	case kind == MUL:
-		return macro.Product(exprs...), nil
+		expr = macro.Product(exprs...)
 	case kind == SUB:
-		return macro.Subtract(exprs...), nil
+		expr = macro.Subtract(exprs...)
 	}
 	//
-	panic("unreachable")
+	p.srcmap.Put(expr, p.spanOf(start, p.index))
+	//
+	return expr, nil
 }
 
 func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
-	lookahead := p.lookahead()
+	var lookahead = p.lookahead()
 
 	switch lookahead.Kind {
-	case IDENTIFIER:
-		reg, errs := p.parseRegister(env)
-		//
-		return macro.RegisterAccess(reg), errs
-	case NUMBER:
-		p.match(NUMBER)
-		//
-		val, errs := p.number(lookahead)
-		base := p.baserOfNumber(lookahead)
-		//
-		return macro.Constant(val, base), errs
+	case IDENTIFIER, NUMBER:
+		return p.parseAtomicExpr(env)
 	case LBRACE:
 		p.match(LBRACE)
 		expr, errs := p.parseExpr(env)
@@ -513,11 +561,53 @@ func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxErr
 		} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
 			return nil, errs
 		}
-		//
+		// Don't add to source map, since it will already have been added.
 		return expr, nil
 	default:
 		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
+}
+
+func (p *Parser) parseAtomicExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
+	var (
+		start     = p.index
+		lookahead = p.lookahead()
+		expr      macro.Expr
+		errs      []source.SyntaxError
+	)
+
+	switch lookahead.Kind {
+	case IDENTIFIER:
+		var reg string
+		//
+		reg, errs = p.parseIdentifier()
+		//
+		if len(errs) > 0 {
+			return nil, errs
+		} else if !env.IsRegister(reg) {
+			expr = macro.ConstantAccess(reg)
+		} else {
+			// Register access
+			rid := env.LookupRegister(reg)
+			// Done
+			expr = macro.RegisterAccess(rid)
+		}
+	case NUMBER:
+		var val big.Int
+		//
+		p.match(NUMBER)
+		//
+		val, errs = p.number(lookahead)
+		base := p.baserOfNumber(lookahead)
+		//
+		expr = macro.Constant(val, base)
+	default:
+		return nil, p.syntaxErrors(lookahead, "expected register or constant")
+	}
+	//
+	p.srcmap.Put(expr, p.spanOf(start, p.index))
+	//
+	return expr, errs
 }
 
 func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
@@ -550,12 +640,12 @@ func (p *Parser) parseRegisterList(env *Environment) ([]io.RegisterId, []source.
 		reg  io.RegisterId
 	)
 	// lhs always starts with a register
-	if lhs[0], errs = p.parseRegister(env); len(errs) > 0 {
+	if lhs[0], errs = p.parseVariable(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// lhs may have additional registers
 	for p.match(COMMA) {
-		if reg, errs = p.parseRegister(env); len(errs) > 0 {
+		if reg, errs = p.parseVariable(env); len(errs) > 0 {
 			return nil, errs
 		}
 		// Add register to lhs
@@ -565,31 +655,7 @@ func (p *Parser) parseRegisterList(env *Environment) ([]io.RegisterId, []source.
 	return lhs, nil
 }
 
-func (p *Parser) parseRegisterOrConstant(env *Environment) (io.RegisterId, big.Int, []source.SyntaxError) {
-	var (
-		reg      io.RegisterId
-		constant big.Int
-		errs     []source.SyntaxError
-	)
-	//
-	lookahead := p.lookahead()
-	//
-	switch lookahead.Kind {
-	case IDENTIFIER:
-		reg, errs = p.parseRegister(env)
-	case NUMBER:
-		p.match(NUMBER)
-		//
-		reg = schema.NewUnusedRegisterId()
-		constant, errs = p.number(lookahead)
-	default:
-		errs = p.syntaxErrors(lookahead, "expecting register or constant")
-	}
-	//
-	return reg, constant, errs
-}
-
-func (p *Parser) parseRegister(env *Environment) (io.RegisterId, []source.SyntaxError) {
+func (p *Parser) parseVariable(env *Environment) (io.RegisterId, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	reg, errs := p.parseIdentifier()
 	//

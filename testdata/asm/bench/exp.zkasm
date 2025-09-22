@@ -3,6 +3,9 @@ include "../util/fill_bytes.zkasm"
 include "../util/log2.zkasm"
 include "../util/log256.zkasm"
 
+const EXP_INST_EXPLOG    = 0xEE0A
+const EXP_INST_MODEXPLOG = 0xEE05
+
 ;; The Exponentiation Module (EXP) is a small module which carries out
 ;; intermediate computations (e.g. logarithms) required for the gas
 ;; pricing of the EXP opcode and the MODEXP precompile. Despite its
@@ -24,8 +27,8 @@ fn exp(INST=0xEE0A u16, ARG u256, CDS u6, EBS u6) -> (RES=0 u128)
    var log_word, zero u8
    var shifted_word, filled_word u256
    ;;
-   if INST==0xEE0A goto explog
-   if INST==0xEE05 goto modexplog
+   if INST==EXP_INST_EXPLOG goto explog
+   if INST==EXP_INST_MODEXPLOG goto modexplog
    fail
 explog:
    if ARG != 0 goto explog2

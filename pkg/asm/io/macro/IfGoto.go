@@ -45,8 +45,10 @@ type IfGoto struct {
 	Cond uint8
 	// Left and right comparisons
 	Left, Right io.RegisterId
-	//
+	// Constant value (when rhs is unused)
 	Constant big.Int
+	// Constant label
+	Label string
 	// Target identifies target PC
 	Target uint
 }

@@ -25,6 +25,7 @@ import (
 
 // Const represents a constant value within an expresion.
 type Const struct {
+	Label    string
 	Constant big.Int
 	Base     uint
 }

@@ -1,3 +1,4 @@
+include "evm.zkasm"
 include "../util/bit_shift.zkasm"
 include "../util/byte_shift.zkasm"
 
@@ -23,9 +24,9 @@ fn shf(INST=0x1b u8, ARG_1 u256, ARG_2 u256) -> (RES u256) {
   tmp2, hi, lo = ARG_1
   ;;
   if tmp2 != 0 goto exit_01
-  if INST == 0x1b goto insn_shl
-  if INST == 0x1c goto insn_shr
-  if INST == 0x1d goto insn_sar
+  if INST == EVM_INST_SHL goto insn_shl
+  if INST == EVM_INST_SHR goto insn_shr
+  if INST == EVM_INST_SAR goto insn_sar
   fail
 insn_shl:
   ;; coarse-grained shift left

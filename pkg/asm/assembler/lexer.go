@@ -57,11 +57,14 @@ const STRING uint = 11
 // IDENTIFIER signals a column variable
 const IDENTIFIER uint = 20
 
+// KEYWORD_CONST signals a constant declaration
+const KEYWORD_CONST uint = 21
+
 // KEYWORD_INCLUDE signals an include declaration
-const KEYWORD_INCLUDE uint = 21
+const KEYWORD_INCLUDE uint = 22
 
 // KEYWORD_FN signals a function declaration
-const KEYWORD_FN uint = 22
+const KEYWORD_FN uint = 23
 
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 30
@@ -185,6 +188,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
+	lex.Rule(lex.String("const"), KEYWORD_CONST),
 	lex.Rule(lex.String("include"), KEYWORD_INCLUDE),
 	lex.Rule(lex.String("fn"), KEYWORD_FN),
 	lex.Rule(identifier, IDENTIFIER),

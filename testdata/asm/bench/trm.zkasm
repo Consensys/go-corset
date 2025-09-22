@@ -1,3 +1,5 @@
+const MAX_PRC_ADDRESS = 0x09
+
 ;; The address trimming module does two things: (i) reduce 256bit
 ;; addresses into u160 addresses (i.e. modulo 2^160); (b) identify
 ;; addresses of precompiles.
@@ -27,8 +29,8 @@ fn trm(ADDRESS u256) -> (RESULT_HI u32, IS_PRECOMPILE u1) {
   if RESULT_HI != 0 goto exit_0
   ;; discount address 0
   if low == 0 goto exit_0
-  ;; determine low <= 9
-  b,tmp = low - 10
+  ;; determine low <= MAX_PRC_ADDRESS
+  b,tmp = low - MAX_PRC_ADDRESS - 1
   ;; done
   IS_PRECOMPILE=b
   return

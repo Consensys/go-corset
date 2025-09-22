@@ -43,15 +43,6 @@ type BranchInstruction interface {
 	Bind(labels []uint)
 }
 
-// IoInstruction provides an abstraction notion of a macro instruction which
-// uses a bus (e.g. to implement a function call).
-type IoInstruction interface {
-	io.InOutInstruction
-	// Link links the bus.  Observe that this can only be called once on any
-	// given instruction.
-	Link(bus io.Bus)
-}
-
 func init() {
 	gob.Register(Instruction(&Assign{}))
 	gob.Register(Instruction(&Call{}))
