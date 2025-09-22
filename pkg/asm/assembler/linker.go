@@ -79,9 +79,9 @@ func Link(items ...AssemblyItem) ([]*MacroFunction, source.Maps[any], []source.S
 				// our source map doesn't contain the right information.
 				msg := fmt.Sprintf("duplicate component %s", component.Name())
 				errors = append(errors, *linker.srcmap.SyntaxError(component, msg))
+			} else {
+				linker.Register(component)
 			}
-			//
-			linker.Register(component)
 		}
 	}
 	// Link all assembly items
@@ -187,12 +187,23 @@ func (p *Linker) linkComponent(index uint) []source.SyntaxError {
 func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) *source.SyntaxError {
 	switch insn := insn.(type) {
 	case *macro.Assign:
-		return p.linkExpr(insn.Source, p.constmap)
+		return p.linkExpr(insn.Source)
 	case *macro.Call:
 		// Determine global bus identifier
 		busId := p.busmap[insn.Bus().Name]
 		// allocate & link bus
 		insn.Link(buses[busId])
+	case *macro.IfGoto:
+		if insn.Label != "" {
+			deats, ok := p.constmap[insn.Label]
+			//
+			if !ok {
+				msg := fmt.Sprintf("unknown register or constant \"%s\"", insn.Label)
+				return p.srcmap.SyntaxError(insn, msg)
+			}
+			//
+			insn.Constant = deats.Left
+		}
 	default:
 		// continue
 	}
@@ -200,13 +211,13 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 	return nil
 }
 
-func (p *Linker) linkExpr(e macro.Expr, constmap ConstMap) *source.SyntaxError {
+func (p *Linker) linkExpr(e macro.Expr) *source.SyntaxError {
 	switch e := e.(type) {
 	case *expr.Add:
-		return p.linkExprs(e.Exprs, constmap)
+		return p.linkExprs(e.Exprs)
 	case *expr.Const:
 		if e.Label != "" {
-			deats, ok := constmap[e.Label]
+			deats, ok := p.constmap[e.Label]
 			//
 			if !ok {
 				return p.srcmap.SyntaxError(e, "unknown register or constant")
@@ -216,11 +227,11 @@ func (p *Linker) linkExpr(e macro.Expr, constmap ConstMap) *source.SyntaxError {
 			e.Constant = deats.Left
 		}
 	case *expr.Mul:
-		return p.linkExprs(e.Exprs, constmap)
+		return p.linkExprs(e.Exprs)
 	case *expr.RegAccess:
 		// Nothing to do
 	case *expr.Sub:
-		return p.linkExprs(e.Exprs, constmap)
+		return p.linkExprs(e.Exprs)
 	default:
 		panic("unreachable")
 	}
@@ -228,9 +239,9 @@ func (p *Linker) linkExpr(e macro.Expr, constmap ConstMap) *source.SyntaxError {
 	return nil
 }
 
-func (p *Linker) linkExprs(es []macro.Expr, constmap ConstMap) *source.SyntaxError {
+func (p *Linker) linkExprs(es []macro.Expr) *source.SyntaxError {
 	for _, e := range es {
-		if err := p.linkExpr(e, constmap); err != nil {
+		if err := p.linkExpr(e); err != nil {
 			return err
 		}
 	}

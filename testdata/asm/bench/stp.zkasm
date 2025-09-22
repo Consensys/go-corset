@@ -1,10 +1,4 @@
-
-const G_TXCREATE = 32000
-const G_CALLVALUE = 9000
-const G_CALLSTIPEND = 2300
-const G_NEWACCOUNT = 25000
-const G_WARMACCESS = 100
-const G_COLDACCOUNTACCESS = 2600
+include "evm.zkasm"
 
 ;; The STP module performs upfront gas calculations for CALL and
 ;; CREATE instructions.  The logic of this module is tricky in places,
@@ -35,8 +29,8 @@ fn stp(INST=0xf0 u8, GAS_ACTUAL u64, GAS_MXP u64, GAS u256, VALUE u256, EXISTS u
   var stipend, gas_extra u64
   var c u1
   ;;
-  if INST == 0xf0 goto create
-  if INST == 0xf5 goto create
+  if INST == EVM_INST_CREATE goto create
+  if INST == EVM_INST_CREATE2 goto create
   ;; ===========================================================================
   ;; CALL / CALLCODE / DELEGATECALL / STATICCALL
   ;; ===========================================================================

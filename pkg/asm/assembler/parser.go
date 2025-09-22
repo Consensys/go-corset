@@ -22,6 +22,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -421,9 +422,11 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
+		rhsExpr  macro.Expr
 		lhs, rhs io.RegisterId
 		constant big.Int
 		label    string
+		target   string
 		cond     uint8
 	)
 	// Parse left hand side
@@ -435,15 +438,24 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhs, constant, errs = p.parseRegisterOrConstant(env); len(errs) > 0 {
+	if rhsExpr, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
+	}
+	// Dispatch on rhs expression form
+	switch e := rhsExpr.(type) {
+	case *expr.Const:
+		rhs = schema.NewUnusedRegisterId()
+		constant = e.Constant
+		label = e.Label
+	case *expr.RegAccess:
+		rhs = e.Register
 	}
 	// Parse "goto"
 	if errs = p.parseKeyword("goto"); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse target label
-	if label, errs = p.parseIdentifier(); len(errs) > 0 {
+	if target, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	//
@@ -452,7 +464,8 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 		Left:     lhs,
 		Right:    rhs,
 		Constant: constant,
-		Target:   env.BindLabel(label),
+		Label:    label,
+		Target:   env.BindLabel(target),
 	}, nil
 }
 
@@ -534,6 +547,28 @@ func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) 
 }
 
 func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
+	var lookahead = p.lookahead()
+
+	switch lookahead.Kind {
+	case IDENTIFIER, NUMBER:
+		return p.parseAtomicExpr(env)
+	case LBRACE:
+		p.match(LBRACE)
+		expr, errs := p.parseExpr(env)
+		//
+		if len(errs) > 0 {
+			return nil, errs
+		} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
+			return nil, errs
+		}
+		// Don't add to source map, since it will already have been added.
+		return expr, nil
+	default:
+		return nil, p.syntaxErrors(lookahead, "unexpected token")
+	}
+}
+
+func (p *Parser) parseAtomicExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
 	var (
 		start     = p.index
 		lookahead = p.lookahead()
@@ -566,19 +601,8 @@ func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxErr
 		base := p.baserOfNumber(lookahead)
 		//
 		expr = macro.Constant(val, base)
-	case LBRACE:
-		p.match(LBRACE)
-		expr, errs = p.parseExpr(env)
-		//
-		if len(errs) > 0 {
-			return nil, errs
-		} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
-			return nil, errs
-		}
-		// Don't add to source map, since it will already have been added.
-		return expr, nil
 	default:
-		return nil, p.syntaxErrors(lookahead, "unexpected token")
+		return nil, p.syntaxErrors(lookahead, "expected register or constant")
 	}
 	//
 	p.srcmap.Put(expr, p.spanOf(start, p.index))
@@ -629,30 +653,6 @@ func (p *Parser) parseRegisterList(env *Environment) ([]io.RegisterId, []source.
 	}
 	//
 	return lhs, nil
-}
-
-func (p *Parser) parseRegisterOrConstant(env *Environment) (io.RegisterId, big.Int, []source.SyntaxError) {
-	var (
-		reg      io.RegisterId
-		constant big.Int
-		errs     []source.SyntaxError
-	)
-	//
-	lookahead := p.lookahead()
-	//
-	switch lookahead.Kind {
-	case IDENTIFIER:
-		reg, errs = p.parseVariable(env)
-	case NUMBER:
-		p.match(NUMBER)
-		//
-		reg = schema.NewUnusedRegisterId()
-		constant, errs = p.number(lookahead)
-	default:
-		errs = p.syntaxErrors(lookahead, "expecting register or constant")
-	}
-	//
-	return reg, constant, errs
 }
 
 func (p *Parser) parseVariable(env *Environment) (io.RegisterId, []source.SyntaxError) {
