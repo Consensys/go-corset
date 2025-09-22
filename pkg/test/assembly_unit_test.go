@@ -19,6 +19,14 @@ import (
 	"github.com/consensys/go-corset/pkg/test/util"
 )
 
+func Test_AsmUnit_BitShift(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/bit_shift", util.ASM_MAX_PADDING, sc.BLS12_377)
+}
+
+func Test_AsmUnit_ByteShift(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+}
+
 func Test_AsmUnit_Dec4(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/dec4", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
