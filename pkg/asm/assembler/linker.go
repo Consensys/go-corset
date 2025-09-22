@@ -14,12 +14,33 @@ package assembler
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
+
+// AssemblyComponent represents something declared within an assembly file, such
+// as a function or constant, etc.
+type AssemblyComponent interface {
+	// Return name of this component
+	Name() string
+}
+
+// AssemblyConstant represents a named constant at the assembly level.
+type AssemblyConstant struct {
+	name     string
+	constant big.Int
+	bitwidth uint
+	base     uint
+}
+
+// Name implementation for AssemblyComponent interface
+func (p *AssemblyConstant) Name() string {
+	return p.name
+}
 
 // AssemblyItem represents an intermediate artifact producing during the
 // assembly process.  The key is that, as this stage, the bus identifiers are
@@ -28,7 +49,7 @@ import (
 type AssemblyItem struct {
 	Includes []*string
 	// Components making up this assembly item.
-	Components []MacroFunction
+	Components []AssemblyComponent
 	// Mapping of instructions back to the source file.
 	SourceMap source.Map[any]
 }
@@ -47,17 +68,25 @@ func Link(items ...AssemblyItem) ([]*MacroFunction, source.Maps[any]) {
 	for _, item := range items {
 		srcmap.Join(&item.SourceMap)
 		//
-		for _, c := range item.Components {
-			if _, ok := busmap[c.Name()]; ok {
-				// Indicates component of same name already exists.  It would be
-				// good to report a source error here, but the problem is that
-				// our source map doesn't contain the right information.
-				panic(fmt.Sprintf("duplicate component %s", c.Name()))
+		for _, component := range item.Components {
+			switch c := component.(type) {
+			case *AssemblyConstant:
+				panic("constant detected")
+			case *MacroFunction:
+				if _, ok := busmap[component.Name()]; ok {
+					// Indicates component of same name already exists.  It would be
+					// good to report a source error here, but the problem is that
+					// our source map doesn't contain the right information.
+					panic(fmt.Sprintf("duplicate component %s", component.Name()))
+				}
+				// Allocate bus entry
+				busmap[component.Name()] = uint(len(busmap))
+				//
+				components = append(components, c)
+			default:
+				// Should be unreachable
+				panic(fmt.Sprintf("unknown component %s", component.Name()))
 			}
-			// Allocate bus entry
-			busmap[c.Name()] = uint(len(busmap))
-			//
-			components = append(components, &c)
 		}
 	}
 	// Link all assembly items

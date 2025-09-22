@@ -77,10 +77,10 @@ func NewParser(srcfile *source.File) *Parser {
 // some number of syntax errors.
 func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 	var (
-		item    AssemblyItem
-		include *string
-		errors  []source.SyntaxError
-		fn      MacroFunction
+		item      AssemblyItem
+		include   *string
+		errors    []source.SyntaxError
+		component AssemblyComponent
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
@@ -91,6 +91,8 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 		lookahead := p.lookahead()
 		// Determine type of declaration
 		switch lookahead.Kind {
+		case KEYWORD_CONST:
+			component, errors = p.parseConstant()
 		case KEYWORD_INCLUDE:
 			include, errors = p.parseInclude()
 			if len(errors) == 0 {
@@ -99,7 +101,7 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 			// Avoid appending to components
 			continue
 		case KEYWORD_FN:
-			fn, errors = p.parseFunction()
+			component, errors = p.parseFunction()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -108,12 +110,46 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 			return item, errors
 		}
 		//
-		item.Components = append(item.Components, fn)
+		item.Components = append(item.Components, component)
 	}
 	// Copy over source map
 	item.SourceMap = *p.srcmap
 	//
 	return item, nil
+}
+
+func (p *Parser) parseConstant() (*AssemblyConstant, []source.SyntaxError) {
+	var (
+		errs      []source.SyntaxError
+		lookahead lex.Token
+		name      string
+		bitwidth  uint
+	)
+	// Parse include declaration
+	if _, errs := p.expect(KEYWORD_CONST); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse constant name
+	if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse constant type
+	if bitwidth, errs = p.parseType(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(EQUALS); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse constant value
+	if lookahead, errs = p.expect(NUMBER); len(errs) > 0 {
+		return nil, errs
+	}
+	// So far, so good.
+	val, errs := p.number(lookahead)
+	base := p.baserOfNumber(lookahead)
+	//
+	return &AssemblyConstant{
+		name, val, bitwidth, base,
+	}, errs
 }
 
 func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
@@ -137,7 +173,7 @@ func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 	return pStr, errs
 }
 
-func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
+func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 	var (
 		env             Environment
 		inst            macro.Instruction
@@ -149,21 +185,21 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	)
 	// Parse function declaration
 	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse function name
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse inputs
 	if inputs, errs = p.parseArgsList(schema.INPUT_REGISTER); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse optional '->'
 	if p.match(RIGHTARROW) {
 		// Parse returns
 		if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
-			return MacroFunction{}, errs
+			return nil, errs
 		}
 	}
 	// Update register list with inputs/outputs
@@ -171,12 +207,12 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	env.registers = append(env.registers, outputs...)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
-		return MacroFunction{}, errs
+		return nil, errs
 	}
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
 		if inst, errs = p.parseMacroInstruction(pc, &env); len(errs) > 0 {
-			return MacroFunction{}, errs
+			return nil, errs
 		}
 		//
 		if inst != nil {
@@ -189,8 +225,10 @@ func (p *Parser) parseFunction() (MacroFunction, []source.SyntaxError) {
 	p.match(RCURLY)
 	// Finalise labels
 	env.BindLabels(code)
+	// Construct function
+	fn := io.NewFunction(name, env.registers, env.buses, code)
 	// Done
-	return io.NewFunction(name, env.registers, env.buses, code), nil
+	return &fn, nil
 }
 
 func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
