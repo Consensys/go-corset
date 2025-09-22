@@ -168,9 +168,10 @@ const EVM_INST_SELFDESTRUCT                     = 0xFF
 ;; =============================================================================
 ;; Gas
 ;; =============================================================================
-const G_TXCREATE = 32000
 const G_CALLVALUE = 9000
 const G_CALLSTIPEND = 2300
-const G_NEWACCOUNT = 25000
-const G_WARMACCESS = 100
 const G_COLDACCOUNTACCESS = 2600
+const G_EXPBYTE = 50
+const G_NEWACCOUNT = 25000
+const G_TXCREATE = 32000
+const G_WARMACCESS = 100

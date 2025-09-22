@@ -1,4 +1,5 @@
-include "../util/byte_shift.zkasm"
+include "evm.zkasm"
+include "../util/bit_shr.zkasm"
 include "../util/fill_bytes.zkasm"
 include "../util/log2.zkasm"
 include "../util/log256.zkasm"
@@ -24,11 +25,11 @@ fn exp(INST=0xEE0A u16, ARG u256, CDS u6, EBS u6) -> (RES=0 u128)
 {
    var s, b u1
    var tmp u5
-   var log_word, zero u8
+   var log_word, zero, shift u8
    var shifted_word, filled_word u256
    ;;
-   if INST==EXP_INST_EXPLOG goto explog
-   if INST==EXP_INST_MODEXPLOG goto modexplog
+   if INST == EXP_INST_EXPLOG goto explog
+   if INST == EXP_INST_MODEXPLOG goto modexplog
    fail
 explog:
    if ARG != 0 goto explog2
@@ -38,20 +39,19 @@ explog2:
    ;; calculate log
    tmp = log256(ARG)
    ;; increment
-   ;; multiply by G_expbyte
-   RES = (tmp + 1) * 50
+   RES = (tmp + 1) * G_EXPBYTE
    return
 modexplog:
    ;; fill as necessary
    zero = 0
    filled_word = fill_bytes_between(ARG, CDS, EBS, zero)
-   ;; determine shift amount
-   s, b, tmp = 32 - EBS
+   ;; determine shift amount (in bits)
+   s, b, shift = (32 - EBS) * 8
    ;; check precondition
    if b != 0 goto failed_pre
    if s != 0 goto failed_pre
    ;; shift right
-   shifted_word = byte_shr256(filled_word,tmp)
+   shifted_word = bit_shr256(filled_word,shift)
    ;; compute log
    log_word = log2(shifted_word)
    ;; cast

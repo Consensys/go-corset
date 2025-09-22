@@ -23,12 +23,12 @@ func Test_AsmUtil_Byte(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/byte", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_AsmUtil_BitShift(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/bit_shift", util.ASM_MAX_PADDING, sc.BLS12_377)
+func Test_AsmUtil_BitShr(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/bit_shr", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_AsmUtil_ByteShift(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/byte_shift", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+func Test_AsmUtil_BitShl(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/bit_shl", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUtil_FillBytes(t *testing.T) {
