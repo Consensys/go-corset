@@ -37,6 +37,12 @@ func Constant(constant big.Int, base uint) Expr {
 	return &expr.Const{Constant: constant, Base: base}
 }
 
+// ConstantAccess constructs an expression representing an access of a labelled
+// constant value.
+func ConstantAccess(constant string) Expr {
+	return &expr.Const{Label: constant}
+}
+
 // RegisterAccess constructs an expression representing a register access.
 func RegisterAccess(reg io.RegisterId) Expr {
 	return &expr.RegAccess{Register: reg}

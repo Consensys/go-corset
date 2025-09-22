@@ -97,7 +97,11 @@ func Assemble(files ...source.File) (
 		return MacroProgram{}, srcmaps, errors
 	}
 	// Link assembly and resolve buses
-	components, srcmaps = assembler.Link(items...)
+	components, srcmaps, errors = assembler.Link(items...)
+	// Error check
+	if len(errors) != 0 {
+		return MacroProgram{}, srcmaps, errors
+	}
 	// Well-formedness checks (assuming unlimited field width).
 	errors = assembler.Validate(math.MaxUint, components, srcmaps)
 	// Done

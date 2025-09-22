@@ -1,33 +1,32 @@
 ;; GF251 curve
 ;; Add, Mul on u8, to be able to test all cases
 
-fn add(x u8, y u8) -> (RESULT u8) {
+const R = 2^8
+;; Prime modulus
+const N = 251
+;; Represents -1/N mod R.
+const NEG_INV_N = 205
 
+fn add(x u8, y u8) -> (RESULT u8) {
    var c0, c1  u1
    var res u8
    var red u8
 
    c0, res = x + y
-   c1, red = res - 251
+   c1, red = res - N
    ;; if c1 == 1, it means res was >= 256 so we return red
    if c0==1 goto exit_0
-   ;; if c1 is 0, it means the diff is positive and res is >= 251, so we return red
-   ;; if c1 is 1, diff is negative, res < 251
+   ;; if c1 is 0, it means the diff is positive and res is >= N, so we return red
+   ;; if c1 is 1, diff is negative, res < N
    if c1==0 goto exit_0
    RESULT = res
    return
 exit_0:
    RESULT = red
    return
-
 }
 
 fn reduction(z u16) -> (RESULT u8) {
-   ;; constants recap
-   ;; R = 256 = 2^8
-   ;; n = 251
-   ;; ninv mod R = 205
-
    var quot u8
    var tmp_quot u16
    var quot_times_n u16
@@ -40,19 +39,19 @@ fn reduction(z u16) -> (RESULT u8) {
    ;; compute z mod R by masking
    ;; find quot
    ;; compute mod R by masking
-   tmp_quot, quot = z * 205
+   tmp_quot, quot = z * NEG_INV_N
 
    ;; compute the dividend
    ;; and / R with a bit shift
-   quot_times_n = quot * 251
+   quot_times_n = quot * N
    c1, res, discard_bit_shift = z + quot_times_n
 
    ;; precompute red before checking the carries
-   c0, red = res - 251
+   c0, red = res - N
 
    ;; if c1 == 1, it means res was >= 256 so we return red
    if c1==1 goto exit_0
-   ;; if c0 == 0, (res - n) is positive and res >= 251 so we return red as well
+   ;; if c0 == 0, (res - n) is positive and res >= N so we return red as well
    if c0==0 goto exit_0
    RESULT = res
    return
