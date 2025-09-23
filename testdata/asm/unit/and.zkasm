@@ -2,113 +2,83 @@
 
 fn and(ARG_1 u256, ARG_2 u256) -> (RES u256) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u128
-  var limb1 u256
-  var c0 u1
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u128(arg1_hi, arg2_hi)
   res_lo = and_u128(arg1_lo, arg2_lo)
-  ;; 2 power 128
-  limb1 = res_hi * 340282366920938463463374607431768211456
-  ;; we discard the carry as in this situation, we are sure the sum is a u256
-  c0, RES = limb1 + res_lo
+  RES = ( res_hi * 2^128 ) + res_lo
   return
 }
 
 fn and_u128(ARG_1 u128, ARG_2 u128) -> (RES u128) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u64
-  var limb1 u128
-  var c0 u1
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u64(arg1_hi, arg2_hi)
   res_lo = and_u64(arg1_lo, arg2_lo)
-  ;; 2 power 64
-  limb1 = res_hi * 18446744073709551616
-  ;; we discard the carry as in this situation, we are sure the sum is a u128
-  c0, RES = limb1 + res_lo
+  RES = ( res_hi * 2^64 ) + res_lo
   return
 }
 
 fn and_u64(ARG_1 u64, ARG_2 u64) -> (RES u64) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u32
-  var limb1 u64
-  var c0 u1
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u32(arg1_hi, arg2_hi)
   res_lo = and_u32(arg1_lo, arg2_lo)
-  ;; 2 power 32
-  limb1 = res_hi * 4294967296
-  ;; we discard the carry as in this situation, we are sure the sum is a u64
-  c0, RES = limb1 + res_lo
+  RES = ( res_hi * 2^32 ) + res_lo
   return
 }
 
 fn and_u32(ARG_1 u32, ARG_2 u32) -> (RES u32) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u16
-  var limb1 u32
-  var c0 u1
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u16(arg1_hi, arg2_hi)
   res_lo = and_u16(arg1_lo, arg2_lo)
-  limb1 = res_hi * 65536
-  ;; we discard the carry as in this situation, we are sure the sum is a u32
-  c0, RES = limb1 + res_lo
+  RES = ( res_hi * 2^16 ) + res_lo
   return
 }
 
 fn and_u16(ARG_1 u16, ARG_2 u16) -> (RES u16) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u8
-  var limb1 u16
-  var c0 u1
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u8(arg1_hi, arg2_hi)
   res_lo = and_u8(arg1_lo, arg2_lo)
-  limb1 = res_hi * 256
-  ;; we discard the carry as in this situation, we are sure the sum is a u16
-  c0, RES = limb1 + res_lo
+  RES = ( res_hi * 2^8 ) + res_lo
   return
 }
 
 fn and_u8(ARG_1 u8, ARG_2 u8) -> (RES u8) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u4
   var limb1 u8
-  var c0 u1
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u4(arg1_hi, arg2_hi)
   res_lo = and_u4(arg1_lo, arg2_lo)
-  limb1 = res_hi * 16
-  ;; we discard the carry as in this situation, we are sure the sum is a u8
-  c0, RES = limb1 + res_lo
+  RES = ( res_hi * 2^4 ) + res_lo
   return
 }
 
 fn and_u4(ARG_1 u4, ARG_2 u4) -> (RES u4) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u2
   var limb1 u4
-  var c0 u1
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u2(arg1_hi, arg2_hi)
   res_lo = and_u2(arg1_lo, arg2_lo)
-  limb1 = res_hi * 4
-  c0, RES =  limb1 + res_lo
+  RES =  ( res_hi * 2^2 ) + res_lo
   return
 }
 
 fn and_u2(ARG_1 u2, ARG_2 u2) -> (RES u2) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo, c0 u1
-  var limb1 u2
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = and_u1(arg1_hi, arg2_hi)
   res_lo = and_u1(arg1_lo, arg2_lo)
-  limb1 = res_hi * 2
-  c0, RES =  limb1 + res_lo
+  RES =  ( res_hi * 2 ) + res_lo
   return
 }
 
