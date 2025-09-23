@@ -31,6 +31,8 @@ func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code)
 		return False[T, E]()
 	case *micro.InOut:
 		return p.translateInOut(cc, codes)
+	case *micro.Ite:
+		return p.translateIte(cc, codes)
 	case *micro.Jmp:
 		return p.translateJmp(cc, codes)
 	case *micro.Ret:
@@ -79,6 +81,31 @@ func (p *StateTranslator[F, T, E, M]) translateInOut(cc uint, codes []micro.Code
 	p.WriteRegisters(code.RegistersWritten())
 	//
 	return p.translateCode(cc+1, codes)
+}
+
+func (p *StateTranslator[F, T, E, M]) translateIte(cc uint, codes []micro.Code) E {
+	var (
+		code  = codes[cc].(*micro.Ite)
+		left  = p.ReadRegister(code.Left)
+		right = BigNumber[T, E](&code.Right)
+		// build lhs (must be after rhs)
+		targets = p.WriteAndShiftRegisters(code.Targets)
+		cond    E
+	)
+	// Construct condition
+	switch code.Cond {
+	case micro.EQ:
+		cond = left.Equals(right)
+	case micro.NEQ:
+		cond = left.NotEquals(right)
+	default:
+		panic("unreachable")
+	}
+	//
+	tb := Sum(targets).Equals(BigNumber[T, E](&code.Then))
+	fb := Sum(targets).Equals(BigNumber[T, E](&code.Else))
+	// Continue
+	return IfElse(cond, tb, fb).And(p.translateCode(cc+1, codes))
 }
 
 func (p *StateTranslator[F, T, E, M]) translateJmp(cc uint, codes []micro.Code) E {

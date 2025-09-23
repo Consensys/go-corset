@@ -99,6 +99,9 @@ const SUB uint = 39
 // MUL signals "*"
 const MUL uint = 40
 
+// QMARK signals "?"
+const QMARK uint = 50
+
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
 
@@ -185,6 +188,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('+'), ADD),
 	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('*'), MUL),
+	lex.Rule(lex.Unit('?'), QMARK),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),

@@ -133,7 +133,7 @@ func (p *Assign) String(fn schema.RegisterMap) string {
 func (p *Assign) Split(env schema.RegisterAllocator) []Code {
 	var (
 		// map target registers into corresponding limbs
-		lhs = agnostic.ApplyMapping(env, p.Targets)
+		lhs = agnostic.ApplyMapping(env, p.Targets...)
 		// map lhs registers into corresponding limbs
 		rhs = agnostic.SplitPolynomial(p.Source, env)
 		// construct initial assignment
