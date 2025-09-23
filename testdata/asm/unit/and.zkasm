@@ -1,11 +1,11 @@
-;; and module
+;; AND module - to be used in BIN
 
-fn and_u256(ARG_1 u256, ARG_2 u256) -> (RES u256) {
+fn and(ARG_1 u256, ARG_2 u256) -> (RES u256) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u128
   var limb1 u256
   var c0 u1
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u128(arg1_hi, arg2_hi)
   res_lo = and_u128(arg1_lo, arg2_lo)
   ;; 2 power 128
@@ -19,8 +19,8 @@ fn and_u128(ARG_1 u128, ARG_2 u128) -> (RES u128) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u64
   var limb1 u128
   var c0 u1
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u64(arg1_hi, arg2_hi)
   res_lo = and_u64(arg1_lo, arg2_lo)
   ;; 2 power 64
@@ -34,8 +34,8 @@ fn and_u64(ARG_1 u64, ARG_2 u64) -> (RES u64) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u32
   var limb1 u64
   var c0 u1
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u32(arg1_hi, arg2_hi)
   res_lo = and_u32(arg1_lo, arg2_lo)
   ;; 2 power 32
@@ -49,8 +49,8 @@ fn and_u32(ARG_1 u32, ARG_2 u32) -> (RES u32) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u16
   var limb1 u32
   var c0 u1
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u16(arg1_hi, arg2_hi)
   res_lo = and_u16(arg1_lo, arg2_lo)
   limb1 = res_hi * 65536
@@ -63,8 +63,8 @@ fn and_u16(ARG_1 u16, ARG_2 u16) -> (RES u16) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u8
   var limb1 u16
   var c0 u1
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u8(arg1_hi, arg2_hi)
   res_lo = and_u8(arg1_lo, arg2_lo)
   limb1 = res_hi * 256
@@ -77,8 +77,8 @@ fn and_u8(ARG_1 u8, ARG_2 u8) -> (RES u8) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u4
   var limb1 u8
   var c0 u1
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u4(arg1_hi, arg2_hi)
   res_lo = and_u4(arg1_lo, arg2_lo)
   limb1 = res_hi * 16
@@ -87,12 +87,12 @@ fn and_u8(ARG_1 u8, ARG_2 u8) -> (RES u8) {
   return
 }
 
-fn and_u4(ARG1 u4, ARG2 u4) -> (RES u4) {
+fn and_u4(ARG_1 u4, ARG_2 u4) -> (RES u4) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u2
   var limb1 u4
   var c0 u1
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u2(arg1_hi, arg2_hi)
   res_lo = and_u2(arg1_lo, arg2_lo)
   limb1 = res_hi * 4
@@ -100,19 +100,19 @@ fn and_u4(ARG1 u4, ARG2 u4) -> (RES u4) {
   return
 }
 
-fn and_u2(ARG1 u2, ARG2 u2) -> (RES u2) {
+fn and_u2(ARG_1 u2, ARG_2 u2) -> (RES u2) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo, c0 u1
   var limb1 u2
-  arg1_hi, arg1_lo = ARG1
-  arg2_hi, arg2_lo = ARG2
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
   res_hi = and_u1(arg1_hi, arg2_hi)
   res_lo = and_u1(arg1_lo, arg2_lo)
-  limb1 = res_hi + 2
+  limb1 = res_hi * 2
   c0, RES =  limb1 + res_lo
   return
 }
 
-fn and_u1(ARG1 u1, ARG2 u1) -> (RES u1) {
-  RES = ARG1 * ARG2
+fn and_u1(ARG_1 u1, ARG_2 u1) -> (RES u1) {
+  RES = ARG_1 * ARG_2
   return
 }
