@@ -46,8 +46,10 @@ func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code)
 func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Code) E {
 	var (
 		code = codes[cc].(*micro.Assign)
+		// Determine sign of polynomial
+		_, signed = agnostic.WidthOfPolynomial(code.Source, p.mapping.Registers)
 		// build rhs
-		rhs, signed = p.translatePolynomial(code.Source)
+		rhs = p.translatePolynomial(code.Source)
 		// build lhs (must be after rhs)
 		lhs = p.WriteAndShiftRegisters(code.Targets)
 		// equation
@@ -127,7 +129,7 @@ func (p *StateTranslator[F, T, E, M]) rebalanceAssign(lhs []E, rhs []E) ([]E, []
 // Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
 // are constant coefficients.  This generates a given translation of terms,
 // along with an indication as to whether this is signed or not.
-func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E, signed bool) {
+func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E) {
 	var (
 		terms []E
 	)
@@ -135,11 +137,10 @@ func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomi
 	for i := range poly.Len() {
 		ith := poly.Term(i)
 		//
-		signed = signed || ith.IsNegative()
 		terms = append(terms, p.translateMonomial(ith))
 	}
 	// Done
-	return terms, signed
+	return terms
 }
 
 // Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
@@ -164,8 +165,9 @@ func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
 		n = len(targets) - 1
 	)
 	//
-	if n < 0 {
-		// This should be unreachable in practice.
+	if n <= 0 {
+		// if only a single target, then it cannot be considered to be a sign
+		// bit.
 		return false
 	}
 	// Look for single sign bit
@@ -182,13 +184,13 @@ func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs ag
 		if i != 0 {
 			builder.WriteString(",")
 		}
-		builder.WriteString(registers[ith.Unwrap()+1].Name)
+		builder.WriteString(registers[ith.Unwrap()].Name)
 	}
 	//
 	builder.WriteString(" := ")
 	//
 	builder.WriteString(poly.String(rhs, func(id sc.RegisterId) string {
-		return registers[id.Unwrap()+1].Name
+		return registers[id.Unwrap()].Name
 	}))
 	//
 	return builder.String()
