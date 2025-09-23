@@ -86,6 +86,16 @@ func Test_AsmUnit_Sub(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/sub", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }
 
+func Test_AsmUnit_SimpleOnCurve(t *testing.T) {
+	// Check(t, false, "asm/unit/simple_on_curve")
+	// To be replaced once splitting algorithm is available
+	// util.CheckWithFields(t, false, "asm/unit/simple_on_curve_u16", util.ASM_MAX_PADDING, sc.BLS12_377)
+}
+
 func Test_AsmUnit_RecPow(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
+}
+
+func Test_Asm_And(t *testing.T) {
+	util.Check(t, false, "asm/unit/and")
 }
