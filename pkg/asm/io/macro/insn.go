@@ -49,5 +49,6 @@ func init() {
 	gob.Register(Instruction(&Fail{}))
 	gob.Register(Instruction(&Goto{}))
 	gob.Register(Instruction(&IfGoto{}))
+	gob.Register(Instruction(&IfThenElse{}))
 	gob.Register(Instruction(&Return{}))
 }

@@ -35,6 +35,10 @@ func Test_AsmUnit_Dec251(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/dec251", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
+func Test_AsmUnit_Diamond(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/diamond", util.ASM_MAX_PADDING, sc.BLS12_377)
+}
+
 func Test_AsmUnit_ParseNonDecimal(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/parse_nondecimal", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
 }

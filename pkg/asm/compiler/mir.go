@@ -136,8 +136,10 @@ func (p MirExpr[F]) And(exprs ...MirExpr[F]) MirExpr[F] {
 
 // Equals constructs an equality between two expressions.
 func (p MirExpr[F]) Equals(rhs MirExpr[F]) MirExpr[F] {
-	if p.expr == nil || rhs.expr == nil {
-		panic("invalid arguments")
+	if p.expr == nil {
+		panic("invalid left argument")
+	} else if rhs.expr == nil {
+		panic("invalid right argument")
 	}
 	//
 	logical := ir.Equals[F, mir.LogicalTerm[F]](p.expr, rhs.expr)
