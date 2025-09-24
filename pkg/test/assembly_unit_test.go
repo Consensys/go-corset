@@ -99,3 +99,7 @@ func Test_AsmUnit_RecPow(t *testing.T) {
 func Test_Asm_And(t *testing.T) {
 	util.Check(t, false, "asm/unit/and")
 }
+
+func Test_Asm_Or(t *testing.T) {
+	util.Check(t, false, "asm/unit/or")
+}

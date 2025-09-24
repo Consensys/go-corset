@@ -1,0 +1,93 @@
+;; Intermediate functions calls to split a u256 down to u1s used for AND and OR
+
+fn intermediate_u256(INST u8, ARG_1 u256, ARG_2 u256) -> (RES u256) {
+  var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u128
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
+  res_hi = intermediate_u128(INST, arg1_hi, arg2_hi)
+  res_lo = intermediate_u128(INST, arg1_lo, arg2_lo)
+  RES = ( res_hi * 2^128 ) + res_lo
+  return
+}
+
+fn intermediate_u128(INST u8, ARG_1 u128, ARG_2 u128) -> (RES u128) {
+  var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u64
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
+  res_hi = intermediate_u64(INST, arg1_hi, arg2_hi)
+  res_lo = intermediate_u64(INST, arg1_lo, arg2_lo)
+  RES = ( res_hi * 2^64 ) + res_lo
+  return
+}
+
+fn intermediate_u64(INST u8, ARG_1 u64, ARG_2 u64) -> (RES u64) {
+  var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u32
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
+  res_hi = intermediate_u32(INST, arg1_hi, arg2_hi)
+  res_lo = intermediate_u32(INST, arg1_lo, arg2_lo)
+  RES = ( res_hi * 2^32 ) + res_lo
+  return
+}
+
+fn intermediate_u32(INST u8, ARG_1 u32, ARG_2 u32) -> (RES u32) {
+  var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u16
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
+  res_hi = intermediate_u16(INST, arg1_hi, arg2_hi)
+  res_lo = intermediate_u16(INST, arg1_lo, arg2_lo)
+  RES = ( res_hi * 2^16 ) + res_lo
+  return
+}
+
+fn intermediate_u16(INST u8, ARG_1 u16, ARG_2 u16) -> (RES u16) {
+  var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u8
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
+  res_hi = intermediate_u8(INST, arg1_hi, arg2_hi)
+  res_lo = intermediate_u8(INST, arg1_lo, arg2_lo)
+  RES = ( res_hi * 2^8 ) + res_lo
+  return
+}
+
+fn intermediate_u8(INST u8, ARG_1 u8, ARG_2 u8) -> (RES u8) {
+  var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u4
+  var limb1 u8
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
+  res_hi = intermediate_u4(INST, arg1_hi, arg2_hi)
+  res_lo = intermediate_u4(INST, arg1_lo, arg2_lo)
+  RES = ( res_hi * 2^4 ) + res_lo
+  return
+}
+
+fn intermediate_u4(INST u8, ARG_1 u4, ARG_2 u4) -> (RES u4) {
+  var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u2
+  var limb1 u4
+  arg1_hi, arg1_lo = ARG_1
+  arg2_hi, arg2_lo = ARG_2
+  res_hi = intermediate_u2(INST, arg1_hi, arg2_hi)
+  res_lo = intermediate_u2(INST, arg1_lo, arg2_lo)
+  RES =  ( res_hi * 2^2 ) + res_lo
+  return
+}
+
+fn intermediate_u2(INST u8, ARG_1 u2, ARG_2 u2) -> (RES u2) {
+    var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo, c0 u1
+    arg1_hi, arg1_lo = ARG_1
+    arg2_hi, arg2_lo = ARG_2
+
+    if INST == 0x16 goto and_u1_call
+    if INST == 0x17 goto or_u1_call
+    fail
+  and_u1_call:
+    res_hi = and_u1(arg1_hi, arg2_hi)
+    res_lo = and_u1(arg1_lo, arg2_lo)
+  or_u1_call:
+    res_hi = or_u1(arg1_hi, arg2_hi)
+    res_lo = or_u1(arg1_lo, arg2_lo)
+  RES =  ( res_hi * 2 ) + res_lo
+  return
+}
+
+
