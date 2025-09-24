@@ -190,7 +190,12 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 		return p.linkExpr(insn.Source)
 	case *macro.Call:
 		// Determine global bus identifier
-		busId := p.busmap[insn.Bus().Name]
+		busId, ok := p.busmap[insn.Bus().Name]
+		// sanity check
+		if !ok {
+			msg := fmt.Sprintf("unknown function \"%s\"", insn.Bus().Name)
+			return p.srcmap.SyntaxError(insn, msg)
+		}
 		// allocate & link bus
 		insn.Link(buses[busId])
 	case *macro.IfGoto:

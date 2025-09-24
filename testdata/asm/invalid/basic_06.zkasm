@@ -1,0 +1,5 @@
+;;error:3:3-13:unknown function "g"
+fn f(x u16) -> (res u16) {
+  res = g(x)
+  return
+}
