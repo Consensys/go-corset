@@ -32,6 +32,47 @@ func Test_AsmInvalid_Basic_03(t *testing.T) {
 	checkAsmInvalid(t, "asm/invalid/basic_03")
 }
 
+func Test_AsmInvalid_Basic_04(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/basic_04")
+}
+func Test_AsmInvalid_Basic_05(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/basic_05")
+}
+
+// ===================================================================
+// Flow Tests
+// ===================================================================
+
+func Test_AsmInvalid_Flow_01(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/flow_01")
+}
+
+func Test_AsmInvalid_Flow_02(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/flow_02")
+}
+
+func Test_AsmInvalid_Flow_03(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/flow_03")
+}
+func Test_AsmInvalid_Flow_04(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/flow_04")
+}
+
+func Test_AsmInvalid_Flow_05(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/flow_05")
+}
+
+// ===================================================================
+// Bitwidth Tests
+// ===================================================================
+
+func Test_AsmInvalid_Bitwidth_01(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/bitwidth_01")
+}
+func Test_AsmInvalid_Bitwidth_02(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/bitwidth_02")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
