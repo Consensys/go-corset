@@ -137,10 +137,12 @@ func (p *NavigationMode[F]) filterInputMode(parent *Inspector[F]) Mode[F] {
 
 func (p *NavigationMode[F]) scanInputMode(parent *Inspector[F]) Mode[F] {
 	var (
-		prompt        = termio.NewColouredText("[history ↑/↓] where $=row, expression? ", termio.TERM_YELLOW)
-		history       = parent.currentView().scanHistory
-		history_index = uint(len(history))
-		columns       set.SortedSet[string]
+		promptText   = "[history ↑/↓] where $=row, expression? "
+		promptLength = len([]rune(promptText))
+		prompt       = termio.NewColouredText(promptText, termio.TERM_YELLOW)
+		history      = parent.currentView().scanHistory
+		historyIndex = uint(len(history))
+		columns      set.SortedSet[string]
 	)
 	// Identify available columns
 	for _, c := range parent.CurrentModule().columns {
@@ -151,5 +153,5 @@ func (p *NavigationMode[F]) scanInputMode(parent *Inspector[F]) Mode[F] {
 		return columns.Contains(col) || col == "$"
 	}
 	// Construct input mode
-	return newInputMode[F](prompt, history_index, history, newQueryHandler(env, parent.matchQuery))
+	return newInputMode[F](prompt, historyIndex, history, newQueryHandler(env, parent.matchQuery, promptLength))
 }

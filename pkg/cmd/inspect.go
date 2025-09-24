@@ -61,7 +61,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	// Read in constraint files
-	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args[1:]...)
+	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
 	stack := stacker.Build()
 	//
 	stats := util.NewPerfStats()
