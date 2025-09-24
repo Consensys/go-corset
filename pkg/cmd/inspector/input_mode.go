@@ -225,11 +225,13 @@ type queryHandler[F field.Element[F]] struct {
 	env func(string) bool
 	//
 	callback func(*Query[F]) termio.FormattedText
+	//
+	promptOffset int
 }
 
 func newQueryHandler[F field.Element[F]](env func(string) bool, callback func(*Query[F]) termio.FormattedText,
-) InputHandler[*Query[F]] {
-	return &queryHandler[F]{env, callback}
+	offset int) InputHandler[*Query[F]] {
+	return &queryHandler[F]{env, callback, offset}
 }
 
 func (p *queryHandler[F]) Convert(input string) (*Query[F], error) {
@@ -239,14 +241,14 @@ func (p *queryHandler[F]) Convert(input string) (*Query[F], error) {
 		return prop, nil
 	}
 	// Yes, so take the first one only (as no space for anything else).
-	return nil, errors.New(query_error(errs[0]))
+	return nil, errors.New(query_error(errs[0], p.promptOffset))
 }
 
 func (p *queryHandler[F]) Apply(query *Query[F]) termio.FormattedText {
 	return p.callback(query)
 }
 
-func query_error(err source.SyntaxError) string {
+func query_error(err source.SyntaxError, offset int) string {
 	var builder strings.Builder
 	//
 	span := err.Span()
@@ -257,9 +259,7 @@ func query_error(err source.SyntaxError) string {
 		end = end + 1
 	}
 	//
-	builder.WriteString("                          ")
-	//
-	for i := 0; i < start; i++ {
+	for i := 0; i < start+offset; i++ {
 		builder.WriteString(" ")
 	}
 	//
