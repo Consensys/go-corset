@@ -100,18 +100,50 @@ func (s *File) SyntaxError(span Span, msg string) *SyntaxError {
 	return &SyntaxError{s, span, msg}
 }
 
+// Lines splits the contents of this file into individual lines.
+func (s *File) Lines() []Line {
+	var (
+		nchars = len(s.contents)
+		// Num records the line number, counting from 1.
+		num = 1
+		// Start records the starting offset of the current line.
+		start = 0
+		lines []Line
+	)
+	//
+	for i := 0; i < nchars; i++ {
+		if s.contents[i] == '\n' {
+			// Construct new line
+			lines = append(lines, Line{s.contents, Span{start, i}, num})
+			// Incremenet line number
+			num++
+			// Reset start of next line
+			start = i + 1
+		}
+	}
+	// Check for non-terminate final line
+	if start < nchars {
+		// Construct new line
+		lines = append(lines, Line{s.contents, Span{start, nchars}, num})
+	}
+	//
+	return lines
+}
+
 // FindFirstEnclosingLine determines the first line  in this source file which
 // encloses the start of a span.  Observe that, if the position is beyond the
 // bounds of the source file then the last physical line is returned.  Also,
 // the returned line is not guaranteed to enclose the entire span, as these can
 // cross multiple lines.
 func (s *File) FindFirstEnclosingLine(span Span) Line {
-	// Index identifies the current position within the original text.
-	index := span.start
-	// Num records the line number, counting from 1.
-	num := 1
-	// Start records the starting offset of the current line.
-	start := 0
+	var (
+		// Index identifies the current position within the original text.
+		index = span.start
+		// Num records the line number, counting from 1.
+		num = 1
+		// Start records the starting offset of the current line.
+		start = 0
+	)
 	// Find the line.
 	for i := 0; i < len(s.contents); i++ {
 		if i == index {

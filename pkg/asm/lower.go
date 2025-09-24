@@ -229,13 +229,16 @@ func determineReachableInstructions(insns []micro.Instruction) bit.Set {
 	var (
 		worklist = VecWorklist{}
 	)
-	// Start with entry block
-	worklist.Push(0)
 	//
-	for !worklist.Empty() {
-		pc := worklist.Pop()
+	if len(insns) > 0 {
+		// Start with entry block
+		worklist.Push(0)
 		//
-		worklist.PushAll(insns[pc].JumpTargets())
+		for !worklist.Empty() {
+			pc := worklist.Pop()
+			//
+			worklist.PushAll(insns[pc].JumpTargets())
+		}
 	}
 	// Done
 	return worklist.visited

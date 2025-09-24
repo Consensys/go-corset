@@ -37,7 +37,7 @@ asm-util:
 
 asm-unit:
 	@echo ">>> Running Assembly Unit Tests..."
-	go test -race --timeout 0 -run "Test_AsmUnit" ./...
+	go test --timeout 0 -run "Test_AsmInvalid|Test_AsmUnit" ./...
 
 corset-test:
 	@echo ">>> Running Corset Tests..."

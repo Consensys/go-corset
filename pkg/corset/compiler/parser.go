@@ -41,7 +41,7 @@ import (
 // additional combines all fragments of the same module together into one place.
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
-func ParseSourceFiles(files []*source.File, enforceTypes bool) (ast.Circuit, *source.Maps[ast.Node], []SyntaxError) {
+func ParseSourceFiles(files []source.File, enforceTypes bool) (ast.Circuit, *source.Maps[ast.Node], []SyntaxError) {
 	var circuit ast.Circuit
 	// (for now) at most one error per source file is supported.
 	var errors []SyntaxError
@@ -97,7 +97,7 @@ func ParseSourceFiles(files []*source.File, enforceTypes bool) (ast.Circuit, *so
 // ParseSourceFile parses the contents of a single lisp file into one or more
 // modules.  Observe that every lisp file starts in the "prelude" or "root"
 // module, and may declare items for additional modules as necessary.
-func ParseSourceFile(srcfile *source.File, enforceTypes bool) (ast.Circuit, *source.Map[ast.Node], []SyntaxError) {
+func ParseSourceFile(srcfile source.File, enforceTypes bool) (ast.Circuit, *source.Map[ast.Node], []SyntaxError) {
 	//
 	var (
 		circuit ast.Circuit
@@ -105,7 +105,7 @@ func ParseSourceFile(srcfile *source.File, enforceTypes bool) (ast.Circuit, *sou
 		path    file.Path = file.NewAbsolutePath()
 	)
 	// Parse bytes into an S-Expression
-	terms, srcmap, err := sexp.ParseAll(srcfile)
+	terms, srcmap, err := sexp.ParseAll(&srcfile)
 	// Check test file parsed ok
 	if err != nil {
 		return circuit, nil, []SyntaxError{*err}
@@ -160,8 +160,8 @@ type Parser struct {
 
 // NewParser constructs a new parser using a given mapping from S-Expressions to
 // spans in the underlying source file.
-func NewParser(srcfile *source.File, srcmap *source.Map[sexp.SExp], enforceTypes bool) *Parser {
-	p := sexp.NewTranslator[ast.Expr](srcfile, srcmap)
+func NewParser(srcfile source.File, srcmap *source.Map[sexp.SExp], enforceTypes bool) *Parser {
+	p := sexp.NewTranslator[ast.Expr](&srcfile, srcmap)
 	// Construct (initially empty) node map
 	nodemap := source.NewSourceMap[ast.Node](srcmap.Source())
 	// Construct parser

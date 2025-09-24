@@ -146,7 +146,7 @@ func (p *Parser) parseConstant() (*AssemblyConstant, []source.SyntaxError) {
 		name, val, base,
 	}
 	//
-	p.srcmap.Put(component, p.spanOf(start, end))
+	p.srcmap.Put(component, p.spanOf(start, end-1))
 	//
 	return component, errs
 }
@@ -174,14 +174,13 @@ func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 
 func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 	var (
-		start           = p.index
-		env             Environment
-		inst            macro.Instruction
-		name            string
-		inputs, outputs []io.Register
-		code            []macro.Instruction
-		errs            []source.SyntaxError
-		pc              uint
+		start = p.index
+		env   Environment
+		inst  macro.Instruction
+		name  string
+		code  []macro.Instruction
+		errs  []source.SyntaxError
+		pc    uint
 	)
 	// Parse function declaration
 	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
@@ -192,21 +191,18 @@ func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 		return nil, errs
 	}
 	// Parse inputs
-	if inputs, errs = p.parseArgsList(schema.INPUT_REGISTER); len(errs) > 0 {
+	if errs = p.parseArgsList(schema.INPUT_REGISTER, &env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse optional '->'
 	if p.match(RIGHTARROW) {
 		// Parse returns
-		if outputs, errs = p.parseArgsList(schema.OUTPUT_REGISTER); len(errs) > 0 {
+		if errs = p.parseArgsList(schema.OUTPUT_REGISTER, &env); len(errs) > 0 {
 			return nil, errs
 		}
 	}
 	// Save for source map
 	end := p.index
-	// Update register list with inputs/outputs
-	env.registers = append(env.registers, inputs...)
-	env.registers = append(env.registers, outputs...)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
 		return nil, errs
@@ -223,53 +219,88 @@ func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 			pc = pc + 1
 		}
 	}
+	// Sanity check we parsed something
+	if len(code) == 0 {
+		return nil, p.syntaxErrors(p.lookahead(), "missing return")
+	}
 	// Advance past "}"
 	p.match(RCURLY)
+	// Sanity check labels
+	if errs := p.checkLabelsDeclared(&env, code); len(errs) > 0 {
+		return nil, errs
+	}
 	// Finalise labels
 	env.BindLabels(code)
 	// Construct function
 	fn := io.NewFunction(name, env.registers, env.buses, code)
 	//
-	p.srcmap.Put(&fn, p.spanOf(start, end))
+	p.srcmap.Put(&fn, p.spanOf(start, end-1))
 	// Done
 	return &fn, nil
 }
 
-func (p *Parser) parseArgsList(kind schema.RegisterType) ([]io.Register, []source.SyntaxError) {
+func (p *Parser) checkLabelsDeclared(env *Environment, code []macro.Instruction) []source.SyntaxError {
+	for _, c := range code {
+		var label uint
+		//
+		switch c := c.(type) {
+		case *macro.Goto:
+			label = c.Target
+		case *macro.IfGoto:
+			label = c.Target
+		default:
+			continue
+		}
+		//
+		if !env.IsLabelBound(label) {
+			return p.srcmap.SyntaxErrors(c, "unknown label")
+		}
+	}
+	//
+	return nil
+}
+
+func (p *Parser) parseArgsList(kind schema.RegisterType, env *Environment) []source.SyntaxError {
 	var (
 		arg     string
 		width   uint
 		errs    []source.SyntaxError
-		regs    []io.Register
+		first   = true
 		padding big.Int
 	)
 	// Parse start of list
 	if _, errs = p.expect(LBRACE); len(errs) > 0 {
-		return nil, errs
+		return errs
 	}
 	// Parse entries until end brace
 	for p.lookahead().Kind != RBRACE {
 		// look for ","
-		if len(regs) != 0 {
+		if !first {
 			if _, errs = p.expect(COMMA); len(errs) > 0 {
-				return nil, errs
+				return errs
 			}
 		}
+		//
+		first = false
+		// save lookahead token for syntax errors
+		lookahead := p.lookahead()
 		// parse name, type & optional padding
 		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
-			return nil, errs
+			return errs
 		} else if padding, errs = p.parseOptionalPadding(); len(errs) > 0 {
-			return nil, errs
+			return errs
 		} else if width, errs = p.parseType(); len(errs) > 0 {
-			return nil, errs
+			return errs
+		} else if env.IsRegister(arg) {
+			return p.syntaxErrors(lookahead, "variable already declared")
 		}
 		//
-		regs = append(regs, schema.NewRegister(kind, arg, width, padding))
+		env.DeclareRegister(kind, arg, width, padding)
 	}
 	// Advance past "}"
 	p.match(RBRACE)
 	//
-	return regs, nil
+	return nil
 }
 
 func (p *Parser) parseOptionalPadding() (big.Int, []source.SyntaxError) {
@@ -352,7 +383,7 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	}
 	// Record source mapping
 	if insn != nil {
-		p.srcmap.Put(insn, p.spanOf(start, p.index))
+		p.srcmap.Put(insn, p.spanOf(start, p.index-1))
 	}
 	//
 	return insn, errs
@@ -388,9 +419,10 @@ func (p *Parser) parseLabel(pc uint, env *Environment) (macro.Instruction, []sou
 
 func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	var (
-		errs  []source.SyntaxError
-		names []string
-		width uint
+		errs    []source.SyntaxError
+		names   []string
+		width   uint
+		padding big.Int
 	)
 	// Parse name(s)
 	for len(names) == 0 || p.match(COMMA) {
@@ -413,7 +445,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	}
 	//
 	for _, name := range names {
-		env.DeclareRegister(schema.COMPUTED_REGISTER, name, width)
+		env.DeclareRegister(schema.COMPUTED_REGISTER, name, width, padding)
 	}
 	//
 	return nil
@@ -547,7 +579,7 @@ func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) 
 		expr = macro.Subtract(exprs...)
 	}
 	//
-	p.srcmap.Put(expr, p.spanOf(start, p.index))
+	p.srcmap.Put(expr, p.spanOf(start, p.index-1))
 	//
 	return expr, nil
 }
@@ -611,7 +643,7 @@ func (p *Parser) parseAtomicExpr(env *Environment) (macro.Expr, []source.SyntaxE
 		return nil, p.syntaxErrors(lookahead, "expected register or constant")
 	}
 	//
-	p.srcmap.Put(expr, p.spanOf(start, p.index))
+	p.srcmap.Put(expr, p.spanOf(start, p.index-1))
 	//
 	return expr, errs
 }
@@ -884,6 +916,7 @@ func (p *Parser) following(kinds ...uint) bool {
 }
 
 func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
+	//
 	start := p.tokens[firstToken].Span.Start()
 	end := p.tokens[lastToken].Span.End()
 	//
