@@ -1,0 +1,131 @@
+// ====================
+// Arithmetic Expr AST
+// ====================
+package picus
+
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
+)
+
+const (
+	negSymbol     = "-"
+	notSymbol     = "!"
+	iffSymbol     = "<==>"
+	impliesSymbol = "=>"
+	andSymbol     = "&&"
+	orSymbol      = "||"
+)
+
+type Expr[F field.Element[F]] interface {
+	isExpr()
+	Lisp() sexp.SExp
+}
+
+type Const[F field.Element[F]] struct {
+	Val F
+}
+
+func (*Const[F]) isExpr() {}
+func (c *Const[F]) Lisp() sexp.SExp {
+	var bi big.Int
+	// Interpret field element bytes as big-endian integer for S-expression printing.
+	return sexp.NewSymbol(bi.SetBytes(c.Val.Bytes()).String())
+}
+
+type Var struct {
+	Name string
+}
+
+func (*Var) isExpr() {}
+func (v *Var) Lisp() sexp.SExp {
+	return sexp.NewSymbol(v.Name)
+}
+
+type Neg[F field.Element[F]] struct {
+	Inner Expr[F]
+}
+
+func (*Neg[F]) isExpr() {}
+func (u *Neg[F]) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol(negSymbol),
+		u.Inner.Lisp(),
+	})
+}
+
+type BinaryOp int
+
+const (
+	Add BinaryOp = iota
+	Sub
+	Mul
+)
+
+func (op BinaryOp) String() string {
+	switch op {
+	case Add:
+		return "+"
+	case Sub:
+		return "-"
+	case Mul:
+		return "*"
+	default:
+		panic(fmt.Sprintf("Unknown op %d", op))
+	}
+}
+
+// Represents Add, Sub, Mul expressions
+type Binary[F field.Element[F]] struct {
+	Op BinaryOp
+	X  Expr[F]
+	Y  Expr[F]
+}
+
+func (*Binary[F]) isExpr() {}
+func (b *Binary[F]) Lisp() sexp.SExp {
+	return sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol(b.Op.String()),
+		b.X.Lisp(),
+		b.Y.Lisp(),
+	})
+}
+
+// Construct Constant
+func C[F field.Element[F]](v F) Expr[F] { return &Const[F]{Val: v} }
+
+// Constant Variable
+func V[F field.Element[F]](name string) Expr[F] {
+	return &Var{Name: name}
+}
+
+// Convencience methods to build Picus expressions. Normally we would perform constant
+// folding here but the Coreset compiler should take care of that.
+func AddE[F field.Element[F]](x, y Expr[F]) Expr[F] { return &Binary[F]{Op: Add, X: x, Y: y} }
+func SubE[F field.Element[F]](x, y Expr[F]) Expr[F] { return &Binary[F]{Op: Sub, X: x, Y: y} }
+func MulE[F field.Element[F]](x, y Expr[F]) Expr[F] { return &Binary[F]{Op: Mul, X: x, Y: y} }
+func NegE[F field.Element[F]](x Expr[F]) Expr[F]    { return &Neg[F]{Inner: x} }
+
+// FoldBinaryE left-folds xs with the given op:
+//
+//	Add: (((x0 + x1) + x2) + ...)
+//	Mul: (((x0 * x1) * x2) * ...)
+//	Sub: (((x0 - x1) - x2) - ...)
+func FoldBinaryE[F field.Element[F]](op BinaryOp, xs []Expr[F]) Expr[F] {
+	if len(xs) < 2 {
+		panic(fmt.Sprintf("FoldBinaryE: expects at least two elements. Found %d", len(xs)))
+	}
+	acc := xs[0]
+	for i := 1; i < len(xs); i++ {
+		acc = &Binary[F]{Op: op, X: acc, Y: xs[i]}
+	}
+	return acc
+}
+
+// Variadic convenience.
+func FoldBinaryManyE[F field.Element[F]](op BinaryOp, xs ...Expr[F]) Expr[F] {
+	return FoldBinaryE(op, xs)
+}

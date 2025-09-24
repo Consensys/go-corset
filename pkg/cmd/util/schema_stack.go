@@ -207,7 +207,7 @@ func (p *SchemaStack[F]) ConcreteIrName(index uint) string {
 
 // Read reads one or more constraints files into this stack.
 func (p *SchemaStack[F]) Read(filenames ...string) {
-	binfile := readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	binfile := ReadConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
 	//
 	p.Apply(binfile)
 }
@@ -262,7 +262,7 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	}
 }
 
-// readConstraintFiles provides a generic interface for reading constraint files
+// ReadConstraintFiles provides a generic interface for reading constraint files
 // in one of two ways.  If a single file is provided with the "bin" extension
 // then this is treated as a binfile (e.g. zkevm.bin).  Otherwise, the files are
 // assumed to be source (i.e. lisp) files and are read in and then compiled into
@@ -270,7 +270,7 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 // (or without) the standard library.  Generally speaking, you want to compile
 // with the standard library.  However, some internal tests are run without
 // including the standard library to minimise the surface area.
-func readConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringConfig,
+func ReadConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringConfig,
 	filenames []string) binfile.BinaryFile {
 	//
 	var err error
