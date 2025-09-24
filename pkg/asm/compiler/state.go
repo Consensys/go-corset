@@ -240,3 +240,24 @@ func (p *StateTranslator[F, T, E, M]) WithGlobalConstancies(condition E) E {
 	//
 	return condition
 }
+
+func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code) E {
+	switch codes[cc].(type) {
+	case *micro.Assign:
+		return p.translateAssign(cc, codes)
+	case *micro.Fail:
+		return False[T, E]()
+	case *micro.InOut:
+		return p.translateInOut(cc, codes)
+	case *micro.Ite:
+		return p.translateIte(cc, codes)
+	case *micro.Jmp:
+		return p.translateJmp(cc, codes)
+	case *micro.Ret:
+		return p.translateRet()
+	case *micro.Skip:
+		return p.translateSkip(cc, codes)
+	default:
+		panic("unreachable")
+	}
+}
