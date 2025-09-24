@@ -77,15 +77,16 @@ fn intermediate_u2(INST u8, ARG_1 u2, ARG_2 u2) -> (RES u2) {
     arg1_hi, arg1_lo = ARG_1
     arg2_hi, arg2_lo = ARG_2
 
-    if INST == 0x16 goto and_u1_call
-    if INST == 0x17 goto or_u1_call
+    if INST == 0x16 goto and_bitwise_call
+    if INST == 0x17 goto or_bitwise_call
     fail
-  and_u1_call:
-    res_hi = and_u1(arg1_hi, arg2_hi)
-    res_lo = and_u1(arg1_lo, arg2_lo)
-  or_u1_call:
-    res_hi = or_u1(arg1_hi, arg2_hi)
-    res_lo = or_u1(arg1_lo, arg2_lo)
+  and_bitwise_call:
+    res_hi = arg1_hi * arg2_hi
+    res_lo = arg1_lo * arg2_lo
+  or_bitwise_call:
+    var c0_lo, c1_lo, c0_hi, c1_hi u1
+    c0_hi, c1_hi, res_hi = ( arg1_hi + arg2_hi ) - ( arg1_hi * arg2_hi )
+    c0_lo, c1_lo, res_lo = ( arg1_lo + arg2_lo ) - ( arg1_lo * arg2_lo )
   RES =  ( res_hi * 2 ) + res_lo
   return
 }
