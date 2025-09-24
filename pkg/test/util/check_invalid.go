@@ -18,7 +18,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
@@ -27,21 +26,19 @@ import (
 // (accepts/rejects) are found.
 const InvalidTestDir = "../../testdata"
 
+// ErrorCompiler compiles a source file and produces zero or more errors.
+type ErrorCompiler func(source.File) []source.SyntaxError
+
 // Check that a given source file fails to compiler.
 // nolint
-func CheckInvalid(t *testing.T, test string) {
-	var (
-		corsetConfig corset.CompilationConfig
-		filename     = fmt.Sprintf("%s/%s.lisp", InvalidTestDir, test)
-	)
+func CheckInvalid(t *testing.T, test, ext string, compiler ErrorCompiler) {
+	var filename = fmt.Sprintf("%s/%s.%s", InvalidTestDir, test, ext)
 	// Enable testing each trace in parallel
 	t.Parallel()
 	//
-	corsetConfig.Legacy = true
-	//
 	srcfile := readSourceFile(t, filename)
-	// Parse terms into an HIR schema
-	_, _, actual := corset.CompileSourceFile(corsetConfig, srcfile)
+	// Compile source file to produce errors
+	actual := compiler(*srcfile)
 	// Extract expected errors for comparison
 	expected, errs := ExtractAttributes(srcfile, extractSyntaxError)
 	// For now.

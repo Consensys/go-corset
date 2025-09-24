@@ -292,7 +292,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	var (
 		errors            []source.SyntaxError
 		srcmap            corset.SourceMap
-		srcfiles          = make([]*source.File, len(filenames))
+		srcfiles          = make([]source.File, len(filenames))
 		mixedMacroProgram asm.MixedMacroProgram[bls12_377.Element]
 	)
 	// Read each file
@@ -306,7 +306,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 			os.Exit(3)
 		}
 		//
-		srcfiles[i] = source.NewSourceFile(n, bytes)
+		srcfiles[i] = *source.NewSourceFile(n, bytes)
 	}
 	// Separate Corset from ASM files.
 	corsetFiles, asmFiles := splitSourceFiles(srcfiles)
@@ -332,15 +332,15 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 	return binfile.BinaryFile{}
 }
 
-func splitSourceFiles(srcfiles []*source.File) ([]*source.File, []source.File) {
+func splitSourceFiles(srcfiles []source.File) ([]source.File, []source.File) {
 	var (
-		corsetFiles []*source.File
+		corsetFiles []source.File
 		asmFiles    []source.File
 	)
 	// Expand assembly programs
 	for _, n := range srcfiles {
 		if path.Ext(n.Filename()) == ".zkasm" {
-			asmFiles = append(asmFiles, *n)
+			asmFiles = append(asmFiles, n)
 		} else {
 			corsetFiles = append(corsetFiles, n)
 		}

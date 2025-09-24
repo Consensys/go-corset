@@ -146,7 +146,7 @@ func (p *Parser) parseConstant() (*AssemblyConstant, []source.SyntaxError) {
 		name, val, base,
 	}
 	//
-	p.srcmap.Put(component, p.spanOf(start, end))
+	p.srcmap.Put(component, p.spanOf(start, end-1))
 	//
 	return component, errs
 }
@@ -223,6 +223,10 @@ func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 			pc = pc + 1
 		}
 	}
+	// Sanity check we parsed something
+	if len(code) == 0 {
+		return nil, p.syntaxErrors(p.lookahead(), "missing return")
+	}
 	// Advance past "}"
 	p.match(RCURLY)
 	// Finalise labels
@@ -230,7 +234,7 @@ func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 	// Construct function
 	fn := io.NewFunction(name, env.registers, env.buses, code)
 	//
-	p.srcmap.Put(&fn, p.spanOf(start, end))
+	p.srcmap.Put(&fn, p.spanOf(start, end-1))
 	// Done
 	return &fn, nil
 }
@@ -352,7 +356,7 @@ func (p *Parser) parseMacroInstruction(pc uint, env *Environment) (macro.Instruc
 	}
 	// Record source mapping
 	if insn != nil {
-		p.srcmap.Put(insn, p.spanOf(start, p.index))
+		p.srcmap.Put(insn, p.spanOf(start, p.index-1))
 	}
 	//
 	return insn, errs
@@ -547,7 +551,7 @@ func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) 
 		expr = macro.Subtract(exprs...)
 	}
 	//
-	p.srcmap.Put(expr, p.spanOf(start, p.index))
+	p.srcmap.Put(expr, p.spanOf(start, p.index-1))
 	//
 	return expr, nil
 }
@@ -611,7 +615,7 @@ func (p *Parser) parseAtomicExpr(env *Environment) (macro.Expr, []source.SyntaxE
 		return nil, p.syntaxErrors(lookahead, "expected register or constant")
 	}
 	//
-	p.srcmap.Put(expr, p.spanOf(start, p.index))
+	p.srcmap.Put(expr, p.spanOf(start, p.index-1))
 	//
 	return expr, errs
 }
@@ -884,6 +888,7 @@ func (p *Parser) following(kinds ...uint) bool {
 }
 
 func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
+	//
 	start := p.tokens[firstToken].Span.Start()
 	end := p.tokens[lastToken].Span.End()
 	//
