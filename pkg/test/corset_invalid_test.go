@@ -509,6 +509,9 @@ func Test_Invalid_Lookup_16(t *testing.T) {
 func Test_Invalid_Lookup_17(t *testing.T) {
 	checkCorsetInvalid(t, "invalid/lookup_invalid_17")
 }
+func Test_Invalid_Lookup_18(t *testing.T) {
+	checkCorsetInvalid(t, "invalid/lookup_invalid_18")
+}
 
 // ===================================================================
 // Interleavings

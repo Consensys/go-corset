@@ -443,7 +443,15 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
 	if context.IsConflicted() {
-		return lookup.Vector[bls12_377.Element, mirTerm]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
+		var source ast.Expr
+		// Determine offending source expression
+		if j >= uint(len(sources)) {
+			source = selector
+		} else {
+			source = sources[j]
+		}
+		//
+		return lookup.Vector[bls12_377.Element, mirTerm]{}, context, t.srcmap.SyntaxErrors(source, "conflicting context")
 	}
 	// Determine enclosing module
 	module := t.moduleOf(context)
