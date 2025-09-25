@@ -1,0 +1,25 @@
+;; BIN module
+include "evm.zkasm"
+
+fn bin(INST=0x16 u8, ARGUMENT_1 u256, ARGUMENT_2 u256) -> (RES u256) {
+
+   ;;if INST==EVM_INST_SIGNEXTEND goto signextend_call
+   ;;if INST==EVM_INST_OR         goto or_call
+   ;;if INST==EVM_INST_XOR        goto xor_call
+   ;;if INST==EVM_INST_NOT        goto not_call
+   
+   if INST==EVM_INST_AND        goto and_call
+   if INST==EVM_INST_BYTE       goto byte_call
+
+and_call:
+   RES = and(ARGUMENT_1, ARGUMENT2)
+or_call:
+   ;;
+xor_call:
+   ;;
+not_call:
+   ;;
+byte_call:
+   ;;
+return
+}
