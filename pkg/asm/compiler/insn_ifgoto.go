@@ -70,6 +70,7 @@ func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code)
 	worklist.push(cc)
 	//
 	for !worklist.isEmpty() {
+		//
 		pc := worklist.pop()
 		branch := branches[pc]
 		// Check whether we have a skip, or not
