@@ -43,8 +43,9 @@ func NewBranchTable[T any, E Expr[T, E]](n uint) BranchTable[T, E] {
 
 // Add a new branch to this branch table
 func (p *BranchTable[T, E]) Add(target uint, branch Branch[T, E]) {
-	//
-	if p.active[target] {
+	if branch.IsFalse() {
+		return
+	} else if p.active[target] {
 		// subsequent branch to given target
 		p.table[target] = p.table[target].Or(branch)
 		return
@@ -127,6 +128,12 @@ func (p *Branch[T, E]) Equals(other Branch[T, E]) bool {
 	}
 	//
 	return true
+}
+
+// IsFalse checks whether or not this branch corresponds with logical false.  In
+// other words, whether or not this branch is unreachable (i.e. false) or not.
+func (p *Branch[T, E]) IsFalse() bool {
+	return len(p.disjuncts) == 0
 }
 
 // And combines two paths together, such that both must be taken.  In other
