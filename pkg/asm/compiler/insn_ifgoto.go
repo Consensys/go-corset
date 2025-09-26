@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 func (p *StateTranslator[F, T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
@@ -60,67 +61,72 @@ func (p *StateTranslator[F, T, E, M]) translateBranchTable(tbl BranchTable[T, E]
 
 func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code) BranchTable[T, E] {
 	var (
-		table = NewBranchTable[T, E](uint(len(codes)))
+		table    = NewBranchTable[T, E](uint(len(codes)))
+		branches = make([]Branch[T, E], len(codes))
 		//
 		worklist worklist[T, E]
 	)
 	//
-	worklist.push(cc, Branch[T, E]{})
+	worklist.push(cc)
 	//
 	for !worklist.isEmpty() {
-		item := worklist.pop()
+		pc := worklist.pop()
+		branch := branches[pc]
 		// Check whether we have a skip, or not
-		if code, ok := codes[item.pc].(*micro.Skip); ok {
+		if code, ok := codes[pc].(*micro.Skip); ok {
 			// Determine branch targets
-			nextTarget := item.pc + 1
-			skipTarget := item.pc + code.Skip + 1
+			nextTarget := pc + 1
+			skipTarget := pc + code.Skip + 1
 			//
-			nextBranch := item.extend(AtomicBranch[T, E](true, code.Left, code.Right, code.Constant))
-			skipBranch := item.extend(AtomicBranch[T, E](false, code.Left, code.Right, code.Constant))
+			nextBranch := extend(branch, AtomicBranch[T, E](true, code.Left, code.Right, code.Constant))
+			skipBranch := extend(branch, AtomicBranch[T, E](false, code.Left, code.Right, code.Constant))
 			//
-			worklist.push(nextTarget, nextBranch)
-			worklist.push(skipTarget, skipBranch)
+			branches[nextTarget] = branches[nextTarget].Or(nextBranch)
+			branches[skipTarget] = branches[skipTarget].Or(skipBranch)
+			//
+			worklist.push(nextTarget)
+			worklist.push(skipTarget)
 		} else {
 			// end of the road
-			table.Add(item.pc, item.branch)
+			table.Add(pc, branch)
 		}
 	}
 	// Done
 	return table
 }
 
-// Branch path represents a single path through a nest of skip statements.
-type branchPath[T any, E Expr[T, E]] struct {
-	pc     uint
-	branch Branch[T, E]
-}
-
-func (p branchPath[T, E]) extend(branch Branch[T, E]) Branch[T, E] {
+func extend[T any, E Expr[T, E]](tail Branch[T, E], head Branch[T, E]) Branch[T, E] {
 	// NOTE: the reason this method is needed is because we have no implicit
 	// rerpesentation of logical truth or falsehood.  This means an empty path
 	// does not behave in the expected manner.
-	if len(p.branch.disjuncts) == 0 {
-		return branch
+	if len(tail.disjuncts) == 0 {
+		return head
 	}
 	//
-	return p.branch.And(branch)
+	return tail.And(head)
 }
 
 type worklist[T any, E Expr[T, E]] struct {
-	paths []branchPath[T, E]
+	targets bit.Set
 }
 
 func (p *worklist[T, E]) isEmpty() bool {
-	return len(p.paths) == 0
+	return p.targets.Count() == 0
 }
 
-func (p *worklist[T, E]) pop() branchPath[T, E] {
-	next := p.paths[0]
-	p.paths = p.paths[1:]
+func (p *worklist[T, E]) pop() uint {
+	iter := p.targets.Iter()
+	// calling hasNext is required for Next to work correctly.
+	if !iter.HasNext() {
+		panic("unreachable")
+	}
+	//
+	next := iter.Next()
+	p.targets.Remove(next)
 	//
 	return next
 }
 
-func (p *worklist[T, E]) push(target uint, branch Branch[T, E]) {
-	p.paths = append(p.paths, branchPath[T, E]{target, branch})
+func (p *worklist[T, E]) push(target uint) {
+	p.targets.Insert(target)
 }
