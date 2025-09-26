@@ -218,7 +218,7 @@ func atomicConjunction[T any, E Expr[T, E]](sign bool, left, right io.RegisterId
 ) branchConjunct[T, E] {
 	var conjuncts set.AnySortedSet[branchEquality[T, E]]
 	//
-	conjuncts.Insert(branchEquality[T, E]{sign, left, right, constant})
+	conjuncts.Insert(newBranchEquality[T, E](sign, left, right, constant))
 	//
 	return branchConjunct[T, E]{conjuncts}
 }
@@ -235,8 +235,10 @@ func (p branchConjunct[T, E]) And(o Branch[T, E]) Branch[T, E] {
 		var nc branchConjunct[T, E]
 		nc.conjuncts.InsertSorted(&p.conjuncts)
 		nc.conjuncts.InsertSorted(&disjunct.conjuncts)
-		nc.simplify()
-		disjuncts.Insert(nc)
+		//
+		if nc.simplify() {
+			disjuncts.Insert(nc)
+		}
 	}
 	// Done
 	return Branch[T, E]{disjuncts}
@@ -307,7 +309,7 @@ func (p *branchConjunct[T, E]) String(braces bool, mapping func(io.RegisterId) s
 // Attempt to remove subsumed conditions.  Consider "x≠0 ∧ x=1 ∧ x≠y" for
 // example.  In this case, the condition "x≠0" is subsumed by "x=1" and, hence,
 // can be removed.
-func (p *branchConjunct[T, E]) simplify() {
+func (p *branchConjunct[T, E]) simplify() bool {
 	var (
 		subsumed bit.Set
 		count    int
@@ -320,6 +322,8 @@ func (p *branchConjunct[T, E]) simplify() {
 				subsumed.Insert(uint(j))
 
 				count++
+			} else if ci.Contradicts(cj) {
+				return false
 			}
 		}
 	}
@@ -339,6 +343,8 @@ func (p *branchConjunct[T, E]) simplify() {
 		//
 		p.conjuncts = nconjuncts
 	}
+	//
+	return true
 }
 
 // ============================================================================
@@ -356,6 +362,15 @@ type branchEquality[T any, E Expr[T, E]] struct {
 	Constant big.Int
 }
 
+func newBranchEquality[T any, E Expr[T, E]](sign bool, l, r io.RegisterId, c big.Int) branchEquality[T, E] {
+	//
+	if r.IsUsed() && l.Unwrap() > r.Unwrap() {
+		l, r = r, l
+	}
+	//
+	return branchEquality[T, E]{sign, l, r, c}
+}
+
 // Cmp implementation for Comparable interface
 func (p branchEquality[T, E]) Cmp(o branchEquality[T, E]) int {
 	switch {
@@ -370,6 +385,22 @@ func (p branchEquality[T, E]) Cmp(o branchEquality[T, E]) int {
 	default:
 		return p.Constant.Cmp(&o.Constant)
 	}
+}
+
+// Check whether two equalities contradict each other.  There are only a few
+// ways this can happen.
+func (p *branchEquality[T, E]) Contradicts(o branchEquality[T, E]) bool {
+	//
+	if p.Cmp(o) == 0 {
+		return false
+	}
+	//
+	return p.Cmp(o.Neg()) == 0 || (p.Sign && o.Sign && haveCommonVariable(*p, o))
+}
+
+// Negate this equality (i.e. turn it from "==" to "!=" or vice-versa)
+func (p branchEquality[T, E]) Neg() branchEquality[T, E] {
+	return branchEquality[T, E]{!p.Sign, p.Left, p.Right, p.Constant}
 }
 
 // Negate this equality (i.e. turn it from "==" to "!=" or vice-versa)
@@ -427,4 +458,13 @@ func (p *branchEquality[T, E]) String(mapping func(io.RegisterId) string) string
 	}
 	//
 	return fmt.Sprintf("%s≠%s", l, r)
+}
+
+// Determine whether two equalities share a variable in common
+func haveCommonVariable[T any, E Expr[T, E]](l branchEquality[T, E], r branchEquality[T, E]) bool {
+	if l.Left == r.Left || l.Left == r.Right || l.Right == r.Left {
+		return true
+	}
+	// Only remaining case
+	return l.Right.IsUsed() && l.Right == r.Right
 }
