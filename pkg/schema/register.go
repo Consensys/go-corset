@@ -211,6 +211,13 @@ func WidthOfRegisters(regs []Register, rids []RegisterId) uint {
 	return width
 }
 
+// RegisterToString provides a simplistic default string implementation for a
+// RegisterId.  This is useful primarily for debugging where we want to e.g.
+// print a constraint but don't have access to an appropriate mapping, etc.
+func RegisterToString(rid RegisterId) string {
+	return fmt.Sprintf("#%d", rid.Unwrap())
+}
+
 // ============================================================================
 // Encoding / Decoding
 // ============================================================================

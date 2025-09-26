@@ -100,11 +100,6 @@ type Branch[T any, E Expr[T, E]] struct {
 	disjuncts set.AnySortedSet[branchConjunct[T, E]]
 }
 
-// EmptyBranch constructs a new branch condition
-func EmptyBranch[T any, E Expr[T, E]]() Branch[T, E] {
-	return Branch[T, E]{}
-}
-
 // AtomicBranch constructs a branch from an atomic equality (or non-equality) condition.
 func AtomicBranch[T any, E Expr[T, E]](sign bool, left, right io.RegisterId, constant big.Int) Branch[T, E] {
 	var disjuncts set.AnySortedSet[branchConjunct[T, E]]
@@ -232,7 +227,7 @@ func atomicConjunction[T any, E Expr[T, E]](sign bool, left, right io.RegisterId
 func (p branchConjunct[T, E]) And(o Branch[T, E]) Branch[T, E] {
 	var disjuncts set.AnySortedSet[branchConjunct[T, E]]
 	//
-	if len(o.disjuncts) == 0 {
+	if len(p.conjuncts) == 0 {
 		panic("got here")
 	}
 	//
@@ -240,6 +235,7 @@ func (p branchConjunct[T, E]) And(o Branch[T, E]) Branch[T, E] {
 		var nc branchConjunct[T, E]
 		nc.conjuncts.InsertSorted(&p.conjuncts)
 		nc.conjuncts.InsertSorted(&disjunct.conjuncts)
+		nc.simplify()
 		disjuncts.Insert(nc)
 	}
 	// Done
@@ -308,6 +304,43 @@ func (p *branchConjunct[T, E]) String(braces bool, mapping func(io.RegisterId) s
 	return builder.String()
 }
 
+// Attempt to remove subsumed conditions.  Consider "x≠0 ∧ x=1 ∧ x≠y" for
+// example.  In this case, the condition "x≠0" is subsumed by "x=1" and, hence,
+// can be removed.
+func (p *branchConjunct[T, E]) simplify() {
+	var (
+		subsumed bit.Set
+		count    int
+	)
+	// This is an O(n^2) operation, but we just assume the number of path
+	// conditions (i.e. n) is small.
+	for i, ci := range p.conjuncts {
+		for j, cj := range p.conjuncts {
+			if i != j && ci.Subsumes(cj) {
+				subsumed.Insert(uint(j))
+
+				count++
+			}
+		}
+	}
+	// Check whether anything to remove
+	if count > 0 {
+		var (
+			nconjuncts = make([]branchEquality[T, E], len(p.conjuncts)-count)
+			index      = 0
+		)
+		//
+		for i, c := range p.conjuncts {
+			if !subsumed.Contains(uint(i)) {
+				nconjuncts[index] = c
+				index++
+			}
+		}
+		//
+		p.conjuncts = nconjuncts
+	}
+}
+
 // ============================================================================
 // equality
 // ============================================================================
@@ -331,9 +364,9 @@ func (p branchEquality[T, E]) Cmp(o branchEquality[T, E]) int {
 	case !p.Sign && o.Sign:
 		return 1
 	case p.Left != o.Left:
-		return cmp.Compare(p.Left.Unwrap(), p.Left.Unwrap())
+		return cmp.Compare(p.Left.Unwrap(), o.Left.Unwrap())
 	case p.Right != o.Right:
-		return cmp.Compare(p.Right.Unwrap(), p.Right.Unwrap())
+		return cmp.Compare(p.Right.Unwrap(), o.Right.Unwrap())
 	default:
 		return p.Constant.Cmp(&o.Constant)
 	}
@@ -342,6 +375,19 @@ func (p branchEquality[T, E]) Cmp(o branchEquality[T, E]) int {
 // Negate this equality (i.e. turn it from "==" to "!=" or vice-versa)
 func (p branchEquality[T, E]) Negate() Branch[T, E] {
 	return AtomicBranch[T, E](!p.Sign, p.Left, p.Right, p.Constant)
+}
+
+// Subsumes checks whether this equality subsumes the other
+func (p *branchEquality[T, E]) Subsumes(o branchEquality[T, E]) bool {
+	if !p.Sign || o.Sign {
+		return false
+	} else if p.Left == o.Left || p.Left == o.Right {
+		return true
+	} else if p.Right.IsUsed() && (p.Right == o.Left || p.Right == o.Right) {
+		return true
+	}
+	//
+	return false
 }
 
 // Translate a given condition within the context of a given state translator.

@@ -61,15 +61,66 @@ func (p *StateTranslator[F, T, E, M]) translateBranchTable(tbl BranchTable[T, E]
 func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code) BranchTable[T, E] {
 	var (
 		table = NewBranchTable[T, E](uint(len(codes)))
-		// For now, do the minimal thing
-		code = codes[cc].(*micro.Skip)
-		// Determine branch targets
-		nextTarget = cc + 1
-		skipTarget = cc + code.Skip + 1
+		//
+		worklist worklist[T, E]
 	)
 	//
-	table.Add(nextTarget, AtomicBranch[T, E](true, code.Left, code.Right, code.Constant))
-	table.Add(skipTarget, AtomicBranch[T, E](false, code.Left, code.Right, code.Constant))
+	worklist.push(cc, Branch[T, E]{})
 	//
+	for !worklist.isEmpty() {
+		item := worklist.pop()
+		// Check whether we have a skip, or not
+		if code, ok := codes[item.pc].(*micro.Skip); ok {
+			// Determine branch targets
+			nextTarget := item.pc + 1
+			skipTarget := item.pc + code.Skip + 1
+			//
+			nextBranch := item.extend(AtomicBranch[T, E](true, code.Left, code.Right, code.Constant))
+			skipBranch := item.extend(AtomicBranch[T, E](false, code.Left, code.Right, code.Constant))
+			//
+			worklist.push(nextTarget, nextBranch)
+			worklist.push(skipTarget, skipBranch)
+		} else {
+			// end of the road
+			table.Add(item.pc, item.branch)
+		}
+	}
+	// Done
 	return table
+}
+
+// Branch path represents a single path through a nest of skip statements.
+type branchPath[T any, E Expr[T, E]] struct {
+	pc     uint
+	branch Branch[T, E]
+}
+
+func (p branchPath[T, E]) extend(branch Branch[T, E]) Branch[T, E] {
+	// NOTE: the reason this method is needed is because we have no implicit
+	// rerpesentation of logical truth or falsehood.  This means an empty path
+	// does not behave in the expected manner.
+	if len(p.branch.disjuncts) == 0 {
+		return branch
+	}
+	//
+	return p.branch.And(branch)
+}
+
+type worklist[T any, E Expr[T, E]] struct {
+	paths []branchPath[T, E]
+}
+
+func (p *worklist[T, E]) isEmpty() bool {
+	return len(p.paths) == 0
+}
+
+func (p *worklist[T, E]) pop() branchPath[T, E] {
+	next := p.paths[0]
+	p.paths = p.paths[1:]
+	//
+	return next
+}
+
+func (p *worklist[T, E]) push(target uint, branch Branch[T, E]) {
+	p.paths = append(p.paths, branchPath[T, E]{target, branch})
 }
