@@ -13,110 +13,63 @@
 package compiler
 
 import (
-	"math/big"
-
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
 func (p *StateTranslator[F, T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
-	var (
-		code  = codes[cc].(*micro.Skip)
-		clone = p.Clone()
-		lhs   = clone.translateCode(cc+1, codes)
-		rhs   = p.translateCode(cc+1+code.Skip, codes)
-		left  = p.ReadRegister(code.Left)
-		right E
-	)
-	//
-	if !code.Right.IsUsed() {
-		right = BigNumber[T, E](&code.Constant)
-	} else {
-		right = p.ReadRegister(code.Right)
-	}
-	//
-	return IfElse(left.Equals(right), lhs, rhs)
+	// Traverse consecutive skips to determine the branch table.
+	var branches = p.traverseSkips(cc, codes)
+	// translate branch table
+	return p.translateBranchTable(branches, codes)
 }
 
-func (p *StateTranslator[F, T, E, M]) translateSwitch(s Switch, codes []micro.Code) E {
+func (p *StateTranslator[F, T, E, M]) translateBranchTable(tbl BranchTable[T, E], codes []micro.Code) E {
 	var (
-		targets = s.BranchTargets()
-		result  E
-		first   = true
+		targets   = tbl.BranchTargets()
+		result  E = True[T, E]()
 	)
 	//
 	for iter := targets.Iter(); iter.HasNext(); {
 		var (
-			// Determine next branch target to consider
-			target = iter.Next()
-			// Translate branch target
-			tmp = p.translateBranches(target, s.BranchesFor(target), codes)
+			trueClone  = p.Clone()
+			trueTarget = iter.Next()
+			trueBody   = trueClone.translateCode(trueTarget, codes)
+			branch     = tbl.Branch(trueTarget)
+			expr       E
 		)
-		//
-		if first {
-			result = tmp
-			first = false
+		// Attempt to translate as if/else
+		if falseTarget, ok := tbl.FindTarget(branch.Negate()); ok {
+			var (
+				falseClone = p.Clone()
+				falseBody  = falseClone.translateCode(falseTarget, codes)
+			)
+			//
+			expr = IfElse(branch.Translate(p), trueBody, falseBody)
+			// Remove false target from future consideration
+			targets.Remove(falseTarget)
 		} else {
-			result = result.And(tmp)
+			// If/else not possible, so translate as a standalone if.
+			expr = If(branch.Translate(p), trueBody)
 		}
+		//
+		result = result.And(expr)
 	}
 	//
 	return result
 }
 
-func (p *StateTranslator[F, T, E, M]) translateBranches(target uint, branches []Branch, codes []micro.Code) E {
-	panic("todo")
-}
-
-func traverseSkips(cc uint, codes []micro.Code) Switch {
-	panic("got here")
-}
-
-// Condition represents (part of) the condition for a given branch.
-type Condition struct {
-	// Sign indicates whether this is an equality (==) or a non-equality (!=).
-	Sign bool
-	// Left and right comparisons
-	Left, Right io.RegisterId
+func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code) BranchTable[T, E] {
+	var (
+		table = NewBranchTable[T, E](uint(len(codes)))
+		// For now, do the minimal thing
+		code = codes[cc].(*micro.Skip)
+		// Determine branch targets
+		nextTarget = cc + 1
+		skipTarget = cc + code.Skip + 1
+	)
 	//
-	Constant big.Int
-}
-
-// Branch represents the amalgamation of one or more skip statements in such a
-// way that we can optimise their translation.
-type Branch struct {
-	// Path of conditions for this
-	Condition []Condition
-	// Target micro code instruction (absolute address).
-	Target uint
-}
-
-// Switch represents a sequence of zero or more branches.
-type Switch struct {
-	Branches []Branch
-}
-
-// BranchTargets returns the set of all branch targets for this switch.
-func (p *Switch) BranchTargets() bit.Set {
-	var targets bit.Set
+	table.Add(nextTarget, AtomicBranch[T, E](true, code.Left, code.Right, code.Constant))
+	table.Add(skipTarget, AtomicBranch[T, E](false, code.Left, code.Right, code.Constant))
 	//
-	for _, b := range p.Branches {
-		targets.Insert(b.Target)
-	}
-	//
-	return targets
-}
-
-// BranchesFor determines all branches for the given branch target.
-func (p *Switch) BranchesFor(target uint) []Branch {
-	var branches []Branch
-	//
-	for _, b := range p.Branches {
-		if b.Target == target {
-			branches = append(branches, b)
-		}
-	}
-	//
-	return branches
+	return table
 }
