@@ -63,7 +63,7 @@ func (ite *IfElse[F]) Lisp() sexp.SExp {
 	})
 }
 
-// Constructs an ite
+// Constructs an if-then-else constraint
 func NewIfElse[F field.Element[F]](cond Formula[F], thenConstraints []Constraint[F], elseConstraints []Constraint[F]) *IfElse[F] {
 	return &IfElse[F]{
 		cond:        cond,

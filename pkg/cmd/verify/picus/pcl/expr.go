@@ -11,31 +11,28 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
-const (
-	negSymbol     = "-"
-	notSymbol     = "!"
-	iffSymbol     = "<==>"
-	impliesSymbol = "=>"
-	andSymbol     = "&&"
-	orSymbol      = "||"
-)
-
+// Expr is the interface for arithmetic expressions over field elements.
 type Expr[F field.Element[F]] interface {
 	isExpr()
+	// Lisp renders the expression as an S-expression.
 	Lisp() sexp.SExp
 }
 
+// Const is a constant field element literal.
 type Const[F field.Element[F]] struct {
 	Val F
 }
 
 func (*Const[F]) isExpr() {}
+
+// Lisp renders the constant as a non-negative big-endian integer symbol.
 func (c *Const[F]) Lisp() sexp.SExp {
 	var bi big.Int
 	// Interpret field element bytes as big-endian integer for S-expression printing.
 	return sexp.NewSymbol(bi.SetBytes(c.Val.Bytes()).String())
 }
 
+// Var is a named variable (independent of field type).
 type Var struct {
 	Name string
 }
@@ -45,11 +42,14 @@ func (v *Var) Lisp() sexp.SExp {
 	return sexp.NewSymbol(v.Name)
 }
 
+// Neg is a unary arithmetic negation expression.
 type Neg[F field.Element[F]] struct {
 	Inner Expr[F]
 }
 
 func (*Neg[F]) isExpr() {}
+
+// Lisp renders the negation as (- <expr>).
 func (u *Neg[F]) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol(negSymbol),
@@ -57,6 +57,7 @@ func (u *Neg[F]) Lisp() sexp.SExp {
 	})
 }
 
+// BinaryOp enumerates binary arithmetic operators.
 type BinaryOp int
 
 const (
@@ -65,6 +66,7 @@ const (
 	Mul
 )
 
+// String returns the S-expression symbol for the binary operator.
 func (op BinaryOp) String() string {
 	switch op {
 	case Add:

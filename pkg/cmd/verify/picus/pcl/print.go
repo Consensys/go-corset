@@ -54,7 +54,7 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 		return total, err
 	}
 
-	// Inputs
+	// Format inputs
 	for _, in := range m.Inputs {
 		wn, err := writeFormatted(w, formatter, sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("input"),
@@ -66,7 +66,7 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 		}
 	}
 
-	// Outputs
+	// Format outputs
 	for _, out := range m.Outputs {
 		wn, err := writeFormatted(w, formatter, sexp.NewList([]sexp.SExp{
 			sexp.NewSymbol("output"),
@@ -78,7 +78,7 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 		}
 	}
 
-	// Constraints
+	// Format constraints
 	for _, c := range m.Constraints {
 		wn, err := writeFormatted(w, formatter, c.Lisp())
 		total += wn
@@ -100,12 +100,14 @@ func writeFormatted(w io.Writer, f *sexp.Formatter, s sexp.SExp) (int64, error) 
 	return int64(n), err
 }
 
-// Convenience: String uses WriteTo.
+// Convenience for printing programs
 func (pp *Program[F]) String() string {
 	var b strings.Builder
 	_, _ = pp.WriteTo(&b)
 	return b.String()
 }
+
+// Convenience for printing modules
 func (m *Module[F]) String() string {
 	var b strings.Builder
 	_, _ = m.WriteTo(&b)

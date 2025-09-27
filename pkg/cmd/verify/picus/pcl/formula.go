@@ -11,6 +11,16 @@ import (
 // Boolean Constraint AST
 //=======================
 
+// Symbols used when pretty-printing to S-expressions.
+const (
+	negSymbol     = "-"   // negSymbol is the unary negation symbol.
+	notSymbol     = "!"   // notSymbol is the boolean negation symbol.
+	iffSymbol     = "<=>" // iffSymbol is the boolean equivalence symbol.
+	impliesSymbol = "=>"  // impliesSymbol is the boolean implication symbol.
+	andSymbol     = "&&"  // andSymbol is the boolean conjunction symbol.
+	orSymbol      = "||"  // orSymbol is the boolean disjunction symbol.
+)
+
 type RelOp int
 
 const (
@@ -22,6 +32,7 @@ const (
 	OpGe              // >=
 )
 
+// `String` returns the s-expression symbol for `RelOp`
 func (op RelOp) String() string {
 	switch op {
 	case OpEq:
@@ -51,13 +62,14 @@ type Formula[F field.Element[F]] interface {
 	Lisp() sexp.SExp
 }
 
-// Atomic predicate: (Left OP Right)
+// Pred is an atomic predicate of the form (Left OP Right).
 type Pred[F field.Element[F]] struct {
 	Op    RelOp
 	Left  Expr[F]
 	Right Expr[F]
 }
 
+// Lisp renders the predicate as an S-expression: (<op> <left> <right>).
 func (p *Pred[F]) Lisp() sexp.SExp {
 	return sexp.NewList(
 		[]sexp.SExp{
@@ -69,7 +81,7 @@ func (p *Pred[F]) Lisp() sexp.SExp {
 
 func (*Pred[F]) isFormula() {}
 
-// Predicate constructor
+// NewPred constructs an atomic predicate (left op right).
 func NewPred[F field.Element[F]](op RelOp, left Expr[F], right Expr[F]) *Pred[F] {
 	return &Pred[F]{
 		Op:    op,
@@ -126,19 +138,23 @@ func FoldAnd[F field.Element[F]](xs []Formula[F]) Formula[F] {
 	return FoldBinopPred(OpAnd, xs)
 }
 
+// Helper function to build an n-ary disjunction of formulas
 func FoldOr[F field.Element[F]](xs []Formula[F]) Formula[F] {
 	return FoldBinopPred(OpOr, xs)
 }
 
+// BinopConnective enumerates Boolean binary connectives in PCL.
 type BinopConnective int
 
 const (
-	OpAnd BinopConnective = iota
-	OpOr
-	OpIff
-	OpImplies
+	OpAnd     BinopConnective = iota // &&
+	OpOr                             // ||
+	OpIff                            // <=>
+	OpImplies                        // =>
 )
 
+// BinopConnectivePred is a composite Boolean formula combining two sub-formulas
+// with a binary connective.
 type BinopConnectivePred[F field.Element[F]] struct {
 	Op    BinopConnective
 	Left  Formula[F]
@@ -147,6 +163,7 @@ type BinopConnectivePred[F field.Element[F]] struct {
 
 func (*BinopConnectivePred[F]) isFormula() {}
 
+// String returns the S-expression symbol for the binary connective.
 func (op BinopConnective) String() string {
 	switch op {
 	case OpAnd:
@@ -162,6 +179,8 @@ func (op BinopConnective) String() string {
 	}
 }
 
+// Lisp renders the binary connective formula as an S-expression:
+// (<op> <left> <right>).
 func (b *BinopConnectivePred[F]) Lisp() sexp.SExp {
 	return sexp.NewList(
 		[]sexp.SExp{
@@ -171,15 +190,19 @@ func (b *BinopConnectivePred[F]) Lisp() sexp.SExp {
 		})
 }
 
-type Not[F field.Element[F]] struct{ X Formula[F] }
+// Not represents logical negation of a sub-formula.
+type Not[F field.Element[F]] struct{ Inner Formula[F] }
 
 func (*Not[F]) isFormula() {}
+
+// Lisp renders the negation as an S-expression: (! <formula>).
 func (n *Not[F]) Lisp() sexp.SExp {
-	return sexp.NewList([]sexp.SExp{sexp.NewSymbol(notSymbol), n.X.Lisp()})
+	return sexp.NewList([]sexp.SExp{sexp.NewSymbol(notSymbol), n.Inner.Lisp()})
 }
 
+// `NewNot` constructs the negation of the given formula.
 func NewNot[F field.Element[F]](formula Formula[F]) *Not[F] {
 	return &Not[F]{
-		X: formula,
+		Inner: formula,
 	}
 }
