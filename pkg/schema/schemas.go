@@ -170,14 +170,13 @@ func processConstraintBatch[F field.Element[F], C Constraint[F]](logtitle string
 			)
 			// Setup panic intercept
 			defer func() {
-				var (
-					err = recover()
-					buf = make([]byte, 2048)
-				)
+				var err = recover()
 				//
-				//if msg, ok := err.(string); ok {
 				if err != nil {
-					n := runtime.Stack(buf, false)
+					var (
+						buf [2048]byte
+						n   = runtime.Stack(buf[:], false)
+					)
 					c <- batchOutcome{context, name, cov, &panicFailure{
 						fmt.Sprintf("%v", err), buf[:n],
 					}}
