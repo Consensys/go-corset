@@ -395,10 +395,17 @@ func (p branchEquality[T, E]) Cmp(o branchEquality[T, E]) int {
 func (p *branchEquality[T, E]) Contradicts(o branchEquality[T, E]) bool {
 	//
 	if p.Cmp(o) == 0 {
+		// p && p ==> T
 		return false
+	} else if p.Cmp(o.Neg()) == 0 {
+		// p && !p ==> _|_
+		return true
 	}
 	//
-	return p.Cmp(o.Neg()) == 0 || (p.Sign && o.Sign && haveCommonVariable(*p, o))
+	pEqConst := p.Sign && !p.Right.IsUsed()
+	oEqConst := o.Sign && !o.Right.IsUsed()
+	// x=c1 && x=c2 -> _|_
+	return pEqConst && oEqConst && p.Left == o.Left && p.Constant.Cmp(&o.Constant) != 0
 }
 
 // Negate this equality (i.e. turn it from "==" to "!=" or vice-versa)
@@ -413,7 +420,9 @@ func (p branchEquality[T, E]) Negate() Branch[T, E] {
 
 // Subsumes checks whether this equality subsumes the other
 func (p *branchEquality[T, E]) Subsumes(o branchEquality[T, E]) bool {
-	if !p.Sign || o.Sign {
+	if p.Cmp(o) == 0 {
+		return true
+	} else if !p.Sign || o.Sign {
 		return false
 	} else if p.Left == o.Left || p.Left == o.Right {
 		return true
@@ -461,13 +470,4 @@ func (p *branchEquality[T, E]) String(mapping func(io.RegisterId) string) string
 	}
 	//
 	return fmt.Sprintf("%s≠%s", l, r)
-}
-
-// Determine whether two equalities share a variable in common
-func haveCommonVariable[T any, E Expr[T, E]](l branchEquality[T, E], r branchEquality[T, E]) bool {
-	if l.Left == r.Left || l.Left == r.Right || l.Right == r.Left {
-		return true
-	}
-	// Only remaining case
-	return l.Right.IsUsed() && l.Right == r.Right
 }
