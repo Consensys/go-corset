@@ -1,7 +1,7 @@
 // ====================
 // Arithmetic Expr AST
 // ====================
-package picus
+package pcl
 
 import (
 	"fmt"

@@ -1,4 +1,4 @@
-package picus
+package pcl
 
 import (
 	"fmt"
@@ -21,6 +21,10 @@ func (pp *Program[F]) WriteTo(w io.Writer) (int64, error) {
 	}
 
 	for _, m := range pp.Modules {
+		// skip empty modules
+		if m.IsEmpty() {
+			continue
+		}
 		wn, err := m.WriteTo(w)
 		total += wn
 		if err != nil {
@@ -34,7 +38,14 @@ func (pp *Program[F]) WriteTo(w io.Writer) (int64, error) {
 // (begin-module, inputs, outputs, constraints, end-module) using the provided
 // S-expression formatter. It returns the number of bytes written.
 func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
-	formatter := sexp.NewFormatter(130)
+	formatter := sexp.NewFormatter(80)
+	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
+	formatter.Add(&sexp.LFormatter{Head: "&&", Priority: 1})
+	formatter.Add(&sexp.LFormatter{Head: "||", Priority: 1})
+	formatter.Add(&sexp.IFormatter{Head: "=", Priority: 2})
+	formatter.Add(&sexp.IFormatter{Head: "!=", Priority: 2})
+	formatter.Add(&sexp.IFormatter{Head: "+", Priority: 3})
+	formatter.Add(&sexp.IFormatter{Head: "*", Priority: 4})
 	var total int64
 
 	n, err := fmt.Fprintf(w, "(begin-module %s)\n", m.Name)

@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/inspector"
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -53,7 +52,7 @@ var inspectCmds = []FieldAgnosticCmd{
 func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	var (
 		errors []error
-		trace  trace.Trace[F]
+		trace  tr.Trace[F]
 	)
 	//
 	if len(args) != 2 {

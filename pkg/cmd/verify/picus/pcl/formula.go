@@ -1,4 +1,4 @@
-package picus
+package pcl
 
 import (
 	"fmt"

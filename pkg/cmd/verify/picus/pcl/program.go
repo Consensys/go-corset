@@ -1,4 +1,4 @@
-package picus
+package pcl
 
 import (
 	"math/big"
@@ -24,6 +24,13 @@ func NewModule[F field.Element[F]](name string) *Module[F] {
 		Outputs:     make([]Expr[F], 0),
 		Constraints: make([]Constraint[F], 0),
 	}
+}
+
+// Some modules in MIR/AIR are empty so they get translated to empty Picus modules
+// i.e, modules with no constraints or defined inputs or outputs. This utility is used
+// to prune those empty modules from the generated Picus program
+func (m *Module[F]) IsEmpty() bool {
+	return len(m.Constraints) == 0 && len(m.Inputs) == 0 && len(m.Outputs) == 0
 }
 
 func (pm *Module[F]) AddInput(input Expr[F]) {
