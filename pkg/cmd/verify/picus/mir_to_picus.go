@@ -23,6 +23,7 @@ type PicusTranslator[F field.Element[F]] struct {
 	pathConditions []pcl.Formula[F]
 }
 
+// Utility to get the modulus of F.
 func modulusOf[F field.Element[F]]() *big.Int {
 	var z F
 	return z.Modulus()
@@ -48,14 +49,16 @@ func (p *PicusTranslator[F]) Translate() *pcl.Program[F] {
 }
 
 // Compiles an MIR Module to a Picus Module.
-// i denotes the index of the MIR module in the schema
+// `i` denotes the index of the MIR module in the schema.
 func (p *PicusTranslator[F]) TranslateModule(i uint) {
 	// get the MIR module
 	mirModule := p.mirSchema.Module(i)
 	if mirModule.IsSynthetic() {
-		return
+		// synthetic modules are not supported now
+		// need to examine constraints with synthetic modules
+		// to determine if they can flow through this translation procedure
+		panic("Cannot translate synthetic modules now")
 	}
-	fmt.Printf("mir module %s\n", mirModule.Name())
 	// initialize the corresponding PCL module
 	picusModule := p.picusProgram.AddModule(mirModule.Name())
 	// register inputs and outputs from MIR inputs/outputs
@@ -102,6 +105,8 @@ func (p *PicusTranslator[F]) translateRangeConstraint(r mir.RangeConstraint[F], 
 // Translates an MIR vanishing constraint into one or more PCL constraints.
 func (p *PicusTranslator[F]) translateVanishing(v mir.VanishingConstraint[F], picusModule *pcl.Module[F], mirModule schema.Module[F]) {
 	if v.Domain.HasValue() {
+		// TODO: need to handle this. Row specific constraints will require generating Picus modules which collect
+		// all constraints that apply to the specific row.
 		panic("row specific constraints are not supported!")
 	}
 	// We translate the logical term to a collection of Picus constraints
