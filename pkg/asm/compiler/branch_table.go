@@ -234,10 +234,6 @@ func atomicConjunction[T any, E Expr[T, E]](sign bool, left, right io.RegisterId
 func (p branchConjunct[T, E]) And(o Branch[T, E]) Branch[T, E] {
 	var disjuncts set.AnySortedSet[branchConjunct[T, E]]
 	//
-	if len(p.conjuncts) == 0 {
-		panic("got here")
-	}
-	//
 	for _, disjunct := range o.disjuncts {
 		var nc branchConjunct[T, E]
 		nc.conjuncts.InsertSorted(&p.conjuncts)
