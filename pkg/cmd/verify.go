@@ -40,7 +40,7 @@ var verifyCmd = []FieldAgnosticCmd{
 // files to a Picus backend.
 func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	// Configure log level
-	backend := GetString(cmd, "backend")
+	backend := GetString(cmd, "tool")
 	if backend == "picus" {
 		mirSchema := getMirSchema[F](cmd, args)
 		picusLowering := picus.NewPicusTranslator(mirSchema)
@@ -86,5 +86,5 @@ func getMirSchema[F field.Element[F]](cmd *cobra.Command, args []string) mir.Sch
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(genVerifyCmd)
-	genVerifyCmd.Flags().StringP("backend", "b", "picus", "specify output file(s).")
+	genVerifyCmd.Flags().StringP("tool", "t", "picus", "specify output file(s).")
 }
