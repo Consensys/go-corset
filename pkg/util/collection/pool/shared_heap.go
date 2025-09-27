@@ -23,7 +23,7 @@ import (
 // HEAP_POOL_INIT_BUCKETS determines the initial number of buckets to use for
 // any instance.  Since we are geared towards large pools, we set this figure
 // quite high.
-const HEAP_POOL_INIT_BUCKETS = 1024
+const HEAP_POOL_INIT_BUCKETS = 128
 
 // HEAP_POOL_LOADING determines the loading point, overwhich rehashing will
 // occur.  This is currently set to 75% capacity forces a rehashing.
