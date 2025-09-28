@@ -15,6 +15,7 @@ package compiler
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -38,9 +39,16 @@ type BranchTable[T any, E Expr[T, E]] struct {
 	active []bool
 }
 
+// FALSE represents an unreachable path
+var FALSE BranchCondition = logical.Truth[io.RegisterId, BranchEquality](false)
+
+// TRUE represents an path which is always reached
+var TRUE BranchCondition = logical.Truth[io.RegisterId, BranchEquality](true)
+
 // NewBranchTable constructs a new branch table for a maximum number of branch
 // targets.
 func NewBranchTable[T any, E Expr[T, E]](n uint) BranchTable[T, E] {
+	//
 	return BranchTable[T, E]{
 		table:  make([]BranchCondition, n),
 		active: make([]bool, n),
@@ -132,6 +140,13 @@ func (p *BranchTable[T, E]) String(mapping func(io.RegisterId) string) string {
 // context of a given state reader.
 func TranslateBranchCondition[T any, E Expr[T, E]](p BranchCondition, st StateReader[T, E]) E {
 	var condition E
+	//
+	if p.IsTrue() {
+		var zero = BigNumber[T, E](big.NewInt(0))
+		return zero.Equals(zero)
+	} else if p.IsFalse() {
+		panic("unreachable")
+	}
 	//
 	for i, c := range p.Conjuncts() {
 		ith := translateBranchConjunct(c, st)

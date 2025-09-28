@@ -92,6 +92,11 @@ func (p *Query[F]) And(queries ...*Query[F]) *Query[F] {
 	return &Query[F]{qAND, args, field.Zero[F](), ""}
 }
 
+// Truth constructs a logical truth
+func (p *Query[F]) Truth(val bool) *Query[F] {
+	panic("unsupported operation")
+}
+
 // Equals constructs an equality between two queries.
 func (p *Query[F]) Equals(rhs *Query[F]) *Query[F] {
 	return &Query[F]{qEQ, []Query[F]{*p, *rhs}, field.Zero[F](), ""}

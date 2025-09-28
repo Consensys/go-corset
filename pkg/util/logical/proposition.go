@@ -29,6 +29,8 @@ type Atom[I any, A any] interface {
 	// Check whether two atoms form a contradiction.  For example,  "x=0"
 	// contracts "x≠0" and, likewise, "x=1".
 	Contradicts(o A) bool
+	// Check whether this atom is equivalent to logical truth or falsehood.
+	Is(bool) bool
 	// Check whether this atom subsumes (i.e. logically implies) another.  For
 	// example, "x=0" subsumes "x≠1".
 	Subsumes(A) bool
@@ -43,12 +45,27 @@ type Proposition[I any, A Atom[I, A]] struct {
 	conjuncts set.AnySortedSet[Conjunction[I, A]]
 }
 
+// Truth constructs either logical truth or logical false
+func Truth[I any, A Atom[I, A]](val bool) Proposition[I, A] {
+	if val {
+		return Proposition[I, A]{nil}
+	}
+	//
+	return Proposition[I, A]{[]Conjunction[I, A]{{nil}}}
+}
+
 // NewProposition constructs a proposition from a single atom.
 func NewProposition[I any, A Atom[I, A]](atom A) Proposition[I, A] {
 	var (
 		disjuncts set.AnySortedSet[Conjunction[I, A]]
 		conjuncts set.AnySortedSet[A]
 	)
+	//
+	if atom.Is(true) {
+		return Truth[I, A](true)
+	} else if atom.Is(false) {
+		return Truth[I, A](false)
+	}
 	//
 	conjuncts.Insert(atom)
 	disjuncts.Insert(Conjunction[I, A]{conjuncts})
@@ -81,15 +98,29 @@ func (p *Proposition[I, A]) Equals(other Proposition[I, A]) bool {
 	return true
 }
 
-// IsFalse checks whether or not this branch corresponds with logical false.  In
-// other words, whether or not this branch is unreachable (i.e. false) or not.
-func (p *Proposition[I, A]) IsFalse() bool {
+// IsTrue checks whether or not this branch corresponds with logical truth or
+// not.
+func (p *Proposition[I, A]) IsTrue() bool {
 	return len(p.conjuncts) == 0
+}
+
+// IsFalse checks whether or not this branch corresponds with logical false or
+// not.
+func (p *Proposition[I, A]) IsFalse() bool {
+	return len(p.conjuncts) == 1 && len(p.conjuncts[0].atoms) == 0
 }
 
 // And returns the conjunction of two propositions.
 func (p *Proposition[I, A]) And(other Proposition[I, A]) Proposition[I, A] {
 	var br Proposition[I, A]
+	//
+	if p.IsFalse() || other.IsFalse() {
+		return Truth[I, A](false)
+	} else if p.IsTrue() {
+		return other
+	} else if other.IsTrue() {
+		return *p
+	}
 	//
 	for i, disjunct := range p.conjuncts {
 		ith := andConjunctProposition(disjunct, other)
@@ -108,6 +139,14 @@ func (p *Proposition[I, A]) And(other Proposition[I, A]) Proposition[I, A] {
 func (p *Proposition[I, A]) Or(other Proposition[I, A]) Proposition[I, A] {
 	var disjuncts set.AnySortedSet[Conjunction[I, A]]
 	//
+	if p.IsTrue() || other.IsTrue() {
+		return Truth[I, A](true)
+	} else if p.IsFalse() {
+		return other
+	} else if other.IsFalse() {
+		return *p
+	}
+	//
 	disjuncts.InsertSorted(&p.conjuncts)
 	disjuncts.InsertSorted(&other.conjuncts)
 	//
@@ -119,7 +158,7 @@ func (p *Proposition[I, A]) Negate() Proposition[I, A] {
 	var q Proposition[I, A]
 	//
 	for i, d := range p.conjuncts {
-		ith := negateConjunct[I](d)
+		ith := negateConjunct(d)
 		//
 		if i == 0 {
 			q = ith
@@ -136,6 +175,12 @@ func (p *Proposition[I, A]) String(mapping func(I) string) string {
 		builder strings.Builder
 		braces  = len(p.conjuncts) > 1
 	)
+	// check for true or false
+	if p.IsFalse() {
+		return "⊥"
+	} else if p.IsTrue() {
+		return "⊤"
+	}
 	//
 	for i, c := range p.conjuncts {
 		if i != 0 {
@@ -172,9 +217,11 @@ func andConjunctProposition[I any, A Atom[I, A]](c Conjunction[I, A], o Proposit
 		nc.atoms.InsertSorted(&c.atoms)
 		nc.atoms.InsertSorted(&disjunct.atoms)
 		//
-		if nc.simplify() {
-			disjuncts.Insert(nc)
+		if !nc.simplify() {
+			return Truth[I, A](false)
 		}
+		//
+		disjuncts.Insert(nc)
 	}
 	// Done
 	return Proposition[I, A]{disjuncts}

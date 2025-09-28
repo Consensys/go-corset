@@ -67,6 +67,15 @@ func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code)
 		//
 		worklist worklist[T, E]
 	)
+	// Initially all targets are unreachable except for the original skip
+	// instruction.
+	for i := range len(codes) {
+		if uint(i) == cc {
+			branches[i] = TRUE
+		} else {
+			branches[i] = FALSE
+		}
+	}
 	//
 	worklist.push(cc)
 	//

@@ -23,6 +23,7 @@ type Term[T any] interface {
 	// Logical
 	Or(...T) T
 	And(...T) T
+	Truth(bool) T
 	// Relational
 	Equals(T) T
 	NotEquals(T) T

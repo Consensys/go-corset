@@ -63,7 +63,7 @@ func (u Union[S, T]) First() S {
 		return u.first
 	}
 	//
-	panic("cannot unwrap an empty option")
+	panic("cannot take first item, as union holds second")
 }
 
 // Second returns the contained value of the second type.  If the union does not
@@ -73,5 +73,5 @@ func (u Union[S, T]) Second() T {
 		return u.second
 	}
 	//
-	panic("cannot unwrap an empty option")
+	panic("cannot take second item, as union holds first")
 }

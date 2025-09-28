@@ -75,7 +75,7 @@ func (p Equality[I]) Cmp(o Equality[I]) int {
 		return c
 	}
 	//
-	return cmp(p.Right, o.Right)
+	return cmpRhs(p.Right, o.Right)
 }
 
 // Contradicts determines whether two equalities contradict each other.  There
@@ -103,6 +103,13 @@ func (p Equality[I]) Contradicts(o Equality[I]) bool {
 	return false
 }
 
+// Is implementation of Atom interface
+func (p Equality[I]) Is(truth bool) bool {
+	// x == x ==> truth
+	// x != x ==> false
+	return p.Sign == truth && p.Right.HasFirst() && p.Left.Cmp(p.Right.First()) == 0
+}
+
 // Negate this Equality (i.e. turn it from "==" to "!=" or vice-versa)
 func (p Equality[I]) Negate() Equality[I] {
 	return Equality[I]{!p.Sign, p.Left, p.Right}
@@ -116,17 +123,8 @@ func (p Equality[I]) Subsumes(o Equality[I]) bool {
 		// (i) x≠? does not subsume anything
 		// (ii) nothing subsumes x=?
 		return false
-	} else if p.Left.Cmp(o.Left) == 0 {
-		// x=? subsumes x≠?
-		return true
-	} else if p.Right.HasFirst() && p.Right.First().Cmp(o.Left) == 0 {
-		// x=y subsumes y≠?
-		return true
-	} else if o.Right.HasFirst() && p.Left.Cmp(o.Right.First()) == 0 {
-		// y=? subsumes x≠y
-		return true
-	} else if p.Right.HasFirst() && o.Right.HasFirst() && p.Right.First().Cmp(o.Right.First()) == 0 {
-		// x=z subsumes y≠z
+	} else if p.Left.Cmp(o.Left) == 0 && p.Right.HasSecond() && o.Right.HasSecond() {
+		// e.g. x=1 subsumes x≠2
 		return true
 	}
 	//
@@ -153,12 +151,12 @@ func (p Equality[I]) String(mapping func(I) string) string {
 	return fmt.Sprintf("%s≠%s", l, r)
 }
 
-func cmp[I array.Comparable[I]](l util.Union[I, big.Int], r util.Union[I, big.Int]) int {
+func cmpRhs[I array.Comparable[I]](l util.Union[I, big.Int], r util.Union[I, big.Int]) int {
 	switch {
 	case l.HasFirst() && r.HasSecond():
 		return -1
 	case l.HasSecond() && r.HasFirst():
-		return -1
+		return 1
 	case l.HasFirst():
 		return l.First().Cmp(r.First())
 	default:
