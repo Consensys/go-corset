@@ -15,6 +15,7 @@ package compiler
 import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/logical"
 )
 
 func (p *StateTranslator[F, T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
@@ -45,12 +46,12 @@ func (p *StateTranslator[F, T, E, M]) translateBranchTable(tbl BranchTable[T, E]
 				falseBody  = falseClone.translateCode(falseTarget, codes)
 			)
 			//
-			expr = IfElse(branch.Translate(p), trueBody, falseBody)
+			expr = IfElse(TranslateBranchCondition(branch, p), trueBody, falseBody)
 			// Remove false target from future consideration
 			targets.Remove(falseTarget)
 		} else {
 			// If/else not possible, so translate as a standalone if.
-			expr = If(branch.Translate(p), trueBody)
+			expr = If(TranslateBranchCondition(branch, p), trueBody)
 		}
 		//
 		result = result.And(expr)
@@ -62,7 +63,7 @@ func (p *StateTranslator[F, T, E, M]) translateBranchTable(tbl BranchTable[T, E]
 func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code) BranchTable[T, E] {
 	var (
 		table    = NewBranchTable[T, E](uint(len(codes)))
-		branches = make([]Branch[T, E], len(codes))
+		branches = make([]BranchCondition, len(codes))
 		//
 		worklist worklist[T, E]
 	)
@@ -79,8 +80,8 @@ func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code)
 			nextTarget := pc + 1
 			skipTarget := pc + code.Skip + 1
 			//
-			nextBranch := extend(branch, AtomicBranch[T, E](true, code.Left, code.Right, code.Constant))
-			skipBranch := extend(branch, AtomicBranch[T, E](false, code.Left, code.Right, code.Constant))
+			nextBranch := extend(branch, true, code)
+			skipBranch := extend(branch, false, code)
 			//
 			branches[nextTarget] = branches[nextTarget].Or(nextBranch)
 			branches[skipTarget] = branches[skipTarget].Or(skipBranch)
@@ -96,15 +97,30 @@ func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code)
 	return table
 }
 
-func extend[T any, E Expr[T, E]](tail Branch[T, E], head Branch[T, E]) Branch[T, E] {
+func extend(tail BranchCondition, sign bool, code *micro.Skip) BranchCondition {
+	var (
+		head      BranchEquality
+		rightUsed = code.Right.IsUsed()
+	)
+	//
+	switch {
+	case sign && rightUsed:
+		head = logical.Equals(code.Left, code.Right)
+	case sign && !rightUsed:
+		head = logical.EqualsConst(code.Left, code.Constant)
+	case !sign && rightUsed:
+		head = logical.NotEquals(code.Left, code.Right)
+	case !sign && !rightUsed:
+		head = logical.NotEqualsConst(code.Left, code.Constant)
+	}
 	// NOTE: the reason this method is needed is because we have no implicit
 	// rerpesentation of logical truth or falsehood.  This means an empty path
 	// does not behave in the expected manner.
-	if len(tail.disjuncts) == 0 {
-		return head
+	if len(tail.Conjuncts()) == 0 {
+		return logical.NewProposition(head)
 	}
 	//
-	return tail.And(head)
+	return tail.And(logical.NewProposition(head))
 }
 
 type worklist[T any, E Expr[T, E]] struct {
