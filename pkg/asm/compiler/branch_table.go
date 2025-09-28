@@ -91,6 +91,33 @@ func (p *BranchTable[T, E]) FindTarget(branch Branch[T, E]) (uint, bool) {
 	return math.MaxUint, false
 }
 
+func (p *BranchTable[T, E]) String(mapping func(io.RegisterId) string) string {
+	var (
+		builder strings.Builder
+		first   bool = true
+	)
+	//
+	builder.WriteString("[")
+	//
+	for i, branch := range p.table {
+		if p.active[i] {
+			if !first {
+				builder.WriteString("; ")
+			}
+			//
+			first = false
+			//
+			builder.WriteString("(")
+			builder.WriteString(branch.String(mapping))
+			builder.WriteString(fmt.Sprintf(")=>%d", i))
+		}
+	}
+	//
+	builder.WriteString("]")
+	//
+	return builder.String()
+}
+
 // ============================================================================
 // Branch
 // ============================================================================

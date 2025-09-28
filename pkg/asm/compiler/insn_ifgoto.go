@@ -39,7 +39,7 @@ func (p *StateTranslator[F, T, E, M]) translateBranchTable(tbl BranchTable[T, E]
 			expr       E
 		)
 		// Attempt to translate as if/else
-		if falseTarget, ok := tbl.FindTarget(branch.Negate()); ok {
+		if falseTarget, ok := tbl.FindTarget(branch.Negate()); ok && falseTarget > trueTarget {
 			var (
 				falseClone = p.Clone()
 				falseBody  = falseClone.translateCode(falseTarget, codes)
