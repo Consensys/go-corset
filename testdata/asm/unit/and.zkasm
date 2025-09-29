@@ -3,8 +3,6 @@
 
 include "common_bin.zkasm"
 
-const EVM_INST_ADD = 0x16
-
 fn and(ARG_1 u256, ARG_2 u256) -> (RES u256) {
     ;; RES = intermediate_u256(EVM_INST_ADD, ARG_1, ARG_2) => gives me an unknown register error
     var inst u8
