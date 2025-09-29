@@ -43,6 +43,11 @@ func Test_AsmBench_Trm(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/trm", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
+func Test_AsmBench_Bin(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/bench/bin", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+}
+
+// Field Element Out-Of-Bounds
 func Test_AsmBench_Wcp(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/wcp", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
