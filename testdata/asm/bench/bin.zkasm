@@ -1,7 +1,7 @@
 ;; BIN module
 include "evm.zkasm"
-
-;; will need to change byte256 and and module from the other folders
+include "../unit/and.zkasm"
+include "../util/byte.zkasm"
 
 fn bin(INST=0x16 u8, ARGUMENT_1 u256, ARGUMENT_2 u256) -> (RES u256) {
 
@@ -14,18 +14,22 @@ fn bin(INST=0x16 u8, ARGUMENT_1 u256, ARGUMENT_2 u256) -> (RES u256) {
    if INST==EVM_INST_BYTE       goto byte_call
 
 and_call:
-   RES = and(ARGUMENT_1, ARGUMENT2)
-or_call:
+   RES = and(ARGUMENT_1, ARGUMENT_2)
+;;or_call:
    ;;
-xor_call:
+;;xor_call:
    ;;
-not_call:
+;;not_call:
    ;;
 byte_call:
+   ;; byte256 takes the second argument as a u5
    var n u5
    var c1 u250
    var c0 u1
    c0, c1, n = ARGUMENT_2
-   RES = byte256(ARGUMENT_1, n)
+   ;; byte256 output is a u8, we cast it to u256
+   var tmp_res u8
+   tmp_res = byte256(ARGUMENT_1, n)
+   RES = tmp_res
 return
 }
