@@ -48,6 +48,10 @@ func Test_PolyEval_05(t *testing.T) {
 	points := [][]uint{{2, 1}, {4, 2}, {6, 3}}
 	check(t, "(* a 2)", points)
 }
+func Test_PolyEval_06(t *testing.T) {
+	points := [][]uint{{0, 10}, {1, 11}, {2, 12}}
+	check(t, "(- a 9 1)", points)
+}
 
 // Check the evaluation of a polynomial at evaluation given points.
 func check(t *testing.T, input string, points [][]uint) {
