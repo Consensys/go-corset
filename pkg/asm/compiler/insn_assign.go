@@ -23,27 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
-func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code) E {
-	switch codes[cc].(type) {
-	case *micro.Assign:
-		return p.translateAssign(cc, codes)
-	case *micro.Fail:
-		return False[T, E]()
-	case *micro.InOut:
-		return p.translateInOut(cc, codes)
-	case *micro.Ite:
-		return p.translateIte(cc, codes)
-	case *micro.Jmp:
-		return p.translateJmp(cc, codes)
-	case *micro.Ret:
-		return p.translateRet()
-	case *micro.Skip:
-		return p.translateSkip(cc, codes)
-	default:
-		panic("unreachable")
-	}
-}
-
 // Translate this instruction into low-level constraints.
 func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Code) E {
 	var (
@@ -69,72 +48,6 @@ func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Cod
 	eqn = Sum(lhs).Equals(Sum(rhs))
 	// Continue
 	return eqn.And(p.translateCode(cc+1, codes))
-}
-
-func (p *StateTranslator[F, T, E, M]) translateInOut(cc uint, codes []micro.Code) E {
-	var code = codes[cc].(*micro.InOut)
-	// In/Out codes are really nops from the perspective of compilation.  Their
-	// primary purposes is to assist trace expansion.
-	//
-	// NOTE: we have to pretend that we've written registers here, otherwise
-	// forwarding will not be enabled.
-	p.WriteRegisters(code.RegistersWritten())
-	//
-	return p.translateCode(cc+1, codes)
-}
-
-func (p *StateTranslator[F, T, E, M]) translateIte(cc uint, codes []micro.Code) E {
-	var (
-		code  = codes[cc].(*micro.Ite)
-		left  = p.ReadRegister(code.Left)
-		right = BigNumber[T, E](&code.Right)
-		// build lhs (must be after rhs)
-		targets = p.WriteAndShiftRegisters(code.Targets)
-		cond    E
-	)
-	// Construct condition
-	switch code.Cond {
-	case micro.EQ:
-		cond = left.Equals(right)
-	case micro.NEQ:
-		cond = left.NotEquals(right)
-	default:
-		panic("unreachable")
-	}
-	//
-	tb := Sum(targets).Equals(BigNumber[T, E](&code.Then))
-	fb := Sum(targets).Equals(BigNumber[T, E](&code.Else))
-	// Continue
-	return IfElse(cond, tb, fb).And(p.translateCode(cc+1, codes))
-}
-
-func (p *StateTranslator[F, T, E, M]) translateJmp(cc uint, codes []micro.Code) E {
-	var code = codes[cc].(*micro.Jmp)
-	//
-	return p.Goto(code.Target)
-}
-
-func (p *StateTranslator[F, T, E, M]) translateRet() E {
-	return p.Terminate()
-}
-
-func (p *StateTranslator[F, T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
-	var (
-		code  = codes[cc].(*micro.Skip)
-		clone = p.Clone()
-		lhs   = clone.translateCode(cc+1, codes)
-		rhs   = p.translateCode(cc+1+code.Skip, codes)
-		left  = p.ReadRegister(code.Left)
-		right E
-	)
-	//
-	if !code.Right.IsUsed() {
-		right = BigNumber[T, E](&code.Constant)
-	} else {
-		right = p.ReadRegister(code.Right)
-	}
-	//
-	return IfElse(left.Equals(right), lhs, rhs)
 }
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the
