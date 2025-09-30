@@ -163,7 +163,7 @@ func (p *ArrayPoly[S]) AddTerm(other Monomial[S]) {
 			ith.coefficient.Add(&ith.coefficient, &other.coefficient)
 			// Check whether its now zero (or not)
 			if ith.coefficient.Cmp(zero) == 0 {
-				array.RemoveAt(p.terms, uint(i))
+				p.terms = array.RemoveAt(p.terms, uint(i))
 			}
 			//
 			return
@@ -184,7 +184,7 @@ func (p *ArrayPoly[S]) SubTerm(other Monomial[S]) {
 			ith.coefficient.Sub(&ith.coefficient, &other.coefficient)
 			// Check whether its now zero (or not)
 			if ith.coefficient.Cmp(zero) == 0 {
-				array.RemoveAt(p.terms, uint(i))
+				p.terms = array.RemoveAt(p.terms, uint(i))
 			}
 			//
 			return

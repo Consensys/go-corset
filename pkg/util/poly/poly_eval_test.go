@@ -13,59 +13,174 @@
 package poly
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 	"testing"
-
-	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 type Poly = *ArrayPoly[string]
 
+type Pt struct {
+	x, y, z int
+}
+
+// POINTS is a collection of points
+var POINTS = []int{-3, -2, -1, 0, 1, 2, 3, 4, 5, 12, 17, 87, 102, 103, 104}
+
+var X_POINTS []Pt
+var XY_POINTS []Pt
+var XYZ_POINTS []Pt
+
+func init() {
+	var n = len(POINTS)
+	//
+	X_POINTS = make([]Pt, n)
+	//
+	for i, x := range POINTS {
+		X_POINTS[i] = Pt{x: x}
+	}
+	//
+	XY_POINTS = make([]Pt, n*n)
+	//
+	for i, x := range POINTS {
+		for j, y := range POINTS {
+			XY_POINTS[(i*n)+j] = Pt{x: x, y: y}
+		}
+	}
+	//
+	XYZ_POINTS = make([]Pt, n*n*n)
+	//
+	for i, x := range POINTS {
+		for j, y := range POINTS {
+			for k, z := range POINTS {
+				XYZ_POINTS[(i*n*n)+(j*n)+k] = Pt{x: x, y: y, z: z}
+			}
+		}
+	}
+}
+
+// ============================================================================
+// Single Variable Tests
+// ============================================================================
+
 func Test_PolyEval_01(t *testing.T) {
-	points := [][]uint{{123, 0}, {123, 1}}
-	check(t, "123", points)
+	check(t, "123", X_POINTS, func(x, y, z int) int { return 123 })
 }
 
 func Test_PolyEval_02(t *testing.T) {
-	points := [][]uint{{0, 0}, {1, 1}}
-	check(t, "a", points)
+	check(t, "x", X_POINTS, func(x, y, z int) int { return x })
 }
 
 func Test_PolyEval_03(t *testing.T) {
-	points := [][]uint{{1, 0}, {2, 1}, {3, 2}}
-	check(t, "(+ a 1)", points)
+	check(t, "x + 1", X_POINTS, func(x, y, z int) int { return x + 1 })
 }
 
 func Test_PolyEval_04(t *testing.T) {
-	points := [][]uint{{0, 1}, {1, 2}, {2, 3}}
-	check(t, "(- a 1)", points)
+	check(t, "x + 3 + 1", X_POINTS, func(x, y, z int) int { return x + 4 })
 }
 
 func Test_PolyEval_05(t *testing.T) {
-	points := [][]uint{{2, 1}, {4, 2}, {6, 3}}
-	check(t, "(* a 2)", points)
-}
-func Test_PolyEval_06(t *testing.T) {
-	points := [][]uint{{0, 10}, {1, 11}, {2, 12}}
-	check(t, "(- a 9 1)", points)
+	check(t, "x - 1", X_POINTS, func(x, y, z int) int { return x - 1 })
 }
 
+func Test_PolyEval_06(t *testing.T) {
+	check(t, "x - 9 - 1", X_POINTS, func(x, y, z int) int { return x - 10 })
+}
+
+func Test_PolyEval_07(t *testing.T) {
+	check(t, "2 * x", X_POINTS, func(x, y, z int) int { return 2 * x })
+}
+func Test_PolyEval_08(t *testing.T) {
+	check(t, "x + x", X_POINTS, func(x, y, z int) int { return 2 * x })
+}
+
+func Test_PolyEval_09(t *testing.T) {
+	check(t, "x + (x - x)", X_POINTS, func(x, y, z int) int { return x })
+}
+
+func Test_PolyEval_10(t *testing.T) {
+	check(t, "2 * (x + 1)", X_POINTS, func(x, y, z int) int { return 2 * (x + 1) })
+}
+
+func Test_PolyEval_11(t *testing.T) {
+	check(t, "(2 * x) + 1", X_POINTS, func(x, y, z int) int { return (2 * x) + 1 })
+}
+
+func Test_PolyEval_12(t *testing.T) {
+	check(t, "x * x", X_POINTS, func(x, y, z int) int { return x * x })
+}
+
+// ============================================================================
+// Double Variable Tests
+// ============================================================================
+
+func Test_PolyEval_20(t *testing.T) {
+	check(t, "x + y", XY_POINTS, func(x, y, z int) int { return x + y })
+}
+
+func Test_PolyEval_21(t *testing.T) {
+	check(t, "(2 * x) + y", XY_POINTS, func(x, y, z int) int { return x + x + y })
+}
+
+func Test_PolyEval_22(t *testing.T) {
+	check(t, "x + (2 * y)", XY_POINTS, func(x, y, z int) int { return x + y + y })
+}
+
+func Test_PolyEval_23(t *testing.T) {
+	check(t, "x + 1 + (2 * y)", XY_POINTS, func(x, y, z int) int { return x + 1 + y + y })
+}
+func Test_PolyEval_24(t *testing.T) {
+	check(t, "x * y", XY_POINTS, func(x, y, z int) int { return x * y })
+}
+func Test_PolyEval_25(t *testing.T) {
+	check(t, "(x * x * x) - (y * y)", XY_POINTS, func(x, y, z int) int { return (x * x * x) - (y * y) })
+}
+func Test_PolyEval_26(t *testing.T) {
+	check(t, "(2 * x * x) + y", XY_POINTS, func(x, y, z int) int { return (2 * x * x) + y })
+}
+
+// ============================================================================
+// Triple Variable Tests
+// ============================================================================
+func Test_PolyEval_40(t *testing.T) {
+	check(t, "x + y + z", XYZ_POINTS, func(x, y, z int) int { return x + y + z })
+}
+
+func Test_PolyEval_41(t *testing.T) {
+	check(t, "x + (y - z)", XYZ_POINTS, func(x, y, z int) int { return x + (y - z) })
+}
+
+func Test_PolyEval_42(t *testing.T) {
+	check(t, "x - (y + z)", XYZ_POINTS, func(x, y, z int) int { return x - (y + z) })
+}
+
+func Test_PolyEval_43(t *testing.T) {
+	check(t, "(x - y) + z", XYZ_POINTS, func(x, y, z int) int { return (x - y) + z })
+}
+
+func Test_PolyEval_44(t *testing.T) {
+	check(t, "(x - y) + z + (2 * x)", XYZ_POINTS, func(x, y, z int) int { return x + x + x - y + z })
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
 // Check the evaluation of a polynomial at evaluation given points.
-func check(t *testing.T, input string, points [][]uint) {
+func check(t *testing.T, input string, points []Pt, fn func(int, int, int) int) {
 	// Parse the polynomial, producing one or more errors.
-	if p, errs := parse(input); len(errs) != 0 {
+	if p, errs := Parse(input); len(errs) != 0 {
 		t.Error(errs)
 	} else {
 		// Evaluate the polynomial at the given points, recalling that the first
 		// point is always the outcome.
 		for _, pnt := range points {
 			env := make(map[string]big.Int)
-			env["a"] = *big.NewInt(int64(pnt[1]))
+			env["x"] = *big.NewInt(int64(pnt.x))
+			env["y"] = *big.NewInt(int64(pnt.y))
+			env["z"] = *big.NewInt(int64(pnt.z))
 			actual := Eval(p, func(v string) big.Int { return env[v] })
-			expected := big.NewInt(int64(pnt[0]))
+			expected := big.NewInt(int64(fn(pnt.x, pnt.y, pnt.z)))
 			// Evaluate and check
 			if actual.Cmp(expected) != 0 {
 				err := fmt.Sprintf("incorrect evaluation (was %s, expected %s)", actual.String(), expected.String())
@@ -73,44 +188,4 @@ func check(t *testing.T, input string, points [][]uint) {
 			}
 		}
 	}
-}
-
-// Parse a given input string into a polynomial.
-func parse(input string) (Poly, []source.SyntaxError) {
-	srcfile := source.NewSourceFile("test", []byte(input))
-	// Parse input as S-expression
-	term, srcmap, err := sexp.Parse(srcfile)
-	if err != nil {
-		return nil, []source.SyntaxError{*err}
-	}
-	// Now, convert S-expression into polynomial
-	parser := NewParser[string, Monomial[string], Poly](srcmap, termConstructor)
-	//
-	return parser.Parse(term)
-}
-
-// Default construct for terms.
-func termConstructor(symbol string) (Monomial[string], error) {
-	// Check for constant
-	if (symbol[0] >= '0' && symbol[0] <= '9') || symbol[0] == '-' {
-		return constantConstructor(symbol)
-	}
-	// Construct variable
-	one := big.NewInt(1)
-	//
-	return NewMonomial(*one, symbol), nil
-}
-
-// Constructor for constant literals.
-func constantConstructor(symbol string) (Monomial[string], error) {
-	var (
-		num  big.Int
-		term Monomial[string]
-	)
-	//
-	if _, ok := num.SetString(symbol, 10); !ok {
-		return term, errors.New("invalid constant")
-	}
-	//
-	return NewMonomial[string](num), nil
 }
