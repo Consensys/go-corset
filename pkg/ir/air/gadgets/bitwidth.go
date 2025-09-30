@@ -191,7 +191,7 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bit
 func (p *BitwidthGadget[F]) constructTypeProof(handle string, bitwidth uint) sc.ModuleId {
 	var (
 		// Create new module for this type proof
-		mid    = p.schema.NewModule(handle, 1, false, true)
+		mid    = p.schema.NewModule(handle, 1, false, false, true)
 		module = p.schema.Module(mid)
 		// Determine limb widths.
 		loWidth, hiWidth = determineLimbSplit(bitwidth)

@@ -34,10 +34,10 @@ type DeclPredicate = array.Predicate[ast.Declaration]
 // a symbol (e.g. a column) is referred to which doesn't exist.  Likewise, if
 // two modules or columns with identical names are declared in the same scope,
 // etc.
-func ResolveCircuit[M schema.RegisterMap](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
+func ResolveCircuit[M schema.ModuleView](srcmap *source.Maps[ast.Node], circuit *ast.Circuit,
 	externs ...M) (*ModuleScope, []SyntaxError) {
 	// Construct top-level scope
-	scope := NewModuleScope()
+	scope := NewModuleScope(true)
 	// Define natives
 	for _, i := range NATIVE_SIGNATURES {
 		scope.Define(&i)
@@ -50,7 +50,7 @@ func ResolveCircuit[M schema.RegisterMap](srcmap *source.Maps[ast.Node], circuit
 	DeclareExterns(scope, externs...)
 	// Register modules
 	for _, m := range circuit.Modules {
-		scope.Declare(m.Name, extractSelector(nil))
+		scope.Declare(m.Name, extractSelector(nil), true)
 	}
 	// Construct resolver
 	r := resolver{srcmap}
@@ -107,7 +107,7 @@ func (r *resolver) initialiseDeclarationsInModule(scope *ModuleScope, decls []as
 			// Attempt to declare the perspective.  Note, we don't need to check
 			// whether or not this succeeds here as, if it fails, this will be
 			// caught below.
-			scope.Declare(def.Name(), extractSelector(def.Selector))
+			scope.Declare(def.Name(), extractSelector(def.Selector), true)
 		}
 	}
 	// Second, initialise all symbol (e.g. column) definitions.

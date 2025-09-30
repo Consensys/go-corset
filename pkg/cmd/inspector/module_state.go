@@ -31,6 +31,8 @@ import (
 // ModuleState provides state regarding how to display the trace for a given
 // module, including related aspects like filter histories, etc.
 type ModuleState[F field.Element[F]] struct {
+	// public indicates whether or not this module is externally visible.
+	public bool
 	// Corresponding trace
 	trace tr.Trace[F]
 	// Name of the source-level module
@@ -105,6 +107,7 @@ func newModuleState[F field.Element[F]](module *corset.SourceModule, trace tr.Tr
 	}
 	//
 	state.name = module.Name
+	state.public = module.Public
 	state.trace = trace
 	// Include all columns initially
 	state.columnFilter.Computed = true

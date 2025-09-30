@@ -97,9 +97,9 @@ func generateInterfaceContents(className string, mod corset.SourceModule, builde
 	generateInterfaceValidateRow(className, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
-		if !submod.Virtual {
+		if submod.Public && !submod.Virtual {
 			generateInterfaceContents(toPascalCase(submod.Name), submod, builder.Indent())
-		} else {
+		} else if submod.Public {
 			generateInterfaceColumnSetters(className, submod, builder.Indent())
 		}
 	}
@@ -117,8 +117,8 @@ func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, build
 	first := true
 	//
 	for _, m := range submodules {
-		// Only consider non-virtual modules (for now)
-		if !m.Virtual {
+		// Only consider non-virtual, public modules (for now)
+		if !m.Virtual && m.Public {
 			className := toPascalCase(m.Name)
 			// Determine suitable name for field
 			fieldName := toCamelCase(m.Name)

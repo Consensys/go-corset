@@ -30,6 +30,9 @@ func printSourceMapModule(indent uint, module corset.SourceModule) {
 	fmt.Println()
 	printIndent(indent)
 	//
+	if module.Public {
+		fmt.Printf("pub ")
+	}
 	if module.Virtual {
 		fmt.Printf("virtual ")
 	}

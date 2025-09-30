@@ -101,7 +101,7 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 			}
 			// Avoid appending to components
 			continue
-		case KEYWORD_FN:
+		case KEYWORD_FN, KEYWORD_PUB:
 			component, errors = p.parseFunction()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
@@ -174,14 +174,17 @@ func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 
 func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 	var (
-		start = p.index
-		env   Environment
-		inst  macro.Instruction
-		name  string
-		code  []macro.Instruction
-		errs  []source.SyntaxError
-		pc    uint
+		start  = p.index
+		env    Environment
+		inst   macro.Instruction
+		name   string
+		code   []macro.Instruction
+		errs   []source.SyntaxError
+		pc     uint
+		public bool
 	)
+	// Parse pub modifier (if present)
+	public = p.match(KEYWORD_PUB)
 	// Parse function declaration
 	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
 		return nil, errs
@@ -232,7 +235,7 @@ func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 	// Finalise labels
 	env.BindLabels(code)
 	// Construct function
-	fn := io.NewFunction(name, env.registers, env.buses, code)
+	fn := io.NewFunction(name, public, env.registers, env.buses, code)
 	//
 	p.srcmap.Put(&fn, p.spanOf(start, end-1))
 	// Done

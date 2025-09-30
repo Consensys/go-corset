@@ -237,6 +237,7 @@ func constructSourceModule(schema schema.AnySchema[bls12_377.Element], scope *co
 	//
 	return SourceModule{
 		Name:       scope.Name(),
+		Public:     scope.IsPublic(),
 		Synthetic:  false,
 		Virtual:    scope.Virtual(),
 		Selector:   scope.Selector(),
