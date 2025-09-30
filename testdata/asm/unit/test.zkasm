@@ -1,0 +1,5 @@
+fn fin(x u256) -> (res u1) {
+   var tmp u256
+   res,tmp = x - 251
+   return
+}

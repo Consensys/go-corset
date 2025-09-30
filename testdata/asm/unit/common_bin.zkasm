@@ -2,7 +2,7 @@
 
 include "../bench/evm.zkasm"
 
-fn intermediate_u256(INST u8, ARG_1 u256, ARG_2 u256) -> (RES u256) {
+fn intermediate_u256(INST=0x16 u8, ARG_1 u256, ARG_2 u256) -> (RES u256) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u128
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -12,7 +12,7 @@ fn intermediate_u256(INST u8, ARG_1 u256, ARG_2 u256) -> (RES u256) {
   return
 }
 
-fn intermediate_u128(INST u8, ARG_1 u128, ARG_2 u128) -> (RES u128) {
+fn intermediate_u128(INST=0x16 u8, ARG_1 u128, ARG_2 u128) -> (RES u128) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u64
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -22,7 +22,7 @@ fn intermediate_u128(INST u8, ARG_1 u128, ARG_2 u128) -> (RES u128) {
   return
 }
 
-fn intermediate_u64(INST u8, ARG_1 u64, ARG_2 u64) -> (RES u64) {
+fn intermediate_u64(INST=0x16 u8, ARG_1 u64, ARG_2 u64) -> (RES u64) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u32
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -32,7 +32,7 @@ fn intermediate_u64(INST u8, ARG_1 u64, ARG_2 u64) -> (RES u64) {
   return
 }
 
-fn intermediate_u32(INST u8, ARG_1 u32, ARG_2 u32) -> (RES u32) {
+fn intermediate_u32(INST=0x16 u8, ARG_1 u32, ARG_2 u32) -> (RES u32) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u16
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -42,7 +42,7 @@ fn intermediate_u32(INST u8, ARG_1 u32, ARG_2 u32) -> (RES u32) {
   return
 }
 
-fn intermediate_u16(INST u8, ARG_1 u16, ARG_2 u16) -> (RES u16) {
+fn intermediate_u16(INST=0x16 u8, ARG_1 u16, ARG_2 u16) -> (RES u16) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u8
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -52,7 +52,7 @@ fn intermediate_u16(INST u8, ARG_1 u16, ARG_2 u16) -> (RES u16) {
   return
 }
 
-fn intermediate_u8(INST u8, ARG_1 u8, ARG_2 u8) -> (RES u8) {
+fn intermediate_u8(INST=0x16 u8, ARG_1 u8, ARG_2 u8) -> (RES u8) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u4
   var limb1 u8
   arg1_hi, arg1_lo = ARG_1
@@ -63,7 +63,7 @@ fn intermediate_u8(INST u8, ARG_1 u8, ARG_2 u8) -> (RES u8) {
   return
 }
 
-fn intermediate_u4(INST u8, ARG_1 u4, ARG_2 u4) -> (RES u4) {
+fn intermediate_u4(INST=0x16 u8, ARG_1 u4, ARG_2 u4) -> (RES u4) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u2
   var limb1 u4
   arg1_hi, arg1_lo = ARG_1
@@ -74,7 +74,7 @@ fn intermediate_u4(INST u8, ARG_1 u4, ARG_2 u4) -> (RES u4) {
   return
 }
 
-fn intermediate_u2(INST u8, ARG_1 u2, ARG_2 u2) -> (RES u2) {
+fn intermediate_u2(INST=0x16 u8, ARG_1 u2, ARG_2 u2) -> (RES u2) {
     var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo, c0 u1
     arg1_hi, arg1_lo = ARG_1
     arg2_hi, arg2_lo = ARG_2
