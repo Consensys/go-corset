@@ -1,13 +1,12 @@
-;; include "evm.zkasm" not importing in that folder, we might migrate AND in the bench folder later
 ;; AND module - to be used in BIN
 
 include "common_bin.zkasm"
 
 fn and(ARG_1 u256, ARG_2 u256) -> (RES u256) {
     ;; RES = intermediate_u256(EVM_INST_ADD, ARG_1, ARG_2) => gives me an unknown register error
-    var inst u8
-    inst = 0x16
-    RES = intermediate_u256(inst, ARG_1, ARG_2)
+    var inst u3
+    inst = 2
+    RES = bit_xoan_u256(inst, ARG_1, ARG_2)
     return
 }
 
