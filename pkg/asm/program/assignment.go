@@ -13,6 +13,7 @@
 package program
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -29,13 +30,14 @@ import (
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
 type Assignment[F field.Element[F], T io.Instruction[T]] struct {
-	id        sc.ModuleId
-	name      string
-	registers []io.Register
-	buses     []io.Bus
-	numInputs uint
-	code      []T
-	iomap     io.Map
+	id         sc.ModuleId
+	name       string
+	registers  []io.Register
+	buses      []io.Bus
+	numInputs  uint
+	numOutputs uint
+	code       []T
+	iomap      io.Map
 }
 
 // NewAssignment constructs a new assignment capable of trace filling for a
@@ -44,13 +46,14 @@ func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn i
 ) *Assignment[F, T] {
 	//
 	return &Assignment[F, T]{
-		id:        id,
-		name:      fn.Name(),
-		registers: fn.Registers(),
-		buses:     fn.Buses(),
-		numInputs: fn.NumInputs(),
-		code:      fn.Code(),
-		iomap:     iomap,
+		id:         id,
+		name:       fn.Name(),
+		registers:  fn.Registers(),
+		buses:      fn.Buses(),
+		numInputs:  fn.NumInputs(),
+		numOutputs: fn.NumOutputs(),
+		code:       fn.Code(),
+		iomap:      iomap,
 	}
 }
 
@@ -68,8 +71,9 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]
 	)
 	// Trace given rows
 	for i := range trModule.Height() {
-		inputs := inputsOf(i, trModule, p.numInputs)
-		sts := p.trace(inputs)
+		inputs := extractValues(i, trModule, 0, p.numInputs)
+		outputs := extractValues(i, trModule, p.numInputs, p.numInputs+p.numOutputs)
+		sts := p.trace(inputs, outputs)
 		states = append(states, sts...)
 	}
 	//
@@ -138,8 +142,10 @@ func (p Assignment[F, T]) Substitute(map[string]F) {
 
 // Trace a given function with the given arguments in a given I/O environment to
 // produce a given set of output values, along with the complete set of internal
-// traces.
-func (p Assignment[F, T]) trace(inputs []big.Int) []io.State {
+// traces.  The expected outputs are not strictly necessary here, but are
+// included so they can be checked against the internally generated outputs to
+// ensure internal consistency.
+func (p Assignment[F, T]) trace(inputs, outputs []big.Int) []io.State {
 	var (
 		code   = p.code
 		states []io.State
@@ -154,7 +160,7 @@ func (p Assignment[F, T]) trace(inputs []big.Int) []io.State {
 		// execute given instruction
 		pc = insn.Execute(state)
 		// record internal state
-		states = append(states, finaliseState(pc == io.RETURN, state))
+		states = append(states, finaliseState(pc == io.RETURN, state, outputs))
 		// update state pc
 		state.Goto(pc)
 	}
@@ -224,10 +230,13 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 	}
 }
 
-func inputsOf[F field.Element[F]](row uint, mod tr.Module[F], numInputs uint) []big.Int {
-	inputs := make([]big.Int, numInputs)
+func extractValues[F field.Element[F]](row uint, mod tr.Module[F], start, end uint) []big.Int {
+	var (
+		n      = end - start
+		values = make([]big.Int, n)
+	)
 	// Initialise arguments
-	for i := range numInputs {
+	for i := start; i < end; i++ {
 		var (
 			val = mod.Column(i).Data().Get(row)
 			ith big.Int
@@ -235,23 +244,55 @@ func inputsOf[F field.Element[F]](row uint, mod tr.Module[F], numInputs uint) []
 		// Clone big int.
 		ith.SetBytes(val.Bytes())
 		// Assign to ith register
-		inputs[i] = ith
+		values[i-start] = ith
 	}
 	//
-	return inputs
+	return values
 }
 
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
-func finaliseState(terminated bool, state io.State) io.State {
+func finaliseState(terminated bool, state io.State, outputs []big.Int) io.State {
 	// Clone state
 	var nstate = state.Clone()
 	// Cheeck whether terminal state
 	if terminated {
+		// NOTE: the following
+		checkConsistentOutputs(nstate, outputs)
 		// Mark state as terminated
 		nstate.Terminate()
 	}
 	//
 	return nstate
+}
+
+// Internal consistency check.  This is useful for detecting mis-translations
+// from the ASM level down to the UASM level.  Specifically, inconsistent traces
+// are detected at the ASM level.  Thus, a consistent trace at the ASM level can
+// be transformed into an inconsistent one (e.g. due to a bug somewhere) and
+// this goes unnoticed.
+func checkConsistentOutputs(state io.State, outputs []big.Int) {
+	var index = 0
+	//
+	for i, reg := range state.Registers() {
+		if reg.IsOutput() {
+			var (
+				rid = sc.NewRegisterId(uint(i))
+				// Read out actual output value
+				actual = state.Load(rid)
+				// Get expected value
+				expected = outputs[index]
+			)
+			// Check actual output matches expected output
+			if actual.Cmp(&expected) != 0 {
+				// Following should be unreachable unless there is a bug
+				// somewhere (e.g. when translating from ASM to UASM).
+				panic(fmt.Sprintf("computed output for register \"%s\" does not match expected output (0x%s vs 0x%s)",
+					reg.Name, actual.Text(16), expected.Text(16)))
+			}
+			//
+			index++
+		}
+	}
 }

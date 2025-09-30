@@ -180,8 +180,8 @@ func (p *ArrayPoly[S]) SubTerm(other Monomial[S]) {
 	for i, term := range p.terms {
 		if term.Matches(other) {
 			ith := &p.terms[i]
-			// Add term at this position
-			ith.coefficient.Add(&ith.coefficient, &other.coefficient)
+			// Sub term at this position
+			ith.coefficient.Sub(&ith.coefficient, &other.coefficient)
 			// Check whether its now zero (or not)
 			if ith.coefficient.Cmp(zero) == 0 {
 				array.RemoveAt(p.terms, uint(i))
