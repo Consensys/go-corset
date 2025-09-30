@@ -45,6 +45,57 @@ type Expr interface {
 	ValueRange(mapping schema.RegisterMap) math.Interval
 }
 
+// BitWidth returns the minimum number of bits required to store any evaluation
+// of this expression.  In addition, it provides an indicator as to whether or
+// not any evaluation could result in a negative value.
+func BitWidth(e Expr, mapping schema.RegisterMap) (uint, bool) {
+	var (
+		// Determine set of all values that right-hand side can evaluate to
+		values = e.ValueRange(mapping)
+		// Determine bitwidth required to contain all values
+		bitwidth, signed = values.BitWidth()
+	)
+	// For signed arithmetic, we need a specific sign bit.
+	if signed {
+		bitwidth++
+	}
+	//
+	return bitwidth, signed
+}
+
+// Eval evaluates a set of zero or more expressions producing a set of zero or
+// more values.
+func Eval(state []big.Int, exprs []Expr) []big.Int {
+	var res = make([]big.Int, len(exprs))
+	//
+	for i, e := range exprs {
+		res[i] = e.Eval(state)
+	}
+	//
+	return res
+}
+
+// RegistersRead determines the (unique) set of registers read by any expression
+// in the given set of expressions.
+func RegistersRead(exprs ...Expr) []schema.RegisterId {
+	var (
+		reads []schema.RegisterId
+		bits  bit.Set
+	)
+	// extract all usages
+	for _, e := range exprs {
+		bits.Union(e.RegistersRead())
+	}
+	// Collect them all up
+	for iter := bits.Iter(); iter.HasNext(); {
+		next := iter.Next()
+		//
+		reads = append(reads, schema.NewRegisterId(next))
+	}
+	//
+	return reads
+}
+
 // String provides a generic facility for converting an expression into a
 // suitable string.
 func String(e Expr, mapping schema.RegisterMap) string {

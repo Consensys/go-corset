@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 )
@@ -69,17 +70,7 @@ func (p *Assign) Lower(pc uint) micro.Instruction {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Assign) RegistersRead() []io.RegisterId {
-	var (
-		reads []io.RegisterId
-		bits  = p.Source.RegistersRead()
-	)
-	for iter := bits.Iter(); iter.HasNext(); {
-		next := iter.Next()
-		//
-		reads = append(reads, schema.NewRegisterId(next))
-	}
-	//
-	return reads
+	return expr.RegistersRead(p.Source)
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
@@ -102,7 +93,7 @@ func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	var (
 		regs             = fn.Registers()
 		lhs_bits         = sumTargetBits(p.Targets, regs)
-		rhs_bits, signed = sumSourceBits(p.Source, fn)
+		rhs_bits, signed = expr.BitWidth(p.Source, fn)
 	)
 	// check
 	if lhs_bits < rhs_bits {
@@ -128,21 +119,6 @@ func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	}
 	//
 	return sum
-}
-
-func sumSourceBits(source Expr, mapping schema.RegisterMap) (uint, bool) {
-	var (
-		// Determine set of all values that right-hand side can evaluate to
-		values = source.ValueRange(mapping)
-		// Determine bitwidth required to contain all values
-		bitwidth, signed = values.BitWidth()
-	)
-	// For signed arithmetic, we need a specific sign bit.
-	if signed {
-		bitwidth++
-	}
-	//
-	return bitwidth, signed
 }
 
 // the sign bit check is necessary to ensure there is always exactly one sign bit.
