@@ -1,86 +1,89 @@
 ;; Intermediate functions calls to split a u256 down to u1s used for AND and OR
 
-include "../bench/evm.zkasm"
+const BIT_XOR = 0
+const BIT_OR  = 1
+const BIT_AND = 2
+const BIT_NOT = 3
 
-fn intermediate_u256(INST=0x16 u8, ARG_1 u256, ARG_2 u256) -> (RES u256) {
+fn bit_xoan_u256(INST=2 u3, ARG_1 u256, ARG_2 u256) -> (RES u256) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u128
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
-  res_hi = intermediate_u128(INST, arg1_hi, arg2_hi)
-  res_lo = intermediate_u128(INST, arg1_lo, arg2_lo)
+  res_hi = bit_xoan_u128(INST, arg1_hi, arg2_hi)
+  res_lo = bit_xoan_u128(INST, arg1_lo, arg2_lo)
   RES = ( res_hi * 2^128 ) + res_lo
   return
 }
 
-fn intermediate_u128(INST=0x16 u8, ARG_1 u128, ARG_2 u128) -> (RES u128) {
+fn bit_xoan_u128(INST=2 u3, ARG_1 u128, ARG_2 u128) -> (RES u128) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u64
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
-  res_hi = intermediate_u64(INST, arg1_hi, arg2_hi)
-  res_lo = intermediate_u64(INST, arg1_lo, arg2_lo)
+  res_hi = bit_xoan_u64(INST, arg1_hi, arg2_hi)
+  res_lo = bit_xoan_u64(INST, arg1_lo, arg2_lo)
   RES = ( res_hi * 2^64 ) + res_lo
   return
 }
 
-fn intermediate_u64(INST=0x16 u8, ARG_1 u64, ARG_2 u64) -> (RES u64) {
+fn bit_xoan_u64(INST=2 u3, ARG_1 u64, ARG_2 u64) -> (RES u64) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u32
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
-  res_hi = intermediate_u32(INST, arg1_hi, arg2_hi)
-  res_lo = intermediate_u32(INST, arg1_lo, arg2_lo)
+  res_hi = bit_xoan_u32(INST, arg1_hi, arg2_hi)
+  res_lo = bit_xoan_u32(INST, arg1_lo, arg2_lo)
   RES = ( res_hi * 2^32 ) + res_lo
   return
 }
 
-fn intermediate_u32(INST=0x16 u8, ARG_1 u32, ARG_2 u32) -> (RES u32) {
+fn bit_xoan_u32(INST=2 u3, ARG_1 u32, ARG_2 u32) -> (RES u32) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u16
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
-  res_hi = intermediate_u16(INST, arg1_hi, arg2_hi)
-  res_lo = intermediate_u16(INST, arg1_lo, arg2_lo)
+  res_hi = bit_xoan_u16(INST, arg1_hi, arg2_hi)
+  res_lo = bit_xoan_u16(INST, arg1_lo, arg2_lo)
   RES = ( res_hi * 2^16 ) + res_lo
   return
 }
 
-fn intermediate_u16(INST=0x16 u8, ARG_1 u16, ARG_2 u16) -> (RES u16) {
+fn bit_xoan_u16(INST=2 u3, ARG_1 u16, ARG_2 u16) -> (RES u16) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u8
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
-  res_hi = intermediate_u8(INST, arg1_hi, arg2_hi)
-  res_lo = intermediate_u8(INST, arg1_lo, arg2_lo)
+  res_hi = bit_xoan_u8(INST, arg1_hi, arg2_hi)
+  res_lo = bit_xoan_u8(INST, arg1_lo, arg2_lo)
   RES = ( res_hi * 2^8 ) + res_lo
   return
 }
 
-fn intermediate_u8(INST=0x16 u8, ARG_1 u8, ARG_2 u8) -> (RES u8) {
+fn bit_xoan_u8(INST=2 u3, ARG_1 u8, ARG_2 u8) -> (RES u8) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u4
   var limb1 u8
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
-  res_hi = intermediate_u4(INST, arg1_hi, arg2_hi)
-  res_lo = intermediate_u4(INST, arg1_lo, arg2_lo)
+  res_hi = bit_xoan_u4(INST, arg1_hi, arg2_hi)
+  res_lo = bit_xoan_u4(INST, arg1_lo, arg2_lo)
   RES = ( res_hi * 2^4 ) + res_lo
   return
 }
 
-fn intermediate_u4(INST=0x16 u8, ARG_1 u4, ARG_2 u4) -> (RES u4) {
+fn bit_xoan_u4(INST=2 u3, ARG_1 u4, ARG_2 u4) -> (RES u4) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u2
   var limb1 u4
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
-  res_hi = intermediate_u2(INST, arg1_hi, arg2_hi)
-  res_lo = intermediate_u2(INST, arg1_lo, arg2_lo)
+  res_hi = bit_xoan_u2(INST, arg1_hi, arg2_hi)
+  res_lo = bit_xoan_u2(INST, arg1_lo, arg2_lo)
   RES =  ( res_hi * 2^2 ) + res_lo
   return
 }
 
-fn intermediate_u2(INST=0x16 u8, ARG_1 u2, ARG_2 u2) -> (RES u2) {
+fn bit_xoan_u2(INST=2 u3, ARG_1 u2, ARG_2 u2) -> (RES u2) {
     var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo, c0 u1
     arg1_hi, arg1_lo = ARG_1
     arg2_hi, arg2_lo = ARG_2
 
-    if INST == EVM_INST_AND goto and_bitwise_call
-    if INST == EVM_INST_OR  goto or_bitwise_call
+    if INST == BIT_AND goto and_bitwise_call
+    if INST == BIT_OR  goto or_bitwise_call
     fail
 and_bitwise_call:
     res_hi = arg1_hi * arg2_hi
