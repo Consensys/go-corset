@@ -15,8 +15,10 @@ package set
 import (
 	"cmp"
 	"math"
+	"slices"
 	"sort"
 
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -42,8 +44,18 @@ func (lhs Order[T]) Cmp(rhs Order[T]) int {
 type AnySortedSet[T Comparable[T]] []T
 
 // NewAnySortedSet returns an empty sorted set.
-func NewAnySortedSet[T Comparable[T]]() *AnySortedSet[T] {
-	return &AnySortedSet[T]{}
+func NewAnySortedSet[T Comparable[T]](items ...T) *AnySortedSet[T] {
+	var nitems AnySortedSet[T] = slices.Clone(items)
+	// Sort incoming data
+	slices.SortFunc(nitems, func(a, b T) int {
+		return a.Cmp(b)
+	})
+	// Remove duplicates
+	nitems = array.RemoveMatchingIndexed(nitems, func(i int, ith T) bool {
+		return i > 0 && nitems[i].Cmp(nitems[i-1]) == 0
+	})
+	//
+	return &nitems
 }
 
 // ToArray extracts the underlying array from this sorted set.
