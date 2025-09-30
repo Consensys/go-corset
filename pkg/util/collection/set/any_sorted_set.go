@@ -18,6 +18,7 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -48,6 +49,10 @@ func NewAnySortedSet[T Comparable[T]](items ...T) *AnySortedSet[T] {
 	// Sort incoming data
 	slices.SortFunc(nitems, func(a, b T) int {
 		return a.Cmp(b)
+	})
+	// Remove duplicates
+	nitems = array.RemoveMatchingIndexed(nitems, func(i int, ith T) bool {
+		return i > 0 && nitems[i].Cmp(nitems[i-1]) == 0
 	})
 	//
 	return &nitems
