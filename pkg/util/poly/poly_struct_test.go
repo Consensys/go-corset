@@ -19,7 +19,7 @@ import (
 )
 
 func Test_PolyStruct_0(t *testing.T) {
-	checkEquiv(t, "0", "0-0", "1-1", "2-1-1", "x-x", "(2*x)-(2*x)", "(2*x)-(x+x)", "(2*x)-x-x", "(x+y)-(x+y)")
+	checkEquiv(t, "0", "0+0", "0-0", "1-1", "2-1-1", "x-x", "(2*x)-(2*x)", "(2*x)-(x+x)", "(2*x)-x-x", "(x+y)-(x+y)")
 }
 
 func Test_PolyStruct_1(t *testing.T) {
@@ -50,7 +50,7 @@ func Test_PolyStruct_2xxpxpy(t *testing.T) {
 
 func checkEquiv(t *testing.T, terms ...string) {
 	var (
-		ts   = make([]*ArrayPoly[string], len(terms))
+		ts   = make([]*ArrayPoly[Var], len(terms))
 		errs []source.SyntaxError
 	)
 	//
@@ -69,6 +69,6 @@ func checkEquiv(t *testing.T, terms ...string) {
 	}
 }
 
-func id(x string) string {
-	return x
+func id(x Var) string {
+	return x.name
 }

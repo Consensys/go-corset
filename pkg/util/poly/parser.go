@@ -13,6 +13,7 @@
 package poly
 
 import (
+	"cmp"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -21,7 +22,7 @@ import (
 
 // Parse a given input string representing a polynomial, or produce one or more
 // errors.
-func Parse(input string) (*ArrayPoly[string], []source.SyntaxError) {
+func Parse(input string) (*ArrayPoly[Var], []source.SyntaxError) {
 	var env = func(string) bool { return true }
 	// Parse input
 	term, errs := bexp.Parse[polyTerm](input, env)
@@ -33,27 +34,41 @@ func Parse(input string) (*ArrayPoly[string], []source.SyntaxError) {
 	return &term.poly, nil
 }
 
+// Var is a wrapper around a string
+type Var struct {
+	name string
+}
+
+// Cmp implementation for Comparable interface
+func (p Var) Cmp(o Var) int {
+	return cmp.Compare(p.name, o.name)
+}
+
+func (p Var) String(func(string) string) string {
+	return p.name
+}
+
 // =========================================================================================
 
 type polyTerm struct {
-	poly ArrayPoly[string]
+	poly ArrayPoly[Var]
 }
 
 func (p polyTerm) Variable(v string) polyTerm {
 	var (
-		poly ArrayPoly[string]
+		poly ArrayPoly[Var]
 		one  = big.NewInt(1)
 	)
 	//
-	poly.AddTerm(NewMonomial(*one, v))
+	poly.AddTerm(NewMonomial(*one, Var{v}))
 	//
 	return polyTerm{poly}
 }
 
 func (p polyTerm) Number(v big.Int) polyTerm {
-	var poly ArrayPoly[string]
+	var poly ArrayPoly[Var]
 	//
-	poly.AddTerm(NewMonomial[string](v))
+	poly.AddTerm(NewMonomial[Var](v))
 	//
 	return polyTerm{poly}
 }

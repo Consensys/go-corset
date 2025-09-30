@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-type Poly = *ArrayPoly[string]
+type Poly = *ArrayPoly[Var]
 
 type Pt struct {
 	x, y, z int
@@ -179,7 +179,7 @@ func check(t *testing.T, input string, points []Pt, fn func(int, int, int) int) 
 			env["x"] = *big.NewInt(int64(pnt.x))
 			env["y"] = *big.NewInt(int64(pnt.y))
 			env["z"] = *big.NewInt(int64(pnt.z))
-			actual := Eval(p, func(v string) big.Int { return env[v] })
+			actual := Eval(p, func(v Var) big.Int { return env[v.name] })
 			expected := big.NewInt(int64(fn(pnt.x, pnt.y, pnt.z)))
 			// Evaluate and check
 			if actual.Cmp(expected) != 0 {
