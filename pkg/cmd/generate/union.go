@@ -32,6 +32,7 @@ func unionModules(left corset.SourceModule, right corset.SourceModule) *corset.S
 	//
 	return &corset.SourceModule{
 		Name:       left.Name,
+		Public:     left.Public || right.Public,
 		Synthetic:  false,
 		Virtual:    left.Virtual,
 		Selector:   util.None[string](),

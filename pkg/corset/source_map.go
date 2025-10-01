@@ -66,6 +66,8 @@ type Enumeration map[uint64]string
 type SourceModule struct {
 	// Name of this submodule.
 	Name string
+	// Public indicates whether or not this module is externally visible or not.
+	Public bool
 	// Synthetic indicates whether or not this module was automatically
 	// generated or not.
 	Synthetic bool

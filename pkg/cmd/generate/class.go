@@ -121,11 +121,11 @@ func generateClassContents[F any](className string, super string, mod corset.Sou
 	generateJavaModuleFillAndValidateRow(className, mod, schema, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
-		if !submod.Virtual {
+		if submod.Public && !submod.Virtual {
 			name := toPascalCase(submod.Name)
 			superSub := fmt.Sprintf("%s.%s", super, name)
 			generateClassContents(name, superSub, submod, metadata, spillage, schema, builder.Indent())
-		} else {
+		} else if submod.Public {
 			generateJavaModuleColumnSetters(className, submod, schema, builder.Indent())
 		}
 	}
@@ -290,8 +290,8 @@ func generateJavaModuleSubmoduleFields(submodules []corset.SourceModule, builder
 	first := true
 	//
 	for _, m := range submodules {
-		// Only consider non-virtual modules (for now)
-		if !m.Virtual {
+		// Only consider public, non-virtual modules (for now)
+		if m.Public && !m.Virtual {
 			className := toPascalCase(m.Name)
 			// Determine suitable name for field
 			fieldName := toCamelCase(m.Name)
@@ -353,7 +353,7 @@ func generateJavaModuleConstructor(classname string, mod corset.SourceModule, bu
 		// Determine suitable name for field
 		fieldName := toCamelCase(m.Name)
 		// Only support non-virtual modules for now
-		if !m.Virtual {
+		if m.Public && !m.Virtual {
 			innerBuilder.WriteIndentedString("this.", fieldName, " = new ", className, "();\n")
 		}
 	}
@@ -385,7 +385,7 @@ func generateJavaModuleOpen[F any](mod corset.SourceModule, schema sc.AnySchema[
 		// Determine suitable name for field
 		fieldName := toCamelCase(m.Name)
 		// Only support non-virtual modules for now
-		if !m.Virtual {
+		if m.Public && !m.Virtual {
 			innerBuilder.WriteIndentedString("this.", fieldName, "().open(registers);\n")
 		}
 	}

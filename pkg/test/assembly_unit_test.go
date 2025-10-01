@@ -24,7 +24,7 @@ func Test_AsmUnit_BitShift(t *testing.T) {
 }
 
 func Test_AsmUnit_ByteShift(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUnit_Dec4(t *testing.T) {
@@ -32,11 +32,11 @@ func Test_AsmUnit_Dec4(t *testing.T) {
 }
 
 func Test_AsmUnit_Dec251(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/dec251", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/dec251", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUnit_Diamond(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/diamond", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/diamond", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUnit_ParseNonDecimal(t *testing.T) {
@@ -44,7 +44,8 @@ func Test_AsmUnit_ParseNonDecimal(t *testing.T) {
 }
 
 func Test_AsmUnit_Counter(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/counter", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	util.CheckWithFields(t, false, "asm/unit/counter", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16, sc.GF_8209,
+		sc.GF_251)
 }
 
 func Test_AsmUnit_Counter256(t *testing.T) {
@@ -87,7 +88,8 @@ func Test_AsmUnit_SlowPow(t *testing.T) {
 }
 
 func Test_AsmUnit_Sub(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/sub", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	util.CheckWithFields(t, false, "asm/unit/sub", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16, sc.GF_8209,
+		sc.GF_251)
 }
 
 func Test_AsmUnit_RecPow(t *testing.T) {

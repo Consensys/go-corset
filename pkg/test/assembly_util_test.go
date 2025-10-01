@@ -36,11 +36,11 @@ func Test_AsmUtil_FillBytes(t *testing.T) {
 }
 
 func Test_AsmUtil_Log2(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/log2", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/util/log2", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
 func Test_AsmUtil_Log256(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/log256", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/util/log256", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_AsmUtil_Min(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/min", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)

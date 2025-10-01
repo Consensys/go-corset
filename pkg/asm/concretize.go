@@ -140,5 +140,5 @@ func subdivideFunction(mapping sc.LimbsMap, fn MicroFunction) MicroFunction {
 		nbuses[i] = bus.Split(env)
 	}
 	// Done
-	return io.NewFunction(fn.Name(), env.Limbs(), nbuses, ninsns)
+	return io.NewFunction(fn.Name(), fn.IsPublic(), env.Limbs(), nbuses, ninsns)
 }

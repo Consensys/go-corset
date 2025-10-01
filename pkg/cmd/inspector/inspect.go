@@ -379,5 +379,5 @@ func initInspectorTabs[F field.Element[F]](states []ModuleState[F]) *widget.Tabs
 }
 
 func concreteModules(m *corset.SourceModule) bool {
-	return !m.Virtual
+	return !m.Virtual && m.Public
 }

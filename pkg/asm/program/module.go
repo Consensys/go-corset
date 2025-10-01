@@ -90,6 +90,11 @@ func (p *Module[F, T]) LengthMultiplier() uint {
 	return 1
 }
 
+// IsPublic implementation for schema.Module interface.
+func (p *Module[F, T]) IsPublic() bool {
+	return p.function.IsPublic()
+}
+
 // IsSynthetic implementation for schema.Module interface.
 func (p *Module[F, T]) IsSynthetic() bool {
 	panic("unsupported operation")

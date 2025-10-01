@@ -58,7 +58,7 @@ func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {
-		airSchema.NewModule(m.Name(), m.LengthMultiplier(), m.AllowPadding(), m.IsSynthetic())
+		airSchema.NewModule(m.Name(), m.LengthMultiplier(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
 	}
 	//
 	return AirLowering[F]{

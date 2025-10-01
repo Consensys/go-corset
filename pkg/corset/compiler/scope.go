@@ -81,6 +81,8 @@ func (b BindingId) String() string {
 // tree), or it can be relative (in which case it is resolved relative to a
 // given module).
 type ModuleScope struct {
+	// public determines whether or not this module is externally visible
+	public bool
 	// Selector determining when this module is active.
 	selector util.Option[string]
 	// Absolute path
@@ -98,8 +100,9 @@ type ModuleScope struct {
 }
 
 // NewModuleScope constructs an initially empty top-level scope.
-func NewModuleScope() *ModuleScope {
+func NewModuleScope(public bool) *ModuleScope {
 	return &ModuleScope{
+		public,
 		util.None[string](),
 		file.NewAbsolutePath(),
 		make(map[BindingId]uint),
@@ -122,6 +125,11 @@ func (p *ModuleScope) Name() string {
 	}
 	//
 	return ""
+}
+
+// IsPublic determines whether or not this is an externally visible module.
+func (p *ModuleScope) IsPublic() bool {
+	return p.public
 }
 
 // Virtual identifies whether or not this is a virtual module.
@@ -235,12 +243,13 @@ func (p *ModuleScope) Owner() *ModuleScope {
 // indicated by a non-zero selector, which signals when the virtual module is
 // active.  This returns true if this succeeds, otherwise returns false (i.e. a
 // matching submodule already exists).
-func (p *ModuleScope) Declare(submodule string, selector util.Option[string]) bool {
+func (p *ModuleScope) Declare(submodule string, selector util.Option[string], public bool) bool {
 	if _, ok := p.submodmap[submodule]; ok {
 		return false
 	}
 	// Construct suitable child scope
 	scope := &ModuleScope{
+		public,
 		selector,
 		*p.path.Extend(submodule),
 		make(map[BindingId]uint),
