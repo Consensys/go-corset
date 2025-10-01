@@ -546,6 +546,74 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 	return lhs, errs
 }
 
+func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
+	var (
+		errs []source.SyntaxError
+		rhs  []macro.Expr
+		fn   string
+	)
+	//
+	if fn, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(LBRACE); len(errs) > 0 {
+		return nil, errs
+	} else if rhs, errs = p.parseExprList(env); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
+		return nil, errs
+	}
+	// Generate temporary bus identifier
+	bus := env.BindBus(fn)
+	// Done
+	return macro.NewCall(bus, lhs, rhs), nil
+}
+
+func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
+	var (
+		errs        []source.SyntaxError
+		lhs         io.RegisterId
+		rhs, tb, fb big.Int
+		cond        uint8
+	)
+	// Parse left hand side
+	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// save lookahead for error reporting
+	if cond, errs = p.parseComparator(); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse right hand side
+	if rhs, errs = p.parseNumber(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// expect question mark
+	if _, errs = p.expect(QMARK); len(errs) > 0 {
+		return nil, errs
+	}
+	// true branch
+	if tb, errs = p.parseNumber(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// expect column
+	if _, errs = p.expect(COLON); len(errs) > 0 {
+		return nil, errs
+	}
+	// false branch
+	if fb, errs = p.parseNumber(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// Done
+	return &macro.IfThenElse{
+		Targets: targets,
+		Cond:    cond,
+		Left:    lhs,
+		Right:   rhs,
+		Then:    tb,
+		Else:    fb,
+	}, nil
+}
+
 func (p *Parser) parseExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
 	var (
 		start      = p.index
@@ -667,72 +735,27 @@ func (p *Parser) parseNumber(env *Environment) (big.Int, []source.SyntaxError) {
 	return val, errs
 }
 
-func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
+// Parse sequence of one or more expressions separated by a comma.
+func (p *Parser) parseExprList(env *Environment) ([]macro.Expr, []source.SyntaxError) {
 	var (
+		lhs  = make([]macro.Expr, 1)
 		errs []source.SyntaxError
-		rhs  []io.RegisterId
-		fn   string
+		expr macro.Expr
 	)
+	// lhs always starts with a register
+	if lhs[0], errs = p.parseExpr(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// lhs may have additional registers
+	for p.match(COMMA) {
+		if expr, errs = p.parseExpr(env); len(errs) > 0 {
+			return nil, errs
+		}
+		// Add register to lhs
+		lhs = append(lhs, expr)
+	}
 	//
-	if fn, errs = p.parseIdentifier(); len(errs) > 0 {
-		return nil, errs
-	} else if _, errs = p.expect(LBRACE); len(errs) > 0 {
-		return nil, errs
-	} else if rhs, errs = p.parseRegisterList(env); len(errs) > 0 {
-		return nil, errs
-	} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
-		return nil, errs
-	}
-	// Generate temporary bus identifier
-	bus := env.BindBus(fn)
-	// Done
-	return macro.NewCall(bus, lhs, rhs), nil
-}
-
-func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
-	var (
-		errs        []source.SyntaxError
-		lhs         io.RegisterId
-		rhs, tb, fb big.Int
-		cond        uint8
-	)
-	// Parse left hand side
-	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
-		return nil, errs
-	}
-	// save lookahead for error reporting
-	if cond, errs = p.parseComparator(); len(errs) > 0 {
-		return nil, errs
-	}
-	// Parse right hand side
-	if rhs, errs = p.parseNumber(env); len(errs) > 0 {
-		return nil, errs
-	}
-	// expect question mark
-	if _, errs = p.expect(QMARK); len(errs) > 0 {
-		return nil, errs
-	}
-	// true branch
-	if tb, errs = p.parseNumber(env); len(errs) > 0 {
-		return nil, errs
-	}
-	// expect column
-	if _, errs = p.expect(COLON); len(errs) > 0 {
-		return nil, errs
-	}
-	// false branch
-	if fb, errs = p.parseNumber(env); len(errs) > 0 {
-		return nil, errs
-	}
-	// Done
-	return &macro.IfThenElse{
-		Targets: targets,
-		Cond:    cond,
-		Left:    lhs,
-		Right:   rhs,
-		Then:    tb,
-		Else:    fb,
-	}, nil
+	return lhs, nil
 }
 
 // Parse sequence of one or more registers separated by a comma.
