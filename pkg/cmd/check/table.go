@@ -16,8 +16,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/cmd/inspector"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -31,7 +32,7 @@ type CellRefSet = *set.AnySortedSet[tr.CellRef]
 
 // SourceColumn provides information about a source-level column and its mapping
 // to the underlying registers of a trace.
-type SourceColumn = inspector.SourceColumn
+type SourceColumn = cmd_util.ColumnView
 
 // TraceWindow abstracts an underlying trace by accounting for perspectives at
 // the corset-level (amongst other things).
@@ -86,7 +87,7 @@ func determineSourceColumns[F field.Element[F]](cells CellRefSet, trace tr.Trace
 	//
 	mod := determineEnclosingModule(cells, trace, srcmap.Root)
 	// Reuse existing functionality from inspector to determine set of all modules.
-	columns := inspector.ExtractSourceColumns(file.NewAbsolutePath(""), mod.Selector, mod.Columns, mod.Submodules)
+	columns := cmd_util.ExtractSourceColumns(file.NewAbsolutePath(""), mod.Selector, mod.Columns, mod.Submodules)
 	//
 	for _, c := range cells.ToArray() {
 		index := c.Column.Index(trace.Width())
@@ -131,7 +132,7 @@ func determineSourceColumnsFromTrace[F any](cells CellRefSet, trace tr.Trace[F])
 			Computed: false,
 			Selector: util.None[string](),
 			Display:  corset.DISPLAY_HEX,
-			Register: cref,
+			Register: []schema.RegisterRef{cref},
 		})
 	}
 	//
@@ -173,7 +174,7 @@ func determineEnclosingModule[F any](cells CellRefSet, trace tr.Trace[F], root c
 func determineSourceColumn[F field.Element[F]](cell tr.CellRef, trace tr.Trace[F], columns []SourceColumn,
 ) SourceColumn {
 	for _, col := range columns {
-		if col.Register == cell.Column && isActiveColumn(cell.Row, col, trace) {
+		if col.Includes(cell.Column) && isActiveColumn(cell.Row, col, trace) {
 			return col
 		}
 	}
@@ -186,7 +187,7 @@ func determineSourceColumn[F field.Element[F]](cell tr.CellRef, trace tr.Trace[F
 		Computed: false,
 		Selector: util.None[string](),
 		Display:  corset.DISPLAY_HEX,
-		Register: cell.Column,
+		Register: []schema.RegisterRef{cell.Column},
 	}
 }
 
@@ -199,7 +200,7 @@ func isActiveColumn[F field.Element[F]](row int, col SourceColumn, trace tr.Trac
 		return true
 	}
 	// Lookup enclosing module
-	module := trace.Module(col.Register.Module())
+	module := trace.Module(col.Module())
 	// Check selector value
 	val := module.ColumnOf(col.Selector.Unwrap()).Get(row)
 	//
@@ -254,7 +255,7 @@ func determineWindowData[F field.Element[F]](start, end uint, columns []SourceCo
 		//
 		for _, col := range columns {
 			// extract value at given row in this register
-			val := trace.Column(col.Register).Data().Get(r)
+			val := cmd_util.ReadColumn(r, col, trace)
 			// convert value into string
 			row = append(row, val.Text(16))
 		}
@@ -271,8 +272,10 @@ func determineWindowHighlights(start, end uint, cells CellRefSet, columns []Sour
 		mapping    = make(map[tr.ColumnRef]uint, 0)
 	)
 	// Initialise register mapping
-	for i, reg := range columns {
-		mapping[reg.Register] = uint(i)
+	for i, col := range columns {
+		for _, reg := range col.Register {
+			mapping[reg] = uint(i)
+		}
 	}
 	// Initialise all highlights disabled
 	for i := range highlights {
