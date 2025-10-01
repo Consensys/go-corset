@@ -99,6 +99,8 @@ func determineSourceColumns[F field.Element[F]](cells CellRefSet, trace tr.Trace
 		}
 	}
 	//
+	fmt.Printf("RETURNED %d columns\n", len(ncolumns))
+	//
 	return ncolumns
 }
 
