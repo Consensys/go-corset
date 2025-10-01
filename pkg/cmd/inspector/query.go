@@ -17,9 +17,6 @@ import (
 	"math/big"
 	"slices"
 	"strings"
-
-	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 const qROW = 0
@@ -35,22 +32,27 @@ const qADD = 9
 const qMUL = 10
 const qSUB = 11
 
+type QueryEnv = func(string, uint) big.Int
+
+var biZero *big.Int = big.NewInt(0)
+var biOne *big.Int = big.NewInt(1)
+
 // Query represents a boolean expression which can be evaluated over a
 // given set of columns.
-type Query[F field.Element[F]] struct {
+type Query struct {
 	// operation
 	op int
 	// arguments (if applicable)
-	args []Query[F]
+	args []Query
 	// constant value (if applicable)
-	number F
+	number big.Int
 	// variable name (if applicable)
 	name string
 }
 
 // Variable constructs a variable of the given name.
-func (p *Query[F]) Variable(name string) *Query[F] {
-	var query Query[F]
+func (p *Query) Variable(name string) *Query {
+	var query Query
 	//
 	if name == "$" {
 		query.op = qROW
@@ -64,13 +66,13 @@ func (p *Query[F]) Variable(name string) *Query[F] {
 }
 
 // Number constructs a number with the given value
-func (p *Query[F]) Number(number big.Int) *Query[F] {
+func (p *Query) Number(number big.Int) *Query {
 	var (
-		val   F
-		query Query[F]
+		val   big.Int
+		query Query
 	)
 	//
-	val = val.SetBytes(number.Bytes())
+	val.SetBytes(number.Bytes())
 	//
 	query.op = qNUM
 	query.number = val
@@ -79,67 +81,67 @@ func (p *Query[F]) Number(number big.Int) *Query[F] {
 }
 
 // Or constructs a disjunction of queries.
-func (p *Query[F]) Or(queries ...*Query[F]) *Query[F] {
+func (p *Query) Or(queries ...*Query) *Query {
 	args := build_args(p, queries)
 	//
-	return &Query[F]{qOR, args, field.Zero[F](), ""}
+	return &Query{qOR, args, *biZero, ""}
 }
 
 // And constructs a conjunction of queries.
-func (p *Query[F]) And(queries ...*Query[F]) *Query[F] {
+func (p *Query) And(queries ...*Query) *Query {
 	args := build_args(p, queries)
 	//
-	return &Query[F]{qAND, args, field.Zero[F](), ""}
+	return &Query{qAND, args, *biZero, ""}
 }
 
 // Truth constructs a logical truth
-func (p *Query[F]) Truth(val bool) *Query[F] {
+func (p *Query) Truth(val bool) *Query {
 	panic("unsupported operation")
 }
 
 // Equals constructs an equality between two queries.
-func (p *Query[F]) Equals(rhs *Query[F]) *Query[F] {
-	return &Query[F]{qEQ, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
+func (p *Query) Equals(rhs *Query) *Query {
+	return &Query{qEQ, []Query{*p, *rhs}, *biZero, ""}
 }
 
 // NotEquals constructs a non-equality between two queries.
-func (p *Query[F]) NotEquals(rhs *Query[F]) *Query[F] {
-	return &Query[F]{qNEQ, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
+func (p *Query) NotEquals(rhs *Query) *Query {
+	return &Query{qNEQ, []Query{*p, *rhs}, *biZero, ""}
 }
 
 // LessThan constructs a (strict) inequality between two queries.
-func (p *Query[F]) LessThan(rhs *Query[F]) *Query[F] {
-	return &Query[F]{qLT, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
+func (p *Query) LessThan(rhs *Query) *Query {
+	return &Query{qLT, []Query{*p, *rhs}, *biZero, ""}
 }
 
 // LessThanEquals constructs a (non-strict) inequality between two queries.
-func (p *Query[F]) LessThanEquals(rhs *Query[F]) *Query[F] {
-	return &Query[F]{qLTEQ, []Query[F]{*p, *rhs}, field.Zero[F](), ""}
+func (p *Query) LessThanEquals(rhs *Query) *Query {
+	return &Query{qLTEQ, []Query{*p, *rhs}, *biZero, ""}
 }
 
 // Add constructs the sum of one or more queries
-func (p *Query[F]) Add(queries ...*Query[F]) *Query[F] {
+func (p *Query) Add(queries ...*Query) *Query {
 	args := build_args(p, queries)
 	//
-	return &Query[F]{qADD, args, field.Zero[F](), ""}
+	return &Query{qADD, args, *biZero, ""}
 }
 
 // Mul constructs the product of one or more queries
-func (p *Query[F]) Mul(queries ...*Query[F]) *Query[F] {
+func (p *Query) Mul(queries ...*Query) *Query {
 	args := build_args(p, queries)
 	//
-	return &Query[F]{qMUL, args, field.Zero[F](), ""}
+	return &Query{qMUL, args, *biZero, ""}
 }
 
 // Sub constructs the subtraction of one or more queries
-func (p *Query[F]) Sub(queries ...*Query[F]) *Query[F] {
+func (p *Query) Sub(queries ...*Query) *Query {
 	args := build_args(p, queries)
 	//
-	return &Query[F]{qSUB, args, field.Zero[F](), ""}
+	return &Query{qSUB, args, *biZero, ""}
 }
 
-func build_args[F field.Element[F]](q *Query[F], queries []*Query[F]) []Query[F] {
-	args := make([]Query[F], 1+len(queries))
+func build_args(q *Query, queries []*Query) []Query {
+	args := make([]Query, 1+len(queries))
 	args[0] = *q
 	//
 	for i := range queries {
@@ -150,22 +152,17 @@ func build_args[F field.Element[F]](q *Query[F], queries []*Query[F]) []Query[F]
 }
 
 // String produces a parseable string from this query.
-func (p *Query[F]) String() string {
+func (p *Query) String() string {
 	return query_string(*p)
 }
 
 // Eval evaluates the given query in the given environment.
-func (p *Query[F]) Eval(row uint, env map[string]tr.Column[F]) F {
+func (p *Query) Eval(row uint, env QueryEnv) big.Int {
 	switch p.op {
 	case qROW:
-		var val F
-		return val.SetUint64(uint64(row))
+		return *big.NewInt(int64(row))
 	case qVAR:
-		if col, ok := env[p.name]; ok {
-			return col.Get(int(row))
-		}
-		// error
-		panic("unknown column \"%s\"")
+		return env(p.name, row)
 	case qNUM:
 		return p.number
 	case qEQ:
@@ -191,11 +188,11 @@ func (p *Query[F]) Eval(row uint, env map[string]tr.Column[F]) F {
 	}
 }
 
-type binary_op[F field.Element[F]] func(F, F) F
-type nary_op[F field.Element[F]] func([]F) F
+type binary_op func(big.Int, big.Int) big.Int
+type nary_op func([]big.Int) big.Int
 
-func eval_binary[F field.Element[F]](row uint, env map[string]tr.Column[F], lhs Query[F], rhs Query[F],
-	fn binary_op[F]) F {
+func eval_binary(row uint, env QueryEnv, lhs Query, rhs Query,
+	fn binary_op) big.Int {
 	// Evaluate left-hand side
 	lv := lhs.Eval(row, env)
 	// Evaluate right-hand side
@@ -204,8 +201,8 @@ func eval_binary[F field.Element[F]](row uint, env map[string]tr.Column[F], lhs 
 	return fn(lv, rv)
 }
 
-func eval_nary[F field.Element[F]](row uint, env map[string]tr.Column[F], args []Query[F], fn nary_op[F]) F {
-	vals := make([]F, len(args))
+func eval_nary(row uint, env QueryEnv, args []Query, fn nary_op) big.Int {
+	vals := make([]big.Int, len(args))
 	// Evaluate arguments
 	for i, arg := range args {
 		vals[i] = arg.Eval(row, env)
@@ -214,96 +211,98 @@ func eval_nary[F field.Element[F]](row uint, env map[string]tr.Column[F], args [
 	return fn(vals)
 }
 
-func eval_eq[F field.Element[F]](lhs F, rhs F) F {
+func eval_eq(lhs big.Int, rhs big.Int) big.Int {
 	// Perform comparison
-	if lhs.Cmp(rhs) == 0 {
-		return field.Zero[F]()
+	if lhs.Cmp(&rhs) == 0 {
+		return *big.NewInt(0)
 	}
 	//
-	return field.One[F]()
+	return *big.NewInt(1)
 }
 
-func eval_neq[F field.Element[F]](lhs F, rhs F) F {
+func eval_neq(lhs big.Int, rhs big.Int) big.Int {
 	// Perform comparison
-	if lhs.Cmp(rhs) != 0 {
-		return field.Zero[F]()
+	if lhs.Cmp(&rhs) != 0 {
+		return *biZero
 	}
 	//
-	return field.One[F]()
+	return *biOne
 }
 
-func eval_lt[F field.Element[F]](lhs F, rhs F) F {
+func eval_lt(lhs big.Int, rhs big.Int) big.Int {
 	// Perform comparison
-	if lhs.Cmp(rhs) < 0 {
-		return field.Zero[F]()
+	if lhs.Cmp(&rhs) < 0 {
+		return *biZero
 	}
 	//
-	return field.One[F]()
+	return *biOne
 }
 
-func eval_lteq[F field.Element[F]](lhs F, rhs F) F {
+func eval_lteq(lhs big.Int, rhs big.Int) big.Int {
 	// Perform comparison
-	if lhs.Cmp(rhs) <= 0 {
-		return field.Zero[F]()
+	if lhs.Cmp(&rhs) <= 0 {
+		return *biZero
 	}
 	//
-	return field.One[F]()
+	return *biOne
 }
 
-func eval_or[F field.Element[F]](vals []F) F {
+func eval_or(vals []big.Int) big.Int {
 	for _, v := range vals {
-		if v.IsZero() {
+		if v.Cmp(biZero) == 0 {
 			// Success
 			return v
 		}
 	}
 	// Fail
-	return field.One[F]()
+	return *biOne
 }
 
-func eval_and[F field.Element[F]](vals []F) F {
+func eval_and(vals []big.Int) big.Int {
 	//
 	for _, v := range vals {
-		if !v.IsZero() {
+		if v.Cmp(biZero) != 0 {
 			// Fail
 			return v
 		}
 	}
 	// Success
-	return field.Zero[F]()
+	return *biZero
 }
 
-func eval_add[F field.Element[F]](vals []F) F {
-	val := field.Zero[F]()
+func eval_add(vals []big.Int) big.Int {
+	var val *big.Int = big.NewInt(0)
 	//
 	for _, v := range vals {
-		val = val.Add(v)
+		val = val.Add(val, &v)
 	}
 	//
-	return val
+	return *val
 }
 
-func eval_mul[F field.Element[F]](vals []F) F {
-	val := field.One[F]()
+func eval_mul(vals []big.Int) big.Int {
+	var val *big.Int = big.NewInt(1)
 	//
 	for _, v := range vals {
-		val = val.Mul(v)
+		val = val.Mul(val, &v)
 	}
 	//
-	return val
+	return *val
 }
 
-func eval_sub[F field.Element[F]](vals []F) F {
-	val := vals[0]
+func eval_sub(vals []big.Int) big.Int {
+	var val *big.Int = big.NewInt(0)
+	// Clone first element
+	val.SetBytes(vals[0].Bytes())
 	//
 	for _, v := range vals[1:] {
-		val = val.Sub(v)
+		val = val.Sub(val, &v)
 	}
 	//
-	return val
+	return *val
 }
 
-func query_string[F field.Element[F]](p Query[F], braces ...int) string {
+func query_string(p Query, braces ...int) string {
 	var str string
 	//
 	switch p.op {
@@ -340,7 +339,7 @@ func query_string[F field.Element[F]](p Query[F], braces ...int) string {
 	return str
 }
 
-func query_strings[F field.Element[F]](op string, spacing bool, queries []Query[F], braces ...int) string {
+func query_strings(op string, spacing bool, queries []Query, braces ...int) string {
 	var builder strings.Builder
 	//
 	for i, q := range queries {
