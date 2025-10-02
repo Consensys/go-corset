@@ -37,6 +37,33 @@ type CellFilter interface {
 	Cell(uint) bool
 }
 
+// ============================================================================
+// Default Filter
+// ============================================================================
+
+type defaultFilter struct{}
+
+// DefaultFilter constructs a default filter which filters nothing.
+func DefaultFilter() Filter {
+	return &defaultFilter{}
+}
+
+func (p *defaultFilter) Module(uint) ColumnFilter {
+	return p
+}
+
+func (p *defaultFilter) Column(uint) CellFilter {
+	return p
+}
+
+func (p *defaultFilter) Cell(uint) bool {
+	return true
+}
+
+// ============================================================================
+// Cell Filter
+// ============================================================================
+
 // FilterForCells returns a filter which focuses specifically on the given
 // cells.
 func FilterForCells(cells CellRefSet) Filter {

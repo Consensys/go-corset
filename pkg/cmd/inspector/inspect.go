@@ -17,9 +17,8 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
-	sc "github.com/consensys/go-corset/pkg/schema"
-	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/termio/widget"
@@ -50,8 +49,7 @@ type Inspector[F field.Element[F]] struct {
 	width  uint
 	height uint
 	//
-	term  *termio.Terminal
-	trace tr.Trace[F]
+	term *termio.Terminal
 	// Module states
 	modules []ModuleState[F]
 	// Widgets
@@ -82,27 +80,17 @@ type Mode[F field.Element[F]] interface {
 }
 
 // NewInspector constructs a new inspector on given terminal.
-func NewInspector[F field.Element[F]](term *termio.Terminal, schema sc.AnySchema[F], trace tr.Trace[F],
-	srcmap *corset.SourceMap) *Inspector[F] {
+func NewInspector[F field.Element[F]](term *termio.Terminal, trace view.TraceView) *Inspector[F] {
 	//
 	states := make([]ModuleState[F], 0)
 	//
-	for _, module := range srcmap.Flattern(concreteModules) {
-		// only consider modules which actually have columns.
-		if len(module.Columns) > 0 {
-			//
-			if _, ok := trace.HasModule(module.Name); !ok {
-				// This should be unreachable.
-				panic(fmt.Sprintf("unknown module \"%s\"", module.Name))
-			}
-			//
-			states = append(states, newModuleState(&module, trace, srcmap.Enumerations, true))
-		}
+	for i := range trace.Width() {
+		states = append(states, newModuleState[F](trace.Module(i), true))
 	}
 	//
 	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, states)
 	//
-	inspector := &Inspector[F]{0, 0, term, trace, states, tabs, table, cmdbar, statusbar, 0, nil}
+	inspector := &Inspector[F]{0, 0, term, states, tabs, table, cmdbar, statusbar, 0, nil}
 	table.SetSource(inspector)
 	// Put the inspector into default mode.
 	inspector.EnterMode(&NavigationMode[F]{})
@@ -262,27 +250,29 @@ func (p *Inspector[F]) toggleColumnFilter() bool {
 }
 
 func (p *Inspector[F]) nextScanResult(forwards bool) {
-	var (
-		current = p.currentView()
-		msg     termio.FormattedText
-	)
-	//
-	if current.lastQuery == nil {
-		msg = termio.NewColouredText("no previous scan", termio.TERM_RED)
-	} else if forwards {
-		// Dig out the last query
-		msg = p.CurrentModule().matchQuery(current.view.row+1, forwards, current.lastQuery)
-	} else {
-		msg = p.CurrentModule().matchQuery(current.view.row-1, forwards, current.lastQuery)
-	}
-	//
-	p.SetStatus(msg)
+	// var (
+	// 	current = p.currentView()
+	// 	msg     termio.FormattedText
+	// )
+	// //
+	// if current.lastQuery == nil {
+	// 	msg = termio.NewColouredText("no previous scan", termio.TERM_RED)
+	// } else if forwards {
+	// 	// Dig out the last query
+	// 	msg = p.CurrentModule().matchQuery(current.view.row+1, forwards, current.lastQuery)
+	// } else {
+	// 	msg = p.CurrentModule().matchQuery(current.view.row-1, forwards, current.lastQuery)
+	// }
+	// //
+	// p.SetStatus(msg)
+	panic("todo")
 }
 
 func (p *Inspector[F]) matchQuery(query *Query[F]) termio.FormattedText {
-	var current = p.currentView()
-	//
-	return p.CurrentModule().matchQuery(current.view.row, true, query)
+	// var current = p.currentView()
+	// //
+	// return p.CurrentModule().matchQuery(current.view.row, true, query)
+	panic("todo")
 }
 
 // ==================================================================
@@ -291,8 +281,10 @@ func (p *Inspector[F]) matchQuery(query *Query[F]) termio.FormattedText {
 
 // Dimensions implementation for the TableSource interface
 func (p *Inspector[F]) Dimensions() (uint, uint) {
-	// Not required as rendering done via canvas.
-	panic("unsupported operation")
+	module := p.tabs.Selected()
+	state := p.modules[module]
+	//
+	return state.view.Dimensions()
 }
 
 // ColumnWidth gets the width of a given column in the main table of the
@@ -301,18 +293,24 @@ func (p *Inspector[F]) ColumnWidth(col uint) uint {
 	module := p.tabs.Selected()
 	state := p.modules[module]
 	//
-	return state.view.RowWidth(col)
+	return state.view.ColumnWidth(col)
 }
 
 // CellAt returns the contents of a given cell in the main table of the
 // inspector.
 func (p *Inspector[F]) CellAt(col, row uint) termio.FormattedText {
 	// Determine currently selected module
-	module := p.tabs.Selected()
-	state := &p.modules[module]
-	// Get cell out of module view, noting that we are deliberately swapping row
-	// and column.
-	return state.view.CellAt(state.trace, row, col)
+	var (
+		module        = p.tabs.Selected()
+		state         = &p.modules[module]
+		width, height = state.view.Dimensions()
+	)
+	//
+	if col >= width || row >= height {
+		return termio.NewText("")
+	}
+	// Get cell out of module view
+	return state.view.CellAt(col, row)
 }
 
 // Start provides a read / update / render loop.
@@ -378,7 +376,7 @@ func initInspectorTabs[F field.Element[F]](states []ModuleState[F]) *widget.Tabs
 	var titles []string
 
 	for _, state := range states {
-		titles = append(titles, state.name)
+		titles = append(titles, state.view.Name())
 	}
 	//
 	return widget.NewTabs(titles...)

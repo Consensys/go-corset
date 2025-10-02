@@ -13,7 +13,6 @@
 package inspector
 
 import (
-	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -67,25 +66,31 @@ func (p *NavigationMode[F]) KeyPressed(parent *Inspector[F], key uint16) bool {
 	case termio.BACKTAB:
 		parent.tabs.Select(int(module) - 1)
 	case termio.CURSOR_UP:
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col - 1)
+		// col := parent.modules[module].view.col
+		// parent.modules[module].setColumnOffset(col - 1)
+		panic("todo")
 	case termio.CURSOR_DOWN:
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col + 1)
+		// col := parent.modules[module].view.col
+		// parent.modules[module].setColumnOffset(col + 1)
+		panic("todo")
 	case termio.CURSOR_LEFT:
-		row := parent.modules[module].view.row
-		parent.modules[module].setRowOffset(row - 1)
+		// row := parent.modules[module].view.row
+		// parent.modules[module].setRowOffset(row - 1)
+		panic("todo")
 	case termio.CURSOR_RIGHT:
-		row := parent.modules[module].view.row
-		parent.modules[module].setRowOffset(row + 1)
+		// row := parent.modules[module].view.row
+		// parent.modules[module].setRowOffset(row + 1)
+		panic("todo")
 	case termio.SCROLL_UP:
-		n := parent.height / 2
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col - n)
+		// n := parent.height / 2
+		// col := parent.modules[module].view.col
+		// parent.modules[module].setColumnOffset(col - n)
+		panic("todo")
 	case termio.SCROLL_DOWN:
-		n := parent.height / 2
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col + n)
+		// n := parent.height / 2
+		// col := parent.modules[module].view.col
+		// parent.modules[module].setColumnOffset(col + n)
+		panic("todo")
 	// quit
 	case 'q':
 		return true
@@ -136,22 +141,23 @@ func (p *NavigationMode[F]) filterInputMode(parent *Inspector[F]) Mode[F] {
 }
 
 func (p *NavigationMode[F]) scanInputMode(parent *Inspector[F]) Mode[F] {
-	var (
-		promptText   = "[history ↑/↓] where $=row, expression? "
-		promptLength = len([]rune(promptText))
-		prompt       = termio.NewColouredText(promptText, termio.TERM_YELLOW)
-		history      = parent.currentView().scanHistory
-		historyIndex = uint(len(history))
-		columns      set.SortedSet[string]
-	)
-	// Identify available columns
-	for _, c := range parent.CurrentModule().columns {
-		columns.Insert(c.Name)
-	}
-	// Construct environment
-	env := func(col string) bool {
-		return columns.Contains(col) || col == "$"
-	}
-	// Construct input mode
-	return newInputMode[F](prompt, historyIndex, history, newQueryHandler(env, parent.matchQuery, promptLength))
+	// var (
+	// 	promptText   = "[history ↑/↓] where $=row, expression? "
+	// 	promptLength = len([]rune(promptText))
+	// 	prompt       = termio.NewColouredText(promptText, termio.TERM_YELLOW)
+	// 	history      = parent.currentView().scanHistory
+	// 	historyIndex = uint(len(history))
+	// 	columns      set.SortedSet[string]
+	// )
+	// // Identify available columns
+	// for _, c := range parent.CurrentModule().columns {
+	// 	columns.Insert(c.Name)
+	// }
+	// // Construct environment
+	// env := func(col string) bool {
+	// 	return columns.Contains(col) || col == "$"
+	// }
+	// // Construct input mode
+	// return newInputMode[F](prompt, historyIndex, history, newQueryHandler(env, parent.matchQuery, promptLength))
+	panic("todo")
 }

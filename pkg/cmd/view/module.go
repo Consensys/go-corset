@@ -31,8 +31,6 @@ import (
 // perspective are not active when that perspective is not active.
 type ModuleView interface {
 	widget.TableSource
-	// Highlighted determines whether a given cell should be highlighted or not.
-	Highlighted(col uint, row uint) bool
 	// Name returns the name of the given module
 	Name() string
 }

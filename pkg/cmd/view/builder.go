@@ -77,6 +77,7 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 			limbs:   p.limbs,
 			trace:   trace.Module(i),
 			mapping: p.mapping.Module(i),
+			filter:  DefaultFilter().Module(i),
 		}
 	}
 	//

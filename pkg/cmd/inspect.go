@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/inspector"
+	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -98,7 +99,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	if len(errors) == 0 {
 		// Run the inspector.
-		errors = inspect(schema, srcmap, trace)
+		errors = inspect(stack.TraceBuilder().Mapping(), srcmap, trace)
 	}
 	// Sanity check what happened
 	if len(errors) > 0 {
@@ -111,9 +112,9 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 }
 
 // Inspect a given trace using a given schema.
-func inspect[F field.Element[F]](schema sc.AnySchema[F], srcmap *corset.SourceMap, trace tr.Trace[F]) []error {
+func inspect[F field.Element[F]](mapping sc.LimbsMap, srcmap *corset.SourceMap, trace tr.Trace[F]) []error {
 	// Construct inspector window
-	inspector := construct(schema, trace, srcmap)
+	inspector := construct(mapping, trace, srcmap)
 	// Render inspector
 	if err := inspector.Render(); err != nil {
 		return []error{err}
@@ -122,14 +123,16 @@ func inspect[F field.Element[F]](schema sc.AnySchema[F], srcmap *corset.SourceMa
 	return inspector.Start()
 }
 
-func construct[F field.Element[F]](schema sc.AnySchema[F], trace tr.Trace[F], srcmap *corset.SourceMap,
+func construct[F field.Element[F]](mapping sc.LimbsMap, trace tr.Trace[F], srcmap *corset.SourceMap,
 ) *inspector.Inspector[F] {
 	//
 	term, err := termio.NewTerminal()
 	// Check whether successful
 	if err == nil {
+		window := view.NewBuilder[F](mapping).
+			Build(trace)
 		// Construct inspector state
-		return inspector.NewInspector(term, schema, trace, srcmap)
+		return inspector.NewInspector[F](term, window)
 	}
 
 	fmt.Println(error.Error(err))
