@@ -96,11 +96,6 @@ func (tb TraceBuilder[F]) WithExpansion(flag bool) TraceBuilder[F] {
 	return ntb
 }
 
-// Expanding indicates whether or not this builder will expand the trace.
-func (tb TraceBuilder[F]) Expanding() bool {
-	return tb.expand
-}
-
 // WithRegisterMapping updates a given builder configuration to split the trace
 // according to a given mapping of registers.
 func (tb TraceBuilder[F]) WithRegisterMapping(mapping sc.LimbsMap) TraceBuilder[F] {
@@ -150,9 +145,19 @@ func (tb TraceBuilder[F]) WithBatchSize(batchSize uint) TraceBuilder[F] {
 	return ntb
 }
 
-// BatchSize returns the configure batch size for this builder.
+// Expanding indicates whether or not this builder will expand the trace.
+func (tb TraceBuilder[F]) Expanding() bool {
+	return tb.expand
+}
+
+// BatchSize returns the configured batch size for this builder.
 func (tb TraceBuilder[F]) BatchSize() uint {
 	return tb.batchSize
+}
+
+// Mapping returns the mapping from registers to limbs used with this builder.
+func (tb TraceBuilder[F]) Mapping() sc.LimbsMap {
+	return tb.mapping
 }
 
 // Build attempts to construct a trace for a given schema, producing errors if

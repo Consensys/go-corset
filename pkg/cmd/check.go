@@ -24,6 +24,7 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
@@ -81,6 +82,7 @@ func runCheckCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	cfg.padding.Right = GetUint(cmd, "padding")
 	cfg.report = GetFlag(cmd, "report")
 	cfg.reportPadding = GetUint(cmd, "report-context")
+	cfg.reportLimbs = GetFlag(cmd, "report-limbs")
 	cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 	cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
 	cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
@@ -158,6 +160,8 @@ type checkConfig struct {
 	reportCellWidth uint
 	// Specifies the width of a column title to show.
 	reportTitleWidth uint
+	// Specifies whether or not to show raw limbs
+	reportLimbs bool
 	// Enable ansi escape codes in reports
 	ansiEscapes bool
 }
@@ -237,7 +241,7 @@ func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.Sch
 				stats = util.NewPerfStats()
 				// Check constraints
 				if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
-					reportFailures(ir, errs, trace, cfg)
+					reportFailures(ir, errs, trace, builder.Mapping(), cfg)
 					return false
 				}
 
@@ -250,8 +254,13 @@ func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.Sch
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
-func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], cfg checkConfig) {
-	errs := make([]error, len(failures))
+func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], mapping schema.LimbsMap,
+	cfg checkConfig) {
+	//
+	var (
+		errs = make([]error, len(failures))
+	)
+	//
 	for i, f := range failures {
 		errs[i] = errors.New(f.Message())
 	}
@@ -260,41 +269,45 @@ func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace 
 	// Second, produce report (if requested)
 	if cfg.report {
 		for _, f := range failures {
-			reportFailure(f, trace, cfg)
+			reportFailure(f, trace, mapping, cfg)
 		}
 	}
 }
 
 // Print a human-readable report detailing the given failure
-func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], cfg checkConfig) {
+func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], mapping schema.LimbsMap,
+	cfg checkConfig) {
+	//
 	if f, ok := failure.(*vanishing.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*ranged.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing range constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*lookup.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing lookup constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*constraint.AssertionFailure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing assertion %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*constraint.InternalFailure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("%s in %s:\n", f.Error, f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	}
 }
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
-func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F], cfg checkConfig) {
+func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F],
+	mapping schema.LimbsMap, cfg checkConfig) {
 	// Construct trace window
-	window := view.NewBuilder[F](*cfg.corsetSourceMap).
-		Padding(cfg.reportPadding).
+	window := view.NewBuilder[F](mapping).
+		WithPadding(cfg.reportPadding).
+		WithLimbs(cfg.reportLimbs).
 		Build(trace)
 	// Focus window on those cells relevant to the failure
 	window = window.Filter(view.FilterForCells(*cells))
@@ -333,6 +346,7 @@ func init() {
 	rootCmd.AddCommand(checkCmd)
 	checkCmd.Flags().Bool("report", false, "report details of failure for debugging")
 	checkCmd.Flags().Uint("report-context", 2, "specify number of rows to show eitherside of failure in report")
+	checkCmd.Flags().Bool("report-limbs", false, "specify whether to show register limbs in report")
 	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in report")
 	checkCmd.Flags().Uint("report-titlewidth", 40, "specify maximum width of column titles in report")
 	//

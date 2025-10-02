@@ -13,9 +13,7 @@
 package view
 
 import (
-	"fmt"
-
-	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -33,23 +31,36 @@ type Builder[F field.Element[F]] struct {
 	cells util.Option[CellRefSet]
 	// Amount of additional rows to show either side of the focus.
 	padding uint
-	// Source map describes the overall structure of the schema, including
-	// elements related to display.  This additionally encodes a mapping from
-	// source-level columns to their limbs.
-	srcmap corset.SourceMap
+	// Limbs indicates whether or not to show the raw limbs, or the combined
+	// source-level register.
+	limbs bool
+	// Limbs mapping identifies how source-level registers are mapped into
+	// limbs.  This is necessary in order to reconstruct source-level column
+	// data from the trace.
+	mapping schema.LimbsMap
 }
 
 // NewBuilder constructs a default builder.
-func NewBuilder[F field.Element[F]](srcmap corset.SourceMap) Builder[F] {
-	return Builder[F]{util.None[CellRefSet](), 0, srcmap}
+func NewBuilder[F field.Element[F]](mapping schema.LimbsMap) Builder[F] {
+	return Builder[F]{util.None[CellRefSet](), 0, false, mapping}
 }
 
-// Padding sets the amount of additional rows to show either side of the viewing
+// WithPadding sets the amount of additional rows to show either side of the viewing
 // window.
-func (p Builder[F]) Padding(padding uint) Builder[F] {
+func (p Builder[F]) WithPadding(padding uint) Builder[F] {
 	var builder = p
 	//
 	builder.padding = padding
+	//
+	return builder
+}
+
+// WithLimbs determines whether to show columns as raw limbs, or as combined
+// source-level registers.
+func (p Builder[F]) WithLimbs(limbs bool) Builder[F] {
+	var builder = p
+	//
+	builder.limbs = limbs
 	//
 	return builder
 }
@@ -59,29 +70,15 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 	var windows = make([]moduleView[F], trace.Width())
 	//
 	for i := range trace.Width() {
-		srcModule := findSourceModule(trace.Module(i).Name(), p.srcmap.Root)
 		// construct initial module view
 		windows[i] = moduleView[F]{
 			id:      i,
 			padding: p.padding,
+			limbs:   p.limbs,
 			trace:   trace.Module(i),
-			srcmap:  srcModule,
+			mapping: p.mapping.Module(i),
 		}
 	}
 	//
 	return &traceView[F]{windows}
-}
-
-func findSourceModule(name string, mod corset.SourceModule) corset.SourceModule {
-	if name == "" {
-		return mod
-	}
-	//
-	for _, m := range mod.Submodules {
-		if m.Name == name {
-			return m
-		}
-	}
-	//
-	panic(fmt.Sprintf("unknown module \"%s\"", name))
 }

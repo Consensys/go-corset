@@ -14,11 +14,12 @@ package view
 
 import (
 	"fmt"
+	"math/big"
 
-	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/trace"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/math"
 )
 
 // ModuleView abstracts an underlying trace module.  For example, it manages the
@@ -51,11 +52,15 @@ type moduleView[F field.Element[F]] struct {
 	// Module identifier
 	id uint
 	// Trace provides the raw data for this view
-	trace trace.Module[F]
-	// Srcmap provides relevant display information.
-	srcmap corset.SourceModule
+	trace tr.Module[F]
+	// Mapping describes how source-level registers are mapped into columns
+	// (i.e. limbs) as found in the trace.
+	mapping sc.RegisterLimbsMap
 	// Padding to use
 	padding uint
+	// Limbs indicates whether or not to show the raw limbs, or the combined
+	// source-level register.
+	limbs bool
 	// Filter determines which bits of this view are shown
 	filter ColumnFilter
 	// Data provides the data.  If this is nil, then it needs to be recomputed.
@@ -111,7 +116,7 @@ func (p *moduleView[F]) Width() uint {
 
 func (p *moduleView[F]) get() *moduleData {
 	if p.data == nil {
-		p.data = buildWindowData(p.filter, p.padding, p.trace, p.srcmap)
+		p.data = renderModule(p.filter, p.padding, p.limbs, p.trace, p.mapping)
 	}
 	//
 	return p.data
@@ -167,10 +172,10 @@ func (p *moduleData) Width() uint {
 // ============================================================================
 
 type columnData struct {
-	// column identifier
-	id uint
 	// column name
 	name string
+	// limbs making up this column
+	limbs []sc.RegisterId
 	// rendered column data
 	data []string
 }
@@ -179,33 +184,47 @@ type columnData struct {
 // Helpers
 // ============================================================================
 
-func buildWindowData[F field.Element[F]](filter ColumnFilter, padding uint, trace tr.Module[F],
-	srcmap corset.SourceModule) *moduleData {
+func renderModule[F field.Element[F]](filter ColumnFilter, padding uint, limbs bool, trace tr.Module[F],
+	mapping sc.RegisterLimbsMap) *moduleData {
 	//
 	var (
 		first, last = boundWindowRows(trace.Width(), trace.Height(), filter, padding)
 		rows        = buildWindowRows(first, last)
-		cols        = buildWindowColumns(first, last, filter, trace, srcmap)
-		highlights  = buildWindowHighlights(first, last, cols, filter)
+		cols        []columnData
 	)
-
+	// Render as limbs or as registers directly
+	if limbs {
+		cols = renderColumnsFromLimbs(first, last, filter, trace, mapping)
+	} else {
+		cols = renderColumnsFromRegisters(first, last, filter, trace, mapping)
+	}
+	// Determine window highlights
+	highlights := buildWindowHighlights(first, last, cols, filter)
+	//
 	return &moduleData{rows, cols, highlights}
 }
 
-func buildWindowColumns[F field.Element[F]](first, last uint, filter ColumnFilter,
-	trace tr.Module[F], srcmap corset.SourceModule) []columnData {
+// Render columns as registers directly by reconstructing their values from that
+// held in the trace for their limbs.
+func renderColumnsFromRegisters[F field.Element[F]](first, last uint, filter ColumnFilter,
+	trace tr.Module[F], mapping sc.RegisterLimbsMap) []columnData {
 	//
 	var data []columnData
-	//
-	for _, c := range srcmap.Columns {
-		// Dig out the column id
-		cid := c.Register.Column().Unwrap()
+	// Iterate source-level registers
+	for i, reg := range mapping.Registers() {
+		// construct source-level register id
+		rid := sc.NewRegisterId(uint(i))
+		// determine corresponding limbs
+		limbs := mapping.LimbIds(rid)
 		//
-		if filter.Column(c.Register.Column().Unwrap()) != nil {
+		if columnIncluded(filter, limbs) {
+			//
 			data = append(data, columnData{
-				id:   cid,
-				name: c.Name,
-				data: buildWindowColumnData(first, last, trace.Column(cid)),
+				limbs: limbs,
+				// Determine column name
+				name: reg.Name,
+				// Render column data from all limbs
+				data: renderColumnData(first, last, limbs, mapping, trace),
 			})
 		}
 	}
@@ -213,16 +232,86 @@ func buildWindowColumns[F field.Element[F]](first, last uint, filter ColumnFilte
 	return data
 }
 
-func buildWindowColumnData[F field.Element[F]](first, last uint, column tr.Column[F]) []string {
-	var data = make([]string, last-first)
+// Render columns as register limbs by taking their values from the trace directly.
+func renderColumnsFromLimbs[F field.Element[F]](first, last uint, filter ColumnFilter,
+	trace tr.Module[F], mapping sc.RegisterLimbsMap) []columnData {
 	//
-	for i := first; i < last; i++ {
-		// FIXME: this is a very limited conversion at this time.
-		ith := column.Data().Get(i)
-		data[i-first] = ith.Text(16)
+	var data []columnData
+	// Iterate source-level registers
+	for i := range mapping.Registers() {
+		// construct source-level register id
+		rid := sc.NewRegisterId(uint(i))
+		// iterate register limbs
+		for _, lid := range mapping.LimbIds(rid) {
+			//
+			limbs := []sc.LimbId{lid}
+			//
+			if columnIncluded(filter, limbs) {
+				//
+				data = append(data, columnData{
+					limbs: limbs,
+					// Determine column name
+					name: mapping.Limb(lid).Name,
+					// Render column data only from this limb
+					data: renderColumnData(first, last, limbs, mapping, trace),
+				})
+			}
+		}
 	}
 	//
 	return data
+}
+
+// Check whether the given filter includes any if the limbs (or not).
+func columnIncluded(filter ColumnFilter, limbs []sc.RegisterId) bool {
+	for _, lid := range limbs {
+		if filter.Column(lid.Unwrap()) != nil {
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// Render data for a given source-level column.  This requires combining
+// the actual column data for all limbs back together (i.e. undoing register
+// splitting).
+func renderColumnData[F field.Element[F]](first, last uint, limbs []sc.RegisterId, mapping sc.RegisterLimbsMap,
+	trace tr.Module[F]) []string {
+	//
+	var data = make([]string, last-first)
+	//
+	for i := first; i < last; i++ {
+		data[i-first] = renderColumnDataRow(i, limbs, mapping, trace)
+	}
+	//
+	return data
+}
+
+// Render an individual row in a given source-level column.
+func renderColumnDataRow[F field.Element[F]](row uint, limbs []sc.RegisterId, mapping sc.RegisterLimbsMap,
+	trace tr.Module[F]) string {
+	var (
+		bits  = uint(0)
+		value big.Int
+	)
+	//
+	for _, lid := range limbs {
+		var (
+			data    = trace.Column(lid.Unwrap()).Data()
+			element = data.Get(row)
+			limb    = mapping.Limb(lid)
+			val     big.Int
+		)
+		// Construct value from field element
+		val.SetBytes(element.Bytes())
+		// Shift and add
+		value.Add(&value, val.Mul(&val, math.Pow2(bits)))
+		//
+		bits += limb.Width
+	}
+	// FIXME: for now, text is always rendered in hex.
+	return value.Text(16)
 }
 
 func buildWindowRows(start, end uint) []string {
@@ -244,7 +333,7 @@ func buildWindowHighlights(start, end uint, cols []columnData, filter ColumnFilt
 	//
 	for row := start; row < end; row++ {
 		for c, col := range cols {
-			if f := filter.Column(col.id); f != nil && f.Cell(row) {
+			if cellIncluded(row, filter, col.limbs) {
 				r := row - start
 				rows[(r*ncols)+uint(c)] = true
 			}
@@ -252,6 +341,17 @@ func buildWindowHighlights(start, end uint, cols []columnData, filter ColumnFilt
 	}
 	//
 	return rows
+}
+
+// Check whether the given filter includes any if the limbs (or not).
+func cellIncluded(row uint, filter ColumnFilter, limbs []sc.RegisterId) bool {
+	for _, lid := range limbs {
+		if f := filter.Column(lid.Unwrap()); f != nil && f.Cell(row) {
+			return true
+		}
+	}
+	//
+	return false
 }
 
 func boundWindowRows(width, height uint, filter ColumnFilter, padding uint) (first, last uint) {

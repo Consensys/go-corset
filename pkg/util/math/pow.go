@@ -35,7 +35,7 @@ func PowUint64(base uint64, exp uint64) uint64 {
 	return result
 }
 
-// Pow2 computes two reaised to a given power (i.e. 2^n)
+// Pow2 computes two raised to a given power (i.e. 2^n)
 func Pow2(n uint) *big.Int {
 	var m = big.NewInt(2)
 	//
