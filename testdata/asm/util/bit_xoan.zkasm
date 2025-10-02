@@ -1,13 +1,12 @@
-;; Intermediate functions calls to split a u256 down to u1s used for AND and OR
+;; Bit_xoan is doing intermediate functions calls to split a u256 down to u1
+;; used for Xor, Or, And, Not
 
 const BIT_XOR = 0
 const BIT_OR  = 1
 const BIT_AND = 2
 const BIT_NOT = 3
 
-;; rm padding once xor done
-
-fn bit_xoan_u256(INST=2 u3, ARG_1 u256, ARG_2 u256) -> (RES u256) {
+fn bit_xoan_u256(INST u2, ARG_1 u256, ARG_2 u256) -> (RES u256) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u128
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -17,7 +16,7 @@ fn bit_xoan_u256(INST=2 u3, ARG_1 u256, ARG_2 u256) -> (RES u256) {
   return
 }
 
-fn bit_xoan_u128(INST=2 u3, ARG_1 u128, ARG_2 u128) -> (RES u128) {
+fn bit_xoan_u128(INST u2, ARG_1 u128, ARG_2 u128) -> (RES u128) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u64
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -27,7 +26,7 @@ fn bit_xoan_u128(INST=2 u3, ARG_1 u128, ARG_2 u128) -> (RES u128) {
   return
 }
 
-fn bit_xoan_u64(INST=2 u3, ARG_1 u64, ARG_2 u64) -> (RES u64) {
+fn bit_xoan_u64(INST u2, ARG_1 u64, ARG_2 u64) -> (RES u64) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u32
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -37,7 +36,7 @@ fn bit_xoan_u64(INST=2 u3, ARG_1 u64, ARG_2 u64) -> (RES u64) {
   return
 }
 
-fn bit_xoan_u32(INST=2 u3, ARG_1 u32, ARG_2 u32) -> (RES u32) {
+fn bit_xoan_u32(INST u2, ARG_1 u32, ARG_2 u32) -> (RES u32) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u16
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -47,7 +46,7 @@ fn bit_xoan_u32(INST=2 u3, ARG_1 u32, ARG_2 u32) -> (RES u32) {
   return
 }
 
-fn bit_xoan_u16(INST=2 u3, ARG_1 u16, ARG_2 u16) -> (RES u16) {
+fn bit_xoan_u16(INST u2, ARG_1 u16, ARG_2 u16) -> (RES u16) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u8
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
@@ -57,7 +56,7 @@ fn bit_xoan_u16(INST=2 u3, ARG_1 u16, ARG_2 u16) -> (RES u16) {
   return
 }
 
-fn bit_xoan_u8(INST=2 u3, ARG_1 u8, ARG_2 u8) -> (RES u8) {
+fn bit_xoan_u8(INST u2, ARG_1 u8, ARG_2 u8) -> (RES u8) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u4
   var limb1 u8
   arg1_hi, arg1_lo = ARG_1
@@ -68,7 +67,7 @@ fn bit_xoan_u8(INST=2 u3, ARG_1 u8, ARG_2 u8) -> (RES u8) {
   return
 }
 
-fn bit_xoan_u4(INST=2 u3, ARG_1 u4, ARG_2 u4) -> (RES u4) {
+fn bit_xoan_u4(INST u2, ARG_1 u4, ARG_2 u4) -> (RES u4) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u2
   var limb1 u4
   arg1_hi, arg1_lo = ARG_1
@@ -79,23 +78,40 @@ fn bit_xoan_u4(INST=2 u3, ARG_1 u4, ARG_2 u4) -> (RES u4) {
   return
 }
 
-fn bit_xoan_u2(INST=2 u3, ARG_1 u2, ARG_2 u2) -> (RES u2) {
+fn bit_xoan_u2(INST u2, ARG_1 u2, ARG_2 u2) -> (RES u2) {
     var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo, c0 u1
     arg1_hi, arg1_lo = ARG_1
     arg2_hi, arg2_lo = ARG_2
 
-    if INST == BIT_AND goto and_bitwise_call
-    if INST == BIT_OR  goto or_bitwise_call
+    if INST == BIT_XOR  goto xor_call
+    if INST == BIT_OR   goto or_call
+    if INST == BIT_AND  goto and_call
+    if INST == BIT_NOT  goto not_call
     fail
-and_bitwise_call:
-    res_hi = arg1_hi * arg2_hi
-    res_lo = arg1_lo * arg2_lo
-    RES =  ( res_hi * 2 ) + res_lo
+
+xor_call:
+    var sum_arg_hi, sum_arg_lo u2
+    sum_arg_hi = ( arg1_hi + arg2_hi )
+    sum_arg_lo = ( arg1_lo + arg2_lo )
+    res_hi = sum_arg_hi == 1 ? 1 : 0
+    res_lo = sum_arg_lo == 1 ? 1 : 0
+    RES = ( res_hi * 2 ) + res_lo
     return
-or_bitwise_call:
+or_call:
     var c0_lo, c1_lo, c0_hi, c1_hi u1
     c0_hi, c1_hi, res_hi = ( arg1_hi + arg2_hi ) - ( arg1_hi * arg2_hi )
     c0_lo, c1_lo, res_lo = ( arg1_lo + arg2_lo ) - ( arg1_lo * arg2_lo )
     RES =  ( res_hi * 2 ) + res_lo
+    return
+and_call:
+    res_hi = arg1_hi * arg2_hi
+    res_lo = arg1_lo * arg2_lo
+    RES =  ( res_hi * 2 ) + res_lo
+    return
+not_call:
+    ;; we only use ARGUMENT_1
+    res_hi = arg1_hi == 1 ? 0 : 1
+    res_lo = arg1_lo == 1 ? 0 : 1
+    RES = ( res_hi * 2 ) + res_lo
     return
 }
