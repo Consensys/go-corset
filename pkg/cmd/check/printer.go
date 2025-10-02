@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -56,7 +57,7 @@ func (p *Printer) MaxTitleWidth(width uint) *Printer {
 }
 
 // Print a given trace using the configured printer
-func (p *Printer) Print(trace TraceWindow) {
+func (p *Printer) Print(trace view.ModuleView) {
 	var height = trace.Height()
 	// Construct table
 	tp := termio.NewTablePrinter(1+height, 1+trace.Width())

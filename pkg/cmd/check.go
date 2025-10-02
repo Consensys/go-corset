@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/check"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
@@ -293,14 +294,24 @@ func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], cf
 // Print a human-readable report detailing the given failure with a vanishing constraint.
 func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F], cfg checkConfig) {
 	// Construct trace window
-	window := check.NewTraceWindow(cells, trace, cfg.reportPadding, cfg.corsetSourceMap)
-	// Construct & configure printer
-	tp := check.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
-	// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
-	tp = tp.AnsiEscapes(cfg.ansiEscapes)
-	// Print out report
-	tp.Print(window)
-	fmt.Println()
+	window := view.NewBuilder[F](*cfg.corsetSourceMap).
+		Padding(cfg.reportPadding).
+		Build(trace)
+	// Print all windows
+	for i := range window.Width() {
+		ith := window.Module(i)
+		// Construct & configure printer
+		tp := check.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
+		// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
+		tp = tp.AnsiEscapes(cfg.ansiEscapes)
+		// Print out module name
+		if ith.Name() != "" {
+			fmt.Printf("%s:\n", ith.Name())
+		}
+		// Print out report
+		tp.Print(window.Module(i))
+		fmt.Println()
+	}
 }
 
 func reportErrors(ir string, errs []error) {
