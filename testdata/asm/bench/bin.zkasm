@@ -1,32 +1,33 @@
 ;; BIN module
 include "evm.zkasm"
-include "../unit/and.zkasm"
+include "../util/bit_xoan.zkasm"
 include "../util/byte.zkasm"
 
 fn bin(INST=0x16 u8, ARGUMENT_1 u256, ARGUMENT_2 u256) -> (RES u256) {
 
    ;;if INST==EVM_INST_SIGNEXTEND goto signextend_call
-   ;;if INST==EVM_INST_OR         goto or_call
    ;;if INST==EVM_INST_XOR        goto xor_call
    ;;if INST==EVM_INST_NOT        goto not_call
 
-   if INST==EVM_INST_AND        goto and_call
    if INST==EVM_INST_BYTE       goto byte_call
+   ;;if INST==EVM_INST_OR         goto or_call
+   if INST==EVM_INST_AND        goto and_call
+   var inst u3
 
 and_call:
-   RES = and(ARGUMENT_1, ARGUMENT_2)
+   inst = 2
+   RES = bit_xoan_u256(inst, ARGUMENT_1, ARGUMENT_2)
 ;;or_call:
-   ;;
+   ;;inst = 1
+   ;;RES = bit_xoan_u256(inst, ARGUMENT_1, ARGUMENT_2)
 ;;xor_call:
    ;;
 ;;not_call:
    ;;
 byte_call:
-   ;; byte256 takes the second argument as a u5
    var n u5
-   var c1 u250
-   var c0 u1
-   c0, c1, n = ARGUMENT_2
+   var c0 u251
+   c0, n = ARGUMENT_2
    ;; byte256 output is a u8, we cast it to u256
    var tmp_res u8
    tmp_res = byte256(ARGUMENT_1, n)

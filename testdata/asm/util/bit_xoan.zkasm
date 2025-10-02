@@ -5,6 +5,8 @@ const BIT_OR  = 1
 const BIT_AND = 2
 const BIT_NOT = 3
 
+;; rm padding once xor done
+
 fn bit_xoan_u256(INST=2 u3, ARG_1 u256, ARG_2 u256) -> (RES u256) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u128
   arg1_hi, arg1_lo = ARG_1
