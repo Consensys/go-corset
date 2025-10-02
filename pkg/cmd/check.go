@@ -21,7 +21,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/cmd/check"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
@@ -297,15 +296,17 @@ func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef]
 	window := view.NewBuilder[F](*cfg.corsetSourceMap).
 		Padding(cfg.reportPadding).
 		Build(trace)
+	// Focus window on those cells relevant to the failure
+	window = window.Filter(view.FilterForCells(*cells))
 	// Print all windows
 	for i := range window.Width() {
 		ith := window.Module(i)
 		// Construct & configure printer
-		tp := check.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
+		tp := view.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
 		// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
 		tp = tp.AnsiEscapes(cfg.ansiEscapes)
 		// Print out module name
-		if ith.Name() != "" {
+		if window.Width() > 1 && ith.Name() != "" {
 			fmt.Printf("%s:\n", ith.Name())
 		}
 		// Print out report

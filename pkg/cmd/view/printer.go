@@ -10,13 +10,12 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package check
+package view
 
 import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -57,7 +56,7 @@ func (p *Printer) MaxTitleWidth(width uint) *Printer {
 }
 
 // Print a given trace using the configured printer
-func (p *Printer) Print(trace view.ModuleView) {
+func (p *Printer) Print(trace ModuleView) {
 	var height = trace.Height()
 	// Construct table
 	tp := termio.NewTablePrinter(1+height, 1+trace.Width())

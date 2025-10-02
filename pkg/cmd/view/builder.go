@@ -62,8 +62,10 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 		srcModule := findSourceModule(trace.Module(i).Name(), p.srcmap.Root)
 		// construct initial module view
 		windows[i] = moduleView[F]{
-			trace:  trace.Module(i),
-			srcmap: srcModule,
+			id:      i,
+			padding: p.padding,
+			trace:   trace.Module(i),
+			srcmap:  srcModule,
 		}
 	}
 	//

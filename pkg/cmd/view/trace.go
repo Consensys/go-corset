@@ -18,10 +18,12 @@ import "github.com/consensys/go-corset/pkg/util/field"
 // all modules found in a trace; rather it may include some subset matching a
 // predicate, or only those which are publically visible, etc.
 type TraceView interface {
-	// Determine number of modules in this view
-	Width() uint
+	// Filter this view to produce a more focused view.
+	Filter(Filter) TraceView
 	// Access ith module view
 	Module(uint) ModuleView
+	// Determine number of modules in this view
+	Width() uint
 }
 
 // ============================================================================
@@ -30,6 +32,19 @@ type TraceView interface {
 
 type traceView[F field.Element[F]] struct {
 	modules []moduleView[F]
+}
+
+// Filter implementation for TraceView interface
+func (p *traceView[F]) Filter(filter Filter) TraceView {
+	var modules []moduleView[F]
+	//
+	for i, m := range p.modules {
+		if cf := filter.Module(uint(i)); cf != nil {
+			modules = append(modules, m.Filter(cf))
+		}
+	}
+	//
+	return &traceView[F]{modules}
 }
 
 // Module implementation for TraceView interface

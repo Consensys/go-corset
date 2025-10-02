@@ -48,10 +48,16 @@ type ModuleView interface {
 // ============================================================================
 
 type moduleView[F field.Element[F]] struct {
+	// Module identifier
+	id uint
 	// Trace provides the raw data for this view
 	trace trace.Module[F]
 	// Srcmap provides relevant display information.
 	srcmap corset.SourceModule
+	// Padding to use
+	padding uint
+	// Filter determines which bits of this view are shown
+	filter ColumnFilter
 	// Data provides the data.  If this is nil, then it needs to be recomputed.
 	data *moduleData
 }
@@ -64,6 +70,18 @@ func (p *moduleView[F]) CellAt(col uint, row uint) string {
 // Column returns the title of the given column.
 func (p *moduleView[F]) Column(col uint) string {
 	return p.get().Column(col)
+}
+
+// Filter columns in this module
+func (p *moduleView[F]) Filter(filter ColumnFilter) moduleView[F] {
+	var q = *p
+	// NOTE: technically the following should conjunct the two filters together.
+	// However, for now, we don't bother.
+	q.filter = filter
+	// Reset data to force it to be recomputed.
+	q.data = nil
+	//
+	return q
 }
 
 // Height returns the number of rows in this table.
@@ -93,7 +111,7 @@ func (p *moduleView[F]) Width() uint {
 
 func (p *moduleView[F]) get() *moduleData {
 	if p.data == nil {
-		p.data = buildWindowData(p.trace, p.srcmap)
+		p.data = buildWindowData(p.filter, p.padding, p.trace, p.srcmap)
 	}
 	//
 	return p.data
@@ -149,7 +167,11 @@ func (p *moduleData) Width() uint {
 // ============================================================================
 
 type columnData struct {
+	// column identifier
+	id uint
+	// column name
 	name string
+	// rendered column data
 	data []string
 }
 
@@ -157,38 +179,47 @@ type columnData struct {
 // Helpers
 // ============================================================================
 
-func buildWindowData[F field.Element[F]](trace tr.Module[F], srcmap corset.SourceModule) *moduleData {
+func buildWindowData[F field.Element[F]](filter ColumnFilter, padding uint, trace tr.Module[F],
+	srcmap corset.SourceModule) *moduleData {
+	//
 	var (
-		rows = buildWindowRows(0, trace.Height())
-		cols = buildWindowColumns(trace, srcmap)
+		first, last = boundWindowRows(trace.Width(), trace.Height(), filter, padding)
+		rows        = buildWindowRows(first, last)
+		cols        = buildWindowColumns(first, last, filter, trace, srcmap)
+		highlights  = buildWindowHighlights(first, last, cols, filter)
 	)
 
-	return &moduleData{rows, cols, make([]bool, len(rows)*len(cols))}
+	return &moduleData{rows, cols, highlights}
 }
 
-func buildWindowColumns[F field.Element[F]](trace tr.Module[F], srcmap corset.SourceModule) []columnData {
-	var data = make([]columnData, len(srcmap.Columns))
+func buildWindowColumns[F field.Element[F]](first, last uint, filter ColumnFilter,
+	trace tr.Module[F], srcmap corset.SourceModule) []columnData {
 	//
-	for i, c := range srcmap.Columns {
+	var data []columnData
+	//
+	for _, c := range srcmap.Columns {
 		// Dig out the column id
 		cid := c.Register.Column().Unwrap()
 		//
-		data[i] = columnData{
-			name: c.Name,
-			data: buildWindowColumnData(trace.Column(cid)),
+		if filter.Column(c.Register.Column().Unwrap()) != nil {
+			data = append(data, columnData{
+				id:   cid,
+				name: c.Name,
+				data: buildWindowColumnData(first, last, trace.Column(cid)),
+			})
 		}
 	}
 	//
 	return data
 }
 
-func buildWindowColumnData[F field.Element[F]](column tr.Column[F]) []string {
-	var data = make([]string, column.Data().Len())
+func buildWindowColumnData[F field.Element[F]](first, last uint, column tr.Column[F]) []string {
+	var data = make([]string, last-first)
 	//
-	for i := range column.Data().Len() {
+	for i := first; i < last; i++ {
 		// FIXME: this is a very limited conversion at this time.
 		ith := column.Data().Get(i)
-		data[i] = ith.Text(16)
+		data[i-first] = ith.Text(16)
 	}
 	//
 	return data
@@ -202,4 +233,60 @@ func buildWindowRows(start, end uint) []string {
 	}
 
 	return rows
+}
+
+func buildWindowHighlights(start, end uint, cols []columnData, filter ColumnFilter) []bool {
+	var (
+		ncols = uint(len(cols))
+		nrows = end - start
+		rows  = make([]bool, ncols*nrows)
+	)
+	//
+	for row := start; row < end; row++ {
+		for c, col := range cols {
+			if f := filter.Column(col.id); f != nil && f.Cell(row) {
+				r := row - start
+				rows[(r*ncols)+uint(c)] = true
+			}
+		}
+	}
+	//
+	return rows
+}
+
+func boundWindowRows(width, height uint, filter ColumnFilter, padding uint) (first, last uint) {
+	var (
+		m = minWindowRow(width, height, filter) - int(padding)
+		n = maxWindowRow(width, height, filter) + 1 + int(padding)
+	)
+	//
+	return uint(max(m, 0)), min(uint(n), height)
+}
+
+func minWindowRow(width, height uint, filter ColumnFilter) int {
+	// Find column with least cell in the filter
+	for i := range height {
+		for j := range width {
+			if f := filter.Column(j); f != nil && f.Cell(i) {
+				return int(i)
+			}
+		}
+	}
+	// Suggests an empty filter
+	panic("unreachable")
+}
+
+func maxWindowRow(width, height uint, filter ColumnFilter) int {
+	// Find column with greatest cell in the filter
+	for i := height; i > 0; {
+		i = i - 1
+		//
+		for j := range width {
+			if f := filter.Column(j); f != nil && f.Cell(i) {
+				return int(i)
+			}
+		}
+	}
+	// Suggests an empty filter
+	panic("unreachable")
 }
