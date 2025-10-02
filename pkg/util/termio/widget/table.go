@@ -13,6 +13,7 @@
 package widget
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/consensys/go-corset/pkg/util/termio"
@@ -22,6 +23,8 @@ import (
 type TableSource interface {
 	// Width returns the width of a given column.
 	ColumnWidth(col uint) uint
+	// Get the width and height of this table
+	Dimensions() (uint, uint)
 	// Get content of given cell in table.
 	CellAt(col, row uint) termio.FormattedText
 }
@@ -64,5 +67,30 @@ func (p *Table) Render(canvas termio.Canvas) {
 		}
 		//
 		xpos += colWidth + 1
+	}
+}
+
+// Print the table.
+func (p *Table) Print() {
+	width, height := p.source.Dimensions()
+	//
+	for row := range height {
+		for col := range width {
+			var (
+				jth       = p.source.CellAt(col, row)
+				jth_width = p.source.ColumnWidth(col)
+				text      string
+			)
+			// Clip anything longer than given width
+			jth = jth.Clip(0, jth_width)
+			// Pad out anything shorter than given width
+			jth = jth.Pad(jth_width)
+			// Print
+			text = string(jth.Bytes())
+			//
+			fmt.Printf(" %s |", text)
+		}
+
+		fmt.Println()
 	}
 }

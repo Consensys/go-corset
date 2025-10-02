@@ -26,8 +26,8 @@ type FormattedTable struct {
 	rows [][]FormattedText
 }
 
-// NewTablePrinter constructs a new table with given dimensions.
-func NewTablePrinter(width uint, height uint) *FormattedTable {
+// NewFormattedTable constructs a new table with given dimensions.
+func NewFormattedTable(width uint, height uint) *FormattedTable {
 	widths := make([]uint, width)
 	rows := make([][]FormattedText, height)
 	// Construct the table
@@ -123,7 +123,7 @@ func (p *FormattedTable) Print(escapes bool) {
 }
 
 // ============================================================================
-// Table Sorted
+// Table Sorter
 // ============================================================================
 
 // TableSorter represents a mechanism for sorting tables in some way.

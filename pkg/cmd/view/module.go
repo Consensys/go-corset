@@ -20,6 +20,8 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/util/termio"
+	"github.com/consensys/go-corset/pkg/util/termio/widget"
 )
 
 // ModuleView abstracts an underlying trace module.  For example, it manages the
@@ -28,20 +30,11 @@ import (
 // whether a given cell is "active" or not.  Specifically, cells in a
 // perspective are not active when that perspective is not active.
 type ModuleView interface {
-	// CellAt returns the contents of a specific cell in this table.
-	CellAt(col uint, row uint) string
-	// Column returns the title of the given column.
-	Column(uint) string
-	// Height returns the number of rows in this table.
-	Height() uint
+	widget.TableSource
 	// Highlighted determines whether a given cell should be highlighted or not.
 	Highlighted(col uint, row uint) bool
 	// Name returns the name of the given module
 	Name() string
-	// Rowe returns the title of the given row
-	Row(uint) string
-	// Width returns the number of columns in this table.
-	Width() uint
 }
 
 // ============================================================================
@@ -68,13 +61,16 @@ type moduleView[F field.Element[F]] struct {
 }
 
 // CellAt returns the contents of a specific cell in this table.
-func (p *moduleView[F]) CellAt(col uint, row uint) string {
+func (p *moduleView[F]) CellAt(col uint, row uint) termio.FormattedText {
 	return p.get().CellAt(col, row)
 }
 
-// Column returns the title of the given column.
-func (p *moduleView[F]) Column(col uint) string {
-	return p.get().Column(col)
+func (p *moduleView[F]) ColumnWidth(col uint) uint {
+	return p.get().ColumnWidth(col)
+}
+
+func (p *moduleView[F]) Dimensions() (uint, uint) {
+	return p.get().Dimensions()
 }
 
 // Filter columns in this module
@@ -87,11 +83,6 @@ func (p *moduleView[F]) Filter(filter ColumnFilter) moduleView[F] {
 	q.data = nil
 	//
 	return q
-}
-
-// Height returns the number of rows in this table.
-func (p *moduleView[F]) Height() uint {
-	return p.get().Height()
 }
 
 // Highlighted determines whether a given cell should be highlighted or not.
@@ -107,11 +98,6 @@ func (p *moduleView[F]) Name() string {
 // Rowe returns the title of the given row
 func (p *moduleView[F]) Row(row uint) string {
 	return p.get().Row(row)
-}
-
-// Width returns the number of columns in this table.
-func (p *moduleView[F]) Width() uint {
-	return p.get().Width()
 }
 
 func (p *moduleView[F]) get() *moduleData {
@@ -135,16 +121,6 @@ type moduleData struct {
 	highlights []bool
 }
 
-// CellAt returns the contents of a specific cell in this table.
-func (p *moduleData) CellAt(col uint, row uint) string {
-	return p.columns[col].data[row]
-}
-
-// Column returns the title of the given column.
-func (p *moduleData) Column(col uint) string {
-	return p.columns[col].name
-}
-
 // Height returns the number of rows in this table.
 func (p *moduleData) Height() uint {
 	return uint(len(p.rows))
@@ -165,6 +141,34 @@ func (p *moduleData) Row(row uint) string {
 // Width returns the number of columns in this table.
 func (p *moduleData) Width() uint {
 	return uint(len(p.columns))
+}
+
+// TableSource
+
+// CellAt returns the contents of a specific cell in this table.
+func (p *moduleData) CellAt(col uint, row uint) termio.FormattedText {
+	if col == 0 && row == 0 {
+		return termio.NewText("")
+	} else if col == 0 {
+		return termio.NewText(p.columns[row-1].name)
+	} else if row == 0 {
+		return termio.NewText(p.rows[col-1])
+	}
+	// switch col <-> row
+	var text = p.columns[row-1].data[col-1]
+	//
+	return termio.NewText(text)
+}
+
+// ColumnWidth implementation for TableSource inteface
+func (p *moduleData) ColumnWidth(col uint) uint {
+	// FIXME!!
+	return 10
+}
+
+// Dimensions implementation for TableSource inteface
+func (p *moduleData) Dimensions() (uint, uint) {
+	return uint(len(p.rows)) + 1, uint(len(p.columns)) + 1
 }
 
 // ============================================================================

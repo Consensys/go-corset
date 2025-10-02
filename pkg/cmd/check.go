@@ -39,6 +39,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/termio/widget"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -309,21 +310,23 @@ func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef]
 		WithPadding(cfg.reportPadding).
 		WithLimbs(cfg.reportLimbs).
 		Build(trace)
+	// TODO:
+	// tp := view.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
+	// tp = tp.AnsiEscapes(cfg.ansiEscapes)
+	//
 	// Focus window on those cells relevant to the failure
 	window = window.Filter(view.FilterForCells(*cells))
 	// Print all windows
 	for i := range window.Width() {
 		ith := window.Module(i)
 		// Construct & configure printer
-		tp := view.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
-		// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
-		tp = tp.AnsiEscapes(cfg.ansiEscapes)
+		tp := widget.NewTable(window.Module(i))
 		// Print out module name
 		if window.Width() > 1 && ith.Name() != "" {
 			fmt.Printf("%s:\n", ith.Name())
 		}
 		// Print out report
-		tp.Print(window.Module(i))
+		tp.Print()
 		fmt.Println()
 	}
 }

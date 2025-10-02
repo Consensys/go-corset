@@ -289,6 +289,12 @@ func (p *Inspector[F]) matchQuery(query *Query[F]) termio.FormattedText {
 // TableSource
 // ==================================================================
 
+// Dimensions implementation for the TableSource interface
+func (p *Inspector[F]) Dimensions() (uint, uint) {
+	// Not required as rendering done via canvas.
+	panic("unsupported operation")
+}
+
 // ColumnWidth gets the width of a given column in the main table of the
 // inspector.  Note that columns here are table columns, not trace columns.
 func (p *Inspector[F]) ColumnWidth(col uint) uint {
