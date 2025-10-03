@@ -108,17 +108,3 @@ func (p *Printer) Print(trace ModuleView) {
 	// // Done
 	// tp.Print(p.ansiEscapes)
 }
-
-func clipValue(str string, maxWidth uint) string {
-	runes := []rune(str)
-	//
-	if len(runes) > int(maxWidth) {
-		runes := runes[0:maxWidth]
-		runes[maxWidth-1] = '.'
-		runes[maxWidth-2] = '.'
-		// done
-		return string(runes)
-	}
-	// No clipping required
-	return str
-}

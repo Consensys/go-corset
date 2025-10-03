@@ -186,7 +186,7 @@ func (p *Inspector[F]) currentView() *ModuleState[F] {
 // change cell width in current module
 func (p *Inspector[F]) changeCellWidth(direction bool) {
 	// Action change
-	width := p.CurrentModule().cellWidth()
+	width := p.CurrentModule().view.Config().CellWidth()
 	//
 	if direction {
 		width++
@@ -194,15 +194,15 @@ func (p *Inspector[F]) changeCellWidth(direction bool) {
 		width--
 	}
 	//
-	p.CurrentModule().setCellWidth(width)
+	p.CurrentModule().view.Config().SetCellWidth(width)
 	//
-	p.SetStatus(termio.NewColouredText(fmt.Sprintf("Call width now %d", width), termio.TERM_GREEN))
+	p.SetStatus(termio.NewColouredText(fmt.Sprintf("Cell width now %d", width), termio.TERM_GREEN))
 }
 
 // Actions goto row mode
 func (p *Inspector[F]) gotoRow(row uint) termio.FormattedText {
 	// Action change
-	row = p.CurrentModule().setRowOffset(row)
+	row = p.CurrentModule().gotoRow(row)
 	//
 	return termio.NewColouredText(fmt.Sprintf("At row %d", row), termio.TERM_GREEN)
 }

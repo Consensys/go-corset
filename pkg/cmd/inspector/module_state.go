@@ -13,15 +13,14 @@
 package inspector
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/consensys/go-corset/pkg/cmd/view"
-	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -97,37 +96,19 @@ func newModuleState[F field.Element[F]](view view.ModuleView, public bool) Modul
 	return state
 }
 
-func (p *ModuleState[F]) height() uint {
-	//return uint(len(p.view.rowWidths))
-	panic("todo")
-}
+func (p *ModuleState[F]) gotoRow(nrow uint) uint {
+	col, row := p.view.Offset()
+	//
+	p.view.Goto(col, nrow)
+	//
+	if row != nrow {
+		// Update history
+		rowOffsetStr := fmt.Sprintf("%d", nrow)
+		p.targetRowHistory = history_append(p.targetRowHistory, rowOffsetStr)
+	}
+	// failed
+	return row
 
-func (p *ModuleState[F]) cellWidth() uint {
-	//return p.view.maxRowWidth
-	panic("todo")
-}
-
-func (p *ModuleState[F]) setCellWidth(width uint) {
-	// p.view.SetMaxRowWidth(width, p.trace)
-	panic("todo")
-}
-
-func (p *ModuleState[F]) setColumnOffset(colOffset uint) {
-	//p.view.SetColumn(colOffset)
-	panic("todo")
-}
-
-func (p *ModuleState[F]) setRowOffset(rowOffset uint) uint {
-	// row := p.view.SetRow(rowOffset)
-	// //
-	// if row != rowOffset {
-	// 	// Update history
-	// 	rowOffsetStr := fmt.Sprintf("%d", rowOffset)
-	// 	p.targetRowHistory = history_append(p.targetRowHistory, rowOffsetStr)
-	// }
-	// // failed
-	// return row
-	panic("todo")
 }
 
 // Apply a new column filter to the module view.  This determines which columns
@@ -208,28 +189,4 @@ func history_append[T comparable](history []T, item T) []T {
 	history = array.RemoveMatching(history, func(ith T) bool { return ith == item })
 	// Add item to end
 	return append(history, item)
-}
-
-// ExtractSourceColumns extracts source column descriptions for a given module
-// based on the corset source mapping.  This is particularly useful when you
-// want to show the original name for a column (e.g. when its in a perspective),
-// rather than the raw register name.
-func ExtractSourceColumns(path file.Path, selector util.Option[string], columns []corset.SourceColumn,
-	submodules []corset.SourceModule) []SourceColumn {
-	//
-	var srcColumns []SourceColumn
-	//
-	for _, col := range columns {
-		name := path.Extend(col.Name).String()[1:]
-		srcCol := SourceColumn{name, col.Computed, selector, col.Display, col.Register}
-		srcColumns = append(srcColumns, srcCol)
-	}
-	//
-	for _, submod := range submodules {
-		subpath := path.Extend(submod.Name)
-		subSrcColumns := ExtractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules)
-		srcColumns = append(srcColumns, subSrcColumns...)
-	}
-	//
-	return srcColumns
 }

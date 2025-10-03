@@ -58,7 +58,10 @@ func (p *NavigationMode[F]) Clock(parent *Inspector[F]) {
 // KeyPressed in navigation mode, which either adjusts our view of the trace
 // table or fires off some command.
 func (p *NavigationMode[F]) KeyPressed(parent *Inspector[F], key uint16) bool {
-	module := parent.tabs.Selected()
+	var (
+		module   = parent.tabs.Selected()
+		col, row = parent.modules[module].view.Offset()
+	)
 	//
 	switch key {
 	case termio.TAB:
@@ -66,31 +69,31 @@ func (p *NavigationMode[F]) KeyPressed(parent *Inspector[F], key uint16) bool {
 	case termio.BACKTAB:
 		parent.tabs.Select(int(module) - 1)
 	case termio.CURSOR_UP:
-		// col := parent.modules[module].view.col
-		// parent.modules[module].setColumnOffset(col - 1)
-		panic("todo")
+		if row != 0 {
+			parent.modules[module].view.Goto(col, row-1)
+		}
 	case termio.CURSOR_DOWN:
-		// col := parent.modules[module].view.col
-		// parent.modules[module].setColumnOffset(col + 1)
-		panic("todo")
+		parent.modules[module].view.Goto(col, row+1)
 	case termio.CURSOR_LEFT:
-		// row := parent.modules[module].view.row
-		// parent.modules[module].setRowOffset(row - 1)
-		panic("todo")
+		if col != 0 {
+			parent.modules[module].view.Goto(col-1, row)
+		}
 	case termio.CURSOR_RIGHT:
-		// row := parent.modules[module].view.row
-		// parent.modules[module].setRowOffset(row + 1)
-		panic("todo")
+		parent.modules[module].view.Goto(col+1, row)
 	case termio.SCROLL_UP:
-		// n := parent.height / 2
-		// col := parent.modules[module].view.col
-		// parent.modules[module].setColumnOffset(col - n)
-		panic("todo")
+		n := parent.height / 2
+		//
+		if row >= n {
+			row -= n
+		} else {
+			row = 0
+		}
+		//
+		parent.modules[module].view.Goto(col, row)
 	case termio.SCROLL_DOWN:
-		// n := parent.height / 2
-		// col := parent.modules[module].view.col
-		// parent.modules[module].setColumnOffset(col + n)
-		panic("todo")
+		n := parent.height / 2
+		//
+		parent.modules[module].view.Goto(col, row+n)
 	// quit
 	case 'q':
 		return true

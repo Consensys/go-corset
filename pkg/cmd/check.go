@@ -309,6 +309,7 @@ func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef]
 	window := view.NewBuilder[F](mapping).
 		WithPadding(cfg.reportPadding).
 		WithLimbs(cfg.reportLimbs).
+		WithCellWidth(cfg.reportCellWidth).
 		Build(trace)
 	// TODO:
 	// tp := view.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)

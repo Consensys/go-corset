@@ -13,6 +13,9 @@
 package view
 
 import (
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -34,15 +37,28 @@ type Builder[F field.Element[F]] struct {
 	// Limbs indicates whether or not to show the raw limbs, or the combined
 	// source-level register.
 	limbs bool
+	// Default cell width to use
+	cellWidth uint
 	// Limbs mapping identifies how source-level registers are mapped into
 	// limbs.  This is necessary in order to reconstruct source-level column
 	// data from the trace.
 	mapping schema.LimbsMap
+	// Optional source map information.  This is primarily used to determine
+	srcmap util.Option[corset.SourceMap]
 }
 
 // NewBuilder constructs a default builder.
 func NewBuilder[F field.Element[F]](mapping schema.LimbsMap) Builder[F] {
-	return Builder[F]{util.None[CellRefSet](), 0, false, mapping}
+	return Builder[F]{util.None[CellRefSet](), 0, false, 16, mapping, util.None[corset.SourceMap]()}
+}
+
+// WithCellWidth sets the maximum width of any cell in the view.
+func (p Builder[F]) WithCellWidth(cellWidth uint) Builder[F] {
+	var builder = p
+	//
+	builder.cellWidth = cellWidth
+	//
+	return builder
 }
 
 // WithPadding sets the amount of additional rows to show either side of the viewing
@@ -65,21 +81,46 @@ func (p Builder[F]) WithLimbs(limbs bool) Builder[F] {
 	return builder
 }
 
+// WithSourceMap applies source-mapping information to the view.  The main
+// benefit of this is that it includes display modifiers.
+func (p Builder[F]) WithSourceMap(srcmap corset.SourceMap) Builder[F] {
+	var builder = p
+	//
+	builder.srcmap = util.Some(srcmap)
+	//
+	return builder
+}
+
 // Build the viewing window for this trace.
 func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 	var windows = make([]moduleView[F], trace.Width())
 	//
 	for i := range trace.Width() {
+		trMod := trace.Module(i)
+		scMod := p.mapping.Module(i)
+		//
+		display := buildDisplayModifiers(p.srcmap, trMod.Name(), len(scMod.Registers()))
 		// construct initial module view
 		windows[i] = moduleView[F]{
-			id:      i,
-			padding: p.padding,
-			limbs:   p.limbs,
-			trace:   trace.Module(i),
-			mapping: p.mapping.Module(i),
-			filter:  DefaultFilter().Module(i),
+			id:        i,
+			padding:   p.padding,
+			limbs:     p.limbs,
+			cellWidth: p.cellWidth,
+			display:   display,
+			trace:     trMod,
+			mapping:   scMod,
+			filter:    DefaultFilter().Module(i),
 		}
 	}
 	//
 	return &traceView[F]{windows}
+}
+
+func buildDisplayModifiers(srcmap util.Option[corset.SourceMap], name string, width int) []uint {
+	// Check whether any
+	display := make([]uint, width)
+	//
+	fmt.Printf("CREATING WIDTH=%d\n", width)
+	//
+	return display
 }
