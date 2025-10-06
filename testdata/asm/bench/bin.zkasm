@@ -3,6 +3,12 @@ include "evm.zkasm"
 include "../util/bit_xoan.zkasm"
 include "../util/byte.zkasm"
 
+;; The bin module (BIN) handles the following 6 EVM instructions :
+;; 1. AND       2. OR        3. XOR
+;; 4. NOT       5. BYTE      6. SIGNEXTEND
+;; The first four correspond to the bitwise operations.
+;; BYTE and SIGNEXTEND need to extract a byte from ARGUMENT_2.
+
 fn bin(INST=0x16 u8, ARGUMENT_1 u256, ARGUMENT_2 u256) -> (RES u256) {
 
    ;;if INST==EVM_INST_SIGNEXTEND goto signextend_call
