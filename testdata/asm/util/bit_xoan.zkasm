@@ -59,7 +59,6 @@ fn bit_xoan_u16(INST u2, ARG_1 u16, ARG_2 u16) -> (RES u16) {
 
 fn bit_xoan_u8(INST u2, ARG_1 u8, ARG_2 u8) -> (RES u8) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u4
-  var limb1 u8
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = bit_xoan_u4(INST, arg1_hi, arg2_hi)
@@ -70,7 +69,6 @@ fn bit_xoan_u8(INST u2, ARG_1 u8, ARG_2 u8) -> (RES u8) {
 
 fn bit_xoan_u4(INST u2, ARG_1 u4, ARG_2 u4) -> (RES u4) {
   var arg1_lo, arg1_hi, arg2_lo, arg2_hi, res_hi, res_lo u2
-  var limb1 u4
   arg1_hi, arg1_lo = ARG_1
   arg2_hi, arg2_lo = ARG_2
   res_hi = bit_xoan_u2(INST, arg1_hi, arg2_hi)
