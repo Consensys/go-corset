@@ -35,7 +35,7 @@ func PrintStats[F field.Element[F]](stack cmd_util.SchemaStack[F]) {
 		//
 		n   = 1 + uint(len(schemas))
 		m   = uint(len(summarisers))
-		tbl = termio.NewTablePrinter(n, m)
+		tbl = termio.NewFormattedTable(n, m)
 	)
 	// Go!
 	for i := uint(0); i < m; i++ {

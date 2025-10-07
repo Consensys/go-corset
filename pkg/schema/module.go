@@ -33,6 +33,8 @@ type ModuleMap[T RegisterMap] interface {
 	Module(ModuleId) T
 	// ModuleOf returns register mapping information for the given module.
 	ModuleOf(string) T
+	// Returns number of modules in this map
+	Width() uint
 }
 
 // ModuleId abstracts the notion of a "module identifier"

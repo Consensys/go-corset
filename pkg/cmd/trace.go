@@ -333,7 +333,7 @@ func printModuleTrace(start uint, max_width uint, mod lt.Module[word.BigEndian])
 		cols   = mod.Columns
 		n      = uint(len(cols))
 		height = mod.Height()
-		tbl    = termio.NewTablePrinter(1+height, 1+n)
+		tbl    = termio.NewFormattedTable(1+height, 1+n)
 	)
 
 	for j := uint(0); j < height; j++ {
@@ -363,7 +363,7 @@ func listModules(max_width uint, sort_col uint, tf lt.TraceFile) {
 		m           = 1 + uint(len(summarisers))
 		n           = uint(len(tf.Modules))
 		// Go!
-		tbl = termio.NewTablePrinter(m, n+1)
+		tbl = termio.NewFormattedTable(m, n+1)
 	)
 	// Set column titles
 	for i := uint(0); i < uint(len(summarisers)); i++ {
@@ -389,7 +389,7 @@ func listColumns(max_width, sort_col uint, tf lt.TraceFile, includes []string) {
 		m           = 1 + uint(len(summarisers))
 		n           = lt.NumberOfColumns(tf.Modules)
 		// Go!
-		tbl   = termio.NewTablePrinter(m, n+1)
+		tbl   = termio.NewFormattedTable(m, n+1)
 		c     = make(chan util.Pair[uint, []termio.FormattedText], n)
 		index uint
 	)
@@ -513,7 +513,7 @@ func summariseColumn(module string, column RawColumn, summarisers []ColumnSummar
 
 func summaryStats(tf lt.TraceFile) {
 	m := uint(len(trSummarisers))
-	tbl := termio.NewTablePrinter(2, m)
+	tbl := termio.NewFormattedTable(2, m)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := trSummarisers[i]

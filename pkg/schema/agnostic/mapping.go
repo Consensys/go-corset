@@ -65,6 +65,11 @@ func (p limbsMap) ModuleOf(name string) sc.RegisterLimbsMap {
 	panic(fmt.Sprintf("unknown module \"%s\"", name))
 }
 
+// Width returns the number of modules in this map
+func (p limbsMap) Width() uint {
+	return uint(len(p.modules))
+}
+
 func (p limbsMap) String() string {
 	var builder strings.Builder
 	//
