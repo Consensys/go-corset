@@ -13,8 +13,6 @@
 package view
 
 import (
-	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/termio/widget"
@@ -40,11 +38,11 @@ type ModuleView interface {
 	// Data abstracts the raw data of the underlying module.
 	Data() ModuleData
 	// Filter this view to produce a more focused view.
-	Filter(ColumnFilter) ModuleView
+	Filter(ModuleFilter) ModuleView
 	// Return offset position within module
-	Offset() (col uint, row uint)
+	Offset() (uint, uint)
 	// Set offset position within module
-	Goto(col, row uint)
+	Goto(uint, uint)
 }
 
 // ============================================================================
@@ -52,19 +50,15 @@ type ModuleView interface {
 // ============================================================================
 
 type moduleView[F field.Element[F]] struct {
-	// Offset position within module
-	x, y uint
 	// width of all cells / titles
 	cellWidth, titleWidth uint
-	// Padding to use
-	padding uint
 	// Limbs indicates whether or not to show the raw limbs, or the combined
 	// source-level register.
 	limbs bool
 	// Formatting for this module
 	formatting ModuleFormatting
-	// Active set of rows
-	active []sc.RegisterId
+	// viewport within module data
+	window Window
 	// Data provides the raw underlying data which can be shared between
 	// multiple views.
 	data *moduleData[F]
@@ -81,35 +75,22 @@ func (p *moduleView[F]) Data() ModuleData {
 }
 
 // Filter columns in this module
-func (p *moduleView[F]) Filter(filter ColumnFilter) ModuleView {
-	var (
-		mapping = p.data.Mapping()
-		q       = p
-	)
-	// Reset filter
-	q.active = nil
+func (p *moduleView[F]) Filter(filter ModuleFilter) ModuleView {
+	var q = *p
 	//
-	for i := range uint(len(mapping.Registers())) {
-		rid := sc.NewRegisterId(i)
-		// If any limb is included, the whole limb is included.
-		if columnIncluded(filter, mapping.LimbIds(rid)) {
-			q.active = append(q.active, rid)
-		}
-	}
+	q.window = p.data.Filter(filter)
 	//
-	return q
+	return &q
 }
 
 // Offset returns the current offset position within module
-func (p *moduleView[F]) Offset() (col uint, row uint) {
-	return p.x, p.y
+func (p *moduleView[F]) Offset() (uint, uint) {
+	return p.window.Offset()
 }
 
 // Goto a specific offset within module
-func (p *moduleView[F]) Goto(col, row uint) {
-	width, height := p.data.Dimensions()
-
-	p.x, p.y = min(width-1, col), min(height-1, row)
+func (p *moduleView[F]) Goto(x, y uint) {
+	p.window = p.window.Goto(x, y)
 }
 
 // ============================================================================
@@ -133,57 +114,57 @@ func (p *moduleView[F]) SetCellWidth(cellWidth uint) {
 // CellAt returns the contents of a specific cell in this table.
 func (p *moduleView[F]) CellAt(col uint, row uint) termio.FormattedText {
 	var (
-		text       string
-		formatting util.Option[termio.AnsiEscape]
+		formatted termio.FormattedText
+		x, _      = p.window.Offset()
 	)
 	//
 	if col == 0 && row == 0 {
 		return termio.NewText("")
 	} else if col == 0 {
-		reg := p.active[row+p.y-1]
-		text = p.data.RowTitle(reg)
-		formatting = p.formatting.RowTitle(reg)
+		reg := p.window.Row(row - 1)
+		text := p.data.RowTitle(reg)
+		formatted = p.formatting.RowTitle(reg, text)
 	} else if row == 0 {
-		text = p.data.ColumnTitle(col + p.x - 1)
-		formatting = p.formatting.ColumnTitle(col + p.x - 1)
+		text := p.data.ColumnTitle(col + x - 1)
+		formatted = p.formatting.ColumnTitle(col+x-1, text)
 	} else {
-		reg := p.active[row+p.y-1]
-		row = col + p.x - 1
+		srcCol := p.window.Row(row - 1)
+		row = col + x - 1
 		//
-		text = p.data.CellAt(row, reg.Unwrap())
-		formatting = p.formatting.Cell(reg, row)
+		text := p.data.CellAt(row, srcCol.Unwrap())
 		// Clip the cell value
 		text = clipValue(text, p.cellWidth)
+		//
+		formatted = p.formatting.Cell(p.data.SourceColumn(srcCol), row, text)
 	}
 	// apply formatting (if applicable)
-	if formatting.HasValue() {
-		return termio.NewFormattedText(text, formatting.Unwrap())
-	}
-	// no formatting
-	return termio.NewText(text)
+	return formatted
 }
 
 func (p *moduleView[F]) ColumnWidth(col uint) uint {
-	var w, _ = p.data.Dimensions()
+	var (
+		w, _ = p.data.Dimensions()
+		x, _ = p.window.Offset()
+	)
 	//
 	if col == 0 {
 		width := uint(0)
 		//
-		for _, row := range p.active {
+		for _, row := range p.window.Rows() {
 			text := p.data.RowTitle(row)
 			width = max(width, uint(len(text)))
 		}
 		//
 		return min(p.titleWidth, width)
-	} else if col+p.x-1 >= w {
+	} else if col+x-1 >= w {
 		return 0
 	}
 	//
-	col = col + p.x - 1
+	col = col + x - 1
 	//
 	width := uint(len(p.data.ColumnTitle(col)))
 	//
-	for _, row := range p.active {
+	for _, row := range p.window.Rows() {
 		text := p.data.CellAt(col, row.Unwrap())
 		width = max(width, uint(len(text)))
 	}
@@ -192,66 +173,10 @@ func (p *moduleView[F]) ColumnWidth(col uint) uint {
 }
 
 func (p *moduleView[F]) Dimensions() (uint, uint) {
-	var (
-		width, _ = p.data.Dimensions()
-		height   = uint(len(p.active))
-	)
-	// Account for title rows
-	width, height = width+1, height+1
-	//
-	if p.x < width {
-		width -= p.x
-	} else {
-		width = 0
-	}
-	//
-	if p.y < height {
-		height -= p.y
-	} else {
-		height = 0
-	}
-	//
-	return width, height
+	var width, height = p.window.Dimensions()
+	// Account for row / column title
+	return width + 1, height + 1
 }
-
-// Check whether the given filter includes any if the limbs (or not).
-func columnIncluded(filter ColumnFilter, limbs []sc.RegisterId) bool {
-	for _, lid := range limbs {
-		if filter.Column(lid) != nil {
-			return true
-		}
-	}
-	//
-	return false
-}
-
-// func minWindowRow(width, height uint, filter ColumnFilter) int {
-// 	// Find column with least cell in the filter
-// 	for i := range height {
-// 		for j := range width {
-// 			if f := filter.Column(j); f != nil && f.Cell(i) {
-// 				return int(i)
-// 			}
-// 		}
-// 	}
-// 	// Suggests an empty filter
-// 	return 0
-// }
-
-// func maxWindowRow(width, height uint, filter ColumnFilter) int {
-// 	// Find column with greatest cell in the filter
-// 	for i := height; i > 0; {
-// 		i = i - 1
-// 		//
-// 		for j := range width {
-// 			if f := filter.Column(j); f != nil && f.Cell(i) {
-// 				return int(i)
-// 			}
-// 		}
-// 	}
-// 	// Suggests an empty filter
-// 	return 0
-// }
 
 func clipValue(str string, maxWidth uint) string {
 	runes := []rune(str)

@@ -16,9 +16,6 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/cmd/view"
-	sc "github.com/consensys/go-corset/pkg/schema"
-	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -32,24 +29,34 @@ type inspectorFormatter struct {
 }
 
 // ColumnTitle implementation for ModuleFormatting interface
-func (p *inspectorFormatter) ColumnTitle(uint) util.Option[termio.AnsiEscape] {
-	return util.Some(termio.NewAnsiEscape().FgColour(termio.TERM_BLUE))
+func (p *inspectorFormatter) ColumnTitle(_ uint, text string) termio.FormattedText {
+	return termio.NewFormattedText(text, termio.NewAnsiEscape().FgColour(termio.TERM_BLUE))
 }
 
 // ColumnTitle implementation for ModuleFormatting interface
-func (p *inspectorFormatter) RowTitle(reg sc.RegisterId) util.Option[termio.AnsiEscape] {
-	if p.module.DataOf(reg).IsComputed() {
-		return util.Some(termio.NewAnsiEscape().FgColour(termio.TERM_GREEN))
+func (p *inspectorFormatter) RowTitle(col view.SourceColumnId, text string) termio.FormattedText {
+	var ansiEscape termio.AnsiEscape
+	//
+	if p.module.SourceColumn(col).Computed {
+		ansiEscape = termio.NewAnsiEscape().FgColour(termio.TERM_GREEN)
+	} else {
+		ansiEscape = termio.NewAnsiEscape().FgColour(termio.TERM_BLUE)
 	}
 	//
-	return util.Some(termio.NewAnsiEscape().FgColour(termio.TERM_BLUE))
+	return termio.NewFormattedText(text, ansiEscape)
 }
 
 // Cell implementation for ModuleFormatting interface
-func (p *inspectorFormatter) Cell(col tr.ColumnId, row uint) util.Option[termio.AnsiEscape] {
-	val := p.module.DataOf(col).Get(row)
-	//return util.None[termio.AnsiEscape]()
-	return util.Some(cellColour(val))
+func (p *inspectorFormatter) Cell(col view.SourceColumn, row uint, text string) termio.FormattedText {
+	// Check whether a given column is "active" in a given row.  Columns which
+	// are in perspectives are considered active only when their selectors are
+	// enabled.
+	if p.module.IsActive(col, row) {
+		val := p.module.DataOf(col.Register).Get(row)
+		return termio.NewFormattedText(text, cellColour(val))
+	}
+	//
+	return termio.NewColouredText(text, termio.TERM_BLACK)
 }
 
 // Module implementation for TraceFormatting interface

@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/file"
 )
 
 // CellRefSet defines a type for sets of cell references.
@@ -31,8 +32,6 @@ type Builder[F field.Element[F]] struct {
 	// Observe that cells refer to trace cells (i.e. which are in terms of
 	// limbs, not source columns).
 	cells util.Option[CellRefSet]
-	// Amount of additional rows to show either side of the focus.
-	padding uint
 	// Limbs indicates whether or not to show the raw limbs, or the combined
 	// source-level register.
 	limbs bool
@@ -52,7 +51,7 @@ type Builder[F field.Element[F]] struct {
 
 // NewBuilder constructs a default builder.
 func NewBuilder[F field.Element[F]](mapping schema.LimbsMap) Builder[F] {
-	return Builder[F]{util.None[CellRefSet](), 0, false, 16, 16, mapping,
+	return Builder[F]{util.None[CellRefSet](), false, 16, 16, mapping,
 		DefaultFormatter(), util.None[corset.SourceMap]()}
 }
 
@@ -70,16 +69,6 @@ func (p Builder[F]) WithTitleWidth(titleWidth uint) Builder[F] {
 	var builder = p
 	//
 	builder.titleWidth = titleWidth
-	//
-	return builder
-}
-
-// WithPadding sets the amount of additional rows to show either side of the viewing
-// window.
-func (p Builder[F]) WithPadding(padding uint) Builder[F] {
-	var builder = p
-	//
-	builder.padding = padding
 	//
 	return builder
 }
@@ -123,32 +112,21 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 		trMod := trace.Module(i)
 		scMod := p.mapping.Module(i)
 		//
-		display, public := extractSourceMapData(srcmap, trMod.Name(), len(scMod.Registers()))
+		public, columns := extractSourceMapData(trMod.Name(), srcmap, scMod)
 		//
-		data := newModuleData(i, scMod, trMod, public, display, enums)
+		data := newModuleData(i, scMod, trMod, public, enums, columns)
 		// construct initial module view
 		windows = append(windows, &moduleView[F]{
-			padding:    p.padding,
+			window:     data.Window(),
 			limbs:      p.limbs,
 			cellWidth:  p.cellWidth,
 			titleWidth: p.titleWidth,
-			active:     getRegisterIds(scMod.Registers()),
 			formatting: p.formatting.Module(data),
 			data:       data,
 		})
 	}
 	//
 	return &traceView{windows}
-}
-
-func getRegisterIds(regs []sc.Register) []sc.RegisterId {
-	var rids = make([]sc.RegisterId, len(regs))
-	//
-	for i := range uint(len(regs)) {
-		rids[i] = sc.NewRegisterId(i)
-	}
-	//
-	return rids
 }
 
 func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[string]corset.SourceModule, []corset.Enumeration) {
@@ -170,22 +148,55 @@ func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[string]corse
 	return mapping, enums
 }
 
-func extractSourceMapData(srcmap map[string]corset.SourceModule, name string, width int) ([]uint, bool) {
+func extractSourceMapData(name string, srcmap map[string]corset.SourceModule,
+	mapping sc.RegisterLimbsMap) (bool, []SourceColumn) {
 	// Check whether any
 	var (
-		display = make([]uint, width)
 		public  = true
+		columns []SourceColumn
 	)
 	//
 	if m, ok := srcmap[name]; ok {
 		public = m.Public
+		columns = extractSourceColumns(file.NewAbsolutePath(""), m.Selector, m.Columns, m.Submodules, mapping)
+	}
+	//
+	return public, columns
+}
+
+// ExtractSourceColumns extracts source column descriptions for a given module
+// based on the corset source mapping.  This is particularly useful when you
+// want to show the original name for a column (e.g. when its in a perspective),
+// rather than the raw register name.
+func extractSourceColumns(path file.Path, selector util.Option[string], columns []corset.SourceColumn,
+	submodules []corset.SourceModule, mapping sc.RegisterLimbsMap) []SourceColumn {
+	//
+	var srcColumns []SourceColumn
+	//
+	for _, col := range columns {
+		name := path.Extend(col.Name).String()[1:]
 		//
-		for _, c := range m.Columns {
-			display[c.Register.Column().Unwrap()] = c.Display
+		srcCol := SourceColumn{
+			Name:     name,
+			Display:  col.Display,
+			Computed: col.Computed,
+			Selector: selector,
+			Register: col.Register.Register(),
+			Limbs:    mapping.LimbIds(col.Register.Register()),
+		}
+		srcColumns = append(srcColumns, srcCol)
+	}
+	//
+	for _, submod := range submodules {
+		// Curiously, it only makes sense to recurse on virtual modules here.
+		if submod.Virtual {
+			subpath := path.Extend(submod.Name)
+			subSrcColumns := extractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules, mapping)
+			srcColumns = append(srcColumns, subSrcColumns...)
 		}
 	}
 	//
-	return display, public
+	return srcColumns
 }
 
 func concreteModules(m *corset.SourceModule) bool {

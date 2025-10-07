@@ -112,29 +112,13 @@ var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')
 // A number is either a hexadecimal, binary, or decimal one.
 // Allowing (and ignoring) '_' in the middle of a number for readability.
 var (
-	binaryStart = lex.Sequence(lex.String("0b"), lex.Within('0', '1'))
-	binaryRest  = lex.Or(
-		lex.Within('0', '1'),
-		lex.Unit('_'),
-	)
-
+	binaryStart  = lex.Sequence(lex.String("0b"), lex.Within('0', '1'))
+	binaryRest   = lex.Or(lex.Within('0', '1'), lex.Unit('_'))
 	decimalStart = lex.Within('0', '9')
-	decimalRest  = lex.Or(
-		lex.Within('0', '9'),
-		lex.Unit('_'),
-		lex.Unit('^'),
-	)
-
-	hexDigit = lex.Or(
-		lex.Within('0', '9'),
-		lex.Within('A', 'F'),
-		lex.Within('a', 'f'),
-	)
-	hexStart = lex.Sequence(lex.String("0x"), hexDigit)
-	hexRest  = lex.Or(
-		hexDigit,
-		lex.Unit('_'),
-	)
+	decimalRest  = lex.Or(lex.Within('0', '9'), lex.Unit('_'), lex.Unit('^'))
+	hexDigit     = lex.Or(lex.Within('0', '9'), lex.Within('A', 'F'), lex.Within('a', 'f'))
+	hexStart     = lex.Sequence(lex.String("0x"), hexDigit)
+	hexRest      = lex.Or(hexDigit, lex.Unit('_'))
 
 	number = lex.Or(
 		lex.SequenceNullableLast(binaryStart, lex.Many(binaryRest)),

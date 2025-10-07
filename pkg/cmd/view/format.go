@@ -13,9 +13,10 @@
 package view
 
 import (
+	"fmt"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
@@ -28,11 +29,11 @@ type TraceFormatting interface {
 // modules being refendered.
 type ModuleFormatting interface {
 	// ColumnTitle returns optional formating for a given column title.
-	ColumnTitle(uint) util.Option[termio.AnsiEscape]
+	ColumnTitle(uint, string) termio.FormattedText
 	// ColumnTitle returns optional formating for a given row title.
-	RowTitle(sc.RegisterId) util.Option[termio.AnsiEscape]
+	RowTitle(SourceColumnId, string) termio.FormattedText
 	// Cell returns optional formating for a given cells in the trace.
-	Cell(sc.RegisterId, uint) util.Option[termio.AnsiEscape]
+	Cell(SourceColumn, uint, string) termio.FormattedText
 }
 
 // DefaultFormatter returns a default formatting
@@ -43,8 +44,8 @@ func DefaultFormatter() TraceFormatting {
 type defaultFormatter struct{}
 
 // ColumnTitle implementation for Formatting interface
-func (p *defaultFormatter) ColumnTitle(uint) util.Option[termio.AnsiEscape] {
-	return util.None[termio.AnsiEscape]()
+func (p *defaultFormatter) ColumnTitle(_ uint, text string) termio.FormattedText {
+	return termio.NewText(text)
 }
 
 // ColumnTitle implementation for Formatting interface
@@ -53,13 +54,13 @@ func (p *defaultFormatter) Module(ModuleData) ModuleFormatting {
 }
 
 // ColumnTitle implementation for Formatting interface
-func (p *defaultFormatter) RowTitle(sc.RegisterId) util.Option[termio.AnsiEscape] {
-	return util.None[termio.AnsiEscape]()
+func (p *defaultFormatter) RowTitle(_ sc.RegisterId, text string) termio.FormattedText {
+	return termio.NewText(text)
 }
 
 // Cell implementation for Formatting interface
-func (p *defaultFormatter) Cell(tr.ColumnId, uint) util.Option[termio.AnsiEscape] {
-	return util.None[termio.AnsiEscape]()
+func (p *defaultFormatter) Cell(_ SourceColumn, _ uint, text string) termio.FormattedText {
+	return termio.NewText(text)
 }
 
 // ============================================================================
@@ -67,23 +68,32 @@ func (p *defaultFormatter) Cell(tr.ColumnId, uint) util.Option[termio.AnsiEscape
 // ============================================================================
 
 // NewCellFormatter constructs a new cell formatter
-func NewCellFormatter(cells CellRefSet) TraceFormatting {
-	return &cellFormatter{nil, cells}
+func NewCellFormatter(cells CellRefSet, ansiEscapes bool) TraceFormatting {
+	return &cellFormatter{nil, cells, ansiEscapes}
 }
 
 type cellFormatter struct {
-	data  ModuleData
-	cells CellRefSet
+	data        ModuleData
+	cells       CellRefSet
+	ansiEscapes bool
 }
 
 // ColumnTitle implementation for Formatting interface
-func (p *cellFormatter) ColumnTitle(uint) util.Option[termio.AnsiEscape] {
-	return util.Some(termio.NewAnsiEscape().FgColour(termio.TERM_WHITE))
+func (p *cellFormatter) ColumnTitle(_ uint, text string) termio.FormattedText {
+	if p.ansiEscapes {
+		return termio.NewFormattedText(text, termio.NewAnsiEscape().FgColour(termio.TERM_WHITE))
+	}
+	//
+	return termio.NewText(text)
 }
 
 // ColumnTitle implementation for ModuleFormatting interface
-func (p *cellFormatter) RowTitle(sc.RegisterId) util.Option[termio.AnsiEscape] {
-	return util.Some(termio.NewAnsiEscape().FgColour(termio.TERM_WHITE))
+func (p *cellFormatter) RowTitle(_ SourceColumnId, text string) termio.FormattedText {
+	if p.ansiEscapes {
+		return termio.NewFormattedText(text, termio.NewAnsiEscape().FgColour(termio.TERM_WHITE))
+	}
+	//
+	return termio.NewText(text)
 }
 
 // Module implementation for TraceFormatting interface
@@ -96,22 +106,37 @@ func (p *cellFormatter) Module(mod ModuleData) ModuleFormatting {
 }
 
 // Cell implementation for ModuleFormatting interface
-func (p *cellFormatter) Cell(col tr.ColumnId, row uint) util.Option[termio.AnsiEscape] {
-	var (
-		// Extract limbs
-		limbs = p.data.Mapping().LimbIds(col)
-	)
+func (p *cellFormatter) Cell(col SourceColumn, row uint, text string) termio.FormattedText {
 	// Check each limb in turn
-	for _, lid := range limbs {
+	if !p.data.IsActive(col, row) {
+		if p.ansiEscapes {
+			return termio.NewColouredText(text, termio.TERM_BLACK)
+		}
+		//
+		return termio.NewText("")
+	} else if containsCell(p.data.Id(), col, row, p.cells) {
+		if p.ansiEscapes {
+			return termio.NewFormattedText(text, termio.NewAnsiEscape().FgColour(termio.TERM_RED))
+		}
+		//
+		return termio.NewText(fmt.Sprintf("*%s", text))
+	}
+	//
+	return termio.NewText(text)
+}
+
+func containsCell(mid sc.ModuleId, col SourceColumn, row uint, cells CellRefSet) bool {
+	// Check each limb in turn
+	for _, lid := range col.Limbs {
 		// Consrtuct column reference
-		limbRef := tr.NewColumnRef(p.data.Id(), lid)
+		limbRef := tr.NewColumnRef(mid, lid)
 		// Construct cellRef reference
 		cellRef := tr.NewCellRef(limbRef, int(row))
 		// if any limb involved, entire column involved.
-		if p.cells.Contains(cellRef) {
-			return util.Some(termio.BoldAnsiEscape().FgColour(termio.TERM_RED))
+		if cells.Contains(cellRef) {
+			return true
 		}
 	}
 	//
-	return util.None[termio.AnsiEscape]()
+	return false
 }

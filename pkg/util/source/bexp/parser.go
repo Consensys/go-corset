@@ -122,7 +122,21 @@ var CONNECTIVES = []uint{AND, OR}
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')))
 
 // Rule for describing numbers
-var number lex.Scanner[rune] = lex.Many(lex.Within('0', '9'))
+var (
+	binaryStart  = lex.Sequence(lex.String("0b"), lex.Within('0', '1'))
+	binaryRest   = lex.Or(lex.Within('0', '1'), lex.Unit('_'))
+	decimalStart = lex.Within('0', '9')
+	decimalRest  = lex.Or(lex.Within('0', '9'), lex.Unit('_'))
+	hexDigit     = lex.Or(lex.Within('0', '9'), lex.Within('A', 'F'), lex.Within('a', 'f'))
+	hexStart     = lex.Sequence(lex.String("0x"), hexDigit)
+	hexRest      = lex.Or(hexDigit, lex.Unit('_'))
+	//
+	number = lex.Or(
+		lex.SequenceNullableLast(binaryStart, lex.Many(binaryRest)),
+		lex.SequenceNullableLast(hexStart, lex.Many(hexRest)),
+		lex.SequenceNullableLast(decimalStart, lex.Many(decimalRest)),
+	)
+)
 
 var identifierStart lex.Scanner[rune] = lex.Or(
 	lex.Unit('_'),

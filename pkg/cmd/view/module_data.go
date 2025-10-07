@@ -20,8 +20,35 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
+
+// SourceColumnId abstracts the idea of a source-level column declaration.  Due
+// to register allocation, we can have multiple source-level columns mapped to
+// the same register; likewise, due to register splitting, we can have one
+// register mapping to multiple limbs.
+type SourceColumnId = sc.RegisterId
+
+// SourceColumn provides key information to the inspector about source-level
+// columns and their mapping to registers at the MIR/AIR levels (i.e. columns we
+// would find in the trace).
+type SourceColumn struct {
+	// column Name
+	Name string
+	// Display modifier
+	Display uint
+	// Determines whether this is a Computed column.
+	Computed bool
+	// Selector determines when column active.
+	Selector util.Option[string]
+	// RegisterId to which this column was allocated.
+	Register sc.RegisterId
+	// Limbs making up the register to which this column is allocated.
+	Limbs []sc.RegisterId
+	// rendered column data
+	data []string
+}
 
 // ModuleData abstracts the raw data of a module.
 type ModuleData interface {
@@ -31,12 +58,20 @@ type ModuleData interface {
 	DataOf(sc.RegisterId) RegisterView
 	// Dimensions returns width and height of data
 	Dimensions() (uint, uint)
+	// Determine whether a given source column is active on a given row.  A
+	// source column declared within a perspective will only be active when the
+	// given perspective's selector is enabled.
+	IsActive(SourceColumn, uint) bool
 	// Determines whether or not this module is externally visible.
 	IsPublic() bool
 	// Mapping returns the register limbs map being used by this module view.
 	Mapping() sc.RegisterLimbsMap
 	// Name returns the name of the given module
 	Name() string
+	// SourceColumn returns the source column associated with a given id.
+	SourceColumn(col SourceColumnId) SourceColumn
+	// SourceColumnOf returns the source column associated with a given name.
+	SourceColumnOf(name string) SourceColumn
 }
 
 // ============================================================================
@@ -59,32 +94,13 @@ type moduleData[F field.Element[F]] struct {
 	// Set of column titles
 	columns []string
 	// Set of rows in this window
-	rows []rowData
+	rows []SourceColumn
 }
 
 func newModuleData[F field.Element[F]](id sc.ModuleId, mapping sc.RegisterLimbsMap, trace tr.Module[F], public bool,
-	display []uint, enums []corset.Enumeration) *moduleData[F] {
+	enums []corset.Enumeration, rows []SourceColumn) *moduleData[F] {
 	//
-	var data []rowData
-	// Iterate source-level registers
-	for i, reg := range mapping.Registers() {
-		// construct source-level register id
-		rid := sc.NewRegisterId(uint(i))
-		// determine corresponding limbs
-		limbs := mapping.LimbIds(rid)
-		//
-		data = append(data, rowData{
-			limbs: limbs,
-			// Determine column name
-			name: reg.Name,
-			// Display info
-			display: display[i],
-			// Render column data from all limbs
-			data: nil,
-		})
-	}
-	//
-	return &moduleData[F]{id, trace.Height(), mapping, enums, public, trace, nil, data}
+	return &moduleData[F]{id, trace.Height(), mapping, enums, public, trace, nil, rows}
 }
 
 // CellAt returns the contents of a specific cell in this table.
@@ -112,6 +128,40 @@ func (p *moduleData[F]) ColumnTitle(col uint) string {
 	return p.columns[col]
 }
 
+// IsActive determines whether a given cell is active, or not.  A cell can be
+// inactive, for example, if its part of a perspective which is not active (on
+// the given row).
+func (p *moduleData[F]) IsActive(col SourceColumn, row uint) bool {
+	// Santity check whether actually need to do anything
+	if col.Selector.IsEmpty() {
+		return true
+	}
+	// Extract relevant selector
+	selector := p.SourceColumnOf(col.Selector.Unwrap())
+	// Extract selector's value on this row
+	val := p.DataOf(selector.Register).Get(row)
+	// Check whether selector is active (or not)
+	return val.BitLen() != 0
+}
+
+// SourceColumn returns the source column associated with the given source
+// column id.
+func (p *moduleData[F]) SourceColumn(col SourceColumnId) SourceColumn {
+	return p.rows[col.Unwrap()]
+}
+
+// SourceColumnOf returns the source column associated with the given source
+// column name.  This will panic if the given source column does not exist.
+func (p *moduleData[F]) SourceColumnOf(name string) SourceColumn {
+	for _, col := range p.rows {
+		if col.Name == name {
+			return col
+		}
+	}
+	//
+	panic(fmt.Sprintf("unknown source column %s", name))
+}
+
 // Data returns an abtract view of the data for given register
 func (p *moduleData[F]) DataOf(reg sc.RegisterId) RegisterView {
 	return &registerView[F]{
@@ -121,6 +171,43 @@ func (p *moduleData[F]) DataOf(reg sc.RegisterId) RegisterView {
 
 func (p *moduleData[F]) Dimensions() (uint, uint) {
 	return p.height, uint(len(p.rows))
+}
+
+// Window constructs a fresh window capturing this module data.
+func (p *moduleData[F]) Window() Window {
+	var (
+		width, height = p.Dimensions()
+		rows          = make([]SourceColumnId, height)
+	)
+	//
+	for i := range height {
+		rows[i] = sc.NewRegisterId(i)
+	}
+	//
+	return NewWindow(width, rows)
+}
+
+func (p *moduleData[F]) Filter(filter ModuleFilter) Window {
+	var (
+		q          Window = p.Window()
+		nrows      []SourceColumnId
+		width, _   = q.Dimensions()
+		start, end = filter.Range()
+	)
+	//
+	for i, ith := range p.rows {
+		// Construct source column id
+		sid := sc.NewRegisterId(uint(i))
+		// If any limb is included, the whole limb is included.
+		if filter.Column(ith) {
+			nrows = append(nrows, sid)
+		}
+	}
+	// Finalise window
+	q.rows = nrows
+	q.startCol, q.endCol = min(width, start), min(width, end)
+	//
+	return q
 }
 
 func (p *moduleData[F]) Id() sc.ModuleId {
@@ -143,41 +230,30 @@ func (p *moduleData[F]) Name() string {
 
 // RowTitle returns the title for a given data row
 func (p *moduleData[F]) RowTitle(row sc.RegisterId) string {
-	return p.rows[row.Unwrap()].name
+	return p.rows[row.Unwrap()].Name
 }
 
 func (p *moduleData[F]) expand(col, row uint) {
 	var (
-		rowData = p.rows[row]
-		n       = uint(len(rowData.data))
+		srcColumn = p.rows[row]
+		n         = uint(len(srcColumn.data))
 	)
 	// Check whether expansion required
 	if col >= n {
 		// Yes
 		ndata := make([]string, col+1)
 		//
-		view := p.DataOf(sc.NewRegisterId(row))
+		view := p.DataOf(srcColumn.Register)
 		// Copy existing data
-		copy(ndata, rowData.data)
+		copy(ndata, srcColumn.data)
 		// Construct new data
 		for i := n; i <= col; i++ {
 			ith := view.Get(i)
-			ndata[i] = renderCellValue(rowData.display, ith, p.enumerations)
+			ndata[i] = renderCellValue(srcColumn.Display, ith, p.enumerations)
 		}
 		//
 		p.rows[row].data = ndata
 	}
-}
-
-type rowData struct {
-	// column name
-	name string
-	// display modifier
-	display uint
-	// limbs making up this row
-	limbs []sc.RegisterId
-	// rendered column data
-	data []string
 }
 
 // Determine the (unclipped) string value at a given column and row in a given

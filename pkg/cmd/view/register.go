@@ -23,7 +23,7 @@ import (
 
 // RegisterView provides an abstract view of a given column.
 type RegisterView interface {
-	IsComputed() bool
+	//IsComputed() bool
 	Get(uint) big.Int
 }
 
@@ -56,9 +56,4 @@ func (p *registerView[F]) Get(row uint) big.Int {
 	}
 	//
 	return value
-}
-
-// IsComputed implementation for RegisterView interface.
-func (p *registerView[F]) IsComputed() bool {
-	return p.mapping.Register(p.register).Kind == sc.COMPUTED_REGISTER
 }

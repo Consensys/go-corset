@@ -280,9 +280,7 @@ func (p *Inspector) nextScanResult(forwards bool) {
 }
 
 func (p *Inspector) matchQuery(query *Query) termio.FormattedText {
-	var (
-		col, _ = p.CurrentModule().view.Offset()
-	)
+	var col, _ = p.CurrentModule().view.Offset()
 	//
 	return p.CurrentModule().matchQuery(col, true, query)
 }

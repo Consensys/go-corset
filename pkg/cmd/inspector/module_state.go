@@ -14,12 +14,12 @@ package inspector
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -43,22 +43,6 @@ type ModuleState struct {
 	lastQuery *Query
 }
 
-// SourceColumn provides key information to the inspector about source-level
-// columns and their mapping to registers at the HIR level (i.e. columns we
-// would find in the trace).
-type SourceColumn struct {
-	// Column name
-	Name string
-	// Determines whether this is a Computed column.
-	Computed bool
-	// Selector determines when column active.
-	Selector util.Option[string]
-	// Display modifier
-	Display uint
-	// Register to which this column is allocated
-	Register schema.RegisterRef
-}
-
 // SourceColumnFilter packages up everything needed for filtering columns in a
 // given module.
 type SourceColumnFilter struct {
@@ -74,18 +58,22 @@ type SourceColumnFilter struct {
 }
 
 // Column matches this filter against a given column.
-func (p *SourceColumnFilter) Column(cid schema.LimbId) view.CellFilter {
-	var col = p.Mapping.Register(cid)
+func (p *SourceColumnFilter) Column(col view.SourceColumn) bool {
 	//
 	if p.Regex == nil || p.Regex.MatchString(col.Name) {
-		if p.Computed && col.IsComputed() {
-			return view.DefaultCellFilter()
-		} else if p.UserDefined && !col.IsComputed() {
-			return view.DefaultCellFilter()
+		if p.Computed && col.Computed {
+			return true
+		} else if p.UserDefined && !col.Computed {
+			return true
 		}
 	}
 	// failed
-	return nil
+	return false
+}
+
+// Range imoplementation for ModuleFilter interface.
+func (p *SourceColumnFilter) Range() (start, end uint) {
+	return 0, math.MaxUint
 }
 
 func newModuleState(view view.ModuleView, public bool) ModuleState {
@@ -113,7 +101,6 @@ func (p *ModuleState) gotoRow(ncol uint) uint {
 	}
 	// failed
 	return row
-
 }
 
 // Apply a new column filter to the module view.  This determines which columns
@@ -137,7 +124,7 @@ func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool)
 func (p *ModuleState) matchQuery(col uint, forwards bool, query *Query) termio.FormattedText {
 	var (
 		mapping  = p.view.Data().Mapping()
-		width, _ = p.view.Dimensions()
+		width, _ = p.view.Data().Dimensions()
 		// Construct query environment
 		env = func(col string, row uint) big.Int {
 			id, ok := mapping.HasRegister(col)

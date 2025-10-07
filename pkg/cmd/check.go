@@ -307,15 +307,14 @@ func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef]
 	mapping schema.LimbsMap, cfg checkConfig) {
 	// Construct trace window
 	window := view.NewBuilder[F](mapping).
-		WithPadding(cfg.reportPadding).
 		WithLimbs(cfg.reportLimbs).
 		WithCellWidth(cfg.reportCellWidth).
 		WithTitleWidth(cfg.reportTitleWidth).
-		//WithAnsiEscapes(cfg.ansiEscapes).
-		WithFormatting(view.NewCellFormatter(*cells)).
+		WithSourceMap(*cfg.corsetSourceMap).
+		WithFormatting(view.NewCellFormatter(*cells, cfg.ansiEscapes)).
 		Build(trace)
 	// Focus window on those cells relevant to the failure
-	window = window.Filter(view.FilterForCells(*cells))
+	window = window.Filter(view.FilterForCells(*cells, cfg.reportPadding))
 	// Print all windows
 	for i := range window.Width() {
 		ith := window.Module(i)

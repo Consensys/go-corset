@@ -32,6 +32,9 @@ const qADD = 9
 const qMUL = 10
 const qSUB = 11
 
+// QueryEnv abstracts the notion of an environment for evaluating a query.
+// Specifically, the environment provides a mapping from variable names to their
+// values on a given row.
 type QueryEnv = func(string, uint) big.Int
 
 var biZero *big.Int = big.NewInt(0)

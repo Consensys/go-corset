@@ -23,7 +23,7 @@ import (
 // predicate, or only those which are publically visible, etc.
 type TraceView interface {
 	// Filter this view to produce a more focused view.
-	Filter(Filter) TraceView
+	Filter(TraceFilter) TraceView
 	// Access ith module view
 	Module(uint) ModuleView
 	// Sort the modules of this view
@@ -41,7 +41,7 @@ type traceView struct {
 }
 
 // Filter implementation for TraceView interface
-func (p *traceView) Filter(filter Filter) TraceView {
+func (p *traceView) Filter(filter TraceFilter) TraceView {
 	var modules []ModuleView
 	//
 	for _, m := range p.modules {

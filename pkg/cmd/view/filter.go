@@ -13,29 +13,28 @@
 package view
 
 import (
+	"math"
+
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
-// Filter is used to filter a given TraceView to focus on key aspects of the
+// TraceFilter is used to filter a given TraceView to focus on key aspects of the
 // view, as required for the task at hand.
-type Filter interface {
+type TraceFilter interface {
 	// Determine filter for columns in the given module; if nil is returned,
 	// then module is ignored.
-	Module(sc.ModuleId) ColumnFilter
+	Module(sc.ModuleId) ModuleFilter
 }
 
-// ColumnFilter is used to focus on a subset of columns in a given module.
-type ColumnFilter interface {
+// ModuleFilter is used to focus on a subset of columns in a given module.
+type ModuleFilter interface {
 	// Determine filter for cells of this column; if nil is returned, then
 	// column is ignored.
-	Column(sc.LimbId) CellFilter
-}
-
-// CellFilter is used to focus on a subset of cells in a given column.
-type CellFilter interface {
-	Cell(uint) bool
+	Column(SourceColumn) bool
+	// Window specifies a specific viewport to use.
+	Range() (start, end uint)
 }
 
 // ============================================================================
@@ -45,30 +44,25 @@ type CellFilter interface {
 type defaultFilter struct{}
 
 // DefaultFilter constructs a default filter which filters nothing.
-func DefaultFilter() Filter {
+func DefaultFilter() TraceFilter {
 	return &defaultFilter{}
 }
 
 // DefaultColumnFilter constructs a default column filter which filters nothing.
-func DefaultColumnFilter() ColumnFilter {
+func DefaultColumnFilter() ModuleFilter {
 	return &defaultFilter{}
 }
 
-// DefaultCellFilter constructs a default cell filter which filters nothing.
-func DefaultCellFilter() CellFilter {
-	return &defaultFilter{}
-}
-
-func (p *defaultFilter) Module(sc.ModuleId) ColumnFilter {
+func (p *defaultFilter) Module(sc.ModuleId) ModuleFilter {
 	return p
 }
 
-func (p *defaultFilter) Column(sc.LimbId) CellFilter {
-	return p
-}
-
-func (p *defaultFilter) Cell(uint) bool {
+func (p *defaultFilter) Column(SourceColumn) bool {
 	return true
+}
+
+func (p *defaultFilter) Range() (start, end uint) {
+	return 0, math.MaxUint
 }
 
 // ============================================================================
@@ -76,7 +70,7 @@ func (p *defaultFilter) Cell(uint) bool {
 // ============================================================================
 
 // FilterForModules constructs a filter from a given predicate.
-func FilterForModules(fn func(sc.ModuleId) bool) Filter {
+func FilterForModules(fn func(sc.ModuleId) bool) TraceFilter {
 	return &moduleFilter{fn}
 }
 
@@ -84,7 +78,7 @@ type moduleFilter struct {
 	fn func(sc.ModuleId) bool
 }
 
-func (p *moduleFilter) Module(mid sc.ModuleId) ColumnFilter {
+func (p *moduleFilter) Module(mid sc.ModuleId) ModuleFilter {
 	if p.fn(mid) {
 		return DefaultColumnFilter()
 	}
@@ -98,8 +92,8 @@ func (p *moduleFilter) Module(mid sc.ModuleId) ColumnFilter {
 
 // FilterForCells returns a filter which focuses specifically on the given
 // cells.
-func FilterForCells(cells CellRefSet) Filter {
-	var filter moduleCellFilter
+func FilterForCells(cells CellRefSet, padding uint) TraceFilter {
+	var filter = traceCellFilter{padding, nil}
 	//
 	for iter := cells.Iter(); iter.HasNext(); {
 		filter.addCell(iter.Next())
@@ -108,54 +102,79 @@ func FilterForCells(cells CellRefSet) Filter {
 	return &filter
 }
 
-type moduleCellFilter []columnCellFilter
-type columnCellFilter []cellFilter
-type cellFilter bit.Set
+type traceCellFilter struct {
+	padding uint
+	modules []moduleCellFilter
+}
 
-func (p *moduleCellFilter) Module(mid sc.ModuleId) ColumnFilter {
-	var n = uint(len((*p)[mid]))
+type moduleCellFilter struct {
+	padding    uint
+	columns    []bit.Set
+	start, end uint
+}
+
+func (p *traceCellFilter) Module(mid sc.ModuleId) ModuleFilter {
+	var n = uint(len(p.modules[mid].columns))
 	//
-	if n <= mid || (*p)[mid] == nil {
+	if n <= mid || len(p.modules[mid].columns) == 0 {
 		return nil
 	}
 	//
-	return &(*p)[mid]
+	return &p.modules[mid]
 }
 
-func (p *moduleCellFilter) addCell(cell tr.CellRef) {
+func (p *traceCellFilter) addCell(cell tr.CellRef) {
 	var (
-		bits *bit.Set
-		m    = cell.Column.Module()
-		n    = cell.Column.Register().Unwrap()
+		m   = cell.Column.Module()
+		n   = cell.Column.Register().Unwrap()
+		mod moduleCellFilter
 	)
 	// First ensure enough modules
-	if uint(len(*p)) <= m {
-		q := make([]columnCellFilter, m+1)
-		copy(q, *p)
-		*p = q
+	if uint(len(p.modules)) <= m {
+		q := make([]moduleCellFilter, m+1)
+		copy(q, p.modules)
+		p.modules = q
 	}
+	//
+	mod = p.modules[m]
 	// Second ensure enough columns
-	if uint(len((*p)[m])) <= n {
-		q := make([]cellFilter, n+1)
-		copy(q, (*p)[m])
-		(*p)[m] = q
+	if uint(len(mod.columns)) <= n {
+		q := make([]bit.Set, n+1)
+		copy(q, mod.columns)
+		mod.padding = p.padding
+		mod.columns = q
+		mod.start = math.MaxUint
+		mod.end = 0
 	}
 	// Finally, add the cell
-	bits = (*bit.Set)(&(*p)[m][n])
-	bits.Insert(uint(cell.Row))
+	mod.columns[n].Insert(uint(cell.Row))
+	mod.start = min(mod.start, uint(cell.Row))
+	mod.end = max(mod.end, uint(cell.Row)+1)
+	//
+	p.modules[m] = mod
 }
 
-func (p *columnCellFilter) Column(cid sc.LimbId) CellFilter {
-	var bits bit.Set = bit.Set((*p)[cid.Unwrap()])
-	//
-	if bits.Count() == 0 {
-		return nil
+func (p *moduleCellFilter) Column(col SourceColumn) bool {
+	// Look to see whether any limb is in this column, or not.
+	for _, lid := range col.Limbs {
+		var bits bit.Set = p.columns[lid.Unwrap()]
+		//
+		if bits.Count() != 0 {
+			return true
+		}
 	}
 	//
-	return &(*p)[cid.Unwrap()]
+	return false
 }
 
-func (p *cellFilter) Cell(row uint) bool {
-	var bits bit.Set = bit.Set(*p)
-	return bits.Contains(row)
+func (p *moduleCellFilter) Range() (start, end uint) {
+	start, end = p.start, p.end
+	// apply padding to start
+	if start >= p.padding {
+		start -= p.padding
+	} else {
+		start = 0
+	}
+	// done
+	return start, end + p.padding
 }
