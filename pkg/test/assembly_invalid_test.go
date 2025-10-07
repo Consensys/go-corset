@@ -41,6 +41,9 @@ func Test_AsmInvalid_Basic_05(t *testing.T) {
 func Test_AsmInvalid_Basic_06(t *testing.T) {
 	checkAsmInvalid(t, "asm/invalid/basic_06")
 }
+func Test_AsmInvalid_Basic_07(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/basic_07")
+}
 
 // ===================================================================
 // Flow Tests
