@@ -21,9 +21,13 @@ import (
 
 	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/binfile"
 	cmd "github.com/consensys/go-corset/pkg/cmd/util"
+	"github.com/consensys/go-corset/pkg/cmd/view"
+	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -35,6 +39,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/termio"
+	"github.com/consensys/go-corset/pkg/util/termio/widget"
 	"github.com/consensys/go-corset/pkg/util/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -61,90 +66,102 @@ var traceCmds = []FieldAgnosticCmd{
 }
 
 func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
-	var traces []lt.TraceFile
+	var (
+		ltTraces []lt.TraceFile
+		traces   []tr.Trace[F]
+		cfg      TraceConfig
+	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
 		log.SetLevel(log.DebugLevel)
 	}
 	// Parse trace
-	columns := GetFlag(cmd, "columns")
+	//columns := GetFlag(cmd, "columns")
 	batched := GetFlag(cmd, "batched")
-	modules := GetFlag(cmd, "modules")
-	stats := GetFlag(cmd, "stats")
-	includes := GetStringArray(cmd, "include")
+	//modules := GetFlag(cmd, "modules")
+	//stats := GetFlag(cmd, "stats")
+	//includes := GetStringArray(cmd, "include")
 	print := GetFlag(cmd, "print")
-	start := GetUint(cmd, "start")
-	end := GetUint(cmd, "end")
-	max_width := GetUint(cmd, "max-width")
+	cfg.startRow = GetUint(cmd, "start")
+	cfg.endRow = GetUint(cmd, "end")
+	cfg.maxCellWidth = GetUint(cmd, "max-width")
 	padding := GetUint(cmd, "padding")
-	filter := GetString(cmd, "filter")
+	//filter := GetString(cmd, "filter")
 	output := GetString(cmd, "out")
 	metadata := GetFlag(cmd, "metadata")
 	ltv2 := GetFlag(cmd, "ltv2")
-	sort := GetUint(cmd, "sort")
+	//sort := GetUint(cmd, "sort")
 	// Read in constraint files
 	stacker := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
 	stack := stacker.Build()
 	builder := stack.TraceBuilder().WithPadding(padding)
+	// Extract debug information (if available)
+	cfg.sourceMap, _ = binfile.GetAttribute[*corset.SourceMap](stacker.BinaryFile())
+	// Extract register mapping (for limbs)
+	cfg.mapping = stack.RegisterMapping()
 	// Parse trace file(s)
 	if batched {
 		// batched mode
-		traces = ReadBatchedTraceFile(args[0])
+		ltTraces = ReadBatchedTraceFile(args[0])
 	} else {
 		// unbatched (i.e. normal) mode
-		traces = []lt.TraceFile{ReadTraceFile(args[0])}
+		ltTraces = []lt.TraceFile{ReadTraceFile(args[0])}
 		// Print meta-data (if requested)
 		if metadata {
-			printTraceFileHeader(&traces[0].Header)
+			printTraceFileHeader(&ltTraces[0].Header)
 		}
 	}
 	//
 	if builder.Expanding() && !stack.HasUniqueSchema() {
 		fmt.Println("must specify one of --asm/uasm/mir/air")
 		os.Exit(2)
-	} else if builder.Expanding() {
-		// Expand all the traces
-		for i, cols := range traces {
-			traces[i] = expandColumns(cols, stack, builder)
-		}
+	} else if !builder.Expanding() {
+		fmt.Println("non-expanding trace command currently unsupported")
+		os.Exit(2)
+	}
+	// Expand all the traces
+	for _, cols := range ltTraces {
+		traces = append(traces, expandLtTrace(cols, stack, builder))
 	}
 	// Now manipulate traces
-	for i := range traces {
+	for i := range ltTraces {
 		// construct filters
-		if filter != "" {
-			traces[i] = filterColumns(traces[i], filter)
-		}
+		// if filter != "" {
+		// 	traces[i] = filterColumns(traces[i], filter)
+		// }
 
-		if start != 0 || end != math.MaxUint {
-			sliceColumns(traces[i], start, end)
-		}
+		// if start != 0 || end != math.MaxUint {
+		// 	sliceColumns(traces[i], start, end)
+		// }
 
-		if columns {
-			listColumns(max_width, sort, traces[i], includes)
-		}
+		// if columns {
+		// 	listColumns(max_width, sort, traces[i], includes)
+		// }
 
-		if modules {
-			listModules(max_width, sort, traces[i])
-		}
+		// if modules {
+		// 	listModules(max_width, sort, traces[i])
+		// }
 
-		if stats {
-			summaryStats(traces[i])
-		}
+		// if stats {
+		// 	summaryStats(traces[i])
+		// }
 
 		if print {
-			printTrace(start, max_width, traces[i])
+			printTrace(cfg, traces[i])
 		}
 	}
 	// Write out results (if requested)
 	if output != "" {
-		// Upgrade to ltv2 if requested
-		if ltv2 {
-			for i := range traces {
-				traces[i].Header.MajorVersion = lt.LTV2_MAJOR_VERSION
+		// Convert all traces back to lt files.
+		for i := range traces {
+			ltTraces[i] = seqReconstructRawTrace(ltTraces[i].Header.MetaData, traces[i])
+			// Upgrade to ltv2 if requested
+			if ltv2 {
+				ltTraces[i].Header.MajorVersion = lt.LTV2_MAJOR_VERSION
 			}
 		}
 		//
-		writeBatchedTracesFile(output, traces...)
+		writeBatchedTracesFile(output, ltTraces...)
 	}
 }
 
@@ -169,11 +186,23 @@ func init() {
 	traceCmd.Flags().Bool("ltv2", false, "Use ltv2 file format")
 }
 
+// TraceConfig packages together useful things for the various supported
+// options.
+type TraceConfig struct {
+	mapping       sc.LimbsMap
+	sourceMap     *corset.SourceMap
+	maxCellWidth  uint
+	maxTitleWidth uint
+	limbs         bool
+	startRow      uint
+	endRow        uint
+}
+
 // RawColumn provides a convenient alias
 type RawColumn = lt.Column[word.BigEndian]
 
-func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F], bldr ir.TraceBuilder[F],
-) lt.TraceFile {
+func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F], bldr ir.TraceBuilder[F],
+) tr.Trace[F] {
 	//
 	var (
 		schema = stack.BinaryFile().Schema
@@ -202,7 +231,7 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 		os.Exit(1)
 	}
 	// Now, reconstruct it!
-	return seqReconstructRawTrace(tf.Header.MetaData, tr)
+	return tr
 }
 
 // NOTE: parallelising this algorithm did not improve performance as there is
@@ -307,52 +336,25 @@ func printTraceFileHeader(header *lt.Header) {
 	}
 }
 
-func printTrace(start uint, max_width uint, tf lt.TraceFile) {
-	var first = true
-
-	for _, module := range tf.Modules {
-		if len(module.Columns) > 0 {
-			if !first {
-				fmt.Println()
-			}
-			//
-			first = false
-			//
-			if module.Name != "" {
-				fmt.Printf("%s:\n", module.Name)
-			}
-			//
-			printModuleTrace(start, max_width, module)
+func printTrace[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]) {
+	// Construct trace window
+	window := view.NewBuilder[F](cfg.mapping).
+		WithCellWidth(cfg.maxCellWidth).
+		WithSourceMap(*cfg.sourceMap).
+		Build(trace)
+	// Print all windows
+	for i := range window.Width() {
+		ith := window.Module(i)
+		// Construct & configure printer
+		tp := widget.NewTable(window.Module(i))
+		// Print out module name
+		if window.Width() > 1 && ith.Data().Name() != "" {
+			fmt.Printf("%s:\n", ith.Data().Name())
 		}
+		// Print out report
+		tp.Print()
+		fmt.Println()
 	}
-}
-
-func printModuleTrace(start uint, max_width uint, mod lt.Module[word.BigEndian]) {
-	var (
-		cols   = mod.Columns
-		n      = uint(len(cols))
-		height = mod.Height()
-		tbl    = termio.NewFormattedTable(1+height, 1+n)
-	)
-
-	for j := uint(0); j < height; j++ {
-		tbl.Set(j+1, 0, termio.NewText(fmt.Sprintf("#%d", j+start)))
-	}
-
-	for i := uint(0); i < n; i++ {
-		var ith = cols[i].Data
-		//
-		tbl.Set(0, i+1, termio.NewText(cols[i].Name))
-
-		for j := uint(0); j < ith.Len(); j++ {
-			jth := ith.Get(j)
-			contents := fmt.Sprintf("0x%s", jth.Text(16))
-			tbl.Set(j+1, i+1, termio.NewText(contents))
-		}
-	}
-	//
-	tbl.SetMaxWidths(max_width)
-	tbl.Print(true)
 }
 
 func listModules(max_width uint, sort_col uint, tf lt.TraceFile) {
