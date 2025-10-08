@@ -163,7 +163,7 @@ func (p *AirPicusTranslator[F]) lowerTerm(t air.Term[F], module schema.Module[F]
 		args := p.lowerTerms(e.Args, module)
 		return pcl.FoldBinaryE(pcl.Sub, args)
 	default:
-		panic(fmt.Sprintf("unknown MIR expression \"%v\"", e))
+		panic(fmt.Sprintf("unknown AIR expression \"%v\"", e))
 	}
 }
 

@@ -125,7 +125,7 @@ func NewNeq[F field.Element[F]](left Expr[F], right Expr[F]) *Pred[F] {
 // i.e., (((x0 op x1) op x2) ...). It panics if fewer than two formulas are provided.
 func FoldBinopPred[F field.Element[F]](op BinopConnective, xs []Formula[F]) Formula[F] {
 	if len(xs) < 2 {
-		panic(fmt.Sprintf("FoldAnd: expects at least two elements. Found %d", len(xs)))
+		panic(fmt.Sprintf("FoldBinopPred: expects at least two elements. Found %d", len(xs)))
 	}
 
 	acc := xs[0]

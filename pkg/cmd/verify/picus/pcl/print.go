@@ -3,8 +3,6 @@ package pcl
 import (
 	"fmt"
 	"io"
-	"os"
-	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -110,28 +108,4 @@ func writeFormatted(w io.Writer, f *sexp.Formatter, s sexp.SExp) (int64, error) 
 	n, err := io.WriteString(w, str)
 
 	return int64(n), err
-}
-
-// String produces the string representation of a Picus program.
-func (pp *Program[F]) String() string {
-	var b strings.Builder
-
-	if _, err := pp.WriteTo(&b); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
-		os.Exit(1)
-	}
-
-	return b.String()
-}
-
-// String produces a string representation of a Picus module.
-func (m *Module[F]) String() string {
-	var b strings.Builder
-
-	if _, err := m.WriteTo(&b); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing out Picus module: %v", err)
-		os.Exit(1)
-	}
-
-	return b.String()
 }
