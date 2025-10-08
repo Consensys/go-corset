@@ -179,10 +179,6 @@ func NewParser(srcfile source.File, srcmap *source.Map[sexp.SExp], enforceTypes 
 	p.AddRecursiveListRule("∧", logicalParserRule)
 	p.AddRecursiveListRule("==", eqParserRule)
 	p.AddRecursiveListRule("!=", eqParserRule)
-	p.AddRecursiveListRule("<", eqParserRule)
-	p.AddRecursiveListRule("<=", eqParserRule)
-	p.AddRecursiveListRule(">", eqParserRule)
-	p.AddRecursiveListRule(">=", eqParserRule)
 	p.AddRecursiveListRule("::", concatParserRule)
 	p.AddRecursiveListRule("begin", beginParserRule)
 	p.AddRecursiveListRule("debug", debugParserRule)
@@ -2058,14 +2054,6 @@ func eqParserRule(op string, args []ast.Expr) (ast.Expr, error) {
 		return &ast.Equation{Kind: ast.EQUALS, Lhs: args[0], Rhs: args[1]}, nil
 	case "!=":
 		return &ast.Equation{Kind: ast.NOT_EQUALS, Lhs: args[0], Rhs: args[1]}, nil
-	case "<":
-		return &ast.Equation{Kind: ast.LESS_THAN, Lhs: args[0], Rhs: args[1]}, nil
-	case "<=":
-		return &ast.Equation{Kind: ast.LESS_THAN_EQUALS, Lhs: args[0], Rhs: args[1]}, nil
-	case ">=":
-		return &ast.Equation{Kind: ast.GREATER_THAN_EQUALS, Lhs: args[0], Rhs: args[1]}, nil
-	case ">":
-		return &ast.Equation{Kind: ast.GREATER_THAN, Lhs: args[0], Rhs: args[1]}, nil
 	}
 	//
 	panic("unreachable")

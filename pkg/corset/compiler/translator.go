@@ -949,14 +949,6 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 			return ir.Equals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		case ast.NOT_EQUALS:
 			return ir.NotEquals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
-		case ast.LESS_THAN:
-			return ir.LessThan[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
-		case ast.LESS_THAN_EQUALS:
-			return ir.LessThanOrEquals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
-		case ast.GREATER_THAN:
-			return ir.GreaterThan[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
-		case ast.GREATER_THAN_EQUALS:
-			return ir.GreaterThanOrEquals[bls12_377.Element, mirLogicalTerm](lhs, rhs), nil
 		default:
 			panic("unreachable")
 		}

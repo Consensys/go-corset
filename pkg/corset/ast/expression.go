@@ -372,14 +372,6 @@ const (
 	EQUALS uint8 = 0
 	// NOT_EQUALS indicates a not-equals (!=) relationship
 	NOT_EQUALS uint8 = 1
-	// LESS_THAN indicates a less-than (<) relationship
-	LESS_THAN uint8 = 2
-	// LESS_THAN_EQUALS indicates a less-than-or-equals (<=) relationship
-	LESS_THAN_EQUALS uint8 = 3
-	// GREATER_THAN indicates a greater-than (>) relationship
-	GREATER_THAN uint8 = 4
-	// GREATER_THAN_EQUALS indicates a greater-than-or-equals (>=) relationship
-	GREATER_THAN_EQUALS uint8 = 5
 )
 
 // Equation represents either an equality (e.g. X==Y), a non-equality (X!=Y), or
@@ -414,22 +406,6 @@ func (e *Equation) AsConstant() *big.Int {
 		if cmp != 0 {
 			return big.NewInt(0)
 		}
-	case LESS_THAN:
-		if cmp < 0 {
-			return big.NewInt(0)
-		}
-	case LESS_THAN_EQUALS:
-		if cmp <= 0 {
-			return big.NewInt(0)
-		}
-	case GREATER_THAN_EQUALS:
-		if cmp >= 0 {
-			return big.NewInt(0)
-		}
-	case GREATER_THAN:
-		if cmp > 0 {
-			return big.NewInt(0)
-		}
 	default:
 		panic("unreachable")
 	}
@@ -455,14 +431,6 @@ func (e *Equation) Lisp() sexp.SExp {
 		symbol = sexp.NewSymbol("==")
 	case NOT_EQUALS:
 		symbol = sexp.NewSymbol("!=")
-	case LESS_THAN:
-		symbol = sexp.NewSymbol("<")
-	case LESS_THAN_EQUALS:
-		symbol = sexp.NewSymbol("<=")
-	case GREATER_THAN_EQUALS:
-		symbol = sexp.NewSymbol(">=")
-	case GREATER_THAN:
-		symbol = sexp.NewSymbol(">")
 	default:
 		panic("unreachable")
 	}
