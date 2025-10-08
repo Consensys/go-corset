@@ -13,10 +13,13 @@
 package mir
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -103,15 +106,23 @@ func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F], mapping schem
 }
 
 func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
-	//
+	// Split terms using vector accesses
 	lhs = splitTerm(lhs, mapping)
 	rhs = splitTerm(rhs, mapping)
+	// Translate into polynomials
+	left := termToPolynomial(lhs, mapping.LimbsMap())
+	right := termToPolynomial(rhs, mapping.LimbsMap())
+	// Construct equality for spltting
 	//
-	if sign {
-		return ir.Equals[F, LogicalTerm[F]](lhs, rhs)
-	}
+	fmt.Printf("EQUATION: %s == %s",
+		poly.String(left, schema.RegisterToString), poly.String(right, schema.RegisterToString))
 	//
-	return ir.NotEquals[F, LogicalTerm[F]](lhs, rhs)
+	// if sign {
+	// 	return ir.Equals[F, LogicalTerm[F]](lhs, rhs)
+	// }
+	// //
+	// return ir.NotEquals[F, LogicalTerm[F]](lhs, rhs)
+	panic("todo")
 }
 
 func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap) Term[F] {
