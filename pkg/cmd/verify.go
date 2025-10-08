@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/consensys/go-corset/pkg/asm"
-	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/verify/picus"
-	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -36,51 +34,39 @@ var verifyCmd = []FieldAgnosticCmd{
 }
 
 // The `verify` command takes as input a constraint file and translates the constraints
-// into a constraint verification backend. The current translator only supports translating `mir`
-// files to a Picus backend.
+// into a constraint verification backend. The current translator supports translating AIR and
+// MIR schemas.
 func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
-	// Configure log level
-	backend := GetString(cmd, "tool")
-	if backend == "picus" {
-		mirSchema := getMirSchema[F](cmd, args)
-		picusLowering := picus.NewPicusTranslator(mirSchema)
-		picusProgram := picusLowering.Translate()
-		if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
-		}
-	}
-}
+	mirEnable := GetFlag(cmd, "mir")
 
-// Gets an MIR schema from the input files. Most of this is borrowed from `GetSchemaStack`
-func getMirSchema[F field.Element[F]](cmd *cobra.Command, args []string) mir.Schema[F] {
-	var (
-		mirEnable    = GetFlag(cmd, "mir")
-		field        = GetString(cmd, "field")
-		asmConfig    asm.LoweringConfig
-		corsetConfig corset.CompilationConfig
-		asmProgram   asm.MixedMacroProgram[bls12_377.Element]
-		uasmProgram  asm.MixedMicroProgram[bls12_377.Element]
-		mirSchema    mir.Schema[F]
-	)
-	if !mirEnable {
-		fmt.Fprintf(os.Stderr, "%v", fmt.Errorf("-verify expects -mir flag"))
+	backend := GetString(cmd, "tool")
+	if backend != "picus" {
+		fmt.Fprintf(os.Stderr, "%v", fmt.Errorf("expected `backend` = \"picus\". Found %s", backend))
 		os.Exit(1)
 	}
-	fieldConfig := sc.GetFieldConfig(field)
-	asmConfig.Vectorize = GetFlag(cmd, "vectorize")
-	asmConfig.Field = *fieldConfig
-	// Initial corset compilation configuration
-	corsetConfig.Stdlib = !GetFlag(cmd, "no-stdlib")
-	corsetConfig.Debug = GetFlag(cmd, "debug")
-	corsetConfig.Legacy = GetFlag(cmd, "legacy")
-	corsetConfig.EnforceTypes = GetFlag(cmd, "enforce-types")
-	binFile := cmd_util.ReadConstraintFiles(corsetConfig, asmConfig, args)
-	asmProgram = binFile.Schema
-	// Lower to mixed micro schema
-	uasmProgram = asm.LowerMixedMacroProgram(asmConfig.Vectorize, asmProgram)
-	// Apply register splitting for field agnosticity
-	mirSchema, _ = asm.Concretize[bls12_377.Element, F](*fieldConfig, uasmProgram)
-	return mirSchema
+
+	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
+	for _, schema := range schemas.ConcreteSchemas() {
+		switch v := schema.(type) {
+		case mir.Schema[F]:
+			// only translate mir schema if explicitly specified
+			if mirEnable {
+				picusLowering := picus.NewMirPicusTranslator(v)
+				picusProgram := picusLowering.Translate()
+
+				if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
+					fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
+				}
+			}
+		case air.Schema[F]:
+			picusLowering := picus.NewAirPicusTranslator(v)
+			picusProgram := picusLowering.Translate()
+
+			if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
+			}
+		}
+	}
 }
 
 //nolint:errcheck
