@@ -67,7 +67,7 @@ type FieldAgnostic[T any] interface {
 	//
 	// Here, c is a 1bit register introduced as part of the transformation to
 	// act as a "carry" between the two constraints.
-	Subdivide(LimbsMap) T
+	Subdivide(RegisterAllocator) T
 }
 
 // LimbsMap provides a high-level mapping of all registers across all
