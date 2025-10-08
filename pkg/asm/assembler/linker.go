@@ -198,6 +198,8 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 		}
 		// allocate & link bus
 		insn.Link(buses[busId])
+		//
+		return p.linkExprs(insn.Sources)
 	case *macro.IfGoto:
 		if insn.Label != "" {
 			deats, ok := p.constmap[insn.Label]
