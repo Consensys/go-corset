@@ -2,7 +2,6 @@ package picus
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/cmd/verify/picus/pcl"
@@ -20,17 +19,11 @@ type AirPicusTranslator[F field.Element[F]] struct {
 	picusProgram *pcl.Program[F]
 }
 
-// Utility to get the modulus of F.
-func modulusOf[F field.Element[F]]() *big.Int {
-	var z F
-	return z.Modulus()
-}
-
 // NewAirPicusTranslator constructs an Air->Picus translator.
 func NewAirPicusTranslator[F field.Element[F]](airSchema air.Schema[F]) *AirPicusTranslator[F] {
 	return &AirPicusTranslator[F]{
 		airSchema:    airSchema,
-		picusProgram: pcl.NewProgram[F](modulusOf[F]()),
+		picusProgram: pcl.NewProgram[F](ModulusOf[F]()),
 	}
 }
 

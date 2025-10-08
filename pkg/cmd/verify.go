@@ -41,7 +41,7 @@ func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 
 	backend := GetString(cmd, "tool")
 	if backend != "picus" {
-		fmt.Fprintf(os.Stderr, "%v", fmt.Errorf("expected `backend` = \"picus\". Found %s", backend))
+		fmt.Fprintf(os.Stderr, "Only picus backend supported")
 		os.Exit(1)
 	}
 
