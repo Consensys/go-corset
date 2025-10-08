@@ -88,20 +88,26 @@ const GREATERTHAN uint = 10
 // GREATERTHAN_EQUALS signals a (non-strict) inequality X >= Y
 const GREATERTHAN_EQUALS uint = 11
 
+// BOTTOM represents logical falsehood
+const BOTTOM uint = 12
+
+// TOP represents logical truth
+const TOP uint = 13
+
 // OR represents logical disjunction
-const OR uint = 12
+const OR uint = 14
 
 // AND represents logical conjunction
-const AND uint = 13
+const AND uint = 15
 
 // ADD represents integer addition
-const ADD uint = 14
+const ADD uint = 16
 
 // SUB represents integer subtraction
-const SUB uint = 15
+const SUB uint = 17
 
 // MUL represents integer multiplication
-const MUL uint = 16
+const MUL uint = 18
 
 // CONDITIONS captures the set of conditions.
 var CONDITIONS = []uint{EQUALS, NOT_EQUALS, LESSTHAN, LESSTHAN_EQUALS, GREATERTHAN, GREATERTHAN_EQUALS}
@@ -116,7 +122,21 @@ var CONNECTIVES = []uint{AND, OR}
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')))
 
 // Rule for describing numbers
-var number lex.Scanner[rune] = lex.Many(lex.Within('0', '9'))
+var (
+	binaryStart  = lex.Sequence(lex.String("0b"), lex.Within('0', '1'))
+	binaryRest   = lex.Or(lex.Within('0', '1'), lex.Unit('_'))
+	decimalStart = lex.Within('0', '9')
+	decimalRest  = lex.Or(lex.Within('0', '9'), lex.Unit('_'))
+	hexDigit     = lex.Or(lex.Within('0', '9'), lex.Within('A', 'F'), lex.Within('a', 'f'))
+	hexStart     = lex.Sequence(lex.String("0x"), hexDigit)
+	hexRest      = lex.Or(hexDigit, lex.Unit('_'))
+	//
+	number = lex.Or(
+		lex.SequenceNullableLast(binaryStart, lex.Many(binaryRest)),
+		lex.SequenceNullableLast(hexStart, lex.Many(hexRest)),
+		lex.SequenceNullableLast(decimalStart, lex.Many(decimalRest)),
+	)
+)
 
 var identifierStart lex.Scanner[rune] = lex.Or(
 	lex.Unit('_'),
@@ -145,6 +165,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('=', '='), EQUALS),
 	lex.Rule(lex.Unit('!', '='), NOT_EQUALS),
+	lex.Rule(lex.Unit('≠'), NOT_EQUALS),
 	lex.Rule(lex.Unit('<'), LESSTHAN),
 	lex.Rule(lex.Unit('<', '='), LESSTHAN_EQUALS),
 	lex.Rule(lex.Unit('>'), GREATERTHAN),
@@ -153,6 +174,8 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('∨'), OR),
 	lex.Rule(lex.Unit('&', '&'), AND),
 	lex.Rule(lex.Unit('∧'), AND),
+	lex.Rule(lex.Unit('⊥'), BOTTOM),
+	lex.Rule(lex.Unit('⊤'), TOP),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(identifier, IDENTIFIER),
@@ -298,12 +321,16 @@ func (p *Parser[T]) parseUnitTerm() (T, []source.SyntaxError) {
 	)
 	// Otherwise, assume connective
 	switch token.Kind {
+	case BOTTOM:
+		return p.parseLogicalTruth(false)
 	case LBRACE:
 		return p.parseBracketedTerm()
 	case IDENTIFIER:
 		return p.parseVariable()
 	case NUMBER:
 		return p.parseNumber(), nil
+	case TOP:
+		return p.parseLogicalTruth(true)
 	}
 	//
 	return empty, p.syntaxErrors(token, "unknown expression")
@@ -321,6 +348,18 @@ func (p *Parser[T]) parseBracketedTerm() (T, []source.SyntaxError) {
 	}
 	//
 	return term, errs
+}
+
+func (p *Parser[T]) parseLogicalTruth(val bool) (T, []source.SyntaxError) {
+	var truth T
+	//
+	if val {
+		p.expect(TOP)
+	} else {
+		p.expect(BOTTOM)
+	}
+	//
+	return truth.Truth(val), nil
 }
 
 func (p *Parser[T]) parseVariable() (T, []source.SyntaxError) {

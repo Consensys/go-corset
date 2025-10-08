@@ -28,13 +28,13 @@ import (
 // JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
 func JavaTraceInterfaceUnion[F field.Element[F]](filename string, pkgname string,
-	stacks []cmd_util.SchemaStack[F]) (string, error) {
+	stacks []cmd_util.SchemaStacker[F]) (string, error) {
 	//
 	return javaTraceInterface(filename, pkgname, true, stacks)
 }
 
 func javaTraceInterface[F field.Element[F]](filename string, pkgname string, union bool,
-	stacks []cmd_util.SchemaStack[F]) (string, error) {
+	stacks []cmd_util.SchemaStacker[F]) (string, error) {
 	//
 	var root corset.SourceModule
 	// Combine roots to determine set of common functionality.
@@ -97,9 +97,9 @@ func generateInterfaceContents(className string, mod corset.SourceModule, builde
 	generateInterfaceValidateRow(className, builder.Indent())
 	// Generate any submodules
 	for _, submod := range mod.Submodules {
-		if !submod.Virtual {
+		if submod.Public && !submod.Virtual {
 			generateInterfaceContents(toPascalCase(submod.Name), submod, builder.Indent())
-		} else {
+		} else if submod.Public {
 			generateInterfaceColumnSetters(className, submod, builder.Indent())
 		}
 	}
@@ -117,8 +117,8 @@ func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, build
 	first := true
 	//
 	for _, m := range submodules {
-		// Only consider non-virtual modules (for now)
-		if !m.Virtual {
+		// Only consider non-virtual, public modules (for now)
+		if !m.Virtual && m.Public {
 			className := toPascalCase(m.Name)
 			// Determine suitable name for field
 			fieldName := toCamelCase(m.Name)
@@ -127,8 +127,8 @@ func generateInterfaceSubmoduleAccessors(submodules []corset.SourceModule, build
 				builder.WriteIndentedString("// Submodules\n")
 			}
 			// Yes, it is.
-			builder.WriteIndentedString(
-				"default ", className, " ", fieldName, "() { throw new IllegalArgumentException(); }\n")
+			builder.WriteIndentedString("default ", className, " ", fieldName, "() {")
+			builder.WriteString(fmt.Sprintf("throw new IllegalArgumentException(\"missing module %s\"); }\n", m.Name))
 			//
 			first = false
 		}
@@ -178,23 +178,25 @@ func generateInterfaceColumnSetters(className string, mod corset.SourceModule,
 				methodName = toCamelCase(fmt.Sprintf("p_%s_%s", mod.Name, methodName))
 			}
 			//
-			generateInterfaceColumnSetter(className, methodName, column, builder)
+			generateInterfaceColumnSetter(className, methodName, mod, column, builder)
 		}
 	}
 }
 
-func generateInterfaceColumnSetter(className string, methodName string, col corset.SourceColumn,
-	builder indentBuilder) {
+func generateInterfaceColumnSetter(className string, methodName string, mod corset.SourceModule,
+	col corset.SourceColumn, builder indentBuilder) {
 	//
+	handle := fmt.Sprintf("%s.%s", mod.Name, col.Name)
 	methodName = toCamelCase(methodName)
 	typeStr := getJavaType(col.Bitwidth)
+	errorMsg := fmt.Sprintf("throw new IllegalArgumentException(\"missing column %s (u%d)\"); }\n", handle, col.Bitwidth)
 	//
-	builder.WriteIndentedString("default ", className, " ", methodName,
-		"(final ", typeStr, " val) { throw new IllegalArgumentException(); }\n")
+	builder.WriteIndentedString("default ", className, " ", methodName, "(final ", typeStr, " val) {")
+	builder.WriteString(errorMsg)
 	// Legacy case for bytes
 	if col.Bitwidth == 8 {
-		builder.WriteIndentedString("default ", className, " ", methodName,
-			"(final UnsignedByte val) { throw new IllegalArgumentException(); }\n")
+		builder.WriteIndentedString("default ", className, " ", methodName, "(final UnsignedByte val) {")
+		builder.WriteString(errorMsg)
 	}
 }
 

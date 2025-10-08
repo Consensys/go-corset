@@ -72,8 +72,8 @@ func (p *Bus) Data() []RegisterId {
 // micro codes using registers of a fixed maximum width.
 func (p *Bus) Split(env schema.RegisterAllocator) Bus {
 	// Split bus
-	address := agnostic.ApplyMapping(env, p.AddressLines)
-	data := agnostic.ApplyMapping(env, p.DataLines)
+	address := agnostic.ApplyMapping(env, p.AddressLines...)
+	data := agnostic.ApplyMapping(env, p.DataLines...)
 	//
 	return NewBus(p.Name, p.BusId, address, data)
 }

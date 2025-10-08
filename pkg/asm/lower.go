@@ -43,7 +43,7 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 		insns[pc] = insn.Lower(uint(pc))
 	}
 	// Sanity checks (for now)
-	fn := io.NewFunction(f.Name(), f.Registers(), f.Buses(), insns)
+	fn := io.NewFunction(f.Name(), f.IsPublic(), f.Registers(), f.Buses(), insns)
 	// Apply vectorisation (if enabled).
 	if vectorize {
 		fn = vectorizeFunction(fn)
@@ -65,7 +65,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return io.NewFunction(f.Name(), f.Registers(), f.Buses(), insns)
+	return io.NewFunction(f.Name(), f.IsPublic(), f.Registers(), f.Buses(), insns)
 }
 
 func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {
@@ -96,6 +96,8 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 	//
 	switch code := codes[cc].(type) {
 	case *micro.Assign:
+		written = code.RegistersWritten()
+	case *micro.Ite:
 		written = code.RegistersWritten()
 	case *micro.Jmp:
 		if code.Target == target {
@@ -227,13 +229,16 @@ func determineReachableInstructions(insns []micro.Instruction) bit.Set {
 	var (
 		worklist = VecWorklist{}
 	)
-	// Start with entry block
-	worklist.Push(0)
 	//
-	for !worklist.Empty() {
-		pc := worklist.Pop()
+	if len(insns) > 0 {
+		// Start with entry block
+		worklist.Push(0)
 		//
-		worklist.PushAll(insns[pc].JumpTargets())
+		for !worklist.Empty() {
+			pc := worklist.Pop()
+			//
+			worklist.PushAll(insns[pc].JumpTargets())
+		}
 	}
 	// Done
 	return worklist.visited

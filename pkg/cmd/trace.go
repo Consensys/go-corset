@@ -82,9 +82,11 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	output := GetString(cmd, "out")
 	metadata := GetFlag(cmd, "metadata")
 	ltv2 := GetFlag(cmd, "ltv2")
+	sort := GetUint(cmd, "sort")
 	// Read in constraint files
-	schemas := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
-	builder := schemas.TraceBuilder().WithPadding(padding)
+	stacker := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
+	stack := stacker.Build()
+	builder := stack.TraceBuilder().WithPadding(padding)
 	// Parse trace file(s)
 	if batched {
 		// batched mode
@@ -98,13 +100,13 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 	}
 	//
-	if builder.Expanding() && !schemas.HasUniqueSchema() {
+	if builder.Expanding() && !stack.HasUniqueSchema() {
 		fmt.Println("must specify one of --asm/uasm/mir/air")
 		os.Exit(2)
 	} else if builder.Expanding() {
 		// Expand all the traces
 		for i, cols := range traces {
-			traces[i] = expandColumns(cols, schemas, builder)
+			traces[i] = expandColumns(cols, stack, builder)
 		}
 	}
 	// Now manipulate traces
@@ -119,11 +121,11 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 
 		if columns {
-			listColumns(max_width, traces[i], includes)
+			listColumns(max_width, sort, traces[i], includes)
 		}
 
 		if modules {
-			listModules(max_width, traces[i])
+			listModules(max_width, sort, traces[i])
 		}
 
 		if stats {
@@ -155,6 +157,7 @@ func init() {
 		fmt.Sprintf("specify information to include in column listing: %s", summariserOptions()))
 	traceCmd.Flags().Bool("stats", false, "show overall stats for the trace file")
 	traceCmd.Flags().BoolP("print", "p", false, "print entire trace file")
+	traceCmd.Flags().Uint("sort", 0, "sort table column")
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
@@ -180,7 +183,11 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 	)
 	// Apply trace propagation
 	if bldr.Expanding() {
+		perf := util.NewPerfStats()
+		//
 		tf, errors = asm.Propagate(schema, tf)
+		//
+		perf.Log("Trace propagation")
 	}
 	//
 	if len(errors) == 0 {
@@ -196,11 +203,16 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 		os.Exit(1)
 	}
 	// Now, reconstruct it!
-	return reconstructRawTrace(tf.Header.MetaData, tr)
+	return seqReconstructRawTrace(tf.Header.MetaData, tr)
 }
 
-func reconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F]) lt.TraceFile {
+// NOTE: parallelising this algorithm did not improve performance as there is
+// (presumably) too much contention.  A better solution would be to construct
+// local heaps for each column in parallel and then merge them at the end.  But
+// that remains complex since the indexing will be different.
+func seqReconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F]) lt.TraceFile {
 	var (
+		perf     = util.NewPerfStats()
 		expanded = make([]lt.Module[word.BigEndian], tr.Width())
 		// Construct fresh heap for this trace
 		heap       = pool.NewLocalHeap[word.BigEndian]()
@@ -212,13 +224,14 @@ func reconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F])
 			module  = tr.Module(mid)
 			columns = make([]lt.Column[word.BigEndian], module.Width())
 		)
-		//
+		// Initialise modules
+		// Dispatch go-routines
 		for cid := range module.Width() {
-			ith := module.Column(cid)
+			col := module.Column(cid)
 			//
 			columns[cid] = lt.Column[word.BigEndian]{
-				Name: ith.Name(),
-				Data: array.CloneArray(ith.Data(), &arrBuilder),
+				Name: col.Name(),
+				Data: array.CloneArray(col.Data(), &arrBuilder),
 			}
 		}
 		//
@@ -227,6 +240,8 @@ func reconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F])
 			Columns: columns,
 		}
 	}
+	//
+	perf.Log("Trace reconstruction")
 	//
 	return lt.NewTraceFile(metadata, *heap, expanded)
 }
@@ -318,7 +333,7 @@ func printModuleTrace(start uint, max_width uint, mod lt.Module[word.BigEndian])
 		cols   = mod.Columns
 		n      = uint(len(cols))
 		height = mod.Height()
-		tbl    = termio.NewTablePrinter(1+height, 1+n)
+		tbl    = termio.NewFormattedTable(1+height, 1+n)
 	)
 
 	for j := uint(0); j < height; j++ {
@@ -341,14 +356,14 @@ func printModuleTrace(start uint, max_width uint, mod lt.Module[word.BigEndian])
 	tbl.Print(true)
 }
 
-func listModules(max_width uint, tf lt.TraceFile) {
+func listModules(max_width uint, sort_col uint, tf lt.TraceFile) {
 	var (
 		//
 		summarisers = moduleSumarisers
 		m           = 1 + uint(len(summarisers))
 		n           = uint(len(tf.Modules))
 		// Go!
-		tbl = termio.NewTablePrinter(m, n+1)
+		tbl = termio.NewFormattedTable(m, n+1)
 	)
 	// Set column titles
 	for i := uint(0); i < uint(len(summarisers)); i++ {
@@ -356,28 +371,25 @@ func listModules(max_width uint, tf lt.TraceFile) {
 	}
 	// Compute column data
 	for i, mod := range tf.Modules {
-		row := make([]termio.FormattedText, m)
-		//
-		row[0] = termio.NewText(mod.Name)
-		//
-		for j, s := range summarisers {
-			row[j+1] = termio.NewText(s.summary(mod.Columns))
-		}
-		//
+		row := summariseModule(mod, moduleSumarisers)
+		// Set row
 		tbl.SetRow(uint(i+1), row...)
 	}
 	//
 	tbl.SetMaxWidths(max_width)
+	tbl.Sort(1, termio.NewTableSorter().
+		SortNumericalColumn(sort_col).
+		Invert())
 	tbl.Print(true)
 }
 
-func listColumns(max_width uint, tf lt.TraceFile, includes []string) {
+func listColumns(max_width, sort_col uint, tf lt.TraceFile, includes []string) {
 	var (
 		summarisers = selectColumnSummarisers(includes)
 		m           = 1 + uint(len(summarisers))
 		n           = lt.NumberOfColumns(tf.Modules)
 		// Go!
-		tbl   = termio.NewTablePrinter(m, n+1)
+		tbl   = termio.NewFormattedTable(m, n+1)
 		c     = make(chan util.Pair[uint, []termio.FormattedText], n)
 		index uint
 	)
@@ -402,7 +414,7 @@ func listColumns(max_width uint, tf lt.TraceFile, includes []string) {
 		}
 	}
 	// Collect results
-	for i := uint(0); i < n; i++ {
+	for range n {
 		// Read packaged result from channel
 		res := <-c
 		// Set row
@@ -410,6 +422,9 @@ func listColumns(max_width uint, tf lt.TraceFile, includes []string) {
 	}
 	//
 	tbl.SetMaxWidths(max_width)
+	tbl.Sort(1, termio.NewTableSorter().
+		SortNumericalColumn(sort_col).
+		Invert())
 	tbl.Print(true)
 }
 
@@ -468,6 +483,21 @@ func flattenIncludes(includes []string) []string {
 	return includes
 }
 
+func summariseModule(mod lt.Module[word.BigEndian], summarisers []ModuleSummariser) []termio.FormattedText {
+	var (
+		m   = 1 + uint(len(summarisers))
+		row = make([]termio.FormattedText, m)
+	)
+	//
+	row[0] = termio.NewText(mod.Name)
+	//
+	for j, s := range summarisers {
+		row[j+1] = termio.NewText(s.summary(mod.Columns))
+	}
+	//
+	return row
+}
+
 func summariseColumn(module string, column RawColumn, summarisers []ColumnSummariser) []termio.FormattedText {
 	m := 1 + uint(len(summarisers))
 	//
@@ -483,7 +513,7 @@ func summariseColumn(module string, column RawColumn, summarisers []ColumnSummar
 
 func summaryStats(tf lt.TraceFile) {
 	m := uint(len(trSummarisers))
-	tbl := termio.NewTablePrinter(2, m)
+	tbl := termio.NewFormattedTable(2, m)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := trSummarisers[i]

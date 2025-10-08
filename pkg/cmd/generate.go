@@ -64,7 +64,7 @@ func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	intrface := GetString(cmd, "interface")
 	// Parse constraints
 	files := splitConstraintSets(args)
-	schemas := make([]cmd_util.SchemaStack[F], len(files))
+	schemas := make([]cmd_util.SchemaStacker[F], len(files))
 	//
 	for i := range schemas {
 		schemas[i] = *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, files[i]...)
@@ -87,11 +87,13 @@ func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		super = strings.TrimSuffix(filename, ".java")
 	}
 	//
-	for i, stack := range schemas {
+	for i, stacker := range schemas {
 		var (
 			filename = outputs[i]
-			binf     = stack.BinaryFile()
+			binf     = stacker.BinaryFile()
 		)
+		// build schema stack
+		stack := stacker.Build()
 		// NOTE: assume defensive padding is enabled.
 		spillage := determineSpillage(stack.LowestConcreteSchema(), true)
 		// Generate appropriate Java source

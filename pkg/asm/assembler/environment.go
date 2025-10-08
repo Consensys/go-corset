@@ -87,9 +87,7 @@ func (p *Environment) DeclareLabel(name string, pc uint) {
 
 // DeclareRegister declares a new register with the given name and bitwidth.  If
 // a register with the same name already exists, this panics.
-func (p *Environment) DeclareRegister(kind schema.RegisterType, name string, width uint) {
-	// Default padding
-	var padding big.Int
+func (p *Environment) DeclareRegister(kind schema.RegisterType, name string, width uint, padding big.Int) {
 	//
 	if p.IsRegister(name) {
 		panic(fmt.Sprintf("register %s already declared", name))
@@ -120,6 +118,12 @@ func (p *Environment) IsBoundLabel(name string) bool {
 	}
 	//
 	return false
+}
+
+// IsLabelBound checks whether or not a given label index has already been bound
+// to a given PC.
+func (p *Environment) IsLabelBound(index uint) bool {
+	return index < uint(len(p.labels)) && p.labels[index].pc != math.MaxUint
 }
 
 // LookupRegister looks up the index for a given register.

@@ -26,8 +26,8 @@ type FormattedTable struct {
 	rows [][]FormattedText
 }
 
-// NewTablePrinter constructs a new table with given dimensions.
-func NewTablePrinter(width uint, height uint) *FormattedTable {
+// NewFormattedTable constructs a new table with given dimensions.
+func NewFormattedTable(width uint, height uint) *FormattedTable {
 	widths := make([]uint, width)
 	rows := make([][]FormattedText, height)
 	// Construct the table
@@ -123,7 +123,7 @@ func (p *FormattedTable) Print(escapes bool) {
 }
 
 // ============================================================================
-// Table Sorted
+// Table Sorter
 // ============================================================================
 
 // TableSorter represents a mechanism for sorting tables in some way.
@@ -137,39 +137,42 @@ func NewTableSorter() TableSorter {
 	}
 }
 
+// Invert the direction of sorting, so that largest values comes first.
+func (p TableSorter) Invert() TableSorter {
+	return func(lhs []FormattedText, rhs []FormattedText) int {
+		cmp := p(lhs, rhs)
+		//
+		return -cmp
+	}
+}
+
 // SortColumn adds a sort by the given column to the table sorter.
-func (p TableSorter) SortColumn(col int) TableSorter {
+func (p TableSorter) SortColumn(col uint) TableSorter {
 	return func(lhs []FormattedText, rhs []FormattedText) int {
 		var l, r string
 		// Try parent sort
 		if c := p(lhs, rhs); c != 0 {
 			return c
-		} else if col < 0 {
-			r = string(lhs[-col].text)
-			l = string(rhs[-col].text)
-		} else {
-			l = string(lhs[col].text)
-			r = string(rhs[col].text)
 		}
+		//
+		l = string(lhs[col].text)
+		r = string(rhs[col].text)
 		//
 		return strings.Compare(l, r)
 	}
 }
 
 // SortNumericalColumn adds a sort by the given column to the table sorter.
-func (p TableSorter) SortNumericalColumn(col int) TableSorter {
+func (p TableSorter) SortNumericalColumn(col uint) TableSorter {
 	return func(lhs []FormattedText, rhs []FormattedText) int {
 		var l, r string
 		// Try parent sort
 		if c := p(lhs, rhs); c != 0 {
 			return c
-		} else if col < 0 {
-			r = string(lhs[-col].text)
-			l = string(rhs[-col].text)
-		} else {
-			l = string(lhs[col].text)
-			r = string(rhs[col].text)
 		}
+		//
+		l = string(lhs[col].text)
+		r = string(rhs[col].text)
 		//
 		if len(l) < len(r) {
 			return -1

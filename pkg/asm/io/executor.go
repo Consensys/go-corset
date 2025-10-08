@@ -69,6 +69,17 @@ func (p *Executor[T]) Instances(bus uint) []FunctionInstance {
 	return p.functions[bus].instances
 }
 
+// Count the total number of instances currently recorded in this executor.
+func (p *Executor[T]) Count() uint {
+	var count uint
+	//
+	for _, fn := range p.functions {
+		count += fn.Count()
+	}
+	//
+	return count
+}
+
 // Write implementation for the io.Map interface.
 func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
 	// At this stage, there no components use this functionality.
@@ -101,6 +112,15 @@ func NewFunctionTrace[T Instruction[T]](fn *Function[T]) *FunctionTrace[T] {
 	}
 }
 
+// Count the number of instances recorded as part of this function's trace.
+func (p *FunctionTrace[T]) Count() uint {
+	p.mux.RLock()
+	count := uint(len(p.instances))
+	p.mux.RUnlock()
+	//
+	return count
+}
+
 // Call this function to determine its outputs for a given set of inputs.  If
 // this instance has been seen before, it will simply return that.  Otherwise,
 // it will execute the function to determine the correct outputs.
@@ -110,13 +130,17 @@ func (p *FunctionTrace[T]) Call(inputs []big.Int, iomap Map) FunctionInstance {
 	p.mux.RLock()
 	// Look for cached instance
 	index := p.instances.Find(iostate)
-	// Release read lock
-	p.mux.RUnlock()
 	// Check for cache hit.
 	if index != math.MaxUint {
 		// Yes, therefore return precomputed outputs
-		return p.instances[index]
+		instance := p.instances[index]
+		// Release read lock
+		p.mux.RUnlock()
+		//
+		return instance
 	}
+	// Release read lock
+	p.mux.RUnlock()
 	// Execute function to determine new outputs.
 	return p.executeCall(inputs, iomap)
 }

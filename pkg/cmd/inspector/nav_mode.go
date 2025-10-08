@@ -14,18 +14,17 @@ package inspector
 
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // NavigationMode is the default mode of the inspector.  In this mode, the user
 // is navigating the trace in the normal fashion.
-type NavigationMode[F field.Element[F]] struct {
+type NavigationMode struct {
 }
 
 // Activate navigation mode by setting the command bar to show the navigation
 // commands.
-func (p *NavigationMode[F]) Activate(parent *Inspector[F]) {
+func (p *NavigationMode) Activate(parent *Inspector) {
 	parent.cmdBar.Clear()
 	parent.cmdBar.AddLeft(termio.NewColouredText("[g]", termio.TERM_YELLOW))
 	parent.cmdBar.AddLeft(termio.NewText("oto :: "))
@@ -52,14 +51,17 @@ func (p *NavigationMode[F]) Activate(parent *Inspector[F]) {
 }
 
 // Clock navitation mode, which does nothing at this time.
-func (p *NavigationMode[F]) Clock(parent *Inspector[F]) {
+func (p *NavigationMode) Clock(parent *Inspector) {
 
 }
 
 // KeyPressed in navigation mode, which either adjusts our view of the trace
 // table or fires off some command.
-func (p *NavigationMode[F]) KeyPressed(parent *Inspector[F], key uint16) bool {
-	module := parent.tabs.Selected()
+func (p *NavigationMode) KeyPressed(parent *Inspector, key uint16) bool {
+	var (
+		module   = parent.tabs.Selected()
+		col, row = parent.modules[module].view.Offset()
+	)
 	//
 	switch key {
 	case termio.TAB:
@@ -67,25 +69,31 @@ func (p *NavigationMode[F]) KeyPressed(parent *Inspector[F], key uint16) bool {
 	case termio.BACKTAB:
 		parent.tabs.Select(int(module) - 1)
 	case termio.CURSOR_UP:
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col - 1)
+		if row != 0 {
+			parent.modules[module].view.Goto(col, row-1)
+		}
 	case termio.CURSOR_DOWN:
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col + 1)
+		parent.modules[module].view.Goto(col, row+1)
 	case termio.CURSOR_LEFT:
-		row := parent.modules[module].view.row
-		parent.modules[module].setRowOffset(row - 1)
+		if col != 0 {
+			parent.modules[module].view.Goto(col-1, row)
+		}
 	case termio.CURSOR_RIGHT:
-		row := parent.modules[module].view.row
-		parent.modules[module].setRowOffset(row + 1)
+		parent.modules[module].view.Goto(col+1, row)
 	case termio.SCROLL_UP:
 		n := parent.height / 2
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col - n)
+		//
+		if row >= n {
+			row -= n
+		} else {
+			row = 0
+		}
+		//
+		parent.modules[module].view.Goto(col, row)
 	case termio.SCROLL_DOWN:
 		n := parent.height / 2
-		col := parent.modules[module].view.col
-		parent.modules[module].setColumnOffset(col + n)
+		//
+		parent.modules[module].view.Goto(col, row+n)
 	// quit
 	case 'q':
 		return true
@@ -113,15 +121,15 @@ func (p *NavigationMode[F]) KeyPressed(parent *Inspector[F], key uint16) bool {
 	return false
 }
 
-func (p *NavigationMode[F]) gotoInputMode(parent *Inspector[F]) Mode[F] {
+func (p *NavigationMode) gotoInputMode(parent *Inspector) Mode {
 	prompt := termio.NewColouredText("[history ↑/↓] row? ", termio.TERM_YELLOW)
 	history := parent.currentView().targetRowHistory
 	history_index := uint(len(history))
 	//
-	return newInputMode[F](prompt, history_index, history, newUintHandler(parent.gotoRow))
+	return newInputMode(prompt, history_index, history, newUintHandler(parent.gotoRow))
 }
 
-func (p *NavigationMode[F]) filterInputMode(parent *Inspector[F]) Mode[F] {
+func (p *NavigationMode) filterInputMode(parent *Inspector) Mode {
 	prompt := termio.NewColouredText("[history ↑/↓] regex? ", termio.TERM_YELLOW)
 	// Determine current active filter
 	filter := parent.currentView().columnFilter
@@ -132,18 +140,21 @@ func (p *NavigationMode[F]) filterInputMode(parent *Inspector[F]) Mode[F] {
 		history_index--
 	}
 	//
-	return newInputMode[F](prompt, history_index, history, newRegexHandler(parent.filterColumns))
+	return newInputMode(prompt, history_index, history, newRegexHandler(parent.filterColumns))
 }
 
-func (p *NavigationMode[F]) scanInputMode(parent *Inspector[F]) Mode[F] {
+func (p *NavigationMode) scanInputMode(parent *Inspector) Mode {
 	var (
-		prompt        = termio.NewColouredText("[history ↑/↓] where $=row, expression? ", termio.TERM_YELLOW)
-		history       = parent.currentView().scanHistory
-		history_index = uint(len(history))
-		columns       set.SortedSet[string]
+		promptText   = "[history ↑/↓] where $=row, expression? "
+		promptLength = len([]rune(promptText))
+		prompt       = termio.NewColouredText(promptText, termio.TERM_YELLOW)
+		history      = parent.currentView().scanHistory
+		historyIndex = uint(len(history))
+		columns      set.SortedSet[string]
+		mapping      = parent.CurrentModule().view.Data().Mapping()
 	)
 	// Identify available columns
-	for _, c := range parent.CurrentModule().columns {
+	for _, c := range mapping.Registers() {
 		columns.Insert(c.Name)
 	}
 	// Construct environment
@@ -151,5 +162,5 @@ func (p *NavigationMode[F]) scanInputMode(parent *Inspector[F]) Mode[F] {
 		return columns.Contains(col) || col == "$"
 	}
 	// Construct input mode
-	return newInputMode[F](prompt, history_index, history, newQueryHandler(env, parent.matchQuery))
+	return newInputMode(prompt, historyIndex, history, newQueryHandler(env, parent.matchQuery, promptLength))
 }

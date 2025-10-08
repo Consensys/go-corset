@@ -103,7 +103,7 @@ func (t *translator) translateModules(circuit *ast.Circuit) {
 // one MIR module.
 func (t *translator) translateModule(name string) {
 	// Always include module with base multiplier (even if empty).
-	t.schema.NewModule(name, 1, true, false)
+	t.schema.NewModule(name, 1, true, true, false)
 	// Initialise the corresponding family of MIR modules.
 	for _, regIndex := range t.env.RegistersOf(name) {
 		var (
@@ -115,7 +115,7 @@ func (t *translator) translateModule(name string) {
 		// Check whether module created this already (or not)
 		if _, ok := t.schema.HasModule(moduleName); !ok {
 			// No, therefore create new module.
-			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier(), true, false)
+			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier(), true, true, false)
 		}
 	}
 	// Translate all corset registers in this module into MIR registers across
@@ -443,7 +443,15 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
 	if context.IsConflicted() {
-		return lookup.Vector[bls12_377.Element, mirTerm]{}, context, t.srcmap.SyntaxErrors(sources[j], "conflicting context")
+		var source ast.Expr
+		// Determine offending source expression
+		if j >= uint(len(sources)) {
+			source = selector
+		} else {
+			source = sources[j]
+		}
+		//
+		return lookup.Vector[bls12_377.Element, mirTerm]{}, context, t.srcmap.SyntaxErrors(source, "conflicting context")
 	}
 	// Determine enclosing module
 	module := t.moduleOf(context)

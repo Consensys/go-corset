@@ -45,7 +45,7 @@ func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
+	schemas := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...).Build()
 	for _, schema := range schemas.ConcreteSchemas() {
 		switch v := schema.(type) {
 		case mir.Schema[F]:
@@ -56,6 +56,7 @@ func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 
 				if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
 					fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
+					os.Exit(1)
 				}
 			}
 		case air.Schema[F]:
@@ -64,6 +65,7 @@ func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 
 			if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
 				fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
+				os.Exit(1)
 			}
 		}
 	}

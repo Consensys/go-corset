@@ -57,11 +57,17 @@ const STRING uint = 11
 // IDENTIFIER signals a column variable
 const IDENTIFIER uint = 20
 
+// KEYWORD_CONST signals a constant declaration
+const KEYWORD_CONST uint = 21
+
 // KEYWORD_INCLUDE signals an include declaration
-const KEYWORD_INCLUDE uint = 21
+const KEYWORD_INCLUDE uint = 22
 
 // KEYWORD_FN signals a function declaration
-const KEYWORD_FN uint = 22
+const KEYWORD_FN uint = 23
+
+// KEYWORD_PUB signals a public function declaration
+const KEYWORD_PUB uint = 24
 
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 30
@@ -96,6 +102,9 @@ const SUB uint = 39
 // MUL signals "*"
 const MUL uint = 40
 
+// QMARK signals "?"
+const QMARK uint = 50
+
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
 
@@ -103,28 +112,13 @@ var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')
 // A number is either a hexadecimal, binary, or decimal one.
 // Allowing (and ignoring) '_' in the middle of a number for readability.
 var (
-	binaryStart = lex.Sequence(lex.String("0b"), lex.Within('0', '1'))
-	binaryRest  = lex.Or(
-		lex.Within('0', '1'),
-		lex.Unit('_'),
-	)
-
+	binaryStart  = lex.Sequence(lex.String("0b"), lex.Within('0', '1'))
+	binaryRest   = lex.Or(lex.Within('0', '1'), lex.Unit('_'))
 	decimalStart = lex.Within('0', '9')
-	decimalRest  = lex.Or(
-		lex.Within('0', '9'),
-		lex.Unit('_'),
-	)
-
-	hexDigit = lex.Or(
-		lex.Within('0', '9'),
-		lex.Within('A', 'F'),
-		lex.Within('a', 'f'),
-	)
-	hexStart = lex.Sequence(lex.String("0x"), hexDigit)
-	hexRest  = lex.Or(
-		hexDigit,
-		lex.Unit('_'),
-	)
+	decimalRest  = lex.Or(lex.Within('0', '9'), lex.Unit('_'), lex.Unit('^'))
+	hexDigit     = lex.Or(lex.Within('0', '9'), lex.Within('A', 'F'), lex.Within('a', 'f'))
+	hexStart     = lex.Sequence(lex.String("0x"), hexDigit)
+	hexRest      = lex.Or(hexDigit, lex.Unit('_'))
 
 	number = lex.Or(
 		lex.SequenceNullableLast(binaryStart, lex.Many(binaryRest)),
@@ -181,9 +175,12 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('+'), ADD),
 	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('*'), MUL),
+	lex.Rule(lex.Unit('?'), QMARK),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
+	lex.Rule(lex.String("pub"), KEYWORD_PUB),
+	lex.Rule(lex.String("const"), KEYWORD_CONST),
 	lex.Rule(lex.String("include"), KEYWORD_INCLUDE),
 	lex.Rule(lex.String("fn"), KEYWORD_FN),
 	lex.Rule(identifier, IDENTIFIER),

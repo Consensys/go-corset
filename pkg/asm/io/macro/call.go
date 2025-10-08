@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
@@ -33,12 +34,12 @@ type Call struct {
 	IoBus io.Bus
 	// Target registers for addition
 	Targets []io.RegisterId
-	// Source registers (i.e. arguments) for call
-	Sources []io.RegisterId
+	// Source expressions (i.e. arguments) for call
+	Sources []Expr
 }
 
 // NewCall constructs a new call instruction.
-func NewCall(bus io.Bus, targets []io.RegisterId, sources []io.RegisterId) *Call {
+func NewCall(bus io.Bus, targets []io.RegisterId, sources []Expr) *Call {
 	return &Call{bus, targets, sources}
 }
 
@@ -53,8 +54,8 @@ func (p *Call) Bus() io.Bus {
 // function has terminated (i.e. because a return instruction was
 // encountered).
 func (p *Call) Execute(state io.State) uint {
-	// Setup read address
-	address := state.LoadN(p.Sources)
+	// Determine read address by evaluating source expressions
+	address := expr.Eval(state.Internal(), p.Sources)
 	// Set bus address lines
 	state.StoreN(p.IoBus.Address(), address)
 	// Perform I/O read
@@ -86,9 +87,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	)
 	// Write address lines
 	for i, input := range p.Sources {
-		var source agnostic.Polynomial
-
-		source = source.Set(poly.NewMonomial(one, input))
+		source := input.Polynomial()
 		insn := &micro.Assign{Targets: []io.RegisterId{address[i]}, Source: source}
 		code = append(code, insn)
 	}
@@ -111,7 +110,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Call) RegistersRead() []io.RegisterId {
-	return p.Sources
+	return expr.RegistersRead(p.Sources...)
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
@@ -127,7 +126,15 @@ func (p *Call) String(fn schema.RegisterMap) string {
 	//
 	builder.WriteString(io.RegistersToString(p.Targets, regs))
 	builder.WriteString(fmt.Sprintf(" = %s(", p.IoBus.Name))
-	builder.WriteString(io.RegistersToString(p.Sources, regs))
+	//
+	for i, e := range p.Sources {
+		if i != 0 {
+			builder.WriteString(", ")
+		}
+		//
+		builder.WriteString(e.String(fn))
+	}
+	//
 	builder.WriteString(")")
 	//
 	return builder.String()
@@ -150,11 +157,13 @@ func (p *Call) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	}
 	// Check arguments
 	for i, src := range p.Sources {
-		src_w := fn.Register(src).Width
+		src_w, signed := expr.BitWidth(src, fn)
 		bus_w := fn.Register(busInputs[i]).Width
 		//
-		if src_w != bus_w {
+		if src_w > bus_w {
 			return fmt.Errorf("incorrect width for argument %d (found %d expected %d)", i+1, src_w, bus_w)
+		} else if signed {
+			return fmt.Errorf("signed arguments not yet supported (i.e. arguments which can be negative)")
 		}
 	}
 	// Check returns
@@ -162,7 +171,7 @@ func (p *Call) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 		rtn_w := fn.Register(rtn).Width
 		bus_w := fn.Register(busOutputs[i]).Width
 		//
-		if rtn_w != bus_w {
+		if rtn_w < bus_w {
 			return fmt.Errorf("incorrect width for return %d (found %d expected %d)", i+1, rtn_w, bus_w)
 		}
 	}

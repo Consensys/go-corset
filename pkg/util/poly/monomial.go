@@ -12,24 +12,29 @@
 // SPDX-License-Identifier: Apache-2.0
 package poly
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+)
 
 var zero big.Int
 
 // Monomial represents a monomial within an array polynomial.
-type Monomial[S comparable] struct {
+type Monomial[S util.Comparable[S]] struct {
 	coefficient big.Int
 	vars        []S
 }
 
 // NewMonomial constructs a new array term with a given coefficient and zero or
 // more variables.
-func NewMonomial[S comparable](coefficient big.Int, vars ...S) Monomial[S] {
+func NewMonomial[S util.Comparable[S]](coefficient big.Int, vars ...S) Monomial[S] {
 	return Monomial[S]{coefficient, vars}
 }
 
 // Clone an array term
-func (p *Monomial[S]) Clone() Monomial[S] {
+func (p Monomial[S]) Clone() Monomial[S] {
 	var (
 		val   big.Int
 		nvars = make([]S, len(p.vars))
@@ -47,9 +52,22 @@ func (p Monomial[S]) Coefficient() big.Int {
 	return p.coefficient
 }
 
+// Cmp implementation for the Comparable interface
+func (p Monomial[S]) Cmp(other Monomial[S]) int {
+	// Compare variables first.  Observe this is critical to ensuring correct
+	// operation of the ArrayPoly.  That's because we have an invariant which
+	// says we can change the coefficient of any moninial without changing its
+	// position in the sorted set of monomials.
+	if c := array.Compare(p.vars, other.vars); c != 0 {
+		return c
+	}
+	//
+	return p.coefficient.Cmp(&other.coefficient)
+}
+
 // Equal performs structural equality between two mononomials.  That is, they
 // are consider the same provide they have identical structure.
-func (p *Monomial[S]) Equal(other Monomial[S]) bool {
+func (p Monomial[S]) Equal(other Monomial[S]) bool {
 	if len(p.vars) != len(other.vars) {
 		return false
 	} else if p.coefficient.Cmp(&other.coefficient) != 0 {
@@ -57,7 +75,7 @@ func (p *Monomial[S]) Equal(other Monomial[S]) bool {
 	}
 	//
 	for i := range p.vars {
-		if p.vars[i] != other.vars[i] {
+		if p.vars[i].Cmp(other.vars[i]) != 0 {
 			return false
 		}
 	}
@@ -135,7 +153,7 @@ func (p Monomial[S]) Matches(other Monomial[S]) bool {
 	}
 	//
 	for i := uint(0); i < p.Len(); i++ {
-		if p.vars[i] != other.Nth(i) {
+		if p.vars[i].Cmp(other.Nth(i)) != 0 {
 			return false
 		}
 	}

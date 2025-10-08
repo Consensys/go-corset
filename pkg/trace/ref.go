@@ -131,6 +131,11 @@ func NewUnusedColumnId() ColumnId {
 	return ColumnId{math.MaxUint}
 }
 
+// Cmp implementation for the Comparable interface
+func (p ColumnId) Cmp(o ColumnId) int {
+	return cmp.Compare(p.index, o.index)
+}
+
 // Unwrap returns the underlying Column index.
 func (p ColumnId) Unwrap() uint {
 	if p.index == math.MaxUint {

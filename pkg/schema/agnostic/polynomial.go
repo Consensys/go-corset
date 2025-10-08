@@ -43,8 +43,13 @@ func SplitPolynomial(p Polynomial, env schema.RegisterLimbsMap) Polynomial {
 			npoly = npoly.Add(ith)
 		}
 	}
-	//
-	return npoly
+	// Sanity check p was not zero.
+	if npoly != nil {
+		// No, p was not zero.
+		return npoly
+	}
+	// Yes, p was zero (hence, had no terms).
+	return p
 }
 
 // SplitMonomial splits a given monomial (e.g. 2*x*y) according to a given

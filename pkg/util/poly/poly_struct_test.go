@@ -13,48 +13,62 @@
 package poly
 
 import (
-	"math/big"
 	"testing"
+
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
-var ONE *ArrayPoly[string]
+func Test_PolyStruct_0(t *testing.T) {
+	checkEquiv(t, "0", "0+0", "0-0", "1-1", "2-1-1", "x-x", "(2*x)-(2*x)", "(2*x)-(x+x)", "(2*x)-x-x", "(x+y)-(x+y)")
+}
 
-// NOTE: the goal of this testsuite will be to fully test that polynomials
-// arrived at in different (but equalivent) ways are structurally identical. For
-// example, adding 1 to x should be identical to adding x to 1.  Likewise,
-// adding 2 to x then subtracting 1 should be identical to adding 1 to x as
-// well.
-//
-// At the moment, the array polynomial does not exhibit these qualities and will
-// need to be aggressively updated to implement them.
+func Test_PolyStruct_1(t *testing.T) {
+	checkEquiv(t, "1", "0+1", "1+0", "2-1", "3-2", "0+(2-1)", "1+(x-x)", "(1+x+y)-(x+y)")
+}
+func Test_PolyStruct_x(t *testing.T) {
+	checkEquiv(t, "x+(x-x)", "x", "1*x", "(2*x)-x", "y+(x-y)")
+}
+func Test_PolyStruct_xp1(t *testing.T) {
+	checkEquiv(t, "x+1", "1+x", "(2-1)+x", "0+x+1", "0+1+x", "1+x+0")
+}
 
-func Test_PolyStruct_01(t *testing.T) {
-	var (
-		lhs ArrayPoly[string]
-		rhs ArrayPoly[string]
-	)
-	// No monomials should be equivalent to zero
-	lhs.Set()
-	//
-	lhs = *lhs.Add(ONE)
-	//
-	rhs.Set(NewMonomial[string](*big.NewInt(1)))
-	//
-	assertEqual(t, &lhs, &rhs)
+func Test_PolyStruct_2x(t *testing.T) {
+	checkEquiv(t, "x+x", "2*x", "x+x+(x-x)", "(3*x)-x")
+}
+
+func Test_PolyStruct_xpy(t *testing.T) {
+	checkEquiv(t, "x+y", "y+x", "(2*y)+(x-y)")
+}
+func Test_PolyStruct_2xpy(t *testing.T) {
+	checkEquiv(t, "2*(x+y)", "x+x+y+y", "x+y+x+y", "(2*x)+y+y", "(2*x)+(2*y)")
+}
+func Test_PolyStruct_2xxpxpy(t *testing.T) {
+	checkEquiv(t, "(2*x*x)+x+y", "x+(2*x*x)+y", "x+y+(2*x*x)")
 }
 
 // =========================================================================================
 
-func assertEqual(t *testing.T, lhs *ArrayPoly[string], rhs *ArrayPoly[string]) {
-	if !lhs.Equal(rhs) {
-		t.Errorf("polynomials not equals: %s vs %s", String(lhs, id), String(rhs, id))
+func checkEquiv(t *testing.T, terms ...string) {
+	var (
+		ts   = make([]*ArrayPoly[Var], len(terms))
+		errs []source.SyntaxError
+	)
+	//
+	for i, term := range terms {
+		if ts[i], errs = Parse(term); len(errs) > 0 {
+			panic(errs[0].Message())
+		}
+	}
+	//
+	for i := range len(ts) {
+		l, r := ts[0], ts[i]
+		// Check polynomials are equivalent
+		if !l.Equal(r) {
+			t.Errorf("polynomials not equivalent: %s vs %s", String(l, id), String(r, id))
+		}
 	}
 }
 
-func id(x string) string {
-	return x
-}
-
-func init() {
-	ONE = ONE.Set(NewMonomial[string](*big.NewInt(1)))
+func id(x Var) string {
+	return x.name
 }

@@ -51,7 +51,7 @@ type Polynomial[S comparable, T Term[S, T], P any] interface {
 }
 
 // Eval evaluates a given polynomial with a given environment (i.e. mapping of variables to values)
-func Eval[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env map[S]big.Int) *big.Int {
+func Eval[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) big.Int) *big.Int {
 	val := big.NewInt(0)
 	// Sum evaluated terms
 	for i := uint(0); i < poly.Len(); i++ {
@@ -62,7 +62,7 @@ func Eval[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env map[S]b
 	return val
 }
 
-func evalTerm[S comparable, T Term[S, T]](term T, env map[S]big.Int) *big.Int {
+func evalTerm[S comparable, T Term[S, T]](term T, env func(S) big.Int) *big.Int {
 	var (
 		acc   big.Int
 		coeff big.Int = term.Coefficient()
@@ -71,7 +71,7 @@ func evalTerm[S comparable, T Term[S, T]](term T, env map[S]big.Int) *big.Int {
 	acc.Set(&coeff)
 	//
 	for j := uint(0); j < term.Len(); j++ {
-		jth := env[term.Nth(j)]
+		jth := env(term.Nth(j))
 		acc.Mul(&acc, &jth)
 	}
 	//

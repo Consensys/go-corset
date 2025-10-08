@@ -106,9 +106,9 @@ func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnostic
 	os.Exit(2)
 }
 
-func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack[F] {
+func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStacker[F] {
 	var (
-		schemaStack  cmd_util.SchemaStack[F]
+		stacker      cmd_util.SchemaStacker[F]
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
 		field        = GetString(cmd, "field")
@@ -171,37 +171,38 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 		WithParallelism(parallel).
 		WithBatchSize(batchSize)
 	// Configure the stack
-	schemaStack.WithAssemblyConfig(asmConfig)
-	schemaStack.WithCorsetConfig(corsetConfig)
-	schemaStack.WithOptimisationConfig(mir.OPTIMISATION_LEVELS[optimisation])
-	schemaStack.WithConstantDefinitions(externs)
+	stacker = stacker.
+		WithAssemblyConfig(asmConfig).
+		WithCorsetConfig(corsetConfig).
+		WithOptimisationConfig(mir.OPTIMISATION_LEVELS[optimisation]).
+		WithConstantDefinitions(externs)
 	//
 	if asmEnable {
-		schemaStack.WithLayer(cmd_util.MACRO_ASM_LAYER)
+		stacker = stacker.WithLayer(cmd_util.MACRO_ASM_LAYER)
 	}
 	//
 	if uasmEnable {
-		schemaStack.WithLayer(cmd_util.MICRO_ASM_LAYER)
+		stacker = stacker.WithLayer(cmd_util.MICRO_ASM_LAYER)
 	}
 	//
 	if mirEnable {
-		schemaStack.WithLayer(cmd_util.MIR_LAYER)
+		stacker = stacker.WithLayer(cmd_util.MIR_LAYER)
 	}
 	//
 	if airEnable {
-		schemaStack.WithLayer(cmd_util.AIR_LAYER)
+		stacker = stacker.WithLayer(cmd_util.AIR_LAYER)
 	}
 	// Read / compile given source files.
 	if mode != SCHEMA_OPTIONAL || len(filenames) > 0 {
-		schemaStack.Read(filenames...)
+		stacker = stacker.Read(filenames...)
 	} else {
 		// In this situation, we cannot perform trace expansion.
 		builder = builder.WithExpansion(false)
 	}
 	// Configure builder
-	schemaStack.WithTraceBuilder(builder)
+	stacker = stacker.WithTraceBuilder(builder)
 	// Done
-	return &schemaStack
+	return &stacker
 }
 
 func init() {

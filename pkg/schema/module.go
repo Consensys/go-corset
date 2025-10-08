@@ -33,15 +33,31 @@ type ModuleMap[T RegisterMap] interface {
 	Module(ModuleId) T
 	// ModuleOf returns register mapping information for the given module.
 	ModuleOf(string) T
+	// Returns number of modules in this map
+	Width() uint
 }
 
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
 
+// ModuleView provides access to certain structural information about a module.
+type ModuleView interface {
+	RegisterMap
+	// Module name
+	Name() string
+	// IsPublic indicates whether or not this module is externally visible.
+	IsPublic() bool
+	// IsSynthetic modules are generated during compilation, rather than being
+	// provided by the user.
+	IsSynthetic() bool
+	// Returns the number of registers in this module.
+	Width() uint
+}
+
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
 type Module[F any] interface {
-	RegisterMap
+	ModuleView
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
@@ -53,21 +69,14 @@ type Module[F any] interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(fieldWidth uint, schema AnySchema[F]) []error
+	// AllowPadding determines the amount of initial padding a module expects.
+	AllowPadding() bool
 	// Identifies the length multiplier for this module.  For every trace, the
 	// height of the corresponding module must be a multiple of this.  This is
 	// used specifically to support interleaving constraints.
 	LengthMultiplier() uint
-	// AllowPadding determines the amount of initial padding a module expects.
-	AllowPadding() bool
-	// Module name
-	Name() string
-	// IsSynthetic modules are generated during compilation, rather than being
-	// provided by the user.
-	IsSynthetic() bool
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
-	// Returns the number of registers in this module.
-	Width() uint
 }
 
 // FieldAgnosticModule captures the notion of a module which is agnostic to the
@@ -92,6 +101,7 @@ type Table[F any, C Constraint[F]] struct {
 	name        string
 	multiplier  uint
 	padding     bool
+	public      bool
 	synthetic   bool
 	registers   []Register
 	constraints []C
@@ -99,13 +109,13 @@ type Table[F any, C Constraint[F]] struct {
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding, synthetic bool) *Table[F, C] {
-	return &Table[F, C]{name, multiplier, padding, synthetic, nil, nil, nil}
+func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding, public, synthetic bool) *Table[F, C] {
+	return &Table[F, C]{name, multiplier, padding, public, synthetic, nil, nil, nil}
 }
 
 // Init implementation for ir.InitModule interface.
-func (p *Table[F, C]) Init(name string, multiplier uint, padding, synthetic bool) *Table[F, C] {
-	return &Table[F, C]{name, multiplier, padding, synthetic, nil, nil, nil}
+func (p *Table[F, C]) Init(name string, multiplier uint, padding, public, synthetic bool) *Table[F, C] {
+	return &Table[F, C]{name, multiplier, padding, public, synthetic, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -167,6 +177,11 @@ func (p *Table[F, C]) LengthMultiplier() uint {
 // initial padding row, and allow defensive padding as well.
 func (p *Table[F, C]) AllowPadding() bool {
 	return p.padding
+}
+
+// IsPublic identifies whether or not this module is externally visible.
+func (p *Table[F, C]) IsPublic() bool {
+	return p.public
 }
 
 // IsSynthetic modules are generated during compilation, rather than being
@@ -251,7 +266,7 @@ func (p *Table[F, C]) Subdivide(mapping LimbsMap) *Table[F, C] {
 		}
 	}
 	//
-	return &Table[F, C]{p.name, p.multiplier, p.padding, p.synthetic, registers, constraints, assignments}
+	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, registers, constraints, assignments}
 }
 
 // ============================================================================

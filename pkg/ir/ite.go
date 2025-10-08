@@ -119,9 +119,8 @@ func (p *Ite[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
 		})
 	} else if p.TrueBranch == nil {
 		return sexp.NewList([]sexp.SExp{
-			sexp.NewSymbol("if"),
+			sexp.NewSymbol("ifnot"),
 			condition,
-			sexp.NewSymbol("_"),
 			p.FalseBranch.Lisp(global, mapping),
 		})
 	}

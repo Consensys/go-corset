@@ -54,7 +54,7 @@ type CompilationConfig struct {
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
 // or other forms of error (e.g. type errors).
-func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File, extern asm.MacroProgram,
+func CompileSourceFiles(config CompilationConfig, srcfiles []source.File, extern asm.MacroProgram,
 ) (asm.MixedMacroProgram[bls12_377.Element], SourceMap, []SyntaxError) {
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
@@ -81,12 +81,12 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []*source.File, exter
 // really helper function for e.g. the testing environment.   This process can
 // fail if the source file is mal-formed, or contains syntax errors or other
 // forms of error (e.g. type errors).
-func CompileSourceFile(config CompilationConfig, srcfile *source.File) (asm.MixedMacroProgram[bls12_377.Element],
+func CompileSourceFile(config CompilationConfig, srcfile source.File) (asm.MixedMacroProgram[bls12_377.Element],
 	SourceMap, []SyntaxError) {
 	//
 	var macroProgram asm.MacroProgram
 	//
-	return CompileSourceFiles(config, []*source.File{srcfile}, macroProgram)
+	return CompileSourceFiles(config, []source.File{srcfile}, macroProgram)
 }
 
 // Compiler packages up everything needed to compile a given set of module
@@ -171,12 +171,12 @@ func (p *Compiler) Compile() (asm.MixedMacroProgram[bls12_377.Element], SourceMa
 	return asmProgram, *source_map, errs
 }
 
-func includeStdlib(stdlib bool, srcfiles []*source.File) []*source.File {
+func includeStdlib(stdlib bool, srcfiles []source.File) []source.File {
 	if stdlib {
 		// Include stdlib file
 		srcfile := source.NewSourceFile("stdlib.lisp", STDLIB)
 		// Append to srcfile list
-		srcfiles = append(srcfiles, srcfile)
+		srcfiles = append(srcfiles, *srcfile)
 	}
 	// Not included
 	return srcfiles
@@ -237,6 +237,7 @@ func constructSourceModule(schema schema.AnySchema[bls12_377.Element], scope *co
 	//
 	return SourceModule{
 		Name:       scope.Name(),
+		Public:     scope.IsPublic(),
 		Synthetic:  false,
 		Virtual:    scope.Virtual(),
 		Selector:   scope.Selector(),

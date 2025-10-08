@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/debug"
-	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -65,30 +65,31 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	spillage := GetFlag(cmd, "spillage")
 	textWidth := GetUint(cmd, "textwidth")
 	// Read in constraint files
-	schemas := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
+	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
+	stack := stacker.Build()
 	// Print constant info (if requested)
 	if constants {
-		debug.PrintExternalisedConstants(schemas)
+		debug.PrintExternalisedConstants(stack.BinaryFile())
 	}
 	// Print spillage info (if requested)
 	if spillage {
-		printSpillage(schemas, true)
+		printSpillage(stack.BinaryFile(), true)
 	}
 	// Print meta-data (if requested)
 	if metadata {
-		printBinaryFileHeader(schemas)
+		printBinaryFileHeader(stack.BinaryFile())
 	}
 	// Print stats (if requested)
 	if stats {
-		debug.PrintStats(schemas)
+		debug.PrintStats(stack)
 	}
 	// Print embedded attributes (if requested
 	if attrs {
-		printAttributes(schemas)
+		printAttributes(stack.BinaryFile())
 	}
 	//
 	if !stats && !attrs {
-		debug.PrintSchemas(schemas, textWidth)
+		debug.PrintSchemas(stack, textWidth)
 	}
 }
 
@@ -102,10 +103,9 @@ func init() {
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
 }
 
-func printAttributes[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
-	binfile := schemas.BinaryFile()
+func printAttributes(binf *binfile.BinaryFile) {
 	// Print attributes
-	for _, attr := range binfile.Attributes {
+	for _, attr := range binf.Attributes {
 		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
 		//
 		if attr.AttributeName() == "CorsetSourceMap" {
@@ -114,7 +114,7 @@ func printAttributes[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
 	}
 }
 
-func printSpillage[F field.Element[F]](schemas cmd_util.SchemaStack[F], defensive bool) {
+func printSpillage(binf *binfile.BinaryFile, defensive bool) {
 	// fmt.Println("Spillage:")
 	// // Compute spillage for optimisation level
 	// spillage := determineSpillage(&binf.Schema, defensive, optConfig)
@@ -135,8 +135,8 @@ func printSpillage[F field.Element[F]](schemas cmd_util.SchemaStack[F], defensiv
 	panic("todo")
 }
 
-func printBinaryFileHeader[F field.Element[F]](schemas cmd_util.SchemaStack[F]) {
-	header := schemas.BinaryFile().Header
+func printBinaryFileHeader(binf *binfile.BinaryFile) {
+	header := binf.Header
 	//
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
 	// Attempt to parse metadata

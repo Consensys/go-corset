@@ -206,9 +206,11 @@ type Worklist struct {
 
 // NewWorklist constructs a new worklist of a given capacity.
 func NewWorklist(nstates uint, start uint, init bit.Set) Worklist {
-	var visited bit.Set
+	var (
+		visited bit.Set
+		states  = make([]bit.Set, nstates)
+	)
 	//
-	states := make([]bit.Set, nstates)
 	states[start] = init
 	// mark start visited
 	visited.Insert(start)

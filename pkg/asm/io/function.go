@@ -49,6 +49,8 @@ const (
 type Function[T Instruction[T]] struct {
 	// Unique name of this function.
 	name string
+	// Indicates whether this is an externally visible function (or not).
+	public bool
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
 	registers []Register
@@ -63,7 +65,7 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](name string, registers []Register, buses []Bus, code []T) Function[T] {
+func NewFunction[T Instruction[T]](name string, public bool, registers []Register, buses []Bus, code []T) Function[T] {
 	var (
 		numInputs  = array.CountMatching(registers, func(r Register) bool { return r.IsInput() })
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
@@ -73,7 +75,7 @@ func NewFunction[T Instruction[T]](name string, registers []Register, buses []Bu
 		panic("function registers ordered incorrectly")
 	}
 	// All good
-	return Function[T]{name, registers, buses, numInputs, numOutputs, code}
+	return Function[T]{name, public, registers, buses, numInputs, numOutputs, code}
 }
 
 // Buses returns the set of all buses used by any instruction within this
@@ -90,6 +92,20 @@ func (p *Function[T]) CodeAt(i uint) T {
 // Code returns the instructions making up the body of this function.
 func (p *Function[T]) Code() []T {
 	return p.code
+}
+
+// IsPublic determines whether or not this is an "externally visible" function
+// or not.  The differences between internal and external functions is small.
+// Specifically, internal functions are not visible in the generated trace
+// interface; likewise, they are hidden by default in the inspector.
+func (p *Function[T]) IsPublic() bool {
+	return p.public
+}
+
+// IsSynthetic modules are generated during compilation, rather than being
+// provided by the user.  At this time, functions can never be synthetic
+func (p *Function[T]) IsSynthetic() bool {
+	return false
 }
 
 // IsAtomic determines whether or not this is a "one line function".  That is,
@@ -146,6 +162,11 @@ func (p *Function[T]) Register(id sc.RegisterId) Register {
 // function.
 func (p *Function[T]) Registers() []Register {
 	return p.registers
+}
+
+// Width returns the number of registers in this module.'
+func (p *Function[T]) Width() uint {
+	return uint(len(p.registers))
 }
 
 // AllocateRegister allocates a new register of the given kind, name and width

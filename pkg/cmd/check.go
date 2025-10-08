@@ -21,10 +21,10 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/cmd/check"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
@@ -39,6 +39,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/termio/widget"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -82,6 +83,7 @@ func runCheckCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	cfg.padding.Right = GetUint(cmd, "padding")
 	cfg.report = GetFlag(cmd, "report")
 	cfg.reportPadding = GetUint(cmd, "report-context")
+	cfg.reportLimbs = GetFlag(cmd, "report-limbs")
 	cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 	cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
 	cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
@@ -159,13 +161,15 @@ type checkConfig struct {
 	reportCellWidth uint
 	// Specifies the width of a column title to show.
 	reportTitleWidth uint
+	// Specifies whether or not to show raw limbs
+	reportLimbs bool
 	// Enable ansi escape codes in reports
 	ansiEscapes bool
 }
 
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, tracefile string,
-	schemas cmd_util.SchemaStack[F]) {
+	schemas cmd_util.SchemaStacker[F]) {
 	//
 	var (
 		errors    []error
@@ -191,14 +195,15 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	schema := schemas.BinaryFile().Schema
 	// Apply trace propagation
 	if expanding {
+		perf := util.NewPerfStats()
+		//
 		traces, errors = asm.PropagateAll(schema, traces)
+		//
+		perf.Log("Trace propagation")
 	}
 	// Go!
 	if len(errors) == 0 {
-		for i, schema := range schemas.ConcreteSchemas() {
-			ir := schemas.ConcreteIrName(uint(i))
-			ok = checkTrace(ir, traces, schema, schemas.TraceBuilder(), cfg) && ok
-		}
+		ok = checkTraces(traces, schemas, cfg) && ok
 	}
 	// Handle errors
 	if !ok || len(errors) > 0 {
@@ -210,31 +215,39 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 }
 
-func checkTrace[F field.Element[F]](ir string, traces []lt.TraceFile, schema sc.AnySchema[F],
-	builder ir.TraceBuilder[F], cfg checkConfig) bool {
+func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F], cfg checkConfig) bool {
 	//
 	for _, tf := range traces {
+		//
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-			//
-			stats := util.NewPerfStats()
-			trace, errs := builder.WithPadding(n).Build(schema, tf)
-			// Log cost of expansion
-			stats.Log("Expanding trace columns")
-			// Report any errors
-			reportErrors(ir, errs)
-			// Check whether considered unrecoverable
-			if trace == nil || len(errs) > 0 {
-				return false
-			}
-			//
-			stats = util.NewPerfStats()
-			// Check constraints
-			if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
-				reportFailures(ir, errs, trace, cfg)
-				return false
-			}
+			// Configure stack.  This is important to ensure true separation
+			// between runs (e.g. for the io.Executor).
+			stack := stacker.Build()
+			// configure trace builder
+			builder := stack.TraceBuilder().WithPadding(n)
+			// Run each concrete schema separately
+			for i, schema := range stack.ConcreteSchemas() {
+				ir := stack.ConcreteIrName(uint(i))
+				stats := util.NewPerfStats()
+				trace, errs := builder.Build(schema, tf)
+				// Log cost of expansion
+				stats.Log("Expanding trace columns")
+				// Report any errors
+				reportErrors(ir, errs)
+				// Check whether considered unrecoverable
+				if trace == nil || len(errs) > 0 {
+					return false
+				}
+				//
+				stats = util.NewPerfStats()
+				// Check constraints
+				if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
+					reportFailures(ir, errs, trace, builder.Mapping(), cfg)
+					return false
+				}
 
-			stats.Log("Checking constraints")
+				stats.Log("Checking constraints")
+			}
 		}
 	}
 	// Done
@@ -242,8 +255,13 @@ func checkTrace[F field.Element[F]](ir string, traces []lt.TraceFile, schema sc.
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
-func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], cfg checkConfig) {
-	errs := make([]error, len(failures))
+func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], mapping schema.LimbsMap,
+	cfg checkConfig) {
+	//
+	var (
+		errs = make([]error, len(failures))
+	)
+	//
 	for i, f := range failures {
 		errs[i] = errors.New(f.Message())
 	}
@@ -252,47 +270,64 @@ func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace 
 	// Second, produce report (if requested)
 	if cfg.report {
 		for _, f := range failures {
-			reportFailure(f, trace, cfg)
+			reportFailure(f, trace, mapping, cfg)
 		}
 	}
 }
 
 // Print a human-readable report detailing the given failure
-func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], cfg checkConfig) {
+func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], mapping schema.LimbsMap,
+	cfg checkConfig) {
+	//
 	if f, ok := failure.(*vanishing.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*ranged.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing range constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*lookup.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing lookup constraint %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*constraint.AssertionFailure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing assertion %s:\n", f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*constraint.InternalFailure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("%s in %s:\n", f.Error, f.Handle)
-		reportRelevantCells(cells, trace, cfg)
+		reportRelevantCells(cells, trace, mapping, cfg)
 	}
 }
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
-func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F], cfg checkConfig) {
+func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F],
+	mapping schema.LimbsMap, cfg checkConfig) {
 	// Construct trace window
-	window := check.NewTraceWindow(cells, trace, cfg.reportPadding, cfg.corsetSourceMap)
-	// Construct & configure printer
-	tp := check.NewPrinter().MaxCellWidth(cfg.reportCellWidth).MaxTitleWidth(cfg.reportTitleWidth)
-	// Determine whether to enable ANSI escapes (e.g. for colour in the terminal)
-	tp = tp.AnsiEscapes(cfg.ansiEscapes)
-	// Print out report
-	tp.Print(window)
-	fmt.Println()
+	window := view.NewBuilder[F](mapping).
+		WithLimbs(cfg.reportLimbs).
+		WithCellWidth(cfg.reportCellWidth).
+		WithTitleWidth(cfg.reportTitleWidth).
+		WithSourceMap(*cfg.corsetSourceMap).
+		WithFormatting(view.NewCellFormatter(*cells, cfg.ansiEscapes)).
+		Build(trace)
+	// Focus window on those cells relevant to the failure
+	window = window.Filter(view.FilterForCells(*cells, cfg.reportPadding))
+	// Print all windows
+	for i := range window.Width() {
+		ith := window.Module(i)
+		// Construct & configure printer
+		tp := widget.NewTable(window.Module(i))
+		// Print out module name
+		if window.Width() > 1 && ith.Data().Name() != "" {
+			fmt.Printf("%s:\n", ith.Data().Name())
+		}
+		// Print out report
+		tp.Print()
+		fmt.Println()
+	}
 }
 
 func reportErrors(ir string, errs []error) {
@@ -313,6 +348,7 @@ func init() {
 	rootCmd.AddCommand(checkCmd)
 	checkCmd.Flags().Bool("report", false, "report details of failure for debugging")
 	checkCmd.Flags().Uint("report-context", 2, "specify number of rows to show eitherside of failure in report")
+	checkCmd.Flags().Bool("report-limbs", false, "specify whether to show register limbs in report")
 	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in report")
 	checkCmd.Flags().Uint("report-titlewidth", 40, "specify maximum width of column titles in report")
 	//

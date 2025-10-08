@@ -15,15 +15,17 @@ package poly
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
 // ArrayPoly is the simpliest (and least efficient) polynomial implementation.
 // It provides a reference against which other (more efficient) implementations
 // can be compared.  Observe that an unitialised ArrayPoly variable corresponds
 // with zero.
-type ArrayPoly[S comparable] struct {
-	terms []Monomial[S]
+type ArrayPoly[S util.Comparable[S]] struct {
+	terms set.AnySortedSet[Monomial[S]]
 }
 
 // Len returns the number of terms in this polynomial.
@@ -38,12 +40,18 @@ func (p *ArrayPoly[S]) Term(ith uint) Monomial[S] {
 
 // Set initialises this polynomial from zero or more terms.
 func (p *ArrayPoly[S]) Set(terms ...Monomial[S]) *ArrayPoly[S] {
+	var poly ArrayPoly[S]
+	//
+	for _, t := range terms {
+		poly.AddTerm(t)
+	}
+	//
 	if p != nil {
-		p.terms = terms
+		p.terms = poly.terms
 		return p
 	}
 	//
-	return &ArrayPoly[S]{terms}
+	return &poly
 }
 
 // Clone performs a deep copy of this polynomial
@@ -154,43 +162,44 @@ func (p *ArrayPoly[S]) MulScalar(scalar *big.Int) *ArrayPoly[S] {
 
 // AddTerm adds a single term into this polynomial.
 func (p *ArrayPoly[S]) AddTerm(other Monomial[S]) {
-	var zero = big.NewInt(0)
-	//
-	for i, term := range p.terms {
-		if term.Matches(other) {
-			ith := &p.terms[i]
-			// Add term at this position
-			ith.coefficient.Add(&ith.coefficient, &other.coefficient)
-			// Check whether its now zero (or not)
-			if ith.coefficient.Cmp(zero) == 0 {
-				array.RemoveAt(p.terms, uint(i))
+	// Avoid adding an empty monomial
+	if !other.IsZero() {
+		for i, term := range p.terms {
+			if term.Matches(other) {
+				ith := &p.terms[i]
+				// Add term at this position
+				ith.coefficient.Add(&ith.coefficient, &other.coefficient)
+				// Check whether its now zero (or not)
+				if ith.IsZero() {
+					p.terms = array.RemoveAt(p.terms, uint(i))
+				}
+				//
+				return
 			}
-			//
-			return
 		}
+		//
+		p.terms.Insert(other.Clone())
 	}
-	// Sort?
-	p.terms = append(p.terms, other.Clone())
 }
 
 // SubTerm subtracts a single term from this polynomial.
 func (p *ArrayPoly[S]) SubTerm(other Monomial[S]) {
-	var zero = big.NewInt(0)
-	//
-	for i, term := range p.terms {
-		if term.Matches(other) {
-			ith := &p.terms[i]
-			// Add term at this position
-			ith.coefficient.Add(&ith.coefficient, &other.coefficient)
-			// Check whether its now zero (or not)
-			if ith.coefficient.Cmp(zero) == 0 {
-				array.RemoveAt(p.terms, uint(i))
+	// Avoid subtracting an empty monomial
+	if !other.IsZero() {
+		for i, term := range p.terms {
+			if term.Matches(other) {
+				ith := &p.terms[i]
+				// Sub term at this position
+				ith.coefficient.Sub(&ith.coefficient, &other.coefficient)
+				// Check whether its now zero (or not)
+				if ith.IsZero() {
+					p.terms = array.RemoveAt(p.terms, uint(i))
+				}
+				//
+				return
 			}
-			//
-			return
 		}
+		// Append negation to end
+		p.terms.Insert(other.Neg())
 	}
-	// Append negation to end
-	// Sort?
-	p.terms = append(p.terms, other.Neg())
 }

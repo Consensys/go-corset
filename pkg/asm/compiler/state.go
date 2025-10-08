@@ -55,6 +55,14 @@ func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) {
 	p.Module.NewConstraint(name, util.None[int](), constraint)
 }
 
+// StateReader is a simplified view of a state translator which is suitable for
+// reading registers only.
+type StateReader[T any, E Expr[T, E]] interface {
+	// ReadRegister constructs a suitable accessor for referring to a given register.
+	// This applies forwarding as appropriate.
+	ReadRegister(reg io.RegisterId) E
+}
+
 // StateTranslator packages up key information regarding how an individual state
 // of the machine is compiled down to the lower level.
 type StateTranslator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
@@ -239,4 +247,25 @@ func (p *StateTranslator[F, T, E, M]) WithGlobalConstancies(condition E) E {
 	}
 	//
 	return condition
+}
+
+func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code) E {
+	switch codes[cc].(type) {
+	case *micro.Assign:
+		return p.translateAssign(cc, codes)
+	case *micro.Fail:
+		return False[T, E]()
+	case *micro.InOut:
+		return p.translateInOut(cc, codes)
+	case *micro.Ite:
+		return p.translateIte(cc, codes)
+	case *micro.Jmp:
+		return p.translateJmp(cc, codes)
+	case *micro.Ret:
+		return p.translateRet()
+	case *micro.Skip:
+		return p.translateSkip(cc, codes)
+	default:
+		panic("unreachable")
+	}
 }
