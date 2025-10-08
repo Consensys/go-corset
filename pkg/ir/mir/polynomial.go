@@ -15,6 +15,7 @@ package mir
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -25,6 +26,10 @@ import (
 var (
 	biONE big.Int = *big.NewInt(1)
 )
+
+// ============================================================================
+// Term => Polynomial
+// ============================================================================
 
 // Translate a term into a polynomial.
 func termToPolynomial[F field.Element[F]](term Term[F], mapping sc.RegisterMap) agnostic.Polynomial {
@@ -105,6 +110,10 @@ func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mappi
 		result   agnostic.Polynomial
 	)
 	//
+	if term.Shift != 0 {
+		panic("need to handle shifts!!")
+	}
+	//
 	return result.Set(monomial)
 }
 
@@ -146,4 +155,38 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping
 	}
 	// Done
 	return result
+}
+
+// ============================================================================
+// Polynomial => Term
+// ============================================================================
+
+// Translate a term into a polynomial.
+func polynomialToTerm[F field.Element[F]](poly agnostic.Polynomial) Term[F] {
+	var (
+		monomials []Term[F] = make([]Term[F], poly.Len())
+	)
+	//
+	for i := range poly.Len() {
+		monomials[i] = monomialToTerm[F](poly.Term(i))
+	}
+	//
+	return ir.Sum(monomials...)
+}
+
+func monomialToTerm[F field.Element[F]](monomial agnostic.Monomial) Term[F] {
+	var (
+		terms = make([]Term[F], monomial.Len()+1)
+		tmp   = monomial.Coefficient()
+		coeff F
+	)
+	// Add coefficient
+	terms[0] = ir.Const[F, Term[F]](coeff.SetBytes(tmp.Bytes()))
+	//
+	for i := range monomial.Len() {
+		ith := monomial.Nth(i)
+		terms[i+1] = ir.NewRegisterAccess[F, Term[F]](ith, 0)
+	}
+	//
+	return ir.Product(terms...)
 }

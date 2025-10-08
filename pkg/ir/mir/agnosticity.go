@@ -13,13 +13,9 @@
 package mir
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -51,78 +47,6 @@ func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ schema.LimbsMap)
 func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.LimbsMap) SortedConstraint[F] {
 	// TODO: implement this
 	return c
-}
-
-// Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping schema.RegisterLimbsMap,
-) VanishingConstraint[F] {
-	// Split all registers occurring in the logical term.
-	c := splitLogicalTerm(p.Constraint, mapping)
-	// FIXME: this is an insufficient solution because it does not address the
-	// potential issues around bandwidth.  Specifically, where additional carry
-	// lines are needed, etc.
-	return vanishing.NewConstraint(p.Handle, p.Context, p.Domain, c)
-}
-
-func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
-	switch t := term.(type) {
-	case *Conjunct[F]:
-		return ir.Conjunction(splitLogicalTerms(t.Args, mapping)...)
-	case *Disjunct[F]:
-		return ir.Disjunction(splitLogicalTerms(t.Args, mapping)...)
-	case *Equal[F]:
-		return splitEquality(true, t.Lhs, t.Rhs, mapping)
-	case *Ite[F]:
-		condition := splitLogicalTerm(t.Condition, mapping)
-		trueBranch := splitOptionalLogicalTerm(t.TrueBranch, mapping)
-		falseBranch := splitOptionalLogicalTerm(t.FalseBranch, mapping)
-		//
-		return ir.IfThenElse(condition, trueBranch, falseBranch)
-	case *Negate[F]:
-		return ir.Negation(splitLogicalTerm(t.Arg, mapping))
-	case *NotEqual[F]:
-		return splitEquality(false, t.Lhs, t.Rhs, mapping)
-	default:
-		panic("unreachable")
-	}
-}
-
-func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
-	if term == nil {
-		return nil
-	}
-	//
-	return splitLogicalTerm(term, mapping)
-}
-
-func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F], mapping schema.RegisterLimbsMap) []LogicalTerm[F] {
-	var nterms = make([]LogicalTerm[F], len(terms))
-	//
-	for i := range len(terms) {
-		nterms[i] = splitLogicalTerm(terms[i], mapping)
-	}
-	//
-	return nterms
-}
-
-func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
-	// Split terms using vector accesses
-	lhs = splitTerm(lhs, mapping)
-	rhs = splitTerm(rhs, mapping)
-	// Translate into polynomials
-	left := termToPolynomial(lhs, mapping.LimbsMap())
-	right := termToPolynomial(rhs, mapping.LimbsMap())
-	// Construct equality for spltting
-	//
-	fmt.Printf("EQUATION: %s == %s",
-		poly.String(left, schema.RegisterToString), poly.String(right, schema.RegisterToString))
-	//
-	// if sign {
-	// 	return ir.Equals[F, LogicalTerm[F]](lhs, rhs)
-	// }
-	// //
-	// return ir.NotEquals[F, LogicalTerm[F]](lhs, rhs)
-	panic("todo")
 }
 
 func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap) Term[F] {
