@@ -118,9 +118,6 @@ type (
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the MIR level.
 	NotEqual[F field.Element[F]] = ir.NotEqual[F, LogicalTerm[F], Term[F]]
-	// Inequality an inequality comparator (e.g. X < Y or X <= Y) between two arithmetic terms
-	// at the MIR level.
-	Inequality[F field.Element[F]] = ir.Inequality[F, LogicalTerm[F], Term[F]]
 )
 
 // SubstituteConstants substitutes the value of matching labelled constants for

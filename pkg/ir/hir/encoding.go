@@ -592,12 +592,6 @@ func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 		return encode_tagged_logicals(negationTag, buf, t.Arg)
 	case *NotEqual:
 		return encode_tagged_terms(notEqualTag, buf, t.Lhs, t.Rhs)
-	case *Inequality:
-		if t.Strict {
-			return encode_tagged_terms(lessThanTag, buf, t.Lhs, t.Rhs)
-		}
-		//
-		return encode_tagged_terms(lessThanEqTag, buf, t.Lhs, t.Rhs)
 	default:
 		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(false, nil).String(false))
 	}
@@ -657,11 +651,7 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 	case negationTag:
 		return decode_logicals(1, negationConstructor, buf)
 	case notEqualTag:
-		return decode_terms(2, notEqualConstructor, buf)
-	case lessThanTag:
-		return decode_terms(2, lessThanConstructor, buf)
-	case lessThanEqTag:
-		return decode_terms(2, lessThanOrEqualsConstructor, buf)
+		return decode_terms[F](2, notEqualConstructor, buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
@@ -1158,15 +1148,7 @@ func notEqualConstructor(terms []Term) LogicalTerm {
 	return ir.NotEquals[word.BigEndian, LogicalTerm](terms[0], terms[1])
 }
 
-func lessThanConstructor(terms []Term) LogicalTerm {
-	return ir.LessThan[word.BigEndian, LogicalTerm](terms[0], terms[1])
-}
-
-func lessThanOrEqualsConstructor(terms []Term) LogicalTerm {
-	return ir.LessThanOrEquals[word.BigEndian, LogicalTerm](terms[0], terms[1])
-}
-
-func subConstructor(terms []Term) Term {
+func subConstructor(terms []Term[F]) Term {
 	return ir.Subtract(terms...)
 }
 

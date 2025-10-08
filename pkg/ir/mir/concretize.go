@@ -186,15 +186,6 @@ func concretizeLogicalTerm[F1 Element[F1], F2 Element[F2]](t LogicalTerm[F1]) Lo
 		rhs := concretizeTerm[F1, F2](t.Rhs)
 		//
 		return ir.Equals[F2, LogicalTerm[F2]](lhs, rhs)
-	case *Inequality[F1]:
-		lhs := concretizeTerm[F1, F2](t.Lhs)
-		rhs := concretizeTerm[F1, F2](t.Rhs)
-		//
-		if t.Strict {
-			return ir.LessThan[F2, LogicalTerm[F2]](lhs, rhs)
-		}
-		//
-		return ir.LessThanOrEquals[F2, LogicalTerm[F2]](lhs, rhs)
 	case *Ite[F1]:
 		var tb, fb LogicalTerm[F2]
 		//

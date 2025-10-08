@@ -203,18 +203,6 @@ func Test_Valid_Block_04(t *testing.T) {
 }
 
 // ===================================================================
-// Inequality Tests
-// ===================================================================
-
-// func Test_Valid_Inequality_01(t *testing.T) {
-// 	test_util.Check(t, false, "valid/ieq_01")
-// }
-
-func Test_Valid_Inequality_02(t *testing.T) {
-	util.Check(t, false, "valid/ieq_02")
-}
-
-// ===================================================================
 // Logical Tests
 // ===================================================================
 

@@ -68,7 +68,7 @@ func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.Re
 	case *Disjunct[F]:
 		return ir.Disjunction(splitLogicalTerms(t.Args, mapping)...)
 	case *Equal[F]:
-		return ir.Equals[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+		return splitEquality(true, t.Lhs, t.Rhs, mapping)
 	case *Ite[F]:
 		condition := splitLogicalTerm(t.Condition, mapping)
 		trueBranch := splitOptionalLogicalTerm(t.TrueBranch, mapping)
@@ -78,13 +78,7 @@ func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.Re
 	case *Negate[F]:
 		return ir.Negation(splitLogicalTerm(t.Arg, mapping))
 	case *NotEqual[F]:
-		return ir.NotEquals[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
-	case *Inequality[F]:
-		if t.Strict {
-			return ir.LessThan[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
-		}
-		//
-		return ir.LessThanOrEquals[F, LogicalTerm[F]](splitTerm(t.Lhs, mapping), splitTerm(t.Rhs, mapping))
+		return splitEquality(false, t.Lhs, t.Rhs, mapping)
 	default:
 		panic("unreachable")
 	}
@@ -106,6 +100,18 @@ func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F], mapping schem
 	}
 	//
 	return nterms
+}
+
+func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
+	//
+	lhs = splitTerm(lhs, mapping)
+	rhs = splitTerm(rhs, mapping)
+	//
+	if sign {
+		return ir.Equals[F, LogicalTerm[F]](lhs, rhs)
+	}
+	//
+	return ir.NotEquals[F, LogicalTerm[F]](lhs, rhs)
 }
 
 func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap) Term[F] {

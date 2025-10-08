@@ -951,14 +951,6 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 			return ir.Equals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
 		case ast.NOT_EQUALS:
 			return ir.NotEquals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
-		case ast.LESS_THAN:
-			return ir.LessThan[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
-		case ast.LESS_THAN_EQUALS:
-			return ir.LessThanOrEquals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
-		case ast.GREATER_THAN:
-			return ir.GreaterThan[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
-		case ast.GREATER_THAN_EQUALS:
-			return ir.GreaterThanOrEquals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
 		default:
 			panic("unreachable")
 		}
