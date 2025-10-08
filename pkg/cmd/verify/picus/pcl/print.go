@@ -3,6 +3,7 @@ package pcl
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -15,6 +16,7 @@ func (pp *Program[F]) WriteTo(w io.Writer) (int64, error) {
 	var total int64
 
 	n, err := fmt.Fprintf(w, "(prime-number %v)\n", pp.Prime)
+
 	total += int64(n)
 	if err != nil {
 		return total, err
@@ -25,12 +27,15 @@ func (pp *Program[F]) WriteTo(w io.Writer) (int64, error) {
 		if m.IsEmpty() {
 			continue
 		}
+
 		wn, err := m.WriteTo(w)
+
 		total += wn
 		if err != nil {
 			return total, err
 		}
 	}
+
 	return total, nil
 }
 
@@ -38,6 +43,8 @@ func (pp *Program[F]) WriteTo(w io.Writer) (int64, error) {
 // (begin-module, inputs, outputs, constraints, end-module) using the provided
 // S-expression formatter. It returns the number of bytes written.
 func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
+	var total int64
+
 	formatter := sexp.NewFormatter(80)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.LFormatter{Head: "&&", Priority: 1})
@@ -46,9 +53,9 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 	formatter.Add(&sexp.IFormatter{Head: "!=", Priority: 2})
 	formatter.Add(&sexp.IFormatter{Head: "+", Priority: 3})
 	formatter.Add(&sexp.IFormatter{Head: "*", Priority: 4})
-	var total int64
 
 	n, err := fmt.Fprintf(w, "(begin-module %s)\n", m.Name)
+
 	total += int64(n)
 	if err != nil {
 		return total, err
@@ -60,6 +67,7 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 			sexp.NewSymbol("input"),
 			in.Lisp(),
 		}))
+
 		total += wn
 		if err != nil {
 			return total, err
@@ -72,6 +80,7 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 			sexp.NewSymbol("output"),
 			out.Lisp(),
 		}))
+
 		total += wn
 		if err != nil {
 			return total, err
@@ -81,6 +90,7 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 	// Format constraints
 	for _, c := range m.Constraints {
 		wn, err := writeFormatted(w, formatter, c.Lisp())
+
 		total += wn
 		if err != nil {
 			return total, err
@@ -89,6 +99,7 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 
 	n, err = io.WriteString(w, "(end-module)\n")
 	total += int64(n)
+
 	return total, err
 }
 
@@ -97,19 +108,30 @@ func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 func writeFormatted(w io.Writer, f *sexp.Formatter, s sexp.SExp) (int64, error) {
 	str := f.Format(s) // includes newline
 	n, err := io.WriteString(w, str)
+
 	return int64(n), err
 }
 
-// Convenience for printing programs
+// String produces the string representation of a Picus program.
 func (pp *Program[F]) String() string {
 	var b strings.Builder
-	_, _ = pp.WriteTo(&b)
+
+	if _, err := pp.WriteTo(&b); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
+		os.Exit(1)
+	}
+
 	return b.String()
 }
 
-// Convenience for printing modules
+// String produces a string representation of a Picus module.
 func (m *Module[F]) String() string {
 	var b strings.Builder
-	_, _ = m.WriteTo(&b)
+
+	if _, err := m.WriteTo(&b); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing out Picus module: %v", err)
+		os.Exit(1)
+	}
+
 	return b.String()
 }

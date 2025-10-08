@@ -21,38 +21,39 @@ const (
 	orSymbol      = "||"  // orSymbol is the boolean disjunction symbol.
 )
 
+// RelOp enumerates relational predicates in PCL
 type RelOp int
 
 const (
-	OpEq RelOp = iota // =
-	OpNe              // !=
-	OpLt              // <
-	OpLe              // <=
-	OpGt              // >
-	OpGe              // >=
+	opEq RelOp = iota // =
+	opNe              // !=
+	opLt              // <
+	opLe              // <=
+	opGt              // >
+	opGe              // >=
 )
 
-// `String` returns the s-expression symbol for `RelOp`
+// String returns the s-expression symbol for `RelOp`
 func (op RelOp) String() string {
 	switch op {
-	case OpEq:
+	case opEq:
 		return "="
-	case OpNe:
+	case opNe:
 		return "!="
-	case OpLt:
+	case opLt:
 		return "<"
-	case OpLe:
+	case opLe:
 		return "<="
-	case OpGt:
+	case opGt:
 		return ">"
-	case OpGe:
+	case opGe:
 		return ">="
 	default:
 		panic(fmt.Sprintf("Unknown relational op: %d", op))
 	}
 }
 
-// Interface defining a Picus formula. In PCL formulas appear in four places
+// Formula is an interface to mark Picus formulas. In PCL formulas appear in four places
 // 1. (Assertions) - Circuit constraints (vanishing constraints here).
 // 2. (Postconditions) - Formulas that Picus must prove are entailed by the module constraints
 // 3. (Assumptions) - Formulas Picus assumes hold on the parameters of the module
@@ -90,34 +91,34 @@ func NewPred[F field.Element[F]](op RelOp, left Expr[F], right Expr[F]) *Pred[F]
 	}
 }
 
-// Builds (< left right)
+// NewLt builds (< left right)
 func NewLt[F field.Element[F]](left Expr[F], right Expr[F]) *Pred[F] {
-	return NewPred[F](OpLt, left, right)
+	return NewPred[F](opLt, left, right)
 }
 
-// Builds (> left right)
+// NewGt builds (> left right)
 func NewGt[F field.Element[F]](left Expr[F], right Expr[F]) *Pred[F] {
-	return NewPred[F](OpGt, left, right)
+	return NewPred[F](opGt, left, right)
 }
 
-// Builds (<= left right)
+// NewLeq builds (<= left right)
 func NewLeq[F field.Element[F]](left Expr[F], right Expr[F]) *Pred[F] {
-	return NewPred[F](OpLe, left, right)
+	return NewPred[F](opLe, left, right)
 }
 
-// Builds (>= left right)
+// NewGeq builds (>= left right)
 func NewGeq[F field.Element[F]](left Expr[F], right Expr[F]) *Pred[F] {
-	return NewPred[F](OpGe, left, right)
+	return NewPred[F](opGe, left, right)
 }
 
-// Builds (= left right)
+// NewEq builds (= left right)
 func NewEq[F field.Element[F]](left Expr[F], right Expr[F]) *Pred[F] {
-	return NewPred[F](OpEq, left, right)
+	return NewPred[F](opEq, left, right)
 }
 
-// Builds (!= left right)
+// NewNeq builds (!= left right)
 func NewNeq[F field.Element[F]](left Expr[F], right Expr[F]) *Pred[F] {
-	return NewPred[F](OpNe, left, right)
+	return NewPred[F](opNe, left, right)
 }
 
 // FoldBinopPred constructs a left-associative Boolean formula by folding xs with op,
@@ -126,31 +127,33 @@ func FoldBinopPred[F field.Element[F]](op BinopConnective, xs []Formula[F]) Form
 	if len(xs) < 2 {
 		panic(fmt.Sprintf("FoldAnd: expects at least two elements. Found %d", len(xs)))
 	}
+
 	acc := xs[0]
 	for i := 1; i < len(xs); i++ {
 		acc = &BinopConnectivePred[F]{Op: op, Left: acc, Right: xs[i]}
 	}
+
 	return acc
 }
 
-// Helper function to build an n-ary conjunction of formulas
+// FoldAnd builds an n-ary conjunction of formulas
 func FoldAnd[F field.Element[F]](xs []Formula[F]) Formula[F] {
-	return FoldBinopPred(OpAnd, xs)
+	return FoldBinopPred(opAnd, xs)
 }
 
-// Helper function to build an n-ary disjunction of formulas
+// FoldOr builds  an n-ary disjunction of formulas
 func FoldOr[F field.Element[F]](xs []Formula[F]) Formula[F] {
-	return FoldBinopPred(OpOr, xs)
+	return FoldBinopPred(opOr, xs)
 }
 
 // BinopConnective enumerates Boolean binary connectives in PCL.
 type BinopConnective int
 
 const (
-	OpAnd     BinopConnective = iota // &&
-	OpOr                             // ||
-	OpIff                            // <=>
-	OpImplies                        // =>
+	opAnd     BinopConnective = iota // &&
+	opOr                             // ||
+	opIff                            // <=>
+	opImplies                        // =>
 )
 
 // BinopConnectivePred is a composite Boolean formula combining two sub-formulas
@@ -166,13 +169,13 @@ func (*BinopConnectivePred[F]) isFormula() {}
 // String returns the S-expression symbol for the binary connective.
 func (op BinopConnective) String() string {
 	switch op {
-	case OpAnd:
+	case opAnd:
 		return andSymbol
-	case OpOr:
+	case opOr:
 		return orSymbol
-	case OpIff:
+	case opIff:
 		return iffSymbol
-	case OpImplies:
+	case opImplies:
 		return impliesSymbol
 	default:
 		panic(fmt.Sprintf("Unknown binop connective: %d", op))
@@ -200,7 +203,7 @@ func (n *Not[F]) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{sexp.NewSymbol(notSymbol), n.Inner.Lisp()})
 }
 
-// `NewNot` constructs the negation of the given formula.
+// NewNot constructs the negation of the given formula.
 func NewNot[F field.Element[F]](formula Formula[F]) *Not[F] {
 	return &Not[F]{
 		Inner: formula,

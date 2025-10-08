@@ -38,6 +38,8 @@ type Var struct {
 }
 
 func (*Var) isExpr() {}
+
+// Lisp renders a var symbol
 func (v *Var) Lisp() sexp.SExp {
 	return sexp.NewSymbol(v.Name)
 }
@@ -60,6 +62,7 @@ func (u *Neg[F]) Lisp() sexp.SExp {
 // BinaryOp enumerates binary arithmetic operators.
 type BinaryOp int
 
+// Defines the different binary ops +, -, *
 const (
 	Add BinaryOp = iota
 	Sub
@@ -80,7 +83,7 @@ func (op BinaryOp) String() string {
 	}
 }
 
-// Represents Add, Sub, Mul expressions
+// Binary represents binary expressions i.e, Add, Sub, Mul.
 type Binary[F field.Element[F]] struct {
 	Op BinaryOp
 	X  Expr[F]
@@ -88,6 +91,8 @@ type Binary[F field.Element[F]] struct {
 }
 
 func (*Binary[F]) isExpr() {}
+
+// Lisp produces the sexp (op x y)
 func (b *Binary[F]) Lisp() sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol(b.Op.String()),
@@ -96,20 +101,25 @@ func (b *Binary[F]) Lisp() sexp.SExp {
 	})
 }
 
-// Construct Constant
+// C constructs a Picus Constant
 func C[F field.Element[F]](v F) Expr[F] { return &Const[F]{Val: v} }
 
-// Constant Variable
+// V constructs a Picus Variable
 func V[F field.Element[F]](name string) Expr[F] {
 	return &Var{Name: name}
 }
 
-// Convencience methods to build Picus expressions. Normally we would perform constant
-// folding here but the Coreset compiler should take care of that.
+// AddE adds two expressions
 func AddE[F field.Element[F]](x, y Expr[F]) Expr[F] { return &Binary[F]{Op: Add, X: x, Y: y} }
+
+// SubE subtracts y from x
 func SubE[F field.Element[F]](x, y Expr[F]) Expr[F] { return &Binary[F]{Op: Sub, X: x, Y: y} }
+
+// MulE multiplies two expressions
 func MulE[F field.Element[F]](x, y Expr[F]) Expr[F] { return &Binary[F]{Op: Mul, X: x, Y: y} }
-func NegE[F field.Element[F]](x Expr[F]) Expr[F]    { return &Neg[F]{Inner: x} }
+
+// NegE negates an expression
+func NegE[F field.Element[F]](x Expr[F]) Expr[F] { return &Neg[F]{Inner: x} }
 
 // FoldBinaryE left-folds xs with the given op:
 //
@@ -120,14 +130,25 @@ func FoldBinaryE[F field.Element[F]](op BinaryOp, xs []Expr[F]) Expr[F] {
 	if len(xs) < 2 {
 		panic(fmt.Sprintf("FoldBinaryE: expects at least two elements. Found %d", len(xs)))
 	}
+
 	acc := xs[0]
 	for i := 1; i < len(xs); i++ {
 		acc = &Binary[F]{Op: op, X: acc, Y: xs[i]}
 	}
+
 	return acc
 }
 
-// Variadic convenience.
+// FoldBinaryManyE is a variadic convenience.
 func FoldBinaryManyE[F field.Element[F]](op BinaryOp, xs ...Expr[F]) Expr[F] {
 	return FoldBinaryE(op, xs)
+}
+
+// Zero gets the Picus constant for 0.
+func Zero[F field.Element[F]]() *Const[F] {
+	var val F
+
+	return &Const[F]{
+		Val: val.SetUint64(0),
+	}
 }
