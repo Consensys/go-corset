@@ -165,7 +165,7 @@ func (p *SchemaStack[F]) ConcreteSchemas() []schema.AnySchema[F] {
 // ConcreteSchemaOf returns the schema associated with the given IR representation.  If
 // there is no match, this will panic.
 func (p *SchemaStack[F]) ConcreteSchemaOf(ir string) schema.AnySchema[F] {
-	var m = len(p.abstractSchemas)
+	m := len(p.abstractSchemas)
 	//
 	for i, n := range p.names[m:] {
 		if n == ir {
@@ -207,7 +207,7 @@ func (p *SchemaStack[F]) ConcreteIrName(index uint) string {
 
 // Read reads one or more constraints files into this stack.
 func (p *SchemaStack[F]) Read(filenames ...string) {
-	binfile := ReadConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	binfile := readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
 	//
 	p.Apply(binfile)
 }
@@ -262,7 +262,7 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 	}
 }
 
-// ReadConstraintFiles provides a generic interface for reading constraint files
+// readConstraintFiles provides a generic interface for reading constraint files
 // in one of two ways.  If a single file is provided with the "bin" extension
 // then this is treated as a binfile (e.g. zkevm.bin).  Otherwise, the files are
 // assumed to be source (i.e. lisp) files and are read in and then compiled into
@@ -270,8 +270,9 @@ func (p *SchemaStack[F]) Apply(binfile binfile.BinaryFile) {
 // (or without) the standard library.  Generally speaking, you want to compile
 // with the standard library.  However, some internal tests are run without
 // including the standard library to minimise the surface area.
-func ReadConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringConfig,
-	filenames []string) binfile.BinaryFile {
+func readConstraintFiles(config corset.CompilationConfig, lowering asm.LoweringConfig,
+	filenames []string,
+) binfile.BinaryFile {
 	//
 	var err error
 	//
@@ -340,7 +341,8 @@ func ReadBinaryFile(filename string) binfile.BinaryFile {
 // can be done with (or without) including the standard library, and also with
 // (or without) debug constraints.
 func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringConfig,
-	filenames []string) binfile.BinaryFile {
+	filenames []string,
+) binfile.BinaryFile {
 	//
 	var (
 		errors            []source.SyntaxError
