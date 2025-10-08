@@ -40,7 +40,11 @@ not_call:
 byte_call:
    var n u5
    var c0 u251
-   c0, n = ARGUMENT_2
-   RES = byte256(ARGUMENT_1, n)
+   c0, n = ARGUMENT_1
+   if c0 != 0 goto exit_0
+   RES = byte256(ARGUMENT_2, n)
+   return
+exit_0:
+   RES = 0
    return
 }
