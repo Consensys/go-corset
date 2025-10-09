@@ -112,7 +112,7 @@ const (
 	// cannot use a forward shift in its declaration).
 	COMPUTED_FWD = 2
 	// COMPUTED_BWD signals a column is a (backward recursive) computed column.
-	// This means its value is computed starting from the first row (hence it
+	// This means its value is computed starting from the last row (hence it
 	// cannot use a backward shift in its declaration).
 	COMPUTED_BWD = 3
 )
