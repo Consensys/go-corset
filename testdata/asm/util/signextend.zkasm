@@ -1,0 +1,17 @@
+include "byte.zkasm"
+include "fill_bytes.zkasm"
+
+fn signextend(size u256, word u256) -> (res u256) {
+    var tmp_byte u8
+    var msb u1
+    var rest u7
+    ;; take the most significant bit of the word
+    tmp_byte  = byte256(word, 0)
+    msb, rest = tmp_byte
+    if msb == 0 goto exit_unchanged
+    res = fill_bytes_between(word, 0, 1, msb)
+    return
+exit_unchanged:
+    res = word
+    return
+}
