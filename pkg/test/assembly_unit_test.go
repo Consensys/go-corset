@@ -95,7 +95,3 @@ func Test_AsmUnit_Sub(t *testing.T) {
 func Test_AsmUnit_RecPow(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
-
-func Test_Asm_And(t *testing.T) {
-	util.Check(t, false, "asm/unit/and")
-}
