@@ -67,7 +67,7 @@ type schemaSummariser[F any] struct {
 func getSummerisers[F field.Element[F]]() []schemaSummariser[F] {
 	return []schemaSummariser[F]{
 		// Constraints
-		constraintCounter("Constraints", func(schema.Constraint[F]) bool { return true }),
+		constraintCounter("Constraints", func(sc.Constraint[F]) bool { return true }),
 		constraintCounter("Vanishing", isVanishingConstraint[F]),
 		constraintCounter("Lookups", isLookupConstraint[F]),
 		constraintCounter("Permutations", isPermutationConstraint[F]),

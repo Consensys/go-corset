@@ -62,7 +62,7 @@ func (p *SchemaStack[F]) ConcreteSchemas() []schema.AnySchema[F] {
 // ConcreteSchemaOf returns the schema associated with the given IR representation.  If
 // there is no match, this will panic.
 func (p *SchemaStack[F]) ConcreteSchemaOf(ir string) schema.AnySchema[F] {
-	var m = len(p.abstractSchemas)
+	m := len(p.abstractSchemas)
 	//
 	for i, n := range p.names[m:] {
 		if n == ir {
