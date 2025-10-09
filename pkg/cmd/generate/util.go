@@ -19,7 +19,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
@@ -68,7 +67,7 @@ func getMaxRegisterIndex[F any](schema sc.AnySchema[F]) uint {
 	return mx * schema.Width()
 }
 
-func toRegisterName(register schema.RegisterRef, name string) string {
+func toRegisterName(register sc.RegisterRef, name string) string {
 	mid := register.Module()
 	rid := register.Register().Unwrap()
 	//
