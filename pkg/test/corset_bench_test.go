@@ -103,9 +103,9 @@ func Test_Bench_Mmio(t *testing.T) {
 	util.Check(t, true, "bench/mmio")
 }
 
-// func Test_Bench_Rom(t *testing.T) {
-// 	test_util.Check(t, true, "bench/rom")
-// }
+func Test_Bench_Rom(t *testing.T) {
+	util.Check(t, true, "bench/rom")
+}
 
 func Test_Bench_Gas(t *testing.T) {
 	util.Check(t, true, "bench/gas")
