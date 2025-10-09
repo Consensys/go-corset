@@ -13,6 +13,7 @@
 package poly
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util"
@@ -159,6 +160,46 @@ func (p Monomial[S]) Matches(other Monomial[S]) bool {
 	}
 	//
 	return true
+}
+
+// String constructs a suitable string representation for a given polynomial
+// assuming an environment which maps identifiers to strings.
+func (p Monomial[S]) String(env func(S) string) string {
+	var (
+		buf   bytes.Buffer
+		coeff = p.Coefficient()
+	)
+	// Various cases to improve readability
+	if p.Len() == 0 {
+		buf.WriteString(coeff.String())
+	} else if coeff.Cmp(big.NewInt(1)) != 0 {
+		buf.WriteString("(")
+		buf.WriteString(coeff.String())
+		//
+		for j := range p.Len() {
+			buf.WriteString("*")
+			//
+			buf.WriteString(env(p.Nth(j)))
+		}
+		//
+		buf.WriteString(")")
+	} else if p.Len() == 1 {
+		buf.WriteString(env(p.Nth(0)))
+	} else {
+		buf.WriteString("(")
+		//
+		for j := range p.Len() {
+			if j != 0 {
+				buf.WriteString("*")
+			}
+			//
+			buf.WriteString(env(p.Nth(j)))
+		}
+		//
+		buf.WriteString(")")
+	}
+	//
+	return buf.String()
 }
 
 // Vars retursnt the variables of this monomial as an array.

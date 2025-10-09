@@ -110,7 +110,24 @@ func (p *Equation) innerSplit(bandwidth uint, env sc.RegisterAllocator) []Equati
 		// Sort both sides in order of their coefficients.
 		lhs = sortByCoefficient(p.LeftHandSide)
 		rhs = sortByCoefficient(p.RightHandSide)
+		fn  = func(rid sc.RegisterId) string {
+			return env.Limb(rid).Name
+		}
 	)
+	// NOTES: at this point, do you just want to gobble each side upto the
+	// bandwidth limit?  Then, you add a carry for the lower side.
+	//
+	for _, l := range lhs {
+		fmt.Printf("[%s]", l.String(fn))
+	}
+
+	fmt.Println()
+
+	for _, r := range rhs {
+		fmt.Printf("[%s]", r.String(fn))
+	}
+
+	fmt.Println()
 	panic(fmt.Sprintf("TODO: %s", p.String(env)))
 }
 
@@ -126,19 +143,15 @@ func sortByCoefficient(poly Polynomial) []Monomial {
 		var (
 			lCoeff = l.Coefficient()
 			rCoeff = r.Coefficient()
-			lVars  = l.Vars()
-			rVars  = r.Vars()
 		)
 		// Compare coefficients first
 		if c := lCoeff.Cmp(&rCoeff); c != 0 {
 			return c
 		}
 		// Compare variables second
-		if c := cmp.Compare(len(lVars), len(rVars)); c != 0 {
-			return c
-		}
-		//
-		panic("got here")
+		return slices.CompareFunc(l.Vars(), r.Vars(), func(l, r sc.RegisterId) int {
+			return cmp.Compare(l.Unwrap(), r.Unwrap())
+		})
 	})
 	// Done
 	return monomials
