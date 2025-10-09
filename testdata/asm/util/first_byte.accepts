@@ -1,0 +1,4 @@
+{"first_non_null_byte": { "word": [255], "res": [31] }}
+{"first_non_null_byte": { "word": [65535], "res": [30] }}
+{"first_non_null_byte": { "word": [4294967295], "res": [28] }}
+{"first_non_null_byte": { "word": [18446744073709551615], "res": [24] }}
