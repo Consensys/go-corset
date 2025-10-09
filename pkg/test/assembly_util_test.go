@@ -35,6 +35,10 @@ func Test_AsmUtil_FillBytes(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/fill_bytes", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
+func Test_AsmUtil_FirstByte(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/first_byte", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+}
+
 func Test_AsmUtil_Log2(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/log2", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
