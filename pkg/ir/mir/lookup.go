@@ -22,20 +22,25 @@ import (
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.LimbsMap) LookupConstraint[F] {
-	var (
-		// Determine overall geometry for this lookup.
-		geometry = lookup.NewGeometry(c, mapping)
-		// Split all registers in the source vectors
-		sources = mapLookupVectors(c.Sources, mapping)
-		// Split all registers in the target vectors
-		targets = mapLookupVectors(c.Targets, mapping)
-	)
-	//
-	targets = splitLookupVectors(geometry, targets, mapping)
-	sources = splitLookupVectors(geometry, sources, mapping)
-	//
-	return lookup.NewConstraint(c.Handle, targets, sources)
+func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.RegisterAllocator) LookupConstraint[F] {
+	// var (
+	// 	// Determine overall geometry for this lookup.
+	// 	geometry = lookup.NewGeometry(c, mapping)
+	// 	// Split all registers in the source vectors
+	// 	sources = mapLookupVectors(c.Sources, mapping)
+	// 	// Split all registers in the target vectors
+	// 	targets = mapLookupVectors(c.Targets, mapping)
+	// )
+	// //
+	// targets = splitLookupVectors(geometry, targets, mapping)
+	// sources = splitLookupVectors(geometry, sources, mapping)
+	// //
+	// return lookup.NewConstraint(c.Handle, targets, sources)
+
+	// There is something to figure out here.  Basically, we want to be able to
+	// subdivide a module without that affecting other modules.  For general
+	// lookups, this is actually problematic.
+	panic("todo")
 }
 
 // Mapping lookup vectors essentially means applying the limb mapping to all
@@ -45,22 +50,22 @@ func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.L
 // create more source/target pairings.  Rather, it splits registers within the
 // existing pairings only.  Later stages will subdivide and pad the
 // source/target pairings as necessary.
-func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, Term[F]],
-	mapping schema.LimbsMap) []lookup.Vector[F, Term[F]] {
-	//
-	var nterms = make([]lookup.Vector[F, Term[F]], len(vectors))
-	//
-	for i, vector := range vectors {
-		var (
-			modmap = mapping.Module(vector.Module)
-			terms  = splitTerms(vector.Terms, modmap)
-		)
-		// TODO: what about the selector itself?
-		nterms[i] = lookup.NewVector(vector.Module, vector.Selector, terms...)
-	}
-	//
-	return nterms
-}
+// func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, Term[F]],
+// 	mapping schema.LimbsMap) []lookup.Vector[F, Term[F]] {
+// 	//
+// 	var nterms = make([]lookup.Vector[F, Term[F]], len(vectors))
+// 	//
+// 	for i, vector := range vectors {
+// 		var (
+// 			modmap = mapping.Module(vector.Module)
+// 			terms  = splitTerms(vector.Terms, modmap)
+// 		)
+// 		// TODO: what about the selector itself?
+// 		nterms[i] = lookup.NewVector(vector.Module, vector.Selector, terms...)
+// 	}
+// 	//
+// 	return nterms
+// }
 
 // Splitting lookup vectors means splitting source/target pairings into one or
 // more terms.  For example, consider the lookup "lookup (X'1::X'0) (Y)" where

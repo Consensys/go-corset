@@ -14,13 +14,14 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/ir"
-	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping schema.RegisterLimbsMap,
+func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping sc.RegisterAllocator,
 ) VanishingConstraint[F] {
 	// Split all registers occurring in the logical term.
 	c := splitLogicalTerm(p.Constraint, mapping)
@@ -30,7 +31,7 @@ func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping sc
 	return vanishing.NewConstraint(p.Handle, p.Context, p.Domain, c)
 }
 
-func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
+func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping sc.RegisterAllocator) LogicalTerm[F] {
 	switch t := term.(type) {
 	case *Conjunct[F]:
 		return ir.Conjunction(splitLogicalTerms(t.Args, mapping)...)
@@ -53,7 +54,9 @@ func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.Re
 	}
 }
 
-func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
+func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F],
+	mapping sc.RegisterAllocator) LogicalTerm[F] {
+	//
 	if term == nil {
 		return nil
 	}
@@ -61,7 +64,9 @@ func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping s
 	return splitLogicalTerm(term, mapping)
 }
 
-func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F], mapping schema.RegisterLimbsMap) []LogicalTerm[F] {
+func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F],
+	mapping sc.RegisterAllocator) []LogicalTerm[F] {
+	//
 	var nterms = make([]LogicalTerm[F], len(terms))
 	//
 	for i := range len(terms) {
@@ -71,22 +76,34 @@ func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F], mapping schem
 	return nterms
 }
 
-func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping schema.RegisterLimbsMap) LogicalTerm[F] {
-	// Split terms using vector accesses
-	lhs = splitTerm(lhs, mapping)
-	rhs = splitTerm(rhs, mapping)
-	// Translate into polynomials
-	left := termToPolynomial(lhs, mapping.LimbsMap())
-	right := termToPolynomial(rhs, mapping.LimbsMap())
-	// Construct equality for spltting
+func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping sc.RegisterAllocator) LogicalTerm[F] {
+	var (
+		// Split terms accordingl to mapping, and translate into polynomials
+		left  = termToPolynomial(splitTerm(lhs, mapping), mapping.LimbsMap())
+		right = termToPolynomial(splitTerm(rhs, mapping), mapping.LimbsMap())
+		// Construct equality for spltting
+		equation = agnostic.NewEquation(left, right)
+		// Split the equation
+		splitEquations = equation.Split(mapping.Field().FieldBandWidth, mapping)
+		// Prepare resulting conjunct / disjunct
+		terms = make([]LogicalTerm[F], len(splitEquations))
+	)
 	//
-	// reconstruct original term
-	lhs = polynomialToTerm[F](left)
-	rhs = polynomialToTerm[F](right)
+	for i, eq := range splitEquations {
+		// reconstruct original term
+		l := polynomialToTerm[F](eq.LeftHandSide)
+		r := polynomialToTerm[F](eq.RightHandSide)
+		//
+		if sign {
+			terms[i] = ir.Equals[F, LogicalTerm[F]](l, r)
+		} else {
+			terms[i] = ir.NotEquals[F, LogicalTerm[F]](l, r)
+		}
+	}
 	// Done (for now)
 	if sign {
-		return ir.Equals[F, LogicalTerm[F]](lhs, rhs)
+		return ir.Conjunction(terms...)
 	}
 	//
-	return ir.NotEquals[F, LogicalTerm[F]](lhs, rhs)
+	return ir.Disjunction(terms...)
 }

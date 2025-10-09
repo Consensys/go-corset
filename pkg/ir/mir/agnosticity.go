@@ -19,37 +19,38 @@ import (
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.LimbsMap) Assertion[F] {
+func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.RegisterAllocator) Assertion[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.LimbsMap,
+func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.RegisterAllocator,
 ) InterleavingConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ schema.LimbsMap) PermutationConstraint[F] {
+func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ schema.RegisterAllocator,
+) PermutationConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ schema.LimbsMap) RangeConstraint[F] {
+func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ schema.RegisterAllocator) RangeConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.LimbsMap) SortedConstraint[F] {
+func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.RegisterAllocator) SortedConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
-func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap) Term[F] {
+func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterAllocator) Term[F] {
 	switch t := term.(type) {
 	case *Add[F]:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
@@ -82,7 +83,7 @@ func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap
 	}
 }
 
-func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterLimbsMap) []Term[F] {
+func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterAllocator) []Term[F] {
 	var nterms []Term[F] = make([]Term[F], len(terms))
 	//
 	for i := range len(terms) {
@@ -92,7 +93,7 @@ func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterLimb
 	return nterms
 }
 
-func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
+func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterAllocator) Term[F] {
 	var (
 		// Determine limbs for this register
 		limbs = mapping.LimbIds(term.Register)
@@ -113,7 +114,7 @@ func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping sc
 	return ir.NewVectorAccess(terms)
 }
 
-func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
+func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema.RegisterAllocator) Term[F] {
 	var terms []*RegisterAccess[F]
 	//
 	for _, v := range term.Vars {
