@@ -109,7 +109,7 @@ func (p *Equation) Split(env sc.RegisterAllocator) []Equation {
 func (p *Equation) innerSplit(env sc.RegisterAllocator) []Equation {
 	var (
 		// Determine the bitwidth of each chunk
-		chunkWidths = p.determineChunkBitwidths()
+		chunkWidths = p.determineChunkBitwidths(env)
 		// Sort both sides in order of their coefficients.
 		lhs       = p.LeftHandSide
 		rhs       = p.RightHandSide
@@ -121,8 +121,11 @@ func (p *Equation) innerSplit(env sc.RegisterAllocator) []Equation {
 		// Chunk the polynomials
 		lhs, l = p.dividePolynomial(lhs, chunkWidth)
 		rhs, r = p.dividePolynomial(rhs, chunkWidth)
-		// Append new equation
-		equations = append(equations, NewEquation(l, r))
+		//
+		if l.Len() != 0 || r.Len() != 0 {
+			// Append new equation
+			equations = append(equations, NewEquation(l, r))
+		}
 	}
 	// Done
 	return equations
@@ -160,8 +163,36 @@ func (p *Equation) innerSplit(env sc.RegisterAllocator) []Equation {
 // In general, chunks do not have to have the same size (even though it did make
 // sense above).  In particular, the most significant chunk is often a different
 // size.
-func (p *Equation) determineChunkBitwidths() []uint {
-	panic("todo")
+func (p *Equation) determineChunkBitwidths(env sc.RegisterAllocator) []uint {
+	var (
+		commonWidth = CommonLimbWidth(env.Field().RegisterWidth, largestWidth(env.Limbs()))
+		bitwidth    = p.Width(env)
+		chunks      []uint
+	)
+	// NOTE: this is a very naive chunking algorithm which simply chunks
+	// according to register boundaries.  As such, it may often produce
+	// suboptimal chunkings.  However, it is very simple to implement and make
+	// progress with.
+	//
+	for bitwidth > 0 {
+		// Determine how much to take off
+		width := min(commonWidth, bitwidth)
+		// Update the chunk
+		chunks = append(chunks, width)
+		bitwidth -= width
+	}
+	//
+	return chunks
+}
+
+func largestWidth(limbs []sc.Limb) uint {
+	var width = uint(0)
+
+	for _, l := range limbs {
+		width = max(width, l.Width)
+	}
+	//
+	return width
 }
 
 // For a given bitwidth n, divide a polynomial by 2^n produces a quotient and
