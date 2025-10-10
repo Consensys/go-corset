@@ -154,14 +154,25 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping
 // Translate a term into a polynomial.
 func polynomialToTerm[F field.Element[F]](poly agnostic.Polynomial) Term[F] {
 	var (
-		monomials []Term[F] = make([]Term[F], poly.Len())
+		pos []Term[F]
+		neg []Term[F]
 	)
 	//
 	for i := range poly.Len() {
-		monomials[i] = monomialToTerm[F](poly.Term(i))
+		ith := poly.Term(i)
+		//
+		if ith.IsNegative() {
+			neg = append(neg, monomialToTerm[F](poly.Term(i)))
+		} else {
+			pos = append(pos, monomialToTerm[F](poly.Term(i)))
+		}
+	}
+	// Handle negative monomials (if applicable)
+	if len(neg) != 0 {
+		return ir.Subtract(ir.Sum(pos...), ir.Sum(neg...))
 	}
 	//
-	return ir.Sum(monomials...)
+	return ir.Sum(pos...)
 }
 
 func monomialToTerm[F field.Element[F]](monomial agnostic.Monomial) Term[F] {

@@ -15,27 +15,35 @@ package test
 import (
 	"testing"
 
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/test/util"
 )
+
+func Check(t *testing.T, test string) {
+	util.CheckWithFields(t, false, test, util.CORSET_MAX_PADDING,
+		sc.BLS12_377,
+		sc.GF_8209,
+		sc.GF_251)
+}
 
 // ===================================================================
 // Basic Tests
 // ===================================================================
 
 func Test_Valid_Basic_01(t *testing.T) {
-	util.Check(t, false, "valid/basic_01")
+	Check(t, "valid/basic_01")
 }
 
 func Test_Valid_Basic_02(t *testing.T) {
-	util.Check(t, false, "valid/basic_02")
+	Check(t, "valid/basic_02")
 }
 
 func Test_Valid_Basic_03(t *testing.T) {
-	util.Check(t, false, "valid/basic_03")
+	Check(t, "valid/basic_03")
 }
 
 func Test_Valid_Basic_04(t *testing.T) {
-	util.Check(t, false, "valid/basic_04")
+	Check(t, "valid/basic_04")
 }
 
 // Ignored because uses a negative constant.
@@ -45,15 +53,15 @@ func Test_Valid_Basic_04(t *testing.T) {
 // }
 
 func Test_Valid_Basic_06(t *testing.T) {
-	util.Check(t, false, "valid/basic_06")
+	Check(t, "valid/basic_06")
 }
 
 func Test_Valid_Basic_07(t *testing.T) {
-	util.Check(t, false, "valid/basic_07")
+	Check(t, "valid/basic_07")
 }
 
 func Test_Valid_Basic_08(t *testing.T) {
-	util.Check(t, false, "valid/basic_08")
+	Check(t, "valid/basic_08")
 }
 
 func Test_Valid_Basic_09(t *testing.T) {
@@ -65,23 +73,23 @@ func Test_Valid_Basic_10(t *testing.T) {
 }
 
 func Test_Valid_Basic_11(t *testing.T) {
-	util.Check(t, false, "valid/basic_11")
+	Check(t, "valid/basic_11")
 }
 func Test_Valid_Basic_12(t *testing.T) {
-	util.Check(t, false, "valid/basic_12")
+	Check(t, "valid/basic_12")
 }
 func Test_Valid_Basic_13(t *testing.T) {
-	util.Check(t, false, "valid/basic_13")
+	Check(t, "valid/basic_13")
 }
 func Test_Valid_Basic_14(t *testing.T) {
-	util.Check(t, false, "valid/basic_14")
+	Check(t, "valid/basic_14")
 }
 
 // ===================================================================
 // Constants Tests
 // ===================================================================
 func Test_Valid_Constant_01(t *testing.T) {
-	util.Check(t, false, "valid/constant_01")
+	Check(t, "valid/constant_01")
 }
 
 func Test_Valid_Constant_02(t *testing.T) {
@@ -141,29 +149,29 @@ func Test_Valid_Constant_15(t *testing.T) {
 }
 
 func Test_Valid_Constant_16(t *testing.T) {
-	util.Check(t, false, "valid/constant_16")
+	Check(t, "valid/constant_16")
 }
 
 // ===================================================================
 // Alias Tests
 // ===================================================================
 func Test_Valid_Alias_01(t *testing.T) {
-	util.Check(t, false, "valid/alias_01")
+	Check(t, "valid/alias_01")
 }
 func Test_Valid_Alias_02(t *testing.T) {
-	util.Check(t, false, "valid/alias_02")
+	Check(t, "valid/alias_02")
 }
 func Test_Valid_Alias_03(t *testing.T) {
-	util.Check(t, false, "valid/alias_03")
+	Check(t, "valid/alias_03")
 }
 func Test_Valid_Alias_04(t *testing.T) {
-	util.Check(t, false, "valid/alias_04")
+	Check(t, "valid/alias_04")
 }
 func Test_Valid_Alias_05(t *testing.T) {
-	util.Check(t, false, "valid/alias_05")
+	Check(t, "valid/alias_05")
 }
 func Test_Valid_Alias_06(t *testing.T) {
-	util.Check(t, false, "valid/alias_06")
+	Check(t, "valid/alias_06")
 }
 
 // ===================================================================
@@ -171,11 +179,11 @@ func Test_Valid_Alias_06(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Domain_01(t *testing.T) {
-	util.Check(t, false, "valid/domain_01")
+	Check(t, "valid/domain_01")
 }
 
 func Test_Valid_Domain_02(t *testing.T) {
-	util.Check(t, false, "valid/domain_02")
+	Check(t, "valid/domain_02")
 }
 
 func Test_Valid_Domain_03(t *testing.T) {
@@ -187,11 +195,11 @@ func Test_Valid_Domain_03(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Block_01(t *testing.T) {
-	util.Check(t, false, "valid/block_01")
+	Check(t, "valid/block_01")
 }
 
 func Test_Valid_Block_02(t *testing.T) {
-	util.Check(t, false, "valid/block_02")
+	Check(t, "valid/block_02")
 }
 
 func Test_Valid_Block_03(t *testing.T) {
@@ -199,7 +207,7 @@ func Test_Valid_Block_03(t *testing.T) {
 }
 
 func Test_Valid_Block_04(t *testing.T) {
-	util.Check(t, false, "valid/block_04")
+	Check(t, "valid/block_04")
 }
 
 // ===================================================================
@@ -207,10 +215,11 @@ func Test_Valid_Block_04(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Logic_01(t *testing.T) {
-	util.Check(t, false, "valid/logic_01")
+	Check(t, "valid/logic_01")
 }
 
 func Test_Valid_Logic_02(t *testing.T) {
+	// Performance
 	util.Check(t, false, "valid/logic_02")
 }
 
@@ -223,11 +232,11 @@ func Test_Valid_Property_01(t *testing.T) {
 }
 
 func Test_Valid_Property_02(t *testing.T) {
-	util.Check(t, false, "valid/property_02")
+	Check(t, "valid/property_02")
 }
 
 func Test_Valid_Property_03(t *testing.T) {
-	util.Check(t, false, "valid/property_03")
+	Check(t, "valid/property_03")
 }
 func Test_Valid_Property_04(t *testing.T) {
 	util.Check(t, false, "valid/property_04")
@@ -435,19 +444,19 @@ func Test_Valid_If_21(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Guard_01(t *testing.T) {
-	util.Check(t, false, "valid/guard_01")
+	Check(t, "valid/guard_01")
 }
 
 func Test_Valid_Guard_02(t *testing.T) {
-	util.Check(t, false, "valid/guard_02")
+	Check(t, "valid/guard_02")
 }
 
 func Test_Valid_Guard_03(t *testing.T) {
-	util.Check(t, false, "valid/guard_03")
+	Check(t, "valid/guard_03")
 }
 
 func Test_Valid_Guard_04(t *testing.T) {
-	util.Check(t, false, "valid/guard_04")
+	Check(t, "valid/guard_04")
 }
 
 func Test_Valid_Guard_05(t *testing.T) {
@@ -542,15 +551,15 @@ func Test_Valid_Range_04(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_ConstExpr_01(t *testing.T) {
-	util.Check(t, false, "valid/constexpr_01")
+	Check(t, "valid/constexpr_01")
 }
 
 func Test_Valid_ConstExpr_02(t *testing.T) {
-	util.Check(t, false, "valid/constexpr_02")
+	Check(t, "valid/constexpr_02")
 }
 
 func Test_Valid_ConstExpr_03(t *testing.T) {
-	util.Check(t, false, "valid/constexpr_03")
+	Check(t, "valid/constexpr_03")
 }
 
 func Test_Valid_ConstExpr_04(t *testing.T) {
@@ -558,7 +567,7 @@ func Test_Valid_ConstExpr_04(t *testing.T) {
 }
 
 func Test_Valid_ConstExpr_05(t *testing.T) {
-	util.Check(t, false, "valid/constexpr_05")
+	Check(t, "valid/constexpr_05")
 }
 
 // ===================================================================
@@ -566,23 +575,23 @@ func Test_Valid_ConstExpr_05(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Module_01(t *testing.T) {
-	util.Check(t, false, "valid/module_01")
+	Check(t, "valid/module_01")
 }
 
 func Test_Valid_Module_02(t *testing.T) {
-	util.Check(t, false, "valid/module_02")
+	Check(t, "valid/module_02")
 }
 
 func Test_Valid_Module_03(t *testing.T) {
-	util.Check(t, false, "valid/module_03")
+	Check(t, "valid/module_03")
 }
 
 func Test_Valid_Module_04(t *testing.T) {
-	util.Check(t, false, "valid/module_04")
+	Check(t, "valid/module_04")
 }
 
 func Test_Valid_Module_05(t *testing.T) {
-	util.Check(t, false, "valid/module_05")
+	Check(t, "valid/module_05")
 }
 
 func Test_Valid_Module_06(t *testing.T) {

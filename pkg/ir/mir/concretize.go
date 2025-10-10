@@ -43,7 +43,7 @@ func Concretize[F1 Element[F1], F2 Element[F2]](mapping schema.LimbsMap, rawModu
 	for i, m := range rawModules {
 		var mid sc.ModuleId = uint(i)
 		// Subdivice, then concretize the module.
-		modules[i] = concretizeModule[F1, F2](m.Subdivide(mapping.Module(mid)))
+		modules[i] = concretizeModule[F1, F2](m.Subdivide(mapping.Module(mid), carryAssigner[F1](mid)))
 	}
 	//
 	return modules
@@ -67,6 +67,13 @@ func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
 	return r
 }
 
+func carryAssigner[F field.Element[F]](module sc.ModuleId) func(schema.CarryAssignment) schema.Assignment[F] {
+	return func(a schema.CarryAssignment) schema.Assignment[F] {
+		ref := sc.NewRegisterRef(module, a.LeftHandSide)
+		return assignment.NewCarryAssign[F](ref, a.Shift, a.RightHandSide)
+	}
+}
+
 // ============================================================================
 // Assignments
 // ============================================================================
@@ -83,6 +90,8 @@ func concretizeAssignments[F1 Element[F1], F2 Element[F2]](assigns []schema.Assi
 
 func concretizeAssignment[F1 Element[F1], F2 Element[F2]](assign schema.Assignment[F1]) schema.Assignment[F2] {
 	switch a := assign.(type) {
+	case *assignment.CarryAssign[F1]:
+		return assignment.NewCarryAssign[F2](a.Target, a.Shift, a.Source)
 	case *assignment.ComputedRegister[F1]:
 		return assignment.NewComputedRegister[F2](a.Expr, a.Direction, a.Module, a.Targets...)
 	case *assignment.Computation[F1]:

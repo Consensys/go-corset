@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+
+	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // Limb is just an alias for Register, but it helps to clarify when we are
@@ -25,6 +27,21 @@ type Limb = Register
 // LimbId is just an alias for RegisterId, but it helps to clarify when we are
 // referring to a register after subdivision.
 type LimbId = RegisterId
+
+// Polynomial defines the type of polynomials over which packets (and register
+// splitting in general) operate.
+type Polynomial = *poly.ArrayPoly[RegisterId]
+
+// CarryAssignment captures information required to compute the value for a
+// given carry line.
+type CarryAssignment struct {
+	// Register being assigned
+	LeftHandSide RegisterId
+	// Shift amount applied to result of rhs
+	Shift uint
+	// Value being calculated
+	RightHandSide Polynomial
+}
 
 // FieldAgnostic captures the notion of an entity (e.g. module, constraint or
 // assignment) which is agnostic to the underlying field being used.  More
@@ -105,28 +122,34 @@ type RegisterLimbsMap interface {
 // register splitting for introducing new carry registers.
 type RegisterAllocator interface {
 	RegisterLimbsMap
-	// AllocateCarry a fresh register of the given width within the target module.
+	// Allocate a fresh register of the given width within the target module.
 	// This is presumed to be a computed register, and automatically assigned a
-	// unique name.
-	AllocateCarry(prefix string, width uint) RegisterId
+	// unique name.  Furthermore, an optional
+	Allocate(prefix string, width uint) RegisterId
+	// Assign a given register the outcome of evaluating a given polynomial,
+	// shifted by a given amount.
+	Assign(reg RegisterId, shift uint, poly Polynomial)
+	// Assignments returns the list of carry assignments
+	Assignments() []CarryAssignment
 }
 
 // ============================================================================
 
 type registerAllocator struct {
-	mapping RegisterLimbsMap
-	limbs   []Register
+	mapping     RegisterLimbsMap
+	assignments []CarryAssignment
+	limbs       []Register
 }
 
 // NewAllocator converts a mapping into a full allocator simply by wrapping the
 // two fields.
 func NewAllocator(mapping RegisterLimbsMap) RegisterAllocator {
 	limbs := slices.Clone(mapping.Limbs())
-	return &registerAllocator{mapping, limbs}
+	return &registerAllocator{mapping, nil, limbs}
 }
 
-// AllocateCarry implementation for the RegisterAllocator interface
-func (p *registerAllocator) AllocateCarry(prefix string, width uint) RegisterId {
+// Allocate implementation for the RegisterAllocator interface
+func (p *registerAllocator) Allocate(prefix string, width uint) RegisterId {
 	var (
 		// Determine index for new register
 		index = uint(len(p.limbs))
@@ -139,6 +162,16 @@ func (p *registerAllocator) AllocateCarry(prefix string, width uint) RegisterId 
 	p.limbs = append(p.limbs, NewComputedRegister(name, width, zero))
 	//
 	return NewRegisterId(index)
+}
+
+// Assign implementation for the RegisterAllocator interface
+func (p *registerAllocator) Assign(target RegisterId, shift uint, poly Polynomial) {
+	p.assignments = append(p.assignments, CarryAssignment{target, shift, poly})
+}
+
+// Assign implementation for the RegisterAllocator interface
+func (p *registerAllocator) Assignments() []CarryAssignment {
+	return p.assignments
 }
 
 // BandWidth implementation for RegisterMapping interface

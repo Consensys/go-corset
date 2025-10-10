@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
@@ -213,4 +214,23 @@ func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) math.
 	val.Exp(val, big.NewInt(int64(width)), nil)
 	// Subtract one since the interval is inclusive.
 	return math.NewInterval(zero, *val.Sub(val, &one))
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func RegistersRead(p Polynomial) []schema.RegisterId {
+	var (
+		regs bit.Set
+		read []schema.RegisterId
+	)
+	//
+	for i := range p.Len() {
+		for _, id := range p.Term(i).Vars() {
+			if !regs.Contains(id.Unwrap()) {
+				regs.Insert(id.Unwrap())
+				read = append(read, id)
+			}
+		}
+	}
+	//
+	return read
 }

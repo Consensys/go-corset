@@ -19,6 +19,7 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // ModuleMap provides a mapping from module identifiers (or names) to register
@@ -124,7 +125,7 @@ type FieldAgnosticModule[F any, M Module[F]] interface {
 // and Y (in that order) where both are to be halfed.  Then, the result is X'0,
 // X'1, Y'0. Y'1 (in that order).  Hence, predicting the new register indices is
 // relatively straightforward.
-type Table[F any, C Constraint[F]] struct {
+type Table[F field.Element[F], C Constraint[F]] struct {
 	name        string
 	multiplier  uint
 	padding     bool
@@ -136,7 +137,9 @@ type Table[F any, C Constraint[F]] struct {
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding, public, synthetic bool) *Table[F, C] {
+func NewTable[F field.Element[F], C Constraint[F]](name string, multiplier uint,
+	padding, public, synthetic bool) *Table[F, C] {
+	//
 	return &Table[F, C]{name, multiplier, padding, public, synthetic, nil, nil, nil}
 }
 
@@ -261,7 +264,7 @@ func (p *Table[F, C]) String() string {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[F, C]) Subdivide(mapping RegisterLimbsMap) *Table[F, C] {
+func (p *Table[F, C]) Subdivide(mapping RegisterLimbsMap, assigner func(CarryAssignment) Assignment[F]) *Table[F, C] {
 	var (
 		constraints []C
 		assignments []Assignment[F]
@@ -286,6 +289,10 @@ func (p *Table[F, C]) Subdivide(mapping RegisterLimbsMap) *Table[F, C] {
 		} else {
 			panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
 		}
+	}
+	// Include any additional assignments required for carry lines
+	for _, a := range env.Assignments() {
+		assignments = append(assignments, assigner(a))
 	}
 	//
 	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, env.Limbs(), constraints, assignments}

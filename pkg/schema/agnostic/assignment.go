@@ -153,7 +153,7 @@ func (p *Assignment) linkUnsigned(overflow uint, env sc.RegisterAllocator) (Assi
 		return *p, carry.Set()
 	}
 	// Allocate new register to get an Id
-	carryRegId := env.AllocateCarry("c", overflow)
+	carryRegId := env.Allocate("c", overflow)
 	// Construct carry to be propagated forward
 	carry = carry.Set(poly.NewMonomial(one, carryRegId))
 	// Update left-hand side to include carry
@@ -167,14 +167,14 @@ func (p *Assignment) linkSigned(underflow uint, env sc.RegisterAllocator) (Assig
 		tmp     Polynomial
 		carry   []Monomial
 		lhs     = p.LeftHandSide
-		signBit = env.AllocateCarry("s", 1)
+		signBit = env.Allocate("s", 1)
 	)
 	// Append sign bit to borrow calculation
 	carry = append(carry, poly.NewMonomial(*math.NegPow2(underflow), signBit))
 	// Add carry component (if applicable)
 	if underflow > 0 {
 		// Allocate new register to get an Id
-		carryRegId := env.AllocateCarry("c", underflow)
+		carryRegId := env.Allocate("c", underflow)
 		// Construct carry to be propagated forward
 		carry = append(carry, poly.NewMonomial(one, carryRegId))
 		// Update left-hand side to include carry
@@ -503,9 +503,9 @@ func coalesce(last bool, assignments []Assignment, carry Polynomial,
 	return assign.Link(env)
 }
 
-// DividingMonomial divides a given monomial m by some value n.  The division
-// maybe exact, in which case the remainder will be zero.  For example, dividing
-// 7x by 3 gives 2x (val) + x (rem).
+// Divide a given monomial m by some value 2^n.  The division maybe exact, in
+// which case the remainder will be zero.  For example, dividing 7x by 3 gives
+// 2x (val) + x (rem).
 func divideMonomial(m Monomial, n uint) (val Monomial, rem Monomial) {
 	var (
 		coeff     = m.Coefficient()

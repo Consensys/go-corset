@@ -13,13 +13,11 @@
 package agnostic
 
 import (
-	"cmp"
 	"fmt"
-	"slices"
 	"strings"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/collection/stack"
+	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -36,6 +34,24 @@ type Equation struct {
 // NewEquation simply constructs a new equation.
 func NewEquation(lhs Polynomial, rhs Polynomial) Equation {
 	return Equation{lhs, rhs}
+}
+
+// Balance an equation means to convert it such that no negative coefficients
+// remain. For example, balancing the equation "0 == x - 1" gives "1 == x".  The
+// benefit of balancing is simply that it eliminates any requirement for an
+// interpretation of signed values.
+func (p *Equation) Balance() Equation {
+	// Check whether any work to do
+	if !p.LeftHandSide.Signed() && !p.RightHandSide.Signed() {
+		return *p
+	}
+	// Yes, work to be done
+	var (
+		lhsPos, lhsNeg = balancePolynomial(p.LeftHandSide)
+		rhsPos, rhsNeg = balancePolynomial(p.RightHandSide)
+	)
+	// Done
+	return NewEquation(lhsPos.Add(rhsNeg), rhsPos.Add(lhsNeg))
 }
 
 // Width determines the minimal field width required to safely evaluate this
@@ -80,79 +96,214 @@ func (p *Equation) String(env sc.RegisterLimbsMap) string {
 // Split an equation according to a given field bandwidth.  This creates one
 // or more equations implementing the original which operate safely within the
 // given bandwidth.
-func (p *Equation) Split(bandwidth uint, env sc.RegisterAllocator) []Equation {
+func (p *Equation) Split(env sc.RegisterAllocator) (eqs []Equation) {
 	var (
-		// worklist of remaining equations
-		worklist stack.Stack[Equation]
-		// set of completed equations
-		completed []Equation
+		bandwidth = env.Field().FieldBandWidth
+		bp        = p.Balance()
 	)
-	// Initialise worklist
-	worklist.Push(*p)
-	// Continue splitting until no assignments outstanding.
-	for !worklist.IsEmpty() {
-		next := worklist.Pop()
-		// further splitting required?
-		if next.Width(env) > bandwidth {
-			// yes
-			worklist.PushReversed(next.innerSplit(bandwidth, env))
-		} else {
-			// no
-			completed = append(completed, next)
-		}
+	// Check whether any splitting required
+	if bp.Width(env) > bandwidth {
+		// Yes!
+		eqs = bp.innerSplit(env)
+	} else {
+		// Nope
+		eqs = []Equation{*p}
 	}
-	// Done
-	return completed
-}
-
-func (p *Equation) innerSplit(bandwidth uint, env sc.RegisterAllocator) []Equation {
-	var (
-		// Sort both sides in order of their coefficients.
-		lhs = sortByCoefficient(p.LeftHandSide)
-		rhs = sortByCoefficient(p.RightHandSide)
-		fn  = func(rid sc.RegisterId) string {
-			return env.Limb(rid).Name
-		}
-	)
-	// NOTES: at this point, do you just want to gobble each side upto the
-	// bandwidth limit?  Then, you add a carry for the lower side.
 	//
-	for _, l := range lhs {
-		fmt.Printf("[%s]", l.String(fn))
-	}
-
-	fmt.Println()
-
-	for _, r := range rhs {
-		fmt.Printf("[%s]", r.String(fn))
-	}
-
-	fmt.Println()
-	panic(fmt.Sprintf("TODO: %s", p.String(env)))
+	return eqs
 }
 
-// Sort the monomials in a given polynomial by their coefficient.
-func sortByCoefficient(poly Polynomial) []Monomial {
-	var monomials = make([]Monomial, poly.Len())
-	// Extract them
-	for i := range poly.Len() {
-		monomials[i] = poly.Term(i)
-	}
-	// Sort them
-	slices.SortFunc(monomials, func(l, r Monomial) int {
-		var (
-			lCoeff = l.Coefficient()
-			rCoeff = r.Coefficient()
-		)
-		// Compare coefficients first
-		if c := lCoeff.Cmp(&rCoeff); c != 0 {
-			return c
+func (p *Equation) innerSplit(env sc.RegisterAllocator) []Equation {
+	var (
+		// Determine the bitwidth of each chunk
+		chunkWidths = p.determineChunkBitwidths(env)
+		// Sort both sides in order of their coefficients.
+		lhs       = chunkPolynomial(p.LeftHandSide, chunkWidths, env)
+		rhs       = chunkPolynomial(p.RightHandSide, chunkWidths, env)
+		equations []Equation
+	)
+	// Reconstruct equations
+	for i := range chunkWidths {
+		if lhs[i].Len() > 0 || rhs[i].Len() > 0 {
+			equations = append(equations, NewEquation(lhs[i], rhs[i]))
 		}
-		// Compare variables second
-		return slices.CompareFunc(l.Vars(), r.Vars(), func(l, r sc.RegisterId) int {
-			return cmp.Compare(l.Unwrap(), r.Unwrap())
-		})
-	})
+	}
 	// Done
-	return monomials
+	return equations
+}
+
+// Determine the width of individual chunks used to split the equation.  In
+// theory, arbitrary chunk widths can be used provided the total bitwidth
+// encloses both sides (i.e. contains all possible value for each side).  In
+// practice, the chunking used can affect the overall efficiency of the
+// splitting.  As an example consider the following simple equation, where x and
+// y are u16:
+//
+//	x == y + 1
+//
+// Assuming a desired register width of u8, the derived equation is:
+//
+//	256*x1 + x0 == 256*y1 + y0 + 1
+//
+// At this point, we can compare the two sides as follows:
+//
+//	 15             8 7               0
+//	+----------------+-----------------+
+//	|     2^8*x1     |        x0       |
+//	+----------------+-----------------+
+//	+----------------+
+//	|     2^8*y1     |
+//	+----------------+
+//	               +----------------+
+//	               |     y0 + 1     |
+//	               +----------------+
+//
+// In this example, a good chunking would be to divide into two u8 chunks.  This
+// works well since 3/4 of our boxes are byte aligned already.
+//
+// In general, chunks do not have to have the same size (even though it did make
+// sense above).  In particular, the most significant chunk is often a different
+// size.
+func (p *Equation) determineChunkBitwidths(env sc.RegisterAllocator) []uint {
+	return p.chunkOnMaximumRegisterWidth(env)
+}
+
+// A naive chunking algorithm which chunks according to register boundaries.
+// Specifically, the boundaries determined by the largest register in the
+// equation.  As such, it may often produce suboptimal chunkings.  However, it
+// is very simple to implement and make progress with.
+func (p *Equation) chunkOnMaximumRegisterWidth(env sc.RegisterAllocator) []uint {
+	var (
+		leftLargestWidth  = largestWidth(RegistersRead(p.LeftHandSide), env)
+		rightLargestWidth = largestWidth(RegistersRead(p.RightHandSide), env)
+		largestWidth      = max(leftLargestWidth, rightLargestWidth)
+		bitwidth          = p.Width(env)
+		chunks            []uint
+	)
+	//
+	for bitwidth > 0 {
+		// Determine how much to take off
+		width := min(largestWidth, bitwidth)
+		// Update the chunk
+		chunks = append(chunks, width)
+		bitwidth -= width
+	}
+	//
+	return chunks
+}
+
+func largestWidth(limbs []sc.LimbId, env sc.RegisterAllocator) uint {
+	var width = uint(0)
+
+	for _, limb := range limbs {
+		width = max(width, env.Limb(limb).Width)
+	}
+	//
+	return width
+}
+
+// Divide a polynomial into "chunks", each of which has a maximum bitwidth as
+// determined by the chunk widths.  This inserts carry lines as needed to ensure
+// correctness.
+func chunkPolynomial(p Polynomial, chunkWidths []uint, env sc.RegisterAllocator) []Polynomial {
+	var (
+		bandWidth = env.Field().FieldBandWidth
+		chunks    []Polynomial
+	)
+	// Subdivide polynomial into chunks
+	for _, chunkWidth := range chunkWidths {
+		var remainder Polynomial
+		// Chunk the polynomials
+		p, remainder = dividePolynomial(p, chunkWidth)
+		// Include remainder as chunk
+		chunks = append(chunks, remainder)
+	}
+	// Add carry lines as necessary
+	for i := 0; i < len(chunks); i++ {
+		var (
+			carry, borrow Polynomial
+			ithWidth, _   = WidthOfPolynomial(chunks[i], env.Limbs())
+			chunkWidth    = chunkWidths[i]
+		)
+		// Calculate overflow from ith chunk (if any)
+		if ithWidth > bandWidth {
+			// In principle, this is highly unlikely to arise provided the
+			// difference between the maximum register width and the bandwidth
+			// is sufficient.  However, to be safe, this santiy check is
+			// included.
+			panic("chunking failure")
+		} else if (i+1) != len(chunks) && ithWidth > chunkWidth {
+			var (
+				carryRegId = env.Allocate("c", ithWidth-chunkWidth)
+				chunkShift = math.Pow2(chunkWidth)
+			)
+			// Set assignment for filling carry register
+			env.Assign(carryRegId, chunkWidth, chunks[i])
+			// Subtract carry from this chunk
+			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryRegId)))
+			// Add carry to next chunk
+			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryRegId)))
+		}
+	}
+	//
+	return chunks
+}
+
+// For a given bitwidth n, divide a polynomial by 2^n produces a quotient and
+// remainder.  For example, dividing 256*x1+x0 by 2^8 gives x1 remainder x0.
+// This algorithm is somehow akin to "shifting" a polynomial downwards.  For
+// example, consider our example again:
+//
+//	 15             8 7               0
+//	+----------------+-----------------+
+//	|     2^8*x1     |        x0       |
+//	+----------------+-----------------+
+//
+// Then, shifting this down by 8bits gives:
+//
+//	                  7               0
+//	                 +-----------------+
+//	>>>>>>>>>>>>>>>> |        x1       |
+//	                 +-----------------+
+//
+// And we are left with a remainder as well.
+func dividePolynomial(poly Polynomial, n uint) (Polynomial, Polynomial) {
+	var (
+		quotient, remainder Polynomial
+		quotients           []Monomial
+		remainders          []Monomial
+	)
+	//
+	for i := range poly.Len() {
+		quot, rem := divideMonomial(poly.Term(i), n)
+		//
+		quotients = append(quotients, quot)
+		remainders = append(remainders, rem)
+	}
+	//
+	return quotient.Set(quotients...), remainder.Set(remainders...)
+}
+
+// Split a polynomial into its positive and negative components.
+func balancePolynomial(poly Polynomial) (pos, neg Polynomial) {
+	// Set both sides to zero
+	pos = pos.Set()
+	neg = neg.Set()
+	//
+	for i := range poly.Len() {
+		var (
+			tmp Polynomial
+			ith = poly.Term(i)
+		)
+		//
+		tmp = tmp.Set(ith)
+		//
+		if ith.IsNegative() {
+			neg = neg.Sub(tmp)
+		} else {
+			pos = pos.Add(tmp)
+		}
+	}
+	//
+	return pos, neg
 }

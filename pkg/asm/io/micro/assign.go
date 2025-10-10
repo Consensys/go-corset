@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -76,21 +75,7 @@ func (p *Assign) MicroExecute(state io.State) (uint, uint) {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Assign) RegistersRead() []io.RegisterId {
-	var (
-		regs bit.Set
-		read []io.RegisterId
-	)
-	//
-	for i := range p.Source.Len() {
-		for _, id := range p.Source.Term(i).Vars() {
-			if !regs.Contains(id.Unwrap()) {
-				regs.Insert(id.Unwrap())
-				read = append(read, id)
-			}
-		}
-	}
-	//
-	return read
+	return agnostic.RegistersRead(p.Source)
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
