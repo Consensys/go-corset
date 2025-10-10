@@ -503,9 +503,9 @@ func coalesce(last bool, assignments []Assignment, carry Polynomial,
 	return assign.Link(env)
 }
 
-// DividingMonomial divides a given monomial m by some value n.  The division
-// maybe exact, in which case the remainder will be zero.  For example, dividing
-// 7x by 3 gives 2x (val) + x (rem).
+// Divide a given monomial m by some value 2^n.  The division maybe exact, in
+// which case the remainder will be zero.  For example, dividing 7x by 3 gives
+// 2x (val) + x (rem).
 func divideMonomial(m Monomial, n uint) (val Monomial, rem Monomial) {
 	var (
 		coeff     = m.Coefficient()
