@@ -26,6 +26,8 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
@@ -84,14 +86,14 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	modules := GetFlag(cmd, "modules")
 	print := GetFlag(cmd, "print")
 	output := GetString(cmd, "out")
-	//stats := GetFlag(cmd, "stats")
+	stats := GetFlag(cmd, "stats")
+	//
 	cfg.includes = GetStringArray(cmd, "include")
 	cfg.maxCellWidth = GetUint(cmd, "max-width")
-	padding := GetUint(cmd, "padding")
-	// construct trace filter
 	cfg.startRow = GetUint(cmd, "start")
 	cfg.endRow = GetUint(cmd, "end")
 	cfg.filter, err = regexp.Compile(GetString(cmd, "filter"))
+	padding := GetUint(cmd, "padding")
 	// Check for error
 	if err != nil {
 		panic(err)
@@ -148,9 +150,10 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		if modules {
 			listModules(cfg, window)
 		}
-		// if stats {
-		// 	summaryStats(traces[i])
-		// }
+		// Print trace summary (if requested)
+		if stats {
+			summaryStats(window)
+		}
 		// Print full trace (if requested)
 		if print {
 			printTrace(cfg, window)
@@ -196,7 +199,7 @@ func init() {
 // TraceConfig packages together useful things for the various supported
 // options.
 type TraceConfig struct {
-	mapping       sc.LimbsMap
+	mapping       module.LimbsMap
 	sourceMap     *corset.SourceMap
 	maxCellWidth  uint
 	maxTitleWidth uint
@@ -213,7 +216,7 @@ type TraceConfig struct {
 }
 
 func constructTraceFilter[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]) view.TraceFilter {
-	return view.NewTraceFilter(func(mid sc.ModuleId) view.ModuleFilter {
+	return view.NewTraceFilter(func(mid module.Id) view.ModuleFilter {
 		return view.NewModuleFilter(cfg.startRow, cfg.endRow, func(col view.SourceColumn) bool {
 			// Construct fully qualified name
 			var qualifiedName = tr.QualifiedColumnName(trace.Module(mid).Name(), col.Name)
@@ -499,13 +502,13 @@ func summariseColumn(module string, column view.RegisterView, summarisers []Colu
 	return row
 }
 
-func summaryStats(tf lt.TraceFile) {
+func summaryStats(window view.TraceView) {
 	m := uint(len(trSummarisers))
 	tbl := termio.NewFormattedTable(2, m)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := trSummarisers[i]
-		summary := ith.summary(tf.Modules)
+		summary := ith.summary(window)
 		tbl.SetRow(i, termio.NewText(ith.name), termio.NewText(summary))
 	}
 	//
@@ -608,12 +611,12 @@ func moduleNonZeroCounter(mod view.ModuleView) string {
 	return fmt.Sprintf("%d", count)
 }
 
-func activeRegisters(mod view.ModuleView) []sc.RegisterId {
+func activeRegisters(mod view.ModuleView) []register.Id {
 	var (
 		window    = mod.Window()
 		_, height = window.Dimensions()
 		bits      bit.Set
-		registers []sc.RegisterId
+		registers []register.Id
 	)
 	// NOTE: height - 1 because the view dimensions include the title row.
 	for i := range height {
@@ -747,7 +750,7 @@ func nonZeroCount(data view.RegisterView) uint {
 
 type traceSummariser struct {
 	name    string
-	summary func([]lt.Module[word.BigEndian]) string
+	summary func(view.TraceView) string
 }
 
 var trSummarisers []traceSummariser = []traceSummariser{
@@ -760,20 +763,22 @@ var trSummarisers []traceSummariser = []traceSummariser{
 	trWidthSummariser(129, 256),
 }
 
-func trRawCellCount(modules []lt.Module[word.BigEndian]) uint {
+func trRawCellCount(trace view.TraceView) uint {
 	total := uint(0)
 	//
-	for _, ith := range modules {
-		for _, jth := range ith.Columns {
-			total += jth.Data.Len()
+	for i := range trace.Width() {
+		ith := trace.Module(i)
+		//
+		for _, jth := range activeRegisters(ith) {
+			total += ith.Data().DataOf(jth).Len()
 		}
 	}
 	//
 	return total
 }
 
-func trRawCellCountSummariser(modules []lt.Module[word.BigEndian]) string {
-	total := trRawCellCount(modules)
+func trRawCellCountSummariser(trace view.TraceView) string {
+	total := trRawCellCount(trace)
 	return fmt.Sprintf("%d", total)
 }
 
@@ -781,8 +786,8 @@ const one_K = 1000
 const one_M = one_K * one_K
 const one_G = one_M * one_M
 
-func trCellCountSummariser(modules []lt.Module[word.BigEndian]) string {
-	total := trRawCellCount(modules)
+func trCellCountSummariser(trace view.TraceView) string {
+	total := trRawCellCount(trace)
 	//
 	switch {
 	case total > one_G:
@@ -802,18 +807,18 @@ func trCellCountSummariser(modules []lt.Module[word.BigEndian]) string {
 func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 	return traceSummariser{
 		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
-		summary: func(tr []lt.Module[word.BigEndian]) string {
-			// count := 0
-			// for _, ith := range tr {
-			// 	for _, jth := range ith.Columns {
-			// 		ithWidth := bitwidth(jth.Data)
-			// 		if ithWidth >= lowWidth && ithWidth <= highWidth {
-			// 			count++
-			// 		}
-			// 	}
-			// }
-			// return fmt.Sprintf("%d", count)
-			panic("todo")
+		summary: func(tr view.TraceView) string {
+			count := 0
+			for i := range tr.Width() {
+				ith := tr.Module(i)
+				for _, jth := range activeRegisters(ith) {
+					ithWidth := ith.Data().DataOf(jth).BitWidth()
+					if ithWidth >= lowWidth && ithWidth <= highWidth {
+						count++
+					}
+				}
+			}
+			return fmt.Sprintf("%d", count)
 		},
 	}
 }
