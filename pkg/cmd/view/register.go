@@ -23,14 +23,19 @@ import (
 
 // RegisterView provides an abstract view of a given column.
 type RegisterView interface {
-	//IsComputed() bool
+	BitWidth() uint
 	Get(uint) big.Int
+	Len() uint
 }
 
 type registerView[F field.Element[F]] struct {
 	trace    tr.Module[F]
 	register register.Id
 	mapping  register.LimbsMap
+}
+
+func (p *registerView[F]) BitWidth() uint {
+	return p.mapping.Register(p.register).Width
 }
 
 func (p *registerView[F]) Get(row uint) big.Int {
@@ -56,4 +61,8 @@ func (p *registerView[F]) Get(row uint) big.Int {
 	}
 	//
 	return value
+}
+
+func (p *registerView[F]) Len() uint {
+	return p.trace.Height()
 }

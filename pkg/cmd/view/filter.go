@@ -43,13 +43,13 @@ type ModuleFilter interface {
 
 type defaultFilter struct{}
 
-// DefaultFilter constructs a default filter which filters nothing.
-func DefaultFilter() TraceFilter {
+// DefaultTraceFilter constructs a default filter which filters nothing.
+func DefaultTraceFilter() TraceFilter {
 	return &defaultFilter{}
 }
 
-// DefaultColumnFilter constructs a default column filter which filters nothing.
-func DefaultColumnFilter() ModuleFilter {
+// DefaultModuleFilter constructs a default column filter which filters nothing.
+func DefaultModuleFilter() ModuleFilter {
 	return &defaultFilter{}
 }
 
@@ -66,24 +66,48 @@ func (p *defaultFilter) Range() (start, end uint) {
 }
 
 // ============================================================================
-// Module Filter
+// Trace Filter
 // ============================================================================
 
-// FilterForModules constructs a filter from a given predicate.
-func FilterForModules(fn func(sc.ModuleId) bool) TraceFilter {
-	return &moduleFilter{fn}
+// NewTraceFilter constructs a filter from a given predicate.
+func NewTraceFilter(fn func(sc.ModuleId) ModuleFilter) TraceFilter {
+	return &traceFilter{fn}
 }
 
-type moduleFilter struct {
-	fn func(sc.ModuleId) bool
+type traceFilter struct {
+	fn func(sc.ModuleId) ModuleFilter
 }
 
-func (p *moduleFilter) Module(mid sc.ModuleId) ModuleFilter {
-	if p.fn(mid) {
-		return DefaultColumnFilter()
+func (p *traceFilter) Module(mid sc.ModuleId) ModuleFilter {
+	if f := p.fn(mid); f != nil {
+		return f
 	}
 	//
 	return nil
+}
+
+// ============================================================================
+// Module Filter
+// ============================================================================
+
+// NewModuleFilter constructs a filter from a given predicate.
+func NewModuleFilter(start, end uint, filter func(SourceColumn) bool) ModuleFilter {
+	return &moduleFilter{start, end, filter}
+}
+
+type moduleFilter struct {
+	start, end uint
+	filter     func(SourceColumn) bool
+}
+
+// Range implementation for ModuleFilter interface
+func (p *moduleFilter) Range() (uint, uint) {
+	return p.start, p.end
+}
+
+// Column implementation for ModuleFilter interface
+func (p *moduleFilter) Column(col SourceColumn) bool {
+	return p.filter(col)
 }
 
 // ============================================================================
