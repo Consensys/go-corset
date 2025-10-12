@@ -15,11 +15,11 @@ package cmd
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"os"
 	"regexp"
 	"strings"
 
-	"github.com/consensys/gnark-crypto/ecc/bls12-377/fr"
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	cmd "github.com/consensys/go-corset/pkg/cmd/util"
@@ -367,48 +367,53 @@ func listModules(cfg TraceConfig, window view.TraceView) {
 }
 
 func listColumns(cfg TraceConfig, window view.TraceView) {
-	// var (
-	// 	summarisers = selectColumnSummarisers(cfg.includes)
-	// 	m           = 1 + uint(len(summarisers))
-	// 	n           = lt.NumberOfColumns(tf.Modules)
-	// 	// Go!
-	// 	tbl   = termio.NewFormattedTable(m, n+1)
-	// 	c     = make(chan util.Pair[uint, []termio.FormattedText], n)
-	// 	index uint
-	// )
-	// // Set titles
-	// tbl.Set(0, 0, termio.NewText("Column"))
+	var (
+		summarisers = selectColumnSummarisers(cfg.includes)
+		m           = 1 + uint(len(summarisers))
+		n           = totalActiveRegisters(window)
+		// Go!
+		tbl   = termio.NewFormattedTable(m, n+1)
+		c     = make(chan util.Pair[uint, []termio.FormattedText], n)
+		index uint
+	)
+	// Set titles
+	tbl.Set(0, 0, termio.NewText("Column"))
 
-	// for i := uint(0); i < uint(len(summarisers)); i++ {
-	// 	tbl.Set(i+1, 0, termio.NewText(summarisers[i].name))
-	// }
-	// // Compute data
-	// for _, ith := range tf.Modules {
-	// 	for _, jth := range ith.Columns {
-	// 		// Launch summarisers
-	// 		go func(index uint) {
-	// 			// Apply summarisers to column
-	// 			row := summariseColumn(ith.Name, jth, summarisers)
-	// 			// Package result
-	// 			c <- util.NewPair(index, row)
-	// 		}(index)
-	// 		//
-	// 		index = index + 1
-	// 	}
-	// }
-	// // Collect results
-	// for range n {
-	// 	// Read packaged result from channel
-	// 	res := <-c
-	// 	// Set row
-	// 	tbl.SetRow(res.Left+1, res.Right...)
-	// }
-	// //
-	// tbl.SetMaxWidths(max_width)
-	// tbl.Sort(1, termio.NewTableSorter().
-	// 	SortNumericalColumn(sort_col).
-	// 	Invert())
-	// tbl.Print(true)
+	for i := uint(0); i < uint(len(summarisers)); i++ {
+		tbl.Set(i+1, 0, termio.NewText(summarisers[i].name))
+	}
+	// Compute data
+	for i := range window.Width() {
+		var (
+			ith  = window.Module(i)
+			data = ith.Data()
+		)
+		//
+		for _, jth := range activeRegisters(ith) {
+			// Launch summarisers
+			go func(index uint) {
+				// Apply summarisers to column
+				row := summariseColumn(data.Name(), data.DataOf(jth), summarisers)
+				// Package result
+				c <- util.NewPair(index, row)
+			}(index)
+			//
+			index = index + 1
+		}
+	}
+	// Collect results
+	for range n {
+		// Read packaged result from channel
+		res := <-c
+		// Set row
+		tbl.SetRow(res.Left+1, res.Right...)
+	}
+	//
+	tbl.SetMaxWidths(cfg.maxCellWidth)
+	tbl.Sort(1, termio.NewTableSorter().
+		SortNumericalColumn(cfg.sortColumn).
+		Invert())
+	tbl.Print(true)
 }
 
 func selectColumnSummarisers(includes []string) []ColumnSummariser {
@@ -481,11 +486,11 @@ func summariseModule(mod view.ModuleView, summarisers []ModuleSummariser) []term
 	return row
 }
 
-func summariseColumn(module string, column RawColumn, summarisers []ColumnSummariser) []termio.FormattedText {
+func summariseColumn(module string, column view.RegisterView, summarisers []ColumnSummariser) []termio.FormattedText {
 	m := 1 + uint(len(summarisers))
 	//
 	row := make([]termio.FormattedText, m)
-	row[0] = termio.NewText(fmt.Sprintf("%s.%s", module, column.Name))
+	row[0] = termio.NewText(fmt.Sprintf("%s.%s", module, column.Name()))
 	// Generate each summary
 	for j := 0; j < len(summarisers); j++ {
 		row[j+1] = termio.NewText(summarisers[j].summary(column))
@@ -506,6 +511,16 @@ func summaryStats(tf lt.TraceFile) {
 	//
 	tbl.SetMaxWidths(64)
 	tbl.Print(true)
+}
+
+func totalActiveRegisters(trace view.TraceView) uint {
+	var count = 0
+	//
+	for i := range trace.Width() {
+		count += len(activeRegisters(trace.Module(i)))
+	}
+	//
+	return uint(count)
 }
 
 // ============================================================================
@@ -593,26 +608,18 @@ func moduleNonZeroCounter(mod view.ModuleView) string {
 	return fmt.Sprintf("%d", count)
 }
 
-func bitwidth[T any](arr array.Array[T]) uint {
-	if arr.BitWidth() == math.MaxUint {
-		return uint(fr.Modulus().BitLen())
-	}
-
-	return arr.BitWidth()
-}
-
 func activeRegisters(mod view.ModuleView) []sc.RegisterId {
 	var (
-		data      = mod.Data()
-		_, height = mod.Dimensions()
+		window    = mod.Window()
+		_, height = window.Dimensions()
 		bits      bit.Set
 		registers []sc.RegisterId
 	)
 	// NOTE: height - 1 because the view dimensions include the title row.
-	for i := range height - 1 {
+	for i := range height {
 		var (
-			sid = tr.NewColumnId(i)
-			col = data.SourceColumn(sid)
+			sid = window.Row(i)
+			col = mod.Data().SourceColumn(sid)
 		)
 		//
 		if !bits.Contains(col.Register.Unwrap()) {
@@ -633,7 +640,7 @@ func activeRegisters(mod view.ModuleView) []sc.RegisterId {
 type ColumnSummariser struct {
 	name        string
 	description string
-	summary     func(RawColumn) string
+	summary     func(view.RegisterView) string
 }
 
 var columnSummarisers = []ColumnSummariser{
@@ -656,49 +663,52 @@ func summariserOptions() string {
 	return summarisers
 }
 
-func columnCountSummariser(col RawColumn) string {
-	return fmt.Sprintf("%d", col.Data.Len())
+func columnCountSummariser(col view.RegisterView) string {
+	return fmt.Sprintf("%d", col.Len())
 }
 
-func columnBitwidthSummariser(col RawColumn) string {
-	return fmt.Sprintf("%d", bitwidth(col.Data))
+func columnBitwidthSummariser(col view.RegisterView) string {
+	return fmt.Sprintf("%d", col.BitWidth())
 }
 
-func columnBytesSummariser(col RawColumn) string {
-	bitwidth := bitwidth(col.Data)
+func columnBytesSummariser(col view.RegisterView) string {
+	bitwidth := col.BitWidth()
 	byteWidth := bitwidth / 8
 	// Determine proper bytewidth
 	if bitwidth%8 != 0 {
 		byteWidth++
 	}
 
-	return fmt.Sprintf("%d", col.Data.Len()*byteWidth)
+	return fmt.Sprintf("%d", col.Len()*byteWidth)
 }
 
-func uniqueElementsSummariser(col RawColumn) string {
-	data := col.Data
+func uniqueElementsSummariser(data view.RegisterView) string {
 	elems := hash.NewSet[word.BigEndian](data.Len() / 2)
 	// Add all the elements
 	for i := uint(0); i < data.Len(); i++ {
-		elems.Insert(data.Get(i))
+		var (
+			ith  = data.Get(i)
+			word word.BigEndian
+		)
+		//
+		elems.Insert(word.SetBytes(ith.Bytes()))
 	}
 	// Done
 	return fmt.Sprintf("%d", elems.Size())
 }
 
-func entropySummariser(col RawColumn) string {
-	data := col.Data
+func entropySummariser(data view.RegisterView) string {
 	entropy := 0.0
 	//
 	if data.Len() > 0 {
 		var (
-			last  word.BigEndian = data.Get(0)
-			count                = 1
+			last  big.Int = data.Get(0)
+			count         = 1
 		)
 		// Count all rows whose value differs from previous row.
 		for i := uint(1); i < data.Len(); i++ {
 			ith := data.Get(i)
-			if last.Cmp(ith) != 0 {
+			if last.Cmp(&ith) != 0 {
 				count++
 			}
 			//
@@ -711,9 +721,8 @@ func entropySummariser(col RawColumn) string {
 	return fmt.Sprintf("%2.1f%%", entropy)
 }
 
-func nonZeroCounter(col RawColumn) string {
-	//return fmt.Sprintf("%d", nonZeroCount(col))
-	panic("todo")
+func nonZeroCounter(col view.RegisterView) string {
+	return fmt.Sprintf("%d", nonZeroCount(col))
 }
 
 func nonZeroCount(data view.RegisterView) uint {
@@ -794,16 +803,17 @@ func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 	return traceSummariser{
 		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
 		summary: func(tr []lt.Module[word.BigEndian]) string {
-			count := 0
-			for _, ith := range tr {
-				for _, jth := range ith.Columns {
-					ithWidth := bitwidth(jth.Data)
-					if ithWidth >= lowWidth && ithWidth <= highWidth {
-						count++
-					}
-				}
-			}
-			return fmt.Sprintf("%d", count)
+			// count := 0
+			// for _, ith := range tr {
+			// 	for _, jth := range ith.Columns {
+			// 		ithWidth := bitwidth(jth.Data)
+			// 		if ithWidth >= lowWidth && ithWidth <= highWidth {
+			// 			count++
+			// 		}
+			// 	}
+			// }
+			// return fmt.Sprintf("%d", count)
+			panic("todo")
 		},
 	}
 }

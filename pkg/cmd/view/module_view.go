@@ -43,6 +43,8 @@ type ModuleView interface {
 	Offset() (uint, uint)
 	// Set offset position within module
 	Goto(uint, uint)
+	// Window returns the active window for this module.
+	Window() Window
 }
 
 // ============================================================================
@@ -91,6 +93,11 @@ func (p *moduleView[F]) Offset() (uint, uint) {
 // Goto a specific offset within module
 func (p *moduleView[F]) Goto(x, y uint) {
 	p.window = p.window.Goto(x, y)
+}
+
+// Window returns the active window for this module
+func (p *moduleView[F]) Window() Window {
+	return p.window
 }
 
 // ============================================================================

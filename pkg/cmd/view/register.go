@@ -26,6 +26,7 @@ type RegisterView interface {
 	BitWidth() uint
 	Get(uint) big.Int
 	Len() uint
+	Name() string
 }
 
 type registerView[F field.Element[F]] struct {
@@ -65,4 +66,8 @@ func (p *registerView[F]) Get(row uint) big.Int {
 
 func (p *registerView[F]) Len() uint {
 	return p.trace.Height()
+}
+
+func (p *registerView[F]) Name() string {
+	return p.mapping.Register(p.register).Name
 }
