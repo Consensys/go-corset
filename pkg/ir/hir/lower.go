@@ -258,8 +258,6 @@ func (p *MirLowering) lowerLogical(e LogicalTerm, module *mirModuleBuilder) mirL
 		return ir.Negation[word.BigEndian](p.lowerLogical(e.Arg, module))
 	case *NotEqual:
 		return p.lowerEquality(false, e.Lhs, e.Rhs, module)
-	case *Inequality:
-		return p.lowerInequality(*e, module)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
@@ -299,20 +297,6 @@ func (p *MirLowering) lowerEquality(sign bool, left Term, right Term, module *mi
 	}
 	//
 	return p.lowerBinaryLogical(left, right, fn, module)
-}
-
-func (p *MirLowering) lowerInequality(term Inequality, module *mirModuleBuilder,
-) mirLogicalTerm {
-	//
-	var fn = func(lhs, rhs mirTerm) mirLogicalTerm {
-		if term.Strict {
-			return ir.LessThan[word.BigEndian, mirLogicalTerm](lhs, rhs)
-		}
-		//
-		return ir.LessThanOrEquals[word.BigEndian, mirLogicalTerm](lhs, rhs)
-	}
-	//
-	return p.lowerBinaryLogical(term.Lhs, term.Rhs, fn, module)
 }
 
 func (p *MirLowering) lowerIte(term *Ite, module *mirModuleBuilder) mirLogicalTerm {

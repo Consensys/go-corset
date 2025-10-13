@@ -25,6 +25,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
+// Polynomial provides a useful alias
+type Polynomial = sc.RelativePolynomial
+
 // CarryAssign is used for computing the value of carry lines introduced during
 // register splitting.  The intuition is that we have an expression which is
 // evaluated to a given value, and the right shifted by a given amount.  The
@@ -33,11 +36,11 @@ type CarryAssign[F field.Element[F]] struct {
 	// Target column for this shift assignment
 	Target sc.RegisterRef
 	Shift  uint
-	Source sc.Polynomial
+	Source Polynomial
 }
 
 // NewCarryAssign constructs a new carry assignment.
-func NewCarryAssign[F field.Element[F]](target sc.RegisterRef, shift uint, source sc.Polynomial) *CarryAssign[F] {
+func NewCarryAssign[F field.Element[F]](target sc.RegisterRef, shift uint, source Polynomial) *CarryAssign[F] {
 	//
 	return &CarryAssign[F]{target, shift, source}
 }
@@ -146,7 +149,7 @@ func (p *CarryAssign[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 // ============================================================================
 
 // Eval evaluates a given polynomial with a given environment (i.e. mapping of variables to values)
-func evalPolynomial[F field.Element[F]](row uint, poly agnostic.Polynomial, mod tr.Module[F]) big.Int {
+func evalPolynomial[F field.Element[F]](row uint, poly agnostic.RelativePolynomial, mod tr.Module[F]) big.Int {
 	var val big.Int
 	// Sum evaluated terms
 	for i := uint(0); i < poly.Len(); i++ {
@@ -162,7 +165,7 @@ func evalPolynomial[F field.Element[F]](row uint, poly agnostic.Polynomial, mod 
 	return val
 }
 
-func evalTerm[F field.Element[F]](row uint, term agnostic.Monomial, mod tr.Module[F]) big.Int {
+func evalTerm[F field.Element[F]](row uint, term agnostic.RelativeMonomial, mod tr.Module[F]) big.Int {
 	var (
 		acc   big.Int
 		coeff big.Int = term.Coefficient()
@@ -172,8 +175,9 @@ func evalTerm[F field.Element[F]](row uint, term agnostic.Monomial, mod tr.Modul
 	//
 	for j := uint(0); j < term.Len(); j++ {
 		var (
-			jth = mod.Column(term.Nth(j).Unwrap())
-			v   = jth.Get(int(row))
+			jth = term.Nth(j)
+			col = mod.Column(jth.Unwrap())
+			v   = col.Get(int(row) + jth.Shift())
 			w   big.Int
 		)
 		//

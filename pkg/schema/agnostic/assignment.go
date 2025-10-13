@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -30,12 +31,12 @@ type Assignment struct {
 	// Target registers with least significant first
 	LeftHandSide []sc.RegisterId
 	// Right hand side.
-	RightHandSide Polynomial
+	RightHandSide StaticPolynomial
 }
 
 // NewAssignment constructs a new assignment with a given Left-Hand Side (LHS)
 // and Right-Hand Side (RHS).
-func NewAssignment(lhs []sc.RegisterId, rhs Polynomial) Assignment {
+func NewAssignment(lhs []sc.RegisterId, rhs StaticPolynomial) Assignment {
 	// Sanity check
 	if rhs == nil {
 		panic("malformed assignment")
@@ -111,9 +112,9 @@ func (p *Assignment) Overflow(env sc.RegisterLimbsMap) (uint, uint) {
 }
 
 // Terminate performs some sanity checks on this
-func (p *Assignment) Terminate(env sc.RegisterLimbsMap) (Assignment, Polynomial) {
+func (p *Assignment) Terminate(env sc.RegisterLimbsMap) (Assignment, StaticPolynomial) {
 	var (
-		tmp Polynomial
+		tmp StaticPolynomial
 		// Determine lhs width
 		lhs = CombinedWidthOfLimbs(env, p.LeftHandSide...)
 		// Determine rhs width
@@ -133,7 +134,7 @@ func (p *Assignment) Terminate(env sc.RegisterLimbsMap) (Assignment, Polynomial)
 // assignment, and the number consumed by the left-hand side.  If the more bits
 // are produced than are consumed, then a carry register is introduced to make
 // up the difference.
-func (p *Assignment) Link(env sc.RegisterAllocator) (Assignment, Polynomial) {
+func (p *Assignment) Link(env sc.RegisterAllocator) (Assignment, StaticPolynomial) {
 	var overflow, underflow = p.Overflow(env)
 	// Check whether anything to resolve
 	if p.RightHandSide.Signed() {
@@ -146,8 +147,8 @@ func (p *Assignment) Link(env sc.RegisterAllocator) (Assignment, Polynomial) {
 	return p.linkUnsigned(overflow, env)
 }
 
-func (p *Assignment) linkUnsigned(overflow uint, env sc.RegisterAllocator) (Assignment, Polynomial) {
-	var carry Polynomial
+func (p *Assignment) linkUnsigned(overflow uint, env sc.RegisterAllocator) (Assignment, StaticPolynomial) {
+	var carry StaticPolynomial
 	// Sanity check whether actually need to do anything.
 	if overflow == 0 {
 		return *p, carry.Set()
@@ -162,10 +163,10 @@ func (p *Assignment) linkUnsigned(overflow uint, env sc.RegisterAllocator) (Assi
 	return NewAssignment(lhs, p.RightHandSide), carry
 }
 
-func (p *Assignment) linkSigned(underflow uint, env sc.RegisterAllocator) (Assignment, Polynomial) {
+func (p *Assignment) linkSigned(underflow uint, env sc.RegisterAllocator) (Assignment, StaticPolynomial) {
 	var (
-		tmp     Polynomial
-		carry   []Monomial
+		tmp     StaticPolynomial
+		carry   []StaticMonomial
 		lhs     = p.LeftHandSide
 		signBit = env.Allocate("s", 1)
 	)
@@ -296,9 +297,9 @@ func (p *Assignment) innerSplit(bandwidth uint, env sc.RegisterAllocator) []Assi
 func (p *Assignment) initialiseSplit(env sc.RegisterLimbsMap) []Assignment {
 	var (
 		// Final list of assignments to be constructed
-		monomials = make([][]Monomial, len(p.LeftHandSide))
+		monomials = make([][]StaticMonomial, len(p.LeftHandSide))
 		// Worklist contains list of monomials being processed.
-		worklist stack.Stack[Monomial]
+		worklist stack.Stack[StaticMonomial]
 		// Assignments to be constructed
 		assignments = make([]Assignment, len(p.LeftHandSide))
 	)
@@ -324,7 +325,7 @@ func (p *Assignment) initialiseSplit(env sc.RegisterLimbsMap) []Assignment {
 	}
 	// Finally construct assignments
 	for i, lid := range p.LeftHandSide {
-		var tmp Polynomial
+		var tmp StaticPolynomial
 		// Construct ith assignment
 		assignments[i] = Assignment{
 			// left-hand side
@@ -419,7 +420,7 @@ func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.Regist
 		// Width of current sequence being coalesced
 		width uint
 		// carry being propagated up
-		carry Polynomial
+		carry StaticPolynomial
 		// next assignment
 		next Assignment
 	)
@@ -466,13 +467,13 @@ func coalesceAssignments(assignments []Assignment, bandwidth uint, env sc.Regist
 // The key difference is that an "offset" factor has been applied to the
 // monomial previously assigned to x'1.  The offset factor (in this case) is
 // determined by the width of x'0.
-func coalesce(last bool, assignments []Assignment, carry Polynomial,
-	env sc.RegisterAllocator) (Assignment, Polynomial) {
+func coalesce(last bool, assignments []Assignment, carry StaticPolynomial,
+	env sc.RegisterAllocator) (Assignment, StaticPolynomial) {
 	//
 	var (
 		offset uint
 		lhs    []sc.RegisterId
-		rhs    Polynomial
+		rhs    StaticPolynomial
 	)
 	//
 	for i, ith := range assignments {
@@ -506,7 +507,7 @@ func coalesce(last bool, assignments []Assignment, carry Polynomial,
 // Divide a given monomial m by some value 2^n.  The division maybe exact, in
 // which case the remainder will be zero.  For example, dividing 7x by 3 gives
 // 2x (val) + x (rem).
-func divideMonomial(m Monomial, n uint) (val Monomial, rem Monomial) {
+func divideMonomial[T util.Comparable[T]](m Monomial[T], n uint) (val Monomial[T], rem Monomial[T]) {
 	var (
 		coeff     = m.Coefficient()
 		nPow2     = math.Pow2(n)

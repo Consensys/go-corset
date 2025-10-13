@@ -34,10 +34,10 @@ func (p *RegAccess) Eval(env []big.Int) big.Int {
 }
 
 // Polynomial implementation for the Expr interface.
-func (p *RegAccess) Polynomial() agnostic.Polynomial {
+func (p *RegAccess) Polynomial() agnostic.StaticPolynomial {
 	var (
 		monomial = poly.NewMonomial(biONE, p.Register)
-		result   agnostic.Polynomial
+		result   agnostic.StaticPolynomial
 	)
 	//
 	return result.Set(monomial)

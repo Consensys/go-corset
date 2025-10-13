@@ -36,10 +36,10 @@ func (p *Const) Eval([]big.Int) big.Int {
 }
 
 // Polynomial implementation for the Expr interface.
-func (p *Const) Polynomial() agnostic.Polynomial {
+func (p *Const) Polynomial() agnostic.StaticPolynomial {
 	var (
 		monomial = poly.NewMonomial[io.RegisterId](p.Constant)
-		result   agnostic.Polynomial
+		result   agnostic.StaticPolynomial
 	)
 	//
 	return result.Set(monomial)

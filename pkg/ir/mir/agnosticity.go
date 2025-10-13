@@ -19,33 +19,33 @@ import (
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.RegisterAllocator) Assertion[F] {
+func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.LimbsMap) Assertion[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.RegisterAllocator,
+func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.LimbsMap,
 ) InterleavingConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ schema.RegisterAllocator,
+func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ schema.LimbsMap,
 ) PermutationConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ schema.RegisterAllocator) RangeConstraint[F] {
+func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ schema.LimbsMap) RangeConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.RegisterAllocator) SortedConstraint[F] {
+func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.LimbsMap) SortedConstraint[F] {
 	// TODO: implement this
 	return c
 }

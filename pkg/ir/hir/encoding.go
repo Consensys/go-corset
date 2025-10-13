@@ -651,7 +651,7 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 	case negationTag:
 		return decode_logicals(1, negationConstructor, buf)
 	case notEqualTag:
-		return decode_terms[F](2, notEqualConstructor, buf)
+		return decode_terms(2, notEqualConstructor, buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
@@ -1148,7 +1148,7 @@ func notEqualConstructor(terms []Term) LogicalTerm {
 	return ir.NotEquals[word.BigEndian, LogicalTerm](terms[0], terms[1])
 }
 
-func subConstructor(terms []Term[F]) Term {
+func subConstructor(terms []Term) Term {
 	return ir.Subtract(terms...)
 }
 

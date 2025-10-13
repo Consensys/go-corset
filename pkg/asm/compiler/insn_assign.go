@@ -69,7 +69,7 @@ func (p *StateTranslator[F, T, E, M]) rebalanceAssign(lhs []E, rhs []E) ([]E, []
 // Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
 // are constant coefficients.  This generates a given translation of terms,
 // along with an indication as to whether this is signed or not.
-func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E) {
+func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.StaticPolynomial) (pos []E) {
 	var (
 		terms []E
 	)
@@ -84,7 +84,7 @@ func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomi
 }
 
 // Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
-func (p *StateTranslator[F, T, E, M]) translateMonomial(mono agnostic.Monomial) E {
+func (p *StateTranslator[F, T, E, M]) translateMonomial(mono agnostic.StaticMonomial) E {
 	var (
 		n         = mono.Len()
 		coeff     = mono.Coefficient()
@@ -117,7 +117,7 @@ func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
 // useful for debugging
 //
 // nolint
-func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs agnostic.Polynomial) string {
+func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs agnostic.StaticPolynomial) string {
 	var builder strings.Builder
 	//
 	for i, ith := range lhs {

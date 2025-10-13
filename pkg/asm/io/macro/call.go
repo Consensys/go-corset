@@ -96,7 +96,7 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	//
 	// Read output lines
 	for i, output := range p.Targets {
-		var source agnostic.Polynomial
+		var source agnostic.StaticPolynomial
 
 		source = source.Set(poly.NewMonomial(one, data[i]))
 		insn := &micro.Assign{Targets: []io.RegisterId{output}, Source: source}

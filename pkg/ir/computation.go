@@ -129,15 +129,6 @@ func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]
 		}
 		//
 		return IfThenElse(condition, trueBranch, falseBranch)
-	case *Inequality[F, S, T]:
-		lhs := NewComputation[F, S](t.Lhs)
-		rhs := NewComputation[F, S](t.Rhs)
-		//
-		if t.Strict {
-			return LessThan[F, LogicalComputation[F]](lhs, rhs)
-		}
-		//
-		return LessThanOrEquals[F, LogicalComputation[F]](lhs, rhs)
 	case *Negate[F, S]:
 		arg := NewLogicalComputation[F, S, T](t.Arg)
 		return Negation(arg)
@@ -268,15 +259,6 @@ func SubdivideLogicalComputation[F field.Element[F]](c LogicalComputation[F], ma
 		}
 		//
 		return IfThenElse(condition, trueBranch, falseBranch)
-	case *Inequality[F, LogicalComputation[F], Computation[F]]:
-		lhs := SubdivideComputation(t.Lhs, mapping)
-		rhs := SubdivideComputation(t.Rhs, mapping)
-		//
-		if t.Strict {
-			return LessThan[F, LogicalComputation[F]](lhs, rhs)
-		}
-		//
-		return LessThanOrEquals[F, LogicalComputation[F]](lhs, rhs)
 	case *Negate[F, LogicalComputation[F]]:
 		arg := SubdivideLogicalComputation(t.Arg, mapping)
 		return Negation(arg)

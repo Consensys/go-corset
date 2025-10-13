@@ -28,9 +28,8 @@ type Limb = Register
 // referring to a register after subdivision.
 type LimbId = RegisterId
 
-// Polynomial defines the type of polynomials over which packets (and register
-// splitting in general) operate.
-type Polynomial = *poly.ArrayPoly[RegisterId]
+// RelativePolynomial defines the type of polynomials which can be used in constraints.
+type RelativePolynomial = *poly.ArrayPoly[RelativeRegisterId]
 
 // CarryAssignment captures information required to compute the value for a
 // given carry line.
@@ -40,7 +39,7 @@ type CarryAssignment struct {
 	// Shift amount applied to result of rhs
 	Shift uint
 	// Value being calculated
-	RightHandSide Polynomial
+	RightHandSide RelativePolynomial
 }
 
 // FieldAgnostic captures the notion of an entity (e.g. module, constraint or
@@ -84,7 +83,7 @@ type FieldAgnostic[T any] interface {
 	//
 	// Here, c is a 1bit register introduced as part of the transformation to
 	// act as a "carry" between the two constraints.
-	Subdivide(RegisterAllocator) T
+	Subdivide(RegisterAllocator, LimbsMap) T
 }
 
 // LimbsMap provides a high-level mapping of all registers across all
@@ -128,7 +127,7 @@ type RegisterAllocator interface {
 	Allocate(prefix string, width uint) RegisterId
 	// Assign a given register the outcome of evaluating a given polynomial,
 	// shifted by a given amount.
-	Assign(reg RegisterId, shift uint, poly Polynomial)
+	Assign(reg RegisterId, shift uint, poly RelativePolynomial)
 	// Assignments returns the list of carry assignments
 	Assignments() []CarryAssignment
 }
@@ -165,7 +164,7 @@ func (p *registerAllocator) Allocate(prefix string, width uint) RegisterId {
 }
 
 // Assign implementation for the RegisterAllocator interface
-func (p *registerAllocator) Assign(target RegisterId, shift uint, poly Polynomial) {
+func (p *registerAllocator) Assign(target RegisterId, shift uint, poly RelativePolynomial) {
 	p.assignments = append(p.assignments, CarryAssignment{target, shift, poly})
 }
 

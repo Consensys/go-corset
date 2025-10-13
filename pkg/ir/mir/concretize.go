@@ -43,7 +43,7 @@ func Concretize[F1 Element[F1], F2 Element[F2]](mapping schema.LimbsMap, rawModu
 	for i, m := range rawModules {
 		var mid sc.ModuleId = uint(i)
 		// Subdivice, then concretize the module.
-		modules[i] = concretizeModule[F1, F2](m.Subdivide(mapping.Module(mid), carryAssigner[F1](mid)))
+		modules[i] = concretizeModule[F1, F2](m.Subdivide(mid, mapping, carryAssigner[F1](mid)))
 	}
 	//
 	return modules

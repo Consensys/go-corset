@@ -25,23 +25,23 @@ var xRegId = schema.NewRegisterId(0)
 var yRegId = schema.NewRegisterId(1)
 var zRegId = schema.NewRegisterId(2)
 
-func x(coeff int64) Polynomial {
+func x(coeff int64) StaticPolynomial {
 	return Var(xRegId, coeff)
 }
 
-func y(coeff int64) Polynomial {
+func y(coeff int64) StaticPolynomial {
 	return Var(yRegId, coeff)
 }
 
-func z(coeff int64) Polynomial {
+func z(coeff int64) StaticPolynomial {
 	return Var(zRegId, coeff)
 }
 
 // Var constructs a polynomial representing a given variable multiplied by a
 // given coefficient.
-func Var(id schema.RegisterId, coeff int64) Polynomial {
+func Var(id schema.RegisterId, coeff int64) StaticPolynomial {
 	var (
-		p Polynomial
+		p StaticPolynomial
 		c = *big.NewInt(coeff)
 	)
 	//
@@ -87,7 +87,7 @@ func Test_Poly_08(t *testing.T) {
 	check(t, 5, x(-2).AddScalar(&minusOne).Add(y(-2).Add(y(1).Mul(z(1)))), 2, 1, 1)
 }
 
-func check(t *testing.T, bitwidth uint, p Polynomial, widths ...uint) {
+func check(t *testing.T, bitwidth uint, p StaticPolynomial, widths ...uint) {
 	var regs = make([]schema.Register, len(widths))
 	//
 	for i := range regs {

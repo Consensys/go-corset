@@ -132,7 +132,7 @@ func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p Constraint[F]) Subdivide(mapping schema.RegisterAllocator) Constraint[F] {
+func (p Constraint[F]) Subdivide(alloc schema.RegisterAllocator, mapping schema.LimbsMap) Constraint[F] {
 	var constraint schema.Constraint[F]
 	//
 	switch c := p.constraint.(type) {
@@ -149,7 +149,7 @@ func (p Constraint[F]) Subdivide(mapping schema.RegisterAllocator) Constraint[F]
 	case SortedConstraint[F]:
 		constraint = subdivideSorted(c, mapping)
 	case VanishingConstraint[F]:
-		constraint = subdivideVanishing(c, mapping)
+		constraint = subdivideVanishing(c, alloc)
 	default:
 		panic("unreachable")
 	}

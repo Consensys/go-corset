@@ -119,9 +119,6 @@ type (
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the HIR level.
 	NotEqual = ir.NotEqual[word.BigEndian, LogicalTerm, Term]
-	// Inequality an inequality comparator (e.g. X < Y or X <= Y) between two arithmetic terms
-	// at the HIR level.
-	Inequality = ir.Inequality[word.BigEndian, LogicalTerm, Term]
 )
 
 // SubstituteConstants substitutes the value of matching labelled constants for

@@ -264,18 +264,20 @@ func (p *Table[F, C]) String() string {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[F, C]) Subdivide(mapping RegisterLimbsMap, assigner func(CarryAssignment) Assignment[F]) *Table[F, C] {
+func (p *Table[F, C]) Subdivide(mid ModuleId, mapping LimbsMap,
+	assigner func(CarryAssignment) Assignment[F]) *Table[F, C] {
+	//
 	var (
 		constraints []C
 		assignments []Assignment[F]
-		env         = NewAllocator(mapping)
+		env         = NewAllocator(mapping.Module(mid))
 	)
 	// Subdivide assignments
 	for _, c := range p.assignments {
 		var a any = c
 		//nolint
 		if fc, ok := a.(FieldAgnostic[Assignment[F]]); ok {
-			assignments = append(assignments, fc.Subdivide(env))
+			assignments = append(assignments, fc.Subdivide(env, mapping))
 		} else {
 			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
 		}
@@ -285,7 +287,7 @@ func (p *Table[F, C]) Subdivide(mapping RegisterLimbsMap, assigner func(CarryAss
 		var a any = c
 		//nolint
 		if fc, ok := a.(FieldAgnostic[C]); ok {
-			constraints = append(constraints, fc.Subdivide(env))
+			constraints = append(constraints, fc.Subdivide(env, mapping))
 		} else {
 			panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
 		}

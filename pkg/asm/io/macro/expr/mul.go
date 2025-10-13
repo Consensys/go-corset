@@ -44,8 +44,8 @@ func (p *Mul) Eval(env []big.Int) big.Int {
 }
 
 // Polynomial implementation for the Expr interface.
-func (p *Mul) Polynomial() agnostic.Polynomial {
-	var result agnostic.Polynomial
+func (p *Mul) Polynomial() agnostic.StaticPolynomial {
+	var result agnostic.StaticPolynomial
 	//
 	for i, e := range p.Exprs {
 		ith := e.Polynomial()

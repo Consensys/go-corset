@@ -27,12 +27,15 @@ var (
 	biONE big.Int = *big.NewInt(1)
 )
 
+// Polynomial provides a useful alias
+type Polynomial = agnostic.RelativePolynomial
+
 // ============================================================================
 // Term => Polynomial
 // ============================================================================
 
 // Translate a term into a polynomial.
-func termToPolynomial[F field.Element[F]](term Term[F], mapping sc.RegisterMap) agnostic.Polynomial {
+func termToPolynomial[F field.Element[F]](term Term[F], mapping sc.RegisterMap) Polynomial {
 	switch t := term.(type) {
 	case *Add[F]:
 		return termAddToPolynomial(*t, mapping)
@@ -51,8 +54,8 @@ func termToPolynomial[F field.Element[F]](term Term[F], mapping sc.RegisterMap) 
 	}
 }
 
-func termAddToPolynomial[F field.Element[F]](term Add[F], mapping sc.RegisterMap) agnostic.Polynomial {
-	var result agnostic.Polynomial
+func termAddToPolynomial[F field.Element[F]](term Add[F], mapping sc.RegisterMap) Polynomial {
+	var result Polynomial
 	//
 	for i, e := range term.Args {
 		ith := termToPolynomial(e, mapping)
@@ -67,19 +70,19 @@ func termAddToPolynomial[F field.Element[F]](term Add[F], mapping sc.RegisterMap
 	return result
 }
 
-func termConstantToPolynomial[F field.Element[F]](constant F, mapping sc.RegisterMap) agnostic.Polynomial {
+func termConstantToPolynomial[F field.Element[F]](constant F, mapping sc.RegisterMap) Polynomial {
 	var (
-		result agnostic.Polynomial
+		result Polynomial
 		value  big.Int
 	)
 	value.SetBytes(constant.Bytes())
-	monomial := poly.NewMonomial[sc.RegisterId](value)
+	monomial := poly.NewMonomial[sc.RelativeRegisterId](value)
 	//
 	return result.Set(monomial)
 }
 
-func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping sc.RegisterMap) agnostic.Polynomial {
-	var result agnostic.Polynomial
+func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping sc.RegisterMap) Polynomial {
+	var result Polynomial
 	//
 	for i, e := range term.Args {
 		ith := termToPolynomial(e, mapping)
@@ -94,21 +97,18 @@ func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping sc.RegisterMap
 	return result
 }
 
-func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mapping sc.RegisterMap) agnostic.Polynomial {
+func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mapping sc.RegisterMap) Polynomial {
 	var (
-		monomial = poly.NewMonomial(biONE, term.Register)
-		result   agnostic.Polynomial
+		identifier = term.Register.Shift(term.Shift)
+		monomial   = poly.NewMonomial(biONE, identifier)
+		result     Polynomial
 	)
-	//
-	if term.Shift != 0 {
-		panic("need to handle shifts!!")
-	}
 	//
 	return result.Set(monomial)
 }
 
-func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping sc.RegisterMap) agnostic.Polynomial {
-	var result agnostic.Polynomial
+func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping sc.RegisterMap) Polynomial {
+	var result Polynomial
 	//
 	for i, e := range term.Args {
 		ith := termToPolynomial(e, mapping)
@@ -123,9 +123,9 @@ func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping sc.RegisterMap
 	return result
 }
 
-func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping sc.RegisterMap) agnostic.Polynomial {
+func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping sc.RegisterMap) Polynomial {
 	var (
-		result agnostic.Polynomial
+		result Polynomial
 		shift  uint = 0
 	)
 	//
@@ -152,7 +152,7 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping
 // ============================================================================
 
 // Translate a term into a polynomial.
-func polynomialToTerm[F field.Element[F]](poly agnostic.Polynomial) Term[F] {
+func polynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
 	var (
 		pos []Term[F]
 		neg []Term[F]
@@ -175,7 +175,7 @@ func polynomialToTerm[F field.Element[F]](poly agnostic.Polynomial) Term[F] {
 	return ir.Sum(pos...)
 }
 
-func monomialToTerm[F field.Element[F]](monomial agnostic.Monomial) Term[F] {
+func monomialToTerm[F field.Element[F]](monomial agnostic.RelativeMonomial) Term[F] {
 	var (
 		terms = make([]Term[F], monomial.Len()+1)
 		tmp   = monomial.Coefficient()
@@ -186,7 +186,7 @@ func monomialToTerm[F field.Element[F]](monomial agnostic.Monomial) Term[F] {
 	//
 	for i := range monomial.Len() {
 		ith := monomial.Nth(i)
-		terms[i+1] = ir.NewRegisterAccess[F, Term[F]](ith, 0)
+		terms[i+1] = ir.NewRegisterAccess[F, Term[F]](ith.Id(), ith.Shift())
 	}
 	//
 	return ir.Product(terms...)

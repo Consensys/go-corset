@@ -45,6 +45,11 @@ type RegisterMap interface {
 // which are expected to identify Columns.
 type RegisterId = trace.ColumnId
 
+// RelativeRegisterId is a wrapper around a column Id which adds a "relative
+// shift".  That is, it identifies a column on a relative row from the given
+// row.
+type RelativeRegisterId = trace.RelativeColumnId
+
 // NewRegisterId constructs a new register ID from a given raw index.
 func NewRegisterId(index uint) RegisterId {
 	return trace.NewColumnId(index)

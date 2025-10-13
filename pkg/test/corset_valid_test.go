@@ -251,7 +251,7 @@ func Test_Valid_Shift_01(t *testing.T) {
 }
 
 func Test_Valid_Shift_02(t *testing.T) {
-	util.Check(t, false, "valid/shift_02")
+	Check(t, "valid/shift_02")
 }
 
 func Test_Valid_Shift_03(t *testing.T) {
@@ -271,14 +271,14 @@ func Test_Valid_Shift_06(t *testing.T) {
 }
 
 func Test_Valid_Shift_07(t *testing.T) {
-	util.Check(t, false, "valid/shift_07")
+	Check(t, "valid/shift_07")
 }
 
 func Test_Valid_Shift_08(t *testing.T) {
-	util.Check(t, false, "valid/shift_08")
+	Check(t, "valid/shift_08")
 }
 func Test_Valid_Shift_09(t *testing.T) {
-	util.Check(t, false, "valid/shift_09")
+	Check(t, "valid/shift_09")
 }
 
 // ===================================================================
@@ -366,7 +366,7 @@ func Test_Valid_If_02(t *testing.T) {
 }
 
 func Test_Valid_If_03(t *testing.T) {
-	util.Check(t, false, "valid/if_03")
+	Check(t, "valid/if_03")
 }
 
 func Test_Valid_If_04(t *testing.T) {

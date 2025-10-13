@@ -26,13 +26,13 @@ import (
 // coefficient.
 type Equation struct {
 	// Left hand side.
-	LeftHandSide Polynomial
+	LeftHandSide RelativePolynomial
 	// Right hand side.
-	RightHandSide Polynomial
+	RightHandSide RelativePolynomial
 }
 
 // NewEquation simply constructs a new equation.
-func NewEquation(lhs Polynomial, rhs Polynomial) Equation {
+func NewEquation(lhs RelativePolynomial, rhs RelativePolynomial) Equation {
 	return Equation{lhs, rhs}
 }
 
@@ -78,14 +78,14 @@ func (p *Equation) String(env sc.RegisterLimbsMap) string {
 	//
 	builder.WriteString("[")
 	// Write left-hand side
-	builder.WriteString(poly.String(p.LeftHandSide, func(id sc.RegisterId) string {
-		return env.Limb(id).Name
+	builder.WriteString(poly.String(p.LeftHandSide, func(r sc.RelativeRegisterId) string {
+		return env.Limb(r.Id()).Name
 	}))
 	//
 	builder.WriteString(" == ")
 	// write right-hand side
-	builder.WriteString(poly.String(p.RightHandSide, func(id sc.RegisterId) string {
-		return env.Limb(id).Name
+	builder.WriteString(poly.String(p.RightHandSide, func(r sc.RelativeRegisterId) string {
+		return env.Limb(r.Id()).Name
 	}))
 	//
 	builder.WriteString(fmt.Sprintf("]^%d", p.Width(env)))
@@ -205,14 +205,14 @@ func largestWidth(limbs []sc.LimbId, env sc.RegisterAllocator) uint {
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
 // determined by the chunk widths.  This inserts carry lines as needed to ensure
 // correctness.
-func chunkPolynomial(p Polynomial, chunkWidths []uint, env sc.RegisterAllocator) []Polynomial {
+func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, env sc.RegisterAllocator) []RelativePolynomial {
 	var (
 		bandWidth = env.Field().FieldBandWidth
-		chunks    []Polynomial
+		chunks    []RelativePolynomial
 	)
 	// Subdivide polynomial into chunks
 	for _, chunkWidth := range chunkWidths {
-		var remainder Polynomial
+		var remainder RelativePolynomial
 		// Chunk the polynomials
 		p, remainder = dividePolynomial(p, chunkWidth)
 		// Include remainder as chunk
@@ -221,7 +221,7 @@ func chunkPolynomial(p Polynomial, chunkWidths []uint, env sc.RegisterAllocator)
 	// Add carry lines as necessary
 	for i := 0; i < len(chunks); i++ {
 		var (
-			carry, borrow Polynomial
+			carry, borrow RelativePolynomial
 			ithWidth, _   = WidthOfPolynomial(chunks[i], env.Limbs())
 			chunkWidth    = chunkWidths[i]
 		)
@@ -234,15 +234,15 @@ func chunkPolynomial(p Polynomial, chunkWidths []uint, env sc.RegisterAllocator)
 			panic("chunking failure")
 		} else if (i+1) != len(chunks) && ithWidth > chunkWidth {
 			var (
-				carryRegId = env.Allocate("c", ithWidth-chunkWidth)
+				carryReg   = env.Allocate("c", ithWidth-chunkWidth)
 				chunkShift = math.Pow2(chunkWidth)
 			)
 			// Set assignment for filling carry register
-			env.Assign(carryRegId, chunkWidth, chunks[i])
+			env.Assign(carryReg.Id(), chunkWidth, chunks[i])
 			// Subtract carry from this chunk
-			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryRegId)))
+			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg.Shift(0))))
 			// Add carry to next chunk
-			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryRegId)))
+			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg.Shift(0))))
 		}
 	}
 	//
@@ -267,11 +267,11 @@ func chunkPolynomial(p Polynomial, chunkWidths []uint, env sc.RegisterAllocator)
 //	                 +-----------------+
 //
 // And we are left with a remainder as well.
-func dividePolynomial(poly Polynomial, n uint) (Polynomial, Polynomial) {
+func dividePolynomial(poly RelativePolynomial, n uint) (RelativePolynomial, RelativePolynomial) {
 	var (
-		quotient, remainder Polynomial
-		quotients           []Monomial
-		remainders          []Monomial
+		quotient, remainder RelativePolynomial
+		quotients           []RelativeMonomial
+		remainders          []RelativeMonomial
 	)
 	//
 	for i := range poly.Len() {
@@ -285,14 +285,14 @@ func dividePolynomial(poly Polynomial, n uint) (Polynomial, Polynomial) {
 }
 
 // Split a polynomial into its positive and negative components.
-func balancePolynomial(poly Polynomial) (pos, neg Polynomial) {
+func balancePolynomial(poly RelativePolynomial) (pos, neg RelativePolynomial) {
 	// Set both sides to zero
 	pos = pos.Set()
 	neg = neg.Set()
 	//
 	for i := range poly.Len() {
 		var (
-			tmp Polynomial
+			tmp RelativePolynomial
 			ith = poly.Term(i)
 		)
 		//

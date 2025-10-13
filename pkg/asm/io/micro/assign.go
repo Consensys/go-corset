@@ -24,6 +24,11 @@ import (
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
+// Polynomial provides a useful alias which captures the fact that all
+// polynomials in assembly are static.  That is, we never consider the
+// possibility that registers can be "shifted".
+type Polynomial = agnostic.StaticPolynomial
+
 // Assign represents a generic assignment of the following form:
 //
 // tn, .., t0 := M0 + ... + Mm
@@ -44,7 +49,7 @@ type Assign struct {
 	// Target registers for addition where the least significant come first.
 	Targets []io.RegisterId
 	// Source register for addition
-	Source agnostic.Polynomial
+	Source Polynomial
 }
 
 // Clone this micro code.
@@ -120,7 +125,7 @@ func (p *Assign) Split(env schema.RegisterAllocator) []Code {
 		// map target registers into corresponding limbs
 		lhs = agnostic.ApplyMapping(env, p.Targets...)
 		// map lhs registers into corresponding limbs
-		rhs = agnostic.SplitPolynomial(p.Source, env)
+		rhs = SplitPolynomial(p.Source, env)
 		// construct initial assignment
 		assignment = agnostic.NewAssignment(lhs, rhs)
 		// split into smaller assignments as needed

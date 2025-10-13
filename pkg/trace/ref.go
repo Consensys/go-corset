@@ -104,12 +104,8 @@ func (p ColumnRef) Register() ColumnId {
 	return p.rid
 }
 
-// ============================================================================
-
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
-
-// ============================================================================
 
 // ColumnId captures the notion of a column index.  That is, for each
 // module, every Column is allocated a given index starting from 0.  The
@@ -145,9 +141,56 @@ func (p ColumnId) Unwrap() uint {
 	return p.index
 }
 
+// Id returns the underlying register id for this identifier.
+func (p ColumnId) Id() ColumnId {
+	return p
+}
+
 // IsUsed checks whether this corresponds to a valid Column index.
 func (p ColumnId) IsUsed() bool {
 	return p.index != math.MaxUint
+}
+
+// Shift constructs a relative column identifier from this identifier by
+// including a relative shift.
+func (p ColumnId) Shift(shift int) RelativeColumnId {
+	return RelativeColumnId{p, shift}
+}
+
+// ============================================================================
+// RelativeColumnId
+// ============================================================================
+
+// RelativeColumnId is a wrapper around a column Id which adds a "relative
+// shift".  That is, it identifies a column on a relative row from the given
+// row.
+type RelativeColumnId struct {
+	id    ColumnId
+	shift int
+}
+
+// Cmp implementation for the Comparable interface
+func (p RelativeColumnId) Cmp(o RelativeColumnId) int {
+	if c := p.id.Cmp(o.id); c != 0 {
+		return c
+	}
+	//
+	return cmp.Compare(p.shift, o.shift)
+}
+
+// Id returns returns the underlying register id.
+func (p RelativeColumnId) Id() ColumnId {
+	return p.id
+}
+
+// Shift returns the relative shift for this register.
+func (p RelativeColumnId) Shift() int {
+	return p.shift
+}
+
+// Unwrap returns the underlying Column index.
+func (p RelativeColumnId) Unwrap() uint {
+	return p.id.Unwrap()
 }
 
 // ============================================================================
