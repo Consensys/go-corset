@@ -1,7 +1,16 @@
-;; Sign extend given a size -1 of the integer to be sign-extended
-;; this function handles sizes up to 31
-;; if size == 0, sign is extended to fit a 32 bytes word
+;; Sign extend given a size
+;;
+;; n = ( 31 - size )
+;; Extend the sign of the nth byte on the range [0:n[ with n excluded
+;; if size == 0, sign of the 31th byte is extended from byte 0 to 30
 ;; if size == 31, word stays unchanged
+;;
+;; Examples :
+;; size = 0, word = 0x80FF, res = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff (byte 30 is overridden)
+;; size = 1, word = 0x80FF, res = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80ff
+;; size = 2, word = 0x80FF, res = 0x80FF
+;;
+;; note : this function does not handle the case where size > 31, as it's handled at the module level
 
 include "byte.zkasm"
 include "fill_bytes.zkasm"
