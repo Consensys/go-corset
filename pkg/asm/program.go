@@ -19,7 +19,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/program"
-	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -28,30 +27,30 @@ import (
 
 // MixedProgram represents the composition of an assembly program along with
 // zero or more legacy (i.e. external) modules.
-type MixedProgram[F field.Element[F], T io.Instruction[T]] struct {
+type MixedProgram[F field.Element[F], T io.Instruction[T], M schema.Module[F]] struct {
 	program io.Program[T]
 	// External module declarations.
-	externs []mir.Module[F]
+	externs []M
 }
 
 // NewMixedProgram constructs a new program using a given level of instruction.
-func NewMixedProgram[F field.Element[F], T io.Instruction[T]](program io.Program[T], externs ...mir.Module[F],
-) MixedProgram[F, T] {
-	return MixedProgram[F, T]{program, externs}
+func NewMixedProgram[F field.Element[F], T io.Instruction[T], M schema.Module[F]](program io.Program[T], externs ...M,
+) MixedProgram[F, T, M] {
+	return MixedProgram[F, T, M]{program, externs}
 }
 
 // Externs returns the set of external modules
-func (p *MixedProgram[F, T]) Externs() []mir.Module[F] {
+func (p *MixedProgram[F, T, M]) Externs() []M {
 	return p.externs
 }
 
 // Function returns the ith function in this program.
-func (p *MixedProgram[F, T]) Function(id uint) io.Function[T] {
+func (p *MixedProgram[F, T, M]) Function(id uint) io.Function[T] {
 	return p.program.Function(id)
 }
 
 // Functions returns all functions making up this program.
-func (p *MixedProgram[F, T]) Functions() []*io.Function[T] {
+func (p *MixedProgram[F, T, Map]) Functions() []*io.Function[T] {
 	return p.program.Functions()
 }
 
@@ -62,7 +61,7 @@ func (p *MixedProgram[F, T]) Functions() []*io.Function[T] {
 // Assignments returns an iterator over the assignments of this schema
 // These are the computations used to assign values to all computed columns
 // in this schema.
-func (p *MixedProgram[F, T]) Assignments() iter.Iterator[schema.Assignment[F]] {
+func (p *MixedProgram[F, T, M]) Assignments() iter.Iterator[schema.Assignment[F]] {
 	return iter.NewFlattenIterator(p.Modules(), func(m schema.Module[F]) iter.Iterator[schema.Assignment[F]] {
 		return m.Assignments()
 	})
@@ -71,7 +70,7 @@ func (p *MixedProgram[F, T]) Assignments() iter.Iterator[schema.Assignment[F]] {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *MixedProgram[F, T]) Consistent(fieldWidth uint) []error {
+func (p *MixedProgram[F, T, M]) Consistent(fieldWidth uint) []error {
 	var errors []error
 	// Check left
 	for _, m := range p.program.Functions() {
@@ -87,7 +86,7 @@ func (p *MixedProgram[F, T]) Consistent(fieldWidth uint) []error {
 
 // Constraints returns an iterator over all constraints defined in this
 // schema.
-func (p *MixedProgram[F, T]) Constraints() iter.Iterator[schema.Constraint[F]] {
+func (p *MixedProgram[F, T, M]) Constraints() iter.Iterator[schema.Constraint[F]] {
 	return iter.NewFlattenIterator(p.Modules(), func(m schema.Module[F]) iter.Iterator[schema.Constraint[F]] {
 		return m.Constraints()
 	})
@@ -95,7 +94,7 @@ func (p *MixedProgram[F, T]) Constraints() iter.Iterator[schema.Constraint[F]] {
 
 // HasModule checks whether a module with the given name exists and, if so,
 // returns its module identifier.  Otherwise, it returns false.
-func (p *MixedProgram[F, T]) HasModule(name string) (schema.ModuleId, bool) {
+func (p *MixedProgram[F, T, M]) HasModule(name string) (schema.ModuleId, bool) {
 	for i := range p.Width() {
 		if p.Module(i).Name() == name {
 			return i, true
@@ -106,7 +105,7 @@ func (p *MixedProgram[F, T]) HasModule(name string) (schema.ModuleId, bool) {
 }
 
 // Module returns a given module in this schema.
-func (p *MixedProgram[F, T]) Module(module uint) schema.Module[F] {
+func (p *MixedProgram[F, T, M]) Module(module uint) schema.Module[F] {
 	var (
 		n = uint(len(p.program.Functions()))
 	)
@@ -120,7 +119,7 @@ func (p *MixedProgram[F, T]) Module(module uint) schema.Module[F] {
 
 // Modules returns an iterator over the declared set of modules within this
 // schema.
-func (p *MixedProgram[F, T]) Modules() iter.Iterator[schema.Module[F]] {
+func (p *MixedProgram[F, T, M]) Modules() iter.Iterator[schema.Module[F]] {
 	// Map all functions into modules
 	modules := array.Map(p.program.Functions(), func(mid uint, fn *io.Function[T]) schema.Module[F] {
 		return program.NewModule[F](mid, *fn)
@@ -128,18 +127,18 @@ func (p *MixedProgram[F, T]) Modules() iter.Iterator[schema.Module[F]] {
 	// Construct appropriate iterators
 	leftIter := iter.NewArrayIterator(modules)
 	rightIter := iter.NewArrayIterator(p.externs)
-	rightCastingIter := iter.NewCastIterator[mir.Module[F], schema.Module[F]](rightIter)
+	rightCastingIter := iter.NewCastIterator[M, schema.Module[F]](rightIter)
 	// Done
 	return iter.NewAppendIterator(leftIter, rightCastingIter)
 }
 
 // Register returns the given register in this schema.
-func (p *MixedProgram[F, T]) Register(ref schema.RegisterRef) Register {
+func (p *MixedProgram[F, T, M]) Register(ref schema.RegisterRef) Register {
 	return p.Module(ref.Module()).Register(ref.Register())
 }
 
 // Width returns the number of modules in this schema.
-func (p *MixedProgram[F, T]) Width() uint {
+func (p *MixedProgram[F, T, M]) Width() uint {
 	return uint(len(p.program.Functions()) + len(p.externs))
 }
 
@@ -148,7 +147,7 @@ func (p *MixedProgram[F, T]) Width() uint {
 // ============================================================================
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p *MixedProgram[F, T]) GobEncode() (data []byte, err error) {
+func (p *MixedProgram[F, T, M]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
 	//
 	gobEncoder := gob.NewEncoder(&buffer)
@@ -165,7 +164,7 @@ func (p *MixedProgram[F, T]) GobEncode() (data []byte, err error) {
 }
 
 // GobDecode a previously encoded option
-func (p *MixedProgram[F, T]) GobDecode(data []byte) error {
+func (p *MixedProgram[F, T, M]) GobDecode(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	gobDecoder := gob.NewDecoder(buffer)
 	// Left modules

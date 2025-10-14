@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package mir
+package hir
 
 import (
 	"github.com/consensys/go-corset/pkg/schema"
@@ -131,33 +131,6 @@ func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 
-// Subdivide implementation for the FieldAgnosticModule interface.
-func (p Constraint[F]) Subdivide(mapping schema.LimbsMap) Constraint[F] {
-	var constraint schema.Constraint[F]
-	//
-	switch c := p.constraint.(type) {
-	case Assertion[F]:
-		constraint = subdivideAssertion(c, mapping)
-	case InterleavingConstraint[F]:
-		constraint = subdivideInterleaving(c, mapping)
-	case LookupConstraint[F]:
-		constraint = subdivideLookup(c, mapping)
-	case PermutationConstraint[F]:
-		constraint = subdividePermutation(c, mapping)
-	case RangeConstraint[F]:
-		constraint = subdivideRange(c, mapping)
-	case SortedConstraint[F]:
-		constraint = subdivideSorted(c, mapping)
-	case VanishingConstraint[F]:
-		modmap := mapping.Module(c.Context)
-		constraint = subdivideVanishing(c, modmap)
-	default:
-		panic("unreachable")
-	}
-	//
-	return Constraint[F]{constraint}
-}
-
 // Substitute any matchined labelled constants within this constraint
 func (p Constraint[F]) Substitute(mapping map[string]F) {
 	p.constraint.Substitute(mapping)
@@ -166,4 +139,22 @@ func (p Constraint[F]) Substitute(mapping map[string]F) {
 // Unwrap provides access to the underlying constraint.
 func (p Constraint[F]) Unwrap() schema.Constraint[F] {
 	return p.constraint
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (p Constraint[F]) GobEncode() (data []byte, err error) {
+	return encode_constraint(p.constraint)
+}
+
+// GobDecode a previously encoded option
+func (p *Constraint[F]) GobDecode(data []byte) error {
+	var error error
+	//
+	p.constraint, error = decode_constraint[F](data)
+	//
+	return error
 }

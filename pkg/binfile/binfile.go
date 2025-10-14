@@ -36,12 +36,12 @@ type BinaryFile struct {
 	// debugging, etc.
 	Attributes []Attribute
 	// The mixed assembly schema.
-	Schema asm.MixedMacroProgram[bls12_377.Element]
+	Schema asm.MacroHirProgram[bls12_377.Element]
 }
 
 // NewBinaryFile constructs a new binary file with the default header for the
 // currently supported version.
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MixedMacroProgram[bls12_377.Element],
+func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MacroHirProgram[bls12_377.Element],
 ) *BinaryFile {
 	//
 	return &BinaryFile{
@@ -203,7 +203,7 @@ func (p *Header) IsCompatible() bool {
 // matter what version, we should always have the ZKBINARY identifier first,
 // followed by a GOB encoding of the header.  What follows after that, however,
 // is determined by the major version.
-const BINFILE_MAJOR_VERSION uint16 = 9
+const BINFILE_MAJOR_VERSION uint16 = 10
 
 // BINFILE_MINOR_VERSION gives the minor version of the binary file format.  The
 // expected interpretation is that older versions are compatible with newer

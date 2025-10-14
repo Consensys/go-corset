@@ -10,9 +10,11 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package mir
+package hir
 
 import (
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -24,14 +26,11 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // Following types capture top-level abstractions at the MIR level.
 type (
-	// SchemaBuilder is used for building the MIR schemas
-	SchemaBuilder[F field.Element[F]] = ir.SchemaBuilder[F, Constraint[F], Term[F]]
-	// ModuleBuilder is used for building various MIR modules.
-	ModuleBuilder[F field.Element[F]] = ir.ModuleBuilder[F, Constraint[F], Term[F]]
 	// Module captures the essence of a module at the MIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the MIR level.
 	Module[F field.Element[F]] = *schema.Table[F, Constraint[F]]
@@ -141,4 +140,34 @@ func SubstituteConstants[F field.Element[F]](schema schema.AnySchema[F], mapping
 		module := iter.Next()
 		module.Substitute(mapping)
 	}
+}
+
+func registerIntermediateRepresentation[F field.Element[F]]() {
+	gob.Register(schema.Constraint[F](&VanishingConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&RangeConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&PermutationConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&LookupConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&SortedConstraint[F]{}))
+	//
+	gob.Register(Term[F](&Add[F]{}))
+	gob.Register(Term[F](&Mul[F]{}))
+	gob.Register(Term[F](&Sub[F]{}))
+	gob.Register(Term[F](&Cast[F]{}))
+	gob.Register(Term[F](&Exp[F]{}))
+	gob.Register(Term[F](&IfZero[F]{}))
+	gob.Register(Term[F](&Constant[F]{}))
+	gob.Register(Term[F](&LabelledConst[F]{}))
+	gob.Register(Term[F](&Norm[F]{}))
+	gob.Register(Term[F](&RegisterAccess[F]{}))
+	//
+	gob.Register(LogicalTerm[F](&Conjunct[F]{}))
+	gob.Register(LogicalTerm[F](&Disjunct[F]{}))
+	gob.Register(LogicalTerm[F](&Equal[F]{}))
+	gob.Register(LogicalTerm[F](&NotEqual[F]{}))
+	//
+	gob.Register(schema.Assignment[F](&ComputedRegister[F]{}))
+}
+
+func init() {
+	registerIntermediateRepresentation[bls12_377.Element]()
 }

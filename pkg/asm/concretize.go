@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/hir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -72,7 +73,7 @@ type UniformSchema[F field.Element[F]] = sc.UniformSchema[F, mir.Module[F]]
 //
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
-func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MixedMicroProgram[F1],
+func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MicroHirProgram[F1],
 ) (UniformSchema[F2], sc.LimbsMap) {
 	var (
 		mapping = agnostic.NewLimbsMap(cfg, p.Modules().Collect()...)
@@ -89,8 +90,10 @@ func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MixedMicro
 	for i, m := range comp.Modules() {
 		modules[i] = ir.BuildModule[F2, mir.Constraint[F2], mir.Term[F2], mir.Module[F2]](*m.Module)
 	}
+	// Lower external modules
+	externs := hir.LowerToMir(p.Externs())
 	// Concretize legacy components
-	copy(modules[n:], mir.Concretize[F1, F2](mapping, p.Externs()))
+	copy(modules[n:], mir.Concretize[F1, F2](mapping, externs))
 	// Done
 	return schema.NewUniformSchema(modules), mapping
 }
