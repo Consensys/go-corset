@@ -351,8 +351,7 @@ func (p *MirLowering[F]) lowerTerm(e Term[F], mirModule *mir.ModuleBuilder[F]) m
 	case *RegisterAccess[F]:
 		return ir.NewRegisterAccess[F, mir.Term[F]](e.Register, e.Shift)
 	case *Exp[F]:
-		arg := p.lowerTerm(e.Arg, mirModule)
-		return ir.Exponent(arg, e.Pow)
+		return p.lowerExpTo(e, mirModule)
 	case *IfZero[F]:
 		condition := p.lowerLogical(e.Condition, mirModule)
 		trueBranch := p.lowerTerm(e.TrueBranch, mirModule)
@@ -387,6 +386,22 @@ func (p *MirLowering[F]) lowerTerms(exprs []Term[F], mirModule *mir.ModuleBuilde
 	}
 
 	return nexprs
+}
+
+// LowerTo lowers an exponent expression to the MIR level by lowering the
+// argument, and then constructing a multiplication.  This is because the AIR
+// level does not support an explicit exponent operator.
+func (p *MirLowering[F]) lowerExpTo(e *Exp[F], mirModule *mir.ModuleBuilder[F]) mir.Term[F] {
+	// Lower the expression being raised
+	le := p.lowerTerm(e.Arg, mirModule)
+	// Multiply it out k times
+	es := make([]mir.Term[F], e.Pow)
+	//
+	for i := uint64(0); i < e.Pow; i++ {
+		es[i] = le
+	}
+	// Done
+	return ir.Product(es...)
 }
 
 func (p *MirLowering[F]) lowerVectorAccess(e *VectorAccess[F]) mir.Term[F] {

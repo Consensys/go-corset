@@ -528,18 +528,12 @@ func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F])
 	case *Add[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Sum(args...)
-	case *Cast[F]:
-		return p.lowerTermTo(e.Arg, airModule)
 	case *Constant[F]:
 		return ir.Const[F, air.Term[F]](e.Value)
 	case *RegisterAccess[F]:
 		return ir.NewRegisterAccess[F, air.Term[F]](e.Register, e.Shift)
-	case *Exp[F]:
-		return p.lowerExpTo(e, airModule)
 	case *IfZero[F]:
 		return p.lowerIfZeroTo(e, airModule)
-	case *LabelledConst[F]:
-		return ir.Const[F, air.Term[F]](e.Value)
 	case *Mul[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Product(args...)
@@ -565,22 +559,6 @@ func (p *AirLowering[F]) lowerTerms(exprs []Term[F], airModule *air.ModuleBuilde
 	}
 
 	return nexprs
-}
-
-// LowerTo lowers an exponent expression to the AIR level by lowering the
-// argument, and then constructing a multiplication.  This is because the AIR
-// level does not support an explicit exponent operator.
-func (p *AirLowering[F]) lowerExpTo(e *Exp[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	// Lower the expression being raised
-	le := p.lowerTermTo(e.Arg, airModule)
-	// Multiply it out k times
-	es := make([]air.Term[F], e.Pow)
-	//
-	for i := uint64(0); i < e.Pow; i++ {
-		es[i] = le
-	}
-	// Done
-	return ir.Product(es...)
 }
 
 func (p *AirLowering[F]) lowerIfZeroTo(e *IfZero[F], airModule *air.ModuleBuilder[F]) air.Term[F] {

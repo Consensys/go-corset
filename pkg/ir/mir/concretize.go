@@ -235,8 +235,6 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	switch t := t.(type) {
 	case *Add[F1]:
 		return ir.Sum(concretizeTerms[F1, F2](t.Args)...)
-	case *Cast[F1]:
-		return ir.CastOf(concretizeTerm[F1, F2](t.Arg), t.BitWidth)
 	case *Constant[F1]:
 		// NOTE: could fail if  F1 value does not fit into F2 value.
 		return ir.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
@@ -246,13 +244,8 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 		fb := concretizeTerm[F1, F2](t.FalseBranch)
 		//
 		return ir.IfElse(cond, tb, fb)
-	case *LabelledConst[F1]:
-		// NOTE: no need really to support labelled constants here.
-		return ir.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
 	case *RegisterAccess[F1]:
 		return ir.NewRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
-	case *Exp[F1]:
-		return ir.Exponent(concretizeTerm[F1, F2](t.Arg), t.Pow)
 	case *Mul[F1]:
 		return ir.Product(concretizeTerms[F1, F2](t.Args)...)
 	case *Norm[F1]:

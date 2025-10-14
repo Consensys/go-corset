@@ -86,20 +86,14 @@ type (
 type (
 	// Add represents the addition of zero or more expressions.
 	Add[F field.Element[F]] = ir.Add[F, Term[F]]
-	// Cast attempts to narrow the width a given expression.
-	Cast[F field.Element[F]] = ir.Cast[F, Term[F]]
 	// Constant represents a constant value within an expression.
 	Constant[F field.Element[F]] = ir.Constant[F, Term[F]]
 	// IfZero represents a conditional branch at the MIR level.
 	IfZero[F field.Element[F]] = ir.IfZero[F, LogicalTerm[F], Term[F]]
-	// LabelledConst represents a labelled constant at the MIR level.
-	LabelledConst[F field.Element[F]] = ir.LabelledConst[F, Term[F]]
 	// RegisterAccess represents reading the value held at a given column in the
 	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
 	// a given amount.
 	RegisterAccess[F field.Element[F]] = ir.RegisterAccess[F, Term[F]]
-	// Exp represents the a given value taken to a power.
-	Exp[F field.Element[F]] = ir.Exp[F, Term[F]]
 	// Mul represents the product over zero or more expressions.
 	Mul[F field.Element[F]] = ir.Mul[F, Term[F]]
 	// Norm reduces the value of an expression to either zero (if it was zero)

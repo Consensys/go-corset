@@ -112,8 +112,6 @@ func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap
 	switch t := term.(type) {
 	case *Add[F]:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
-	case *Cast[F]:
-		return ir.CastOf(splitTerm(t.Arg, mapping), t.BitWidth)
 	case *Constant[F]:
 		return t
 	case *IfZero[F]:
@@ -122,12 +120,8 @@ func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap
 			splitTerm(t.TrueBranch, mapping),
 			splitTerm(t.FalseBranch, mapping),
 		)
-	case *LabelledConst[F]:
-		return t
 	case *RegisterAccess[F]:
 		return splitRegisterAccess(t, mapping)
-	case *Exp[F]:
-		return ir.Exponent(splitTerm(t.Arg, mapping), t.Pow)
 	case *Mul[F]:
 		return ir.Product(splitTerms(t.Args, mapping)...)
 	case *Norm[F]:
