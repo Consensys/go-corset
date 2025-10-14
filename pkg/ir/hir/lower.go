@@ -15,6 +15,7 @@ package hir
 import (
 	"fmt"
 	"reflect"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -115,8 +116,9 @@ func (p *MirLowering[F]) lowerAssignment(assign schema.Assignment[F], mirModule 
 	//
 	switch a := assign.(type) {
 	case *ComputedRegister[F]:
-		expr := p.lowerTerm(a.Expr, mirModule)
-		return assignment.NewComputedRegister(a.Target, expr, a.Direction)
+		// expr := p.lowerTerm(a.Expr, mirModule)
+		// return assignment.NewComputedRegister(a.Target, expr, a.Direction)
+		panic("todo")
 	case *assignment.Computation[F]:
 		return a
 	case *assignment.SortedPermutation[F]:
@@ -180,7 +182,7 @@ func (p *MirLowering[F]) lowerPermutationConstraint(v PermutationConstraint[F], 
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering[F]) lowerRangeConstraint(v RangeConstraint[F], mirModule *mir.ModuleBuilder[F]) {
-	var term = p.lowerTerm(v.Expr, mirModule)
+	var term = p.expandTerm(v.Expr, mirModule)
 	//
 	mirModule.AddConstraint(
 		mir.NewRangeConstraint(v.Handle, v.Context, term, v.Bitwidth))
@@ -192,9 +194,9 @@ func (p *MirLowering[F]) lowerRangeConstraint(v RangeConstraint[F], mirModule *m
 func (p *MirLowering[F]) lowerInterleavingConstraint(c InterleavingConstraint[F], mirModule *mir.ModuleBuilder[F]) {
 	//
 	// Lower sources
-	sources := p.lowerTerms(c.Sources, mirModule)
+	sources := p.expandTerms(c.Sources, mirModule)
 	// Lower target
-	target := p.lowerTerm(c.Target, mirModule)
+	target := p.expandTerm(c.Target, mirModule)
 	// Add constraint
 	mirModule.AddConstraint(
 		mir.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources))
@@ -223,12 +225,12 @@ func (p *MirLowering[F]) lowerLookupConstraint(c LookupConstraint[F], mirModule 
 func (p *MirLowering[F]) lowerLookupVectorToAir(vector lookup.Vector[F, Term[F]], mirModule *mir.ModuleBuilder[F],
 ) lookup.Vector[F, mir.Term[F]] {
 	var (
-		terms    = p.lowerTerms(vector.Terms, mirModule)
+		terms    = p.expandTerms(vector.Terms, mirModule)
 		selector util.Option[mir.Term[F]]
 	)
 	//
 	if vector.HasSelector() {
-		sel := p.lowerTerm(vector.Selector.Unwrap(), mirModule)
+		sel := p.expandTerm(vector.Selector.Unwrap(), mirModule)
 		selector = util.Some(sel)
 	}
 	//
@@ -240,12 +242,12 @@ func (p *MirLowering[F]) lowerLookupVectorToAir(vector lookup.Vector[F, Term[F]]
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering[F]) lowerSortedConstraint(c SortedConstraint[F], mirModule *mir.ModuleBuilder[F]) {
 	var (
-		terms    = p.lowerTerms(c.Sources, mirModule)
+		terms    = p.expandTerms(c.Sources, mirModule)
 		selector util.Option[mir.Term[F]]
 	)
 	//
 	if c.Selector.HasValue() {
-		sel := p.lowerTerm(c.Selector.Unwrap(), mirModule)
+		sel := p.expandTerm(c.Selector.Unwrap(), mirModule)
 		selector = util.Some(sel)
 	}
 	// Add constraint
@@ -299,31 +301,30 @@ func (p *MirLowering[F]) lowerLogicals(terms []LogicalTerm[F], mirModule *mir.Mo
 func (p *MirLowering[F]) lowerEquality(sign bool, left Term[F], right Term[F], mirModule *mir.ModuleBuilder[F],
 ) mir.LogicalTerm[F] {
 	//
-	var (
-		lhs mir.Term[F] = p.lowerTerm(left, mirModule)
-		rhs mir.Term[F] = p.lowerTerm(right, mirModule)
-	)
-	//
-	if sign {
-		return ir.Equals[F, mir.LogicalTerm[F]](lhs, rhs)
+	var fn = func(lhs, rhs mir.Term[F]) mir.LogicalTerm[F] {
+		//
+		if sign {
+			return ir.Equals[F, mir.LogicalTerm[F]](lhs, rhs)
+		}
+		//
+		return ir.NotEquals[F, mir.LogicalTerm[F]](lhs, rhs)
 	}
 	//
-	return ir.NotEquals[F, mir.LogicalTerm[F]](lhs, rhs)
+	return p.lowerBinaryLogical(left, right, fn, mirModule)
 }
 
 func (p *MirLowering[F]) lowerInequality(term Inequality[F], mirModule *mir.ModuleBuilder[F],
 ) mir.LogicalTerm[F] {
 	//
-	var (
-		lhs mir.Term[F] = p.lowerTerm(term.Lhs, mirModule)
-		rhs mir.Term[F] = p.lowerTerm(term.Rhs, mirModule)
-	)
-	//
-	if term.Strict {
-		return ir.LessThan[F, mir.LogicalTerm[F]](lhs, rhs)
+	var fn = func(lhs, rhs mir.Term[F]) mir.LogicalTerm[F] {
+		if term.Strict {
+			return ir.LessThan[F, mir.LogicalTerm[F]](lhs, rhs)
+		}
+		//
+		return ir.LessThanOrEquals[F, mir.LogicalTerm[F]](lhs, rhs)
 	}
 	//
-	return ir.LessThanOrEquals[F, mir.LogicalTerm[F]](lhs, rhs)
+	return p.lowerBinaryLogical(term.Lhs, term.Rhs, fn, mirModule)
 }
 
 func (p *MirLowering[F]) lowerIte(term *Ite[F], mirModule *mir.ModuleBuilder[F]) mir.LogicalTerm[F] {
@@ -336,72 +337,154 @@ func (p *MirLowering[F]) lowerIte(term *Ite[F], mirModule *mir.ModuleBuilder[F])
 	return ir.IfThenElse(condition, trueBranch, falseBranch)
 }
 
-// Inner form is used for recursive calls and does not repeat the constant
-// propagation phase.
-func (p *MirLowering[F]) lowerTerm(e Term[F], mirModule *mir.ModuleBuilder[F]) mir.Term[F] {
+type binaryLogicalFn[F field.Element[F]] func(l, r mir.Term[F]) mir.LogicalTerm[F]
+
+func (p *MirLowering[F]) lowerBinaryLogical(lhs, rhs Term[F], fn binaryLogicalFn[F], mirModule *mir.ModuleBuilder[F],
+) mir.LogicalTerm[F] {
+	//
+	var (
+		lTerms = p.lowerTerm(lhs, mirModule)
+		rTerms = p.lowerTerm(rhs, mirModule)
+		terms  []mir.LogicalTerm[F]
+	)
+	//
+	for _, l := range lTerms {
+		for _, r := range rTerms {
+			terms = append(terms, fn(l, r))
+		}
+	}
+	//
+	return ir.Conjunction(terms...)
+}
+
+func (p *MirLowering[F]) expandTerms(es []Term[F], mirModule *mir.ModuleBuilder[F]) (terms []mir.Term[F]) {
+	terms = make([]mir.Term[F], len(es))
+	//
+	for i, e := range es {
+		terms[i] = p.expandTerm(e, mirModule)
+	}
+	//
+	return terms
+}
+
+func (p *MirLowering[F]) expandTerm(e Term[F], mirModule *mir.ModuleBuilder[F]) mir.Term[F] {
+	var terms = p.lowerTerm(e, mirModule)
+	//
+	if len(terms) != 1 {
+		panic(fmt.Sprintf("cannot expand %d terms", len(terms)))
+	}
+	//
+	return terms[0]
+}
+
+// Lower a given HIR expression into one or more "conditional" MIR expressions.
+// In the majority of cases, an HIR expression is lowered into a single
+// unconditional MIR expression.  However, the presence of nested "if" terms
+// introduces the need to separate out terms with conditions.  Consider the
+// following minimal example:
+//
+// (== X
+//
+//	(if (== 0 Y) 0 7))
+//
+// In this case, we lower into (effectively the following two MIR conditional
+// expressions:
+//
+// (1) (== X 0) when (== 0 Y)
+// (2) (== X 7) when (!= 0 Y)
+//
+// The reason for doing this is to enable lowering to a polynomial expression
+// (i.e. since these cannot contain nested normalisation expressions, etc).  An
+// alternative approach would be to expand nested normalisations arising into
+// inverse columns as they arise.  However, this was deemed to be less than
+// desirable because it introduces products of the form (x*x⁻¹) which are
+// expensive in the context of small fields.
+func (p *MirLowering[F]) lowerTerm(e Term[F], mirModule *mir.ModuleBuilder[F]) []mir.Term[F] {
 	//
 	switch e := e.(type) {
 	case *Add[F]:
-		args := p.lowerTerms(e.Args, mirModule)
-		return ir.Sum(args...)
+		fn := func(args []mir.Term[F]) mir.Term[F] {
+			return ir.Sum(args...)
+		}
+		//
+		return p.lowerTerms(fn, mirModule, e.Args...)
 	case *Cast[F]:
 		return p.lowerTerm(e.Arg, mirModule)
 	case *Constant[F]:
-		return ir.Const[F, mir.Term[F]](e.Value)
+		return []mir.Term[F]{ir.Const[F, mir.Term[F]](e.Value)}
 	case *RegisterAccess[F]:
-		return ir.NewRegisterAccess[F, mir.Term[F]](e.Register, e.Shift)
+		return []mir.Term[F]{ir.NewRegisterAccess[F, mir.Term[F]](e.Register, e.Shift)}
 	case *Exp[F]:
 		return p.lowerExpTo(e, mirModule)
 	case *IfZero[F]:
-		condition := p.lowerLogical(e.Condition, mirModule)
-		trueBranch := p.lowerTerm(e.TrueBranch, mirModule)
-		falseBranch := p.lowerTerm(e.FalseBranch, mirModule)
-		//
-		return ir.IfElse(condition, trueBranch, falseBranch)
+		// condition := p.lowerLogical(e.Condition, mirModule)
+		// trueBranch := p.lowerTerm(e.TrueBranch, mirModule)
+		// falseBranch := p.lowerTerm(e.FalseBranch, mirModule)
+		// //
+		// return ir.IfElse(condition, trueBranch, falseBranch)
+		panic("todo")
 	case *LabelledConst[F]:
-		return ir.Const[F, mir.Term[F]](e.Value)
+		return []mir.Term[F]{ir.Const[F, mir.Term[F]](e.Value)}
 	case *Mul[F]:
-		args := p.lowerTerms(e.Args, mirModule)
-		return ir.Product(args...)
+		fn := func(args []mir.Term[F]) mir.Term[F] {
+			return ir.Product(args...)
+		}
+		//
+		return p.lowerTerms(fn, mirModule, e.Args...)
 	case *Norm[F]:
-		arg := p.lowerTerm(e.Arg, mirModule)
-		return ir.Normalise(arg)
+		// arg := p.lowerTerm(e.Arg, mirModule)
+		// return ir.Normalise(arg)
+		panic("GOT HERE")
 	case *Sub[F]:
-		args := p.lowerTerms(e.Args, mirModule)
-		return ir.Subtract(args...)
+		fn := func(args []mir.Term[F]) mir.Term[F] {
+			return ir.Subtract(args...)
+		}
+		//
+		return p.lowerTerms(fn, mirModule, e.Args...)
 	case *VectorAccess[F]:
-		return p.lowerVectorAccess(e)
+		return []mir.Term[F]{p.lowerVectorAccess(e)}
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-// Lower a set of zero or more HIR expressions.
-func (p *MirLowering[F]) lowerTerms(exprs []Term[F], mirModule *mir.ModuleBuilder[F]) []mir.Term[F] {
-	nexprs := make([]mir.Term[F], len(exprs))
+type naryFn[F field.Element[F]] func([]mir.Term[F]) mir.Term[F]
 
+// Lower a set of zero or more HIR expressions.
+func (p *MirLowering[F]) lowerTerms(fn naryFn[F], mirModule *mir.ModuleBuilder[F], exprs ...Term[F]) []mir.Term[F] {
+	var nexprs = make([][]mir.Term[F], len(exprs))
+	//
 	for i := range len(exprs) {
 		nexprs[i] = p.lowerTerm(exprs[i], mirModule)
 	}
-
-	return nexprs
+	//
+	return constructTerms(0, nexprs, fn, make([]mir.Term[F], len(exprs)))
 }
 
 // LowerTo lowers an exponent expression to the MIR level by lowering the
 // argument, and then constructing a multiplication.  This is because the AIR
 // level does not support an explicit exponent operator.
-func (p *MirLowering[F]) lowerExpTo(e *Exp[F], mirModule *mir.ModuleBuilder[F]) mir.Term[F] {
-	// Lower the expression being raised
-	le := p.lowerTerm(e.Arg, mirModule)
-	// Multiply it out k times
-	es := make([]mir.Term[F], e.Pow)
+func (p *MirLowering[F]) lowerExpTo(e *Exp[F], mirModule *mir.ModuleBuilder[F]) []mir.Term[F] {
+	var (
+		// Lower expression being raised
+		args = p.lowerTerm(e.Arg, mirModule)
+		//
+		terms = make([]mir.Term[F], len(args))
+	)
 	//
-	for i := uint64(0); i < e.Pow; i++ {
-		es[i] = le
+	for i, arg := range args {
+		// Multiply it out k times
+		es := make([]mir.Term[F], e.Pow)
+		//
+		for i := uint64(0); i < e.Pow; i++ {
+			es[i] = arg
+		}
+		// Done
+		terms[i] = ir.Product(es...)
 	}
-	// Done
-	return ir.Product(es...)
+	//
+	return terms
 }
 
 func (p *MirLowering[F]) lowerVectorAccess(e *VectorAccess[F]) mir.Term[F] {
@@ -414,4 +497,25 @@ func (p *MirLowering[F]) lowerVectorAccess(e *VectorAccess[F]) mir.Term[F] {
 	}
 	//
 	return ir.NewVectorAccess(vars)
+}
+
+func constructTerms[F field.Element[F]](i uint, exprs [][]mir.Term[F], fn naryFn[F], args []mir.Term[F]) []mir.Term[F] {
+	var terms []mir.Term[F]
+	//
+	if i == 0 {
+		// Clone args
+		args = slices.Clone(args)
+		// Apply constructor
+		return []mir.Term[F]{fn(args)}
+	}
+	//
+	for _, expr := range exprs[i] {
+		args[i] = expr
+		// Recursively construct terms for this position
+		ith := constructTerms(i+1, exprs, fn, args)
+		// Append them all together
+		terms = append(terms, ith...)
+	}
+	//
+	return terms
 }
