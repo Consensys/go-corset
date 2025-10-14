@@ -17,7 +17,9 @@ import (
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -92,13 +94,10 @@ func (p *MirLowering[F]) LowerModule(index uint) {
 		hirModule = p.hirModules[index]
 		mirModule = p.mirSchema.Module(index)
 	)
-	// Add assignments.  At this time, there is nothing to do in terms of
-	// lowering.  Observe that this must be done *before* lowering assignments
-	// to ensure a correct ordering.  For example, if a constraint refers to one
-	// of these assigned columns and generates a corresponding computed column
-	// (e.g. for the inverse).
+	// Lower assignments.
 	for iter := hirModule.Assignments(); iter.HasNext(); {
-		mirModule.AddAssignment(iter.Next())
+		ith := p.lowerAssignment(iter.Next(), mirModule)
+		mirModule.AddAssignment(ith)
 	}
 	// Lower constraints
 	for iter := hirModule.Constraints(); iter.HasNext(); {
@@ -106,6 +105,24 @@ func (p *MirLowering[F]) LowerModule(index uint) {
 		constraint := iter.Next().(Constraint[F])
 		//
 		p.lowerConstraint(constraint, mirModule)
+	}
+}
+
+// Lowering assignments is relatively straightforward as there are not so many
+// created from Corset, and most do not have anurthing to lower.
+func (p *MirLowering[F]) lowerAssignment(assign schema.Assignment[F], mirModule *mir.ModuleBuilder[F],
+) schema.Assignment[F] {
+	//
+	switch a := assign.(type) {
+	case *ComputedRegister[F]:
+		expr := p.lowerTerm(a.Expr, mirModule)
+		return assignment.NewComputedRegister(a.Target, expr, a.Direction)
+	case *assignment.Computation[F]:
+		return a
+	case *assignment.SortedPermutation[F]:
+		return a
+	default:
+		panic(fmt.Sprintf("unknown assignment: %s\n", reflect.TypeOf(a).String()))
 	}
 }
 
