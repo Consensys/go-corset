@@ -116,10 +116,8 @@ func (p *MirLowering[F]) lowerAssignment(assign sc.Assignment[F], mirModule *mir
 ) sc.Assignment[F] {
 	//
 	switch a := assign.(type) {
-	case *ComputedRegister[F]:
-		// expr := p.lowerTerm(a.Expr, mirModule)
-		// return assignment.NewComputedRegister(a.Target, expr, a.Direction)
-		panic("todo")
+	case *assignment.ComputedRegister[F, ir.Evaluable[F]]:
+		return a
 	case *assignment.Computation[F]:
 		return a
 	case *assignment.SortedPermutation[F]:
@@ -388,10 +386,13 @@ func (p *MirLowering[F]) expandTerm(e Term[F], module *mir.ModuleBuilder[F]) *mi
 	)
 	// Add new column (if it does not already exist)
 	if !ok {
+		// Convert expression into a generic computation
+		computation := ir.NewComputation[F, LogicalTerm[F]](e)
 		// Declared a new computed column
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
 		// Add assignment for filling said computed column
-		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e, true))
+		module.AddAssignment(
+			assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), computation, true))
 		// Construct v == [e]
 		eq_e_v := term.Equate(index)
 		// Ensure v == e, where v is value of computed column.
