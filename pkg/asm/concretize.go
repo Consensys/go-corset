@@ -73,9 +73,14 @@ type UniformSchema[F field.Element[F]] = sc.UniformSchema[F, mir.Module[F]]
 //
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
-func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MicroHirProgram[F1],
+func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, hp MicroHirProgram[F1],
 ) (UniformSchema[F2], sc.LimbsMap) {
 	var (
+		// Lower HIR program first.  This is necessary to ensure any registers
+		// added during this process are included in the subsequent limbs map.
+		p = lowerHirProgram(hp)
+		// Construct a limbs map which determines the mapping of all registers
+		// into their limbs.
 		mapping = agnostic.NewLimbsMap(cfg, p.Modules().Collect()...)
 		n       = len(p.Functions())
 		// Construct compiler
@@ -90,12 +95,15 @@ func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, p MicroHirPr
 	for i, m := range comp.Modules() {
 		modules[i] = ir.BuildModule[F2, mir.Constraint[F2], mir.Term[F2], mir.Module[F2]](*m.Module)
 	}
-	// Lower external modules
-	externs := hir.LowerToMir(p.Externs())
 	// Concretize legacy components
-	copy(modules[n:], mir.Concretize[F1, F2](mapping, externs))
+	copy(modules[n:], mir.Concretize[F1, F2](mapping, p.Externs()))
 	// Done
 	return schema.NewUniformSchema(modules), mapping
+}
+
+// Lower an HIR program into an MIR program.
+func lowerHirProgram[F field.Element[F]](hp MicroHirProgram[F]) MicroMirProgram[F] {
+	return NewMixedProgram(hp.program, hir.LowerToMir(hp.externs)...)
 }
 
 // Subdivide a given program.  In principle, this should be located within
