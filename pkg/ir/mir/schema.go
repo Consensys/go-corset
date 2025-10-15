@@ -14,7 +14,6 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/ir"
-	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -52,8 +51,8 @@ type (
 
 // Following types capture key assignment forms at the MIR level.
 type (
-	// ComputedRegister captures one form of computation permitted at the MIR level.
-	ComputedRegister[F field.Element[F]] = assignment.ComputedRegister[F, Term[F]]
+// ComputedRegister captures one form of computation permitted at the MIR level.
+// ComputedRegister[F field.Element[F]] = assignment.ComputedRegister[F, Term[F]]
 )
 
 // Following types capture permitted constraint forms at the MIR level.

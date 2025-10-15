@@ -13,14 +13,8 @@
 package gadgets
 
 import (
-	"math/big"
-
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
-	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -30,33 +24,34 @@ import (
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
 func Expand[F field.Element[F]](bitwidth uint, e air.Term[F], module *air.ModuleBuilder[F]) schema.RegisterId {
-	// Check whether this is a straightforward register access.
-	if ca, ok := e.(*air.ColumnAccess[F]); ok && ca.Shift == 0 {
-		// Optimisation possible
-		return ca.Register
-	}
-	//
-	var (
-		// Determine computed column name
-		name = e.Lisp(true, module).String(false)
-		// Look up column
-		index, ok = module.HasRegister(name)
-		// Default padding (for now)
-		padding big.Int = ir.PaddingFor(e, module)
-	)
-	// Add new column (if it does not already exist)
-	if !ok {
-		// Add computed column
-		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
-		module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e, true))
-		// Construct v == [e]
-		v := ir.NewRegisterAccess[F, air.Term[F]](index, 0)
-		// v - e
-		eq_e_v := ir.Subtract(v, e)
-		// Ensure (v - e) == 0, where v is value of computed column.
-		module.AddConstraint(
-			air.NewVanishingConstraint(name, module.Id(), util.None[int](), eq_e_v))
-	}
-	//
-	return index
+	// // Check whether this is a straightforward register access.
+	// if ca, ok := e.(*air.ColumnAccess[F]); ok && ca.Shift == 0 {
+	// 	// Optimisation possible
+	// 	return ca.Register
+	// }
+	// //
+	// var (
+	// 	// Determine computed column name
+	// 	name = e.Lisp(true, module).String(false)
+	// 	// Look up column
+	// 	index, ok = module.HasRegister(name)
+	// 	// Default padding (for now)
+	// 	padding big.Int = ir.PaddingFor(e, module)
+	// )
+	// // Add new column (if it does not already exist)
+	// if !ok {
+	// 	// Add computed column
+	// 	index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
+	// 	module.AddAssignment(assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), e, true))
+	// 	// Construct v == [e]
+	// 	v := ir.NewRegisterAccess[F, air.Term[F]](index, 0)
+	// 	// v - e
+	// 	eq_e_v := ir.Subtract(v, e)
+	// 	// Ensure (v - e) == 0, where v is value of computed column.
+	// 	module.AddConstraint(
+	// 		air.NewVanishingConstraint(name, module.Id(), util.None[int](), eq_e_v))
+	// }
+	// //
+	// return index
+	panic("should be removed")
 }

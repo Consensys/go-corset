@@ -74,7 +74,7 @@ func getSummerisers[F field.Element[F]]() []schemaSummariser[F] {
 		constraintCounter("Range", isRangeConstraint[F]),
 		// Assignments
 		assignmentCounter[F]("Computed Columns",
-			reflect.TypeOf((*mir.ComputedRegister[F])(nil))),
+			reflect.TypeOf((*assignment.ComputedRegister[F])(nil))),
 		assignmentCounter[F]("Computation Columns",
 			reflect.TypeOf((*assignment.Computation[F])(nil))),
 		assignmentCounter[F]("Lexicographic Orderings",

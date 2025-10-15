@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -98,8 +97,7 @@ func (p *MirLowering[F]) LowerModule(index uint) {
 	)
 	// Lower assignments.
 	for iter := hirModule.Assignments(); iter.HasNext(); {
-		ith := p.lowerAssignment(iter.Next(), mirModule)
-		mirModule.AddAssignment(ith)
+		mirModule.AddAssignment(iter.Next())
 	}
 	// Lower constraints
 	for iter := hirModule.Constraints(); iter.HasNext(); {
@@ -107,23 +105,6 @@ func (p *MirLowering[F]) LowerModule(index uint) {
 		constraint := iter.Next().(Constraint[F])
 		//
 		p.lowerConstraint(constraint, mirModule)
-	}
-}
-
-// Lowering assignments is relatively straightforward as there are not so many
-// created from Corset, and most do not have anurthing to lower.
-func (p *MirLowering[F]) lowerAssignment(assign sc.Assignment[F], mirModule *mir.ModuleBuilder[F],
-) sc.Assignment[F] {
-	//
-	switch a := assign.(type) {
-	case *assignment.ComputedRegister[F, ir.Evaluable[F]]:
-		return a
-	case *assignment.Computation[F]:
-		return a
-	case *assignment.SortedPermutation[F]:
-		return a
-	default:
-		panic(fmt.Sprintf("unknown assignment: %s\n", reflect.TypeOf(a).String()))
 	}
 }
 
@@ -392,7 +373,7 @@ func (p *MirLowering[F]) expandTerm(e Term[F], module *mir.ModuleBuilder[F]) *mi
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
 		// Add assignment for filling said computed column
 		module.AddAssignment(
-			assignment.NewComputedRegister(sc.NewRegisterRef(module.Id(), index), computation, true))
+			assignment.NewComputedRegister(computation, true, module.Id(), index))
 		// Construct v == [e]
 		eq_e_v := term.Equate(index)
 		// Ensure v == e, where v is value of computed column.

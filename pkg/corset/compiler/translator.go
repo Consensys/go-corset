@@ -277,9 +277,8 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 		// Determine direction of comptuation
 		direction = d.Target.InnerBinding().Kind != ast.COMPUTED_BWD
 		// Determine HIR identifier for target register
-		targetPath  = path.Extend(d.Target.Name())
-		targetIndex = t.registerIndexOf(targetPath)
-		target      = schema.NewRegisterRef(module.Id(), targetIndex)
+		targetPath = path.Extend(d.Target.Name())
+		target     = t.registerIndexOf(targetPath)
 		// Translate computation
 		computation, errors = t.translateExpression(d.Computation, module, 0)
 	)
@@ -288,9 +287,11 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 		return errors
 	}
 	// Calculate and update padding value
-	module.Registers()[targetIndex.Unwrap()].Padding = ir.PaddingFor(computation, module)
+	module.Registers()[target.Unwrap()].Padding = ir.PaddingFor(computation, module)
 	// Add assignment
-	module.AddAssignment(assignment.NewComputedRegister(target, computation, direction))
+	module.AddAssignment(assignment.NewComputedRegister(
+		ir.NewComputation[bls12_377.Element, hir.LogicalTerm[bls12_377.Element]](computation), direction,
+		module.Id(), target))
 	// Add constraint (defconstraint target == computation)
 	module.AddConstraint(hir.NewVanishingConstraint(
 		d.Target.Name(), module.Id(),
@@ -299,7 +300,7 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 		util.None[int](),
 		//
 		ir.Equals[bls12_377.Element, hirLogicalTerm](
-			ir.NewRegisterAccess[bls12_377.Element, hirTerm](target.Register(), 0), computation),
+			ir.NewRegisterAccess[bls12_377.Element, hirTerm](target, 0), computation),
 	))
 	// Done
 	return nil
