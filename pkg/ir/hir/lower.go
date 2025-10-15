@@ -499,10 +499,10 @@ func (p *MirLowering[F]) lowerVectorAccess(e *VectorAccess[F]) mir.Term[F] {
 	return ir.NewVectorAccess(vars)
 }
 
-func constructTerms[F field.Element[F]](i uint, exprs [][]mir.Term[F], fn naryFn[F], args []mir.Term[F]) []mir.Term[F] {
+func constructTerms[F field.Element[F]](i int, exprs [][]mir.Term[F], fn naryFn[F], args []mir.Term[F]) []mir.Term[F] {
 	var terms []mir.Term[F]
 	//
-	if i == 0 {
+	if i == len(exprs) {
 		// Clone args
 		args = slices.Clone(args)
 		// Apply constructor
