@@ -127,4 +127,7 @@ type LogicalTerm[F any, T any] interface {
 	// an expression, so that e.g. "(+ X (+ 1 2))" becomes "(+ X 3)"", etc.
 	// There is also an option to retain casts, or not.
 	Simplify(casts bool) T
+
+	// Negate this logical term
+	Negate() T
 }

@@ -33,8 +33,45 @@ func UnconditionalTerm[F field.Element[F]](value mir.Term[F]) IfTerm[F] {
 }
 
 // IfThenElse constructs an IfTerm representing an if-then else expression.
-func IfThenElse[F field.Element[F]](cond mir.LogicalTerm[F], tt, ff mir.Term[F]) IfTerm[F] {
-	panic("todo")
+func IfThenElse[F field.Element[F]](cond mir.LogicalTerm[F], tt, ff IfTerm[F]) IfTerm[F] {
+	var (
+		n       = len(tt.cases)
+		m       = len(ff.cases)
+		ncases  = make([]ifTermCase[F], n+m)
+		negCond = ir.Negation(cond)
+	)
+	// True branches
+	for i, c := range tt.cases {
+		condition := ir.Conjunction(cond, c.condition).Simplify(false)
+		ncases[i] = ifTermCase[F]{condition, c.target}
+	}
+	// False branches
+	for i, c := range ff.cases {
+		condition := ir.Conjunction(negCond, c.condition).Simplify(false)
+		ncases[i+n] = ifTermCase[F]{condition, c.target}
+	}
+	// Done
+	return IfTerm[F]{ncases}
+}
+
+// IfEqElse constructs an IfTerm representing an if-eq expression.
+func IfEqElse[F field.Element[F]](lhs IfTerm[F], rhs mir.Term[F], tt, ff mir.Term[F]) IfTerm[F] {
+	var (
+		n      = len(lhs.cases)
+		ncases = make([]ifTermCase[F], 2*n)
+	)
+	// True branches
+	for i, c := range lhs.cases {
+		condition := ir.Conjunction(c.condition, ir.Equals[F, mir.LogicalTerm[F]](c.target, rhs))
+		ncases[i] = ifTermCase[F]{condition, tt}
+	}
+	// False branches
+	for i, c := range lhs.cases {
+		condition := ir.Conjunction(c.condition, ir.NotEquals[F, mir.LogicalTerm[F]](c.target, rhs))
+		ncases[i+n] = ifTermCase[F]{condition, ff}
+	}
+	// Done
+	return IfTerm[F]{ncases}
 }
 
 // MapIfTerms applies a given function to each target of the given argument

@@ -67,6 +67,17 @@ func (p *Disjunct[F, T]) Bounds() util.Bounds {
 	return util.BoundsForArray(p.Args)
 }
 
+// Negate implementation for LogicalTerm interface
+func (p *Disjunct[F, S]) Negate() S {
+	var nargs = make([]S, len(p.Args))
+	//
+	for i, t := range p.Args {
+		nargs[i] = t.Negate()
+	}
+	//
+	return Conjunction(nargs...)
+}
+
 // TestAt implementation for Testable interface.
 func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	//

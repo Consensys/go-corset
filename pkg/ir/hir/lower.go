@@ -443,12 +443,11 @@ func (p *MirLowering[F]) lowerTerm(e Term[F], mirModule *mir.ModuleBuilder[F]) I
 	case *Exp[F]:
 		return p.lowerExpTo(e, mirModule)
 	case *IfZero[F]:
-		// condition := p.lowerLogical(e.Condition, mirModule)
-		// trueBranch := p.lowerTerm(e.TrueBranch, mirModule)
-		// falseBranch := p.lowerTerm(e.FalseBranch, mirModule)
-		// //
-		// return ir.IfElse(condition, trueBranch, falseBranch)
-		panic("todo")
+		condition := p.lowerLogical(e.Condition, mirModule)
+		trueBranch := p.lowerTerm(e.TrueBranch, mirModule)
+		falseBranch := p.lowerTerm(e.FalseBranch, mirModule)
+		//
+		return IfThenElse(condition, trueBranch, falseBranch)
 	case *LabelledConst[F]:
 		return UnconditionalTerm(ir.Const[F, mir.Term[F]](e.Value))
 	case *Mul[F]:
@@ -458,9 +457,13 @@ func (p *MirLowering[F]) lowerTerm(e Term[F], mirModule *mir.ModuleBuilder[F]) I
 		//
 		return p.lowerTerms(fn, mirModule, e.Args...)
 	case *Norm[F]:
-		// arg := p.lowerTerm(e.Arg, mirModule)
-		// return ir.Normalise(arg)
-		panic("GOT HERE")
+		var (
+			zero = ir.Const[F, mir.Term[F]](field.Zero[F]())
+			one  = ir.Const[F, mir.Term[F]](field.One[F]())
+			arg  = p.lowerTerm(e.Arg, mirModule)
+		)
+		//
+		return IfEqElse(arg, zero, zero, one)
 	case *Sub[F]:
 		fn := func(args []mir.Term[F]) mir.Term[F] {
 			return ir.Subtract(args...)

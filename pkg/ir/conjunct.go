@@ -67,6 +67,17 @@ func (p *Conjunct[F, T]) ShiftRange() (int, int) {
 	return shiftRangeOfTerms(p.Args...)
 }
 
+// Negate implementation for LogicalTerm interface
+func (p *Conjunct[F, S]) Negate() S {
+	var nargs = make([]S, len(p.Args))
+	//
+	for i, t := range p.Args {
+		nargs[i] = t.Negate()
+	}
+	//
+	return Disjunction(nargs...)
+}
+
 // TestAt implementation for Testable interface.
 func (p *Conjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	//

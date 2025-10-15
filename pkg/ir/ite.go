@@ -90,6 +90,13 @@ func (p *Ite[F, T]) Bounds() util.Bounds {
 	return c
 }
 
+// Negate implementation for LogicalTerm interface
+func (p *Ite[F, S]) Negate() S {
+	// To implement this, we compile out the if-then else into conjunctions and
+	// disjunctions, then negate these.
+	panic("todo")
+}
+
 // TestAt implementation for Testable interface.
 func (p *Ite[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
 	// Evaluate condition

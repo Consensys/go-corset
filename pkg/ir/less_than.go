@@ -145,6 +145,13 @@ func (p *Inequality[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp
 		sexp.NewSymbol(symbol), l, r})
 }
 
+// Negate implementation for LogicalTerm interface
+func (p *Inequality[F, S, T]) Negate() S {
+	var tmp LogicalTerm[F, S] = &Inequality[F, S, T]{!p.Strict, p.Rhs, p.Lhs}
+	//
+	return tmp.(S)
+}
+
 // RequiredRegisters implementation for Contextual interface.
 func (p *Inequality[F, S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Lhs.RequiredRegisters()

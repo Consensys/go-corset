@@ -89,6 +89,13 @@ func (p *Equal[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp
 		sexp.NewSymbol("=="), l, r})
 }
 
+// Negate implementation for LogicalTerm interface
+func (p *Equal[F, S, T]) Negate() S {
+	var tmp LogicalTerm[F, S] = &NotEqual[F, S, T]{p.Lhs, p.Rhs}
+	//
+	return tmp.(S)
+}
+
 // RequiredRegisters implementation for Contextual interface.
 func (p *Equal[F, S, T]) RequiredRegisters() *set.SortedSet[uint] {
 	set := p.Lhs.RequiredRegisters()
