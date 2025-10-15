@@ -109,7 +109,7 @@ func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]
 		return Disjunction(args...)
 	case *Equal[F, S, T]:
 		lhs := NewComputation[F, S](t.Lhs)
-		rhs := NewComputation[F, S](t.Lhs)
+		rhs := NewComputation[F, S](t.Rhs)
 
 		return Equals[F, LogicalComputation[F]](lhs, rhs)
 	case *Ite[F, S]:
@@ -128,8 +128,8 @@ func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]
 		return IfThenElse(condition, trueBranch, falseBranch)
 	case *Inequality[F, S, T]:
 		lhs := NewComputation[F, S](t.Lhs)
-
-		rhs := NewComputation[F, S](t.Lhs)
+		rhs := NewComputation[F, S](t.Rhs)
+		//
 		if t.Strict {
 			return LessThan[F, LogicalComputation[F]](lhs, rhs)
 		}
@@ -140,7 +140,7 @@ func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]
 		return Negation(arg)
 	case *NotEqual[F, S, T]:
 		lhs := NewComputation[F, S](t.Lhs)
-		rhs := NewComputation[F, S](t.Lhs)
+		rhs := NewComputation[F, S](t.Rhs)
 
 		return NotEquals[F, LogicalComputation[F]](lhs, rhs)
 	default:
@@ -239,7 +239,7 @@ func ConcretizeLogicalComputation[F1 field.Element[F1], F2 field.Element[F2]](c 
 		return Disjunction(args...)
 	case *Equal[F1, LogicalComputation[F1], Computation[F1]]:
 		lhs := ConcretizeComputation[F1, F2](t.Lhs)
-		rhs := ConcretizeComputation[F1, F2](t.Lhs)
+		rhs := ConcretizeComputation[F1, F2](t.Rhs)
 
 		return Equals[F2, LogicalComputation[F2]](lhs, rhs)
 	case *Ite[F1, LogicalComputation[F1]]:
@@ -258,8 +258,8 @@ func ConcretizeLogicalComputation[F1 field.Element[F1], F2 field.Element[F2]](c 
 		return IfThenElse(condition, trueBranch, falseBranch)
 	case *Inequality[F1, LogicalComputation[F1], Computation[F1]]:
 		lhs := ConcretizeComputation[F1, F2](t.Lhs)
-
-		rhs := ConcretizeComputation[F1, F2](t.Lhs)
+		rhs := ConcretizeComputation[F1, F2](t.Rhs)
+		//
 		if t.Strict {
 			return LessThan[F2, LogicalComputation[F2]](lhs, rhs)
 		}
@@ -270,7 +270,7 @@ func ConcretizeLogicalComputation[F1 field.Element[F1], F2 field.Element[F2]](c 
 		return Negation(arg)
 	case *NotEqual[F1, LogicalComputation[F1], Computation[F1]]:
 		lhs := ConcretizeComputation[F1, F2](t.Lhs)
-		rhs := ConcretizeComputation[F1, F2](t.Lhs)
+		rhs := ConcretizeComputation[F1, F2](t.Rhs)
 
 		return NotEquals[F2, LogicalComputation[F2]](lhs, rhs)
 	default:
