@@ -18,10 +18,14 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
+// Computation represents an "unbound" term.  That is, it captures any possible
+// term (i.e. rather than a fixed set as for MIR or AIR, etc).
 type Computation[F any] interface {
 	Term[F, Computation[F]]
 }
 
+// LogicalComputation represents an "unbound" term.  That is, it captures any
+// possible term (i.e. rather than a fixed set as for MIR or AIR, etc).
 type LogicalComputation[F any] interface {
 	LogicalTerm[F, LogicalComputation[F]]
 }
@@ -94,7 +98,8 @@ func NewComputations[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](term
 
 // NewLogicalComputation takes an arbitrary logical term and converts in into an
 // instance of computation by wrapping it.
-func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](term LogicalTerm[F, S]) LogicalComputation[F] {
+func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](term LogicalTerm[F, S],
+) LogicalComputation[F] {
 	switch t := term.(type) {
 	case *Conjunct[F, S]:
 		args := NewLogicalComputations[F, S, T](t.Args)
@@ -222,7 +227,9 @@ func ConcretizeComputations[F1 field.Element[F1], F2 field.Element[F2]](cs []Com
 // ConcretizeLogicalComputation concretizes a logical computation by converting
 // it from operating in one field to operating in another.  This requires
 // rebuilding the tree for the new field.
-func ConcretizeLogicalComputation[F1 field.Element[F1], F2 field.Element[F2]](c LogicalComputation[F1]) LogicalComputation[F2] {
+func ConcretizeLogicalComputation[F1 field.Element[F1], F2 field.Element[F2]](c LogicalComputation[F1],
+) LogicalComputation[F2] {
+	//
 	switch t := c.(type) {
 	case *Conjunct[F1, LogicalComputation[F1]]:
 		args := ConcretizeLogicalComputations[F1, F2](t.Args)
@@ -271,8 +278,10 @@ func ConcretizeLogicalComputation[F1 field.Element[F1], F2 field.Element[F2]](c 
 	}
 }
 
-// ConcretizeComputations concretizes an array of zero or more logical computations.
-func ConcretizeLogicalComputations[F1 field.Element[F1], F2 field.Element[F2]](cs []LogicalComputation[F1]) []LogicalComputation[F2] {
+// ConcretizeLogicalComputations concretizes an array of zero or more logical computations.
+func ConcretizeLogicalComputations[F1 field.Element[F1], F2 field.Element[F2]](cs []LogicalComputation[F1],
+) []LogicalComputation[F2] {
+	//
 	var computations = make([]LogicalComputation[F2], len(cs))
 	//
 	for i, t := range cs {
@@ -281,58 +290,3 @@ func ConcretizeLogicalComputations[F1 field.Element[F1], F2 field.Element[F2]](c
 	//
 	return computations
 }
-
-// type Compute[F any, T any] struct {
-// 	Term Term[F, T]
-// }
-
-// // ApplyShift implementation for Term interface.
-// func (p *Compute[F, T]) ApplyShift(shift int) Computation[F] {
-// 	panic("todo")
-// }
-
-// // Bounds implementation for Boundable interface.
-// func (p *Compute[F, T]) Bounds() util.Bounds {
-// 	return p.Term.Bounds()
-// }
-
-// // EvalAt implementation for Evaluable interface.
-// func (p *Compute[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
-// 	panic("todo")
-// }
-
-// // Lisp implementation for Lispifiable interface.
-// func (p *Compute[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
-// 	return p.Term.Lisp(global, mapping)
-// }
-
-// // RequiredRegisters implementation for Contextual interface.
-// func (p *Compute[F, T]) RequiredRegisters() *set.SortedSet[uint] {
-// 	return p.Term.RequiredRegisters()
-// }
-
-// // RequiredCells implementation for Contextual interface
-// func (p *Compute[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet[trace.CellRef] {
-// 	return p.Term.RequiredCells(row, mid)
-// }
-
-// // ShiftRange implementation for Term interface.
-// func (p *Compute[F, T]) ShiftRange() (int, int) {
-// 	return p.Term.ShiftRange()
-// }
-
-// // Simplify implementation for Term interface.
-// func (p *Compute[F, T]) Simplify(casts bool) Computation[F] {
-// 	// return &Compute[F, T]{p.Term.Simplify(casts)}
-// 	panic("todo")
-// }
-
-// // Substitute implementation for Substitutable interface.
-// func (p *Compute[F, T]) Substitute(mapping map[string]F) {
-// 	p.Term.Substitute(mapping)
-// }
-
-// // ValueRange implementation for Term interface.
-// func (p *Compute[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
-// 	return p.Term.ValueRange(mapping)
-// }
