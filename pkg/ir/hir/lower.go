@@ -378,7 +378,7 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
 		// Add assignment for filling said computed column
 		module.AddAssignment(
-			assignment.NewComputedRegister(computation, true, module.Id(), index))
+			assignment.NewComputedRegister[word.BigEndian](computation, true, module.Id(), index))
 		// Construct v == [e]
 		eq_e_v := term.Equate(index)
 		// Ensure v == e, where v is value of computed column.

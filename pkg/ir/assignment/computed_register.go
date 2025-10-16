@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ComputedRegister describes a column whose values are computed on-demand, rather
@@ -42,7 +43,7 @@ type ComputedRegister[F field.Element[F]] struct {
 	Targets []schema.RegisterId
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr ir.Computation[F]
+	Expr ir.Computation[word.BigEndian]
 	// Direction in which value is computed (true = forward, false = backward).
 	// More specifically, a forwards direction means the computation starts on
 	// the first row, whilst a backwards direction means it starts on the last.
@@ -53,7 +54,7 @@ type ComputedRegister[F field.Element[F]] struct {
 // determining expression.  More specifically, that expression is used to
 // compute the values for the columns during trace expansion.  For each, the
 // resulting value is split across the target columns.
-func NewComputedRegister[F field.Element[F]](expr ir.Computation[F], dir bool, module schema.ModuleId,
+func NewComputedRegister[F field.Element[F]](expr ir.Computation[word.BigEndian], dir bool, module schema.ModuleId,
 	limbs ...schema.RegisterId) *ComputedRegister[F] {
 	//
 	if len(limbs) == 0 {
@@ -200,7 +201,7 @@ func (p *ComputedRegister[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F
 		ntargets = append(ntargets, modmap.LimbIds(target)...)
 	}
 	//
-	return NewComputedRegister(expr, p.Direction, p.Module, ntargets...)
+	return NewComputedRegister[F](expr, p.Direction, p.Module, ntargets...)
 }
 
 // Substitute any matchined labelled constants within this assignment
@@ -239,8 +240,8 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[F],
-	trMod trace.Module[F], scMod schema.Module[F]) error {
+func fwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[word.BigEndian],
+	trMod trace.Module[word.BigEndian], scMod schema.Module[word.BigEndian]) error {
 	// Forwards computation
 	for i := range height {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -255,8 +256,8 @@ func fwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], w
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[F],
-	trMod trace.Module[F], scMod schema.Module[F]) error {
+func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[word.BigEndian],
+	trMod trace.Module[word.BigEndian], scMod schema.Module[word.BigEndian]) error {
 	// Backwards computation
 	for i := height; i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
@@ -271,7 +272,7 @@ func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], w
 	return nil
 }
 
-func write[F field.Element[F]](row uint, val F, data []array.MutArray[F], bitwidths []uint) {
+func write[F field.Element[F]](row uint, val word.BigEndian, data []array.MutArray[F], bitwidths []uint) {
 	var (
 		// FIXME: this is not efficient at all
 		acc big.Int
