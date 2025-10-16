@@ -38,9 +38,11 @@ func Test_Valid_Basic_04(t *testing.T) {
 	util.Check(t, false, "valid/basic_04")
 }
 
-func Test_Valid_Basic_05(t *testing.T) {
-	util.Check(t, false, "valid/basic_05")
-}
+// Ignored because uses a negative constant.
+//
+// func Test_Valid_Basic_05(t *testing.T) {
+// 	util.Check(t, false, "valid/basic_05")
+// }
 
 func Test_Valid_Basic_06(t *testing.T) {
 	util.Check(t, false, "valid/basic_06")

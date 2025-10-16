@@ -758,6 +758,13 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		//
 		return nil, t.srcmap.SyntaxErrors(expr, msg)
 	case *ast.Constant:
+		if e.Val.Sign() < 0 {
+			// NOTE: this can be supported by including a sign within the
+			// ir.Const datatype.  That is by far and away the best way to
+			// manage this.  Do no, under any circumstance, allow negative big
+			// integers.
+			panic("signed constant encountered")
+		}
 		// Initialise field from bigint
 		val := field.BigInt[word.BigEndian](e.Val)
 		//

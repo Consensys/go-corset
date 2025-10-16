@@ -29,6 +29,7 @@ import (
 
 type mirTerm = mir.Term[word.BigEndian]
 type mirLogicalTerm = mir.LogicalTerm[word.BigEndian]
+type mirModuleBuilder = mir.ModuleBuilder[word.BigEndian]
 
 // LowerToMir lowers (or refines) an HIR schema into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
@@ -113,7 +114,7 @@ func (p *MirLowering) LowerModule(index uint) {
 }
 
 // Lower a constraint to the MIR level.
-func (p *MirLowering) lowerConstraint(c Constraint, mirModule *mir.ModuleBuilder[word.BigEndian]) {
+func (p *MirLowering) lowerConstraint(c Constraint, mirModule *mirModuleBuilder) {
 	// Check what kind of constraint we have
 	switch v := c.constraint.(type) {
 	case Assertion:
@@ -138,7 +139,7 @@ func (p *MirLowering) lowerConstraint(c Constraint, mirModule *mir.ModuleBuilder
 }
 
 // Lowering an assertion is straightforward since its not a true constraint.
-func (p *MirLowering) lowerAssertion(v Assertion, mirModule *mir.ModuleBuilder[word.BigEndian]) {
+func (p *MirLowering) lowerAssertion(v Assertion, mirModule *mirModuleBuilder) {
 	var term = p.lowerLogical(v.Property, mirModule)
 	//
 	mirModule.AddConstraint(mir.NewAssertion(v.Handle, v.Context, v.Domain, term))
@@ -147,17 +148,17 @@ func (p *MirLowering) lowerAssertion(v Assertion, mirModule *mir.ModuleBuilder[w
 // Lower a vanishing constraint to the MIR level.  This is relatively
 // straightforward and simply relies on lowering the expression being
 // constrained.
-func (p *MirLowering) lowerVanishingConstraint(v VanishingConstraint, mirModule *mir.ModuleBuilder[word.BigEndian]) {
-	var term = p.lowerLogical(v.Constraint, mirModule)
+func (p *MirLowering) lowerVanishingConstraint(v VanishingConstraint, module *mirModuleBuilder) {
+	var term = p.lowerLogical(v.Constraint, module)
 	//
-	mirModule.AddConstraint(
+	module.AddConstraint(
 		mir.NewVanishingConstraint(v.Handle, v.Context, v.Domain, term))
 }
 
 // Lower a permutation constraint to the MIR level.  This is trivial because
 // permutation constraints do not currently support complex forms.
-func (p *MirLowering) lowerPermutationConstraint(v PermutationConstraint, mirModule *mir.ModuleBuilder[word.BigEndian]) {
-	mirModule.AddConstraint(
+func (p *MirLowering) lowerPermutationConstraint(v PermutationConstraint, module *mirModuleBuilder) {
+	module.AddConstraint(
 		mir.NewPermutationConstraint[word.BigEndian](v.Handle, v.Context, v.Targets, v.Sources),
 	)
 }
@@ -165,31 +166,31 @@ func (p *MirLowering) lowerPermutationConstraint(v PermutationConstraint, mirMod
 // Lower a range constraint to the MIR level.  Since range constraints at the
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerRangeConstraint(v RangeConstraint, mirModule *mir.ModuleBuilder[word.BigEndian]) {
-	var term = p.expandTerm(v.Expr, mirModule)
+func (p *MirLowering) lowerRangeConstraint(v RangeConstraint, module *mirModuleBuilder) {
+	var term = p.expandTerm(v.Expr, module)
 	//
-	mirModule.AddConstraint(
+	module.AddConstraint(
 		mir.NewRangeConstraint(v.Handle, v.Context, term, v.Bitwidth))
 }
 
 // Lower an interleaving constraint to the MIR level.  Since interleaving
 // constraints at the MIR level can only access columns directly, we must expand
 // the source expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerInterleavingConstraint(c InterleavingConstraint, mirModule *mir.ModuleBuilder[word.BigEndian]) {
+func (p *MirLowering) lowerInterleavingConstraint(c InterleavingConstraint, mod *mirModuleBuilder) {
 	//
 	// Lower sources
-	sources := p.expandTerms(c.Sources, mirModule)
+	sources := p.expandTerms(c.Sources, mod)
 	// Lower target
-	target := p.expandTerm(c.Target, mirModule)
+	target := p.expandTerm(c.Target, mod)
 	// Add constraint
-	mirModule.AddConstraint(
+	mod.AddConstraint(
 		mir.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources))
 }
 
 // Lower a lookup constraint to the MIR level.  Since lookup constraints at the
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule *mir.ModuleBuilder[word.BigEndian]) {
+func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule *mirModuleBuilder) {
 	var (
 		sources = make([]lookup.Vector[word.BigEndian, mirTerm], len(c.Sources))
 		targets = make([]lookup.Vector[word.BigEndian, mirTerm], len(c.Targets))
@@ -206,83 +207,83 @@ func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule *mir.M
 	mirModule.AddConstraint(mir.NewLookupConstraint(c.Handle, targets, sources))
 }
 
-func (p *MirLowering) lowerLookupVector(vector lookup.Vector[word.BigEndian, Term], mirModule *mir.ModuleBuilder[word.BigEndian],
+func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term], module *mirModuleBuilder,
 ) lookup.Vector[word.BigEndian, mirTerm] {
 	var (
-		terms    = p.expandTerms(vector.Terms, mirModule)
+		terms    = p.expandTerms(vec.Terms, module)
 		selector util.Option[mirTerm]
 	)
 	//
-	if vector.HasSelector() {
-		sel := p.expandTerm(vector.Selector.Unwrap(), mirModule)
+	if vec.HasSelector() {
+		sel := p.expandTerm(vec.Selector.Unwrap(), module)
 		selector = util.Some[mirTerm](sel)
 	}
 	//
-	return lookup.NewVector(vector.Module, selector, terms...)
+	return lookup.NewVector(vec.Module, selector, terms...)
 }
 
 // Lower a sorted constraint to the MIR level.  Since sorting constraints at the
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, mirModule *mir.ModuleBuilder[word.BigEndian]) {
+func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, module *mirModuleBuilder) {
 	var (
-		terms    = p.expandTerms(c.Sources, mirModule)
+		terms    = p.expandTerms(c.Sources, module)
 		selector util.Option[mirTerm]
 	)
 	//
 	if c.Selector.HasValue() {
-		sel := p.expandTerm(c.Selector.Unwrap(), mirModule)
+		sel := p.expandTerm(c.Selector.Unwrap(), module)
 		selector = util.Some[mirTerm](sel)
 	}
 	// Add constraint
-	mirModule.AddConstraint(
+	module.AddConstraint(
 		mir.NewSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, terms, c.Signs, c.Strict))
 }
 
-func (p *MirLowering) lowerLogical(e LogicalTerm, mirModule *mir.ModuleBuilder[word.BigEndian]) mirLogicalTerm {
+func (p *MirLowering) lowerLogical(e LogicalTerm, module *mirModuleBuilder) mirLogicalTerm {
 	//
 	switch e := e.(type) {
 	case *Conjunct:
-		return ir.Conjunction[word.BigEndian](p.lowerLogicals(e.Args, mirModule)...)
+		return ir.Conjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
 	case *Disjunct:
-		return ir.Disjunction[word.BigEndian](p.lowerLogicals(e.Args, mirModule)...)
+		return ir.Disjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
 	case *Equal:
-		return p.lowerEquality(true, e.Lhs, e.Rhs, mirModule)
+		return p.lowerEquality(true, e.Lhs, e.Rhs, module)
 	case *Ite:
-		return p.lowerIte(e, mirModule)
+		return p.lowerIte(e, module)
 	case *Negate:
-		return ir.Negation[word.BigEndian](p.lowerLogical(e.Arg, mirModule))
+		return ir.Negation[word.BigEndian](p.lowerLogical(e.Arg, module))
 	case *NotEqual:
-		return p.lowerEquality(false, e.Lhs, e.Rhs, mirModule)
+		return p.lowerEquality(false, e.Lhs, e.Rhs, module)
 	case *Inequality:
-		return p.lowerInequality(*e, mirModule)
+		return p.lowerInequality(*e, module)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
 	}
 }
 
-func (p *MirLowering) lowerOptionalLogical(e LogicalTerm, mirModule *mir.ModuleBuilder[word.BigEndian]) mirLogicalTerm {
+func (p *MirLowering) lowerOptionalLogical(e LogicalTerm, module *mirModuleBuilder) mirLogicalTerm {
 	if e == nil {
 		return nil
 	}
 	//
-	return p.lowerLogical(e, mirModule)
+	return p.lowerLogical(e, module)
 }
 
-func (p *MirLowering) lowerLogicals(terms []LogicalTerm, mirModule *mir.ModuleBuilder[word.BigEndian],
+func (p *MirLowering) lowerLogicals(terms []LogicalTerm, module *mirModuleBuilder,
 ) []mirLogicalTerm {
 	//
 	nexprs := make([]mirLogicalTerm, len(terms))
 
 	for i := range len(terms) {
-		nexprs[i] = p.lowerLogical(terms[i], mirModule)
+		nexprs[i] = p.lowerLogical(terms[i], module)
 	}
 
 	return nexprs
 }
 
-func (p *MirLowering) lowerEquality(sign bool, left Term, right Term, mirModule *mir.ModuleBuilder[word.BigEndian],
+func (p *MirLowering) lowerEquality(sign bool, left Term, right Term, module *mirModuleBuilder,
 ) mirLogicalTerm {
 	//
 	var fn = func(lhs, rhs mirTerm) mirLogicalTerm {
@@ -294,10 +295,10 @@ func (p *MirLowering) lowerEquality(sign bool, left Term, right Term, mirModule 
 		return ir.NotEquals[word.BigEndian, mirLogicalTerm](lhs, rhs)
 	}
 	//
-	return p.lowerBinaryLogical(left, right, fn, mirModule)
+	return p.lowerBinaryLogical(left, right, fn, module)
 }
 
-func (p *MirLowering) lowerInequality(term Inequality, mirModule *mir.ModuleBuilder[word.BigEndian],
+func (p *MirLowering) lowerInequality(term Inequality, module *mirModuleBuilder,
 ) mirLogicalTerm {
 	//
 	var fn = func(lhs, rhs mirTerm) mirLogicalTerm {
@@ -308,31 +309,31 @@ func (p *MirLowering) lowerInequality(term Inequality, mirModule *mir.ModuleBuil
 		return ir.LessThanOrEquals[word.BigEndian, mirLogicalTerm](lhs, rhs)
 	}
 	//
-	return p.lowerBinaryLogical(term.Lhs, term.Rhs, fn, mirModule)
+	return p.lowerBinaryLogical(term.Lhs, term.Rhs, fn, module)
 }
 
-func (p *MirLowering) lowerIte(term *Ite, mirModule *mir.ModuleBuilder[word.BigEndian]) mirLogicalTerm {
+func (p *MirLowering) lowerIte(term *Ite, module *mirModuleBuilder) mirLogicalTerm {
 	var (
-		condition   = p.lowerLogical(term.Condition, mirModule)
-		trueBranch  = p.lowerOptionalLogical(term.TrueBranch, mirModule)
-		falseBranch = p.lowerOptionalLogical(term.FalseBranch, mirModule)
+		condition   = p.lowerLogical(term.Condition, module)
+		trueBranch  = p.lowerOptionalLogical(term.TrueBranch, module)
+		falseBranch = p.lowerOptionalLogical(term.FalseBranch, module)
 	)
 	//
 	return ir.IfThenElse(condition, trueBranch, falseBranch)
 }
 
-func (p *MirLowering) lowerBinaryLogical(lhs, rhs Term, fn BinaryLogicalFn, mirModule *mir.ModuleBuilder[word.BigEndian],
+func (p *MirLowering) lowerBinaryLogical(lhs, rhs Term, fn BinaryLogicalFn, module *mirModuleBuilder,
 ) mirLogicalTerm {
 	//
 	var (
-		lTerm = p.lowerTerm(lhs, mirModule)
-		rTerm = p.lowerTerm(rhs, mirModule)
+		lTerm = p.lowerTerm(lhs, module)
+		rTerm = p.lowerTerm(rhs, module)
 	)
 	//
 	return DisjunctIfTerms(fn, lTerm, rTerm)
 }
 
-func (p *MirLowering) expandTerms(es []Term, mirModule *mir.ModuleBuilder[word.BigEndian]) (terms []mirTerm) {
+func (p *MirLowering) expandTerms(es []Term, mirModule *mirModuleBuilder) (terms []mirTerm) {
 	//
 	terms = make([]mirTerm, len(es))
 	//
@@ -351,7 +352,7 @@ func (p *MirLowering) expandTerms(es []Term, mirModule *mir.ModuleBuilder[word.B
 // result into what is essentially a temporary column; second, a constraint is
 // used to enforce the relationship between that column and the original
 // expression.
-func (p *MirLowering) expandTerm(e Term, module *mir.ModuleBuilder[word.BigEndian]) *mir.RegisterAccess[word.BigEndian] {
+func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.RegisterAccess[word.BigEndian] {
 	// Check whether this really requires expansion (or not).
 	if ca, ok := e.(*RegisterAccess); ok && ca.Shift == 0 {
 		// No, expansion is not required
@@ -410,12 +411,12 @@ func (p *MirLowering) expandTerm(e Term, module *mir.ModuleBuilder[word.BigEndia
 // inverse columns as they arise.  However, this was deemed to be less than
 // desirable because it introduces products of the form (x*x⁻¹) which are
 // expensive in the context of small fields.
-func (p *MirLowering) lowerTerm(e Term, mirModule *mir.ModuleBuilder[word.BigEndian]) IfTerm {
+func (p *MirLowering) lowerTerm(e Term, mirModule *mirModuleBuilder) IfTerm {
 	//
 	switch e := e.(type) {
 	case *Add:
 		fn := func(args []mirTerm) mirTerm {
-			return ir.Sum[word.BigEndian](args...)
+			return ir.Sum(args...)
 		}
 		//
 		return p.lowerTerms(fn, mirModule, e.Args...)
@@ -451,7 +452,7 @@ func (p *MirLowering) lowerTerm(e Term, mirModule *mir.ModuleBuilder[word.BigEnd
 		return IfEqElse(arg, zero, zero, one)
 	case *Sub:
 		fn := func(args []mirTerm) mirTerm {
-			return ir.Subtract[word.BigEndian](args...)
+			return ir.Subtract(args...)
 		}
 		//
 		return p.lowerTerms(fn, mirModule, e.Args...)
@@ -464,7 +465,7 @@ func (p *MirLowering) lowerTerm(e Term, mirModule *mir.ModuleBuilder[word.BigEnd
 }
 
 // Lower a set of zero or more HIR expressions.
-func (p *MirLowering) lowerTerms(fn NaryFn, mirModule *mir.ModuleBuilder[word.BigEndian], exprs ...Term) IfTerm {
+func (p *MirLowering) lowerTerms(fn NaryFn, mirModule *mirModuleBuilder, exprs ...Term) IfTerm {
 	var nexprs = make([]IfTerm, len(exprs))
 	//
 	for i := range len(exprs) {
@@ -477,7 +478,7 @@ func (p *MirLowering) lowerTerms(fn NaryFn, mirModule *mir.ModuleBuilder[word.Bi
 // LowerTo lowers an exponent expression to the MIR level by lowering the
 // argument, and then constructing a multiplication.  This is because the AIR
 // level does not support an explicit exponent operator.
-func (p *MirLowering) lowerExpTo(e *Exp, mirModule *mir.ModuleBuilder[word.BigEndian]) IfTerm {
+func (p *MirLowering) lowerExpTo(e *Exp, mirModule *mirModuleBuilder) IfTerm {
 	var (
 		// Lower expression being raised
 		term = p.lowerTerm(e.Arg, mirModule)

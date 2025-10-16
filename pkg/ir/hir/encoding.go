@@ -768,8 +768,13 @@ func encode_constant(term Constant, buf *bytes.Buffer) error {
 	if err := buf.WriteByte(constantTag); err != nil {
 		return err
 	}
-	// Write value as 32bytes
-	_, err := buf.Write(bytes[:])
+	// Write length (in bytes)
+	err := buf.WriteByte(byte(len(bytes)))
+	//
+	if err == nil {
+		// Write value as 32bytes
+		_, err = buf.Write(bytes[:])
+	}
 	//
 	return err
 }
@@ -807,8 +812,13 @@ func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
 	} else if n != len(str_bytes) {
 		return fmt.Errorf("failed encoding constant label (%d versus %d bytes)", n, len(str_bytes))
 	}
-	// Write value as 32bytes
-	_, err := buf.Write(const_bytes[:])
+	// Write length (in bytes)
+	err := buf.WriteByte(byte(len(const_bytes)))
+	//
+	if err == nil {
+		// Write value as 32bytes
+		_, err = buf.Write(const_bytes[:])
+	}
 	//
 	return err
 }
@@ -929,17 +939,25 @@ func decode_cast(buf *bytes.Buffer) (Term, error) {
 
 func decode_constant(buf *bytes.Buffer) (Term, error) {
 	var (
-		bytes   [32]byte
+		bytes   []byte
+		len     byte
 		element word.BigEndian
+		err     error
 	)
-	//
-	if n, err := buf.Read(bytes[:]); err != nil {
+	// Read constant length
+	if len, err = buf.ReadByte(); err != nil {
 		return nil, err
-	} else if n != 32 {
+	}
+	//
+	bytes = make([]byte, len)
+	//
+	if n, err := buf.Read(bytes); err != nil {
+		return nil, err
+	} else if n != int(len) {
 		return nil, errors.New("failed decoding constant")
 	}
 	//
-	element = element.SetBytes(bytes[:])
+	element = element.SetBytes(bytes)
 	//
 	return ir.Const[word.BigEndian, Term](element), nil
 }
@@ -984,8 +1002,10 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 	var (
 		str_bytes   []byte
 		str_len     uint16
-		const_bytes [32]byte
+		const_len   byte
+		const_bytes []byte
 		element     word.BigEndian
+		err         error
 	)
 	// Label length
 	if err := binary.Read(buf, binary.BigEndian, &str_len); err != nil {
@@ -998,14 +1018,20 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 	} else if n != int(str_len) {
 		return nil, errors.New("failed decoding labelled constant")
 	}
-	// Constant
-	if n, err := buf.Read(const_bytes[:]); err != nil {
+	// Read constant length
+	if const_len, err = buf.ReadByte(); err != nil {
 		return nil, err
-	} else if n != 32 {
+	}
+	//
+	const_bytes = make([]byte, const_len)
+	// Constant
+	if n, err := buf.Read(const_bytes); err != nil {
+		return nil, err
+	} else if n != int(const_len) {
 		return nil, errors.New("failed decoding labelled constant")
 	}
 	//
-	element = element.SetBytes(const_bytes[:])
+	element = element.SetBytes(const_bytes)
 	//
 	return ir.LabelledConstant[word.BigEndian, Term](string(str_bytes), element), nil
 }

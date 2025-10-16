@@ -61,13 +61,12 @@ func One[F Element[F]]() F {
 func BigInt[F Element[F]](val big.Int) F {
 	var (
 		element F
-		zero    F
 	)
 	//
 	element = element.SetBytes(val.Bytes())
 	// Handle negative values
 	if val.Sign() < 0 {
-		element = zero.Sub(element)
+		panic("negative value encountered")
 	}
 	//
 	return element
