@@ -79,7 +79,7 @@ func (p *Disjunct[F, S]) Negate() S {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
+func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
 	//
 	for _, disjunct := range p.Args {
 		val, _, err := disjunct.TestAt(k, tr, sc)

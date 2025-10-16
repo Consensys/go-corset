@@ -71,7 +71,7 @@ func (p *RegisterAccess[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ schema.Module[F]) (F, error) {
+func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ schema.RegisterMap) (F, error) {
 	return module.Column(p.Register.Unwrap()).Get(k + p.Shift), nil
 }
 

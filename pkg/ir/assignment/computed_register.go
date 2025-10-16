@@ -83,24 +83,18 @@ func (p *ComputedRegister[F]) Bounds(mid sc.ModuleId) util.Bounds {
 func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	var (
-		trModule = tr.Module(p.Module)
+		trModule = trace.ModuleAdapter[F, word.BigEndian](tr.Module(p.Module))
 		scModule = schema.Module(p.Module)
-		wrapper  = recursiveModule[F]{p.Targets, nil, trModule}
+		wrapper  = recursiveModule{p.Targets, nil, trModule}
 		err      error
 	)
 	// Determine multiplied height
 	height := trModule.Height()
 	bitwidths := make([]uint, len(p.Targets))
-	wrapper.data = make([]array.MutArray[F], len(p.Targets))
+	wrapper.data = make([][]word.BigEndian, len(p.Targets))
 	//
 	for i, target := range p.Targets {
-		// FIXME: using a large bitwidth here ensures the underlying data is
-		// represented using a full field element, rather than e.g. some smaller
-		// number of bytes.  This is needed to handle reject tests which can produce
-		// values outside the range of the computed register, but which we still
-		// want to check are actually rejected (i.e. since they are simulating what
-		// an attacker might do).
-		wrapper.data[i] = tr.Builder().NewArray(height, math.MaxUint)
+		wrapper.data[i] = make([]word.BigEndian, height)
 		// Record bitwidth information
 		bitwidths[i] = scModule.Register(target).Width
 	}
@@ -120,7 +114,37 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 		return nil, err
 	}
 	// Done
-	return wrapper.data, err
+	return concretizeColumns[F](wrapper.data, tr), err
+}
+
+func concretizeColumns[F field.Element[F]](data [][]word.BigEndian, tr trace.Trace[F]) []array.MutArray[F] {
+	var cols = make([]array.MutArray[F], len(data))
+	//
+	for i, d := range data {
+		cols[i] = concretizeColumn(d, tr)
+	}
+	//
+	return cols
+}
+
+func concretizeColumn[F field.Element[F]](data []word.BigEndian, tr trace.Trace[F]) array.MutArray[F] {
+	var (
+		// FIXME: using a large bitwidth here ensures the underlying data is
+		// represented using a full field element, rather than e.g. some smaller
+		// number of bytes.  This is needed to handle reject tests which can produce
+		// values outside the range of the computed register, but which we still
+		// want to check are actually rejected (i.e. since they are simulating what
+		// an attacker might do).
+		col = tr.Builder().NewArray(uint(len(data)), math.MaxUint)
+	)
+	//
+	for i, word := range data {
+		var element F
+		// Assign value
+		col.Set(uint(i), element.SetBytes(word.Bytes()))
+	}
+	//
+	return col
 }
 
 // Consistent performs some simple checks that the given assignment is
@@ -240,8 +264,8 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[word.BigEndian],
-	trMod trace.Module[word.BigEndian], scMod schema.Module[word.BigEndian]) error {
+func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir.Evaluable[word.BigEndian],
+	trMod trace.Module[word.BigEndian], scMod schema.RegisterMap) error {
 	// Forwards computation
 	for i := range height {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -256,8 +280,8 @@ func fwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], w
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[word.BigEndian],
-	trMod trace.Module[word.BigEndian], scMod schema.Module[word.BigEndian]) error {
+func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir.Evaluable[word.BigEndian],
+	trMod trace.Module[word.BigEndian], scMod schema.RegisterMap) error {
 	// Backwards computation
 	for i := height; i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
@@ -272,7 +296,7 @@ func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], w
 	return nil
 }
 
-func write[F field.Element[F]](row uint, val word.BigEndian, data []array.MutArray[F], bitwidths []uint) {
+func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) {
 	var (
 		// FIXME: this is not efficient at all
 		acc big.Int
@@ -281,21 +305,21 @@ func write[F field.Element[F]](row uint, val word.BigEndian, data []array.MutArr
 	acc.SetBytes(val.Bytes())
 	//
 	for i := range data {
-		data[i].Set(row, extractBits[F](acc, bitwidths[i]))
+		data[i][row] = extractBits(acc, bitwidths[i])
 		acc.Rsh(&acc, bitwidths[i])
 	}
 }
 
 // Extract the *least significant* n bits from the given integer, converting
 // them into an instance of the given field.
-func extractBits[F field.Element[F]](acc big.Int, bits uint) F {
+func extractBits(acc big.Int, bits uint) word.BigEndian {
 	var (
 		buf    [16]uint8 // FIXME!!
 		bytes  = acc.Bytes()
 		width  = uint(len(bytes) * 8)
 		n      uint
 		offset uint
-		res    F
+		res    word.BigEndian
 	)
 	//
 	if width >= bits {
@@ -313,22 +337,22 @@ func extractBits[F field.Element[F]](acc big.Int, bits uint) F {
 // RecModule is a wrapper which enables a computation to be recursive.
 // Specifically, it allows the expression being evaluated to access as it is
 // being generated.
-type recursiveModule[F field.Element[F]] struct {
+type recursiveModule struct {
 	col      []schema.RegisterId
-	data     []array.MutArray[F]
-	trModule trace.Module[F]
+	data     [][]word.BigEndian
+	trModule trace.Module[word.BigEndian]
 }
 
 // Module implementation for trace.Module interface.
-func (p *recursiveModule[F]) Name() string {
+func (p *recursiveModule) Name() string {
 	return p.trModule.Name()
 }
 
 // Column implementation for trace.Module interface.
-func (p *recursiveModule[F]) Column(index uint) trace.Column[F] {
+func (p *recursiveModule) Column(index uint) trace.Column[word.BigEndian] {
 	for i, cid := range p.col {
 		if cid.Unwrap() == index {
-			return &recursiveColumn[F]{p.data[i]}
+			return &recursiveColumn{p.data[i]}
 		}
 	}
 
@@ -336,49 +360,49 @@ func (p *recursiveModule[F]) Column(index uint) trace.Column[F] {
 }
 
 // ColumnOf implementation for trace.Module interface.
-func (p *recursiveModule[F]) ColumnOf(string) trace.Column[F] {
+func (p *recursiveModule) ColumnOf(string) trace.Column[word.BigEndian] {
 	// NOTE: this is marked unreachable because, as it stands, expression
 	// evaluation never calls this method.
 	panic("unreachable")
 }
 
 // Width implementation for trace.Module interface.
-func (p *recursiveModule[F]) Width() uint {
+func (p *recursiveModule) Width() uint {
 	return p.trModule.Width()
 }
 
 // Height implementation for trace.Module interface.
-func (p *recursiveModule[F]) Height() uint {
+func (p *recursiveModule) Height() uint {
 	return p.trModule.Height()
 }
 
 // RecColumn is a wrapper which enables the array being computed to be accessed
 // during its own computation.
-type recursiveColumn[F field.Element[F]] struct {
-	data array.MutArray[F]
+type recursiveColumn struct {
+	data []word.BigEndian
 }
 
 // Holds the name of this column
-func (p *recursiveColumn[F]) Name() string {
+func (p *recursiveColumn) Name() string {
 	panic("unreachable")
 }
 
 // Get implementation for trace.Column interface.
-func (p *recursiveColumn[F]) Get(row int) F {
-	if row < 0 || uint(row) >= p.data.Len() {
+func (p *recursiveColumn) Get(row int) word.BigEndian {
+	if row < 0 || row >= len(p.data) {
 		// out-of-bounds access
-		return field.Zero[F]()
+		return field.Zero[word.BigEndian]()
 	}
 	//
-	return p.data.Get(uint(row))
+	return p.data[row]
 }
 
 // Data implementation for trace.Column interface.
-func (p *recursiveColumn[F]) Data() array.Array[F] {
+func (p *recursiveColumn) Data() array.Array[word.BigEndian] {
 	panic("unreachable")
 }
 
 // Padding implementation for trace.Column interface.
-func (p *recursiveColumn[F]) Padding() F {
+func (p *recursiveColumn) Padding() word.BigEndian {
 	panic("unreachable")
 }
