@@ -42,6 +42,36 @@ func (p BigEndian) AsBigInt() big.Int {
 	return *val.SetBytes(p.bytes)
 }
 
+// Add implementation for field.Element interface
+func (p BigEndian) Add(BigEndian) BigEndian {
+	panic("todo")
+}
+
+// Mul implementation for field.Element interface
+func (p BigEndian) Mul(BigEndian) BigEndian {
+	panic("todo")
+}
+
+// IsOne implementation for field.Element interface
+func (p BigEndian) IsOne() bool {
+	panic("todo")
+}
+
+// Inverse implementation for field.Element interface
+func (p BigEndian) Inverse() BigEndian {
+	panic("todo")
+}
+
+// Sub implementation for field.Element interface
+func (p BigEndian) Sub(BigEndian) BigEndian {
+	panic("todo")
+}
+
+// Modulus implementation for field.Element interface
+func (p BigEndian) Modulus() *big.Int {
+	panic("todo")
+}
+
 // ByteWidth implementation for the Word interface.
 func (p BigEndian) ByteWidth() uint {
 	return uint(len(p.bytes))

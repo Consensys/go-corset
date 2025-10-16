@@ -16,76 +16,76 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // NaryFn describes a function which constructs an MIR term from a given set of zero or more terms.
-type NaryFn[F field.Element[F]] func([]mir.Term[F]) mir.Term[F]
+type NaryFn func([]mirTerm) mirTerm
 
 // BinaryLogicalFn describes a function whichs a logical MIR term from exactly two terms.
-type BinaryLogicalFn[F field.Element[F]] func(l, r mir.Term[F]) mir.LogicalTerm[F]
+type BinaryLogicalFn func(l, r mirTerm) mir.LogicalTerm[word.BigEndian]
 
 // UnconditionalTerm returns a term which has no condition associated with it.
-func UnconditionalTerm[F field.Element[F]](value mir.Term[F]) IfTerm[F] {
-	var ncase = ifTermCase[F]{ir.True[F, mir.LogicalTerm[F]](), value}
+func UnconditionalTerm(value mirTerm) IfTerm {
+	var ncase = ifTermCase{ir.True[word.BigEndian, mir.LogicalTerm[word.BigEndian]](), value}
 	//
-	return IfTerm[F]{[]ifTermCase[F]{ncase}}
+	return IfTerm{[]ifTermCase{ncase}}
 }
 
 // IfThenElse constructs an IfTerm representing an if-then else expression.
-func IfThenElse[F field.Element[F]](cond mir.LogicalTerm[F], tt, ff IfTerm[F]) IfTerm[F] {
+func IfThenElse(cond mir.LogicalTerm[word.BigEndian], tt, ff IfTerm) IfTerm {
 	var (
 		n       = len(tt.cases)
 		m       = len(ff.cases)
-		ncases  = make([]ifTermCase[F], n+m)
+		ncases  = make([]ifTermCase, n+m)
 		negCond = ir.Negation(cond)
 	)
 	// True branches
 	for i, c := range tt.cases {
 		condition := ir.Conjunction(cond, c.condition).Simplify(false)
-		ncases[i] = ifTermCase[F]{condition, c.target}
+		ncases[i] = ifTermCase{condition, c.target}
 	}
 	// False branches
 	for i, c := range ff.cases {
 		condition := ir.Conjunction(negCond, c.condition).Simplify(false)
-		ncases[i+n] = ifTermCase[F]{condition, c.target}
+		ncases[i+n] = ifTermCase{condition, c.target}
 	}
 	// Done
-	return IfTerm[F]{ncases}
+	return IfTerm{ncases}
 }
 
 // IfEqElse constructs an IfTerm representing an if-eq expression.
-func IfEqElse[F field.Element[F]](lhs IfTerm[F], rhs mir.Term[F], tt, ff mir.Term[F]) IfTerm[F] {
+func IfEqElse(lhs IfTerm, rhs mirTerm, tt, ff mirTerm) IfTerm {
 	var (
 		n      = len(lhs.cases)
-		ncases = make([]ifTermCase[F], 2*n)
+		ncases = make([]ifTermCase, 2*n)
 	)
 	// True branches
 	for i, c := range lhs.cases {
-		condition := ir.Conjunction(c.condition, ir.Equals[F, mir.LogicalTerm[F]](c.target, rhs))
-		ncases[i] = ifTermCase[F]{condition, tt}
+		condition := ir.Conjunction(c.condition, ir.Equals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](c.target, rhs))
+		ncases[i] = ifTermCase{condition, tt}
 	}
 	// False branches
 	for i, c := range lhs.cases {
-		condition := ir.Conjunction(c.condition, ir.NotEquals[F, mir.LogicalTerm[F]](c.target, rhs))
-		ncases[i+n] = ifTermCase[F]{condition, ff}
+		condition := ir.Conjunction(c.condition, ir.NotEquals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](c.target, rhs))
+		ncases[i+n] = ifTermCase{condition, ff}
 	}
 	// Done
-	return IfTerm[F]{ncases}
+	return IfTerm{ncases}
 }
 
 // MapIfTerms applies a given function to each target of the given argument
 // terms, effectively producing their cross product.
-func MapIfTerms[F field.Element[F]](fn NaryFn[F], terms ...IfTerm[F]) IfTerm[F] {
-	return IfTerm[F]{
-		constructTerms(0, terms, fn, make([]ifTermCase[F], len(terms))),
+func MapIfTerms(fn NaryFn, terms ...IfTerm) IfTerm {
+	return IfTerm{
+		constructTerms(0, terms, fn, make([]ifTermCase, len(terms))),
 	}
 }
 
 // DisjunctIfTerms is similar to MapIfTerms but produces the logical disjunction
 // of all constructed logical terms.
-func DisjunctIfTerms[F field.Element[F]](fn BinaryLogicalFn[F], lhs, rhs IfTerm[F]) mir.LogicalTerm[F] {
-	var terms []mir.LogicalTerm[F]
+func DisjunctIfTerms(fn BinaryLogicalFn, lhs, rhs IfTerm) mir.LogicalTerm[word.BigEndian] {
+	var terms []mir.LogicalTerm[word.BigEndian]
 	//
 	for _, lCase := range lhs.cases {
 		for _, rCase := range rhs.cases {
@@ -100,8 +100,8 @@ func DisjunctIfTerms[F field.Element[F]](fn BinaryLogicalFn[F], lhs, rhs IfTerm[
 // IfTerm represents a set of one or more conditional terms.  Observe that the
 // conditions are expected to be total.  Hence, if there is only one term, then
 // its condition must be true.
-type IfTerm[F field.Element[F]] struct {
-	cases []ifTermCase[F]
+type IfTerm struct {
+	cases []ifTermCase
 }
 
 // BitWidth returns the maximum bitwidth for any target term in this conditional
@@ -109,7 +109,7 @@ type IfTerm[F field.Element[F]] struct {
 // determines the width of registers within the term, from which the overall
 // bitwidth is determined.  For example, given the term X+1 where X is u16, this
 // function returns a bitwidth of 17bits.
-func (p *IfTerm[F]) BitWidth(env schema.RegisterMap) uint {
+func (p *IfTerm) BitWidth(env schema.RegisterMap) uint {
 	var bitwidth uint
 	//
 	for _, c := range p.cases {
@@ -130,14 +130,14 @@ func (p *IfTerm[F]) BitWidth(env schema.RegisterMap) uint {
 
 // Equate returns a logical condition that constraints the target register to
 // hold the values represented by this term on each row.
-func (p *IfTerm[F]) Equate(target schema.RegisterId) mir.LogicalTerm[F] {
+func (p *IfTerm) Equate(target schema.RegisterId) mir.LogicalTerm[word.BigEndian] {
 	var (
-		terms     = make([]mir.LogicalTerm[F], len(p.cases))
-		targetVar = ir.NewRegisterAccess[F, mir.Term[F]](target, 0)
+		terms     = make([]mir.LogicalTerm[word.BigEndian], len(p.cases))
+		targetVar = ir.NewRegisterAccess[word.BigEndian, mirTerm](target, 0)
 	)
 	//
 	for i, c := range p.cases {
-		ith := ir.Equals[F, mir.LogicalTerm[F]](targetVar, c.target)
+		ith := ir.Equals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](targetVar, c.target)
 		terms[i] = ir.Conjunction(c.condition, ith)
 	}
 	//
@@ -145,31 +145,31 @@ func (p *IfTerm[F]) Equate(target schema.RegisterId) mir.LogicalTerm[F] {
 }
 
 // Map a given function over the targets of this set of conditional terms.
-func (p *IfTerm[F]) Map(fn func(mir.Term[F]) mir.Term[F]) IfTerm[F] {
-	var ncases = make([]ifTermCase[F], len(p.cases))
+func (p *IfTerm) Map(fn func(mirTerm) mirTerm) IfTerm {
+	var ncases = make([]ifTermCase, len(p.cases))
 	//
 	for i, c := range p.cases {
-		ncases[i] = ifTermCase[F]{
+		ncases[i] = ifTermCase{
 			c.condition,
 			fn(c.target),
 		}
 	}
 	//
-	return IfTerm[F]{ncases}
+	return IfTerm{ncases}
 }
 
-type ifTermCase[F any] struct {
-	condition mir.LogicalTerm[F]
-	target    mir.Term[F]
+type ifTermCase struct {
+	condition mir.LogicalTerm[word.BigEndian]
+	target    mirTerm
 }
 
-func constructTerms[F field.Element[F]](i int, terms []IfTerm[F], fn NaryFn[F], cases []ifTermCase[F]) []ifTermCase[F] {
-	var ncases []ifTermCase[F]
+func constructTerms(i int, terms []IfTerm, fn NaryFn, cases []ifTermCase) []ifTermCase {
+	var ncases []ifTermCase
 	//
 	if i == len(terms) {
 		var (
-			args       = make([]mir.Term[F], len(cases))
-			conditions = make([]mir.LogicalTerm[F], len(cases))
+			args       = make([]mirTerm, len(cases))
+			conditions = make([]mir.LogicalTerm[word.BigEndian], len(cases))
 		)
 		//
 		for i, c := range cases {
@@ -177,7 +177,7 @@ func constructTerms[F field.Element[F]](i int, terms []IfTerm[F], fn NaryFn[F], 
 			conditions[i] = c.condition
 		}
 		// Apply constructor
-		return []ifTermCase[F]{{ir.Conjunction(conditions...), fn(args)}}
+		return []ifTermCase{{ir.Conjunction(conditions...), fn(args)}}
 	}
 	//
 	for _, c := range terms[i].cases {

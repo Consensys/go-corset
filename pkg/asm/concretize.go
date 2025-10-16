@@ -23,6 +23,7 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Element provides a convenient shorthand.
@@ -73,8 +74,8 @@ type UniformSchema[F field.Element[F]] = sc.UniformSchema[F, mir.Module[F]]
 //
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
-func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, hp MicroHirProgram[F1],
-) (UniformSchema[F2], sc.LimbsMap) {
+func Concretize[F Element[F]](cfg sc.FieldConfig, hp MicroHirProgram,
+) (UniformSchema[F], sc.LimbsMap) {
 	var (
 		// Lower HIR program first.  This is necessary to ensure any registers
 		// added during this process are included in the subsequent limbs map.
@@ -84,8 +85,8 @@ func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, hp MicroHirP
 		mapping = agnostic.NewLimbsMap(cfg, p.Modules().Collect()...)
 		n       = len(p.Functions())
 		// Construct compiler
-		comp    = compiler.NewCompiler[F2, schema.RegisterId, compiler.MirExpr[F2], compiler.MirModule[F2]]()
-		modules = make([]mir.Module[F2], p.Width())
+		comp    = compiler.NewCompiler[F, schema.RegisterId, compiler.MirExpr[F], compiler.MirModule[F]]()
+		modules = make([]mir.Module[F], p.Width())
 	)
 	// Split registers in assembly functions
 	splitProgram := subdivideProgram(mapping, p.program)
@@ -93,16 +94,16 @@ func Concretize[F1 Element[F1], F2 Element[F2]](cfg sc.FieldConfig, hp MicroHirP
 	comp.Compile(splitProgram)
 	// Copy over compiled components
 	for i, m := range comp.Modules() {
-		modules[i] = ir.BuildModule[F2, mir.Constraint[F2], mir.Term[F2], mir.Module[F2]](*m.Module)
+		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
 	}
 	// Concretize legacy components
-	copy(modules[n:], mir.Concretize[F1, F2](mapping, p.Externs()))
+	copy(modules[n:], mir.Concretize[word.BigEndian, F](mapping, p.Externs()))
 	// Done
 	return schema.NewUniformSchema(modules), mapping
 }
 
 // Lower an HIR program into an MIR program.
-func lowerHirProgram[F field.Element[F]](hp MicroHirProgram[F]) MicroMirProgram[F] {
+func lowerHirProgram(hp MicroHirProgram) MicroMirProgram[word.BigEndian] {
 	return NewMixedProgram(hp.program, hir.LowerToMir(hp.externs)...)
 }
 

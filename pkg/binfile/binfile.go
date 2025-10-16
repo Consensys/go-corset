@@ -21,7 +21,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 )
 
 // ============================================================================
@@ -36,12 +35,12 @@ type BinaryFile struct {
 	// debugging, etc.
 	Attributes []Attribute
 	// The mixed assembly schema.
-	Schema asm.MacroHirProgram[bls12_377.Element]
+	Schema asm.MacroHirProgram
 }
 
 // NewBinaryFile constructs a new binary file with the default header for the
 // currently supported version.
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MacroHirProgram[bls12_377.Element],
+func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MacroHirProgram,
 ) *BinaryFile {
 	//
 	return &BinaryFile{

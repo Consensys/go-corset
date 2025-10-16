@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Register describes a single register within a function.
@@ -48,11 +49,11 @@ type MicroProgram = io.Program[micro.Instruction]
 
 // MacroHirProgram represents a mixed assembly and legacy program, where
 // assembly functions are composed from macro instructions.
-type MacroHirProgram[F field.Element[F]] = MixedProgram[F, macro.Instruction, hir.Module[F]]
+type MacroHirProgram = MixedProgram[word.BigEndian, macro.Instruction, hir.Module]
 
 // MicroHirProgram represents a mixed assembly and legacy program, where
 // assembly functions are composed from micro instructions.
-type MicroHirProgram[F field.Element[F]] = MixedProgram[F, micro.Instruction, hir.Module[F]]
+type MicroHirProgram = MixedProgram[word.BigEndian, micro.Instruction, hir.Module]
 
 // MicroMirProgram represents a mixed assembly and legacy program, where
 // assembly functions are composed from micro instructions.
@@ -144,7 +145,7 @@ func readIncludedFiles(file source.File, item assembler.AssemblyItem,
 // vectorisation if desired.  Specifically, any macro modules within the schema
 // are lowered into "micro" modules (i.e. those using only micro instructions).
 // This does not impact any externally defined (e.g. MIR) modules in the schema.
-func LowerMixedMacroProgram[F field.Element[F]](vectorize bool, program MacroHirProgram[F]) MicroHirProgram[F] {
+func LowerMixedMacroProgram(vectorize bool, program MacroHirProgram) MicroHirProgram {
 	var microProgram = lowerMacroProgram(vectorize, program.program)
 	// Done
 	return NewMixedProgram(microProgram, program.externs...)

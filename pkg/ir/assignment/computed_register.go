@@ -205,7 +205,8 @@ func (p *ComputedRegister[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F
 
 // Substitute any matchined labelled constants within this assignment
 func (p *ComputedRegister[F]) Substitute(mapping map[string]F) {
-	p.Expr.Substitute(mapping)
+	//p.Expr.Substitute(mapping)
+	panic("todo")
 }
 
 // Lisp converts this constraint into an S-Expression.

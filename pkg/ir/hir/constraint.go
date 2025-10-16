@@ -24,70 +24,70 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Constraint attempts to encapsulate the notion of a valid constraint at the MIR
 // level.  Since this is the fundamental level, only certain constraint forms
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
-// are not found at the Constraint[F] level.
-type Constraint[F field.Element[F]] struct {
-	constraint schema.Constraint[F]
+// are not found at the Constraint level.
+type Constraint struct {
+	constraint schema.Constraint[word.BigEndian]
 }
 
 // NewAssertion constructs a new assertion
-func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int], term LogicalTerm[F],
-) Constraint[F] {
+func NewAssertion(handle string, ctx schema.ModuleId, domain util.Option[int], term LogicalTerm,
+) Constraint {
 	//
-	return Constraint[F]{constraint.NewAssertion(handle, ctx, domain, term)}
+	return Constraint{constraint.NewAssertion(handle, ctx, domain, term)}
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint
-func NewVanishingConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
-	term LogicalTerm[F]) Constraint[F] {
+func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Option[int],
+	term LogicalTerm) Constraint {
 	//
-	return Constraint[F]{vanishing.NewConstraint(handle, ctx, domain, term)}
+	return Constraint{vanishing.NewConstraint(handle, ctx, domain, term)}
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.
-func NewInterleavingConstraint[F field.Element[F]](handle string, targetContext schema.ModuleId,
-	sourceContext schema.ModuleId, target Term[F], sources []Term[F]) Constraint[F] {
-	return Constraint[F]{interleaving.NewConstraint(handle, targetContext, sourceContext, target, sources)}
+func NewInterleavingConstraint(handle string, targetContext schema.ModuleId,
+	sourceContext schema.ModuleId, target Term, sources []Term) Constraint {
+	return Constraint{interleaving.NewConstraint(handle, targetContext, sourceContext, target, sources)}
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[F field.Element[F]](handle string, targets []lookup.Vector[F, Term[F]],
-	sources []lookup.Vector[F, Term[F]]) Constraint[F] {
+func NewLookupConstraint(handle string, targets []lookup.Vector[word.BigEndian, Term],
+	sources []lookup.Vector[word.BigEndian, Term]) Constraint {
 	//
-	return Constraint[F]{lookup.NewConstraint(handle, targets, sources)}
+	return Constraint{lookup.NewConstraint(handle, targets, sources)}
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []schema.RegisterId,
-	sources []schema.RegisterId) Constraint[F] {
-	return Constraint[F]{permutation.NewConstraint[F](handle, context, targets, sources)}
+func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
+	sources []schema.RegisterId) Constraint {
+	return Constraint{permutation.NewConstraint[word.BigEndian](handle, context, targets, sources)}
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, expr Term[F],
-	bitwidth uint) Constraint[F] {
+func NewRangeConstraint(handle string, ctx schema.ModuleId, expr Term,
+	bitwidth uint) Constraint {
 	//
-	return Constraint[F]{ranged.NewConstraint(handle, ctx, expr, bitwidth)}
+	return Constraint{ranged.NewConstraint(handle, ctx, expr, bitwidth)}
 }
 
 // NewSortedConstraint creates a new Sorted
-func NewSortedConstraint[F field.Element[F]](handle string, context schema.ModuleId, bitwidth uint,
-	selector util.Option[Term[F]], sources []Term[F], signs []bool, strict bool) Constraint[F] {
+func NewSortedConstraint(handle string, context schema.ModuleId, bitwidth uint,
+	selector util.Option[Term], sources []Term, signs []bool, strict bool) Constraint {
 	//
-	return Constraint[F]{sorted.NewConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
+	return Constraint{sorted.NewConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
 }
 
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Constraint[F]) Accepts(trace trace.Trace[F],
-	schema schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p Constraint) Accepts(trace trace.Trace[word.BigEndian],
+	schema schema.AnySchema[word.BigEndian]) (bit.Set, schema.Failure) {
 	//
 	return p.constraint.Accepts(trace, schema)
 }
@@ -97,14 +97,14 @@ func (p Constraint[F]) Accepts(trace trace.Trace[F],
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass)
-func (p Constraint[F]) Bounds(module uint) util.Bounds {
+func (p Constraint) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F]) Consistent(schema schema.AnySchema[F]) []error {
+func (p Constraint) Consistent(schema schema.AnySchema[word.BigEndian]) []error {
 	return p.constraint.Consistent(schema)
 }
 
@@ -113,13 +113,13 @@ func (p Constraint[F]) Consistent(schema schema.AnySchema[F]) []error {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[F]) Contexts() []schema.ModuleId {
+func (p Constraint) Contexts() []schema.ModuleId {
 	return p.constraint.Contexts()
 }
 
 // Name returns a unique name and case number for a given constraint.  This
 // is useful purely for identifying constraints in reports, etc.
-func (p Constraint[F]) Name() string {
+func (p Constraint) Name() string {
 	return p.constraint.Name()
 }
 
@@ -127,17 +127,17 @@ func (p Constraint[F]) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Constraint) Lisp(schema schema.AnySchema[word.BigEndian]) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[F]) Substitute(mapping map[string]F) {
+func (p Constraint) Substitute(mapping map[string]word.BigEndian) {
 	p.constraint.Substitute(mapping)
 }
 
 // Unwrap provides access to the underlying constraint.
-func (p Constraint[F]) Unwrap() schema.Constraint[F] {
+func (p Constraint) Unwrap() schema.Constraint[word.BigEndian] {
 	return p.constraint
 }
 
@@ -146,15 +146,15 @@ func (p Constraint[F]) Unwrap() schema.Constraint[F] {
 // ============================================================================
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p Constraint[F]) GobEncode() (data []byte, err error) {
+func (p Constraint) GobEncode() (data []byte, err error) {
 	return encode_constraint(p.constraint)
 }
 
 // GobDecode a previously encoded option
-func (p *Constraint[F]) GobDecode(data []byte) error {
+func (p *Constraint) GobDecode(data []byte) error {
 	var error error
 	//
-	p.constraint, error = decode_constraint[F](data)
+	p.constraint, error = decode_constraint(data)
 	//
 	return error
 }
