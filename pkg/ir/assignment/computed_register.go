@@ -15,6 +15,7 @@ package assignment
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/ir"
@@ -23,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -87,9 +89,10 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 	)
 	// Determine multiplied height
 	height := trModule.Height()
+	bitwidths := make([]uint, len(p.Targets))
 	wrapper.data = make([]array.MutArray[F], len(p.Targets))
 	//
-	for i := range p.Targets {
+	for i, target := range p.Targets {
 		// FIXME: using a large bitwidth here ensures the underlying data is
 		// represented using a full field element, rather than e.g. some smaller
 		// number of bytes.  This is needed to handle reject tests which can produce
@@ -97,17 +100,19 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 		// want to check are actually rejected (i.e. since they are simulating what
 		// an attacker might do).
 		wrapper.data[i] = tr.Builder().NewArray(height, math.MaxUint)
+		// Record bitwidth information
+		bitwidths[i] = scModule.Register(target).Width
 	}
 	// Expand the trace
 	if !p.IsRecursive() {
 		// Non-recursive computation
-		err = fwdComputation(height, wrapper.data, p.Expr, trModule, scModule)
+		err = fwdComputation(height, wrapper.data, bitwidths, p.Expr, trModule, scModule)
 	} else if p.Direction {
 		// Forwards recursive computation
-		err = fwdComputation(height, wrapper.data, p.Expr, &wrapper, scModule)
+		err = fwdComputation(height, wrapper.data, bitwidths, p.Expr, &wrapper, scModule)
 	} else {
 		// Backwards recursive computation
-		err = bwdComputation(height, wrapper.data, p.Expr, &wrapper, scModule)
+		err = bwdComputation(height, wrapper.data, bitwidths, p.Expr, &wrapper, scModule)
 	}
 	// Sanity check
 	if err != nil {
@@ -165,11 +170,7 @@ func (p *ComputedRegister[F]) RegistersRead() []schema.RegisterRef {
 	// guarantee they make sense!
 	return array.RemoveMatching(rids, func(r schema.RegisterRef) bool {
 		if r.Module() == p.Module {
-			for _, id := range p.Targets {
-				if id == r.Column() {
-					return true
-				}
-			}
+			return slices.Contains(p.Targets, r.Column())
 		}
 		//
 		return false
@@ -189,8 +190,17 @@ func (p *ComputedRegister[F]) RegistersWritten() []sc.RegisterRef {
 
 // Subdivide implementation for the FieldAgnostic interface.
 func (p *ComputedRegister[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
-	//return p
-	panic("got here")
+	var (
+		ntargets []schema.RegisterId
+		modmap   = mapping.Module(p.Module)
+		expr     = ir.SubdivideComputation(p.Expr, modmap)
+	)
+	//
+	for _, target := range p.Targets {
+		ntargets = append(ntargets, modmap.LimbIds(target)...)
+	}
+	//
+	return NewComputedRegister(expr, p.Direction, p.Module, ntargets...)
 }
 
 // Substitute any matchined labelled constants within this assignment
@@ -228,23 +238,23 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		})
 }
 
-func fwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], expr ir.Evaluable[F],
+func fwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[F],
 	trMod trace.Module[F], scMod schema.Module[F]) error {
 	// Forwards computation
-	for i := uint(0); i < height; i++ {
+	for i := range height {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
 		// error check
 		if err != nil {
 			return err
 		}
-		// FIXME: this is completely broken.
-		data[0].Set(i, val)
+		// Write data across limbs
+		write(i, val, data, widths)
 	}
 	//
 	return nil
 }
 
-func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], expr ir.Evaluable[F],
+func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], widths []uint, expr ir.Evaluable[F],
 	trMod trace.Module[F], scMod schema.Module[F]) error {
 	// Backwards computation
 	for i := height; i > 0; i-- {
@@ -253,11 +263,49 @@ func bwdComputation[F field.Element[F]](height uint, data []array.MutArray[F], e
 		if err != nil {
 			return err
 		}
-		// FIXME: this is completely broken.
-		data[0].Set(i-1, val)
+		// Write data across limbs
+		write(i-1, val, data, widths)
 	}
 	//
 	return nil
+}
+
+func write[F field.Element[F]](row uint, val F, data []array.MutArray[F], bitwidths []uint) {
+	var (
+		// FIXME: this is not efficient at all
+		acc big.Int
+	)
+	//
+	acc.SetBytes(val.Bytes())
+	//
+	for i := range data {
+		data[i].Set(row, extractBits[F](acc, bitwidths[i]))
+		acc.Rsh(&acc, bitwidths[i])
+	}
+}
+
+// Extract the *least significant* n bits from the given integer, converting
+// them into an instance of the given field.
+func extractBits[F field.Element[F]](acc big.Int, bits uint) F {
+	var (
+		buf    [16]uint8 // FIXME!!
+		bytes  = acc.Bytes()
+		width  = uint(len(bytes) * 8)
+		n      uint
+		offset uint
+		res    F
+	)
+	//
+	if width >= bits {
+		offset = width - bits
+		n = bits
+	} else {
+		n = width
+	}
+	//
+	bit.Copy(bytes, offset, buf[:], (16*8)-n, n)
+	//
+	return res.SetBytes(buf[:])
 }
 
 // RecModule is a wrapper which enables a computation to be recursive.

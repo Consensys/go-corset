@@ -24,11 +24,11 @@ import (
 // in the case the given expression is a direct column access by simply
 // returning the accessed column index.
 func Expand[F field.Element[F]](bitwidth uint, e air.Term[F], module *air.ModuleBuilder[F]) schema.RegisterId {
-	// // Check whether this is a straightforward register access.
-	// if ca, ok := e.(*air.ColumnAccess[F]); ok && ca.Shift == 0 {
-	// 	// Optimisation possible
-	// 	return ca.Register
-	// }
+	// Check whether this is a straightforward register access.
+	if ca, ok := e.(*air.ColumnAccess[F]); ok && ca.Shift == 0 {
+		// Optimisation possible
+		return ca.Register
+	}
 	// //
 	// var (
 	// 	// Determine computed column name
