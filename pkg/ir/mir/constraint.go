@@ -52,7 +52,7 @@ func NewVanishingConstraint[F field.Element[F]](handle string, ctx schema.Module
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.
 func NewInterleavingConstraint[F field.Element[F]](handle string, targetContext schema.ModuleId,
-	sourceContext schema.ModuleId, target Term[F], sources []Term[F]) Constraint[F] {
+	sourceContext schema.ModuleId, target *RegisterAccess[F], sources []*RegisterAccess[F]) Constraint[F] {
 	return Constraint[F]{interleaving.NewConstraint(handle, targetContext, sourceContext, target, sources)}
 }
 

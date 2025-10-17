@@ -23,8 +23,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Computation currently describes a native computation which accepts a set of
@@ -543,5 +543,5 @@ func extractIthColumns[F any](index uint, cols []array.Array[F]) []F {
 // ============================================================================
 
 func init() {
-	gob.Register(sc.Assignment[bls12_377.Element](&Computation[bls12_377.Element]{}))
+	gob.Register(sc.Assignment[word.BigEndian](&Computation[word.BigEndian]{}))
 }

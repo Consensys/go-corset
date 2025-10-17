@@ -30,6 +30,7 @@ import (
 type mirTerm = mir.Term[word.BigEndian]
 type mirLogicalTerm = mir.LogicalTerm[word.BigEndian]
 type mirModuleBuilder = mir.ModuleBuilder[word.BigEndian]
+type mirRegisterAccess = mir.RegisterAccess[word.BigEndian]
 
 // LowerToMir lowers (or refines) an HIR schema into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
@@ -210,7 +211,7 @@ func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule *mirMo
 func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term], module *mirModuleBuilder,
 ) lookup.Vector[word.BigEndian, mirTerm] {
 	var (
-		terms    = p.expandTerms(vec.Terms, module)
+		terms    = p.expandTermsDeprecated(vec.Terms, module)
 		selector util.Option[mirTerm]
 	)
 	//
@@ -227,7 +228,7 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, module *mirModuleBuilder) {
 	var (
-		terms    = p.expandTerms(c.Sources, module)
+		terms    = p.expandTermsDeprecated(c.Sources, module)
 		selector util.Option[mirTerm]
 	)
 	//
@@ -333,9 +334,20 @@ func (p *MirLowering) lowerBinaryLogical(lhs, rhs Term, fn BinaryLogicalFn, modu
 	return DisjunctIfTerms(fn, lTerm, rTerm)
 }
 
-func (p *MirLowering) expandTerms(es []Term, mirModule *mirModuleBuilder) (terms []mirTerm) {
+func (p *MirLowering) expandTermsDeprecated(es []Term, mirModule *mirModuleBuilder) (terms []mirTerm) {
 	//
 	terms = make([]mirTerm, len(es))
+	//
+	for i, e := range es {
+		terms[i] = p.expandTerm(e, mirModule)
+	}
+	//
+	return terms
+}
+
+func (p *MirLowering) expandTerms(es []Term, mirModule *mirModuleBuilder) (terms []*mirRegisterAccess) {
+	//
+	terms = make([]*mirRegisterAccess, len(es))
 	//
 	for i, e := range es {
 		terms[i] = p.expandTerm(e, mirModule)

@@ -23,8 +23,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // SortedPermutation declares one or more columns as sorted permutations of
@@ -249,5 +249,5 @@ func rangeOf(n uint) []uint {
 // ============================================================================
 
 func init() {
-	gob.Register(sc.Assignment[bls12_377.Element](&SortedPermutation[bls12_377.Element]{}))
+	gob.Register(sc.Assignment[word.BigEndian](&SortedPermutation[word.BigEndian]{}))
 }

@@ -116,8 +116,8 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		//
 		return NewAssertion(c.Handle, c.Context, c.Domain, term)
 	case InterleavingConstraint[F1]:
-		target := concretizeTerm[F1, F2](c.Target)
-		sources := concretizeTerms[F1, F2](c.Sources)
+		target := ir.RawRegisterAccess[F2, Term[F2]](c.Target.Register, c.Target.Shift)
+		sources := concretizeRegisterAccesses[F1, F2](c.Sources)
 		//
 		return NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
 	case LookupConstraint[F1]:
@@ -269,6 +269,16 @@ func concretizeTerms[F1 Element[F1], F2 Element[F2]](terms []Term[F1]) []Term[F2
 	//
 	for i, t := range terms {
 		nterms[i] = concretizeTerm[F1, F2](t)
+	}
+	//
+	return nterms
+}
+
+func concretizeRegisterAccesses[F1 Element[F1], F2 Element[F2]](terms []*RegisterAccess[F1]) []*RegisterAccess[F2] {
+	var nterms = make([]*RegisterAccess[F2], len(terms))
+	//
+	for i, t := range terms {
+		nterms[i] = ir.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
 	}
 	//
 	return nterms

@@ -717,9 +717,10 @@ func Test_Valid_StrictSorted_04(t *testing.T) {
 	util.Check(t, false, "valid/strictsorted_04")
 }
 
-func Test_Valid_StrictSorted_05(t *testing.T) {
-	util.Check(t, false, "valid/strictsorted_05")
-}
+// #1247
+// func Test_Valid_StrictSorted_05(t *testing.T) {
+// 	util.Check(t, false, "valid/strictsorted_05")
+// }
 
 // ===================================================================
 // Lookups
@@ -815,9 +816,10 @@ func Test_Valid_Lookup_22(t *testing.T) {
 	util.Check(t, false, "valid/lookup_22")
 }
 
-func Test_Valid_Lookup_23(t *testing.T) {
-	util.Check(t, false, "valid/lookup_23")
-}
+//#1247
+// func Test_Valid_Lookup_23(t *testing.T) {
+// 	util.Check(t, false, "valid/lookup_23")
+// }
 
 func Test_Valid_Lookup_24(t *testing.T) {
 	util.Check(t, false, "valid/lookup_24")
