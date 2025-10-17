@@ -71,7 +71,7 @@ type (
 	// MIR level.
 	PermutationConstraint[F field.Element[F]] = permutation.Constraint[F]
 	// RangeConstraint captures the essence of a range constraints at the MIR level.
-	RangeConstraint[F field.Element[F]] = ranged.Constraint[F, Term[F]]
+	RangeConstraint[F field.Element[F]] = ranged.Constraint[F, *RegisterAccess[F]]
 	// SortedConstraint captures the essence of a sorted constraint at the MIR
 	// level.
 	SortedConstraint[F field.Element[F]] = sorted.Constraint[F, Term[F]]
@@ -87,17 +87,12 @@ type (
 	Add[F field.Element[F]] = ir.Add[F, Term[F]]
 	// Constant represents a constant value within an expression.
 	Constant[F field.Element[F]] = ir.Constant[F, Term[F]]
-	// IfZero represents a conditional branch at the MIR level.
-	IfZero[F field.Element[F]] = ir.IfZero[F, LogicalTerm[F], Term[F]]
 	// RegisterAccess represents reading the value held at a given column in the
 	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
 	// a given amount.
 	RegisterAccess[F field.Element[F]] = ir.RegisterAccess[F, Term[F]]
 	// Mul represents the product over zero or more expressions.
 	Mul[F field.Element[F]] = ir.Mul[F, Term[F]]
-	// Norm reduces the value of an expression to either zero (if it was zero)
-	// or one (otherwise).
-	Norm[F field.Element[F]] = ir.Norm[F, Term[F]]
 	// Sub represents the subtraction over zero or more expressions.
 	Sub[F field.Element[F]] = ir.Sub[F, Term[F]]
 	// VectorAccess represents a compound variable

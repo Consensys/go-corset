@@ -532,13 +532,9 @@ func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F])
 		return ir.Const[F, air.Term[F]](e.Value)
 	case *RegisterAccess[F]:
 		return ir.NewRegisterAccess[F, air.Term[F]](e.Register, e.Shift)
-	case *IfZero[F]:
-		return p.lowerIfZeroTo(e, airModule)
 	case *Mul[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Product(args...)
-	case *Norm[F]:
-		return p.lowerNormTo(e, airModule)
 	case *Sub[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Subtract(args...)
@@ -559,27 +555,6 @@ func (p *AirLowering[F]) lowerTerms(exprs []Term[F], airModule *air.ModuleBuilde
 	}
 
 	return nexprs
-}
-
-func (p *AirLowering[F]) lowerIfZeroTo(e *IfZero[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	var (
-		trueCondition  = p.extractNormalisedCondition(true, e.Condition, airModule)
-		falseCondition = p.extractNormalisedCondition(false, e.Condition, airModule)
-		trueBranch     = p.lowerTermTo(e.TrueBranch, airModule)
-		falseBranch    = p.lowerTermTo(e.FalseBranch, airModule)
-	)
-	//
-	fb := ir.Product(trueCondition, falseBranch)
-	tb := ir.Product(falseCondition, trueBranch)
-	//
-	return ir.Sum(tb, fb)
-}
-
-func (p *AirLowering[F]) lowerNormTo(e *Norm[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	// Lower the expression being normalised
-	arg := p.lowerTermTo(e.Arg, airModule)
-	//
-	return p.normalise(arg, airModule)
 }
 
 func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule *air.ModuleBuilder[F]) air.Term[F] {

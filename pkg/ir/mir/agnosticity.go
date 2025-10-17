@@ -114,18 +114,10 @@ func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap
 		return ir.Sum(splitTerms(t.Args, mapping)...)
 	case *Constant[F]:
 		return t
-	case *IfZero[F]:
-		return ir.IfElse(
-			splitLogicalTerm(t.Condition, mapping),
-			splitTerm(t.TrueBranch, mapping),
-			splitTerm(t.FalseBranch, mapping),
-		)
 	case *RegisterAccess[F]:
 		return splitRegisterAccess(t, mapping)
 	case *Mul[F]:
 		return ir.Product(splitTerms(t.Args, mapping)...)
-	case *Norm[F]:
-		return ir.Normalise(splitTerm(t.Arg, mapping))
 	case *Sub[F]:
 		return ir.Subtract(splitTerms(t.Args, mapping)...)
 	case *VectorAccess[F]:

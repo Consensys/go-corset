@@ -63,7 +63,7 @@ func (p MirModule[F]) NewColumn(kind schema.RegisterType, name string, bitwidth 
 	)
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
-		mir.NewRangeConstraint(name, p.Module.Id(), ir.NewRegisterAccess[F, mir.Term[F]](rid, 0), bitwidth))
+		mir.NewRangeConstraint(name, p.Module.Id(), ir.RawRegisterAccess[F, mir.Term[F]](rid, 0), bitwidth))
 	// Done
 	return rid
 }

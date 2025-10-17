@@ -128,7 +128,7 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 	case PermutationConstraint[F1]:
 		return NewPermutationConstraint[F2](c.Handle, c.Context, c.Targets, c.Sources)
 	case RangeConstraint[F1]:
-		term := concretizeTerm[F1, F2](c.Expr)
+		term := ir.RawRegisterAccess[F2, Term[F2]](c.Expr.Register, c.Expr.Shift)
 		//
 		return NewRangeConstraint(c.Handle, c.Context, term, c.Bitwidth)
 	case SortedConstraint[F1]:
@@ -237,18 +237,10 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	case *Constant[F1]:
 		// NOTE: could fail if  F1 value does not fit into F2 value.
 		return ir.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
-	case *IfZero[F1]:
-		cond := concretizeLogicalTerm[F1, F2](t.Condition)
-		tb := concretizeTerm[F1, F2](t.TrueBranch)
-		fb := concretizeTerm[F1, F2](t.FalseBranch)
-		//
-		return ir.IfElse(cond, tb, fb)
 	case *RegisterAccess[F1]:
 		return ir.NewRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
 	case *Mul[F1]:
 		return ir.Product(concretizeTerms[F1, F2](t.Args)...)
-	case *Norm[F1]:
-		return ir.Normalise(concretizeTerm[F1, F2](t.Arg))
 	case *Sub[F1]:
 		return ir.Subtract(concretizeTerms[F1, F2](t.Args)...)
 	case *VectorAccess[F1]:
