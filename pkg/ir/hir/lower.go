@@ -35,10 +35,13 @@ type mirRegisterAccess = mir.RegisterAccess[word.BigEndian]
 // LowerToMir lowers (or refines) an HIR schema into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToMir(modules []Module) []mir.Module[word.BigEndian] {
-	lowering := NewMirLowering(modules)
+func LowerToMir[E schema.RegisterMap](externs []E, modules []Module) []mir.Module[word.BigEndian] {
+	var (
+		n        = len(externs)
+		lowering = NewMirLowering(externs, modules)
+	)
 	//
-	return lowering.Lower()
+	return lowering.Lower()[n:]
 }
 
 // MirLowering captures all auxiliary state required in the process of lowering
@@ -53,9 +56,9 @@ type MirLowering struct {
 }
 
 // NewMirLowering constructs an initial state for lowering a given MIR schema.
-func NewMirLowering(modules []Module) MirLowering {
+func NewMirLowering[E schema.RegisterMap](externs []E, modules []Module) MirLowering {
 	var (
-		mirSchema = ir.NewSchemaBuilder[word.BigEndian, mir.Constraint[word.BigEndian], mirTerm, mir.Module[word.BigEndian]]()
+		mirSchema = ir.NewSchemaBuilder[word.BigEndian, mir.Constraint[word.BigEndian], mirTerm, E](externs...)
 	)
 	// Initialise MIR modules
 	for _, m := range modules {
@@ -198,19 +201,20 @@ func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule *mirMo
 	)
 	// Lower sources
 	for i, ith := range c.Sources {
-		sources[i] = p.lowerLookupVector(ith, mirModule)
+		sources[i] = p.lowerLookupVector(ith)
 	}
 	// Lower targets
 	for i, ith := range c.Targets {
-		targets[i] = p.lowerLookupVector(ith, mirModule)
+		targets[i] = p.lowerLookupVector(ith)
 	}
 	// Add constraint
 	mirModule.AddConstraint(mir.NewLookupConstraint(c.Handle, targets, sources))
 }
 
-func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term], module *mirModuleBuilder,
+func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 ) lookup.Vector[word.BigEndian, mirTerm] {
 	var (
+		module   = p.mirSchema.Module(vec.Module)
 		terms    = p.expandTermsDeprecated(vec.Terms, module)
 		selector util.Option[mirTerm]
 	)

@@ -97,7 +97,7 @@ func (p *Module[F, T]) IsPublic() bool {
 
 // IsSynthetic implementation for schema.Module interface.
 func (p *Module[F, T]) IsSynthetic() bool {
-	panic("unsupported operation")
+	return false
 }
 
 // Substitute any matchined labelled constants within this module

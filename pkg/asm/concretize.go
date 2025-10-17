@@ -104,7 +104,9 @@ func Concretize[F Element[F]](cfg sc.FieldConfig, hp MicroHirProgram,
 
 // Lower an HIR program into an MIR program.
 func lowerHirProgram(hp MicroHirProgram) MicroMirProgram[word.BigEndian] {
-	return NewMixedProgram(hp.program, hir.LowerToMir(hp.externs)...)
+	var fns = hp.program.Functions()
+	//
+	return NewMixedProgram(hp.program, hir.LowerToMir(fns, hp.externs)...)
 }
 
 // Subdivide a given program.  In principle, this should be located within
