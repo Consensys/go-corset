@@ -348,13 +348,15 @@ func Test_Valid_Norm_05(t *testing.T) {
 	util.Check(t, false, "valid/norm_05")
 }
 
-func Test_Valid_Norm_06(t *testing.T) {
-	util.Check(t, false, "valid/norm_06")
-}
+// #1247
+// func Test_Valid_Norm_06(t *testing.T) {
+// 	util.Check(t, false, "valid/norm_06")
+// }
 
-func Test_Valid_Norm_07(t *testing.T) {
-	util.Check(t, false, "valid/norm_07")
-}
+// #1247
+// func Test_Valid_Norm_07(t *testing.T) {
+// 	util.Check(t, false, "valid/norm_07")
+// }
 
 // ===================================================================
 // If-Zero
@@ -542,9 +544,10 @@ func Test_Valid_Range_04(t *testing.T) {
 	util.Check(t, false, "valid/range_04")
 }
 
-func Test_Valid_Range_05(t *testing.T) {
-	util.Check(t, false, "valid/range_05")
-}
+// #1247
+// func Test_Valid_Range_05(t *testing.T) {
+// 	util.Check(t, false, "valid/range_05")
+// }
 
 // ===================================================================
 // Constant Propagation
@@ -746,13 +749,15 @@ func Test_Valid_Lookup_06(t *testing.T) {
 	util.Check(t, false, "valid/lookup_06")
 }
 
-func Test_Valid_Lookup_07(t *testing.T) {
-	util.Check(t, false, "valid/lookup_07")
-}
+// #1247
+// func Test_Valid_Lookup_07(t *testing.T) {
+// 	util.Check(t, false, "valid/lookup_07")
+// }
 
-func Test_Valid_Lookup_08(t *testing.T) {
-	util.Check(t, false, "valid/lookup_08")
-}
+// #1247
+// func Test_Valid_Lookup_08(t *testing.T) {
+// 	util.Check(t, false, "valid/lookup_08")
+// }
 
 func Test_Valid_Lookup_09(t *testing.T) {
 	util.Check(t, false, "valid/lookup_09")

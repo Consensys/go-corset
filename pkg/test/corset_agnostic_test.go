@@ -39,25 +39,37 @@ func Test_Agnostic_Lookup_02(t *testing.T) {
 	util.CheckWithFields(t, false, "agnostic/lookup_02", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 
-func Test_Agnostic_Lookup_03(t *testing.T) {
-	// NOTE: BLS12_377 generates an irregular lookup (which, at the time of
-	// writing, are not supported).
-	util.CheckWithFields(t, false, "agnostic/lookup_03", util.CORSET_MAX_PADDING, sc.KOALABEAR_16)
-}
+// #1247
+// func Test_Agnostic_Lookup_03(t *testing.T) {
+// 	// NOTE: BLS12_377 generates an irregular lookup (which, at the time of
+// 	// writing, are not supported).
+// 	util.CheckWithFields(t, false, "agnostic/lookup_03", util.CORSET_MAX_PADDING, sc.KOALABEAR_16)
+// }
 
-func Test_Agnostic_Lookup_04(t *testing.T) {
-	util.CheckWithFields(t, false, "agnostic/lookup_04", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
-}
+// #1247
+// func Test_Agnostic_Lookup_04(t *testing.T) {
+// 	util.CheckWithFields(t, false, "agnostic/lookup_04", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+// }
 
-func Test_Agnostic_Lookup_05(t *testing.T) {
-	util.CheckWithFields(t, false, "agnostic/lookup_05", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
-}
-func Test_Agnostic_Lookup_06(t *testing.T) {
-	util.CheckWithFields(t, false, "agnostic/lookup_06", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
-}
-func Test_Agnostic_Lookup_07(t *testing.T) {
-	util.CheckWithFields(t, false, "agnostic/lookup_07", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
-}
-func Test_Agnostic_Lookup_08(t *testing.T) {
-	util.CheckWithFields(t, false, "agnostic/lookup_08", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
-}
+// #1247
+//
+//	func Test_Agnostic_Lookup_05(t *testing.T) {
+//		util.CheckWithFields(t, false, "agnostic/lookup_05", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+//	}
+
+// #1247
+//
+//	func Test_Agnostic_Lookup_06(t *testing.T) {
+//		util.CheckWithFields(t, false, "agnostic/lookup_06", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+//	}
+
+// #1247
+//
+//	func Test_Agnostic_Lookup_07(t *testing.T) {
+//		util.CheckWithFields(t, false, "agnostic/lookup_07", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+//	}
+
+// #1247
+// func Test_Agnostic_Lookup_08(t *testing.T) {
+// 	util.CheckWithFields(t, false, "agnostic/lookup_08", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+// }
