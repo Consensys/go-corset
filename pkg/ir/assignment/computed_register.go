@@ -15,7 +15,6 @@ package assignment
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/ir"
@@ -24,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -297,41 +295,13 @@ func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir
 }
 
 func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) {
-	var (
-		// FIXME: this is not efficient at all
-		acc big.Int
-	)
-	//
-	acc.SetBytes(val.Bytes())
+	// FIXME: following is not efficient, as it allocates memory and does quite
+	// a lot of work overall.
+	var elements = field.SplitWord[word.BigEndian](val, bitwidths)
 	//
 	for i := range data {
-		data[i][row] = extractBits(acc, bitwidths[i])
-		acc.Rsh(&acc, bitwidths[i])
+		data[i][row] = elements[i]
 	}
-}
-
-// Extract the *least significant* n bits from the given integer, converting
-// them into an instance of the given field.
-func extractBits(acc big.Int, bits uint) word.BigEndian {
-	var (
-		buf    [16]uint8 // FIXME!!
-		bytes  = acc.Bytes()
-		width  = uint(len(bytes) * 8)
-		n      uint
-		offset uint
-		res    word.BigEndian
-	)
-	//
-	if width >= bits {
-		offset = width - bits
-		n = bits
-	} else {
-		n = width
-	}
-	//
-	bit.Copy(bytes, offset, buf[:], (16*8)-n, n)
-	//
-	return res.SetBytes(buf[:])
 }
 
 // RecModule is a wrapper which enables a computation to be recursive.

@@ -14,14 +14,12 @@ package builder
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -199,50 +197,13 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
 func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []array.MutArray[F], widths []uint) {
-	var (
-		bitwidth = sum(widths...)
-		// Determine bytewidth
-		bytewidth = word.ByteWidth(bitwidth)
-		// Extract bytes whilst ensuring they are in little endian form, and
-		// that they match the expected bitwidth.
-		bytes = padAndReverse(val.Bytes(), bytewidth)
-		//
-		bits = bit.NewReader(bytes[:])
-		buf  [32]byte
-	)
-	// read actual bits
-	for i, w := range widths {
-		// Read bits
-		m := bits.ReadInto(w, buf[:])
-		// Convert back to big endian
-		array.ReverseInPlace(buf[:m])
-		// Done
-		arrays[i].Set(row, field.FromBigEndianBytes[F](buf[:m]))
-	}
-}
-
-func padAndReverse(bytes []byte, n uint) []byte {
-	// Make sure bytes is both padded and cloned.
-	switch {
-	case n > uint(len(bytes)):
-		bytes = array.FrontPad(bytes, n, 0)
-	default:
-		bytes = slices.Clone(bytes)
-	}
-	// In place reversal
-	array.ReverseInPlace(bytes)
+	// FIXME: following is not efficient, as it allocates memory and does quite
+	// a lot of work overall.
+	var elements = field.SplitWord[F](val, widths)
 	//
-	return bytes
-}
-
-func sum(vals ...uint) uint {
-	val := uint(0)
-	//
-	for _, v := range vals {
-		val += v
+	for i := range widths {
+		arrays[i].Set(row, elements[i])
 	}
-	//
-	return val
 }
 
 // SplitResult is returned by worker threads during parallel trace splitting.

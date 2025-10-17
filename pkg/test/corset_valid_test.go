@@ -544,9 +544,11 @@ func Test_Valid_Range_04(t *testing.T) {
 	util.Check(t, false, "valid/range_04")
 }
 
-// #1247
+// #1247 --- This is an issue as we have a potentially negative expression used
+// in a range constraint.
+//
 // func Test_Valid_Range_05(t *testing.T) {
-// 	util.Check(t, false, "valid/range_05")
+//  util.Check(t, false, "valid/range_05")
 // }
 
 // ===================================================================
@@ -717,10 +719,9 @@ func Test_Valid_StrictSorted_04(t *testing.T) {
 	util.Check(t, false, "valid/strictsorted_04")
 }
 
-// #1247
-// func Test_Valid_StrictSorted_05(t *testing.T) {
-// 	util.Check(t, false, "valid/strictsorted_05")
-// }
+func Test_Valid_StrictSorted_05(t *testing.T) {
+	util.Check(t, false, "valid/strictsorted_05")
+}
 
 // ===================================================================
 // Lookups
@@ -816,10 +817,9 @@ func Test_Valid_Lookup_22(t *testing.T) {
 	util.Check(t, false, "valid/lookup_22")
 }
 
-//#1247
-// func Test_Valid_Lookup_23(t *testing.T) {
-// 	util.Check(t, false, "valid/lookup_23")
-// }
+func Test_Valid_Lookup_23(t *testing.T) {
+	util.Check(t, false, "valid/lookup_23")
+}
 
 func Test_Valid_Lookup_24(t *testing.T) {
 	util.Check(t, false, "valid/lookup_24")
