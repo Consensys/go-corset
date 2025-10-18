@@ -13,10 +13,12 @@
 package ir
 
 import (
+	"encoding/gob"
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Computation represents an "unbound" term.  That is, it captures any possible
@@ -299,4 +301,31 @@ func SubdivideLogicalComputations[F field.Element[F]](cs []LogicalComputation[F]
 	}
 	//
 	return computations
+}
+
+// ComputationTerm provides a convenient alias for a big endian term.
+type ComputationTerm = Term[word.BigEndian, Computation[word.BigEndian]]
+
+// LogicalComputationTerm provides a convenient alias for a big endian logical term.
+type LogicalComputationTerm = LogicalTerm[word.BigEndian, LogicalComputation[word.BigEndian]]
+
+func init() {
+	gob.Register(ComputationTerm(&Add[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&Sub[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&Mul[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&Cast[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&Exp[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(
+		&IfZero[word.BigEndian, LogicalComputation[word.BigEndian], Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&Constant[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&LabelledConst[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&Norm[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&RegisterAccess[word.BigEndian, Computation[word.BigEndian]]{}))
+
+	gob.Register(LogicalComputationTerm(&Conjunct[word.BigEndian, LogicalComputation[word.BigEndian]]{}))
+	gob.Register(LogicalComputationTerm(&Disjunct[word.BigEndian, LogicalComputation[word.BigEndian]]{}))
+	gob.Register(LogicalComputationTerm(
+		&Equal[word.BigEndian, LogicalComputation[word.BigEndian], Computation[word.BigEndian]]{}))
+	gob.Register(LogicalComputationTerm(
+		&NotEqual[word.BigEndian, LogicalComputation[word.BigEndian], Computation[word.BigEndian]]{}))
 }

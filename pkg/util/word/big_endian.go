@@ -173,3 +173,19 @@ func (p BigEndian) String() string {
 func (p BigEndian) Text(base int) string {
 	return p.val.Text(base)
 }
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode a big endian word.  This allows it to be marshalled into a binary form.
+func (p *BigEndian) GobEncode() (data []byte, err error) {
+	return p.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *BigEndian) GobDecode(data []byte) error {
+	p.val.SetBytes(data)
+	//
+	return nil
+}
