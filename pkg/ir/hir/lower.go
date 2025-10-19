@@ -36,12 +36,9 @@ type mirRegisterAccess = mir.RegisterAccess[word.BigEndian]
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
 func LowerToMir[E schema.RegisterMap](externs []E, modules []Module) []mir.Module[word.BigEndian] {
-	var (
-		n        = len(externs)
-		lowering = NewMirLowering(externs, modules)
-	)
+	var lowering = NewMirLowering(externs, modules)
 	//
-	return lowering.Lower()[n:]
+	return lowering.Lower()
 }
 
 // MirLowering captures all auxiliary state required in the process of lowering
