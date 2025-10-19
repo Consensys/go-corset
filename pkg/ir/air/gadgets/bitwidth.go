@@ -307,7 +307,7 @@ func (p *typeDecomposition[F]) Substitute(mapping map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *typeDecomposition[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *typeDecomposition[F]) Lisp(schema sc.ModuleRegisterMap) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
@@ -421,7 +421,7 @@ func (p *byteDecomposition[F]) Substitute(mapping map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *byteDecomposition[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *byteDecomposition[F]) Lisp(schema sc.ModuleRegisterMap) sexp.SExp {
 	var (
 		srcModule = schema.Module(p.source.Module())
 		source    = srcModule.Register(p.source.Register())

@@ -58,5 +58,5 @@ type Assignment[F any] interface {
 	Substitute(map[string]F)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(AnySchema[F]) sexp.SExp
+	Lisp(ModuleRegisterMap) sexp.SExp
 }

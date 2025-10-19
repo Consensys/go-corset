@@ -202,6 +202,10 @@ func (p *Function[T]) Validate(fieldWidth uint) []error {
 	return errors
 }
 
+func (p *Function[T]) String() string {
+	return sc.RegisterMapToString(p)
+}
+
 // ============================================================================
 // Encoding / Decoding
 // ============================================================================

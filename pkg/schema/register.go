@@ -26,6 +26,7 @@ import (
 // RegisterMap provides a generic interface for entities which hold information
 // about registers.
 type RegisterMap interface {
+	fmt.Stringer
 	// Name returns the name given to the enclosing entity (i.e. module or
 	// function).
 	Name() string
@@ -216,6 +217,63 @@ func WidthOfRegisters(regs []Register, rids []RegisterId) uint {
 // print a constraint but don't have access to an appropriate mapping, etc.
 func RegisterToString(rid RegisterId) string {
 	return fmt.Sprintf("#%d", rid.Unwrap())
+}
+
+// RegisterMapToString provides a default method for converting a register map
+// into a simple string representation.
+func RegisterMapToString(p RegisterMap) string {
+	var builder strings.Builder
+	//
+	builder.WriteString("{")
+	builder.WriteString(p.Name())
+	builder.WriteString(":")
+	//
+	for i, r := range p.Registers() {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+		//
+		builder.WriteString(r.Name)
+	}
+	//
+	builder.WriteString("}")
+	//
+	return builder.String()
+}
+
+// RegisterLimbsMapToString provides a default method for converting a register
+// limbs map into a simple string representation.
+func RegisterLimbsMapToString(p RegisterLimbsMap) string {
+	var builder strings.Builder
+	//
+	builder.WriteString("{")
+	builder.WriteString(p.Name())
+	builder.WriteString(":")
+	//
+	for i, r := range p.Registers() {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+		//
+		builder.WriteString(r.Name)
+		builder.WriteString("=>")
+		//
+		mapping := p.Limbs()
+		//
+		for j := len(mapping); j > 0; {
+			if j != len(mapping) {
+				builder.WriteString("::")
+			}
+			//
+			j = j - 1
+			//
+			builder.WriteString(mapping[j].Name)
+		}
+	}
+	//
+	builder.WriteString("}")
+	//
+	return builder.String()
 }
 
 // ============================================================================

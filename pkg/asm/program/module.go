@@ -110,3 +110,7 @@ func (p *Module[F, T]) Substitute(mapping map[string]F) {
 func (p *Module[F, T]) Width() uint {
 	return uint(len(p.function.Registers()))
 }
+
+func (p *Module[F, T]) String() string {
+	return p.function.String()
+}

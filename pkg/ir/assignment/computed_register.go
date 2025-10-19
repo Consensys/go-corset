@@ -236,7 +236,7 @@ func (p *ComputedRegister[F]) Substitute(mapping map[string]F) {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *ComputedRegister[F]) Lisp(schema sc.ModuleRegisterMap) sexp.SExp {
 	var (
 		module  = schema.Module(p.Module)
 		targets = make([]sexp.SExp, len(p.Targets))

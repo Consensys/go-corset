@@ -183,9 +183,9 @@ func HoldsLocally[F field.Element[F], T ir.Testable[F]](k uint, handle string, t
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Constraint[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Constraint[F, T]) Lisp(mapping schema.ModuleRegisterMap) sexp.SExp {
 	var (
-		module = schema.Module(p.Context)
+		module = mapping.Module(p.Context)
 		name   string
 		vanish string = "vanish"
 	)

@@ -185,3 +185,7 @@ func (p *registerAllocator) Register(rid RegisterId) Register {
 func (p *registerAllocator) Registers() []Register {
 	return p.mapping.Registers()
 }
+
+func (p *registerAllocator) String() string {
+	return p.mapping.String()
+}

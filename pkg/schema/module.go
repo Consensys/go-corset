@@ -24,6 +24,7 @@ import (
 // ModuleMap provides a mapping from module identifiers (or names) to register
 // maps.
 type ModuleMap[T RegisterMap] interface {
+	fmt.Stringer
 	// Field returns the underlying field configuration used for this mapping.
 	// This includes the field bandwidth (i.e. number of bits available in
 	// underlying field) and the maximum register width (i.e. width at which
@@ -36,6 +37,9 @@ type ModuleMap[T RegisterMap] interface {
 	// Returns number of modules in this map
 	Width() uint
 }
+
+// ModuleRegisterMap provides a mapping for all modules and registers.
+type ModuleRegisterMap ModuleMap[RegisterMap]
 
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
@@ -227,6 +231,10 @@ func (p *Table[F, C]) Substitute(mapping map[string]F) {
 // Width returns the number of registers in this Table.
 func (p *Table[F, C]) Width() uint {
 	return uint(len(p.registers))
+}
+
+func (p *Table[F, C]) String() string {
+	return RegisterMapToString(p)
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.

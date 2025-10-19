@@ -127,7 +127,7 @@ func (p Constraint[F]) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Constraint[F]) Lisp(schema schema.ModuleRegisterMap) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 

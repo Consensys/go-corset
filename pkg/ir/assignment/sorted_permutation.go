@@ -129,14 +129,14 @@ func (p *SortedPermutation[F]) Substitute(mapping map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *SortedPermutation[F]) Lisp(schema sc.ModuleRegisterMap) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)
 
 	for _, t := range p.Targets {
-		ith := schema.Register(t)
+		ith := schema.Module(t.Module()).Register(t.Column())
 		name := sexp.NewSymbol(ith.QualifiedName(schema.Module(t.Module())))
 		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
 		def := sexp.NewList([]sexp.SExp{name, datatype})
@@ -144,7 +144,7 @@ func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	}
 
 	for i, s := range p.Sources {
-		ith := schema.Register(s)
+		ith := schema.Module(s.Module()).Register(s.Column())
 		ith_name := ith.QualifiedName(schema.Module(s.Module()))
 		//
 		if i >= len(p.Signs) {

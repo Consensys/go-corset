@@ -143,7 +143,7 @@ func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Assertion[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Assertion[F, T]) Lisp(schema schema.ModuleRegisterMap) sexp.SExp {
 	var (
 		module           = schema.Module(p.Context)
 		assertion string = "assert"

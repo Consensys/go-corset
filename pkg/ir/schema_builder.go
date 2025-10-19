@@ -114,6 +114,11 @@ func (p *SchemaBuilder[F, C, T]) NewModule(name string, multiplier uint, padding
 	return mid
 }
 
+// Externs provides direct access to the external modules.
+func (p *SchemaBuilder[F, C, T]) Externs() []schema.RegisterMap {
+	return p.externs
+}
+
 // HasModule checks whether a moduleregister of the given name exists already
 // and,if so, returns its index.
 func (p *SchemaBuilder[F, C, T]) HasModule(name string) (uint, bool) {
@@ -342,4 +347,8 @@ func (p *ModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int) *Regis
 		Register: schema.NewRegisterId(rid),
 		Shift:    shift,
 	}
+}
+
+func (p *ModuleBuilder[F, C, T]) String() string {
+	return schema.RegisterMapToString(p)
 }

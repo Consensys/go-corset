@@ -160,22 +160,22 @@ func (p *LexicographicSort[F]) Substitute(mapping map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *LexicographicSort[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *LexicographicSort[F]) Lisp(schema sc.ModuleRegisterMap) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
 	)
 
-	for i := range p.targets {
-		ith := schema.Register(p.targets[i])
-		ith_module := schema.Module(p.targets[i].Module())
+	for _, t := range p.targets {
+		ith_module := schema.Module(t.Module())
+		ith := ith_module.Register(t.Column())
 		ith_name := ith.QualifiedName(ith_module)
 		targets.Append(sexp.NewSymbol(ith_name))
 	}
 
-	for i := range p.sources {
-		ith := schema.Register(p.sources[i])
-		ith_module := schema.Module(p.sources[i].Module())
+	for i, s := range p.sources {
+		ith_module := schema.Module(s.Module())
+		ith := ith_module.Register(s.Column())
 		ith_name := ith.QualifiedName(ith_module)
 		//
 		if i >= len(p.signs) {

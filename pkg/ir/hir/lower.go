@@ -55,7 +55,7 @@ type MirLowering struct {
 // NewMirLowering constructs an initial state for lowering a given MIR schema.
 func NewMirLowering[E schema.RegisterMap](externs []E, modules []Module) MirLowering {
 	var (
-		mirSchema = ir.NewSchemaBuilder[word.BigEndian, mir.Constraint[word.BigEndian], mirTerm, E](externs...)
+		mirSchema = ir.NewSchemaBuilder[word.BigEndian, mir.Constraint[word.BigEndian], mirTerm](externs...)
 	)
 	// Initialise MIR modules
 	for _, m := range modules {
@@ -71,13 +71,14 @@ func NewMirLowering[E schema.RegisterMap](externs []E, modules []Module) MirLowe
 // Lower the MIR schema provide when this lowering instance was created into an
 // equivalent MIR schema.
 func (p *MirLowering) Lower() []mir.Module[word.BigEndian] {
+	var n = len(p.mirSchema.Externs())
 	// Initialise modules
 	for i := range len(p.hirModules) {
-		p.InitialiseModule(uint(i))
+		p.initialiseModule(uint(i), uint(i+n))
 	}
 	// Lower modules
 	for i := range len(p.hirModules) {
-		p.LowerModule(uint(i))
+		p.lowerModule(uint(i), uint(i+n))
 	}
 	// Build concrete modules from schema
 	return ir.BuildSchema[mir.Module[word.BigEndian]](p.mirSchema)
@@ -85,10 +86,10 @@ func (p *MirLowering) Lower() []mir.Module[word.BigEndian] {
 
 // InitialiseModule simply initialises all registers within the module, but does
 // not lower any constraint or assignments.
-func (p *MirLowering) InitialiseModule(index uint) {
+func (p *MirLowering) initialiseModule(hirIndex, mirIndex uint) {
 	var (
-		hirModule = p.hirModules[index]
-		mirModule = p.mirSchema.Module(index)
+		hirModule = p.hirModules[hirIndex]
+		mirModule = p.mirSchema.Module(mirIndex)
 	)
 	// Initialise registers in MIR module
 	mirModule.NewRegisters(hirModule.Registers()...)
@@ -96,10 +97,10 @@ func (p *MirLowering) InitialiseModule(index uint) {
 
 // LowerModule lowers the given MIR module into the corresponding MIR module.
 // This includes all constraints and assignments.
-func (p *MirLowering) LowerModule(index uint) {
+func (p *MirLowering) lowerModule(hirIndex, mirIndex uint) {
 	var (
-		hirModule = p.hirModules[index]
-		mirModule = p.mirSchema.Module(index)
+		hirModule = p.hirModules[hirIndex]
+		mirModule = p.mirSchema.Module(mirIndex)
 	)
 	// Lower assignments.
 	for iter := hirModule.Assignments(); iter.HasNext(); {

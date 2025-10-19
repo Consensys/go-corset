@@ -148,7 +148,7 @@ func (p Air[F, C]) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Air[F, C]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Air[F, C]) Lisp(schema schema.ModuleRegisterMap) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 
