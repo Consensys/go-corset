@@ -344,20 +344,17 @@ func Test_Valid_Norm_04(t *testing.T) {
 	util.Check(t, false, "valid/norm_04")
 }
 
-//#1247
-// func Test_Valid_Norm_05(t *testing.T) {
-// 	util.Check(t, false, "valid/norm_05")
-// }
+func Test_Valid_Norm_05(t *testing.T) {
+	util.Check(t, false, "valid/norm_05")
+}
 
-// #1247
-// func Test_Valid_Norm_06(t *testing.T) {
-// 	util.Check(t, false, "valid/norm_06")
-// }
+func Test_Valid_Norm_06(t *testing.T) {
+	util.Check(t, false, "valid/norm_06")
+}
 
-// #1247
-// func Test_Valid_Norm_07(t *testing.T) {
-// 	util.Check(t, false, "valid/norm_07")
-// }
+func Test_Valid_Norm_07(t *testing.T) {
+	util.Check(t, false, "valid/norm_07")
+}
 
 // ===================================================================
 // If-Zero

@@ -69,7 +69,6 @@ func Test_Agnostic_Lookup_02(t *testing.T) {
 //		util.CheckWithFields(t, false, "agnostic/lookup_07", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 //	}
 
-// #1247
-// func Test_Agnostic_Lookup_08(t *testing.T) {
-// 	util.CheckWithFields(t, false, "agnostic/lookup_08", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
-// }
+func Test_Agnostic_Lookup_08(t *testing.T) {
+	util.CheckWithFields(t, false, "agnostic/lookup_08", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+}

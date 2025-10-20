@@ -123,7 +123,7 @@ func Test_Bench_Mod(t *testing.T) {
 	util.Check(t, true, "bench/mod")
 }
 
-//#1247
+//#834
 // func Test_Bench_TicTacToe(t *testing.T) {
 // 	util.Check(t, true, "bench/tic_tac_toe")
 // }
