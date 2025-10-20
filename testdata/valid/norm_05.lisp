@@ -1,4 +1,2 @@
-(defpurefun (vanishes! x) (== 0 x))
-
 (defcolumns (A :i16))
-(defconstraint c1 () (vanishes! (~ A)))
+(defconstraint c1 () (== 0 (~ A)))

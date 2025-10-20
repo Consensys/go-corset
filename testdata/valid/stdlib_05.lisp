@@ -6,7 +6,7 @@
            ;; then T == 1
            (eq! 1 T)
            ;; else T == 0
-           (vanishes! T)))
+           (== 0 T)))
 
 (defconstraint new ()
   ;; if A==1 && B == 0
@@ -14,4 +14,4 @@
            ;; then T == 1
            (eq! T 1)
            ;; else T == 0
-           (vanishes! T)))
+           (== 0 T)))

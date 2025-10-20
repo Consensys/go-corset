@@ -1,14 +1,12 @@
-(defpurefun (vanishes! x) (== 0 x))
-
 (defcolumns (STAMP :i8))
 
 ;; STAMP[0] == 0
-(defconstraint start (:domain {0}) (vanishes! STAMP))
+(defconstraint start (:domain {0}) (== 0 STAMP))
 ;; STAMP[-1] == 5
-(defconstraint end (:domain {-1}) (vanishes! (- STAMP 5)))
+(defconstraint end (:domain {-1}) (== 0 (- STAMP 5)))
 ;; STAMP either remains constant, or increments by one.
 (defconstraint increment ()
-  (vanishes!
+  (== 0
    (*
     ;; STAMP[k] == STAMP[k+1]
     (- STAMP (shift STAMP 1))

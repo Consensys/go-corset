@@ -1,4 +1,3 @@
-(defpurefun (vanishes! x) (== 0 x))
 ;;
 (defcolumns
     ;; Column (not in perspective)

@@ -38,7 +38,8 @@ type RawModule = lt.Module[word.BigEndian]
 // Batch size?
 // Recursion limit (to prevent infinite loops)
 func PropagateAll[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedProgram[F, T, M], ts []lt.TraceFile,
-) ([]lt.TraceFile, []error) {
+	expanding bool) ([]lt.TraceFile, []error) {
+	//
 	var (
 		errors  []error
 		ntraces = make([]lt.TraceFile, len(ts))
@@ -51,7 +52,7 @@ func PropagateAll[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p Mix
 		// the empty traces as this helps error reporting with respect to line
 		// numbers.
 		if trace.Modules != nil {
-			ntraces[i], errs = Propagate(p, trace)
+			ntraces[i], errs = Propagate(p, trace, expanding)
 			errors = append(errors, errs...)
 		}
 	}
@@ -75,7 +76,7 @@ func PropagateAll[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p Mix
 // Batch size?
 // Recursion limit (to prevent infinite loops)
 func Propagate[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedProgram[F, T, M], trace lt.TraceFile,
-) (lt.TraceFile, []error) {
+	expanding bool) (lt.TraceFile, []error) {
 	// Construct suitable executior for the given program
 	var (
 		errors []error

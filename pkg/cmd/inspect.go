@@ -95,7 +95,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	if expanding {
 		// Apply trace propagation
-		tracefile, errors = asm.Propagate(binf.Schema, tracefile)
+		tracefile, errors = asm.Propagate(binf.Schema, tracefile, true)
 	}
 	// Apply trace expansion
 	if len(errors) == 0 {

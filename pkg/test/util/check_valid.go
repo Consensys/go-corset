@@ -123,7 +123,7 @@ func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, 
 		// Extract root schema
 		schema := stack.BinaryFile().Schema
 		// Apply trace propagation
-		if traces, errors = asm.PropagateAll(schema, traces); len(errors) != 0 {
+		if traces, errors = asm.PropagateAll(schema, traces, cfg.expand); len(errors) != 0 {
 			t.Errorf("Trace propagation failed (%s): %s", test, errors)
 			return
 		}
