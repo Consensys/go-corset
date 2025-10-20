@@ -57,8 +57,8 @@ func NewInterleavingConstraint[F field.Element[F]](handle string, targetContext 
 }
 
 // NewLookupConstraint creates a new lookup constraint with a given handle.
-func NewLookupConstraint[F field.Element[F]](handle string, targets []lookup.Vector[F, Term[F]],
-	sources []lookup.Vector[F, Term[F]]) Constraint[F] {
+func NewLookupConstraint[F field.Element[F]](handle string, targets []LookupVector[F],
+	sources []LookupVector[F]) Constraint[F] {
 	//
 	return Constraint[F]{lookup.NewConstraint(handle, targets, sources)}
 }
@@ -78,7 +78,7 @@ func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, 
 
 // NewSortedConstraint creates a new Sorted
 func NewSortedConstraint[F field.Element[F]](handle string, context schema.ModuleId, bitwidth uint,
-	selector util.Option[Term[F]], sources []Term[F], signs []bool, strict bool) Constraint[F] {
+	selector util.Option[*RegisterAccess[F]], sources []*RegisterAccess[F], signs []bool, strict bool) Constraint[F] {
 	//
 	return Constraint[F]{sorted.NewConstraint(handle, context, bitwidth, selector, sources, signs, strict)}
 }
@@ -127,7 +127,7 @@ func (p Constraint[F]) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint[F]) Lisp(schema schema.ModuleRegisterMap) sexp.SExp {
+func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 

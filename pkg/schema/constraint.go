@@ -47,7 +47,7 @@ type Constraint[F any] interface {
 	Name() string
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(ModuleRegisterMap) sexp.SExp
+	Lisp(AnySchema[F]) sexp.SExp
 	// Substitute any matchined labelled constants within this constraint
 	Substitute(map[string]F)
 }

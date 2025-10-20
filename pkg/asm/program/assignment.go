@@ -86,7 +86,7 @@ func (p Assignment[F, T]) Consistent(sc.AnySchema[F]) []error {
 }
 
 // Lisp implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Lisp(schema sc.ModuleRegisterMap) sexp.SExp {
+func (p Assignment[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),

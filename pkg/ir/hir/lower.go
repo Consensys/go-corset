@@ -194,8 +194,8 @@ func (p *MirLowering) lowerInterleavingConstraint(c InterleavingConstraint, mod 
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule *mirModuleBuilder) {
 	var (
-		sources = make([]lookup.Vector[word.BigEndian, mirTerm], len(c.Sources))
-		targets = make([]lookup.Vector[word.BigEndian, mirTerm], len(c.Targets))
+		sources = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], len(c.Sources))
+		targets = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], len(c.Targets))
 	)
 	// Lower sources
 	for i, ith := range c.Sources {
@@ -210,16 +210,16 @@ func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule *mirMo
 }
 
 func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
-) lookup.Vector[word.BigEndian, mirTerm] {
+) lookup.Vector[word.BigEndian, *mirRegisterAccess] {
 	var (
 		module   = p.mirSchema.Module(vec.Module)
-		terms    = p.expandTermsDeprecated(vec.Terms, module)
-		selector util.Option[mirTerm]
+		terms    = p.expandTerms(vec.Terms, module)
+		selector util.Option[*mirRegisterAccess]
 	)
 	//
 	if vec.HasSelector() {
 		sel := p.expandTerm(vec.Selector.Unwrap(), module)
-		selector = util.Some[mirTerm](sel)
+		selector = util.Some[*mirRegisterAccess](sel)
 	}
 	//
 	return lookup.NewVector(vec.Module, selector, terms...)
@@ -230,13 +230,13 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, module *mirModuleBuilder) {
 	var (
-		terms    = p.expandTermsDeprecated(c.Sources, module)
-		selector util.Option[mirTerm]
+		terms    = p.expandTerms(c.Sources, module)
+		selector util.Option[*mirRegisterAccess]
 	)
 	//
 	if c.Selector.HasValue() {
 		sel := p.expandTerm(c.Selector.Unwrap(), module)
-		selector = util.Some[mirTerm](sel)
+		selector = util.Some[*mirRegisterAccess](sel)
 	}
 	// Add constraint
 	module.AddConstraint(
@@ -334,17 +334,6 @@ func (p *MirLowering) lowerBinaryLogical(lhs, rhs Term, fn BinaryLogicalFn, modu
 	)
 	//
 	return DisjunctIfTerms(fn, lTerm, rTerm)
-}
-
-func (p *MirLowering) expandTermsDeprecated(es []Term, mirModule *mirModuleBuilder) (terms []mirTerm) {
-	//
-	terms = make([]mirTerm, len(es))
-	//
-	for i, e := range es {
-		terms[i] = p.expandTerm(e, mirModule)
-	}
-	//
-	return terms
 }
 
 func (p *MirLowering) expandTerms(es []Term, mirModule *mirModuleBuilder) (terms []*mirRegisterAccess) {

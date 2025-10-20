@@ -38,9 +38,6 @@ type ModuleMap[T RegisterMap] interface {
 	Width() uint
 }
 
-// ModuleRegisterMap provides a mapping for all modules and registers.
-type ModuleRegisterMap ModuleMap[RegisterMap]
-
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
 

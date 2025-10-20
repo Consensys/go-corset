@@ -128,7 +128,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 // it can be printed.
 //
 //nolint:revive
-func (p Constraint[F, E]) Lisp(mapping schema.ModuleRegisterMap) sexp.SExp {
+func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	module := mapping.Module(p.Context)
 	//
 	return sexp.NewList([]sexp.SExp{

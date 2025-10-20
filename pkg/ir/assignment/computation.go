@@ -111,7 +111,7 @@ func (p *Computation[F]) Substitute(map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *Computation[F]) Lisp(schema sc.ModuleRegisterMap) sexp.SExp {
+func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()

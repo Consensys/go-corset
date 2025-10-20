@@ -122,7 +122,7 @@ func (e *PseudoInverse[F]) RegistersWritten() []schema.RegisterRef {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (e *PseudoInverse[F]) Lisp(schema schema.ModuleRegisterMap) sexp.SExp {
+func (e *PseudoInverse[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		module   = schema.Module(e.Target.Module())
 		target   = module.Register(e.Target.Register())

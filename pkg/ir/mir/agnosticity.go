@@ -170,3 +170,34 @@ func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema
 	//
 	return ir.NewVectorAccess(terms)
 }
+
+func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], mapping schema.RegisterLimbsMap,
+) []*VectorAccess[F] {
+	//
+	var (
+		vecs = make([]*VectorAccess[F], len(terms))
+	)
+	//
+	for i, term := range terms {
+		vecs[i] = splitRawRegisterAccess(term, mapping)
+	}
+	//
+	return vecs
+}
+
+func splitRawRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterLimbsMap,
+) *VectorAccess[F] {
+	//
+	var (
+		// Determine limbs for this register
+		limbs = mapping.LimbIds(term.Register)
+		// Construct appropriate terms
+		terms = make([]*RegisterAccess[F], len(limbs))
+	)
+	//
+	for i, limb := range limbs {
+		terms[i] = &ir.RegisterAccess[F, Term[F]]{Register: limb, Shift: term.Shift}
+	}
+	//
+	return ir.RawVectorAccess(terms)
+}

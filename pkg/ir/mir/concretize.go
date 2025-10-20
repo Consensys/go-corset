@@ -27,9 +27,6 @@ import (
 // Element provides a convenient shorthand.
 type Element[F any] = field.Element[F]
 
-// LookupVector provides a convenient shorthand
-type LookupVector[F any] = lookup.Vector[F, Term[F]]
-
 // Concretize converts an MIR schema for a given field F1 into an MIR schema for
 // another field F2.  This is awkward as we have to rebuild the entire
 // Intermediate Representation in order to match the type appropriately. In
@@ -116,7 +113,7 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		//
 		return NewAssertion(c.Handle, c.Context, c.Domain, term)
 	case InterleavingConstraint[F1]:
-		target := ir.RawRegisterAccess[F2, Term[F2]](c.Target.Register, c.Target.Shift)
+		target := concretizeRegisterAccess[F1, F2](c.Target)
 		sources := concretizeRegisterAccesses[F1, F2](c.Sources)
 		//
 		return NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
@@ -132,8 +129,14 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		//
 		return NewRangeConstraint(c.Handle, c.Context, term, c.Bitwidth)
 	case SortedConstraint[F1]:
-		sources := concretizeTerms[F1, F2](c.Sources)
-		selector := concretizeOptionalTerm[F1, F2](c.Selector)
+		var (
+			sources                                   = concretizeRegisterAccesses[F1, F2](c.Sources)
+			selector util.Option[*RegisterAccess[F2]] = util.None[*RegisterAccess[F2]]()
+		)
+		//
+		if c.Selector.HasValue() {
+			selector = util.Some(concretizeRegisterAccess[F1, F2](c.Selector.Unwrap()))
+		}
 		//
 		return NewSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
 	case VanishingConstraint[F1]:
@@ -157,11 +160,15 @@ func concretizeLookupVectors[F1 Element[F1], F2 Element[F2]](vecs []LookupVector
 
 func concretizeLookupVector[F1 Element[F1], F2 Element[F2]](vec LookupVector[F1]) LookupVector[F2] {
 	var (
-		selector = concretizeOptionalTerm[F1, F2](vec.Selector)
-		terms    = concretizeTerms[F1, F2](vec.Terms)
+		sources                                   = concretizeRegisterAccesses[F1, F2](vec.Terms)
+		selector util.Option[*RegisterAccess[F2]] = util.None[*RegisterAccess[F2]]()
 	)
 	//
-	return lookup.NewVector(vec.Module, selector, terms...)
+	if vec.Selector.HasValue() {
+		selector = util.Some(concretizeRegisterAccess[F1, F2](vec.Selector.Unwrap()))
+	}
+	//
+	return lookup.NewVector(vec.Module, selector, sources...)
 }
 
 // ============================================================================
@@ -256,14 +263,6 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	}
 }
 
-func concretizeOptionalTerm[F1 Element[F1], F2 Element[F2]](t util.Option[Term[F1]]) util.Option[Term[F2]] {
-	if t.IsEmpty() {
-		return util.None[Term[F2]]()
-	}
-	//
-	return util.Some(concretizeTerm[F1, F2](t.Unwrap()))
-}
-
 func concretizeTerms[F1 Element[F1], F2 Element[F2]](terms []Term[F1]) []Term[F2] {
 	var nterms = make([]Term[F2], len(terms))
 	//
@@ -272,6 +271,10 @@ func concretizeTerms[F1 Element[F1], F2 Element[F2]](terms []Term[F1]) []Term[F2
 	}
 	//
 	return nterms
+}
+
+func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](term *RegisterAccess[F1]) *RegisterAccess[F2] {
+	return ir.RawRegisterAccess[F2, Term[F2]](term.Register, term.Shift)
 }
 
 func concretizeRegisterAccesses[F1 Element[F1], F2 Element[F2]](terms []*RegisterAccess[F1]) []*RegisterAccess[F2] {

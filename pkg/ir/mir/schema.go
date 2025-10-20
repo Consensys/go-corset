@@ -66,7 +66,9 @@ type (
 	InterleavingConstraint[F field.Element[F]] = interleaving.Constraint[F, *RegisterAccess[F]]
 	// LookupConstraint captures the essence of a lookup constraint at the MIR
 	// level.
-	LookupConstraint[F field.Element[F]] = lookup.Constraint[F, Term[F]]
+	LookupConstraint[F field.Element[F]] = lookup.Constraint[F, *RegisterAccess[F]]
+	// LookupVector provides a convenient shorthand
+	LookupVector[F field.Element[F]] = lookup.Vector[F, *RegisterAccess[F]]
 	// PermutationConstraint captures the essence of a permutation constraint at the
 	// MIR level.
 	PermutationConstraint[F field.Element[F]] = permutation.Constraint[F]
@@ -74,7 +76,7 @@ type (
 	RangeConstraint[F field.Element[F]] = ranged.Constraint[F, *RegisterAccess[F]]
 	// SortedConstraint captures the essence of a sorted constraint at the MIR
 	// level.
-	SortedConstraint[F field.Element[F]] = sorted.Constraint[F, Term[F]]
+	SortedConstraint[F field.Element[F]] = sorted.Constraint[F, *RegisterAccess[F]]
 	// VanishingConstraint captures the essence of a vanishing constraint at the MIR
 	// level. A vanishing constraint is a row constraint which must evaluate to
 	// zero.

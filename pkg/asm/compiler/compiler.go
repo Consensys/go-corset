@@ -285,30 +285,19 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 			name          = fmt.Sprintf("%s=>%s", fn.Name(), bus.Name)
 			callerAddress = p.buses[caller].ColumnsOf(bus.Address()...)
 			callerData    = p.buses[caller].ColumnsOf(bus.Data()...)
-			callerLines   = make([]E, len(callerAddress)+len(callerData))
+			callerLines   []T
 			calleeBus     = p.buses[bus.BusId].Bus()
-			calleeLines   = make([]E, len(calleeBus))
-			calleeEnable  *E
+			calleeEnable  util.Option[T]
 		)
-		// Initialise caller address lines
-		for i, r := range callerAddress {
-			callerLines[i] = Variable[T, E](r, 0)
-		}
-		// Initialise caller data lines
-		for i, r := range callerData {
-			callerLines[i+len(callerAddress)] = Variable[T, E](r, 0)
-		}
-		// Initialise callee lines
-		for i, r := range calleeBus {
-			calleeLines[i] = Variable[T, E](r, 0)
-		}
+		// Initialise caller address/data lines
+		callerLines = append(callerLines, callerAddress...)
+		callerLines = append(callerLines, callerData...)
 		//
 		if b := p.buses[bus.BusId]; !b.atomic {
-			v := Variable[T, E](b.ReturnLine(), 0)
-			calleeEnable = &v
+			calleeEnable = util.Some(b.ReturnLine())
 		}
 		// Add lookup constraint
-		module.NewLookup(name, callerLines, bus.BusId, calleeLines, calleeEnable)
+		module.NewLookup(name, callerLines, bus.BusId, calleeBus, calleeEnable)
 		// Mark caller address / data lines as io registers
 		for _, r := range bus.Address() {
 			ioRegisters.Insert(r.Unwrap())

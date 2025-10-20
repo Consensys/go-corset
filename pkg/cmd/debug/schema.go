@@ -21,7 +21,6 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -29,27 +28,18 @@ import (
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
 func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth uint) {
-	var (
-		mapping = stack.RegisterMapping()
-		regMap  = agnostic.ConvertModuleMap(mapping, func(m schema.RegisterLimbsMap) schema.RegisterMap {
-			return m
-		})
-		limbsMap = agnostic.ConvertModuleMap(mapping, func(m schema.RegisterLimbsMap) schema.RegisterMap {
-			return m.LimbsMap()
-		})
-	)
 	//
 	for _, schema := range stack.AbstractSchemas() {
-		printSchema(schema, regMap, textwidth)
+		printSchema(schema, textwidth)
 	}
 	//
 	for _, schema := range stack.ConcreteSchemas() {
-		printSchema(schema, limbsMap, textwidth)
+		printSchema(schema, textwidth)
 	}
 }
 
 // Print out all declarations included in a given
-func printSchema[F field.Element[F]](schema schema.AnySchema[F], mapping schema.ModuleRegisterMap, width uint) {
+func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 	first := true
 	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {
@@ -69,7 +59,7 @@ func printSchema[F field.Element[F]](schema schema.AnySchema[F], mapping schema.
 		case *asm.MicroModule[F]:
 			printAssemblyFunction(ith.Function())
 		default:
-			printModule(ith, mapping, width)
+			printModule(ith, schema, width)
 		}
 		//
 		first = false
@@ -80,7 +70,7 @@ func printSchema[F field.Element[F]](schema schema.AnySchema[F], mapping schema.
 // Legacy module
 // ==================================================================
 
-func printModule[F field.Element[F]](module schema.Module[F], sc schema.ModuleRegisterMap, width uint) {
+func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchema[F], width uint) {
 	var (
 		formatter = sexp.NewFormatter(width)
 		postfix   string

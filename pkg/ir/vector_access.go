@@ -35,6 +35,11 @@ func NewVectorAccess[F field.Element[F], T Term[F, T]](vars []*RegisterAccess[F,
 	return term.(T)
 }
 
+// RawVectorAccess constructs a new vector access for a given set of registers.
+func RawVectorAccess[F field.Element[F], T Term[F, T]](vars []*RegisterAccess[F, T]) *VectorAccess[F, T] {
+	return &VectorAccess[F, T]{vars}
+}
+
 // ApplyShift implementation for Term interface.
 func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 	nterms := make([]*RegisterAccess[F, T], len(p.Vars))

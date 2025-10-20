@@ -241,15 +241,15 @@ func (p *AirLowering[F]) lowerLookupConstraintToAir(c LookupConstraint[F], airMo
 	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
 }
 
-func (p *AirLowering[F]) expandLookupVectorToAir(vector lookup.Vector[F, Term[F]],
+func (p *AirLowering[F]) expandLookupVectorToAir(vector LookupVector[F],
 ) lookup.Vector[F, *air.ColumnAccess[F]] {
 	var (
-		terms    = p.expandTerms(vector.Module, vector.Terms...)
+		terms    = p.lowerRegisterAccesses(vector.Terms...)
 		selector util.Option[*air.ColumnAccess[F]]
 	)
 	//
 	if vector.HasSelector() {
-		sel := p.expandTerm(vector.Module, vector.Selector.Unwrap())
+		sel := p.lowerRegisterAccesses(vector.Selector.Unwrap())[0]
 		selector = util.Some(sel)
 	}
 	//
@@ -260,22 +260,10 @@ func (p *AirLowering[F]) expandLookupVectorToAir(vector lookup.Vector[F, Term[F]
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule *air.ModuleBuilder[F]) {
-	sources := make([]schema.RegisterId, len(c.Sources))
+	var sources = make([]schema.RegisterId, len(c.Sources))
 	//
-	for i := 0; i < len(sources); i++ {
-		var (
-			ith                    = c.Sources[i]
-			ithRange               = ith.ValueRange(airModule)
-			sourceBitwidth, signed = ithRange.BitWidth()
-		)
-		// Sanity check
-		if signed {
-			panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(false, airModule).String(true)))
-		}
-		// Lower source expression
-		source := p.lowerTermTo(c.Sources[i], airModule)
-		// Expand them
-		sources[i] = air_gadgets.Expand(sourceBitwidth, source, airModule)
+	for i, ith := range c.Sources {
+		sources[i] = ith.Register
 	}
 	// Determine number of ordered columns
 	numSignedCols := len(c.Signs)
@@ -318,37 +306,6 @@ func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*a
 	}
 	//
 	return nterms
-}
-
-func (p *AirLowering[F]) expandTerms(context schema.ModuleId, terms ...Term[F]) []*air.ColumnAccess[F] {
-	var nterms = make([]*air.ColumnAccess[F], len(terms))
-	//
-	for i, ith := range terms {
-		nterms[i] = p.expandTerm(context, ith)
-	}
-	//
-	return nterms
-}
-
-func (p *AirLowering[F]) expandTerm(context schema.ModuleId, term Term[F]) *air.ColumnAccess[F] {
-	var (
-		airModule = p.airSchema.Module(context)
-	)
-	//
-	var source_register schema.RegisterId
-	//
-	sourceRange := term.ValueRange(airModule)
-	sourceBitwidth, signed := sourceRange.BitWidth()
-	//
-	if signed {
-		panic(fmt.Sprintf("signed expansion encountered (%s)", term.Lisp(false, airModule).String(true)))
-	}
-	// Lower source expressions
-	source := p.lowerAndSimplifyTermTo(term, airModule)
-	// Expand them
-	source_register = air_gadgets.Expand(sourceBitwidth, source, airModule)
-	//
-	return ir.RawRegisterAccess[F, air.Term[F]](source_register, 0)
 }
 
 func (p *AirLowering[F]) lowerAndSimplifyLogicalTo(term LogicalTerm[F],
@@ -501,19 +458,6 @@ func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule *air.ModuleBuil
 	}
 	//
 	return disjunction(terms...)
-}
-
-// Lower an expression into the Arithmetic Intermediate Representation.
-// Essentially, this means eliminating normalising expressions by introducing
-// new columns into the given table (with appropriate constraints).  This first
-// performs constant propagation to ensure lowering is as efficient as possible.
-// A module identifier is required to determine where any computed columns
-// should be located.
-func (p *AirLowering[F]) lowerAndSimplifyTermTo(term Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	// Apply all reasonable simplifications
-	term = term.Simplify(false)
-	// Lower properly
-	return p.lowerTermTo(term, airModule)
 }
 
 // Inner form is used for recursive calls and does not repeat the constant
