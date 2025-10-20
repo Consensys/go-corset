@@ -95,9 +95,15 @@ func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector look
 		limbs    []*RegisterAccess[F]
 		selector util.Option[*RegisterAccess[F]]
 	)
-	// FOR NOW
+	// Translate selector
 	if vector.Selector.HasValue() {
-		panic("SUPPORT LOOKUP SELECTORS")
+		sel := vector.Selector.Unwrap()
+		// Sanity check
+		if len(sel.Vars) != 1 {
+			panic("non-atomic selector encountered")
+		}
+		// Easy
+		selector = util.Some(sel.Vars[0])
 	}
 	// Check alignment
 	for i, ith := range vector.Terms {
