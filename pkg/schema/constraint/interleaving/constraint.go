@@ -134,10 +134,10 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[F, E]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
-		sourceModule = schema.Module(p.SourceContext)
-		targetModule = schema.Module(p.TargetContext)
+		sourceModule = mapping.Module(p.SourceContext)
+		targetModule = mapping.Module(p.TargetContext)
 		sources      = sexp.EmptyList()
 	)
 	// Iterate source expressions

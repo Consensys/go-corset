@@ -27,9 +27,6 @@ import (
 // Element provides a convenient shorthand.
 type Element[F any] = field.Element[F]
 
-// LookupVector provides a convenient shorthand
-type LookupVector[F any] = lookup.Vector[F, Term[F]]
-
 // Concretize converts an MIR schema for a given field F1 into an MIR schema for
 // another field F2.  This is awkward as we have to rebuild the entire
 // Intermediate Representation in order to match the type appropriately. In
@@ -83,9 +80,8 @@ func concretizeAssignments[F1 Element[F1], F2 Element[F2]](assigns []schema.Assi
 
 func concretizeAssignment[F1 Element[F1], F2 Element[F2]](assign schema.Assignment[F1]) schema.Assignment[F2] {
 	switch a := assign.(type) {
-	case *ComputedRegister[F1]:
-		expr := concretizeTerm[F1, F2](a.Expr)
-		return assignment.NewComputedRegister(a.Target, expr, a.Direction)
+	case *assignment.ComputedRegister[F1]:
+		return assignment.NewComputedRegister[F2](a.Expr, a.Direction, a.Module, a.Targets...)
 	case *assignment.Computation[F1]:
 		return assignment.NewComputation[F2](a.Function, a.Targets, a.Sources)
 	case *assignment.SortedPermutation[F1]:
@@ -117,8 +113,8 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		//
 		return NewAssertion(c.Handle, c.Context, c.Domain, term)
 	case InterleavingConstraint[F1]:
-		target := concretizeTerm[F1, F2](c.Target)
-		sources := concretizeTerms[F1, F2](c.Sources)
+		target := concretizeRegisterAccess[F1, F2](c.Target)
+		sources := concretizeRegisterAccesses[F1, F2](c.Sources)
 		//
 		return NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
 	case LookupConstraint[F1]:
@@ -129,12 +125,18 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 	case PermutationConstraint[F1]:
 		return NewPermutationConstraint[F2](c.Handle, c.Context, c.Targets, c.Sources)
 	case RangeConstraint[F1]:
-		term := concretizeTerm[F1, F2](c.Expr)
+		term := ir.RawRegisterAccess[F2, Term[F2]](c.Expr.Register, c.Expr.Shift)
 		//
 		return NewRangeConstraint(c.Handle, c.Context, term, c.Bitwidth)
 	case SortedConstraint[F1]:
-		sources := concretizeTerms[F1, F2](c.Sources)
-		selector := concretizeOptionalTerm[F1, F2](c.Selector)
+		var (
+			sources                                   = concretizeRegisterAccesses[F1, F2](c.Sources)
+			selector util.Option[*RegisterAccess[F2]] = util.None[*RegisterAccess[F2]]()
+		)
+		//
+		if c.Selector.HasValue() {
+			selector = util.Some(concretizeRegisterAccess[F1, F2](c.Selector.Unwrap()))
+		}
 		//
 		return NewSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
 	case VanishingConstraint[F1]:
@@ -158,11 +160,15 @@ func concretizeLookupVectors[F1 Element[F1], F2 Element[F2]](vecs []LookupVector
 
 func concretizeLookupVector[F1 Element[F1], F2 Element[F2]](vec LookupVector[F1]) LookupVector[F2] {
 	var (
-		selector = concretizeOptionalTerm[F1, F2](vec.Selector)
-		terms    = concretizeTerms[F1, F2](vec.Terms)
+		sources                                   = concretizeRegisterAccesses[F1, F2](vec.Terms)
+		selector util.Option[*RegisterAccess[F2]] = util.None[*RegisterAccess[F2]]()
 	)
 	//
-	return lookup.NewVector(vec.Module, selector, terms...)
+	if vec.Selector.HasValue() {
+		selector = util.Some(concretizeRegisterAccess[F1, F2](vec.Selector.Unwrap()))
+	}
+	//
+	return lookup.NewVector(vec.Module, selector, sources...)
 }
 
 // ============================================================================
@@ -235,28 +241,13 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	switch t := t.(type) {
 	case *Add[F1]:
 		return ir.Sum(concretizeTerms[F1, F2](t.Args)...)
-	case *Cast[F1]:
-		return ir.CastOf(concretizeTerm[F1, F2](t.Arg), t.BitWidth)
 	case *Constant[F1]:
 		// NOTE: could fail if  F1 value does not fit into F2 value.
 		return ir.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
-	case *IfZero[F1]:
-		cond := concretizeLogicalTerm[F1, F2](t.Condition)
-		tb := concretizeTerm[F1, F2](t.TrueBranch)
-		fb := concretizeTerm[F1, F2](t.FalseBranch)
-		//
-		return ir.IfElse(cond, tb, fb)
-	case *LabelledConst[F1]:
-		// NOTE: no need really to support labelled constants here.
-		return ir.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
 	case *RegisterAccess[F1]:
 		return ir.NewRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
-	case *Exp[F1]:
-		return ir.Exponent(concretizeTerm[F1, F2](t.Arg), t.Pow)
 	case *Mul[F1]:
 		return ir.Product(concretizeTerms[F1, F2](t.Args)...)
-	case *Norm[F1]:
-		return ir.Normalise(concretizeTerm[F1, F2](t.Arg))
 	case *Sub[F1]:
 		return ir.Subtract(concretizeTerms[F1, F2](t.Args)...)
 	case *VectorAccess[F1]:
@@ -272,19 +263,25 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	}
 }
 
-func concretizeOptionalTerm[F1 Element[F1], F2 Element[F2]](t util.Option[Term[F1]]) util.Option[Term[F2]] {
-	if t.IsEmpty() {
-		return util.None[Term[F2]]()
-	}
-	//
-	return util.Some(concretizeTerm[F1, F2](t.Unwrap()))
-}
-
 func concretizeTerms[F1 Element[F1], F2 Element[F2]](terms []Term[F1]) []Term[F2] {
 	var nterms = make([]Term[F2], len(terms))
 	//
 	for i, t := range terms {
 		nterms[i] = concretizeTerm[F1, F2](t)
+	}
+	//
+	return nterms
+}
+
+func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](term *RegisterAccess[F1]) *RegisterAccess[F2] {
+	return ir.RawRegisterAccess[F2, Term[F2]](term.Register, term.Shift)
+}
+
+func concretizeRegisterAccesses[F1 Element[F1], F2 Element[F2]](terms []*RegisterAccess[F1]) []*RegisterAccess[F2] {
+	var nterms = make([]*RegisterAccess[F2], len(terms))
+	//
+	for i, t := range terms {
+		nterms[i] = ir.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
 	}
 	//
 	return nterms

@@ -23,8 +23,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // SortedPermutation declares one or more columns as sorted permutations of
@@ -136,7 +136,7 @@ func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	)
 
 	for _, t := range p.Targets {
-		ith := schema.Register(t)
+		ith := schema.Module(t.Module()).Register(t.Column())
 		name := sexp.NewSymbol(ith.QualifiedName(schema.Module(t.Module())))
 		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
 		def := sexp.NewList([]sexp.SExp{name, datatype})
@@ -144,7 +144,7 @@ func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	}
 
 	for i, s := range p.Sources {
-		ith := schema.Register(s)
+		ith := schema.Module(s.Module()).Register(s.Column())
 		ith_name := ith.QualifiedName(schema.Module(s.Module()))
 		//
 		if i >= len(p.Signs) {
@@ -249,5 +249,5 @@ func rangeOf(n uint) []uint {
 // ============================================================================
 
 func init() {
-	gob.Register(sc.Assignment[bls12_377.Element](&SortedPermutation[bls12_377.Element]{}))
+	gob.Register(sc.Assignment[word.BigEndian](&SortedPermutation[word.BigEndian]{}))
 }

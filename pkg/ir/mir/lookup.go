@@ -15,9 +15,9 @@ package mir
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -27,13 +27,13 @@ func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.L
 		// Determine overall geometry for this lookup.
 		geometry = lookup.NewGeometry(c, mapping)
 		// Split all registers in the source vectors
-		sources = mapLookupVectors(c.Sources, mapping)
+		vSources = mapLookupVectors(c.Sources, mapping)
 		// Split all registers in the target vectors
-		targets = mapLookupVectors(c.Targets, mapping)
+		vTargets = mapLookupVectors(c.Targets, mapping)
 	)
 	//
-	targets = splitLookupVectors(geometry, targets, mapping)
-	sources = splitLookupVectors(geometry, sources, mapping)
+	targets := splitLookupVectors(geometry, vTargets, mapping)
+	sources := splitLookupVectors(geometry, vSources, mapping)
 	//
 	return lookup.NewConstraint(c.Handle, targets, sources)
 }
@@ -45,18 +45,23 @@ func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.L
 // create more source/target pairings.  Rather, it splits registers within the
 // existing pairings only.  Later stages will subdivide and pad the
 // source/target pairings as necessary.
-func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, Term[F]],
-	mapping schema.LimbsMap) []lookup.Vector[F, Term[F]] {
+func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, *RegisterAccess[F]],
+	mapping schema.LimbsMap) []lookup.Vector[F, *VectorAccess[F]] {
 	//
-	var nterms = make([]lookup.Vector[F, Term[F]], len(vectors))
+	var nterms = make([]lookup.Vector[F, *VectorAccess[F]], len(vectors))
 	//
 	for i, vector := range vectors {
 		var (
-			modmap = mapping.Module(vector.Module)
-			terms  = splitTerms(vector.Terms, modmap)
+			modmap   = mapping.Module(vector.Module)
+			terms    = splitRawRegisterAccesses(vector.Terms, modmap)
+			selector = util.None[*VectorAccess[F]]()
 		)
-		// TODO: what about the selector itself?
-		nterms[i] = lookup.NewVector(vector.Module, vector.Selector, terms...)
+		// Split selector
+		if vector.Selector.HasValue() {
+			selector = util.Some(splitRawRegisterAccess(vector.Selector.Unwrap(), modmap))
+		}
+		// Done
+		nterms[i] = lookup.NewVector(vector.Module, selector, terms...)
 	}
 	//
 	return nterms
@@ -70,10 +75,10 @@ func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, Term[F]],
 // now changed to [u16,u16] to accommodate the field bandwidth.  Furthermore,
 // notice padding has been applied to ensure we have a matching number of
 // columns on the left- and right-hand sides.
-func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []lookup.Vector[F, Term[F]],
-	mapping schema.LimbsMap) []lookup.Vector[F, Term[F]] {
+func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []lookup.Vector[F, *VectorAccess[F]],
+	mapping schema.LimbsMap) []lookup.Vector[F, *RegisterAccess[F]] {
 	//
-	var nterms = make([]lookup.Vector[F, Term[F]], len(vectors))
+	var nterms = make([]lookup.Vector[F, *RegisterAccess[F]], len(vectors))
 	//
 	for i, vector := range vectors {
 		nterms[i] = splitLookupVector(geometry, vector, mapping)
@@ -82,55 +87,57 @@ func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []
 	return nterms
 }
 
-func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector lookup.Vector[F, Term[F]],
-	mapping schema.LimbsMap) lookup.Vector[F, Term[F]] {
+func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector lookup.Vector[F, *VectorAccess[F]],
+	mapping schema.LimbsMap) lookup.Vector[F, *RegisterAccess[F]] {
 	//
 	var (
-		limbs  [][]Term[F] = make([][]Term[F], vector.Len())
-		modmap             = mapping.Module(vector.Module)
+		modmap   = mapping.Module(vector.Module)
+		limbs    []*RegisterAccess[F]
+		selector util.Option[*RegisterAccess[F]]
 	)
-	// Initial split
-	for i, t := range vector.Terms {
-		// Determine value range of ith term
-		valrange := t.ValueRange(modmap.LimbsMap())
-		// Determine bitwidth for that range
-		bitwidth, signed := valrange.BitWidth()
-		// Sanity check signed lookups
-		if signed {
-			panic(fmt.Sprintf("signed lookup encountered (%s)", t.Lisp(true, modmap).String(true)))
+	// Translate selector
+	if vector.Selector.HasValue() {
+		sel := vector.Selector.Unwrap()
+		// Sanity check
+		if len(sel.Vars) != 1 {
+			panic("non-atomic selector encountered")
 		}
-		// Check whether value range exceeds available bandwidth
-		if bitwidth > geometry.BandWidth() {
-			// Yes, therefore need to split
-			//nolint
-			if va, ok := t.(*VectorAccess[F]); ok {
-				for _, v := range va.Vars {
-					limbs[i] = append(limbs[i], v)
-				}
-			} else {
-				// TODO: fix this
-				panic("cannot (yet) split lookup term")
-			}
-		} else {
-			// bandwidth is not exceeded, therefore don't split.
-			limbs[i] = append(limbs[i], t)
-		}
+		// Easy
+		selector = util.Some(sel.Vars[0])
 	}
-	// Alignment
-	for i, limbs := range limbs {
-		alignLookupLimbs(limbs, geometry.LimbWidths(uint(i)), modmap)
+	// Check alignment
+	for i, ith := range vector.Terms {
+		// Pad & flattern
+		limbs = append(limbs, padLookupLimb(uint(i), ith, geometry, modmap)...)
 	}
-	// Padding
-	nlimbs := padLookupLimbs(limbs, geometry)
 	// Done
-	return lookup.NewVector(vector.Module, vector.Selector, nlimbs...)
+	return lookup.NewVector(vector.Module, selector, limbs...)
 }
 
-// Alignment is related to the potential for so-called "irregular lookups".
-// These only arise in relatively unlikely scenarios.  However, since the
-// problem is dependent upon the particular field configuration used, it is
-// important to support them in order to be truly field agnostic.  To understand
-// the issue of alignment, consider this lookup (where X is u160 and Y is u128):
+// Padding is about ensuring a matching number of columns for each source/target
+// pairing in the lookup.  To understand the purpose of padding, consider this
+// lookup (where X is u256 and Y is u128):
+//
+// (lookup (X) (Y))
+//
+// Let's assume we want to split this lookup for a maximum register width of
+// u128.  Then, without padding, we would end up with this:
+//
+// (lookup (X'0 X'1) (Y))
+//
+// Here, we have a mismatched number of columns because Y did not need to be
+// split.  To resolve this, we need to pad the translation of Y as follows:
+//
+// (lookup (X'0 X'1) (Y 0))
+//
+// Here, 0 has been appended to the translation of Y to match the number of
+// columns required for X.
+//
+// NOTE: this also sanity checks against so-called "irregular lookups". These
+// only arise in relatively unlikely scenarios.  However, since the problem is
+// dependent upon the particular field configuration used, it is important to
+// support them in order to be truly field agnostic.  To understand the issue of
+// alignment, consider this lookup (where X is u160 and Y is u128):
 //
 // (lookup (X) (Y))
 //
@@ -153,59 +160,34 @@ func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector look
 //
 // NOTE: For now, this function only checks that limbs are aligned and panics
 // otherwise.
-func alignLookupLimbs[F field.Element[F]](limbs []Term[F], geometry []uint, mapping schema.RegisterLimbsMap) {
+func padLookupLimb[F field.Element[F]](i uint, term *VectorAccess[F], geometry lookup.Geometry,
+	mapping schema.RegisterLimbsMap) []*RegisterAccess[F] {
+	//
 	var (
-		n       = len(geometry) - 1
-		m       = len(limbs) - 1
-		limbMap = mapping.LimbsMap()
-	)
-	// For now, this is just a check that we have proper alignment.
-	for i, limb := range limbs {
-		// Determine value range of limb
-		valrange := limb.ValueRange(limbMap)
-		// Determine bitwidth for that range
-		bitwidth, _ := valrange.BitWidth()
-		// Sanity check for irregular lookups
-		if i != n && bitwidth > geometry[i] {
-			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
-		} else if i != m && bitwidth != geometry[i] {
-			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
-		}
-	}
-}
-
-// Padding is about ensuring a matching number of columns for each source/target
-// pairing in the lookup.  To understand the purpose of padding, consider this
-// lookup (where X is u256 and Y is u128):
-//
-// (lookup (X) (Y))
-//
-// Let's assume we want to split this lookup for a maximum register width of
-// u128.  Then, without padding, we would end up with this:
-//
-// (lookup (X'0 X'1) (Y))
-//
-// Here, we have a mismatched number of columns because Y did not need to be
-// split.  To resolve this, we need to pad the translation of Y as follows:
-//
-// (lookup (X'0 X'1) (Y 0))
-//
-// Here, 0 has been appended to the translation of Y to match the number of
-// columns required for X.
-func padLookupLimbs[F field.Element[F]](terms [][]Term[F], geometry lookup.Geometry) []Term[F] {
-	var nterms []Term[F]
-
-	for i, ith := range terms {
+		widths = geometry.LimbWidths(i)
 		// Determine expected geometry (i.e. number of columns) at this
 		// position.
-		n := len(geometry.LimbWidths(uint(i)))
+		n = len(widths)
+		m = len(term.Vars) - 1
 		// Append available terms
-		nterms = append(nterms, ith...)
-		// Pad out with zeros to match geometry
-		for m := n - len(ith); m > 0; m-- {
-			nterms = append(nterms, ir.Const64[F, Term[F]](0))
+		nterms = term.Vars
+	)
+	// Sanity check
+	for i, t := range term.Vars {
+		bitwidth := mapping.Limb(t.Register).Width
+		// Sanity check for irregular lookups
+		if i != n && bitwidth > widths[i] {
+			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, widths[i]))
+		} else if i != m && bitwidth != widths[i] {
+			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, widths[i]))
 		}
 	}
-
+	// Pad out with zeros to match geometry
+	//nolint
+	for m := n - len(term.Vars); m > 0; m-- {
+		//nterms = append(nterms, ir.Const64[F, Term[F]](0))
+		panic("todo: irregular lookups")
+	}
+	//
 	return nterms
 }

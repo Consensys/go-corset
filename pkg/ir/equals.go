@@ -62,7 +62,7 @@ func (p *Equal[F, S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Equal[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
+func (p *Equal[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
@@ -87,6 +87,13 @@ func (p *Equal[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("=="), l, r})
+}
+
+// Negate implementation for LogicalTerm interface
+func (p *Equal[F, S, T]) Negate() S {
+	var tmp LogicalTerm[F, S] = &NotEqual[F, S, T]{p.Lhs, p.Rhs}
+	//
+	return tmp.(S)
 }
 
 // RequiredRegisters implementation for Contextual interface.

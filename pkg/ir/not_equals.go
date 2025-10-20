@@ -66,8 +66,15 @@ func (p *NotEqual[F, S, T]) Bounds() util.Bounds {
 	return l
 }
 
+// Negate implementation for LogicalTerm interface
+func (p *NotEqual[F, S, T]) Negate() S {
+	var tmp LogicalTerm[F, S] = &Equal[F, S, T]{p.Lhs, p.Rhs}
+	//
+	return tmp.(S)
+}
+
 // TestAt implementation for Testable interface.
-func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
+func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check

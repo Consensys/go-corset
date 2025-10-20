@@ -52,7 +52,7 @@ func (p *LabelledConst[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.Module[F]) (F, error) {
+func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.RegisterMap) (F, error) {
 	return p.Value, nil
 }
 

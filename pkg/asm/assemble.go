@@ -21,8 +21,11 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/asm/program"
+	"github.com/consensys/go-corset/pkg/ir/hir"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Register describes a single register within a function.
@@ -44,13 +47,17 @@ type MacroProgram = io.Program[macro.Instruction]
 // MicroProgram represents a set of components at the micro level.
 type MicroProgram = io.Program[micro.Instruction]
 
-// MixedMacroProgram represents a mixed assembly and legacy program, where
+// MacroHirProgram represents a mixed assembly and legacy program, where
 // assembly functions are composed from macro instructions.
-type MixedMacroProgram[F field.Element[F]] = MixedProgram[F, macro.Instruction]
+type MacroHirProgram = MixedProgram[word.BigEndian, macro.Instruction, hir.Module]
 
-// MixedMicroProgram represents a mixed assembly and legacy program, where
+// MicroHirProgram represents a mixed assembly and legacy program, where
 // assembly functions are composed from micro instructions.
-type MixedMicroProgram[F field.Element[F]] = MixedProgram[F, micro.Instruction]
+type MicroHirProgram = MixedProgram[word.BigEndian, micro.Instruction, hir.Module]
+
+// MicroMirProgram represents a mixed assembly and legacy program, where
+// assembly functions are composed from micro instructions.
+type MicroMirProgram[F field.Element[F]] = MixedProgram[F, micro.Instruction, mir.Module[F]]
 
 // MacroModule is an instance of schema.Module which encapsulates a MacroFunction[F].
 type MacroModule[F field.Element[F]] = program.Module[F, macro.Instruction]
@@ -138,7 +145,7 @@ func readIncludedFiles(file source.File, item assembler.AssemblyItem,
 // vectorisation if desired.  Specifically, any macro modules within the schema
 // are lowered into "micro" modules (i.e. those using only micro instructions).
 // This does not impact any externally defined (e.g. MIR) modules in the schema.
-func LowerMixedMacroProgram[F field.Element[F]](vectorize bool, program MixedMacroProgram[F]) MixedMicroProgram[F] {
+func LowerMixedMacroProgram(vectorize bool, program MacroHirProgram) MicroHirProgram {
 	var microProgram = lowerMacroProgram(vectorize, program.program)
 	// Done
 	return NewMixedProgram(microProgram, program.externs...)

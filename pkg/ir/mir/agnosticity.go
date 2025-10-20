@@ -112,26 +112,12 @@ func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap
 	switch t := term.(type) {
 	case *Add[F]:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
-	case *Cast[F]:
-		return ir.CastOf(splitTerm(t.Arg, mapping), t.BitWidth)
 	case *Constant[F]:
-		return t
-	case *IfZero[F]:
-		return ir.IfElse(
-			splitLogicalTerm(t.Condition, mapping),
-			splitTerm(t.TrueBranch, mapping),
-			splitTerm(t.FalseBranch, mapping),
-		)
-	case *LabelledConst[F]:
 		return t
 	case *RegisterAccess[F]:
 		return splitRegisterAccess(t, mapping)
-	case *Exp[F]:
-		return ir.Exponent(splitTerm(t.Arg, mapping), t.Pow)
 	case *Mul[F]:
 		return ir.Product(splitTerms(t.Args, mapping)...)
-	case *Norm[F]:
-		return ir.Normalise(splitTerm(t.Arg, mapping))
 	case *Sub[F]:
 		return ir.Subtract(splitTerms(t.Args, mapping)...)
 	case *VectorAccess[F]:
@@ -183,4 +169,35 @@ func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema
 	}
 	//
 	return ir.NewVectorAccess(terms)
+}
+
+func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], mapping schema.RegisterLimbsMap,
+) []*VectorAccess[F] {
+	//
+	var (
+		vecs = make([]*VectorAccess[F], len(terms))
+	)
+	//
+	for i, term := range terms {
+		vecs[i] = splitRawRegisterAccess(term, mapping)
+	}
+	//
+	return vecs
+}
+
+func splitRawRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterLimbsMap,
+) *VectorAccess[F] {
+	//
+	var (
+		// Determine limbs for this register
+		limbs = mapping.LimbIds(term.Register)
+		// Construct appropriate terms
+		terms = make([]*RegisterAccess[F], len(limbs))
+	)
+	//
+	for i, limb := range limbs {
+		terms[i] = &ir.RegisterAccess[F, Term[F]]{Register: limb, Shift: term.Shift}
+	}
+	//
+	return ir.RawVectorAccess(terms)
 }

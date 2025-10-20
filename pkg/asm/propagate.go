@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -36,7 +37,7 @@ type RawModule = lt.Module[word.BigEndian]
 // Validation?
 // Batch size?
 // Recursion limit (to prevent infinite loops)
-func PropagateAll[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T], ts []lt.TraceFile,
+func PropagateAll[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedProgram[F, T, M], ts []lt.TraceFile,
 ) ([]lt.TraceFile, []error) {
 	var (
 		errors  []error
@@ -73,7 +74,7 @@ func PropagateAll[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T],
 // Validation?
 // Batch size?
 // Recursion limit (to prevent infinite loops)
-func Propagate[F field.Element[F], T io.Instruction[T]](p MixedProgram[F, T], trace lt.TraceFile,
+func Propagate[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedProgram[F, T, M], trace lt.TraceFile,
 ) (lt.TraceFile, []error) {
 	// Construct suitable executior for the given program
 	var (

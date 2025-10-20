@@ -30,8 +30,8 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/word"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -162,20 +162,20 @@ func (p SchemaStacker[F]) TraceBuilder() ir.TraceBuilder[F] {
 // Build a fresh SchemaStack from this stacker.
 func (p SchemaStacker[F]) Build() SchemaStack[F] {
 	var (
-		asmProgram  asm.MixedMacroProgram[bls12_377.Element]
-		uasmProgram asm.MixedMicroProgram[bls12_377.Element]
-		mirSchema   mir.Schema[F]
-		airSchema   air.Schema[F]
-		stack       SchemaStack[F]
+		asmProgram asm.MacroHirProgram
+		hirProgram asm.MicroHirProgram
+		mirSchema  mir.Schema[F]
+		airSchema  air.Schema[F]
+		stack      SchemaStack[F]
 	)
 	// Apply any user-specified values for externalised constants.
 	applyExternOverrides(p.externs, &p.binfile)
 	// Read out the mixed macro schema
 	asmProgram = p.BinaryFile().Schema
 	// Lower to mixed micro schema
-	uasmProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
+	hirProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
 	// Apply register splitting for field agnosticity
-	mirSchema, mapping := asm.Concretize[bls12_377.Element, F](p.asmConfig.Field, uasmProgram)
+	mirSchema, mapping := asm.Concretize[F](p.asmConfig.Field, hirProgram)
 	// Record mapping
 	stack.mapping = mapping
 	// Include (Macro) Assembly Layer (if requested)
@@ -185,7 +185,7 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 	}
 	// Include (Micro) Assembly Layer (if requested)
 	if p.layers.Contains(MICRO_ASM_LAYER) {
-		stack.abstractSchemas = append(stack.abstractSchemas, &uasmProgram)
+		stack.abstractSchemas = append(stack.abstractSchemas, &hirProgram)
 		stack.names = append(stack.names, "UASM")
 	}
 	// Include Mid-level IR layer (if requested)
@@ -293,7 +293,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 		errors            []source.SyntaxError
 		srcmap            corset.SourceMap
 		srcfiles          = make([]source.File, len(filenames))
-		mixedMacroProgram asm.MixedMacroProgram[bls12_377.Element]
+		mixedMacroProgram asm.MacroHirProgram
 	)
 	// Read each file
 	for i, n := range filenames {
@@ -399,7 +399,7 @@ func expandDirectory(dirname string) ([]string, error) {
 func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 	// NOTE: frMapping is to be deprecated and removed.
 	var (
-		frMapping = make(map[string]bls12_377.Element)
+		frMapping = make(map[string]word.BigEndian)
 		biMapping = make(map[string]big.Int)
 	)
 	// Sanity check debug information is available.
@@ -432,7 +432,7 @@ func applyExternOverrides(externs []string, binf *binfile.BinaryFile) {
 				os.Exit(2)
 			}
 			//
-			frMapping[split[0]] = bls12_377.Element{Element: frElement}
+			frMapping[split[0]] = word.NewBigEndian(biElement.Bytes())
 			biMapping[split[0]] = biElement
 		}
 		// Substitute through constraints

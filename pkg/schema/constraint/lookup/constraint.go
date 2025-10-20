@@ -162,18 +162,18 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint[F, E]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
 		sources = sexp.EmptyList()
 		targets = sexp.EmptyList()
 	)
 	// Iterate source expressions
 	for _, ith := range p.Sources {
-		sources.Append(ith.Lisp(schema))
+		sources.Append(ith.Lisp(mapping))
 	}
 	// Iterate target expressions
 	for _, ith := range p.Targets {
-		targets.Append(ith.Lisp(schema))
+		targets.Append(ith.Lisp(mapping))
 	}
 	// Done
 	return sexp.NewList([]sexp.SExp{

@@ -63,7 +63,7 @@ func (p MirModule[F]) NewColumn(kind schema.RegisterType, name string, bitwidth 
 	)
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
-		mir.NewRangeConstraint(name, p.Module.Id(), ir.NewRegisterAccess[F, mir.Term[F]](rid, 0), bitwidth))
+		mir.NewRangeConstraint(name, p.Module.Id(), ir.RawRegisterAccess[F, mir.Term[F]](rid, 0), bitwidth))
 	// Done
 	return rid
 }
@@ -83,18 +83,20 @@ func (p MirModule[F]) NewConstraint(name string, domain util.Option[int], constr
 }
 
 // NewLookup constructs a new lookup constraint
-func (p MirModule[F]) NewLookup(name string, from []MirExpr[F], targetMid uint, to []MirExpr[F], enable *MirExpr[F]) {
+func (p MirModule[F]) NewLookup(name string, from []schema.RegisterId, targetMid uint, to []schema.RegisterId,
+	enable util.Option[schema.RegisterId]) {
+	//
 	var (
-		sources = unwrapMirExprs(from...)
-		targets = unwrapMirExprs(to...)
-		target  []lookup.Vector[F, mir.Term[F]]
-		source  []lookup.Vector[F, mir.Term[F]]
+		sources = wrapMirRegisterAccesses[F](from...)
+		targets = wrapMirRegisterAccesses[F](to...)
+		target  []lookup.Vector[F, *mir.RegisterAccess[F]]
+		source  []lookup.Vector[F, *mir.RegisterAccess[F]]
 	)
 	//
-	if enable == nil {
+	if enable.IsEmpty() {
 		target = append(target, lookup.UnfilteredVector(targetMid, targets...))
 	} else {
-		en := enable.expr.Simplify(true)
+		en := ir.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), 0)
 		target = append(target, lookup.FilteredVector(targetMid, en, targets...))
 	}
 	//
@@ -256,16 +258,12 @@ func unwrapSplitMirLogicals[F field.Element[F]](head MirExpr[F], tail ...MirExpr
 	return cexprs
 }
 
-func unwrapMirExprs[F field.Element[F]](exprs ...MirExpr[F]) []mir.Term[F] {
-	cexprs := make([]mir.Term[F], len(exprs))
+func wrapMirRegisterAccesses[F field.Element[F]](regs ...schema.RegisterId) []*mir.RegisterAccess[F] {
+	var vars = make([]*mir.RegisterAccess[F], len(regs))
 	//
-	for i, e := range exprs {
-		cexprs[i] = e.expr.Simplify(true)
-		//
-		if e.logical != nil {
-			panic("logical expression encountered")
-		}
+	for i, rid := range regs {
+		vars[i] = ir.RawRegisterAccess[F, mir.Term[F]](rid, 0)
 	}
 	//
-	return cexprs
+	return vars
 }

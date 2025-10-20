@@ -97,7 +97,7 @@ func (p *Module[F, T]) IsPublic() bool {
 
 // IsSynthetic implementation for schema.Module interface.
 func (p *Module[F, T]) IsSynthetic() bool {
-	panic("unsupported operation")
+	return false
 }
 
 // Substitute any matchined labelled constants within this module
@@ -109,4 +109,8 @@ func (p *Module[F, T]) Substitute(mapping map[string]F) {
 // Width implementation for schema.Module interface.
 func (p *Module[F, T]) Width() uint {
 	return uint(len(p.function.Registers()))
+}
+
+func (p *Module[F, T]) String() string {
+	return p.function.String()
 }

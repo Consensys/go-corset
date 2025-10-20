@@ -35,6 +35,11 @@ func NewVectorAccess[F field.Element[F], T Term[F, T]](vars []*RegisterAccess[F,
 	return term.(T)
 }
 
+// RawVectorAccess constructs a new vector access for a given set of registers.
+func RawVectorAccess[F field.Element[F], T Term[F, T]](vars []*RegisterAccess[F, T]) *VectorAccess[F, T] {
+	return &VectorAccess[F, T]{vars}
+}
+
 // ApplyShift implementation for Term interface.
 func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 	nterms := make([]*RegisterAccess[F, T], len(p.Vars))
@@ -54,7 +59,7 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 func (p *VectorAccess[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Vars) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
+func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
 	var shift = sc.Register(p.Vars[0].Register).Width
 	// Evaluate first argument
 	val, err := p.Vars[0].EvalAt(k, tr, sc)

@@ -115,7 +115,7 @@ func (p LogicalTerm[F]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
+func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
 	var (
 		val, err = p.Term.EvalAt(k, tr, sc)
 		zero     F

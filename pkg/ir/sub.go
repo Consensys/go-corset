@@ -57,7 +57,7 @@ func (p *Sub[F, T]) ApplyShift(shift int) T {
 func (p *Sub[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Sub[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.Module[F]) (F, error) {
+func (p *Sub[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest

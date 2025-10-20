@@ -13,7 +13,6 @@
 package word
 
 import (
-	"bytes"
 	"cmp"
 	"encoding/binary"
 	"math/big"
@@ -28,120 +27,83 @@ const (
 // form.  This is really just a wrapper for convenience, and to help clarify the
 // underlying byte order.
 type BigEndian struct {
-	bytes []byte
+	val big.Int
 }
 
 // NewBigEndian constructs a new big endian byte array.
 func NewBigEndian(bytes []byte) BigEndian {
-	return BigEndian{TrimLeadingZeros(bytes)}
+	var val big.Int
+	val.SetBytes(TrimLeadingZeros(bytes))
+	//
+	return BigEndian{val}
 }
 
 // AsBigInt returns a freshly allocated big integer from the given bytes.
 func (p BigEndian) AsBigInt() big.Int {
-	var val big.Int
-	return *val.SetBytes(p.bytes)
+	return p.val
+}
+
+// Add implementation for field.Element interface
+func (p BigEndian) Add(o BigEndian) BigEndian {
+	var res big.Int
+	res.Add(&p.val, &o.val)
+	//
+	return BigEndian{res}
+}
+
+// Mul implementation for field.Element interface
+func (p BigEndian) Mul(o BigEndian) BigEndian {
+	var res big.Int
+	res.Mul(&p.val, &o.val)
+	//
+	return BigEndian{res}
+}
+
+// IsOne implementation for field.Element interface
+func (p BigEndian) IsOne() bool {
+	return p.Cmp64(1) == 0
+}
+
+// Inverse implementation for field.Element interface
+func (p BigEndian) Inverse() BigEndian {
+	panic("unsupported operation")
+}
+
+// Sub implementation for field.Element interface
+func (p BigEndian) Sub(o BigEndian) BigEndian {
+	var res big.Int
+	res.Sub(&p.val, &o.val)
+	//
+	return BigEndian{res}
+}
+
+// Modulus implementation for field.Element interface
+func (p BigEndian) Modulus() *big.Int {
+	panic("unsupported operation")
 }
 
 // ByteWidth implementation for the Word interface.
 func (p BigEndian) ByteWidth() uint {
-	return uint(len(p.bytes))
+	return ByteWidth(uint(p.val.BitLen()))
 }
 
 // Cmp64 implementation for Word interface.
 func (p BigEndian) Cmp64(o uint64) int {
-	switch p.ByteWidth() {
-	case 0:
-		return cmp.Compare(0, o)
-	case 1:
-		tmp := uint64(p.bytes[0])
-		return cmp.Compare(tmp, o)
-	case 2:
-		tmp := uint64(p.bytes[1])
-		tmp += uint64(p.bytes[0]) << 8
-		//
-		return cmp.Compare(tmp, o)
-	case 3:
-		tmp := uint64(p.bytes[2])
-		tmp += uint64(p.bytes[1]) << 8
-		tmp += uint64(p.bytes[0]) << 16
-		//
-		return cmp.Compare(tmp, o)
-	case 4:
-		tmp := uint64(p.bytes[3])
-		tmp += uint64(p.bytes[2]) << 8
-		tmp += uint64(p.bytes[1]) << 16
-		tmp += uint64(p.bytes[0]) << 24
-		//
-		return cmp.Compare(tmp, o)
-	case 5:
-		tmp := uint64(p.bytes[4])
-		tmp += uint64(p.bytes[3]) << 8
-		tmp += uint64(p.bytes[2]) << 16
-		tmp += uint64(p.bytes[1]) << 24
-		tmp += uint64(p.bytes[0]) << 32
-		//
-		return cmp.Compare(tmp, o)
-	case 6:
-		tmp := uint64(p.bytes[5])
-		tmp += uint64(p.bytes[4]) << 8
-		tmp += uint64(p.bytes[3]) << 16
-		tmp += uint64(p.bytes[2]) << 24
-		tmp += uint64(p.bytes[1]) << 32
-		tmp += uint64(p.bytes[0]) << 40
-		//
-		return cmp.Compare(tmp, o)
-	case 7:
-		tmp := uint64(p.bytes[6])
-		tmp += uint64(p.bytes[5]) << 8
-		tmp += uint64(p.bytes[4]) << 16
-		tmp += uint64(p.bytes[3]) << 24
-		tmp += uint64(p.bytes[2]) << 32
-		tmp += uint64(p.bytes[1]) << 40
-		tmp += uint64(p.bytes[0]) << 48
-		//
-		return cmp.Compare(tmp, o)
-	case 8:
-		tmp := uint64(p.bytes[7])
-		tmp += uint64(p.bytes[6]) << 8
-		tmp += uint64(p.bytes[5]) << 16
-		tmp += uint64(p.bytes[4]) << 24
-		tmp += uint64(p.bytes[3]) << 32
-		tmp += uint64(p.bytes[2]) << 40
-		tmp += uint64(p.bytes[1]) << 48
-		tmp += uint64(p.bytes[0]) << 56
-		//
-		return cmp.Compare(tmp, o)
-	default:
-		return 1
+	if p.val.IsUint64() {
+		return cmp.Compare(p.val.Uint64(), o)
 	}
+	//
+	return 1
 }
 
 // Cmp implements a comparison by regarding the word as an unsigned integer.
 func (p BigEndian) Cmp(o BigEndian) int {
-	var (
-		lp = len(p.bytes)
-		op = len(o.bytes)
-	)
-	//
-	if lp < op {
-		return -1
-	} else if lp > op {
-		return 1
-	}
-	//
-	for i := range lp {
-		c := cmp.Compare(p.bytes[i], o.bytes[i])
-		if c != 0 {
-			return c
-		}
-	}
-	//
-	return 0
+	return p.val.Cmp(&o.val)
 }
 
 // Equals implementation for the hash.Hasher interface.
 func (p BigEndian) Equals(o BigEndian) bool {
-	return bytes.Equal(p.bytes, o.bytes)
+	return p.Cmp(o) == 0
 }
 
 // Hash implementation for the hash.Hasher interface.
@@ -149,7 +111,7 @@ func (p BigEndian) Hash() uint64 {
 	// FNV1a hash implementation
 	hash := offset64
 	//
-	for _, c := range p.bytes {
+	for _, c := range p.val.Bytes() {
 		hash ^= uint64(c)
 		hash *= prime64
 	}
@@ -159,38 +121,29 @@ func (p BigEndian) Hash() uint64 {
 
 // IsZero implementation for the Word interface
 func (p BigEndian) IsZero() bool {
-	return len(p.bytes) == 0
+	return p.val.Sign() == 0
 }
 
 // PutBytes implementation for Word interface.
 func (p BigEndian) PutBytes(bytes []byte) []byte {
 	var (
 		n = uint(len(bytes))
-		m = uint(len(p.bytes))
+		m = ByteWidth(uint(p.val.BitLen()))
 	)
 	// Sanity check space
-	if len(bytes) < len(p.bytes) {
-		bytes = make([]byte, len(p.bytes))
-		n = m
+	if n < m {
+		bytes = make([]byte, m)
 	}
 	//
-	for m > 0 {
-		m--
-		n--
-		bytes[n] = p.bytes[m]
-	}
-	//
-	for n > 0 {
-		n--
-		bytes[n] = 0
-	}
-	//
-	return bytes
+	return p.val.FillBytes(bytes)
 }
 
 // SetBytes implementation for Word interface.
 func (p BigEndian) SetBytes(bytes []byte) BigEndian {
-	return BigEndian{TrimLeadingZeros(bytes)}
+	var val big.Int
+	val.SetBytes(TrimLeadingZeros(bytes))
+	//
+	return BigEndian{val}
 }
 
 // SetUint64 implementation for Word interface.
@@ -198,91 +151,41 @@ func (p BigEndian) SetUint64(value uint64) BigEndian {
 	var bytes [8]byte
 	// Write big endian bytes
 	binary.BigEndian.PutUint64(bytes[:], value)
-	// Trim off leading zeros
-	return BigEndian{TrimLeadingZeros(bytes[:])}
+	// Done
+	return p.SetBytes(bytes[:])
 }
 
 // Uint64 implementation for Word interface.
 func (p BigEndian) Uint64() uint64 {
-	var val uint64
-	//
-	switch p.ByteWidth() {
-	case 0:
-		return 0
-	case 1:
-		val = uint64(p.bytes[0])
-	case 2:
-		val = uint64(p.bytes[1])
-		val += uint64(p.bytes[0]) << 8
-		//
-	case 3:
-		val = uint64(p.bytes[2])
-		val += uint64(p.bytes[1]) << 8
-		val += uint64(p.bytes[0]) << 16
-		//
-	case 4:
-		val = uint64(p.bytes[3])
-		val += uint64(p.bytes[2]) << 8
-		val += uint64(p.bytes[1]) << 16
-		val += uint64(p.bytes[0]) << 24
-		//
-	case 5:
-		val = uint64(p.bytes[4])
-		val += uint64(p.bytes[3]) << 8
-		val += uint64(p.bytes[2]) << 16
-		val += uint64(p.bytes[1]) << 24
-		val += uint64(p.bytes[0]) << 32
-		//
-	case 6:
-		val = uint64(p.bytes[5])
-		val += uint64(p.bytes[4]) << 8
-		val += uint64(p.bytes[3]) << 16
-		val += uint64(p.bytes[2]) << 24
-		val += uint64(p.bytes[1]) << 32
-		val += uint64(p.bytes[0]) << 40
-		//
-	case 7:
-		val = uint64(p.bytes[6])
-		val += uint64(p.bytes[5]) << 8
-		val += uint64(p.bytes[4]) << 16
-		val += uint64(p.bytes[3]) << 24
-		val += uint64(p.bytes[2]) << 32
-		val += uint64(p.bytes[1]) << 40
-		val += uint64(p.bytes[0]) << 48
-		//
-	case 8:
-		val = uint64(p.bytes[7])
-		val += uint64(p.bytes[6]) << 8
-		val += uint64(p.bytes[5]) << 16
-		val += uint64(p.bytes[4]) << 24
-		val += uint64(p.bytes[3]) << 32
-		val += uint64(p.bytes[2]) << 40
-		val += uint64(p.bytes[1]) << 48
-		val += uint64(p.bytes[0]) << 56
-		//
-	default:
-		// NOTE: we could do better here and return the truncated value.  Just
-		// have to be careful to get the right bytes :)
-		panic("not uint64")
-	}
-	//
-	return val
+	return p.val.Uint64()
 }
 
 // Bytes implementation for Word interface.
 func (p BigEndian) Bytes() []byte {
-	return p.bytes
+	return p.val.Bytes()
 }
 
 func (p BigEndian) String() string {
-	bi := p.AsBigInt()
-	//
-	return bi.String()
+	return p.val.String()
 }
 
 // Text returns a string representation of this word in a given base.
 func (p BigEndian) Text(base int) string {
-	bi := p.AsBigInt()
+	return p.val.Text(base)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode a big endian word.  This allows it to be marshalled into a binary form.
+func (p *BigEndian) GobEncode() (data []byte, err error) {
+	return p.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (p *BigEndian) GobDecode(data []byte) error {
+	p.val.SetBytes(data)
 	//
-	return bi.Text(base)
+	return nil
 }

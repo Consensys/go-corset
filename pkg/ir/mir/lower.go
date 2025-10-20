@@ -14,7 +14,6 @@ package mir
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/ir"
@@ -190,21 +189,8 @@ func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
 func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModule *air.ModuleBuilder[F]) {
-	var (
-		mirModule        = p.mirSchema.Module(v.Context)
-		valRange         = v.Expr.ValueRange(mirModule)
-		bitwidth, signed = valRange.BitWidth()
-	)
-	// Sanity check bitwidth result
-	if signed {
-		// We can't determine a suitable bitwidth, so it should be the maximum
-		// value for the underlying field.
-		bitwidth = math.MaxUint
-	}
-	// Lower target expression
-	target := p.lowerAndSimplifyTermTo(v.Expr, airModule)
-	// Expand target expression (if necessary)
-	register := air_gadgets.Expand(bitwidth, target, airModule)
+	// Extract target expression
+	register := v.Expr.Register
 	// Apply bitwidth gadget
 	ref := schema.NewRegisterRef(airModule.Id(), register)
 	// Construct gadget
@@ -224,9 +210,9 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstraint[F],
 	airModule *air.ModuleBuilder[F]) {
 	// Lower sources
-	sources := p.expandTerms(c.SourceContext, c.Sources...)
+	sources := p.lowerRegisterAccesses(c.Sources...)
 	// Lower target
-	target := p.expandTerms(c.SourceContext, c.Target)[0]
+	target := p.lowerRegisterAccesses(c.Target)[0]
 	// Add constraint
 	airModule.AddConstraint(
 		air.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, *target, sources))
@@ -255,15 +241,15 @@ func (p *AirLowering[F]) lowerLookupConstraintToAir(c LookupConstraint[F], airMo
 	airModule.AddConstraint(air.NewLookupConstraint(c.Handle, targets, sources))
 }
 
-func (p *AirLowering[F]) expandLookupVectorToAir(vector lookup.Vector[F, Term[F]],
+func (p *AirLowering[F]) expandLookupVectorToAir(vector LookupVector[F],
 ) lookup.Vector[F, *air.ColumnAccess[F]] {
 	var (
-		terms    = p.expandTerms(vector.Module, vector.Terms...)
+		terms    = p.lowerRegisterAccesses(vector.Terms...)
 		selector util.Option[*air.ColumnAccess[F]]
 	)
 	//
 	if vector.HasSelector() {
-		sel := p.expandTerm(vector.Module, vector.Selector.Unwrap())
+		sel := p.lowerRegisterAccesses(vector.Selector.Unwrap())[0]
 		selector = util.Some(sel)
 	}
 	//
@@ -274,22 +260,10 @@ func (p *AirLowering[F]) expandLookupVectorToAir(vector lookup.Vector[F, Term[F]
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule *air.ModuleBuilder[F]) {
-	sources := make([]schema.RegisterId, len(c.Sources))
+	var sources = make([]schema.RegisterId, len(c.Sources))
 	//
-	for i := 0; i < len(sources); i++ {
-		var (
-			ith                    = c.Sources[i]
-			ithRange               = ith.ValueRange(airModule)
-			sourceBitwidth, signed = ithRange.BitWidth()
-		)
-		// Sanity check
-		if signed {
-			panic(fmt.Sprintf("signed expansion encountered (%s)", ith.Lisp(false, airModule).String(true)))
-		}
-		// Lower source expression
-		source := p.lowerTermTo(c.Sources[i], airModule)
-		// Expand them
-		sources[i] = air_gadgets.Expand(sourceBitwidth, source, airModule)
+	for i, ith := range c.Sources {
+		sources[i] = ith.Register
 	}
 	// Determine number of ordered columns
 	numSignedCols := len(c.Signs)
@@ -324,35 +298,14 @@ func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airMo
 	}
 }
 
-func (p *AirLowering[F]) expandTerms(context schema.ModuleId, terms ...Term[F]) []*air.ColumnAccess[F] {
+func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*air.ColumnAccess[F] {
 	var nterms = make([]*air.ColumnAccess[F], len(terms))
 	//
 	for i, ith := range terms {
-		nterms[i] = p.expandTerm(context, ith)
+		nterms[i] = ir.RawRegisterAccess[F, air.Term[F]](ith.Register, ith.Shift)
 	}
 	//
 	return nterms
-}
-
-func (p *AirLowering[F]) expandTerm(context schema.ModuleId, term Term[F]) *air.ColumnAccess[F] {
-	var (
-		airModule = p.airSchema.Module(context)
-	)
-	//
-	var source_register schema.RegisterId
-	//
-	sourceRange := term.ValueRange(airModule)
-	sourceBitwidth, signed := sourceRange.BitWidth()
-	//
-	if signed {
-		panic(fmt.Sprintf("signed expansion encountered (%s)", term.Lisp(false, airModule).String(true)))
-	}
-	// Lower source expressions
-	source := p.lowerAndSimplifyTermTo(term, airModule)
-	// Expand them
-	source_register = air_gadgets.Expand(sourceBitwidth, source, airModule)
-	//
-	return ir.RawRegisterAccess[F, air.Term[F]](source_register, 0)
 }
 
 func (p *AirLowering[F]) lowerAndSimplifyLogicalTo(term LogicalTerm[F],
@@ -507,19 +460,6 @@ func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule *air.ModuleBuil
 	return disjunction(terms...)
 }
 
-// Lower an expression into the Arithmetic Intermediate Representation.
-// Essentially, this means eliminating normalising expressions by introducing
-// new columns into the given table (with appropriate constraints).  This first
-// performs constant propagation to ensure lowering is as efficient as possible.
-// A module identifier is required to determine where any computed columns
-// should be located.
-func (p *AirLowering[F]) lowerAndSimplifyTermTo(term Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	// Apply all reasonable simplifications
-	term = term.Simplify(false)
-	// Lower properly
-	return p.lowerTermTo(term, airModule)
-}
-
 // Inner form is used for recursive calls and does not repeat the constant
 // propagation phase.
 func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
@@ -528,23 +468,13 @@ func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F])
 	case *Add[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Sum(args...)
-	case *Cast[F]:
-		return p.lowerTermTo(e.Arg, airModule)
 	case *Constant[F]:
 		return ir.Const[F, air.Term[F]](e.Value)
 	case *RegisterAccess[F]:
 		return ir.NewRegisterAccess[F, air.Term[F]](e.Register, e.Shift)
-	case *Exp[F]:
-		return p.lowerExpTo(e, airModule)
-	case *IfZero[F]:
-		return p.lowerIfZeroTo(e, airModule)
-	case *LabelledConst[F]:
-		return ir.Const[F, air.Term[F]](e.Value)
 	case *Mul[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Product(args...)
-	case *Norm[F]:
-		return p.lowerNormTo(e, airModule)
 	case *Sub[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return ir.Subtract(args...)
@@ -565,43 +495,6 @@ func (p *AirLowering[F]) lowerTerms(exprs []Term[F], airModule *air.ModuleBuilde
 	}
 
 	return nexprs
-}
-
-// LowerTo lowers an exponent expression to the AIR level by lowering the
-// argument, and then constructing a multiplication.  This is because the AIR
-// level does not support an explicit exponent operator.
-func (p *AirLowering[F]) lowerExpTo(e *Exp[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	// Lower the expression being raised
-	le := p.lowerTermTo(e.Arg, airModule)
-	// Multiply it out k times
-	es := make([]air.Term[F], e.Pow)
-	//
-	for i := uint64(0); i < e.Pow; i++ {
-		es[i] = le
-	}
-	// Done
-	return ir.Product(es...)
-}
-
-func (p *AirLowering[F]) lowerIfZeroTo(e *IfZero[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	var (
-		trueCondition  = p.extractNormalisedCondition(true, e.Condition, airModule)
-		falseCondition = p.extractNormalisedCondition(false, e.Condition, airModule)
-		trueBranch     = p.lowerTermTo(e.TrueBranch, airModule)
-		falseBranch    = p.lowerTermTo(e.FalseBranch, airModule)
-	)
-	//
-	fb := ir.Product(trueCondition, falseBranch)
-	tb := ir.Product(falseCondition, trueBranch)
-	//
-	return ir.Sum(tb, fb)
-}
-
-func (p *AirLowering[F]) lowerNormTo(e *Norm[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	// Lower the expression being normalised
-	arg := p.lowerTermTo(e.Arg, airModule)
-	//
-	return p.normalise(arg, airModule)
 }
 
 func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
@@ -629,91 +522,6 @@ func shiftTerm[F field.Element[F]](term air.Term[F], width uint) air.Term[F] {
 	n := field.TwoPowN[F](width)
 	//
 	return ir.Product(ir.Const[F, air.Term[F]](n), term)
-}
-
-// Extract condition whilst ensuring it always evaluates to either 0 or 1.  This
-// is useful for translating conditional terms.  For example, consider
-// translating this:
-//
-// > 16 - (if (X == 0) 5 4)
-//
-// We translate this roughly as follows:
-//
-// > 16 - (X!=0)*5 - (X==0)*4
-//
-// Where we know that either X==0 or X!=0 will evaluate to 0.  However, if e.g.
-// X==0 evaluates to 0 then we need X!=0 to evaluate to 1 (otherwise we've
-// changed the meaning of our expression).
-func (p *AirLowering[F]) extractNormalisedCondition(sign bool, term LogicalTerm[F],
-	airModule *air.ModuleBuilder[F]) air.Term[F] {
-	//
-	switch t := term.(type) {
-	case *Conjunct[F]:
-		if sign {
-			return p.extractNormalisedConjunction(sign, t.Args, airModule)
-		}
-
-		return p.extractNormalisedDisjunction(sign, t.Args, airModule)
-	case *Disjunct[F]:
-		if sign {
-			return p.extractNormalisedDisjunction(sign, t.Args, airModule)
-		}
-
-		return p.extractNormalisedConjunction(sign, t.Args, airModule)
-	case *Equal[F]:
-		return p.extractNormalisedEquality(sign, t.Lhs, t.Rhs, airModule)
-	case *Ite[F]:
-		panic("todo")
-	case *Negate[F]:
-		return p.extractNormalisedCondition(!sign, t.Arg, airModule)
-	case *NotEqual[F]:
-		return p.extractNormalisedEquality(!sign, t.Lhs, t.Rhs, airModule)
-	default:
-		name := reflect.TypeOf(t).Name()
-		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
-	}
-}
-
-func (p *AirLowering[F]) extractNormalisedConjunction(sign bool, terms []LogicalTerm[F],
-	airModule *air.ModuleBuilder[F]) air.Term[F] {
-	//
-	args := p.extractNormalisedConditions(!sign, terms, airModule)
-	// P && Q ==> !(!P || Q!) ==> 1 - ~(!P || !Q)
-	return ir.Subtract(ir.Const64[F, air.Term[F]](1),
-		p.normalise(ir.Product(args...), airModule))
-}
-
-func (p *AirLowering[F]) extractNormalisedDisjunction(sign bool, terms []LogicalTerm[F],
-	airModule *air.ModuleBuilder[F]) air.Term[F] {
-	//
-	ts := p.extractNormalisedConditions(sign, terms, airModule)
-	// Easy case
-	return ir.Product(ts...)
-}
-
-func (p *AirLowering[F]) extractNormalisedEquality(sign bool, lhs Term[F], rhs Term[F],
-	airModule *air.ModuleBuilder[F]) air.Term[F] {
-	l := p.lowerTermTo(lhs, airModule)
-	r := p.lowerTermTo(rhs, airModule)
-	t := p.normalise(ir.Subtract(l, r), airModule)
-	//
-	if sign {
-		return t
-	}
-	// Invert for not-equals
-	return ir.Subtract(ir.Const64[F, air.Term[F]](1), t)
-}
-
-func (p *AirLowering[F]) extractNormalisedConditions(sign bool, es []LogicalTerm[F],
-	airModule *air.ModuleBuilder[F]) []air.Term[F] {
-	//
-	exprs := make([]air.Term[F], len(es))
-	//
-	for i, e := range es {
-		exprs[i] = p.extractNormalisedCondition(sign, e, airModule)
-	}
-	//
-	return exprs
 }
 
 func (p *AirLowering[F]) normalise(arg air.Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {

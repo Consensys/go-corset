@@ -128,8 +128,8 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 // it can be printed.
 //
 //nolint:revive
-func (p Constraint[F, E]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
-	module := schema.Module(p.Context)
+func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+	module := mapping.Module(p.Context)
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),

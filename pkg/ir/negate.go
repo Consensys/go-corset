@@ -55,7 +55,7 @@ func (p *Negate[F, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Negate[F, T]) TestAt(k int, tr trace.Module[F], sc schema.Module[F]) (bool, uint, error) {
+func (p *Negate[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
 	val, branch, err := p.Arg.TestAt(k, tr, sc)
 	//
 	return !val, branch, err
@@ -80,19 +80,14 @@ func (p *Negate[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySorted
 	return p.Arg.RequiredCells(row, mid)
 }
 
+// Negate implementation for LogicalTerm interface
+func (p *Negate[F, T]) Negate() T {
+	return p.Arg
+}
+
 // Simplify this Negate as much as reasonably possible.
 func (p *Negate[F, T]) Simplify(casts bool) T {
-	var term T = p.Arg.Simplify(casts)
-	//
-	switch {
-	case IsTrue(term):
-		return False[F, T]()
-	case IsFalse(term):
-		return True[F, T]()
-	default:
-		var tmp LogicalTerm[F, T] = &Negate[F, T]{term}
-		return tmp.(T)
-	}
+	return p.Arg.Negate().Simplify(casts)
 }
 
 // Substitute implementation for Substitutable interface.
