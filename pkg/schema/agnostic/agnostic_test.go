@@ -94,7 +94,7 @@ func check(t *testing.T, bitwidth uint, p StaticPolynomial, widths ...uint) {
 		regs[i] = schema.NewInputRegister("?", widths[i], big.Int{})
 	}
 	// Determine computed bitwidth
-	actual, _ := WidthOfPolynomial(p, regs)
+	actual, _ := WidthOfPolynomial(p, EnvironmentFromArray(regs))
 	// Check for any differences
 	if actual != bitwidth {
 		err := fmt.Sprintf("invalid bitwidth (expected %d got %d)", bitwidth, actual)

@@ -22,6 +22,10 @@ import (
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
+// Environment provides a generic mechanism for associating details of a
+// register with its ID.
+type Environment func(schema.RegisterId) schema.Register
+
 // StaticPolynomial represents a polynomial over registers on the current row.
 // In other words, a polynomial which cannot refer to a register on a different
 // (i.e. relative) row.
@@ -53,6 +57,20 @@ type RegisterIdentifier[T any] interface {
 	Id() schema.RegisterId
 }
 
+// EnvironmentFromMap constructs an environment from a register map.
+func EnvironmentFromMap(mapping schema.RegisterMap) Environment {
+	return func(rid schema.RegisterId) schema.Register {
+		return mapping.Register(rid)
+	}
+}
+
+// EnvironmentFromArray constructs an environment from a register array.
+func EnvironmentFromArray(registers []schema.Register) Environment {
+	return func(rid schema.RegisterId) schema.Register {
+		return registers[rid.Unwrap()]
+	}
+}
+
 // WidthOfPolynomial determines the minimum number of bits required to store
 // all possible evaluations of this polynomial.  Observe that, in the case of
 // negative values, this must include the sign bit as well.  For example, a
@@ -67,11 +85,11 @@ type RegisterIdentifier[T any] interface {
 // smallest enclosing integer range.  From this is then determines the required
 // widths of the negative and positive components, before combining them to give
 // the result.
-func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], regs []schema.Register,
+func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Environment,
 ) (bitwidth uint, signed bool) {
 	//
 	var (
-		intRange  = IntegerRangeOfPolynomial(source, regs)
+		intRange  = IntegerRangeOfPolynomial(source, env)
 		lower     = intRange.MinIntValue()
 		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
@@ -94,9 +112,9 @@ func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], regs []sch
 // values, along with the number of bits required for all negative values.
 // Observe that, unlike WidthOfPolynomial, this does not account for an
 // additional sign bit.
-func SplitWidthOfPolynomial(source StaticPolynomial, regs []schema.Register) (poswidth uint, negwidth uint) {
+func SplitWidthOfPolynomial(source StaticPolynomial, env Environment) (poswidth uint, negwidth uint) {
 	var (
-		intRange  = IntegerRangeOfPolynomial(source, regs)
+		intRange  = IntegerRangeOfPolynomial(source, env)
 		lower     = intRange.MinIntValue()
 		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
@@ -119,11 +137,11 @@ func SplitWidthOfPolynomial(source StaticPolynomial, regs []schema.Register) (po
 // evaluations of this polynomial lie.  For example, consider "2*X + 1" where X
 // is an 8bit register.  Then, the smallest integer range which includes this
 // polynomial is "0..511".
-func IntegerRangeOfPolynomial[T RegisterIdentifier[T]](poly Polynomial[T], regs []schema.Register) math.Interval {
+func IntegerRangeOfPolynomial[T RegisterIdentifier[T]](poly Polynomial[T], env Environment) math.Interval {
 	var intRange math.Interval
 	//
 	for i := range poly.Len() {
-		intRange.Add(IntegerRangeOfMonomial(poly.Term(i), regs))
+		intRange.Add(IntegerRangeOfMonomial(poly.Term(i), env))
 	}
 	//
 	return intRange
@@ -133,14 +151,14 @@ func IntegerRangeOfPolynomial[T RegisterIdentifier[T]](poly Polynomial[T], regs 
 // evaluations of the monomial lie.  For example, consider the monomial "3*X*Y"
 // where X and are 8bit and 16bit registers respectively.  Then, the smallest
 // enclosing integer range is 0 .. 3*255*65535.
-func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], regs []schema.Register) math.Interval {
+func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], env Environment) math.Interval {
 	var (
 		coeff    = mono.Coefficient()
 		intRange = math.NewInterval(coeff, coeff)
 	)
 	//
 	for i := range mono.Len() {
-		intRange.Mul(IntegerRangeOfRegister(mono.Nth(i), regs))
+		intRange.Mul(IntegerRangeOfRegister(mono.Nth(i), env))
 	}
 	//
 	return intRange
@@ -149,10 +167,10 @@ func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], regs []sc
 // IntegerRangeOfRegister determines the smallest integer range enclosing all possible
 // values for a given register.  For example, a register of width 16 has an
 // integer range of 0..65535 (inclusive).
-func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, regs []schema.Register) math.Interval {
+func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, env func(schema.RegisterId) schema.Register) math.Interval {
 	var (
 		val   = big.NewInt(2)
-		width = regs[id.Id().Unwrap()].Width
+		width = env(id.Id()).Width
 	)
 	// NOTE: following is safe since the width of any registers must sure be
 	// less than 65536 bits :)

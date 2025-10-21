@@ -35,13 +35,14 @@ type Element[F any] = field.Element[F]
 // constants (which no longer make sense).  Furthermore, this stage can
 // technically fail if the relevant constraints cannot be correctly concretized.
 // For example, they contain a constant which does not fit within the field.
-func Concretize[F1 Element[F1], F2 Element[F2]](mapping schema.LimbsMap, rawModules []Module[F1]) []Module[F2] {
+func Concretize[F1 Element[F1], F2 Element[F2]](mapping schema.LimbsMap, offset uint, rawModules []Module[F1],
+) []Module[F2] {
 	var (
 		modules = make([]Module[F2], len(rawModules))
 	)
 	//
 	for i, m := range rawModules {
-		var mid sc.ModuleId = uint(i)
+		mid := uint(i) + offset
 		// Subdivice, then concretize the module.
 		modules[i] = concretizeModule[F1, F2](m.Subdivide(mid, mapping, carryAssigner[F1](mid)))
 	}

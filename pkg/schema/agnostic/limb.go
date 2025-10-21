@@ -70,16 +70,16 @@ func WidthsOfLimbs(mapping sc.RegisterLimbsMap, lids []sc.LimbId) []uint {
 	return widths
 }
 
-// CombinedWidthOfLimbs returns the combined bitwidth of all limbs.  For example,
+// CombinedWidthOfRegisters returns the combined bitwidth of all limbs.  For example,
 // suppose we have three limbs: x:u8, y:u8, z:u11.  Then the combined width is
 // 8+8+11=27.
-func CombinedWidthOfLimbs(mapping sc.RegisterLimbsMap, limbs ...sc.LimbId) uint {
+func CombinedWidthOfRegisters(mapping sc.RegisterMap, registers ...sc.LimbId) uint {
 	var (
 		width uint
 	)
 	//
-	for _, lid := range limbs {
-		width += mapping.Limb(lid).Width
+	for _, rid := range registers {
+		width += mapping.Register(rid).Width
 	}
 	//
 	return width

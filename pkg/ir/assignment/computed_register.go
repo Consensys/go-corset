@@ -213,7 +213,7 @@ func (p *ComputedRegister[F]) RegistersWritten() []sc.RegisterRef {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *ComputedRegister[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
+func (p *ComputedRegister[F]) Subdivide(_ schema.RegisterAllocator, mapping schema.LimbsMap) sc.Assignment[F] {
 	var (
 		ntargets []schema.RegisterId
 		modmap   = mapping.Module(p.Module)

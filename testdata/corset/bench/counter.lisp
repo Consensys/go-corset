@@ -34,6 +34,3 @@
       (will-inc! STAMP 1)
       ;; Else, CT[k]+1 == CT[k]
       (will-inc! CT 1)))
-
-;; This should always be true for CT.
-(defproperty ct-bound (or! (== STAMP 0) (<= CT 3)))

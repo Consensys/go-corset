@@ -50,7 +50,7 @@ func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.LimbsMa
 	return c
 }
 
-func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterAllocator) Term[F] {
+func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap) Term[F] {
 	switch t := term.(type) {
 	case *Add[F]:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
@@ -69,7 +69,7 @@ func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterAllocato
 	}
 }
 
-func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterAllocator) []Term[F] {
+func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterLimbsMap) []Term[F] {
 	var nterms []Term[F] = make([]Term[F], len(terms))
 	//
 	for i := range len(terms) {
@@ -79,7 +79,7 @@ func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterAllo
 	return nterms
 }
 
-func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterAllocator) Term[F] {
+func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
 	var (
 		// Determine limbs for this register
 		limbs = mapping.LimbIds(term.Register)
@@ -100,7 +100,7 @@ func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping sc
 	return ir.NewVectorAccess(terms)
 }
 
-func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema.RegisterAllocator) Term[F] {
+func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
 	var terms []*RegisterAccess[F]
 	//
 	for _, v := range term.Vars {

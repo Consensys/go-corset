@@ -120,7 +120,7 @@ type RegisterLimbsMap interface {
 // registers as necessary.  This is useful, for example,  in the context of
 // register splitting for introducing new carry registers.
 type RegisterAllocator interface {
-	RegisterLimbsMap
+	RegisterMap
 	// Allocate a fresh register of the given width within the target module.
 	// This is presumed to be a computed register, and automatically assigned a
 	// unique name.  Furthermore, an optional
@@ -135,30 +135,30 @@ type RegisterAllocator interface {
 // ============================================================================
 
 type registerAllocator struct {
-	mapping     RegisterLimbsMap
+	mapping     RegisterMap
 	assignments []CarryAssignment
-	limbs       []Register
+	registers   []Register
 }
 
 // NewAllocator converts a mapping into a full allocator simply by wrapping the
 // two fields.
-func NewAllocator(mapping RegisterLimbsMap) RegisterAllocator {
-	limbs := slices.Clone(mapping.Limbs())
-	return &registerAllocator{mapping, nil, limbs}
+func NewAllocator(mapping RegisterMap) RegisterAllocator {
+	registers := slices.Clone(mapping.Registers())
+	return &registerAllocator{mapping, nil, registers}
 }
 
 // Allocate implementation for the RegisterAllocator interface
 func (p *registerAllocator) Allocate(prefix string, width uint) RegisterId {
 	var (
 		// Determine index for new register
-		index = uint(len(p.limbs))
+		index = uint(len(p.registers))
 		// Determine unique name for new register
 		name = fmt.Sprintf("%s$%d", prefix, index)
 		// Default padding (for now)
 		zero big.Int
 	)
 	// Allocate a new computed register.
-	p.limbs = append(p.limbs, NewComputedRegister(name, width, zero))
+	p.registers = append(p.registers, NewComputedRegister(name, width, zero))
 	//
 	return NewRegisterId(index)
 }
@@ -173,31 +173,6 @@ func (p *registerAllocator) Assignments() []CarryAssignment {
 	return p.assignments
 }
 
-// BandWidth implementation for RegisterMapping interface
-func (p *registerAllocator) Field() FieldConfig {
-	return p.mapping.Field()
-}
-
-// Limbs implementation for the RegisterMapping interface
-func (p *registerAllocator) LimbIds(reg RegisterId) []LimbId {
-	return p.mapping.LimbIds(reg)
-}
-
-// Limb implementation for the RegisterMapping interface
-func (p *registerAllocator) Limb(reg LimbId) Limb {
-	return p.limbs[reg.Unwrap()]
-}
-
-// Limbs implementation for the RegisterMapping interface
-func (p *registerAllocator) Limbs() []Limb {
-	return p.limbs
-}
-
-// LimbsMap implementation for the RegisterMapping interface
-func (p *registerAllocator) LimbsMap() RegisterMap {
-	return p.mapping.LimbsMap()
-}
-
 // Name implementation for RegisterMapping interface
 func (p *registerAllocator) Name() string {
 	return p.mapping.Name()
@@ -205,19 +180,25 @@ func (p *registerAllocator) Name() string {
 
 // HasRegister implementation for RegisterMap interface.
 func (p *registerAllocator) HasRegister(name string) (RegisterId, bool) {
-	return p.mapping.HasRegister(name)
+	for i, reg := range p.registers {
+		if reg.Name == name {
+			return NewRegisterId(uint(i)), true
+		}
+	}
+	//
+	return NewUnusedRegisterId(), false
 }
 
 // Register implementation for RegisterMap interface.
 func (p *registerAllocator) Register(rid RegisterId) Register {
-	return p.mapping.Register(rid)
+	return p.registers[rid.Unwrap()]
 }
 
 // Registers implementation for RegisterMap interface.
 func (p *registerAllocator) Registers() []Register {
-	return p.mapping.Registers()
+	return p.registers
 }
 
 func (p *registerAllocator) String() string {
-	return p.mapping.String()
+	return RegisterMapToString(p)
 }

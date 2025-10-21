@@ -270,7 +270,7 @@ func (p *Table[F, C]) Subdivide(mid ModuleId, mapping LimbsMap,
 	var (
 		constraints []C
 		assignments []Assignment[F]
-		env         = NewAllocator(mapping.Module(mid))
+		env         = NewAllocator(mapping.Module(mid).LimbsMap())
 	)
 	// Subdivide assignments
 	for _, c := range p.assignments {
@@ -297,7 +297,7 @@ func (p *Table[F, C]) Subdivide(mid ModuleId, mapping LimbsMap,
 		assignments = append(assignments, assigner(a))
 	}
 	//
-	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, env.Limbs(), constraints, assignments}
+	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, env.Registers(), constraints, assignments}
 }
 
 // ============================================================================

@@ -120,16 +120,16 @@ func (p *Assign) String(fn schema.RegisterMap) string {
 // > b,x1,x0 := 256*(y1+z1) + (y0+z0+1)
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
-func (p *Assign) Split(env schema.RegisterAllocator) []Code {
+func (p *Assign) Split(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code {
 	var (
 		// map target registers into corresponding limbs
-		lhs = agnostic.ApplyMapping(env, p.Targets...)
+		lhs = agnostic.ApplyMapping(mapping, p.Targets...)
 		// map lhs registers into corresponding limbs
-		rhs = SplitPolynomial(p.Source, env)
+		rhs = SplitPolynomial(p.Source, mapping)
 		// construct initial assignment
 		assignment = agnostic.NewAssignment(lhs, rhs)
 		// split into smaller assignments as needed
-		assignments = assignment.Split(env.Field().FieldBandWidth, env)
+		assignments = assignment.Split(mapping.Field().FieldBandWidth, env)
 		// codes to be filled out
 		codes = make([]Code, len(assignments))
 	)
@@ -148,7 +148,7 @@ func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 		// Determine number of bits required to hold the left-hand side.
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		// Determine number of bits  required to hold the right-hand side.
-		rhs_bits, _ = agnostic.WidthOfPolynomial(p.Source, regs)
+		rhs_bits, _ = agnostic.WidthOfPolynomial(p.Source, agnostic.EnvironmentFromArray(regs))
 	)
 	// check
 	if lhs_bits < rhs_bits {

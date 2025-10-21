@@ -97,7 +97,7 @@ func Concretize[F Element[F]](cfg sc.FieldConfig, hp MicroHirProgram,
 		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
 	}
 	// Concretize legacy components
-	copy(modules[n:], mir.Concretize[word.BigEndian, F](mapping, p.Externs()))
+	copy(modules[n:], mir.Concretize[word.BigEndian, F](mapping, uint(n), p.Externs()))
 	// Done
 	return schema.NewUniformSchema(modules), mapping
 }
@@ -139,20 +139,21 @@ func subdivideProgram(mapping schema.LimbsMap, p MicroProgram) MicroProgram {
 // SplitRegisters method (which we want to avoid right now).
 func subdivideFunction(mapping sc.LimbsMap, fn MicroFunction) MicroFunction {
 	var (
+		modmap = mapping.ModuleOf(fn.Name())
 		// Construct suitable splitting environment
-		env = sc.NewAllocator(mapping.ModuleOf(fn.Name()))
+		env = sc.NewAllocator(modmap.LimbsMap())
 		// Updated instruction sequence
 		ninsns []micro.Instruction
 		nbuses []io.Bus = make([]io.Bus, len(fn.Buses()))
 	)
 	// Split instructions
 	for _, insn := range fn.Code() {
-		ninsns = append(ninsns, insn.SplitRegisters(env))
+		ninsns = append(ninsns, insn.SplitRegisters(modmap, env))
 	}
 	// Split buses
 	for i, bus := range fn.Buses() {
-		nbuses[i] = bus.Split(env)
+		nbuses[i] = bus.Split(modmap, env)
 	}
 	// Done
-	return io.NewFunction(fn.Name(), fn.IsPublic(), env.Limbs(), nbuses, ninsns)
+	return io.NewFunction(fn.Name(), fn.IsPublic(), env.Registers(), nbuses, ninsns)
 }

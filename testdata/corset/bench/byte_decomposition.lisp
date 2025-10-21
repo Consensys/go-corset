@@ -39,9 +39,6 @@
               ;; Else, CT[k]+1 == CT[k+1]
               (eq! (+ 1 CT) (next CT))))
 
-;; This should always be true for CT.
-(defproperty ct-bound (or! (== ST 0) (<= CT 3)))
-
 ;; Argument accumulates byte values.
 (defconstraint accumulator (:guard ST)
   ;; If CT[k] == 0

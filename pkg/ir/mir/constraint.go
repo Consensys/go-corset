@@ -149,7 +149,7 @@ func (p Constraint[F]) Subdivide(alloc schema.RegisterAllocator, mapping schema.
 	case SortedConstraint[F]:
 		constraint = subdivideSorted(c, mapping)
 	case VanishingConstraint[F]:
-		constraint = subdivideVanishing(c, alloc)
+		constraint = subdivideVanishing(c, mapping, alloc)
 	default:
 		panic("unreachable")
 	}
