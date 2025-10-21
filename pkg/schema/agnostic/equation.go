@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
@@ -93,7 +94,7 @@ func (p *Equation) String(mapping sc.RegisterMap) string {
 // Split an equation according to a given field bandwidth.  This creates one
 // or more equations implementing the original which operate safely within the
 // given bandwidth.
-func (p *Equation) Split(bandwidth uint, env sc.RegisterAllocator) (eqs []Equation) {
+func (p *Equation) Split(field sc.FieldConfig, env sc.RegisterAllocator) (eqs []Equation) {
 	var (
 		bp = p.Balance()
 	)
@@ -101,9 +102,9 @@ func (p *Equation) Split(bandwidth uint, env sc.RegisterAllocator) (eqs []Equati
 	// fmt.Printf("BANDWIDTH: %d\n", bandwidth)
 	// fmt.Printf("EQUATION: %s\n", p.String(env))
 	// Check whether any splitting required
-	if bp.Width(env) > bandwidth {
+	if bp.Width(env) > field.BandWidth {
 		// Yes!
-		eqs = bp.chunkUp(bandwidth, env)
+		eqs = bp.chunkUp(field, env)
 	} else {
 		// Nope
 		eqs = []Equation{*p}
@@ -133,43 +134,47 @@ func (p *Equation) Split(bandwidth uint, env sc.RegisterAllocator) (eqs []Equati
 //
 // The real challenge with this algorithm is, for a polynomial which cannot be
 // chunked, to determine which variable(s) to subdivide and by how much.
-func (p *Equation) chunkUp(bandwidth uint, mapping sc.RegisterAllocator) []Equation {
+func (p *Equation) chunkUp(field sc.FieldConfig, mapping sc.RegisterAllocator) []Equation {
 	var (
+		// Record initial number of registers
+		n = uint(len(mapping.Registers()))
 		// Determine the bitwidth of each chunk
-		chunkWidths = p.determineChunkBitwidths(mapping)
-		lhs, rhs    []RelativePolynomial
-		equations   []Equation
+		lhs, rhs []RelativePolynomial
+		// Equations being constructed
+		equations []Equation
+		// Current chunk width
+		chunkWidth = field.RegisterWidth
 	)
-	// Divide polynomials into chunks
+	// Attempt to divide polynomials into chunks.  If this fails, iterative
+	// decrease chunk width until something fits.
 	for {
-		var lhsChunked, rhsChunked bool
-		//
-		lhs, lhsChunked = chunkPolynomial(p.LeftHandSide, chunkWidths, bandwidth, mapping)
-		rhs, rhsChunked = chunkPolynomial(p.RightHandSide, chunkWidths, bandwidth, mapping)
+		var (
+			lhsChunked, rhsChunked bool
+			// Calculate actual chunk widths based on current chunk width.
+			chunkWidths = p.determineChunkBitwidths(chunkWidth, mapping)
+			//
+			left, leftEqs   = splitNonLinearTerms(chunkWidth, field, p.LeftHandSide, mapping)
+			right, rightEqs = splitNonLinearTerms(chunkWidth, field, p.RightHandSide, mapping)
+		)
+		// Attempt to chunk polynomials
+		lhs, lhsChunked = chunkPolynomial(left, chunkWidths, field, mapping)
+		rhs, rhsChunked = chunkPolynomial(right, chunkWidths, field, mapping)
 		//
 		if lhsChunked && rhsChunked {
-			// Successful chunking, therefore finalise any required allocations
-			// and continue on to construct final equations.
+			// Successful chunking, therefore include any constraints necessary
+			// for splitting of non-linear terms and construct final equations.
+			equations = append(equations, leftEqs...)
+			equations = append(equations, rightEqs...)
+			//
 			break
 		}
-		//
-		if !lhsChunked {
-			fmt.Printf("RHS=%s\n", poly2string(lhs[0], mapping))
-		}
-		//
-		if !rhsChunked {
-			fmt.Printf("LHS=%s\n", poly2string(rhs[0], mapping))
-		}
-		// Chunking unsuccessful, therefore start over and attempt another
-		// split.
-		// Reset any speculative register allocations.
-		// Reset any constraints previously considered.
-		equations = nil
-
-		panic("got here")
+		// Chunking unsuccessful, therefore decrease chunk width and try again.
+		chunkWidth /= 2
+		// Reset any allocations made as we are starting over
+		mapping.Reset(n)
 	}
 	// Reconstruct equations
-	for i := range chunkWidths {
+	for i := range len(lhs) {
 		if lhs[i].Len() > 0 || rhs[i].Len() > 0 {
 			equations = append(equations, NewEquation(lhs[i], rhs[i]))
 		}
@@ -210,26 +215,15 @@ func (p *Equation) chunkUp(bandwidth uint, mapping sc.RegisterAllocator) []Equat
 // In general, chunks do not have to have the same size (even though it did make
 // sense above).  In particular, the most significant chunk is often a different
 // size.
-func (p *Equation) determineChunkBitwidths(env sc.RegisterAllocator) []uint {
-	return p.chunkOnMaximumRegisterWidth(env)
-}
-
-// A naive chunking algorithm which chunks according to register boundaries.
-// Specifically, the boundaries determined by the largest register in the
-// equation.  As such, it may often produce suboptimal chunkings.  However, it
-// is very simple to implement and make progress with.
-func (p *Equation) chunkOnMaximumRegisterWidth(env sc.RegisterAllocator) []uint {
+func (p *Equation) determineChunkBitwidths(maxWidth uint, mapping sc.RegisterAllocator) []uint {
 	var (
-		leftLargestWidth  = largestWidth(RegistersRead(p.LeftHandSide), env)
-		rightLargestWidth = largestWidth(RegistersRead(p.RightHandSide), env)
-		largestWidth      = max(leftLargestWidth, rightLargestWidth)
-		bitwidth          = p.Width(env)
-		chunks            []uint
+		bitwidth = p.Width(mapping)
+		chunks   []uint
 	)
 	//
 	for bitwidth > 0 {
 		// Determine how much to take off
-		width := min(largestWidth, bitwidth)
+		width := min(maxWidth, bitwidth)
 		// Update the chunk
 		chunks = append(chunks, width)
 		bitwidth -= width
@@ -238,21 +232,108 @@ func (p *Equation) chunkOnMaximumRegisterWidth(env sc.RegisterAllocator) []uint 
 	return chunks
 }
 
-// Determine largest bitwidth of any register in a given set of registers.
-func largestWidth(registers []sc.LimbId, env sc.RegisterAllocator) uint {
-	var width = uint(0)
-
-	for _, reg := range registers {
-		width = max(width, env.Register(reg).Width)
+func splitNonLinearTerms(regWidth uint, field sc.FieldConfig, p RelativePolynomial,
+	mapping sc.RegisterAllocator) (RelativePolynomial, []Equation) {
+	//
+	var (
+		env         = EnvironmentFromMap(mapping)
+		constraints []Equation
+		vars        bit.Set
+	)
+	//
+	for i := range p.Len() {
+		var (
+			term  = p.Term(i)
+			width = WidthOfMonomial(term, env)
+		)
+		//
+		if width > field.BandWidth {
+			for _, v := range term.Vars() {
+				// Check whether register is above threshold or not.
+				if mapping.Register(v.Id()).Width > regWidth {
+					// Yes, so mark it for splitting.
+					vars.Insert(v.Unwrap())
+				}
+			}
+		}
 	}
 	//
-	return width
+	for iter := vars.Iter(); iter.HasNext(); {
+		// Identify variable to split
+		var (
+			v          = sc.NewRegisterId(iter.Next())
+			constraint Equation
+		)
+		// Split the variable
+		p, constraint = splitVariable(v, regWidth, p, mapping)
+		// Include constraint needed to enforce split
+		constraints = append(constraints, constraint)
+	}
+	//
+	return p, constraints
+}
+
+func splitVariable(rid sc.RegisterId, bitwidth uint, p RelativePolynomial,
+	mapping sc.RegisterAllocator) (RelativePolynomial, Equation) {
+	//
+	var (
+		reg = mapping.Register(rid)
+		//
+		lhs RelativePolynomial
+		// Determine necessary widths
+		limbWidths = LimbWidths(bitwidth, reg.Width)
+		// Preallocate space for limb identifiers
+		limbs = make([]sc.RegisterId, len(limbWidths))
+		// FIXME
+		constraint Equation
+	)
+	//
+	for i, w := range limbWidths {
+		limbs[i] = mapping.Allocate(reg.Name, w)
+	}
+	// FIXME: assignment required for filling limbs
+	//
+	// Construct constraint connecting reg and limbs
+	lhs = lhs.Set(poly.NewMonomial(one, rid.Shift(0)))
+	constraint = NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
+	// Substitute through polynomial
+	return SubstitutePolynomial(p, splitVariableMapper(rid, limbs, limbWidths)), constraint
+}
+
+func splitVariableMapper(reg sc.RegisterId, limbs []sc.RegisterId, limbWidths []uint,
+) func(sc.RelativeRegisterId) RelativePolynomial {
+	//
+	return func(v sc.RelativeRegisterId) RelativePolynomial {
+		if v.Id() == reg {
+			return buildSplitPolynomial(v.Shift(), limbs, limbWidths)
+		}
+		//
+		return nil
+	}
+}
+
+func buildSplitPolynomial(shift int, limbs []sc.RegisterId, widths []uint) (p RelativePolynomial) {
+	var (
+		terms    = make([]RelativeMonomial, len(limbs))
+		bitwidth uint
+	)
+	//
+	for i, limb := range limbs {
+		var (
+			c = math.Pow2(bitwidth)
+		)
+		//
+		terms[i] = poly.NewMonomial(*c, limb.Shift(shift))
+		bitwidth += widths[i]
+	}
+	//
+	return p.Set(terms...)
 }
 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
 // determined by the chunk widths.  This inserts carry lines as needed to ensure
 // correctness.
-func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, bandwidth uint,
+func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field sc.FieldConfig,
 	mapping sc.RegisterAllocator) ([]RelativePolynomial, bool) {
 	//
 	var (
@@ -275,7 +356,7 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, bandwidth uint,
 			chunkWidth    = chunkWidths[i]
 		)
 		// Calculate overflow from ith chunk (if any)
-		if ithWidth > bandwidth {
+		if ithWidth > field.BandWidth {
 			// This arises when a given term of the polynomial being chunked
 			// cannot be safely evaluated within the given bandwidth (i.e.
 			// cannot be evaluated without overflow).  To resolve this

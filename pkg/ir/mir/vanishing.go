@@ -91,7 +91,7 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping sc.R
 		// Construct equality for spltting
 		equation = agnostic.NewEquation(left, right)
 		// Split the equation
-		splitEquations = equation.Split(mapping.Field().FieldBandWidth, env)
+		splitEquations = equation.Split(mapping.Field(), env)
 		// Prepare resulting conjunct / disjunct
 		terms = make([]LogicalTerm[F], len(splitEquations))
 	)

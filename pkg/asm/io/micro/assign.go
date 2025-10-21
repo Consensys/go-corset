@@ -129,7 +129,7 @@ func (p *Assign) Split(mapping schema.RegisterLimbsMap, env schema.RegisterAlloc
 		// construct initial assignment
 		assignment = agnostic.NewAssignment(lhs, rhs)
 		// split into smaller assignments as needed
-		assignments = assignment.Split(mapping.Field().FieldBandWidth, env)
+		assignments = assignment.Split(mapping.Field().BandWidth, env)
 		// codes to be filled out
 		codes = make([]Code, len(assignments))
 	)

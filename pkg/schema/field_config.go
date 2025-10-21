@@ -39,7 +39,7 @@ type FieldConfig struct {
 	// improving error reporting, etc.
 	Name string
 	// Maximum field bandwidth available in the field.
-	FieldBandWidth uint
+	BandWidth uint
 	// Maximum register width to use with this field.
 	RegisterWidth uint
 }

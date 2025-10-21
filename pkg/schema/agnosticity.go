@@ -130,6 +130,9 @@ type RegisterAllocator interface {
 	Assign(reg RegisterId, shift uint, poly RelativePolynomial)
 	// Assignments returns the list of carry assignments
 	Assignments() []CarryAssignment
+	// Reset back to a given number of registers.  This is essentially for
+	// "undoing" allocations in algorithms that perform speculative allocation.
+	Reset(uint)
 }
 
 // ============================================================================
@@ -197,6 +200,11 @@ func (p *registerAllocator) Register(rid RegisterId) Register {
 // Registers implementation for RegisterMap interface.
 func (p *registerAllocator) Registers() []Register {
 	return p.registers
+}
+
+// Reset implementation for RegisterAllocator interface.
+func (p *registerAllocator) Reset(n uint) {
+	p.registers = p.registers[:n]
 }
 
 func (p *registerAllocator) String() string {

@@ -134,7 +134,7 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 	}
 	// Apply field overrides
 	if cmd.Flags().Lookup("field-width").Changed {
-		fieldConfig.FieldBandWidth = GetUint(cmd, "field-width")
+		fieldConfig.BandWidth = GetUint(cmd, "field-width")
 	}
 
 	if cmd.Flags().Lookup("register-width").Changed {

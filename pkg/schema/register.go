@@ -199,7 +199,7 @@ func (p Register) String() string {
 }
 
 // ============================================================================
-// Encoding / Decoding
+// Helpers
 // ============================================================================
 
 // WidthOfRegisters returns the combined bitwidth of the given

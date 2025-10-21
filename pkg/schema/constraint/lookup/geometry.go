@@ -52,7 +52,7 @@ func NewGeometry[F field.Element[F], E ir.Evaluable[F], T schema.RegisterMap](c 
 
 // BandWidth returns maximum field bandwidth available in the field.
 func (p *Geometry) BandWidth() uint {
-	return p.config.FieldBandWidth
+	return p.config.BandWidth
 }
 
 // RegisterWidth returns maximum permitted register width for the field.

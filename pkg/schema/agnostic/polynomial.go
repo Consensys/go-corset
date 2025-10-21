@@ -108,6 +108,29 @@ func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Enviro
 	return upperBits, false
 }
 
+// WidthOfMonomial determines the minimum number of bits required to store all
+// possible evaluations of this mononomial.  To determine the bitwidth of a
+// monomial, this function first determines its smallest enclosing integer
+// range.
+func WidthOfMonomial[T RegisterIdentifier[T]](source Monomial[T], env Environment,
+) (bitwidth uint) {
+	//
+	var (
+		coeff     = source.Coefficient()
+		intRange  = IntegerRangeOfMonomial(source, env)
+		lower     = intRange.MinIntValue()
+		upper     = intRange.MaxIntValue()
+		upperBits = uint(upper.BitLen())
+		lowerBits = uint(lower.BitLen())
+	)
+	// Check whether negative mononial
+	if coeff.Sign() < 0 {
+		return lowerBits
+	}
+	// Positive mononial
+	return upperBits
+}
+
 // SplitWidthOfPolynomial resturns the number of bits required for all positive
 // values, along with the number of bits required for all negative values.
 // Observe that, unlike WidthOfPolynomial, this does not account for an
@@ -198,4 +221,44 @@ func RegistersRead[T RegisterIdentifier[T]](p Polynomial[T]) []schema.RegisterId
 	}
 	//
 	return read
+}
+
+// SubstitutePolynomial replaces all occurrences of a given variable with a set
+// of (zero or more) variables (e.g. typically used for substituting limbs).
+func SubstitutePolynomial[T RegisterIdentifier[T]](p Polynomial[T], mapping func(T) Polynomial[T]) (r Polynomial[T]) {
+	//
+	for i := range p.Len() {
+		ith := SubstituteMonomial(p.Term(i), mapping)
+		//
+		if i == 0 {
+			r = ith
+		} else {
+			r = r.Add(ith)
+		}
+	}
+	// Done
+	return r
+}
+
+// SubstituteMonomial replaces all occurrences of a given variable with a set of
+// (zero or more) variables (e.g. typically used for substituting limbs).
+func SubstituteMonomial[T RegisterIdentifier[T]](t Monomial[T], mapping func(T) Polynomial[T]) Polynomial[T] {
+	var (
+		r Polynomial[T]
+	)
+	// Initialise
+	r = r.Set(poly.NewMonomial[T](t.Coefficient()))
+	// Initially, attempt to avoid substitution altgoether.  This ensures we
+	// only allocate memory when an actual subistition happens.
+	for _, v := range t.Vars() {
+		tmp := mapping(v)
+		// Sanity check what happened
+		if tmp == nil {
+			tmp = tmp.Set(poly.NewMonomial(one, v))
+		}
+		//
+		r = r.Mul(tmp)
+	}
+	// No substitution required
+	return r
 }
