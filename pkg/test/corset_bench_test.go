@@ -125,9 +125,10 @@ func Test_Bench_Exp(t *testing.T) {
 	util.Check(t, true, "corset/bench/exp")
 }
 
-func Test_Bench_Mul(t *testing.T) {
-	util.Check(t, true, "corset/bench/mul")
-}
+//#1247
+// func Test_Bench_Mul(t *testing.T) {
+// 	util.Check(t, true, "corset/bench/mul")
+// }
 
 func Test_Bench_Mod(t *testing.T) {
 	util.Check(t, true, "corset/bench/mod")

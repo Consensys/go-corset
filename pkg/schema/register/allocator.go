@@ -68,8 +68,12 @@ type registerAllocator[T any] struct {
 // NewAllocator converts a mapping into a full allocator simply by wrapping the
 // two fields.
 func NewAllocator[T any](mapping Map) Allocator[T] {
-	registers := slices.Clone(mapping.Registers())
-	return &registerAllocator[T]{mapping, nil, registers}
+	var (
+		registers   = slices.Clone(mapping.Registers())
+		assignments = make([]util.Option[T], len(registers))
+	)
+	//
+	return &registerAllocator[T]{mapping, assignments, registers}
 }
 
 // Allocate implementation for the RegisterAllocator interface
@@ -84,13 +88,26 @@ func (p *registerAllocator[T]) Allocate(prefix string, width uint, filler util.O
 	)
 	// Allocate a new computed register.
 	p.registers = append(p.registers, NewComputed(name, width, zero))
+	// record assignment
+	p.assignments = append(p.assignments, filler)
 	//
 	return NewId(index)
 }
 
 // Assign implementation for the RegisterAllocator interface
 func (p *registerAllocator[T]) Assignments() []util.Pair[Id, T] {
-	panic("todo")
+	var assignments []util.Pair[Id, T]
+	//
+	for i, data := range p.assignments {
+		if data.HasValue() {
+			// Construct assignment
+			assignment := util.NewPair(NewId(uint(i)), data.Unwrap())
+			// Include it
+			assignments = append(assignments, assignment)
+		}
+	}
+	//
+	return assignments
 }
 
 // Name implementation for RegisterMapping interface
@@ -121,7 +138,13 @@ func (p *registerAllocator[T]) Registers() []Register {
 
 // Reset implementation for RegisterAllocator interface.
 func (p *registerAllocator[T]) Reset(n uint) {
+	if n < uint(len(p.mapping.Registers())) {
+		panic("cannot reset pre-existing registers")
+	}
+	// Reset registers
 	p.registers = p.registers[:n]
+	// Reset metadata
+	p.assignments = p.assignments[:n]
 }
 
 func (p *registerAllocator[T]) String() string {

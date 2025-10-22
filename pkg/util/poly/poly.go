@@ -15,6 +15,8 @@ package poly
 import (
 	"bytes"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Polynomial represents a sum of terms of a type T of variables.
@@ -126,4 +128,44 @@ func String[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(
 	}
 	//
 	return buf.String()
+}
+
+var one = big.NewInt(1)
+
+// Lisp constructs a suitable lisp representation for a given polynomial
+// assuming an environment which maps identifiers to strings.
+func Lisp[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) string) sexp.SExp {
+	var terms []sexp.SExp
+	//
+	terms = append(terms, sexp.NewSymbol("+"))
+	//
+	for i := range poly.Len() {
+		var (
+			ith   = poly.Term(i)
+			coeff = ith.Coefficient()
+			isOne = coeff.Cmp(one) == 0
+		)
+		// Case analysis
+		switch {
+		case isOne && ith.Len() == 0:
+			terms = append(terms, sexp.NewSymbol(coeff.String()))
+		case isOne && ith.Len() == 1:
+			terms = append(terms, sexp.NewSymbol(env(ith.Nth(0))))
+		default:
+			term := []sexp.SExp{sexp.NewSymbol("*")}
+			//
+			if !isOne {
+				term = append(term, sexp.NewSymbol(coeff.String()))
+			}
+			// Append variables
+			for j := range ith.Len() {
+				jth := env(ith.Nth(j))
+				term = append(term, sexp.NewSymbol(jth))
+			}
+			//
+			terms = append(terms, sexp.NewList(term))
+		}
+	}
+	//
+	return sexp.NewList(terms)
 }

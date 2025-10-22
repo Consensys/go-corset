@@ -77,9 +77,7 @@ func mirAssignmentConstructor[F field.Element[F]](module sc.ModuleId,
 ) func(register.Id, agnostic.Computation) schema.Assignment[F] {
 	//
 	return func(id register.Id, computation agnostic.Computation) schema.Assignment[F] {
-		// ref := register.NewRef(module, a.LeftHandSide)
-		// return assignment.NewCarryAssign[F](ref, a.Shift, a.RightHandSide)
-		panic("got here")
+		return assignment.NewComputedRegister[F](computation, true, module, id)
 	}
 }
 

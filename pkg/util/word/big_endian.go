@@ -69,6 +69,14 @@ func (p BigEndian) Inverse() BigEndian {
 	panic("unsupported operation")
 }
 
+// Rsh performs a right bitshift of a given amount on this value.
+func (p BigEndian) Rsh(n uint) BigEndian {
+	var res big.Int
+	res.Rsh(&p.val, n)
+	//
+	return BigEndian{res}
+}
+
 // Sub implementation for field.Element interface
 func (p BigEndian) Sub(o BigEndian) BigEndian {
 	var res big.Int

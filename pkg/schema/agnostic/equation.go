@@ -288,18 +288,15 @@ func splitVariable(rid register.Id, bitwidth uint, p RelativePolynomial,
 		limbWidths = register.LimbWidths(bitwidth, reg.Width)
 		// Preallocate space for limb identifiers
 		limbs = make([]register.Id, len(limbWidths))
-		// FIXME
-		constraint Equation
 	)
 	//
 	for i, w := range limbWidths {
+		// FIXME: assignment required for filling limbs
 		limbs[i] = mapping.Allocate(reg.Name, w, util.None[term.Computation[word.BigEndian]]())
 	}
-	// FIXME: assignment required for filling limbs
-	//
 	// Construct constraint connecting reg and limbs
 	lhs = lhs.Set(poly.NewMonomial(one, rid.Shift(0)))
-	constraint = NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
+	constraint := NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
 	// Substitute through polynomial
 	return SubstitutePolynomial(p, splitVariableMapper(rid, limbs, limbWidths)), constraint
 }
@@ -355,9 +352,9 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 	// Add carry lines as necessary
 	for i := 0; i < len(chunks); i++ {
 		var (
-			//carry, borrow RelativePolynomial
-			ithWidth, _ = WidthOfPolynomial(chunks[i], env)
-			chunkWidth  = chunkWidths[i]
+			carry, borrow RelativePolynomial
+			ithWidth, _   = WidthOfPolynomial(chunks[i], env)
+			chunkWidth    = chunkWidths[i]
 		)
 		// Calculate overflow from ith chunk (if any)
 		if ithWidth > field.BandWidth {
@@ -368,17 +365,18 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 			// reduce the maximum bandwidth required for any particular term.
 			return []RelativePolynomial{chunks[i]}, false
 		} else if (i+1) != len(chunks) && ithWidth > chunkWidth {
-			// var (
-			// 	carryReg   = mapping.Allocate("c", ithWidth-chunkWidth)
-			// 	chunkShift = math.Pow2(chunkWidth)
-			// )
-			// // Set assignment for filling carry register
-			// mapping.Assign(carryReg.Id(), chunkWidth, chunks[i])
-			// // Subtract carry from this chunk
-			// chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg.Shift(0))))
-			// // Add carry to next chunk
-			// chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg.Shift(0))))
-			panic("put back")
+			var (
+				// Construct filler for carry register
+				filler = NewPolyFil(chunkWidth, chunks[i])
+				// Allocate carry register
+				carryReg = mapping.Allocate("c", ithWidth-chunkWidth, util.Some[Computation](filler))
+				// Calculate amount to shift carry
+				chunkShift = math.Pow2(chunkWidth)
+			)
+			// Subtract carry from this chunk
+			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg.Shift(0))))
+			// Add carry to next chunk
+			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg.Shift(0))))
 		}
 	}
 	//
