@@ -20,7 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Assign represents a generic assignment of the following form:
@@ -78,7 +78,7 @@ func (p *Assign) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Assign) String(fn schema.RegisterMap) string {
+func (p *Assign) String(fn register.Map) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(io.RegistersReversedToString(p.Targets, fn.Registers()))
@@ -89,7 +89,7 @@ func (p *Assign) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Assign) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs             = fn.Registers()
 		lhs_bits         = sumTargetBits(p.Targets, regs)

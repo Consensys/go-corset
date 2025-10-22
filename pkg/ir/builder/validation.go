@@ -17,6 +17,7 @@ import (
 	"math"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -92,9 +93,9 @@ func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema[F], trace t
 		)
 		// Check each column within each module
 		for i := uint(0); i < trMod.Width(); i++ {
-			rid := sc.NewRegisterId(i)
+			rid := register.NewId(i)
 			// Check elements
-			go func(reg sc.Register, data tr.Column[F]) {
+			go func(reg register.Register, data tr.Column[F]) {
 				// Send outcome back
 				c <- validateColumnBitWidth(reg.Width, data, scMod)
 			}(scMod.Register(rid), trMod.Column(i))
@@ -134,7 +135,7 @@ func sequentialModuleValidation[F field.Element[F]](scMod sc.Module[F], trMod tr
 				errors = append(errors, err)
 			} else {
 				var (
-					rid  = sc.NewRegisterId(i)
+					rid  = register.NewId(i)
 					reg  = scMod.Register(rid)
 					data = trMod.Column(i)
 				)

@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -74,7 +74,7 @@ func (p *NotEqual[F, S, T]) Negate() S {
 }
 
 // TestAt implementation for Testable interface.
-func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
+func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc register.Map) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
@@ -91,7 +91,7 @@ func (p *NotEqual[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.Register
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
 // debugging.
-func (p *NotEqual[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *NotEqual[F, S, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	var (
 		l = p.Lhs.Lisp(global, mapping)
 		r = p.Rhs.Lisp(global, mapping)

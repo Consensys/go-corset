@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -29,7 +30,7 @@ type RegisterView interface {
 
 type registerView[F field.Element[F]] struct {
 	trace    tr.Module[F]
-	register sc.RegisterId
+	register register.Id
 	mapping  sc.RegisterLimbsMap
 }
 

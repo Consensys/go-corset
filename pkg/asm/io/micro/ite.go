@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -88,7 +89,7 @@ func (p *Ite) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Ite) Split(mapping schema.RegisterLimbsMap, _ schema.RegisterAllocator) []Code {
+func (p *Ite) Split(mapping schema.RegisterLimbsMap, _ register.Allocator) []Code {
 	// Split targets
 	targets := agnostic.ApplyMapping(mapping, p.Targets...)
 	// Split left-hand register
@@ -103,7 +104,7 @@ func (p *Ite) Split(mapping schema.RegisterLimbsMap, _ schema.RegisterAllocator)
 	return []Code{code}
 }
 
-func (p *Ite) String(fn schema.RegisterMap) string {
+func (p *Ite) String(fn register.Map) string {
 	var (
 		regs    = fn.Registers()
 		targets = io.RegistersToString(p.Targets, regs)
@@ -127,7 +128,7 @@ func (p *Ite) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ite) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Ite) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)

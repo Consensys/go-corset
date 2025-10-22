@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -241,7 +242,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 	for i := range traceColumns {
 		var (
 			data    array.MutArray[F]
-			reg     = mod.Register(sc.NewRegisterId(uint(i)))
+			reg     = mod.Register(register.NewId(uint(i)))
 			padding F
 		)
 		//

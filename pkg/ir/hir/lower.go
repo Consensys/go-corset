@@ -20,8 +20,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -35,7 +35,7 @@ type mirRegisterAccess = mir.RegisterAccess[word.BigEndian]
 // LowerToMir lowers (or refines) an HIR schema into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToMir[E schema.RegisterMap](externs []E, modules []Module) []mir.Module[word.BigEndian] {
+func LowerToMir[E register.Map](externs []E, modules []Module) []mir.Module[word.BigEndian] {
 	var lowering = NewMirLowering(externs, modules)
 	//
 	return lowering.Lower()
@@ -53,7 +53,7 @@ type MirLowering struct {
 }
 
 // NewMirLowering constructs an initial state for lowering a given MIR schema.
-func NewMirLowering[E schema.RegisterMap](externs []E, modules []Module) MirLowering {
+func NewMirLowering[E register.Map](externs []E, modules []Module) MirLowering {
 	var (
 		mirSchema = ir.NewSchemaBuilder[word.BigEndian, mir.Constraint[word.BigEndian], mirTerm](externs...)
 	)
@@ -362,7 +362,7 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 		// Convert expression into a generic computation
 		computation := ir.NewComputation[word.BigEndian, LogicalTerm](e)
 		// Declared a new computed column
-		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
+		index = module.NewRegister(register.NewComputed(name, bitwidth, padding))
 		// Add assignment for filling said computed column
 		module.AddAssignment(
 			assignment.NewComputedRegister[word.BigEndian](computation, true, module.Id(), index))

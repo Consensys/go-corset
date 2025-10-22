@@ -18,6 +18,7 @@ import (
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -34,13 +35,13 @@ type Polynomial = sc.RelativePolynomial
 // result is assigned to the carry register.
 type CarryAssign[F field.Element[F]] struct {
 	// Target column for this shift assignment
-	Target sc.RegisterRef
+	Target register.Ref
 	Shift  uint
 	Source Polynomial
 }
 
 // NewCarryAssign constructs a new carry assignment.
-func NewCarryAssign[F field.Element[F]](target sc.RegisterRef, shift uint, source Polynomial) *CarryAssign[F] {
+func NewCarryAssign[F field.Element[F]](target register.Ref, shift uint, source Polynomial) *CarryAssign[F] {
 	//
 	return &CarryAssign[F]{target, shift, source}
 }
@@ -94,25 +95,25 @@ func (p *CarryAssign[F]) Consistent(_ sc.AnySchema[F]) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *CarryAssign[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *CarryAssign[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *CarryAssign[F]) RegistersRead() []sc.RegisterRef {
-	var regs []sc.RegisterRef
+func (p *CarryAssign[F]) RegistersRead() []register.Ref {
+	var regs []register.Ref
 	//
 	for _, rid := range agnostic.RegistersRead(p.Source) {
-		regs = append(regs, sc.NewRegisterRef(p.Target.Module(), rid))
+		regs = append(regs, register.NewRef(p.Target.Module(), rid))
 	}
 	//
 	return regs
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *CarryAssign[F]) RegistersWritten() []sc.RegisterRef {
-	return []sc.RegisterRef{p.Target}
+func (p *CarryAssign[F]) RegistersWritten() []register.Ref {
+	return []register.Ref{p.Target}
 }
 
 // Substitute any matchined labelled constants within this assignment

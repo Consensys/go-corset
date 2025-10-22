@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -125,7 +126,7 @@ func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F], sche
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {
 		// Dispatch!
-		go func(targets []sc.RegisterRef) {
+		go func(targets []register.Ref) {
 			cols, err := ith.Compute(trace, schema)
 			// Send outcome back
 			ch <- columnBatch[F]{targets, cols, err}
@@ -136,7 +137,7 @@ func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F], sche
 // Fill a set of columns with their computed results.  The column index is that
 // of the first column in the sequence, and subsequent columns are index
 // consecutively.
-func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []array.MutArray[F], trace *tr.ArrayTrace[F]) {
+func fillComputedColumns[F field.Element[F]](refs []register.Ref, cols []array.MutArray[F], trace *tr.ArrayTrace[F]) {
 	var resized bit.Set
 	// Add all columns
 	for i, ref := range refs {
@@ -161,7 +162,7 @@ func fillComputedColumns[F field.Element[F]](refs []sc.RegisterRef, cols []array
 // Result from given computation.
 type columnBatch[F field.Element[F]] struct {
 	// Target registers for this batch
-	targets []sc.RegisterRef
+	targets []register.Ref
 	// The computed columns in this batch.
 	columns []array.MutArray[F]
 	// An error (should one arise)

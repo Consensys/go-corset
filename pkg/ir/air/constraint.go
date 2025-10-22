@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -81,8 +82,8 @@ func NewLookupConstraint[F field.Element[F]](handle string, targets []lookup.Vec
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []schema.RegisterId,
-	sources []schema.RegisterId) Constraint[F] {
+func NewPermutationConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []register.Id,
+	sources []register.Id) Constraint[F] {
 	return newAir(permutation.NewConstraint[F](handle, context, targets, sources))
 }
 

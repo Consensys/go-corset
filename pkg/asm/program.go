@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -133,7 +134,7 @@ func (p *MixedProgram[F, T, M]) Modules() iter.Iterator[schema.Module[F]] {
 }
 
 // Register returns the given register in this schema.
-func (p *MixedProgram[F, T, M]) Register(ref schema.RegisterRef) Register {
+func (p *MixedProgram[F, T, M]) Register(ref register.Ref) Register {
 	return p.Module(ref.Module()).Register(ref.Register())
 }
 

@@ -15,7 +15,7 @@ package ir
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -48,7 +48,7 @@ func (p *Exp[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
+func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Compute exponent
@@ -58,7 +58,7 @@ func (p *Exp[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F,
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Exp[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Exp[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	arg := p.Arg.Lisp(global, mapping)
 	pow := sexp.NewSymbol(fmt.Sprintf("%d", p.Pow))
 
@@ -105,7 +105,7 @@ func (p *Exp[F, T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Exp[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Exp[F, T]) ValueRange(mapping register.Map) math.Interval {
 	bounds := p.Arg.ValueRange(mapping)
 	bounds.Exp(uint(p.Pow))
 	//

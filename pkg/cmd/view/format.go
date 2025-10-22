@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -54,7 +55,7 @@ func (p *defaultFormatter) Module(ModuleData) ModuleFormatting {
 }
 
 // ColumnTitle implementation for Formatting interface
-func (p *defaultFormatter) RowTitle(_ sc.RegisterId, text string) termio.FormattedText {
+func (p *defaultFormatter) RowTitle(_ register.Id, text string) termio.FormattedText {
 	return termio.NewText(text)
 }
 

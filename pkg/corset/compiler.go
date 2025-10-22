@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -249,10 +250,10 @@ func constructSourceModule(schema schema.AnySchema[word.BigEndian], scope *compi
 // Determine the reference reference in the schema which corresponds with a
 // given (Corset) path.
 func determineRegisterRef[F any](path file.Path, sc schema.AnySchema[F], env compiler.GlobalEnvironment,
-) schema.RegisterRef {
+) register.Ref {
 	var (
 		mid schema.ModuleId
-		rid schema.RegisterId
+		rid register.Id
 		ok  bool
 	)
 	// First, determine the corresponding Corset register associated with the
@@ -268,7 +269,7 @@ func determineRegisterRef[F any](path file.Path, sc schema.AnySchema[F], env com
 		panic(fmt.Sprintf("unknown register \"%s\"", reg.Name()))
 	}
 	//
-	return schema.NewRegisterRef(mid, rid)
+	return register.NewRef(mid, rid)
 }
 
 func constructDisplayModifier(modifier string) uint {

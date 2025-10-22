@@ -21,6 +21,7 @@ import (
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -190,9 +191,9 @@ func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint
 // expected value.
 func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModule *air.ModuleBuilder[F]) {
 	// Extract target expression
-	register := v.Expr.Register
+	reg := v.Expr.Register
 	// Apply bitwidth gadget
-	ref := schema.NewRegisterRef(airModule.Id(), register)
+	ref := register.NewRef(airModule.Id(), reg)
 	// Construct gadget
 	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
 		WithLimitless(p.config.LimitlessTypeProofs).
@@ -260,7 +261,7 @@ func (p *AirLowering[F]) expandLookupVectorToAir(vector LookupVector[F],
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule *air.ModuleBuilder[F]) {
-	var sources = make([]schema.RegisterId, len(c.Sources))
+	var sources = make([]register.Id, len(c.Sources))
 	//
 	for i, ith := range c.Sources {
 		sources[i] = ith.Register

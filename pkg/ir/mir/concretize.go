@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -68,9 +69,9 @@ func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
 	return r
 }
 
-func carryAssigner[F field.Element[F]](module sc.ModuleId) func(schema.CarryAssignment) schema.Assignment[F] {
-	return func(a schema.CarryAssignment) schema.Assignment[F] {
-		ref := sc.NewRegisterRef(module, a.LeftHandSide)
+func carryAssigner[F field.Element[F]](module sc.ModuleId) func(register.CarryAssignment) schema.Assignment[F] {
+	return func(a register.CarryAssignment) schema.Assignment[F] {
+		ref := register.NewRef(module, a.LeftHandSide)
 		return assignment.NewCarryAssign[F](ref, a.Shift, a.RightHandSide)
 	}
 }

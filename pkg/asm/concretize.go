@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -85,7 +86,7 @@ func Concretize[F Element[F]](cfg sc.FieldConfig, hp MicroHirProgram,
 		mapping = agnostic.NewLimbsMap(cfg, p.Modules().Collect()...)
 		n       = len(p.Functions())
 		// Construct compiler
-		comp    = compiler.NewCompiler[F, schema.RegisterId, compiler.MirExpr[F], compiler.MirModule[F]]()
+		comp    = compiler.NewCompiler[F, register.Id, compiler.MirExpr[F], compiler.MirModule[F]]()
 		modules = make([]mir.Module[F], p.Width())
 	)
 	// Split registers in assembly functions
@@ -141,7 +142,7 @@ func subdivideFunction(mapping sc.LimbsMap, fn MicroFunction) MicroFunction {
 	var (
 		modmap = mapping.ModuleOf(fn.Name())
 		// Construct suitable splitting environment
-		env = sc.NewAllocator(modmap.LimbsMap())
+		env = register.NewAllocator(modmap.LimbsMap())
 		// Updated instruction sequence
 		ninsns []micro.Instruction
 		nbuses []io.Bus = make([]io.Bus, len(fn.Buses()))

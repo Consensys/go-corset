@@ -17,6 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -53,7 +54,7 @@ func (p *traceModule[F]) Name() string {
 // Column implementation for trace.Module interface
 func (p *traceModule[F]) Column(index uint) trace.Column[F] {
 	var (
-		ith     = p.mod.Register(schema.NewRegisterId(index))
+		ith     = p.mod.Register(register.NewId(index))
 		padding F
 	)
 	// Convert bigint to field element

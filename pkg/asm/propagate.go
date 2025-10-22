@@ -19,8 +19,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -197,7 +197,7 @@ func extractFunctionColumns(row uint, mod RawModule, inputs, outputs []big.Int) 
 	}
 }
 
-func extractFunctionPadding(registers []schema.Register, inputs, outputs []big.Int) {
+func extractFunctionPadding(registers []register.Register, inputs, outputs []big.Int) {
 	var numInputs = len(inputs)
 	//
 	for i := range len(inputs) {

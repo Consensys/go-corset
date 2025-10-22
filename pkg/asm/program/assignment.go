@@ -17,8 +17,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -95,18 +95,18 @@ func (p Assignment[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 }
 
 // RegistersExpanded implementation for schema.Assignment interface.
-func (p Assignment[F, T]) RegistersExpanded() []sc.RegisterRef {
+func (p Assignment[F, T]) RegistersExpanded() []register.Ref {
 	return p.RegistersRead()
 }
 
 // RegistersRead implementation for schema.Assignment interface.
-func (p Assignment[F, T]) RegistersRead() []sc.RegisterRef {
-	var regs []sc.RegisterRef
+func (p Assignment[F, T]) RegistersRead() []register.Ref {
+	var regs []register.Ref
 	//
 	for i, reg := range p.registers {
 		if reg.IsInputOutput() {
-			rid := sc.NewRegisterId(uint(i))
-			regs = append(regs, sc.NewRegisterRef(p.id, rid))
+			rid := register.NewId(uint(i))
+			regs = append(regs, register.NewRef(p.id, rid))
 		}
 	}
 	//
@@ -114,9 +114,9 @@ func (p Assignment[F, T]) RegistersRead() []sc.RegisterRef {
 }
 
 // RegistersWritten implementation for schema.Assignment interface.
-func (p Assignment[F, T]) RegistersWritten() []sc.RegisterRef {
+func (p Assignment[F, T]) RegistersWritten() []register.Ref {
 	var (
-		regs       []sc.RegisterRef
+		regs       []register.Ref
 		nRegisters = len(p.registers)
 		multiLine  = len(p.code) > 1
 	)
@@ -127,8 +127,8 @@ func (p Assignment[F, T]) RegistersWritten() []sc.RegisterRef {
 	// Trace expansion writes to all registers, including input/outputs.
 	// This is because it may expand the I/O registers.
 	for i := range nRegisters {
-		rid := sc.NewRegisterId(uint(i))
-		regs = append(regs, sc.NewRegisterRef(p.id, rid))
+		rid := register.NewId(uint(i))
+		regs = append(regs, register.NewRef(p.id, rid))
 	}
 	//
 	return regs
@@ -185,7 +185,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder 
 		for i := range p.registers {
 			var (
 				val F
-				rid = schema.NewRegisterId(uint(i))
+				rid = register.NewId(uint(i))
 			)
 			//
 			val = val.SetBytes(st.Load(rid).Bytes())
@@ -278,7 +278,7 @@ func checkConsistentOutputs(state io.State, outputs []big.Int) {
 	for i, reg := range state.Registers() {
 		if reg.IsOutput() {
 			var (
-				rid = sc.NewRegisterId(uint(i))
+				rid = register.NewId(uint(i))
 				// Read out actual output value
 				actual = state.Load(rid)
 				// Get expected value

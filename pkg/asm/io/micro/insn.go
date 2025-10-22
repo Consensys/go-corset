@@ -16,6 +16,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
 
@@ -41,16 +42,16 @@ type Code interface {
 	RegistersWritten() []io.RegisterId
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(schema.RegisterMap) string
+	String(register.Map) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
-	Split(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code
+	Split(mapping schema.RegisterLimbsMap, env register.Allocator) []Code
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(fieldWidth uint, fn schema.RegisterMap) error
+	Validate(fieldWidth uint, fn register.Map) error
 }
 
 // Instruction represents the composition of one or more micro instructions
@@ -165,7 +166,7 @@ func (p Instruction) RegistersWritten() []io.RegisterId {
 // challenge for this method is the correct handling of skip instructions.
 // Specifically, the targets for a skip change as the number of instructions
 // increase.
-func (p Instruction) SplitRegisters(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) Instruction {
+func (p Instruction) SplitRegisters(mapping schema.RegisterLimbsMap, env register.Allocator) Instruction {
 	var (
 		ncodes  []Code
 		packets [][]Code = make([][]Code, len(p.Codes))
@@ -192,7 +193,7 @@ func (p Instruction) SplitRegisters(mapping schema.RegisterLimbsMap, env schema.
 	return Instruction{Codes: ncodes}
 }
 
-func (p Instruction) String(fn schema.RegisterMap) string {
+func (p Instruction) String(fn register.Map) string {
 	var builder strings.Builder
 	//
 	for i, code := range p.Codes {
@@ -209,7 +210,7 @@ func (p Instruction) String(fn schema.RegisterMap) string {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p Instruction) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p Instruction) Validate(fieldWidth uint, fn register.Map) error {
 	var written bit.Set
 	// Validate individual instructions
 	for _, r := range p.Codes {
@@ -225,7 +226,7 @@ func (p Instruction) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	return validateWrites(0, written, p.Codes, fn)
 }
 
-func validateWrites(cc uint, writes bit.Set, codes []Code, fn schema.RegisterMap) error {
+func validateWrites(cc uint, writes bit.Set, codes []Code, fn register.Map) error {
 	//
 	switch code := codes[cc].(type) {
 	case *Fail, *Ret, *Jmp:

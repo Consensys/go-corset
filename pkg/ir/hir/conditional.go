@@ -15,7 +15,7 @@ package hir
 import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -109,7 +109,7 @@ type IfTerm struct {
 // determines the width of registers within the term, from which the overall
 // bitwidth is determined.  For example, given the term X+1 where X is u16, this
 // function returns a bitwidth of 17bits.
-func (p *IfTerm) BitWidth(env schema.RegisterMap) uint {
+func (p *IfTerm) BitWidth(env register.Map) uint {
 	var bitwidth uint
 	//
 	for _, c := range p.cases {
@@ -130,7 +130,7 @@ func (p *IfTerm) BitWidth(env schema.RegisterMap) uint {
 
 // Equate returns a logical condition that constraints the target register to
 // hold the values represented by this term on each row.
-func (p *IfTerm) Equate(target schema.RegisterId) mir.LogicalTerm[word.BigEndian] {
+func (p *IfTerm) Equate(target register.Id) mir.LogicalTerm[word.BigEndian] {
 	var (
 		terms     = make([]mir.LogicalTerm[word.BigEndian], len(p.cases))
 		targetVar = ir.NewRegisterAccess[word.BigEndian, mirTerm](target, 0)

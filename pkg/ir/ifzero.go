@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -66,7 +66,7 @@ func (p *IfZero[F, S, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
+func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
 	// Evaluate condition
 	cond, _, err := p.Condition.TestAt(k, tr, sc)
 	//
@@ -81,7 +81,7 @@ func (p *IfZero[F, S, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMa
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *IfZero[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *IfZero[F, S, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	// Translate Condition
 	condition := p.Condition.Lisp(global, mapping)
 	// Dispatch on type
@@ -125,7 +125,7 @@ func (p *IfZero[F, S, T]) ShiftRange() (int, int) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *IfZero[F, S, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *IfZero[F, S, T]) ValueRange(mapping register.Map) math.Interval {
 	var (
 		trueBounds  = p.TrueBranch.ValueRange(mapping)
 		falseBounds = p.FalseBranch.ValueRange(mapping)

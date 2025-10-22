@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -62,7 +62,7 @@ func (p *Mul[F, T]) ApplyShift(shift int) T {
 func (p *Mul[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Args) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Mul[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
+func (p *Mul[F, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
 	// Evaluate first argument
 	val, err := p.Args[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
@@ -88,7 +88,7 @@ func (p *Mul[F, T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Mul[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Mul[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	return lispOfTerms(global, mapping, "*", p.Args)
 }
 
@@ -146,7 +146,7 @@ func (p *Mul[F, T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Mul[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Mul[F, T]) ValueRange(mapping register.Map) math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {

@@ -19,7 +19,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -56,7 +56,7 @@ type State struct {
 
 // EmptyState constructs an initially empty state at the given PC value.  One
 // can then set register values as needed via Store.
-func EmptyState(pc uint, registers []schema.Register, io Map) State {
+func EmptyState(pc uint, registers []register.Register, io Map) State {
 	var (
 		state      = make([]big.Int, len(registers))
 		numInputs  uint
@@ -75,7 +75,7 @@ func EmptyState(pc uint, registers []schema.Register, io Map) State {
 }
 
 // NewState constructs a new state instance from the given state values.
-func NewState(state []big.Int, registers []schema.Register, io Map) State {
+func NewState(state []big.Int, registers []register.Register, io Map) State {
 	var (
 		numInputs  uint
 		numOutputs uint
@@ -94,7 +94,7 @@ func NewState(state []big.Int, registers []schema.Register, io Map) State {
 
 // InitialState constructs a suitable initial state for executing a given
 // function with the given arguments.
-func InitialState(inputs []big.Int, registers []schema.Register, buses []Bus, iomap Map) State {
+func InitialState(inputs []big.Int, registers []register.Register, buses []Bus, iomap Map) State {
 	state := make([]big.Int, len(registers))
 	// Initialise input arguments
 	copy(state, inputs)
@@ -202,7 +202,7 @@ func (p *State) Pc() uint {
 }
 
 // Registers returns the set of registers used within this state.
-func (p *State) Registers() []schema.Register {
+func (p *State) Registers() []register.Register {
 	return p.registers
 }
 
@@ -233,7 +233,7 @@ func (p *State) StoreAcross(value big.Int, registers ...RegisterId) {
 		// Clone value before mutating it
 		val.Set(&value)
 		//
-		width := schema.WidthOfRegisters(p.registers, registers)
+		width := register.WidthOfRegisters(p.registers, registers)
 		// Normalise negative value
 		val.Add(&val, util_math.Pow2(width))
 	}
@@ -270,7 +270,7 @@ func (p *State) String() string {
 			builder.WriteString(", ")
 		}
 		//
-		val := p.Load(schema.NewRegisterId(uint(i))).Text(16)
+		val := p.Load(register.NewId(uint(i))).Text(16)
 		reg := p.registers[i].Name
 		builder.WriteString(fmt.Sprintf("%s=0x%s", reg, val))
 	}

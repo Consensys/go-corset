@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -98,7 +98,7 @@ func (p *Ite[F, S]) Negate() S {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Ite[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
+func (p *Ite[F, T]) TestAt(k int, tr trace.Module[F], sc register.Map) (bool, uint, error) {
 	// Evaluate condition
 	cond, branch, err := p.Condition.TestAt(k, tr, sc)
 	//
@@ -114,7 +114,7 @@ func (p *Ite[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bo
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Ite[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Ite[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	// Translate Condition
 	condition := p.Condition.Lisp(global, mapping)
 	// Dispatch on type

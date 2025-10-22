@@ -18,13 +18,14 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // ModuleMap provides a mapping from module identifiers (or names) to register
 // maps.
-type ModuleMap[T RegisterMap] interface {
+type ModuleMap[T register.Map] interface {
 	fmt.Stringer
 	// Field returns the underlying field configuration used for this mapping.
 	// This includes the field bandwidth (i.e. number of bits available in
@@ -44,7 +45,7 @@ type ModuleId = uint
 
 // ModuleView provides access to certain structural information about a module.
 type ModuleView interface {
-	RegisterMap
+	register.Map
 	// Module name
 	Name() string
 	// IsPublic indicates whether or not this module is externally visible.
@@ -131,7 +132,7 @@ type Table[F field.Element[F], C Constraint[F]] struct {
 	padding     bool
 	public      bool
 	synthetic   bool
-	registers   []Register
+	registers   []register.Register
 	constraints []C
 	assignments []Assignment[F]
 }
@@ -180,14 +181,14 @@ func (p *Table[F, C]) Consistent(fieldWidth uint, schema AnySchema[F]) []error {
 
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
-func (p *Table[F, C]) HasRegister(name string) (RegisterId, bool) {
+func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 	for i := range p.Width() {
 		if p.registers[i].Name == name {
-			return NewRegisterId(i), true
+			return register.NewId(i), true
 		}
 	}
 	// Fail
-	return NewUnusedRegisterId(), false
+	return register.UnusedId(), false
 }
 
 // Name returns the module name.
@@ -233,13 +234,13 @@ func (p *Table[F, C]) RawConstraints() []C {
 }
 
 // Register returns the given register in this table.
-func (p *Table[F, C]) Register(id RegisterId) Register {
+func (p *Table[F, C]) Register(id register.Id) register.Register {
 	return p.registers[id.Unwrap()]
 }
 
 // Registers returns an iterator over the underlying registers of this schema.
 // Specifically, the index of a register in this array is its register index.
-func (p *Table[F, C]) Registers() []Register {
+func (p *Table[F, C]) Registers() []register.Register {
 	return p.registers
 }
 
@@ -260,17 +261,17 @@ func (p *Table[F, C]) Width() uint {
 }
 
 func (p *Table[F, C]) String() string {
-	return RegisterMapToString(p)
+	return register.MapToString(p)
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
 func (p *Table[F, C]) Subdivide(mid ModuleId, mapping LimbsMap,
-	assigner func(CarryAssignment) Assignment[F]) *Table[F, C] {
+	assigner func(register.CarryAssignment) Assignment[F]) *Table[F, C] {
 	//
 	var (
 		constraints []C
 		assignments []Assignment[F]
-		env         = NewAllocator(mapping.Module(mid).LimbsMap())
+		env         = register.NewAllocator(mapping.Module(mid).LimbsMap())
 	)
 	// Subdivide assignments
 	for _, c := range p.assignments {
@@ -315,7 +316,7 @@ func (p *Table[F, C]) AddConstraints(constraints ...C) {
 }
 
 // AddRegisters adds new registers to this table.
-func (p *Table[F, C]) AddRegisters(registers ...Register) {
+func (p *Table[F, C]) AddRegisters(registers ...register.Register) {
 	// Add registers
 	p.registers = append(p.registers, registers...)
 }

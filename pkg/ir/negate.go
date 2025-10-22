@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -55,7 +55,7 @@ func (p *Negate[F, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Negate[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
+func (p *Negate[F, T]) TestAt(k int, tr trace.Module[F], sc register.Map) (bool, uint, error) {
 	val, branch, err := p.Arg.TestAt(k, tr, sc)
 	//
 	return !val, branch, err
@@ -63,7 +63,7 @@ func (p *Negate[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) 
 
 // Lisp returns a lisp representation of this Negate, which is useful for
 // debugging.
-func (p *Negate[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Negate[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	var l = p.Arg.Lisp(global, mapping)
 	//
 	return sexp.NewList([]sexp.SExp{

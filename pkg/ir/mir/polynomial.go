@@ -16,8 +16,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
@@ -35,7 +35,7 @@ type Polynomial = agnostic.RelativePolynomial
 // ============================================================================
 
 // Translate a term into a polynomial.
-func termToPolynomial[F field.Element[F]](term Term[F], mapping sc.RegisterMap) Polynomial {
+func termToPolynomial[F field.Element[F]](term Term[F], mapping register.Map) Polynomial {
 	switch t := term.(type) {
 	case *Add[F]:
 		return termAddToPolynomial(*t, mapping)
@@ -54,7 +54,7 @@ func termToPolynomial[F field.Element[F]](term Term[F], mapping sc.RegisterMap) 
 	}
 }
 
-func termAddToPolynomial[F field.Element[F]](term Add[F], mapping sc.RegisterMap) Polynomial {
+func termAddToPolynomial[F field.Element[F]](term Add[F], mapping register.Map) Polynomial {
 	var result Polynomial
 	//
 	for i, e := range term.Args {
@@ -70,18 +70,18 @@ func termAddToPolynomial[F field.Element[F]](term Add[F], mapping sc.RegisterMap
 	return result
 }
 
-func termConstantToPolynomial[F field.Element[F]](constant F, mapping sc.RegisterMap) Polynomial {
+func termConstantToPolynomial[F field.Element[F]](constant F, mapping register.Map) Polynomial {
 	var (
 		result Polynomial
 		value  big.Int
 	)
 	value.SetBytes(constant.Bytes())
-	monomial := poly.NewMonomial[sc.RelativeRegisterId](value)
+	monomial := poly.NewMonomial[register.RelativeId](value)
 	//
 	return result.Set(monomial)
 }
 
-func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping sc.RegisterMap) Polynomial {
+func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping register.Map) Polynomial {
 	var result Polynomial
 	//
 	for i, e := range term.Args {
@@ -97,7 +97,7 @@ func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping sc.RegisterMap
 	return result
 }
 
-func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mapping sc.RegisterMap) Polynomial {
+func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mapping register.Map) Polynomial {
 	var (
 		identifier = term.Register.Shift(term.Shift)
 		monomial   = poly.NewMonomial(biONE, identifier)
@@ -107,7 +107,7 @@ func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mappi
 	return result.Set(monomial)
 }
 
-func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping sc.RegisterMap) Polynomial {
+func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping register.Map) Polynomial {
 	var result Polynomial
 	//
 	for i, e := range term.Args {
@@ -123,7 +123,7 @@ func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping sc.RegisterMap
 	return result
 }
 
-func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping sc.RegisterMap) Polynomial {
+func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping register.Map) Polynomial {
 	var (
 		result Polynomial
 		shift  uint = 0

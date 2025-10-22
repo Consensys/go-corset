@@ -16,7 +16,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -50,7 +50,7 @@ func isOne[F field.Element[F], T Term[F, T]](term T) bool {
 	return false
 }
 
-func lispOfTerms[F any, E any, T Term[F, E]](global bool, mapping schema.RegisterMap, op string, exprs []T) sexp.SExp {
+func lispOfTerms[F any, E any, T Term[F, E]](global bool, mapping register.Map, op string, exprs []T) sexp.SExp {
 	arr := make([]sexp.SExp, 1+len(exprs))
 	arr[0] = sexp.NewSymbol(op)
 	// Translate arguments
@@ -61,7 +61,7 @@ func lispOfTerms[F any, E any, T Term[F, E]](global bool, mapping schema.Registe
 	return sexp.NewList(arr)
 }
 
-func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping schema.RegisterMap, op string,
+func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping register.Map, op string,
 	exprs []T) sexp.SExp {
 	//
 	arr := make([]sexp.SExp, 1+len(exprs))

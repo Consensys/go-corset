@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -49,14 +49,14 @@ type Evaluable[F any] interface {
 	// undefined for several reasons: firstly, if it accesses a
 	// row which does not exist (e.g. at index -1); secondly, if
 	// it accesses a register which does not exist.
-	EvalAt(int, trace.Module[F], schema.RegisterMap) (F, error)
+	EvalAt(int, trace.Module[F], register.Map) (F, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(bool, schema.RegisterMap) sexp.SExp
+	Lisp(bool, register.Map) sexp.SExp
 	// ValueRange returns the interval of values that this term can evaluate to.
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.
-	ValueRange(mapping schema.RegisterMap) math.Interval
+	ValueRange(mapping register.Map) math.Interval
 }
 
 // Substitutable captures the notion of a term which may contain labelled
@@ -109,10 +109,10 @@ type Testable[F any] interface {
 	// context then it returns "nil".  An expression can be undefined for
 	// several reasons: firstly, if it accesses a row which does not exist (e.g.
 	// at index -1); secondly, if it accesses a register which does not exist.
-	TestAt(int, trace.Module[F], schema.RegisterMap) (bool, uint, error)
+	TestAt(int, trace.Module[F], register.Map) (bool, uint, error)
 	// Lisp converts this schema element into a simple S-Expression, for example
 	// so it can be printed.
-	Lisp(bool, schema.RegisterMap) sexp.SExp
+	Lisp(bool, register.Map) sexp.SExp
 }
 
 // LogicalTerm represents a term which can be tested for truth or falsehood.

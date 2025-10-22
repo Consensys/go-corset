@@ -18,7 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 const (
@@ -138,7 +138,7 @@ func (p *IfGoto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *IfGoto) String(fn schema.RegisterMap) string {
+func (p *IfGoto) String(fn register.Map) string {
 	var (
 		l  = fn.Register(p.Left).Name
 		r  string
@@ -172,7 +172,7 @@ func (p *IfGoto) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *IfGoto) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *IfGoto) Validate(fieldWidth uint, fn register.Map) error {
 	if p.Left == p.Right {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:

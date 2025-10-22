@@ -19,7 +19,7 @@ import (
 	"regexp"
 
 	"github.com/consensys/go-corset/pkg/cmd/view"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -54,7 +54,7 @@ type SourceColumnFilter struct {
 	// UserDefined filters columns based on whether they are non-computed columns.
 	UserDefined bool
 	// Register mappin
-	Mapping schema.RegisterMap
+	Mapping register.Map
 }
 
 // Column matches this filter against a given column.

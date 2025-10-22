@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -115,7 +116,7 @@ func (p LogicalTerm[F]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
+func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc register.Map) (bool, uint, error) {
 	var (
 		val, err = p.Term.EvalAt(k, tr, sc)
 		zero     F
@@ -130,7 +131,7 @@ func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap)
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
 // debugging.
-func (p LogicalTerm[F]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p LogicalTerm[F]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	return p.Term.Lisp(global, mapping)
 }
 

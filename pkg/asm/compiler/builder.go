@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -32,7 +33,7 @@ type Module[F field.Element[F], T any, E Expr[T, E], M any] interface {
 
 	// NewColumn constructs a new column of the given name and bitwidth within
 	// this module.
-	NewColumn(kind schema.RegisterType, name string, bitwidth uint, padding big.Int) T
+	NewColumn(kind register.Type, name string, bitwidth uint, padding big.Int) T
 
 	// NewUnusedColumn constructs an empty (i.e. unused) column identifier.
 	NewUnusedColumn() T

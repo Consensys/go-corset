@@ -18,7 +18,7 @@ import (
 	"math"
 	"math/big"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
@@ -31,10 +31,10 @@ const (
 )
 
 // Register defines the notion of a register within a function.
-type Register = sc.Register
+type Register = register.Register
 
 // RegisterId abstracts the notion of a register id.
-type RegisterId = sc.RegisterId
+type RegisterId = register.Id
 
 const (
 	// UNUSED_REGISTER provides a simple way to distinguish registers and
@@ -71,7 +71,7 @@ func NewFunction[T Instruction[T]](name string, public bool, registers []Registe
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
 	)
 	// Check registers sorted as: inputs, outputs then internal.
-	if !set.IsSorted(registers, func(r Register) sc.RegisterType { return r.Kind }) {
+	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind }) {
 		panic("function registers ordered incorrectly")
 	}
 	// All good
@@ -121,11 +121,11 @@ func (p *Function[T]) IsAtomic() bool {
 func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
 	for i, r := range p.registers {
 		if r.Name == name {
-			return sc.NewRegisterId(uint(i)), true
+			return register.NewId(uint(i)), true
 		}
 	}
 	// Failed
-	return sc.NewUnusedRegisterId(), false
+	return register.UnusedId(), false
 }
 
 // Inputs returns the set of input registers for this function.
@@ -154,7 +154,7 @@ func (p *Function[T]) Outputs() []Register {
 }
 
 // Register returns the ith register used in this function.
-func (p *Function[T]) Register(id sc.RegisterId) Register {
+func (p *Function[T]) Register(id register.Id) Register {
 	return p.registers[id.Unwrap()]
 }
 
@@ -171,18 +171,18 @@ func (p *Function[T]) Width() uint {
 
 // AllocateRegister allocates a new register of the given kind, name and width
 // into this function.
-func (p *Function[T]) AllocateRegister(kind sc.RegisterType, name string, width uint, padding big.Int) RegisterId {
+func (p *Function[T]) AllocateRegister(kind register.Type, name string, width uint, padding big.Int) RegisterId {
 	var (
 		index = uint(len(p.registers))
 	)
 	// Sanity check
-	if kind != sc.COMPUTED_REGISTER {
+	if kind != register.COMPUTED_REGISTER {
 		panic("cannot allocate input / output register")
 	}
 	//
-	p.registers = append(p.registers, sc.NewRegister(kind, name, width, padding))
+	p.registers = append(p.registers, register.New(kind, name, width, padding))
 	// Done
-	return sc.NewRegisterId(index)
+	return register.NewId(index)
 }
 
 // Validate that this function and all instructions contained therein is
@@ -203,7 +203,7 @@ func (p *Function[T]) Validate(fieldWidth uint) []error {
 }
 
 func (p *Function[T]) String() string {
-	return sc.RegisterMapToString(p)
+	return register.MapToString(p)
 }
 
 // ============================================================================

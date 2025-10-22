@@ -18,6 +18,7 @@ import (
 	"math/big"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -32,34 +33,34 @@ import (
 type LexicographicSort[F field.Element[F]] struct {
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
-	targets []sc.RegisterRef
+	targets []register.Ref
 	// Source columns being sorted
-	sources  []sc.RegisterRef
+	sources  []register.Ref
 	signs    []bool
 	bitwidth uint
 }
 
 // LexicographicSortRegisters is a helper for allocated the registers needed for
 // a lexicographic sort.
-func LexicographicSortRegisters(n uint, prefix string, bitwidth uint) []sc.Register {
+func LexicographicSortRegisters(n uint, prefix string, bitwidth uint) []register.Register {
 	var (
-		targets = make([]sc.Register, n+1)
+		targets = make([]register.Register, n+1)
 		// Default padding (for now)
 		zero big.Int
 	)
 	// Create delta column
-	targets[0] = sc.NewComputedRegister(fmt.Sprintf("%s:delta", prefix), bitwidth, zero)
+	targets[0] = register.NewComputed(fmt.Sprintf("%s:delta", prefix), bitwidth, zero)
 	// Create selector columns
 	for i := range n {
 		ithName := fmt.Sprintf("%s:mux:%d", prefix, i)
-		targets[1+i] = sc.NewComputedRegister(ithName, 1, zero)
+		targets[1+i] = register.NewComputed(ithName, 1, zero)
 	}
 	//
 	return targets
 }
 
 // NewLexicographicSort constructs a new LexicographicSorting assignment.
-func NewLexicographicSort[F field.Element[F]](targets []sc.RegisterRef, signs []bool, sources []sc.RegisterRef,
+func NewLexicographicSort[F field.Element[F]](targets []register.Ref, signs []bool, sources []register.Ref,
 	bitwidth uint) *LexicographicSort[F] {
 	//
 	return &LexicographicSort[F]{targets, sources, signs, bitwidth}
@@ -134,18 +135,18 @@ func (p *LexicographicSort[F]) Consistent(schema sc.AnySchema[F]) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *LexicographicSort[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *LexicographicSort[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *LexicographicSort[F]) RegistersRead() []sc.RegisterRef {
+func (p *LexicographicSort[F]) RegistersRead() []register.Ref {
 	return p.sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *LexicographicSort[F]) RegistersWritten() []sc.RegisterRef {
+func (p *LexicographicSort[F]) RegistersWritten() []register.Ref {
 	return p.targets
 }
 

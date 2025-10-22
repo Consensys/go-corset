@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -54,12 +55,12 @@ func (p MirModule[F]) NewAssignment(assignment schema.Assignment[F]) {
 
 // NewColumn constructs a new column of the given name and bitwidth within
 // this module.
-func (p MirModule[F]) NewColumn(kind schema.RegisterType, name string, bitwidth uint, padding big.Int,
-) schema.RegisterId {
+func (p MirModule[F]) NewColumn(kind register.Type, name string, bitwidth uint, padding big.Int,
+) register.Id {
 	//
 	var (
 		// Add new register
-		rid = p.Module.NewRegister(schema.NewRegister(kind, name, bitwidth, padding))
+		rid = p.Module.NewRegister(register.New(kind, name, bitwidth, padding))
 	)
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
@@ -69,8 +70,8 @@ func (p MirModule[F]) NewColumn(kind schema.RegisterType, name string, bitwidth 
 }
 
 // NewUnusedColumn constructs an empty (i.e. unused) column identifier.
-func (p MirModule[F]) NewUnusedColumn() schema.RegisterId {
-	return schema.NewUnusedRegisterId()
+func (p MirModule[F]) NewUnusedColumn() register.Id {
+	return register.UnusedId()
 }
 
 // NewConstraint constructs a new vanishing constraint with the given name
@@ -83,8 +84,8 @@ func (p MirModule[F]) NewConstraint(name string, domain util.Option[int], constr
 }
 
 // NewLookup constructs a new lookup constraint
-func (p MirModule[F]) NewLookup(name string, from []schema.RegisterId, targetMid uint, to []schema.RegisterId,
-	enable util.Option[schema.RegisterId]) {
+func (p MirModule[F]) NewLookup(name string, from []register.Id, targetMid uint, to []register.Id,
+	enable util.Option[register.Id]) {
 	//
 	var (
 		sources = wrapMirRegisterAccesses[F](from...)
@@ -212,11 +213,11 @@ func (p MirExpr[F]) Or(exprs ...MirExpr[F]) MirExpr[F] {
 }
 
 // Variable constructs a variable with a given shift.
-func (p MirExpr[F]) Variable(index schema.RegisterId, shift int) MirExpr[F] {
+func (p MirExpr[F]) Variable(index register.Id, shift int) MirExpr[F] {
 	return MirExpr[F]{ir.NewRegisterAccess[F, mir.Term[F]](index, shift), nil}
 }
 
-func (p MirExpr[F]) String(func(schema.RegisterId) string) string {
+func (p MirExpr[F]) String(func(register.Id) string) string {
 	if p.expr != nil {
 		return p.expr.Lisp(false, nil).String(false)
 	} else if p.logical != nil {
@@ -258,7 +259,7 @@ func unwrapSplitMirLogicals[F field.Element[F]](head MirExpr[F], tail ...MirExpr
 	return cexprs
 }
 
-func wrapMirRegisterAccesses[F field.Element[F]](regs ...schema.RegisterId) []*mir.RegisterAccess[F] {
+func wrapMirRegisterAccesses[F field.Element[F]](regs ...register.Id) []*mir.RegisterAccess[F] {
 	var vars = make([]*mir.RegisterAccess[F], len(regs))
 	//
 	for i, rid := range regs {

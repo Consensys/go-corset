@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -88,7 +89,7 @@ func (p *Assign) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Assign) String(fn schema.RegisterMap) string {
+func (p *Assign) String(fn register.Map) string {
 	var (
 		builder strings.Builder
 		regs    = fn.Registers()
@@ -120,7 +121,7 @@ func (p *Assign) String(fn schema.RegisterMap) string {
 // > b,x1,x0 := 256*(y1+z1) + (y0+z0+1)
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
-func (p *Assign) Split(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code {
+func (p *Assign) Split(mapping schema.RegisterLimbsMap, env register.Allocator) []Code {
 	var (
 		// map target registers into corresponding limbs
 		lhs = agnostic.ApplyMapping(mapping, p.Targets...)
@@ -142,7 +143,7 @@ func (p *Assign) Split(mapping schema.RegisterLimbsMap, env schema.RegisterAlloc
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Assign) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs = fn.Registers()
 		// Determine number of bits required to hold the left-hand side.
@@ -171,7 +172,7 @@ func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	return sum
 }
 
-func evalMonomial(term poly.Monomial[schema.RegisterId], state io.State) big.Int {
+func evalMonomial(term poly.Monomial[register.Id], state io.State) big.Int {
 	var (
 		acc   big.Int
 		coeff big.Int = term.Coefficient()

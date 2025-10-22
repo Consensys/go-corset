@@ -13,34 +13,20 @@
 package schema
 
 import (
-	"fmt"
-	"math/big"
-	"slices"
-
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // Limb is just an alias for Register, but it helps to clarify when we are
 // referring to a register after subdivision.
-type Limb = Register
+type Limb = register.Register
 
-// LimbId is just an alias for RegisterId, but it helps to clarify when we are
+// LimbId is just an alias for register.RegisterId, but it helps to clarify when we are
 // referring to a register after subdivision.
-type LimbId = RegisterId
+type LimbId = register.Id
 
 // RelativePolynomial defines the type of polynomials which can be used in constraints.
-type RelativePolynomial = *poly.ArrayPoly[RelativeRegisterId]
-
-// CarryAssignment captures information required to compute the value for a
-// given carry line.
-type CarryAssignment struct {
-	// Register being assigned
-	LeftHandSide RegisterId
-	// Shift amount applied to result of rhs
-	Shift uint
-	// Value being calculated
-	RightHandSide RelativePolynomial
-}
+type RelativePolynomial = *poly.ArrayPoly[register.RelativeId]
 
 // FieldAgnostic captures the notion of an entity (e.g. module, constraint or
 // assignment) which is agnostic to the underlying field being used.  More
@@ -83,7 +69,7 @@ type FieldAgnostic[T any] interface {
 	//
 	// Here, c is a 1bit register introduced as part of the transformation to
 	// act as a "carry" between the two constraints.
-	Subdivide(RegisterAllocator, LimbsMap) T
+	Subdivide(register.Allocator, LimbsMap) T
 }
 
 // LimbsMap provides a high-level mapping of all registers across all
@@ -94,7 +80,7 @@ type LimbsMap = ModuleMap[RegisterLimbsMap]
 // after subdivision occurs within a given module.  That is, it maps a given
 // register to those limbs into which it was subdivided.
 type RegisterLimbsMap interface {
-	RegisterMap
+	register.Map
 	// Field returns the underlying field configuration used for this mapping.
 	// This includes the field bandwidth (i.e. number of bits available in
 	// underlying field) and the maximum register width (i.e. width at which
@@ -104,7 +90,7 @@ type RegisterLimbsMap interface {
 	// Observe that limbs are ordered by their position in the original
 	// register.  In particular, the first limb (i.e. at index 0) is always
 	// least significant limb, and the last always most significant.
-	LimbIds(RegisterId) []LimbId
+	LimbIds(register.Id) []LimbId
 	// Limbs returns information about a given limb (i.e. a register which
 	// exists after the split).
 	Limb(LimbId) Limb
@@ -113,100 +99,5 @@ type RegisterLimbsMap interface {
 	// LimbsMap returns a register map for the limbs themselves.  This is useful
 	// where we need a register map over the limbs, rather than the original
 	// registers.
-	LimbsMap() RegisterMap
-}
-
-// RegisterAllocator extends a register mapping with the ability to allocate new
-// registers as necessary.  This is useful, for example,  in the context of
-// register splitting for introducing new carry registers.
-type RegisterAllocator interface {
-	RegisterMap
-	// Allocate a fresh register of the given width within the target module.
-	// This is presumed to be a computed register, and automatically assigned a
-	// unique name.  Furthermore, an optional
-	Allocate(prefix string, width uint) RegisterId
-	// Assign a given register the outcome of evaluating a given polynomial,
-	// shifted by a given amount.
-	Assign(reg RegisterId, shift uint, poly RelativePolynomial)
-	// Assignments returns the list of carry assignments
-	Assignments() []CarryAssignment
-	// Reset back to a given number of registers.  This is essentially for
-	// "undoing" allocations in algorithms that perform speculative allocation.
-	Reset(uint)
-}
-
-// ============================================================================
-
-type registerAllocator struct {
-	mapping     RegisterMap
-	assignments []CarryAssignment
-	registers   []Register
-}
-
-// NewAllocator converts a mapping into a full allocator simply by wrapping the
-// two fields.
-func NewAllocator(mapping RegisterMap) RegisterAllocator {
-	registers := slices.Clone(mapping.Registers())
-	return &registerAllocator{mapping, nil, registers}
-}
-
-// Allocate implementation for the RegisterAllocator interface
-func (p *registerAllocator) Allocate(prefix string, width uint) RegisterId {
-	var (
-		// Determine index for new register
-		index = uint(len(p.registers))
-		// Determine unique name for new register
-		name = fmt.Sprintf("%s$%d", prefix, index)
-		// Default padding (for now)
-		zero big.Int
-	)
-	// Allocate a new computed register.
-	p.registers = append(p.registers, NewComputedRegister(name, width, zero))
-	//
-	return NewRegisterId(index)
-}
-
-// Assign implementation for the RegisterAllocator interface
-func (p *registerAllocator) Assign(target RegisterId, shift uint, poly RelativePolynomial) {
-	p.assignments = append(p.assignments, CarryAssignment{target, shift, poly})
-}
-
-// Assign implementation for the RegisterAllocator interface
-func (p *registerAllocator) Assignments() []CarryAssignment {
-	return p.assignments
-}
-
-// Name implementation for RegisterMapping interface
-func (p *registerAllocator) Name() string {
-	return p.mapping.Name()
-}
-
-// HasRegister implementation for RegisterMap interface.
-func (p *registerAllocator) HasRegister(name string) (RegisterId, bool) {
-	for i, reg := range p.registers {
-		if reg.Name == name {
-			return NewRegisterId(uint(i)), true
-		}
-	}
-	//
-	return NewUnusedRegisterId(), false
-}
-
-// Register implementation for RegisterMap interface.
-func (p *registerAllocator) Register(rid RegisterId) Register {
-	return p.registers[rid.Unwrap()]
-}
-
-// Registers implementation for RegisterMap interface.
-func (p *registerAllocator) Registers() []Register {
-	return p.registers
-}
-
-// Reset implementation for RegisterAllocator interface.
-func (p *registerAllocator) Reset(n uint) {
-	p.registers = p.registers[:n]
-}
-
-func (p *registerAllocator) String() string {
-	return RegisterMapToString(p)
+	LimbsMap() register.Map
 }

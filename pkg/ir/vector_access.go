@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -59,7 +59,7 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 func (p *VectorAccess[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p.Vars) }
 
 // EvalAt implementation for Evaluable interface.
-func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
+func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
 	var shift = sc.Register(p.Vars[0].Register).Width
 	// Evaluate first argument
 	val, err := p.Vars[0].EvalAt(k, tr, sc)
@@ -88,7 +88,7 @@ func (p *VectorAccess[F, T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *VectorAccess[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *VectorAccess[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	return lispOfTerms(global, mapping, "::", array.Reverse(p.Vars))
 }
 
@@ -119,7 +119,7 @@ func (p *VectorAccess[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *VectorAccess[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *VectorAccess[F, T]) ValueRange(mapping register.Map) math.Interval {
 	var width = uint(0)
 	// Determine total bitwidth of the vector
 	for _, arg := range p.Vars {

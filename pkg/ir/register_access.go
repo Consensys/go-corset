@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -34,20 +34,20 @@ import (
 // accesses the STAMP register at row 5, whilst CT(-1) accesses the CT register at
 // row 4.
 type RegisterAccess[F field.Element[F], T Term[F, T]] struct {
-	Register schema.RegisterId
+	Register register.Id
 	Shift    int
 }
 
 // NewRegisterAccess constructs an AIR expression representing the value of a
 // given register on the current row.
-func NewRegisterAccess[F field.Element[F], T Term[F, T]](register schema.RegisterId, shift int) T {
+func NewRegisterAccess[F field.Element[F], T Term[F, T]](register register.Id, shift int) T {
 	var term Term[F, T] = &RegisterAccess[F, T]{Register: register, Shift: shift}
 	return term.(T)
 }
 
 // RawRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func RawRegisterAccess[F field.Element[F], T Term[F, T]](register schema.RegisterId, shift int) *RegisterAccess[F, T] {
+func RawRegisterAccess[F field.Element[F], T Term[F, T]](register register.Id, shift int) *RegisterAccess[F, T] {
 	return &RegisterAccess[F, T]{Register: register, Shift: shift}
 }
 
@@ -71,7 +71,7 @@ func (p *RegisterAccess[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ schema.RegisterMap) (F, error) {
+func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ register.Map) (F, error) {
 	return module.Column(p.Register.Unwrap()).Get(k + p.Shift), nil
 }
 
@@ -81,7 +81,7 @@ func (p *RegisterAccess[F, T]) IsDefined() bool {
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *RegisterAccess[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *RegisterAccess[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	var name string
 	// Generate name, whilst allowing for schema to be nil.
 	if mapping != nil && global {
@@ -145,7 +145,7 @@ func (p *RegisterAccess[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *RegisterAccess[F, T]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
+func (p *RegisterAccess[F, T]) ValueRange(mapping register.Map) util_math.Interval {
 	var width = mapping.Register(p.Register).Width
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume

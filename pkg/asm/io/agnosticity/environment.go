@@ -17,14 +17,14 @@ import (
 	"math/big"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Register defines the notion of a register within a function.
-type Register = schema.Register
+type Register = register.Register
 
 // RegisterId abstracts the notion of a register id.
-type RegisterId = schema.RegisterId
+type RegisterId = register.Id
 
 // RegisterSplittingEnvironment represents an environment to assist with register splitting.
 // Specifically, it maintains the list of registers as they were before
@@ -102,7 +102,7 @@ func (p *RegisterSplittingEnvironment) SplitSourceRegisters(sources ...RegisterI
 		n := NumberOfLimbs(p.maxWidth, reg.Width)
 		// Split up n limbs
 		for j := uint(0); j != n; j++ {
-			limbId := schema.NewRegisterId(ntarget + j)
+			limbId := register.NewId(ntarget + j)
 			ntargets[j] = append(ntargets[j], limbId)
 		}
 	}
@@ -130,7 +130,7 @@ func (p *RegisterSplittingEnvironment) SplitTargetRegisters(targets ...RegisterI
 		n := NumberOfLimbs(p.maxWidth, reg.Width)
 		// Split into n limbs
 		for j := uint(0); j != n; j++ {
-			limbId := schema.NewRegisterId(ntarget + j)
+			limbId := register.NewId(ntarget + j)
 			ntargets = append(ntargets, limbId)
 		}
 	}
@@ -177,14 +177,14 @@ func (p *RegisterSplittingEnvironment) AllocateCarryRegister(targetWidth uint, s
 	} else if targetWidth == sourceWidth {
 		// Indicates carry flag not required (e.g. because no carry in lower
 		// portion of addition).
-		return schema.NewUnusedRegisterId()
+		return register.UnusedId()
 	}
 	// Determine number of bits of overflow
 	overflowWidth := sourceWidth - targetWidth
 	// Construct register for holding overflow
-	overflowRegister := schema.NewComputedRegister(fmt.Sprintf("c$%d", overflowRegId), overflowWidth, padding)
+	overflowRegister := register.NewComputed(fmt.Sprintf("c$%d", overflowRegId), overflowWidth, padding)
 	// Allocate overflow register
 	p.regsAfter = append(p.regsAfter, overflowRegister)
 	//
-	return schema.NewRegisterId(overflowRegId)
+	return register.NewId(overflowRegId)
 }

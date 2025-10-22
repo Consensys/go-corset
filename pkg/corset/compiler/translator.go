@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/hir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
@@ -128,13 +129,13 @@ func (t *translator) translateModuleRegisters(corsetRegisters []uint) {
 			// Identify enclosing HIR module
 			module = t.schema.ModuleOf(regInfo.Context.ModuleName())
 			//
-			reg schema.Register
+			reg register.Register
 		)
 		// Declare corresponding register
 		if regInfo.IsInput() {
-			reg = schema.NewInputRegister(regInfo.Name(), regInfo.Bitwidth, regInfo.Padding)
+			reg = register.NewInput(regInfo.Name(), regInfo.Bitwidth, regInfo.Padding)
 		} else {
-			reg = schema.NewComputedRegister(regInfo.Name(), regInfo.Bitwidth, regInfo.Padding)
+			reg = register.NewComputed(regInfo.Name(), regInfo.Bitwidth, regInfo.Padding)
 		}
 		// Add the register
 		module.NewRegister(reg)
@@ -304,8 +305,8 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 func (t *translator) translateDefComputed(decl *ast.DefComputed, path file.Path) []SyntaxError {
 	var context ast.Context = ast.VoidContext()
 	//
-	targets := make([]schema.RegisterRef, len(decl.Targets))
-	sources := make([]schema.RegisterRef, len(decl.Sources))
+	targets := make([]register.Ref, len(decl.Targets))
+	sources := make([]register.Ref, len(decl.Sources))
 	// Identify source registers
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
@@ -529,8 +530,8 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path file
 	var (
 		errors []SyntaxError
 		//
-		sources = make([]schema.RegisterRef, len(decl.Sources))
-		targets = make([]schema.RegisterRef, 1)
+		sources = make([]register.Ref, len(decl.Sources))
+		targets = make([]register.Ref, 1)
 		//
 		sourceContext ast.Context
 		sourceTerms   = make([]hir.Term, len(decl.Sources))
@@ -552,14 +553,14 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path file
 		ith, errs := t.registerOfRegisterAccess(source, 0)
 		//
 		if len(errs) == 0 {
-			sources[i] = schema.NewRegisterRef(srcModule.Id(), ith.Register)
+			sources[i] = register.NewRef(srcModule.Id(), ith.Register)
 			sourceTerms[i] = ith
 		}
 		//
 		errors = append(errors, errs...)
 	}
 	// Determine target register refs
-	targets[0] = schema.NewRegisterRef(tgtModule.Id(), t.registerIndexOf(targetPath))
+	targets[0] = register.NewRef(tgtModule.Id(), t.registerIndexOf(targetPath))
 	targetTerm := t.registerOf(targetPath, 0)
 	// Register constraint
 	tgtModule.AddConstraint(
@@ -578,9 +579,9 @@ func (t *translator) translateDefPermutation(decl *ast.DefPermutation, path file
 	//
 	var (
 		context     ast.Context = ast.VoidContext()
-		targets                 = make([]schema.RegisterId, len(decl.Sources))
+		targets                 = make([]register.Id, len(decl.Sources))
 		targetTerms             = make([]hir.Term, len(decl.Sources))
-		sources                 = make([]schema.RegisterId, len(decl.Sources))
+		sources                 = make([]register.Id, len(decl.Sources))
 		handle      strings.Builder
 	)
 	//
@@ -1097,7 +1098,7 @@ func (t *translator) registerOf(path *file.Path, shift int) *hir.RegisterAccess 
 }
 
 // Map columns to appropriate module register identifiers.
-func (t *translator) registerIndexOf(path *file.Path) schema.RegisterId {
+func (t *translator) registerIndexOf(path *file.Path) register.Id {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//
@@ -1112,7 +1113,7 @@ func (t *translator) registerIndexOf(path *file.Path) schema.RegisterId {
 	panic("unreachable")
 }
 
-func (t *translator) registerRefOf(path *file.Path) schema.RegisterRef {
+func (t *translator) registerRefOf(path *file.Path) register.Ref {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//
@@ -1121,17 +1122,17 @@ func (t *translator) registerRefOf(path *file.Path) schema.RegisterRef {
 	module := t.moduleOf(reg.Context)
 	//
 	if rid, ok := module.HasRegister(reg.Name()); ok {
-		return schema.NewRegisterRef(module.Id(), rid)
+		return register.NewRef(module.Id(), rid)
 	}
 	//
 	panic("unreachable")
 }
 
-func toRegisterRefs(context schema.ModuleId, ids []schema.RegisterId) []schema.RegisterRef {
-	var refs = make([]schema.RegisterRef, len(ids))
+func toRegisterRefs(context schema.ModuleId, ids []register.Id) []register.Ref {
+	var refs = make([]register.Ref, len(ids))
 	//
 	for i, id := range ids {
-		refs[i] = schema.NewRegisterRef(context, id)
+		refs[i] = register.NewRef(context, id)
 	}
 	//
 	return refs

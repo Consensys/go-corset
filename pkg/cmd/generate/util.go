@@ -20,6 +20,7 @@ import (
 	"unicode"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Get a string representing the bound of all values in a given bitwidth.  For
@@ -67,7 +68,7 @@ func getMaxRegisterIndex[F any](schema sc.AnySchema[F]) uint {
 	return mx * schema.Width()
 }
 
-func toRegisterName(register sc.RegisterRef, name string) string {
+func toRegisterName(register register.Ref, name string) string {
 	mid := register.Module()
 	rid := register.Register().Unwrap()
 	//

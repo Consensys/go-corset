@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -1040,7 +1041,7 @@ func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
 		return nil, err
 	}
 	// Construct raw register id
-	rid := schema.NewRegisterId(uint(index))
+	rid := register.NewId(uint(index))
 	// Done
 	return &ir.RegisterAccess[word.BigEndian, Term]{Register: rid, Shift: int(shift)}, nil
 }

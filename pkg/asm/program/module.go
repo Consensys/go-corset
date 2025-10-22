@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -38,26 +39,26 @@ func (p *Module[F, T]) Function() io.Function[T] {
 }
 
 // ============================================================================
-// schema.RegisterMap
+// register.RegisterMap
 // ============================================================================
 
-// Name implementation for schema.RegisterMap interface.
+// Name implementation for register.RegisterMap interface.
 func (p *Module[F, T]) Name() string {
 	return p.function.Name()
 }
 
-// HasRegister implementation for schema.RegisterMap interface.
-func (p *Module[F, T]) HasRegister(name string) (schema.RegisterId, bool) {
+// HasRegister implementation for register.RegisterMap interface.
+func (p *Module[F, T]) HasRegister(name string) (register.Id, bool) {
 	return p.function.HasRegister(name)
 }
 
-// Register implementation for schema.RegisterMap interface.
-func (p *Module[F, T]) Register(id schema.RegisterId) schema.Register {
+// Register implementation for register.RegisterMap interface.
+func (p *Module[F, T]) Register(id register.Id) register.Register {
 	return p.function.Register(id)
 }
 
-// Registers implementation for schema.RegisterMap interface.
-func (p *Module[F, T]) Registers() []schema.Register {
+// Registers implementation for register.RegisterMap interface.
+func (p *Module[F, T]) Registers() []register.Register {
 	return p.function.Registers()
 }
 

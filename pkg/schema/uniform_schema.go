@@ -17,6 +17,7 @@ import (
 	"encoding/gob"
 	"math"
 
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -87,7 +88,7 @@ func (p UniformSchema[F, M]) RawModules() []M {
 }
 
 // Register returns the given register in this schema.
-func (p UniformSchema[F, M]) Register(ref RegisterRef) Register {
+func (p UniformSchema[F, M]) Register(ref register.Ref) register.Register {
 	return p.Module(ref.Module()).Register(ref.Register())
 }
 

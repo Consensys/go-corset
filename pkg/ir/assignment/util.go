@@ -13,14 +13,14 @@
 package assignment
 
 import (
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // ReadRegisters reads the values for a given set of registers from a trace.
-func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef) []array.Array[F] {
+func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...register.Ref) []array.Array[F] {
 	var (
 		targets = make([]array.Array[F], len(regs))
 	)
@@ -34,7 +34,7 @@ func ReadRegisters[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef
 }
 
 // ReadPadding reads the padding values determined for a given set of registers in a trace.
-func ReadPadding[F field.Element[F]](trace tr.Trace[F], regs ...sc.RegisterRef) []F {
+func ReadPadding[F field.Element[F]](trace tr.Trace[F], regs ...register.Ref) []F {
 	var (
 		targets = make([]F, len(regs))
 	)

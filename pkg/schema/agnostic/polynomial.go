@@ -15,7 +15,7 @@ package agnostic
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -24,23 +24,23 @@ import (
 
 // Environment provides a generic mechanism for associating details of a
 // register with its ID.
-type Environment func(schema.RegisterId) schema.Register
+type Environment func(register.Id) register.Register
 
 // StaticPolynomial represents a polynomial over registers on the current row.
 // In other words, a polynomial which cannot refer to a register on a different
 // (i.e. relative) row.
-type StaticPolynomial = Polynomial[schema.RegisterId]
+type StaticPolynomial = Polynomial[register.Id]
 
 // StaticMonomial defines the type of monomials contained within a given (static) polynomial.
-type StaticMonomial = Monomial[schema.RegisterId]
+type StaticMonomial = Monomial[register.Id]
 
 // RelativePolynomial represents a polynomial over "relative registers".  That
 // is, it can refer to registers on the current row or on a row relative to the
 // current row (e.g. the next row, or the previous row, etc).
-type RelativePolynomial = Polynomial[schema.RelativeRegisterId]
+type RelativePolynomial = Polynomial[register.RelativeId]
 
 // RelativeMonomial defines the type of monomials contained within a given (relative) polynomial.
-type RelativeMonomial = Monomial[schema.RelativeRegisterId]
+type RelativeMonomial = Monomial[register.RelativeId]
 
 // Polynomial defines the type of polynomials over which packets (and register
 // splitting in general) operate.
@@ -54,19 +54,19 @@ type Monomial[T util.Comparable[T]] = poly.Monomial[T]
 type RegisterIdentifier[T any] interface {
 	util.Comparable[T]
 	// Id returns the underlying register id for this identifier.
-	Id() schema.RegisterId
+	Id() register.Id
 }
 
 // EnvironmentFromMap constructs an environment from a register map.
-func EnvironmentFromMap(mapping schema.RegisterMap) Environment {
-	return func(rid schema.RegisterId) schema.Register {
+func EnvironmentFromMap(mapping register.Map) Environment {
+	return func(rid register.Id) register.Register {
 		return mapping.Register(rid)
 	}
 }
 
 // EnvironmentFromArray constructs an environment from a register array.
-func EnvironmentFromArray(registers []schema.Register) Environment {
-	return func(rid schema.RegisterId) schema.Register {
+func EnvironmentFromArray(registers []register.Register) Environment {
+	return func(rid register.Id) register.Register {
 		return registers[rid.Unwrap()]
 	}
 }
@@ -190,7 +190,7 @@ func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], env Envir
 // IntegerRangeOfRegister determines the smallest integer range enclosing all possible
 // values for a given register.  For example, a register of width 16 has an
 // integer range of 0..65535 (inclusive).
-func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, env func(schema.RegisterId) schema.Register) math.Interval {
+func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, env func(register.Id) register.Register) math.Interval {
 	var (
 		val   = big.NewInt(2)
 		width = env(id.Id()).Width
@@ -203,10 +203,10 @@ func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, env func(schema.Regis
 }
 
 // RegistersRead returns the set of registers read by this instruction.
-func RegistersRead[T RegisterIdentifier[T]](p Polynomial[T]) []schema.RegisterId {
+func RegistersRead[T RegisterIdentifier[T]](p Polynomial[T]) []register.Id {
 	var (
 		regs bit.Set
-		read []schema.RegisterId
+		read []register.Id
 	)
 	//
 	for i := range p.Len() {

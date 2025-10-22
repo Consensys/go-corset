@@ -19,8 +19,8 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -118,7 +118,7 @@ func (p *Call) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Call) String(fn schema.RegisterMap) string {
+func (p *Call) String(fn register.Map) string {
 	var (
 		builder strings.Builder
 		regs    = fn.Registers()
@@ -141,7 +141,7 @@ func (p *Call) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction well-formed.
-func (p *Call) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Call) Validate(fieldWidth uint, fn register.Map) error {
 	// Check bus is assigned
 	if p.IoBus.IsUnlinked() {
 		return fmt.Errorf("unknown function")

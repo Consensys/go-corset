@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Skip microcode performs a conditional skip over a given number of codes. The
@@ -87,7 +88,7 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Skip) Split(mapping schema.RegisterLimbsMap, _ schema.RegisterAllocator) []Code {
+func (p *Skip) Split(mapping schema.RegisterLimbsMap, _ register.Allocator) []Code {
 	// NOTE: we can assume left and right have matching bitwidths
 	var (
 		lhsLimbs = mapping.LimbIds(p.Left)
@@ -108,7 +109,7 @@ func (p *Skip) Split(mapping schema.RegisterLimbsMap, _ schema.RegisterAllocator
 		constantLimbs := agnostic.SplitConstant(p.Constant, lhsLimbWidths...)
 		//
 		for i := range n {
-			ncode := &Skip{lhsLimbs[i], schema.NewUnusedRegisterId(), constantLimbs[i], skip - i}
+			ncode := &Skip{lhsLimbs[i], register.UnusedId(), constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	}
@@ -116,7 +117,7 @@ func (p *Skip) Split(mapping schema.RegisterLimbsMap, _ schema.RegisterAllocator
 	return ncodes
 }
 
-func (p *Skip) String(fn schema.RegisterMap) string {
+func (p *Skip) String(fn register.Map) string {
 	var (
 		l = fn.Register(p.Left).Name
 	)
@@ -129,7 +130,7 @@ func (p *Skip) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Skip) Validate(fieldWidth uint, fn register.Map) error {
 	var lw = fn.Register(p.Left).Width
 	//
 	if p.Right.IsUsed() {

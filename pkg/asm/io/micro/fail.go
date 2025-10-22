@@ -15,6 +15,7 @@ package micro
 import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Fail signals a return from the enclosing function.
@@ -49,15 +50,15 @@ func (p *Fail) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Fail) Split(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code {
+func (p *Fail) Split(mapping schema.RegisterLimbsMap, env register.Allocator) []Code {
 	return []Code{p}
 }
 
-func (p *Fail) String(fn schema.RegisterMap) string {
+func (p *Fail) String(fn register.Map) string {
 	return "fail"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Fail) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Fail) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }

@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -62,7 +62,7 @@ func (p *Equal[F, S, T]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Equal[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
+func (p *Equal[F, S, T]) TestAt(k int, tr trace.Module[F], sc register.Map) (bool, uint, error) {
 	lhs, err1 := p.Lhs.EvalAt(k, tr, sc)
 	rhs, err2 := p.Rhs.EvalAt(k, tr, sc)
 	// error check
@@ -79,7 +79,7 @@ func (p *Equal[F, S, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap
 
 // Lisp returns a lisp representation of this Equal, which is useful for
 // debugging.
-func (p *Equal[F, S, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Equal[F, S, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	var (
 		l = p.Lhs.Lisp(global, mapping)
 		r = p.Rhs.Lisp(global, mapping)

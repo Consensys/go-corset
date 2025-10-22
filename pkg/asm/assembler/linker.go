@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -293,7 +293,7 @@ func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunct
 			panic("unreachable")
 		}
 		// Allocate register
-		lines = append(lines, fn.AllocateRegister(schema.COMPUTED_REGISTER, regName, reg.Width, reg.Padding))
+		lines = append(lines, fn.AllocateRegister(register.COMPUTED_REGISTER, regName, reg.Width, reg.Padding))
 	}
 	//
 	return lines

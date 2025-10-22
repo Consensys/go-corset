@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -56,7 +56,7 @@ func (p *Cast[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
+func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
 	// Check whether argument evaluates to zero or not.
 	val, err := p.Arg.EvalAt(k, tr, sc)
 	// Dynamic cast check
@@ -69,7 +69,7 @@ func (p *Cast[F, T]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *Cast[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Cast[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	arg := p.Arg.Lisp(global, mapping)
 	name := sexp.NewSymbol(fmt.Sprintf(":u%d", p.BitWidth))
 
@@ -129,7 +129,7 @@ func (p *Cast[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Cast[F, T]) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Cast[F, T]) ValueRange(mapping register.Map) math.Interval {
 	cast := p.Range()
 	// Compute actual interval
 	res := p.Arg.ValueRange(mapping)

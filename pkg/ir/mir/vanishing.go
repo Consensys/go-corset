@@ -17,11 +17,12 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping sc.LimbsMap, env sc.RegisterAllocator,
+func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping sc.LimbsMap, env register.Allocator,
 ) VanishingConstraint[F] {
 	var (
 		modmap = mapping.Module(p.Context)
@@ -35,7 +36,7 @@ func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping sc
 }
 
 func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping sc.RegisterLimbsMap,
-	env sc.RegisterAllocator) LogicalTerm[F] {
+	env register.Allocator) LogicalTerm[F] {
 	//
 	switch t := term.(type) {
 	case *Conjunct[F]:
@@ -60,7 +61,7 @@ func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping sc.Regist
 }
 
 func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F],
-	mapping sc.RegisterLimbsMap, env sc.RegisterAllocator) LogicalTerm[F] {
+	mapping sc.RegisterLimbsMap, env register.Allocator) LogicalTerm[F] {
 	//
 	if term == nil {
 		return nil
@@ -70,7 +71,7 @@ func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F],
 }
 
 func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F],
-	mapping sc.RegisterLimbsMap, env sc.RegisterAllocator) []LogicalTerm[F] {
+	mapping sc.RegisterLimbsMap, env register.Allocator) []LogicalTerm[F] {
 	//
 	var nterms = make([]LogicalTerm[F], len(terms))
 	//
@@ -82,7 +83,7 @@ func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F],
 }
 
 func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping sc.RegisterLimbsMap,
-	env sc.RegisterAllocator) LogicalTerm[F] {
+	env register.Allocator) LogicalTerm[F] {
 	//
 	var (
 		// Split terms accordingl to mapping, and translate into polynomials

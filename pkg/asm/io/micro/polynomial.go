@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -58,7 +59,7 @@ func SplitMonomial(p agnostic.StaticMonomial, env schema.RegisterLimbsMap) Polyn
 	// FIXME: what to do with the coefficient?  This is a problem because its
 	// not clear how we should split this.  Presumably it should be split
 	// according to the maximum register width.
-	res = res.Set(poly.NewMonomial[schema.RegisterId](p.Coefficient()))
+	res = res.Set(poly.NewMonomial[register.Id](p.Coefficient()))
 	//
 	for i := range p.Len() {
 		// Determine limbs corresponding to the given constraint.
@@ -77,7 +78,7 @@ func SplitMonomial(p agnostic.StaticMonomial, env schema.RegisterLimbsMap) Polyn
 // which splits into two u8 limbs x'0 and x'1.  Then, the constructed "limb
 // polynomial" is simply x'0 + 256*x'1 (recall that x'0 is the last significant
 // limb).
-func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterLimbsMap) Polynomial {
+func LimbPolynomial(limbs []register.Id, env schema.RegisterLimbsMap) Polynomial {
 	var (
 		res Polynomial
 		// Offset is used to determine the coefficient for the next limb.

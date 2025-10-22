@@ -16,6 +16,8 @@ import (
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
+	reg "github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // NumberOfLimbs determines the number of register limbs required for a given
@@ -73,7 +75,7 @@ func WidthsOfLimbs(mapping sc.RegisterLimbsMap, lids []sc.LimbId) []uint {
 // CombinedWidthOfRegisters returns the combined bitwidth of all limbs.  For example,
 // suppose we have three limbs: x:u8, y:u8, z:u11.  Then the combined width is
 // 8+8+11=27.
-func CombinedWidthOfRegisters(mapping sc.RegisterMap, registers ...sc.LimbId) uint {
+func CombinedWidthOfRegisters(mapping register.Map, registers ...sc.LimbId) uint {
 	var (
 		width uint
 	)
@@ -90,10 +92,10 @@ func CombinedWidthOfRegisters(mapping sc.RegisterMap, registers ...sc.LimbId) ui
 // Since registers are always split to the maximum width as much as possible, it
 // is only the most significant register which may (in some cases) have fewer
 // bits than the maximum allowed.
-func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
+func SplitIntoLimbs(maxWidth uint, r reg.Register) []reg.Register {
 	var (
 		nlimbs = NumberOfLimbs(maxWidth, r.Width)
-		limbs  = make([]sc.Register, nlimbs)
+		limbs  = make([]reg.Register, nlimbs)
 		width  = r.Width
 		// Split padding value
 		padding = SplitConstant(r.Padding, LimbWidths(maxWidth, r.Width)...)
@@ -101,7 +103,7 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 	// Special case when register doesn't require splitting.  This is useful
 	// because we want to retain the original register name exactly.
 	if nlimbs == 1 {
-		return []sc.Register{r}
+		return []reg.Register{r}
 	}
 	//
 	maxWidth = CommonLimbWidth(maxWidth, width)
@@ -109,12 +111,7 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 	for i := range nlimbs {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
 		ith_width := min(maxWidth, width)
-		limbs[i] = sc.Register{
-			Name:    ith_name,
-			Kind:    r.Kind,
-			Width:   ith_width,
-			Padding: padding[i],
-		}
+		limbs[i] = reg.New(r.Kind, ith_name, ith_width, padding[i])
 		//
 		width -= maxWidth
 	}

@@ -13,7 +13,7 @@
 package ir
 
 import (
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -79,7 +79,7 @@ func (p *Disjunct[F, S]) Negate() S {
 }
 
 // TestAt implementation for Testable interface.
-func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
+func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc register.Map) (bool, uint, error) {
 	//
 	for _, disjunct := range p.Args {
 		val, _, err := disjunct.TestAt(k, tr, sc)
@@ -97,7 +97,7 @@ func (p *Disjunct[F, T]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap
 
 // Lisp returns a lisp representation of this equation, which is useful for
 // debugging.
-func (p *Disjunct[F, T]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p *Disjunct[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	if len(p.Args) == 0 {
 		return sexp.NewSymbol("⊥")
 	}

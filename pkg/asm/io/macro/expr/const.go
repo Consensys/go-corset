@@ -16,8 +16,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
@@ -51,12 +51,12 @@ func (p *Const) RegistersRead() bit.Set {
 	return empty
 }
 
-func (p *Const) String(mapping schema.RegisterMap) string {
+func (p *Const) String(mapping register.Map) string {
 	return String(p, mapping)
 }
 
 // ValueRange implementation for the Expr interface.
-func (p *Const) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Const) ValueRange(mapping register.Map) math.Interval {
 	// Return as interval
 	return math.NewInterval(p.Constant, p.Constant)
 }

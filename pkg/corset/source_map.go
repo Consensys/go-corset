@@ -17,7 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/binfile"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/file"
@@ -165,7 +165,7 @@ type SourceColumn struct {
 	// Observe that this has to be a reference, rather than just an ID.  This is
 	// because a column in a given corset module may map into a different module
 	// in the underlying schema (i.e. for interleavings).
-	Register schema.RegisterRef
+	Register register.Ref
 }
 
 // DISPLAY_HEX shows values in hex

@@ -15,8 +15,8 @@ package expr
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
 )
@@ -72,7 +72,7 @@ func (p *Sub) RegistersRead() bit.Set {
 }
 
 // ValueRange implementation for the Expr interface.
-func (p *Sub) ValueRange(mapping schema.RegisterMap) math.Interval {
+func (p *Sub) ValueRange(mapping register.Map) math.Interval {
 	var values math.Interval
 	//
 	for i, e := range p.Exprs {
@@ -86,6 +86,6 @@ func (p *Sub) ValueRange(mapping schema.RegisterMap) math.Interval {
 	return values
 }
 
-func (p *Sub) String(mapping schema.RegisterMap) string {
+func (p *Sub) String(mapping register.Map) string {
 	return String(p, mapping)
 }

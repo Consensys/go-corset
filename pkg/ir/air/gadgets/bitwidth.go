@@ -19,9 +19,9 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -70,7 +70,7 @@ func (p *BitwidthGadget[F]) WithLimitless(flag bool) *BitwidthGadget[F] {
 }
 
 // Constrain ensures all values in a given register fit within a given bitwidth.
-func (p *BitwidthGadget[F]) Constrain(ref sc.RegisterRef, bitwidth uint) {
+func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 	var (
 		module   = p.schema.Module(ref.Module())
 		register = module.Register(ref.Register())
@@ -100,7 +100,7 @@ func (p *BitwidthGadget[F]) Constrain(ref sc.RegisterRef, bitwidth uint) {
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
 // which enforces that all values in the given column are either 0 or 1. For a
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
-func (p *BitwidthGadget[F]) applyBinaryGadget(ref sc.RegisterRef) {
+func (p *BitwidthGadget[F]) applyBinaryGadget(ref register.Ref) {
 	var (
 		module   = p.schema.Module(ref.Module())
 		register = module.Register(ref.Register())
@@ -123,7 +123,7 @@ func (p *BitwidthGadget[F]) applyBinaryGadget(ref sc.RegisterRef) {
 // a given bitwidth.  This is implemented using a *horizontal byte
 // decomposition* which adds n columns and a vanishing constraint (where n*8 >=
 // bitwidth).
-func (p *BitwidthGadget[F]) applyHorizontalBitwidthGadget(ref sc.RegisterRef, bitwidth uint) {
+func (p *BitwidthGadget[F]) applyHorizontalBitwidthGadget(ref register.Ref, bitwidth uint) {
 	var (
 		module       = p.schema.Module(ref.Module())
 		register     = module.Register(ref.Register())
@@ -152,12 +152,12 @@ func (p *BitwidthGadget[F]) applyHorizontalBitwidthGadget(ref sc.RegisterRef, bi
 // recursive procedure is applied whereby a table is created for the given width
 // which divides each value into two smaller values.  This procedure is then
 // recursively applied to those columns, etc.
-func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bitwidth uint) {
+func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwidth uint) {
 	var (
 		module       = p.schema.Module(ref.Module())
-		register     = module.Register(ref.Register())
+		reg          = module.Register(ref.Register())
 		proofHandle  = fmt.Sprintf("u%d", bitwidth)
-		lookupHandle = fmt.Sprintf("%s:u%d", register.Name, bitwidth)
+		lookupHandle = fmt.Sprintf("%s:u%d", reg.Name, bitwidth)
 	)
 	// Recursive case.
 	mid, ok := p.schema.HasModule(proofHandle)
@@ -173,7 +173,7 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref sc.RegisterRef, bit
 	// representing limbs, etc.
 	targetAccesses := []*air.ColumnAccess[F]{
 		// Target Value
-		ir.RawRegisterAccess[F, air.Term[F]](sc.NewRegisterId(0), 0)}
+		ir.RawRegisterAccess[F, air.Term[F]](register.NewId(0), 0)}
 	//
 	targets := []lookup.Vector[F, *air.ColumnAccess[F]]{
 		lookup.UnfilteredVector(mid, targetAccesses...)}
@@ -201,9 +201,9 @@ func (p *BitwidthGadget[F]) constructTypeProof(handle string, bitwidth uint) sc.
 		zero big.Int
 	)
 	// Construct registers and their decompositions
-	vid := module.NewRegister(sc.NewComputedRegister("V", bitwidth, zero))
-	vidLo := module.NewRegister(sc.NewComputedRegister("V'0", loWidth, zero))
-	vidHi := module.NewRegister(sc.NewComputedRegister("V'1", hiWidth, zero))
+	vid := module.NewRegister(register.NewComputed("V", bitwidth, zero))
+	vidLo := module.NewRegister(register.NewComputed("V'0", loWidth, zero))
+	vidHi := module.NewRegister(register.NewComputed("V'1", hiWidth, zero))
 	// Ensure lo/hi are decomposition of original
 	module.AddConstraint(
 		air.NewVanishingConstraint("decomposition", mid, util.None[int](),
@@ -216,17 +216,17 @@ func (p *BitwidthGadget[F]) constructTypeProof(handle string, bitwidth uint) sc.
 				),
 			)))
 	// Recursively proof lo/hi columns
-	p.Constrain(sc.NewRegisterRef(mid, vidLo), loWidth)
-	p.Constrain(sc.NewRegisterRef(mid, vidHi), hiWidth)
+	p.Constrain(register.NewRef(mid, vidLo), loWidth)
+	p.Constrain(register.NewRef(mid, vidHi), hiWidth)
 	// Construct corresponding register refs
-	v := sc.NewRegisterRef(mid, vid)
-	vLo := sc.NewRegisterRef(mid, vidLo)
-	vHi := sc.NewRegisterRef(mid, vidHi)
+	v := register.NewRef(mid, vid)
+	vLo := register.NewRef(mid, vidLo)
+	vHi := register.NewRef(mid, vidHi)
 	// Add (initially empty) assignment
 	module.AddAssignment(&typeDecomposition[F]{
 		loWidth, hiWidth,
 		nil,
-		[]sc.RegisterRef{v, vLo, vHi},
+		[]register.Ref{v, vLo, vHi},
 	})
 	// Done
 	return mid
@@ -241,15 +241,15 @@ type typeDecomposition[F field.Element[F]] struct {
 	loWidth, hiWidth uint
 	// Source registers being decomposed which represent the set of all the
 	// columns in the entire system being proved to have the given bitwidth.
-	sources []sc.RegisterRef
+	sources []register.Ref
 	// Target registers for decomposition.  There are always exactly three
 	// registers, where the first holds the original value, followed by the
 	// least significant (lo) limb and, finally, the most significant (hi) limb.
-	targets []sc.RegisterRef
+	targets []register.Ref
 }
 
 // AddSource adds a new source column to this decomposition.
-func (p *typeDecomposition[F]) AddSource(source sc.RegisterRef) {
+func (p *typeDecomposition[F]) AddSource(source register.Ref) {
 	p.sources = append(p.sources, source)
 }
 
@@ -285,18 +285,18 @@ func (p *typeDecomposition[F]) Consistent(schema sc.AnySchema[F]) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *typeDecomposition[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *typeDecomposition[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *typeDecomposition[F]) RegistersRead() []sc.RegisterRef {
+func (p *typeDecomposition[F]) RegistersRead() []register.Ref {
 	return p.sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *typeDecomposition[F]) RegistersWritten() []sc.RegisterRef {
+func (p *typeDecomposition[F]) RegistersWritten() []register.Ref {
 	return p.targets
 }
 
@@ -348,9 +348,9 @@ type byteDecomposition[F field.Element[F]] struct {
 	// Width of decomposition.
 	bitwidth uint
 	// The source register being decomposed
-	source sc.RegisterRef
+	source register.Ref
 	// Target registers holding the decomposition
-	targets []sc.RegisterRef
+	targets []register.Ref
 }
 
 // Compute computes the values of columns defined by this assignment.
@@ -399,18 +399,18 @@ func (p *byteDecomposition[F]) Consistent(schema sc.AnySchema[F]) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *byteDecomposition[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *byteDecomposition[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *byteDecomposition[F]) RegistersRead() []sc.RegisterRef {
-	return []sc.RegisterRef{p.source}
+func (p *byteDecomposition[F]) RegistersRead() []register.Ref {
+	return []register.Ref{p.source}
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *byteDecomposition[F]) RegistersWritten() []sc.RegisterRef {
+func (p *byteDecomposition[F]) RegistersWritten() []register.Ref {
 	return p.targets
 }
 
@@ -568,7 +568,7 @@ func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
 // Allocate n byte registers, each of which requires a suitable range
 // constraint.
 func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, module *air.ModuleBuilder[F],
-) []sc.RegisterRef {
+) []register.Ref {
 	var (
 		n    = bitwidth / 8
 		zero big.Int
@@ -582,14 +582,14 @@ func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, mod
 		n++
 	}
 	// Allocate target register ids
-	targets := make([]schema.RegisterRef, n)
+	targets := make([]register.Ref, n)
 	// Allocate byte registers
 	for i := uint(0); i < n; i++ {
 		name := fmt.Sprintf("%s:%d", prefix, i)
-		byteRegister := schema.NewComputedRegister(name, min(8, bitwidth), zero)
+		byteRegister := register.NewComputed(name, min(8, bitwidth), zero)
 		// Allocate byte register
 		rid := module.NewRegister(byteRegister)
-		targets[i] = sc.NewRegisterRef(module.Id(), rid)
+		targets[i] = register.NewRef(module.Id(), rid)
 		// Add suitable range constraint
 		ith_access := ir.RawRegisterAccess[F, air.Term[F]](rid, 0)
 		//
@@ -602,7 +602,7 @@ func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, mod
 	return targets
 }
 
-func buildDecompositionTerm[F field.Element[F]](bitwidth uint, byteRegisters []sc.RegisterRef) air.Term[F] {
+func buildDecompositionTerm[F field.Element[F]](bitwidth uint, byteRegisters []register.Ref) air.Term[F] {
 	var (
 		// Determine ranges required for the give bitwidth
 		ranges = splitColumnRanges[F](bitwidth)

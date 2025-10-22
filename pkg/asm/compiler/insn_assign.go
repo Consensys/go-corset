@@ -17,9 +17,8 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -100,7 +99,7 @@ func (p *StateTranslator[F, T, E, M]) translateMonomial(mono agnostic.StaticMono
 	return Product(terms)
 }
 
-func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
+func hasSignBit(targets []register.Id, regs []register.Register) bool {
 	var (
 		n = len(targets) - 1
 	)
@@ -117,7 +116,7 @@ func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
 // useful for debugging
 //
 // nolint
-func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs agnostic.StaticPolynomial) string {
+func assignToString(registers []register.Register, lhs []register.Id, rhs agnostic.StaticPolynomial) string {
 	var builder strings.Builder
 	//
 	for i, ith := range lhs {
@@ -129,7 +128,7 @@ func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs ag
 	//
 	builder.WriteString(" := ")
 	//
-	builder.WriteString(poly.String(rhs, func(id sc.RegisterId) string {
+	builder.WriteString(poly.String(rhs, func(id register.Id) string {
 		return registers[id.Unwrap()].Name
 	}))
 	//

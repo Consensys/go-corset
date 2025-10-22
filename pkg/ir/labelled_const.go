@@ -16,7 +16,7 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -52,12 +52,12 @@ func (p *LabelledConst[F, T]) Bounds() util.Bounds {
 }
 
 // EvalAt implementation for Evaluable interface.
-func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ schema.RegisterMap) (F, error) {
+func (p *LabelledConst[F, T]) EvalAt(k int, _ trace.Module[F], _ register.Map) (F, error) {
 	return p.Value, nil
 }
 
 // Lisp implementation for Lispifiable interface.
-func (p *LabelledConst[F, T]) Lisp(_ bool, _ schema.RegisterMap) sexp.SExp {
+func (p *LabelledConst[F, T]) Lisp(_ bool, _ register.Map) sexp.SExp {
 	return sexp.NewSymbol(p.Value.String())
 }
 
@@ -91,7 +91,7 @@ func (p *LabelledConst[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *LabelledConst[F, T]) ValueRange(_ schema.RegisterMap) util_math.Interval {
+func (p *LabelledConst[F, T]) ValueRange(_ register.Map) util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
 	c.SetBytes(p.Value.Bytes())
