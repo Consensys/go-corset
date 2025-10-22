@@ -218,7 +218,7 @@ func (p *Table[F, C]) String() string {
 
 // Subdivide implementation for the FieldAgnosticModule interface.
 func (p *Table[F, C]) Subdivide(mid ModuleId, mapping module.LimbsMap,
-	assigner func(register.Id, agnostic.Computation) Assignment[F]) *Table[F, C] {
+	assigner func([]register.Id, agnostic.Computation) Assignment[F]) *Table[F, C] {
 	//
 	var (
 		constraints []C

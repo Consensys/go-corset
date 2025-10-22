@@ -18,7 +18,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -286,14 +285,11 @@ func splitVariable(rid register.Id, bitwidth uint, p RelativePolynomial,
 		lhs RelativePolynomial
 		// Determine necessary widths
 		limbWidths = register.LimbWidths(bitwidth, reg.Width)
-		// Preallocate space for limb identifiers
-		limbs = make([]register.Id, len(limbWidths))
+		// Construct filler for limbs
+		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, 0)
 	)
-	//
-	for i, w := range limbWidths {
-		// FIXME: assignment required for filling limbs
-		limbs[i] = mapping.Allocate(reg.Name, w, util.None[term.Computation[word.BigEndian]]())
-	}
+	// Allocate limbs with corresponding filler
+	limbs := mapping.AllocateWithN(reg.Name, filler, limbWidths...)
 	// Construct constraint connecting reg and limbs
 	lhs = lhs.Set(poly.NewMonomial(one, rid.Shift(0)))
 	constraint := NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
@@ -369,7 +365,7 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 				// Construct filler for carry register
 				filler = NewPolyFil(chunkWidth, chunks[i])
 				// Allocate carry register
-				carryReg = mapping.Allocate("c", ithWidth-chunkWidth, util.Some[Computation](filler))
+				carryReg = mapping.AllocateWith("c", ithWidth-chunkWidth, filler)
 				// Calculate amount to shift carry
 				chunkShift = math.Pow2(chunkWidth)
 			)

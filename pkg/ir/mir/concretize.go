@@ -74,10 +74,10 @@ func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
 // returns a construct for assignments for agnostically filling allocated
 // registers.
 func mirAssignmentConstructor[F field.Element[F]](module sc.ModuleId,
-) func(register.Id, agnostic.Computation) schema.Assignment[F] {
+) func([]register.Id, agnostic.Computation) schema.Assignment[F] {
 	//
-	return func(id register.Id, computation agnostic.Computation) schema.Assignment[F] {
-		return assignment.NewComputedRegister[F](computation, true, module, id)
+	return func(ids []register.Id, computation agnostic.Computation) schema.Assignment[F] {
+		return assignment.NewComputedRegister[F](computation, true, module, ids...)
 	}
 }
 

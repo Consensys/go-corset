@@ -154,7 +154,7 @@ func (p *Assignment) linkUnsigned(overflow uint, env RegisterAllocator) (Assignm
 		return *p, carry.Set()
 	}
 	// Allocate new register to get an Id
-	carryRegId := env.Allocate("c", overflow, EMPTY_COMPUTATION)
+	carryRegId := env.Allocate("c", overflow)
 	// Construct carry to be propagated forward
 	carry = carry.Set(poly.NewMonomial(one, carryRegId))
 	// Update left-hand side to include carry
@@ -168,14 +168,14 @@ func (p *Assignment) linkSigned(underflow uint, env RegisterAllocator) (Assignme
 		tmp     StaticPolynomial
 		carry   []StaticMonomial
 		lhs     = p.LeftHandSide
-		signBit = env.Allocate("s", 1, EMPTY_COMPUTATION)
+		signBit = env.Allocate("s", 1)
 	)
 	// Append sign bit to borrow calculation
 	carry = append(carry, poly.NewMonomial(*math.NegPow2(underflow), signBit))
 	// Add carry component (if applicable)
 	if underflow > 0 {
 		// Allocate new register to get an Id
-		carryRegId := env.Allocate("c", underflow, EMPTY_COMPUTATION)
+		carryRegId := env.Allocate("c", underflow)
 		// Construct carry to be propagated forward
 		carry = append(carry, poly.NewMonomial(one, carryRegId))
 		// Update left-hand side to include carry
