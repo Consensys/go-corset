@@ -15,7 +15,7 @@ package vanishing
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -31,7 +31,7 @@ import (
 // ignored.  This is parameterised by the type of the constraint expression.
 // Thus, we can reuse this definition across the various intermediate
 // representations (e.g. Mid-Level IR, Arithmetic IR, etc).
-type Constraint[F field.Element[F], T ir.Testable[F]] struct {
+type Constraint[F field.Element[F], T term.Testable[F]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -48,7 +48,7 @@ type Constraint[F field.Element[F], T ir.Testable[F]] struct {
 }
 
 // NewConstraint constructs a new vanishing constraint!
-func NewConstraint[F field.Element[F], T ir.Testable[F]](handle string, context schema.ModuleId,
+func NewConstraint[F field.Element[F], T term.Testable[F]](handle string, context schema.ModuleId,
 	domain util.Option[int], constraint T) Constraint[F, T] {
 	return Constraint[F, T]{handle, context, domain, constraint}
 }
@@ -132,7 +132,7 @@ func (p Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
-func HoldsGlobally[F field.Element[F], T ir.Testable[F]](handle string, ctx schema.ModuleId, constraint T,
+func HoldsGlobally[F field.Element[F], T term.Testable[F]](handle string, ctx schema.ModuleId, constraint T,
 	trMod trace.Module[F], scMod schema.Module[F]) (bit.Set, schema.Failure) {
 	//
 	var (
@@ -160,7 +160,7 @@ func HoldsGlobally[F field.Element[F], T ir.Testable[F]](handle string, ctx sche
 
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
-func HoldsLocally[F field.Element[F], T ir.Testable[F]](k uint, handle string, term T, ctx schema.ModuleId,
+func HoldsLocally[F field.Element[F], T term.Testable[F]](k uint, handle string, term T, ctx schema.ModuleId,
 	trMod trace.Module[F], scMod schema.Module[F]) (schema.Failure, uint) {
 	//
 	ok, id, err := term.TestAt(int(k), trMod, scMod)

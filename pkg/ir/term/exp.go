@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"fmt"
@@ -25,15 +25,15 @@ import (
 )
 
 // Exp represents the a given value taken to a power.
-type Exp[F field.Element[F], T Term[F, T]] struct {
+type Exp[F field.Element[F], T Expr[F, T]] struct {
 	Arg T
 	Pow uint64
 }
 
 // Exponent constructs a new expression representing the given argument
 // raised to a given a given power.
-func Exponent[F field.Element[F], T Term[F, T]](arg T, pow uint64) T {
-	var term Term[F, T] = &Exp[F, T]{arg, pow}
+func Exponent[F field.Element[F], T Expr[F, T]](arg T, pow uint64) T {
+	var term Expr[F, T] = &Exp[F, T]{arg, pow}
 	return term.(T)
 }
 
@@ -89,7 +89,7 @@ func (p *Exp[F, T]) Substitute(mapping map[string]F) {
 func (p *Exp[F, T]) Simplify(casts bool) T {
 	var (
 		arg  T          = p.Arg.Simplify(casts)
-		targ Term[F, T] = arg
+		targ Expr[F, T] = arg
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok {

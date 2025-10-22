@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ import (
 )
 
 // Cast attempts to narrow the width a given expression.
-type Cast[F field.Element[F], T Term[F, T]] struct {
+type Cast[F field.Element[F], T Expr[F, T]] struct {
 	Arg      T
 	BitWidth uint
 	Bound    F
@@ -34,12 +34,12 @@ type Cast[F field.Element[F], T Term[F, T]] struct {
 
 // CastOf constructs a new expression which has been annotated by the user to be
 // within a given range.
-func CastOf[F field.Element[F], T Term[F, T]](arg T, bitwidth uint) T {
+func CastOf[F field.Element[F], T Expr[F, T]](arg T, bitwidth uint) T {
 	var (
 		// Compute 2^bitwidth
 		bound F = field.TwoPowN[F](bitwidth)
 		// Construct term
-		term Term[F, T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
+		term Expr[F, T] = &Cast[F, T]{Arg: arg, BitWidth: bitwidth, Bound: bound}
 	)
 	// Done
 	return term.(T)
@@ -106,7 +106,7 @@ func (p *Cast[F, T]) ShiftRange() (int, int) {
 func (p *Cast[F, T]) Simplify(casts bool) T {
 	var (
 		arg  T          = p.Arg.Simplify(casts)
-		targ Term[F, T] = arg
+		targ Expr[F, T] = arg
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok && c.Value.Cmp(p.Bound) < 0 {

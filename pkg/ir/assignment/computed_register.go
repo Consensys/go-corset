@@ -18,7 +18,7 @@ import (
 	"math"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
@@ -45,7 +45,7 @@ type ComputedRegister[F field.Element[F]] struct {
 	Targets []register.Id
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr ir.Computation[word.BigEndian]
+	Expr term.Computation[word.BigEndian]
 	// Direction in which value is computed (true = forward, false = backward).
 	// More specifically, a forwards direction means the computation starts on
 	// the first row, whilst a backwards direction means it starts on the last.
@@ -56,7 +56,7 @@ type ComputedRegister[F field.Element[F]] struct {
 // determining expression.  More specifically, that expression is used to
 // compute the values for the columns during trace expansion.  For each, the
 // resulting value is split across the target columns.
-func NewComputedRegister[F field.Element[F]](expr ir.Computation[word.BigEndian], dir bool, module schema.ModuleId,
+func NewComputedRegister[F field.Element[F]](expr term.Computation[word.BigEndian], dir bool, module schema.ModuleId,
 	limbs ...register.Id) *ComputedRegister[F] {
 	//
 	if len(limbs) == 0 {
@@ -220,7 +220,7 @@ func (p *ComputedRegister[F]) Subdivide(_ agnostic.RegisterAllocator, mapping mo
 	var (
 		ntargets []register.Id
 		modmap   = mapping.Module(p.Module)
-		expr     = ir.SubdivideComputation(p.Expr, modmap)
+		expr     = term.SubdivideComputation(p.Expr, modmap)
 	)
 	//
 	for _, target := range p.Targets {
@@ -266,7 +266,7 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		})
 }
 
-func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir.Evaluable[word.BigEndian],
+func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr term.Evaluable[word.BigEndian],
 	trMod trace.Module[word.BigEndian], scMod register.Map) error {
 	// Forwards computation
 	for i := range height {
@@ -282,7 +282,7 @@ func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir
 	return nil
 }
 
-func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir.Evaluable[word.BigEndian],
+func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr term.Evaluable[word.BigEndian],
 	trMod trace.Module[word.BigEndian], scMod register.Map) error {
 	// Backwards computation
 	for i := height; i > 0; i-- {

@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,10 +24,10 @@ import (
 )
 
 // Add represents the addition of zero or more expressions.
-type Add[F field.Element[F], T Term[F, T]] struct{ Args []T }
+type Add[F field.Element[F], T Expr[F, T]] struct{ Args []T }
 
 // Sum zero or more expressions together.
-func Sum[F field.Element[F], T Term[F, T]](terms ...T) T {
+func Sum[F field.Element[F], T Expr[F, T]](terms ...T) T {
 	// Flatten any nested sums
 	terms = array.Flatten(terms, flatternAdd[F, T])
 	// Remove any zeros
@@ -39,7 +39,7 @@ func Sum[F field.Element[F], T Term[F, T]](terms ...T) T {
 	case 1:
 		return terms[0]
 	default:
-		var term Term[F, T] = &Add[F, T]{terms}
+		var term Expr[F, T] = &Add[F, T]{terms}
 		//
 		return term.(T)
 	}
@@ -50,7 +50,7 @@ func (p *Add[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Add[F, T]) ApplyShift(shift int) T {
-	var term Term[F, T] = &Add[F, T]{applyShiftOfTerms(p.Args, shift)}
+	var term Expr[F, T] = &Add[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
@@ -118,11 +118,11 @@ func (p *Add[F, T]) ValueRange(mapping register.Map) math.Interval {
 	return res
 }
 
-func simplifySum[F field.Element[F], T Term[F, T]](args []T, casts bool) T {
+func simplifySum[F field.Element[F], T Expr[F, T]](args []T, casts bool) T {
 	var (
 		zero  F
 		terms = simplifyTerms(args, addBinOp, zero, casts)
-		tmp   Term[F, T]
+		tmp   Expr[F, T]
 	)
 	// Flatten any nested sums
 	terms = array.Flatten(terms, flatternAdd[F, T])
@@ -141,8 +141,8 @@ func simplifySum[F field.Element[F], T Term[F, T]](args []T, casts bool) T {
 	return tmp.(T)
 }
 
-func flatternAdd[F field.Element[F], T Term[F, T]](term T) []T {
-	var e Term[F, T] = term
+func flatternAdd[F field.Element[F], T Expr[F, T]](term T) []T {
+	var e Expr[F, T] = term
 	if t, ok := e.(*Add[F, T]); ok {
 		return t.Args
 	}

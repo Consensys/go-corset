@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/hir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -285,7 +286,7 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 	module.Registers()[target.Unwrap()].Padding = ir.PaddingFor(computation, module)
 	// Add assignment
 	module.AddAssignment(assignment.NewComputedRegister[word.BigEndian](
-		ir.NewComputation[word.BigEndian, hir.LogicalTerm](computation), direction,
+		term.NewComputation[word.BigEndian, hir.LogicalTerm](computation), direction,
 		module.Id(), target))
 	// Add constraint (defconstraint target == computation)
 	module.AddConstraint(hir.NewVanishingConstraint(
@@ -294,8 +295,8 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 		// rows).
 		util.None[int](),
 		//
-		ir.Equals[word.BigEndian, hir.LogicalTerm](
-			ir.NewRegisterAccess[word.BigEndian, hir.Term](target, 0), computation),
+		term.Equals[word.BigEndian, hir.LogicalTerm](
+			term.NewRegisterAccess[word.BigEndian, hir.Term](target, 0), computation),
 	))
 	// Done
 	return nil
@@ -355,8 +356,8 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 	if decl.Guard != nil {
 		// Translate (optional) guard
 		gexpr, guardErrors := t.translateOptionalExpression(decl.Guard, module, 0)
-		guard := ir.Equals[word.BigEndian, hir.LogicalTerm](gexpr, ir.Const64[word.BigEndian, hir.Term](0))
-		expr = ir.IfThenElse(guard, nil, expr)
+		guard := term.Equals[word.BigEndian, hir.LogicalTerm](gexpr, term.Const64[word.BigEndian, hir.Term](0))
+		expr = term.IfThenElse(guard, nil, expr)
 		// Combine errors
 		errors = append(errors, guardErrors...)
 	}
@@ -364,8 +365,8 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 	if decl.Perspective != nil {
 		// Translate (optional) perspective selector
 		sexpr, selectorErrors := t.translateSelectorInModule(decl.Perspective, module)
-		selector := ir.Equals[word.BigEndian, hir.LogicalTerm](sexpr, ir.Const64[word.BigEndian, hir.Term](0))
-		expr = ir.IfThenElse(selector, nil, expr)
+		selector := term.Equals[word.BigEndian, hir.LogicalTerm](sexpr, term.Const64[word.BigEndian, hir.Term](0))
+		expr = term.IfThenElse(selector, nil, expr)
 		// Combine errors
 		errors = append(errors, selectorErrors...)
 	}
@@ -741,7 +742,7 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		return t.registerOfRegisterAccess(e, shift)
 	case *ast.Add:
 		args, errs := t.translateExpressions(module, shift, e.Args...)
-		return ir.Sum(args...), errs
+		return term.Sum(args...), errs
 	case *ast.Cast:
 		arg, errs := t.translateExpression(e.Arg, module, shift)
 		//
@@ -752,7 +753,7 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		} else if intType, ok := e.Type.(*ast.IntType); ok {
 			// unsafe casts cannot be checked by the type checker, but can be
 			// exploited for the purposes of optimisation.
-			return ir.CastOf(arg, intType.BitWidth()), errs
+			return term.CastOf(arg, intType.BitWidth()), errs
 		}
 		// Should be unreachable.
 		msg := fmt.Sprintf("cannot translate cast (%s)", e.Type.String())
@@ -769,20 +770,20 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 		// Initialise field from bigint
 		val := field.BigInt[word.BigEndian](e.Val)
 		//
-		return ir.Const[word.BigEndian, hir.Term](val), nil
+		return term.Const[word.BigEndian, hir.Term](val), nil
 	case *ast.Exp:
 		return t.translateExp(e, module, shift)
 	case *ast.If:
 		return t.translateIf(e, module, shift)
 	case *ast.Mul:
 		args, errs := t.translateExpressions(module, shift, e.Args...)
-		return ir.Product(args...), errs
+		return term.Product(args...), errs
 	case *ast.Normalise:
 		arg, errs := t.translateExpression(e.Arg, module, shift)
-		return ir.Normalise(arg), errs
+		return term.Normalise(arg), errs
 	case *ast.Sub:
 		args, errs := t.translateExpressions(module, shift, e.Args...)
-		return ir.Subtract(args...), errs
+		return term.Subtract(args...), errs
 	case *ast.Shift:
 		return t.translateShift(e, module, shift)
 	case *ast.VariableAccess:
@@ -817,7 +818,7 @@ func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift
 		errors = append(errors, errs...)
 	}
 	//
-	return ir.NewVectorAccess(limbs), errors
+	return term.NewVectorAccess(limbs), errors
 }
 
 func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
@@ -831,7 +832,7 @@ func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift in
 	}
 	// Sanity check errors
 	if len(errs) == 0 {
-		return ir.Exponent(arg, pow.Uint64()), errs
+		return term.Exponent(arg, pow.Uint64()), errs
 	}
 	//
 	return nil, errs
@@ -853,7 +854,7 @@ func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int)
 		return nil, nil
 	}
 	// Construct appropriate if form
-	return ir.IfElse(cond, args[0], args[1]), nil
+	return term.IfElse(cond, args[0], args[1]), nil
 }
 
 func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
@@ -877,10 +878,10 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 		// Handle externalised constants slightly differently.
 		if binding.Extern {
 			//
-			return ir.LabelledConstant[word.BigEndian, hir.Term](binding.Path.String(), constant), nil
+			return term.LabelledConstant[word.BigEndian, hir.Term](binding.Path.String(), constant), nil
 		}
 		//
-		return ir.Const[word.BigEndian, hir.Term](constant), nil
+		return term.Const[word.BigEndian, hir.Term](constant), nil
 	}
 	// error
 	return nil, t.srcmap.SyntaxErrors(expr, "unbound variable")
@@ -934,10 +935,10 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 		args, errs := t.translateLogicals(mod, shift, e.Args...)
 		//
 		if e.Sign {
-			return ir.Disjunction(args...), errs
+			return term.Disjunction(args...), errs
 		}
 		//
-		return ir.Conjunction(args...), errs
+		return term.Conjunction(args...), errs
 	case *ast.Equation:
 		lhs, errs1 := t.translateExpression(e.Lhs, mod, shift)
 		rhs, errs2 := t.translateExpression(e.Rhs, mod, shift)
@@ -949,9 +950,9 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 		//
 		switch e.Kind {
 		case ast.EQUALS:
-			return ir.Equals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
+			return term.Equals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
 		case ast.NOT_EQUALS:
-			return ir.NotEquals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
+			return term.NotEquals[word.BigEndian, hir.LogicalTerm](lhs, rhs), nil
 		default:
 			panic("unreachable")
 		}
@@ -964,10 +965,10 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 			return nil, errs
 		}
 		//
-		return ir.Conjunction(args...), errs
+		return term.Conjunction(args...), errs
 	case *ast.Not:
 		arg, errs := t.translateLogical(e.Arg, mod, shift)
-		return ir.Negation(arg), errs
+		return term.Negation(arg), errs
 	case *ast.Shift:
 		return t.translateLogicalShift(e, mod, shift)
 	default:
@@ -997,7 +998,7 @@ func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int
 		return nil, nil
 	}
 	// Construct appropriate if form
-	return ir.IfThenElse(cond, truebranch, falsebranch), nil
+	return term.IfThenElse(cond, truebranch, falsebranch), nil
 }
 
 func (t *translator) translateLogicalShift(expr *ast.Shift, mod *ModuleBuilder,
@@ -1145,7 +1146,7 @@ func determineMaxBitwidth(module *ModuleBuilder, sources []hir.Term) uint {
 	for _, e := range sources {
 		// Determine bitwidth of nth term
 		switch e := e.(type) {
-		case *ir.RegisterAccess[word.BigEndian, hir.Term]:
+		case *term.RegisterAccess[word.BigEndian, hir.Term]:
 			reg := module.Register(e.Register)
 			//
 			if reg.Width > bitwidth {

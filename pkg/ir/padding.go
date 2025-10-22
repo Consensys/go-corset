@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -26,7 +27,7 @@ import (
 // PaddingFor determines the appropriate padding value for the given term.  This
 // is done by evaluating the term against a artificially constructed trace from
 // the given module, where each column has its declared padding value.
-func PaddingFor[F field.Element[F], T Evaluable[F]](term T, mod schema.Module[F]) big.Int {
+func PaddingFor[F field.Element[F], T term.Evaluable[F]](term T, mod schema.Module[F]) big.Int {
 	var (
 		num      big.Int
 		val, err = term.EvalAt(-1, &traceModule[F]{mod}, mod)

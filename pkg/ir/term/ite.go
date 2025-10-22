@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,20 +24,20 @@ import (
 // Ite represents an "If Then Else" expression which returns the (optional) true
 // branch when the condition evaluates to zero, and the (optional false branch
 // otherwise.
-type Ite[F field.Element[F], T LogicalTerm[F, T]] struct {
+type Ite[F field.Element[F], T Logical[F, T]] struct {
 	// Elements contained within this list.
 	Condition T
 	// True branch (optional).
-	TrueBranch LogicalTerm[F, T]
+	TrueBranch Logical[F, T]
 	// False branch (optional).
-	FalseBranch LogicalTerm[F, T]
+	FalseBranch Logical[F, T]
 }
 
 // IfThenElse constructs a new conditional branch, where either the true branch
 // or the false branch can (optionally) be nil (but both cannot).  Note, the
 // true branch is taken when the condition evaluates to zero.
-func IfThenElse[F field.Element[F], T LogicalTerm[F, T]](condition T, trueBranch T, falseBranch T) T {
-	var term LogicalTerm[F, T] = &Ite[F, T]{condition, trueBranch, falseBranch}
+func IfThenElse[F field.Element[F], T Logical[F, T]](condition T, trueBranch T, falseBranch T) T {
+	var term Logical[F, T] = &Ite[F, T]{condition, trueBranch, falseBranch}
 	return term.(T)
 }
 
@@ -177,8 +177,8 @@ func (p *Ite[F, T]) RequiredCells(row int, mid trace.ModuleId) *set.AnySortedSet
 func (p *Ite[F, T]) Simplify(casts bool) T {
 	var (
 		cond        = p.Condition.Simplify(casts)
-		trueBranch  LogicalTerm[F, T]
-		falseBranch LogicalTerm[F, T]
+		trueBranch  Logical[F, T]
+		falseBranch Logical[F, T]
 	)
 	// Handle reductive cases
 	if IsTrue(cond) {
@@ -219,7 +219,7 @@ func (p *Ite[F, T]) Simplify(casts bool) T {
 		return Negation(cond).Simplify(casts)
 	}
 	// Finally, done.
-	var term LogicalTerm[F, T] = &Ite[F, T]{cond, trueBranch, falseBranch}
+	var term Logical[F, T] = &Ite[F, T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
 }

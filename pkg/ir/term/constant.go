@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"fmt"
@@ -27,18 +27,18 @@ import (
 )
 
 // Constant represents a constant value within an expression.
-type Constant[F field.Element[F], T Term[F, T]] struct{ Value F }
+type Constant[F field.Element[F], T Expr[F, T]] struct{ Value F }
 
 // Const construct an AIR expression representing a given constant.
-func Const[F field.Element[F], T Term[F, T]](val F) T {
-	var term Term[F, T] = &Constant[F, T]{Value: val}
+func Const[F field.Element[F], T Expr[F, T]](val F) T {
+	var term Expr[F, T] = &Constant[F, T]{Value: val}
 	return term.(T)
 }
 
 // Const64 construct an AIR expression representing a given constant from a
 // uint64.
-func Const64[F field.Element[F], T Term[F, T]](val uint64) T {
-	var term Term[F, T] = &Constant[F, T]{
+func Const64[F field.Element[F], T Expr[F, T]](val uint64) T {
+	var term Expr[F, T] = &Constant[F, T]{
 		Value: field.Uint64[F](val),
 	}
 	//
@@ -46,9 +46,9 @@ func Const64[F field.Element[F], T Term[F, T]](val uint64) T {
 }
 
 // IsConstant checks whether an artibrary term corresponds to a constant or not.
-func IsConstant[F field.Element[F], T Term[F, T]](term T) (F, bool) {
+func IsConstant[F field.Element[F], T Expr[F, T]](term T) (F, bool) {
 	var (
-		tmp   Term[F, T] = term
+		tmp   Expr[F, T] = term
 		dummy F
 	)
 	//
@@ -64,7 +64,7 @@ func (p *Constant[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Constant[F, T]) ApplyShift(int) T {
-	var term Term[F, T] = p
+	var term Expr[F, T] = p
 	return term.(T)
 }
 
@@ -114,7 +114,7 @@ func (p *Constant[F, T]) Substitute(mapping map[string]F) {
 
 // Simplify implementation for Term interface.
 func (p *Constant[F, T]) Simplify(casts bool) T {
-	var tmp Term[F, T] = p
+	var tmp Expr[F, T] = p
 	return tmp.(T)
 }
 

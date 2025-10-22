@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -26,17 +26,17 @@ import (
 // VectorAccess represents the bitwise concatenation of one or more registers.
 // Registers are organised in little endian form.  That is, the least
 // significant register comes first (i.e. has index 0 in the array).
-type VectorAccess[F field.Element[F], T Term[F, T]] struct{ Vars []*RegisterAccess[F, T] }
+type VectorAccess[F field.Element[F], T Expr[F, T]] struct{ Vars []*RegisterAccess[F, T] }
 
 // NewVectorAccess constructs a new vector access for a given set of registers.
-func NewVectorAccess[F field.Element[F], T Term[F, T]](vars []*RegisterAccess[F, T]) T {
-	var term Term[F, T] = &VectorAccess[F, T]{vars}
+func NewVectorAccess[F field.Element[F], T Expr[F, T]](vars []*RegisterAccess[F, T]) T {
+	var term Expr[F, T] = &VectorAccess[F, T]{vars}
 	//
 	return term.(T)
 }
 
 // RawVectorAccess constructs a new vector access for a given set of registers.
-func RawVectorAccess[F field.Element[F], T Term[F, T]](vars []*RegisterAccess[F, T]) *VectorAccess[F, T] {
+func RawVectorAccess[F field.Element[F], T Expr[F, T]](vars []*RegisterAccess[F, T]) *VectorAccess[F, T] {
 	return &VectorAccess[F, T]{vars}
 }
 
@@ -45,12 +45,12 @@ func (p *VectorAccess[F, T]) ApplyShift(shift int) T {
 	nterms := make([]*RegisterAccess[F, T], len(p.Vars))
 	//
 	for i := range p.Vars {
-		var ith Term[F, T] = p.Vars[i].ApplyShift(shift)
+		var ith Expr[F, T] = p.Vars[i].ApplyShift(shift)
 		//
 		nterms[i] = ith.(*RegisterAccess[F, T])
 	}
 	//
-	var term Term[F, T] = &VectorAccess[F, T]{nterms}
+	var term Expr[F, T] = &VectorAccess[F, T]{nterms}
 	//
 	return term.(T)
 }
@@ -109,7 +109,7 @@ func (p *VectorAccess[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *VectorAccess[F, T]) Simplify(casts bool) T {
-	var term Term[F, T] = p
+	var term Expr[F, T] = p
 	return term.(T)
 }
 

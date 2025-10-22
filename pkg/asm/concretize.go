@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/hir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -142,7 +143,7 @@ func subdivideFunction(mapping module.LimbsMap, fn MicroFunction) MicroFunction 
 	var (
 		modmap = mapping.ModuleOf(fn.Name())
 		// Construct suitable splitting environment
-		env = register.NewAllocator[ir.Computation[word.BigEndian]](modmap.LimbsMap())
+		env = register.NewAllocator[term.Computation[word.BigEndian]](modmap.LimbsMap())
 		// Updated instruction sequence
 		ninsns []micro.Instruction
 		nbuses []io.Bus = make([]io.Bus, len(fn.Buses()))

@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -36,7 +37,7 @@ func Normalise[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) 
 	// Construct pseudo multiplicative inverse of e.
 	ie := applyPseudoInverseGadget(e, module)
 	// Return e * e⁻¹.
-	return ir.Product(e, ie)
+	return term.Product(e, ie)
 }
 
 // applyPseudoInverseGadget constructs an expression representing the
@@ -65,18 +66,18 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 		// Add inverse assignment
 		module.AddAssignment(assignment.NewPseudoInverse(target, e))
 		// Construct proof of 1/e
-		inv_e := ir.NewRegisterAccess[F, air.Term[F]](index, 0)
+		inv_e := term.NewRegisterAccess[F, air.Term[F]](index, 0)
 		// Construct e/e
-		e_inv_e := ir.Product(e, inv_e)
+		e_inv_e := term.Product(e, inv_e)
 		// Construct 1 == e/e
-		one_e_e := ir.Subtract(ir.Const64[F, air.Term[F]](1), e_inv_e)
+		one_e_e := term.Subtract(term.Const64[F, air.Term[F]](1), e_inv_e)
 		// Construct (e != 0) ==> (1 == e/e)
-		e_implies_one_e_e := ir.Product(e, one_e_e)
+		e_implies_one_e_e := term.Product(e, one_e_e)
 		l_name := fmt.Sprintf("%s <=", name)
 		module.AddConstraint(air.NewVanishingConstraint(l_name, module.Id(), util.None[int](), e_implies_one_e_e))
 	}
 	// Done
-	return ir.NewRegisterAccess[F, air.Term[F]](index, 0)
+	return term.NewRegisterAccess[F, air.Term[F]](index, 0)
 }
 
 // pseudoInverse represents a computation which computes the multiplicative

@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"math"
@@ -29,8 +29,8 @@ var (
 )
 
 // Check whether a given term corresponds with the constant zero.
-func isZero[F field.Element[F], T Term[F, T]](term T) bool {
-	var t Term[F, T] = term
+func isZero[F field.Element[F], T Expr[F, T]](term T) bool {
+	var t Expr[F, T] = term
 	//
 	if t, ok := t.(*Constant[F, T]); ok {
 		return t.Value.IsZero()
@@ -40,8 +40,8 @@ func isZero[F field.Element[F], T Term[F, T]](term T) bool {
 }
 
 // Check whether a given term corresponds with the constant one.
-func isOne[F field.Element[F], T Term[F, T]](term T) bool {
-	var t Term[F, T] = term
+func isOne[F field.Element[F], T Expr[F, T]](term T) bool {
+	var t Expr[F, T] = term
 	//
 	if t, ok := t.(*Constant[F, T]); ok {
 		return t.Value.IsOne()
@@ -50,18 +50,7 @@ func isOne[F field.Element[F], T Term[F, T]](term T) bool {
 	return false
 }
 
-func lispOfTerms[F any, E any, T Term[F, E]](global bool, mapping register.Map, op string, exprs []T) sexp.SExp {
-	arr := make([]sexp.SExp, 1+len(exprs))
-	arr[0] = sexp.NewSymbol(op)
-	// Translate arguments
-	for i, e := range exprs {
-		arr[i+1] = e.Lisp(global, mapping)
-	}
-	// Done
-	return sexp.NewList(arr)
-}
-
-func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping register.Map, op string,
+func lispOfLogicalTerms[F any, T Logical[F, T]](global bool, mapping register.Map, op string,
 	exprs []T) sexp.SExp {
 	//
 	arr := make([]sexp.SExp, 1+len(exprs))
@@ -74,6 +63,16 @@ func lispOfLogicalTerms[F any, T LogicalTerm[F, T]](global bool, mapping registe
 	return sexp.NewList(arr)
 }
 
+func lispOfTerms[F any, E any, T Expr[F, E]](global bool, mapping register.Map, op string, exprs []T) sexp.SExp {
+	arr := make([]sexp.SExp, 1+len(exprs))
+	arr[0] = sexp.NewSymbol(op)
+	// Translate arguments
+	for i, e := range exprs {
+		arr[i+1] = e.Lisp(global, mapping)
+	}
+	// Done
+	return sexp.NewList(arr)
+}
 func requiredRegistersOfTerms[T Contextual](args []T) *set.SortedSet[uint] {
 	return set.UnionSortedSets(args, func(term T) *set.SortedSet[uint] {
 		return term.RequiredRegisters()
@@ -119,7 +118,7 @@ func applyShiftOfTerms[T Shiftable[T]](terms []T, shift int) []T {
 type binop[F any] func(F, F) F
 
 // Simplify logical terms
-func simplifyLogicalTerms[F field.Element[F], T LogicalTerm[F, T]](terms []T, casts bool) []T {
+func simplifyLogicalTerms[F field.Element[F], T Logical[F, T]](terms []T, casts bool) []T {
 	var nterms = make([]T, len(terms))
 	//
 	for i, t := range terms {
@@ -132,12 +131,12 @@ func simplifyLogicalTerms[F field.Element[F], T LogicalTerm[F, T]](terms []T, ca
 // General purpose constant propagation mechanism.  This reduces all terms to
 // constants (where possible) and combines terms according to a given
 // combinator.
-func simplifyTerms[F field.Element[F], T Term[F, T]](terms []T, fn binop[F], acc F, casts bool) []T {
+func simplifyTerms[F field.Element[F], T Expr[F, T]](terms []T, fn binop[F], acc F, casts bool) []T {
 	// Count how many terms reduced to constants.
 	var (
 		count  = 0
 		nterms = make([]T, len(terms))
-		ith    Term[F, T]
+		ith    Expr[F, T]
 	)
 	// Propagate through all children
 	for i, e := range terms {
@@ -160,14 +159,14 @@ func simplifyTerms[F field.Element[F], T Term[F, T]](terms []T, fn binop[F], acc
 // Replace all constants within a given sequence of expressions with a single
 // constant (whose value has been precomputed from those constants).  The new
 // value replaces the first constant in the list.
-func mergeConstants[F field.Element[F], T Term[F, T]](constant F, terms []T) []T {
+func mergeConstants[F field.Element[F], T Expr[F, T]](constant F, terms []T) []T {
 	var (
 		j     = 0
 		first = true
 	)
 	//
 	for i := range terms {
-		var tmp Term[F, T] = terms[i]
+		var tmp Expr[F, T] = terms[i]
 		// Check for constant
 		if _, ok := tmp.(*Constant[F, T]); ok && first {
 			tmp = &Constant[F, T]{constant}

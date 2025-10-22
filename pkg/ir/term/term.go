@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -79,8 +79,8 @@ type Shiftable[T any] interface {
 	ShiftRange() (int, int)
 }
 
-// Term represents a component of an AIR expression.
-type Term[F any, T any] interface {
+// Expr represents a component of an HIR/MIR/AIR expression.
+type Expr[F any, T any] interface {
 	Contextual
 	Shiftable[T]
 	Evaluable[F]
@@ -115,9 +115,9 @@ type Testable[F any] interface {
 	Lisp(bool, register.Map) sexp.SExp
 }
 
-// LogicalTerm represents a term which can be tested for truth or falsehood.
+// Logical represents a term which can be tested for truth or falsehood.
 // For example, an equality comparing two arithmetic terms is a logical term.
-type LogicalTerm[F any, T any] interface {
+type Logical[F any, T any] interface {
 	Contextual
 	Shiftable[T]
 	Testable[F]

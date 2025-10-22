@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,11 +24,11 @@ import (
 )
 
 // Sub represents the subtraction over zero or more expressions.
-type Sub[F field.Element[F], T Term[F, T]] struct{ Args []T }
+type Sub[F field.Element[F], T Expr[F, T]] struct{ Args []T }
 
 // Subtract returns the subtraction of the subsequent expressions from the
 // first.
-func Subtract[F field.Element[F], T Term[F, T]](terms ...T) T {
+func Subtract[F field.Element[F], T Expr[F, T]](terms ...T) T {
 	// Remove any zeros
 	terms = array.RemoveMatchingIndexed(terms, isZeroExcept)
 	// Final simplifications
@@ -38,7 +38,7 @@ func Subtract[F field.Element[F], T Term[F, T]](terms ...T) T {
 	case 1:
 		return terms[0]
 	default:
-		var term Term[F, T] = &Sub[F, T]{terms}
+		var term Expr[F, T] = &Sub[F, T]{terms}
 		//
 		return term.(T)
 	}
@@ -49,7 +49,7 @@ func (p *Sub[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Sub[F, T]) ApplyShift(shift int) T {
-	var term Term[F, T] = &Sub[F, T]{applyShiftOfTerms(p.Args, shift)}
+	var term Expr[F, T] = &Sub[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
@@ -122,13 +122,13 @@ func (p *Sub[F, T]) ValueRange(mapping register.Map) math.Interval {
 // Simplify implementation for Term interface.
 func (p *Sub[F, T]) Simplify(casts bool) T {
 	var (
-		targ  Term[F, T]
+		targ  Expr[F, T]
 		lhs   T          = p.Args[0].Simplify(casts)
-		lhs_t Term[F, T] = lhs
+		lhs_t Expr[F, T] = lhs
 		// Subtraction is harder to optimise for.  What we do is view "a - b - c" as
 		// "a - (b+c)", and optimise the right-hand side as though it were addition.
 		rhs   T          = simplifySum(p.Args[1:], casts)
-		rhs_t Term[F, T] = rhs
+		rhs_t Expr[F, T] = rhs
 	)
 	// Check what's left
 	lc, l_const := lhs_t.(*Constant[F, T])
@@ -164,9 +164,9 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 	return targ.(T)
 }
 
-func findConstant[F field.Element[F], T Term[F, T]](terms []T) (F, bool) {
+func findConstant[F field.Element[F], T Expr[F, T]](terms []T) (F, bool) {
 	for _, t := range terms {
-		var ith Term[F, T] = t
+		var ith Expr[F, T] = t
 		if c, ok := ith.(*Constant[F, T]); ok {
 			return c.Value, true
 		}
@@ -175,6 +175,6 @@ func findConstant[F field.Element[F], T Term[F, T]](terms []T) (F, bool) {
 	return field.Zero[F](), false
 }
 
-func isZeroExcept[F field.Element[F], T Term[F, T]](i int, term T) bool {
+func isZeroExcept[F field.Element[F], T Expr[F, T]](i int, term T) bool {
 	return i != 0 && isZero(term)
 }

@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,7 +24,7 @@ import (
 
 // IfZero returns the true branch when the condition evaluates to zero, and the
 // false branch otherwise.
-type IfZero[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
+type IfZero[F field.Element[F], S Logical[F, S], T Expr[F, T]] struct {
 	// Elements contained within this list.
 	Condition S
 	// True branch
@@ -35,8 +35,8 @@ type IfZero[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
 
 // IfElse constructs a new conditional with true and false branches.  Note, the
 // true branch is taken when the condition evaluates to zero.
-func IfElse[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](condition S, trueBranch T, falseBranch T) T {
-	var term Term[F, T] = &IfZero[F, S, T]{condition, trueBranch, falseBranch}
+func IfElse[F field.Element[F], S Logical[F, S], T Expr[F, T]](condition S, trueBranch T, falseBranch T) T {
+	var term Expr[F, T] = &IfZero[F, S, T]{condition, trueBranch, falseBranch}
 	return term.(T)
 }
 
@@ -157,7 +157,7 @@ func (p *IfZero[F, S, T]) Simplify(casts bool) T {
 		return falseBranch
 	}
 	// Done
-	var term Term[F, T] = &IfZero[F, S, T]{cond, trueBranch, falseBranch}
+	var term Expr[F, T] = &IfZero[F, S, T]{cond, trueBranch, falseBranch}
 	//
 	return term.(T)
 }

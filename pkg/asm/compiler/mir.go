@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -64,7 +65,7 @@ func (p MirModule[F]) NewColumn(kind register.Type, name string, bitwidth uint, 
 	)
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
-		mir.NewRangeConstraint(name, p.Module.Id(), ir.RawRegisterAccess[F, mir.Term[F]](rid, 0), bitwidth))
+		mir.NewRangeConstraint(name, p.Module.Id(), term.RawRegisterAccess[F, mir.Term[F]](rid, 0), bitwidth))
 	// Done
 	return rid
 }
@@ -97,7 +98,7 @@ func (p MirModule[F]) NewLookup(name string, from []register.Id, targetMid uint,
 	if enable.IsEmpty() {
 		target = append(target, lookup.UnfilteredVector(targetMid, targets...))
 	} else {
-		en := ir.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), 0)
+		en := term.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), 0)
 		target = append(target, lookup.FilteredVector(targetMid, en, targets...))
 	}
 	//
@@ -127,14 +128,14 @@ type MirExpr[F field.Element[F]] struct {
 // Add constructs a sum between this expression and zero or more
 func (p MirExpr[F]) Add(exprs ...MirExpr[F]) MirExpr[F] {
 	args := unwrapSplitMirExpr(p, exprs...)
-	return MirExpr[F]{ir.Sum(args...), nil}
+	return MirExpr[F]{term.Sum(args...), nil}
 }
 
 // And constructs a conjunction between this expression and zero or more
 // expressions.
 func (p MirExpr[F]) And(exprs ...MirExpr[F]) MirExpr[F] {
 	args := unwrapSplitMirLogicals(p, exprs...)
-	return MirExpr[F]{nil, ir.Conjunction(args...)}
+	return MirExpr[F]{nil, term.Conjunction(args...)}
 }
 
 // Equals constructs an equality between two expressions.
@@ -145,21 +146,21 @@ func (p MirExpr[F]) Equals(rhs MirExpr[F]) MirExpr[F] {
 		panic("invalid right argument")
 	}
 	//
-	logical := ir.Equals[F, mir.LogicalTerm[F]](p.expr, rhs.expr)
+	logical := term.Equals[F, mir.LogicalTerm[F]](p.expr, rhs.expr)
 	//
 	return MirExpr[F]{nil, logical}
 }
 
 // Then constructs an implication between two expressions.
 func (p MirExpr[F]) Then(trueBranch MirExpr[F]) MirExpr[F] {
-	logical := ir.IfThenElse(p.logical, trueBranch.logical, nil)
+	logical := term.IfThenElse(p.logical, trueBranch.logical, nil)
 	return MirExpr[F]{nil, logical}
 }
 
 // ThenElse constructs an if-then-else expression with this expression
 // acting as the condition.
 func (p MirExpr[F]) ThenElse(trueBranch MirExpr[F], falseBranch MirExpr[F]) MirExpr[F] {
-	logical := ir.IfThenElse(p.logical, trueBranch.logical, falseBranch.logical)
+	logical := term.IfThenElse(p.logical, trueBranch.logical, falseBranch.logical)
 	return MirExpr[F]{nil, logical}
 }
 
@@ -167,12 +168,12 @@ func (p MirExpr[F]) ThenElse(trueBranch MirExpr[F], falseBranch MirExpr[F]) MirE
 // expressions.
 func (p MirExpr[F]) Multiply(exprs ...MirExpr[F]) MirExpr[F] {
 	args := unwrapSplitMirExpr(p, exprs...)
-	return MirExpr[F]{ir.Product(args...), nil}
+	return MirExpr[F]{term.Product(args...), nil}
 }
 
 // NotEquals constructs a non-equality between two expressions.
 func (p MirExpr[F]) NotEquals(rhs MirExpr[F]) MirExpr[F] {
-	logical := ir.NotEquals[F, mir.LogicalTerm[F]](p.expr, rhs.expr)
+	logical := term.NotEquals[F, mir.LogicalTerm[F]](p.expr, rhs.expr)
 	return MirExpr[F]{nil, logical}
 }
 
@@ -180,10 +181,10 @@ func (p MirExpr[F]) NotEquals(rhs MirExpr[F]) MirExpr[F] {
 func (p MirExpr[F]) Bool(val bool) MirExpr[F] {
 	if val {
 		// empty conjunction is true
-		return MirExpr[F]{nil, ir.Conjunction[F, mir.LogicalTerm[F]]()}
+		return MirExpr[F]{nil, term.Conjunction[F, mir.LogicalTerm[F]]()}
 	}
 	// empty disjunction is false
-	return MirExpr[F]{nil, ir.Disjunction[F, mir.LogicalTerm[F]]()}
+	return MirExpr[F]{nil, term.Disjunction[F, mir.LogicalTerm[F]]()}
 }
 
 // BigInt constructs a constant expression from a big integer.
@@ -202,19 +203,19 @@ func (p MirExpr[F]) BigInt(number big.Int) MirExpr[F] {
 	//
 	num = num.SetBytes(n.Bytes())
 	//
-	return MirExpr[F]{ir.Const[F, mir.Term[F]](num), nil}
+	return MirExpr[F]{term.Const[F, mir.Term[F]](num), nil}
 }
 
 // Or constructs a disjunction between this expression and zero or more
 // expressions.
 func (p MirExpr[F]) Or(exprs ...MirExpr[F]) MirExpr[F] {
 	args := unwrapSplitMirLogicals(p, exprs...)
-	return MirExpr[F]{nil, ir.Disjunction(args...)}
+	return MirExpr[F]{nil, term.Disjunction(args...)}
 }
 
 // Variable constructs a variable with a given shift.
 func (p MirExpr[F]) Variable(index register.Id, shift int) MirExpr[F] {
-	return MirExpr[F]{ir.NewRegisterAccess[F, mir.Term[F]](index, shift), nil}
+	return MirExpr[F]{term.NewRegisterAccess[F, mir.Term[F]](index, shift), nil}
 }
 
 func (p MirExpr[F]) String(func(register.Id) string) string {
@@ -263,7 +264,7 @@ func wrapMirRegisterAccesses[F field.Element[F]](regs ...register.Id) []*mir.Reg
 	var vars = make([]*mir.RegisterAccess[F], len(regs))
 	//
 	for i, rid := range regs {
-		vars[i] = ir.RawRegisterAccess[F, mir.Term[F]](rid, 0)
+		vars[i] = term.RawRegisterAccess[F, mir.Term[F]](rid, 0)
 	}
 	//
 	return vars

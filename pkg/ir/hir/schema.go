@@ -15,7 +15,7 @@ package hir
 import (
 	"encoding/gob"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -38,12 +38,12 @@ type (
 	// Term represents the fundamental for arithmetic expressions in the HIR
 	// representation.
 	Term interface {
-		ir.Term[word.BigEndian, Term]
+		term.Expr[word.BigEndian, Term]
 	}
 	// LogicalTerm represents the fundamental for logical expressions in the HIR
 	// representation.
 	LogicalTerm interface {
-		ir.LogicalTerm[word.BigEndian, LogicalTerm]
+		term.Logical[word.BigEndian, LogicalTerm]
 	}
 )
 
@@ -76,49 +76,49 @@ type (
 // Following types capture permitted expression forms at the HIR level.
 type (
 	// Add represents the addition of zero or more expressions.
-	Add = ir.Add[word.BigEndian, Term]
+	Add = term.Add[word.BigEndian, Term]
 	// Cast attempts to narrow the width a given expression.
-	Cast = ir.Cast[word.BigEndian, Term]
+	Cast = term.Cast[word.BigEndian, Term]
 	// Constant represents a constant value within an expression.
-	Constant = ir.Constant[word.BigEndian, Term]
+	Constant = term.Constant[word.BigEndian, Term]
 	// IfZero represents a conditional branch at the HIR level.
-	IfZero = ir.IfZero[word.BigEndian, LogicalTerm, Term]
+	IfZero = term.IfZero[word.BigEndian, LogicalTerm, Term]
 	// LabelledConst represents a labelled constant at the HIR level.
-	LabelledConst = ir.LabelledConst[word.BigEndian, Term]
+	LabelledConst = term.LabelledConst[word.BigEndian, Term]
 	// RegisterAccess represents reading the value held at a given column in the
 	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
 	// a given amount.
-	RegisterAccess = ir.RegisterAccess[word.BigEndian, Term]
+	RegisterAccess = term.RegisterAccess[word.BigEndian, Term]
 	// Exp represents the a given value taken to a power.
-	Exp = ir.Exp[word.BigEndian, Term]
+	Exp = term.Exp[word.BigEndian, Term]
 	// Mul represents the product over zero or more expressions.
-	Mul = ir.Mul[word.BigEndian, Term]
+	Mul = term.Mul[word.BigEndian, Term]
 	// Norm reduces the value of an expression to either zero (if it was zero)
 	// or one (otherwise).
-	Norm = ir.Norm[word.BigEndian, Term]
+	Norm = term.Norm[word.BigEndian, Term]
 	// Sub represents the subtraction over zero or more expressions.
-	Sub = ir.Sub[word.BigEndian, Term]
+	Sub = term.Sub[word.BigEndian, Term]
 	// VectorAccess represents a compound variable
-	VectorAccess = ir.VectorAccess[word.BigEndian, Term]
+	VectorAccess = term.VectorAccess[word.BigEndian, Term]
 )
 
 // Following types capture permitted logical forms at the HIR level.
 type (
 	// Conjunct represents a logical conjunction at the HIR level.
-	Conjunct = ir.Conjunct[word.BigEndian, LogicalTerm]
+	Conjunct = term.Conjunct[word.BigEndian, LogicalTerm]
 	// Disjunct represents a logical conjunction at the HIR level.
-	Disjunct = ir.Disjunct[word.BigEndian, LogicalTerm]
+	Disjunct = term.Disjunct[word.BigEndian, LogicalTerm]
 	// Equal represents an equality comparator between two arithmetic terms
 	// at the HIR level.
-	Equal = ir.Equal[word.BigEndian, LogicalTerm, Term]
+	Equal = term.Equal[word.BigEndian, LogicalTerm, Term]
 	// Ite represents an If-Then-Else expression where either branch is optional
 	// (though we must have at least one).
-	Ite = ir.Ite[word.BigEndian, LogicalTerm]
+	Ite = term.Ite[word.BigEndian, LogicalTerm]
 	// Negate represents a logical negation at the HIR level.
-	Negate = ir.Negate[word.BigEndian, LogicalTerm]
+	Negate = term.Negate[word.BigEndian, LogicalTerm]
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the HIR level.
-	NotEqual = ir.NotEqual[word.BigEndian, LogicalTerm, Term]
+	NotEqual = term.NotEqual[word.BigEndian, LogicalTerm, Term]
 )
 
 // SubstituteConstants substitutes the value of matching labelled constants for

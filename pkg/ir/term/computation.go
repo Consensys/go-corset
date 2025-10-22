@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"encoding/gob"
@@ -24,13 +24,13 @@ import (
 // Computation represents an "unbound" term.  That is, it captures any possible
 // term (i.e. rather than a fixed set as for MIR or AIR, etc).
 type Computation[F any] interface {
-	Term[F, Computation[F]]
+	Expr[F, Computation[F]]
 }
 
 // LogicalComputation represents an "unbound" term.  That is, it captures any
 // possible term (i.e. rather than a fixed set as for MIR or AIR, etc).
 type LogicalComputation[F any] interface {
-	LogicalTerm[F, LogicalComputation[F]]
+	Logical[F, LogicalComputation[F]]
 }
 
 // ============================================================================
@@ -39,7 +39,7 @@ type LogicalComputation[F any] interface {
 
 // NewComputation takes an arbitrary term and converts in into an instance of
 // computation by wrapping it.
-func NewComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](term Term[F, T]) Computation[F] {
+func NewComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Expr[F, T]) Computation[F] {
 	switch t := term.(type) {
 	case *Add[F, T]:
 		args := NewComputations[F, S](t.Args)
@@ -85,7 +85,7 @@ func NewComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](term 
 }
 
 // NewComputations constructs an array of zero or more computations.
-func NewComputations[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](terms []T) []Computation[F] {
+func NewComputations[F field.Element[F], S Logical[F, S], T Expr[F, T]](terms []T) []Computation[F] {
 	var computations = make([]Computation[F], len(terms))
 	//
 	for i, t := range terms {
@@ -101,7 +101,7 @@ func NewComputations[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](term
 
 // NewLogicalComputation takes an arbitrary logical term and converts in into an
 // instance of computation by wrapping it.
-func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](term LogicalTerm[F, S],
+func NewLogicalComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Logical[F, S],
 ) LogicalComputation[F] {
 	switch t := term.(type) {
 	case *Conjunct[F, S]:
@@ -143,7 +143,7 @@ func NewLogicalComputation[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]
 }
 
 // NewLogicalComputations constructs an array of zero or more computations.
-func NewLogicalComputations[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](terms []S) []LogicalComputation[F] {
+func NewLogicalComputations[F field.Element[F], S Logical[F, S], T Expr[F, T]](terms []S) []LogicalComputation[F] {
 	var computations = make([]LogicalComputation[F], len(terms))
 	//
 	for i, t := range terms {
@@ -286,10 +286,10 @@ func SubdivideLogicalComputations[F field.Element[F]](cs []LogicalComputation[F]
 }
 
 // ComputationTerm provides a convenient alias for a big endian term.
-type ComputationTerm = Term[word.BigEndian, Computation[word.BigEndian]]
+type ComputationTerm = Expr[word.BigEndian, Computation[word.BigEndian]]
 
 // LogicalComputationTerm provides a convenient alias for a big endian logical term.
-type LogicalComputationTerm = LogicalTerm[word.BigEndian, LogicalComputation[word.BigEndian]]
+type LogicalComputationTerm = Logical[word.BigEndian, LogicalComputation[word.BigEndian]]
 
 func init() {
 	gob.Register(ComputationTerm(&Add[word.BigEndian, Computation[word.BigEndian]]{}))

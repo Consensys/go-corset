@@ -16,8 +16,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -163,7 +163,7 @@ func (e *PseudoInverse[F]) Substitute(map[string]F) {
 
 func invert[F field.Element[F]](
 	data array.MutArray[F],
-	expr ir.Evaluable[F],
+	expr term.Evaluable[F],
 	trMod trace.Module[F],
 	scMod schema.Module[F],
 ) error {

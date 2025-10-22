@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,15 +24,15 @@ import (
 // NotEqual represents an NotEqual between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  NotEquals are either NotEqualities (or negated NotEqualities) or
 // inNotEqualities.
-type NotEqual[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
-	Lhs Term[F, T]
-	Rhs Term[F, T]
+type NotEqual[F field.Element[F], S Logical[F, S], T Expr[F, T]] struct {
+	Lhs Expr[F, T]
+	Rhs Expr[F, T]
 }
 
 // NotEquals constructs an NotEqual representing the NotEquality of two expressions.
-func NotEquals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
+func NotEquals[F field.Element[F], S Logical[F, S], T Expr[F, T]](lhs T, rhs T) S {
 	var (
-		term LogicalTerm[F, S] = &NotEqual[F, S, T]{
+		term Logical[F, S] = &NotEqual[F, S, T]{
 			Lhs: lhs,
 			Rhs: rhs,
 		}
@@ -68,7 +68,7 @@ func (p *NotEqual[F, S, T]) Bounds() util.Bounds {
 
 // Negate implementation for LogicalTerm interface
 func (p *NotEqual[F, S, T]) Negate() S {
-	var tmp LogicalTerm[F, S] = &Equal[F, S, T]{p.Lhs, p.Rhs}
+	var tmp Logical[F, S] = &Equal[F, S, T]{p.Lhs, p.Rhs}
 	//
 	return tmp.(S)
 }
@@ -138,7 +138,7 @@ func (p *NotEqual[F, S, T]) Simplify(casts bool) S {
 		return True[F, S]()
 	}
 	// Cannot simplify
-	var tmp LogicalTerm[F, S] = &NotEqual[F, S, T]{lhs, rhs}
+	var tmp Logical[F, S] = &NotEqual[F, S, T]{lhs, rhs}
 	// Done
 	return tmp.(S)
 }

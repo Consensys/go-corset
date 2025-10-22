@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -22,8 +22,8 @@ import (
 )
 
 // Negation constructs a term representing the negation of a logical term.
-func Negation[F field.Element[F], T LogicalTerm[F, T]](body T) T {
-	var term LogicalTerm[F, T] = &Negate[F, T]{
+func Negation[F field.Element[F], T Logical[F, T]](body T) T {
+	var term Logical[F, T] = &Negate[F, T]{
 		Arg: body,
 	}
 	//
@@ -35,7 +35,7 @@ func Negation[F field.Element[F], T LogicalTerm[F, T]](body T) T {
 // Negate represents an Negate between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Negate are either Negateities (or negated Negateities) or
 // inNegateities.
-type Negate[F field.Element[F], T LogicalTerm[F, T]] struct {
+type Negate[F field.Element[F], T Logical[F, T]] struct {
 	Arg T
 }
 

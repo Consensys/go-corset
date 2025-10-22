@@ -15,7 +15,7 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -32,7 +32,7 @@ type AssertionFailure[F any] struct {
 	//
 	Context schema.ModuleId
 	// Constraint expression
-	Constraint ir.Testable[F]
+	Constraint term.Testable[F]
 	// Row on which the constraint failed
 	Row uint
 }
@@ -59,7 +59,7 @@ func (p *AssertionFailure[F]) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[F field.Element[F], T ir.Testable[F]] struct {
+type Assertion[F field.Element[F], T term.Testable[F]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -78,7 +78,7 @@ type Assertion[F field.Element[F], T ir.Testable[F]] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[F field.Element[F], T ir.Testable[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
+func NewAssertion[F field.Element[F], T term.Testable[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
 	property T) Assertion[F, T] {
 	//
 	return Assertion[F, T]{handle, ctx, domain, property}

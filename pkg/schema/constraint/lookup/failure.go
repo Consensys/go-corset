@@ -15,7 +15,7 @@ package lookup
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -28,7 +28,7 @@ type Failure[F any] struct {
 	// Relevant context for source expressions.
 	Context schema.ModuleId
 	// Source expressions which were missing
-	Sources []ir.Evaluable[F]
+	Sources []term.Evaluable[F]
 	// Row on which the constraint failed
 	Row uint
 }

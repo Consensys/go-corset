@@ -15,7 +15,7 @@ package mir
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -169,10 +169,10 @@ func polynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
 	}
 	// Handle negative monomials (if applicable)
 	if len(neg) != 0 {
-		return ir.Subtract(ir.Sum(pos...), ir.Sum(neg...))
+		return term.Subtract(term.Sum(pos...), term.Sum(neg...))
 	}
 	//
-	return ir.Sum(pos...)
+	return term.Sum(pos...)
 }
 
 func monomialToTerm[F field.Element[F]](monomial agnostic.RelativeMonomial) Term[F] {
@@ -182,12 +182,12 @@ func monomialToTerm[F field.Element[F]](monomial agnostic.RelativeMonomial) Term
 		coeff F
 	)
 	// Add coefficient
-	terms[0] = ir.Const[F, Term[F]](coeff.SetBytes(tmp.Bytes()))
+	terms[0] = term.Const[F, Term[F]](coeff.SetBytes(tmp.Bytes()))
 	//
 	for i := range monomial.Len() {
 		ith := monomial.Nth(i)
-		terms[i+1] = ir.NewRegisterAccess[F, Term[F]](ith.Id(), ith.Shift())
+		terms[i+1] = term.NewRegisterAccess[F, Term[F]](ith.Id(), ith.Shift())
 	}
 	//
-	return ir.Product(terms...)
+	return term.Product(terms...)
 }

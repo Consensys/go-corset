@@ -50,6 +50,8 @@ type Allocator[T any] interface {
 	// This is presumed to be a computed register, and automatically assigned a
 	// unique name.  Furthermore, optional metadata can for the column.
 	Allocate(prefix string, width uint, metadata util.Option[T]) Id
+	// Assignments returns any metadata assigned to an allocated register.
+	Assignments() []util.Pair[Id, T]
 	// Reset back to a given number of registers.  This is essentially for
 	// "undoing" allocations in algorithms that perform speculative allocation.
 	Reset(uint)

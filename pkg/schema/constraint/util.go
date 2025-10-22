@@ -15,7 +15,7 @@ package constraint
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 )
@@ -23,7 +23,7 @@ import (
 // CheckConsistent performs a simple consistency check for terms in a given
 // module.  Specifically, to check that: (1) the module exists; (2) all used
 // registers existing with then given module.
-func CheckConsistent[F any, E ir.Contextual](module uint, schema schema.AnySchema[F], terms ...E) []error {
+func CheckConsistent[F any, E term.Contextual](module uint, schema schema.AnySchema[F], terms ...E) []error {
 	var errs []error
 	// Sanity check module
 	if module >= schema.Width() {

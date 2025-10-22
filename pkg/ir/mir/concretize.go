@@ -16,10 +16,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -46,7 +47,7 @@ func Concretize[F1 Element[F1], F2 Element[F2]](mapping module.LimbsMap, offset 
 	for i, m := range rawModules {
 		mid := uint(i) + offset
 		// Subdivice, then concretize the module.
-		modules[i] = concretizeModule[F1, F2](m.Subdivide(mid, mapping, carryAssigner[F1](mid)))
+		modules[i] = concretizeModule[F1, F2](m.Subdivide(mid, mapping, mirAssignmentConstructor[F1](mid)))
 	}
 	//
 	return modules
@@ -70,10 +71,15 @@ func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
 	return r
 }
 
-func carryAssigner[F field.Element[F]](module sc.ModuleId) func(register.CarryAssignment) schema.Assignment[F] {
-	return func(a register.CarryAssignment) schema.Assignment[F] {
-		ref := register.NewRef(module, a.LeftHandSide)
-		return assignment.NewCarryAssign[F](ref, a.Shift, a.RightHandSide)
+// returns a construct for assignments for agnostically filling allocated
+// registers.
+func mirAssignmentConstructor[F field.Element[F]](module sc.ModuleId,
+) func(register.Id, agnostic.Computation) schema.Assignment[F] {
+	//
+	return func(id register.Id, computation agnostic.Computation) schema.Assignment[F] {
+		// ref := register.NewRef(module, a.LeftHandSide)
+		// return assignment.NewCarryAssign[F](ref, a.Shift, a.RightHandSide)
+		panic("got here")
 	}
 }
 
@@ -140,7 +146,7 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 	case PermutationConstraint[F1]:
 		return NewPermutationConstraint[F2](c.Handle, c.Context, c.Targets, c.Sources)
 	case RangeConstraint[F1]:
-		term := ir.RawRegisterAccess[F2, Term[F2]](c.Expr.Register, c.Expr.Shift)
+		term := term.RawRegisterAccess[F2, Term[F2]](c.Expr.Register, c.Expr.Shift)
 		//
 		return NewRangeConstraint(c.Handle, c.Context, term, c.Bitwidth)
 	case SortedConstraint[F1]:
@@ -193,14 +199,14 @@ func concretizeLookupVector[F1 Element[F1], F2 Element[F2]](vec LookupVector[F1]
 func concretizeLogicalTerm[F1 Element[F1], F2 Element[F2]](t LogicalTerm[F1]) LogicalTerm[F2] {
 	switch t := t.(type) {
 	case *Conjunct[F1]:
-		return ir.Conjunction(concretizeLogicalTerms[F1, F2](t.Args)...)
+		return term.Conjunction(concretizeLogicalTerms[F1, F2](t.Args)...)
 	case *Disjunct[F1]:
-		return ir.Disjunction(concretizeLogicalTerms[F1, F2](t.Args)...)
+		return term.Disjunction(concretizeLogicalTerms[F1, F2](t.Args)...)
 	case *Equal[F1]:
 		lhs := concretizeTerm[F1, F2](t.Lhs)
 		rhs := concretizeTerm[F1, F2](t.Rhs)
 		//
-		return ir.Equals[F2, LogicalTerm[F2]](lhs, rhs)
+		return term.Equals[F2, LogicalTerm[F2]](lhs, rhs)
 	case *Ite[F1]:
 		var tb, fb LogicalTerm[F2]
 		//
@@ -214,14 +220,14 @@ func concretizeLogicalTerm[F1 Element[F1], F2 Element[F2]](t LogicalTerm[F1]) Lo
 			fb = concretizeLogicalTerm[F1, F2](t.FalseBranch)
 		}
 		//
-		return ir.IfThenElse(cond, tb, fb)
+		return term.IfThenElse(cond, tb, fb)
 	case *Negate[F1]:
-		return ir.Negation(concretizeLogicalTerm[F1, F2](t.Arg))
+		return term.Negation(concretizeLogicalTerm[F1, F2](t.Arg))
 	case *NotEqual[F1]:
 		lhs := concretizeTerm[F1, F2](t.Lhs)
 		rhs := concretizeTerm[F1, F2](t.Rhs)
 		//
-		return ir.NotEquals[F2, LogicalTerm[F2]](lhs, rhs)
+		return term.NotEquals[F2, LogicalTerm[F2]](lhs, rhs)
 	default:
 		panic("unreachable")
 	}
@@ -246,24 +252,24 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	//
 	switch t := t.(type) {
 	case *Add[F1]:
-		return ir.Sum(concretizeTerms[F1, F2](t.Args)...)
+		return term.Sum(concretizeTerms[F1, F2](t.Args)...)
 	case *Constant[F1]:
 		// NOTE: could fail if  F1 value does not fit into F2 value.
-		return ir.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
+		return term.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
 	case *RegisterAccess[F1]:
-		return ir.NewRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
+		return term.NewRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
 	case *Mul[F1]:
-		return ir.Product(concretizeTerms[F1, F2](t.Args)...)
+		return term.Product(concretizeTerms[F1, F2](t.Args)...)
 	case *Sub[F1]:
-		return ir.Subtract(concretizeTerms[F1, F2](t.Args)...)
+		return term.Subtract(concretizeTerms[F1, F2](t.Args)...)
 	case *VectorAccess[F1]:
 		var nterms = make([]*RegisterAccess[F2], len(t.Vars))
 		//
 		for i, t := range t.Vars {
-			nterms[i] = ir.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
+			nterms[i] = term.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
 		}
 		//
-		return ir.NewVectorAccess(nterms)
+		return term.NewVectorAccess(nterms)
 	default:
 		panic("unreachable")
 	}
@@ -279,15 +285,15 @@ func concretizeTerms[F1 Element[F1], F2 Element[F2]](terms []Term[F1]) []Term[F2
 	return nterms
 }
 
-func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](term *RegisterAccess[F1]) *RegisterAccess[F2] {
-	return ir.RawRegisterAccess[F2, Term[F2]](term.Register, term.Shift)
+func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](expr *RegisterAccess[F1]) *RegisterAccess[F2] {
+	return term.RawRegisterAccess[F2, Term[F2]](expr.Register, expr.Shift)
 }
 
-func concretizeRegisterAccesses[F1 Element[F1], F2 Element[F2]](terms []*RegisterAccess[F1]) []*RegisterAccess[F2] {
-	var nterms = make([]*RegisterAccess[F2], len(terms))
+func concretizeRegisterAccesses[F1 Element[F1], F2 Element[F2]](exprs []*RegisterAccess[F1]) []*RegisterAccess[F2] {
+	var nterms = make([]*RegisterAccess[F2], len(exprs))
 	//
-	for i, t := range terms {
-		nterms[i] = ir.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
+	for i, t := range exprs {
+		nterms[i] = term.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
 	}
 	//
 	return nterms

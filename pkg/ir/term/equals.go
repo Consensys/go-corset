@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -22,8 +22,8 @@ import (
 )
 
 // Equals constructs an Equal representing the equality of two expressions.
-func Equals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T) S {
-	var term LogicalTerm[F, S] = &Equal[F, S, T]{
+func Equals[F field.Element[F], S Logical[F, S], T Expr[F, T]](lhs T, rhs T) S {
+	var term Logical[F, S] = &Equal[F, S, T]{
 		Lhs: lhs,
 		Rhs: rhs,
 	}
@@ -36,9 +36,9 @@ func Equals[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]](lhs T, rhs T)
 // Equal represents an Equal between two terms (e.g. "X==Y", or "X!=Y+1",
 // etc).  Equals are either equalities (or negated equalities) or
 // inequalities.
-type Equal[F field.Element[F], S LogicalTerm[F, S], T Term[F, T]] struct {
-	Lhs Term[F, T]
-	Rhs Term[F, T]
+type Equal[F field.Element[F], S Logical[F, S], T Expr[F, T]] struct {
+	Lhs Expr[F, T]
+	Rhs Expr[F, T]
 }
 
 // ApplyShift implementation for LogicalTerm interface.
@@ -91,7 +91,7 @@ func (p *Equal[F, S, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 
 // Negate implementation for LogicalTerm interface
 func (p *Equal[F, S, T]) Negate() S {
-	var tmp LogicalTerm[F, S] = &NotEqual[F, S, T]{p.Lhs, p.Rhs}
+	var tmp Logical[F, S] = &NotEqual[F, S, T]{p.Lhs, p.Rhs}
 	//
 	return tmp.(S)
 }
@@ -132,7 +132,7 @@ func (p *Equal[F, S, T]) Simplify(casts bool) S {
 		return False[F, S]()
 	}
 	// Cannot simplify
-	var tmp LogicalTerm[F, S] = &Equal[F, S, T]{lhs, rhs}
+	var tmp Logical[F, S] = &Equal[F, S, T]{lhs, rhs}
 	// Done
 	return tmp.(S)
 }

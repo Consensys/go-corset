@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"fmt"
@@ -33,21 +33,21 @@ import (
 // contains the register accesses "STAMP(0)" and "CT(-1)".  Then, STAMP(0)
 // accesses the STAMP register at row 5, whilst CT(-1) accesses the CT register at
 // row 4.
-type RegisterAccess[F field.Element[F], T Term[F, T]] struct {
+type RegisterAccess[F field.Element[F], T Expr[F, T]] struct {
 	Register register.Id
 	Shift    int
 }
 
 // NewRegisterAccess constructs an AIR expression representing the value of a
 // given register on the current row.
-func NewRegisterAccess[F field.Element[F], T Term[F, T]](register register.Id, shift int) T {
-	var term Term[F, T] = &RegisterAccess[F, T]{Register: register, Shift: shift}
+func NewRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, shift int) T {
+	var term Expr[F, T] = &RegisterAccess[F, T]{Register: register, Shift: shift}
 	return term.(T)
 }
 
 // RawRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func RawRegisterAccess[F field.Element[F], T Term[F, T]](register register.Id, shift int) *RegisterAccess[F, T] {
+func RawRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, shift int) *RegisterAccess[F, T] {
 	return &RegisterAccess[F, T]{Register: register, Shift: shift}
 }
 
@@ -56,7 +56,7 @@ func (p *RegisterAccess[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *RegisterAccess[F, T]) ApplyShift(shift int) T {
-	var reg Term[F, T] = &RegisterAccess[F, T]{Register: p.Register, Shift: p.Shift + shift}
+	var reg Expr[F, T] = &RegisterAccess[F, T]{Register: p.Register, Shift: p.Shift + shift}
 	return reg.(T)
 }
 
@@ -135,7 +135,7 @@ func (p *RegisterAccess[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *RegisterAccess[F, T]) Simplify(casts bool) T {
-	var tmp Term[F, T] = p
+	var tmp Expr[F, T] = p
 	return tmp.(T)
 }
 

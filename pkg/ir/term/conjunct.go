@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,20 +24,20 @@ import (
 
 // Conjunct erpresents the logical AND of zero or more terms.  Observe that if
 // there are no terms, then this is equivalent to logical truth.
-type Conjunct[F field.Element[F], T LogicalTerm[F, T]] struct {
+type Conjunct[F field.Element[F], T Logical[F, T]] struct {
 	// Terms here are disjuncted to formulate the final logical result.
 	Args []T
 }
 
 // True constructs a logical truth
-func True[F field.Element[F], T LogicalTerm[F, T]]() T {
+func True[F field.Element[F], T Logical[F, T]]() T {
 	return Conjunction[F, T]()
 }
 
 // IsTrue checks whether a given term corresponds to logical truth which, in
 // this system, corresponds to an empty conjunct.
-func IsTrue[F field.Element[F], T LogicalTerm[F, T]](term T) bool {
-	var t LogicalTerm[F, T] = term
+func IsTrue[F field.Element[F], T Logical[F, T]](term T) bool {
+	var t Logical[F, T] = term
 	//
 	if t, ok := t.(*Conjunct[F, T]); ok {
 		return len(t.Args) == 0
@@ -47,8 +47,8 @@ func IsTrue[F field.Element[F], T LogicalTerm[F, T]](term T) bool {
 }
 
 // Conjunction builds the logical conjunction (i.e. and) for a given set of constraints.
-func Conjunction[F field.Element[F], T LogicalTerm[F, T]](terms ...T) T {
-	var term LogicalTerm[F, T] = &Conjunct[F, T]{terms}
+func Conjunction[F field.Element[F], T Logical[F, T]](terms ...T) T {
+	var term Logical[F, T] = &Conjunct[F, T]{terms}
 	return term.(T)
 }
 
@@ -143,8 +143,8 @@ func (p *Conjunct[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 
-func flatternConjunct[F field.Element[F], T LogicalTerm[F, T]](term T) []T {
-	var e LogicalTerm[F, T] = term
+func flatternConjunct[F field.Element[F], T Logical[F, T]](term T) []T {
+	var e Logical[F, T] = term
 	if t, ok := e.(*Conjunct[F, T]); ok {
 		return t.Args
 	}

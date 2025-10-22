@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,10 +24,10 @@ import (
 )
 
 // Mul represents the product over zero or more expressions.
-type Mul[F field.Element[F], T Term[F, T]] struct{ Args []T }
+type Mul[F field.Element[F], T Expr[F, T]] struct{ Args []T }
 
 // Product returns the product of zero or more multiplications.
-func Product[F field.Element[F], T Term[F, T]](terms ...T) T {
+func Product[F field.Element[F], T Expr[F, T]](terms ...T) T {
 	// flatten any nested products
 	terms = array.Flatten(terms, flatternMul[F])
 	// Remove all multiplications by one
@@ -43,7 +43,7 @@ func Product[F field.Element[F], T Term[F, T]](terms ...T) T {
 	case 1:
 		return terms[0]
 	default:
-		var term Term[F, T] = &Mul[F, T]{terms}
+		var term Expr[F, T] = &Mul[F, T]{terms}
 		//
 		return term.(T)
 	}
@@ -54,7 +54,7 @@ func (p *Mul[F, T]) Air() {}
 
 // ApplyShift implementation for Term interface.
 func (p *Mul[F, T]) ApplyShift(shift int) T {
-	var term Term[F, T] = &Mul[F, T]{applyShiftOfTerms(p.Args, shift)}
+	var term Expr[F, T] = &Mul[F, T]{applyShiftOfTerms(p.Args, shift)}
 	return term.(T)
 }
 
@@ -117,7 +117,7 @@ func (p *Mul[F, T]) Simplify(casts bool) T {
 	var (
 		zero F = field.Zero[F]()
 		one  F = field.One[F]()
-		targ Term[F, T]
+		targ Expr[F, T]
 	)
 	//
 	terms := simplifyTerms(p.Args, mulBinOp, one, casts)
@@ -161,8 +161,8 @@ func (p *Mul[F, T]) ValueRange(mapping register.Map) math.Interval {
 	return res
 }
 
-func flatternMul[F field.Element[F], T Term[F, T]](term T) []T {
-	var e Term[F, T] = term
+func flatternMul[F field.Element[F], T Expr[F, T]](term T) []T {
+	var e Expr[F, T] = term
 	if t, ok := e.(*Mul[F, T]); ok {
 		return t.Args
 	}

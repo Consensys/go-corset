@@ -15,7 +15,7 @@ package lookup
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -34,7 +34,7 @@ type Geometry struct {
 // NewGeometry returns the calculated "geometry" for this lookup.  That
 // is, for each source/target pair, the maximum bitwidth of any source or target
 // value.
-func NewGeometry[F field.Element[F], E ir.Evaluable[F], T register.Map](c Constraint[F, E],
+func NewGeometry[F field.Element[F], E term.Evaluable[F], T register.Map](c Constraint[F, E],
 	mapping module.Map[T]) Geometry {
 	//
 	var geometry []uint = make([]uint, c.Sources[0].Len())
@@ -70,7 +70,7 @@ func (p *Geometry) LimbWidths(i uint) []uint {
 	return register.LimbWidths(p.config.RegisterWidth, p.geometry[i])
 }
 
-func updateGeometry[F field.Element[F], E ir.Evaluable[F], T register.Map](geometry []uint, source Vector[F, E],
+func updateGeometry[F field.Element[F], E term.Evaluable[F], T register.Map](geometry []uint, source Vector[F, E],
 	mapping module.Map[T]) {
 	//
 	var (

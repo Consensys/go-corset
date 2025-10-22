@@ -15,7 +15,7 @@ package interleaving
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -28,7 +28,7 @@ import (
 // Constraint declares a constraint that one expression represents the
 // interleaving of one or more expressions.  For example, suppose X=[1,2] and
 // Y=[3,4].  Then Z=[1,3,2,4] is the interleaving of X and Y.
-type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
+type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 	Handle string
 	// Context in which all target columns are evaluated.
 	TargetContext schema.ModuleId
@@ -41,7 +41,7 @@ type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 }
 
 // NewConstraint creates a new Interleave
-func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, targetContext schema.ModuleId,
+func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, targetContext schema.ModuleId,
 	sourceContext schema.ModuleId, target E, sources []E) Constraint[F, E] {
 	//
 	return Constraint[F, E]{handle, targetContext, sourceContext, target, sources}

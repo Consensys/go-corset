@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -24,19 +24,19 @@ import (
 
 // Disjunct erpresents the logical OR of zero or more terms.  Observe that if
 // there are no terms, then this is equivalent to logical falsehood.
-type Disjunct[F field.Element[F], T LogicalTerm[F, T]] struct {
+type Disjunct[F field.Element[F], T Logical[F, T]] struct {
 	Args []T
 }
 
 // False constructs a logical falsehood
-func False[F field.Element[F], T LogicalTerm[F, T]]() T {
+func False[F field.Element[F], T Logical[F, T]]() T {
 	return Disjunction[F, T]()
 }
 
 // IsFalse Check whether a given term corresponds to logical falsehood which, in
 // this system, corresponds to an empty disjunct.
-func IsFalse[F field.Element[F], T LogicalTerm[F, T]](term T) bool {
-	var t LogicalTerm[F, T] = term
+func IsFalse[F field.Element[F], T Logical[F, T]](term T) bool {
+	var t Logical[F, T] = term
 	//
 	if t, ok := t.(*Disjunct[F, T]); ok {
 		return len(t.Args) == 0
@@ -47,8 +47,8 @@ func IsFalse[F field.Element[F], T LogicalTerm[F, T]](term T) bool {
 
 // Disjunction creates a constraint representing the disjunction of a given set of
 // constraints.
-func Disjunction[F field.Element[F], T LogicalTerm[F, T]](terms ...T) T {
-	var term LogicalTerm[F, T] = &Disjunct[F, T]{terms}
+func Disjunction[F field.Element[F], T Logical[F, T]](terms ...T) T {
+	var term Logical[F, T] = &Disjunct[F, T]{terms}
 	return term.(T)
 }
 
@@ -143,8 +143,8 @@ func (p *Disjunct[F, T]) Substitute(mapping map[string]F) {
 	substituteTerms(mapping, p.Args...)
 }
 
-func flatternDisjunct[F field.Element[F], T LogicalTerm[F, T]](term T) []T {
-	var e LogicalTerm[F, T] = term
+func flatternDisjunct[F field.Element[F], T Logical[F, T]](term T) []T {
+	var e Logical[F, T] = term
 	if t, ok := e.(*Disjunct[F, T]); ok {
 		return t.Args
 	}

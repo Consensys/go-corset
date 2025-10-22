@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	air_gadgets "github.com/consensys/go-corset/pkg/ir/air/gadgets"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -303,7 +304,7 @@ func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*a
 	var nterms = make([]*air.ColumnAccess[F], len(terms))
 	//
 	for i, ith := range terms {
-		nterms[i] = ir.RawRegisterAccess[F, air.Term[F]](ith.Register, ith.Shift)
+		nterms[i] = term.RawRegisterAccess[F, air.Term[F]](ith.Register, ith.Shift)
 	}
 	//
 	return nterms
@@ -377,18 +378,18 @@ func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F],
 	var (
 		lhs air.Term[F] = p.lowerTermTo(left, airModule)
 		rhs air.Term[F] = p.lowerTermTo(right, airModule)
-		eq              = ir.Subtract(lhs, rhs)
+		eq              = term.Subtract(lhs, rhs)
 	)
 	//
 	if sign {
 		return []air.Term[F]{eq}
 	}
 	//
-	one := ir.Const64[F, air.Term[F]](1)
+	one := term.Const64[F, air.Term[F]](1)
 	// construct norm(eq)
 	norm_eq := p.normalise(eq, airModule)
 	// construct 1 - norm(eq)
-	return []air.Term[F]{ir.Subtract(one, norm_eq)}
+	return []air.Term[F]{term.Subtract(one, norm_eq)}
 }
 
 func (p *AirLowering[F]) lowerIteTo(sign bool, e *Ite[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
@@ -413,10 +414,10 @@ func (p *AirLowering[F]) lowerPositiveIteTo(e *Ite[F], airModule *air.ModuleBuil
 		if len(trueCondition) == 1 && len(falseCondition) == 1 &&
 			len(falseBranch) == 1 && len(trueBranch) == 1 {
 			// Yes, its safe to apply.
-			fb := ir.Product(trueCondition[0], falseBranch[0])
-			tb := ir.Product(falseCondition[0], trueBranch[0])
+			fb := term.Product(trueCondition[0], falseBranch[0])
+			tb := term.Product(falseCondition[0], trueBranch[0])
 			//
-			return []air.Term[F]{ir.Sum(tb, fb)}
+			return []air.Term[F]{term.Sum(tb, fb)}
 		}
 		// No, optimisation does not apply
 		terms = append(terms, disjunction(falseCondition, trueBranch)...)
@@ -466,17 +467,17 @@ func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F])
 	switch e := e.(type) {
 	case *Add[F]:
 		args := p.lowerTerms(e.Args, airModule)
-		return ir.Sum(args...)
+		return term.Sum(args...)
 	case *Constant[F]:
-		return ir.Const[F, air.Term[F]](e.Value)
+		return term.Const[F, air.Term[F]](e.Value)
 	case *RegisterAccess[F]:
-		return ir.NewRegisterAccess[F, air.Term[F]](e.Register, e.Shift)
+		return term.NewRegisterAccess[F, air.Term[F]](e.Register, e.Shift)
 	case *Mul[F]:
 		args := p.lowerTerms(e.Args, airModule)
-		return ir.Product(args...)
+		return term.Product(args...)
 	case *Sub[F]:
 		args := p.lowerTerms(e.Args, airModule)
-		return ir.Subtract(args...)
+		return term.Subtract(args...)
 	case *VectorAccess[F]:
 		return p.lowerVectorAccess(e, airModule)
 	default:
@@ -503,24 +504,24 @@ func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule *air.Mo
 	)
 	//
 	for i, v := range e.Vars {
-		ith := ir.NewRegisterAccess[F, air.Term[F]](v.Register, v.Shift)
+		ith := term.NewRegisterAccess[F, air.Term[F]](v.Register, v.Shift)
 		// Apply shift
-		terms[i] = ir.Product(shiftTerm(ith, shift))
+		terms[i] = term.Product(shiftTerm(ith, shift))
 		//
 		shift = shift + airModule.Register(v.Register).Width
 	}
 	//
-	return ir.Sum(terms...)
+	return term.Sum(terms...)
 }
 
-func shiftTerm[F field.Element[F]](term air.Term[F], width uint) air.Term[F] {
+func shiftTerm[F field.Element[F]](expr air.Term[F], width uint) air.Term[F] {
 	if width == 0 {
-		return term
+		return expr
 	}
 	// Compute 2^width
 	n := field.TwoPowN[F](width)
 	//
-	return ir.Product(ir.Const[F, air.Term[F]](n), term)
+	return term.Product(term.Const[F, air.Term[F]](n), expr)
 }
 
 func (p *AirLowering[F]) normalise(arg air.Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
@@ -533,7 +534,7 @@ func (p *AirLowering[F]) normalise(arg air.Term[F], airModule *air.ModuleBuilder
 		return arg
 	} else if p.config.InverseEliminiationLevel > 0 && bounds.Within(util_math.NewInterval64(-1, 1)) {
 		// arg ∈ {-1,0,1} ==> (arg*arg) ∈ {0,1}
-		return ir.Product(arg, arg)
+		return term.Product(arg, arg)
 	}
 	// Determine appropriate shift
 	shift := 0
@@ -574,7 +575,7 @@ func disjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
 	switch len(terms) {
 	case 0:
 		// NOTE: return non-zero value to indicate a failure.
-		return []air.Term[F]{ir.Const64[F, air.Term[F]](1)}
+		return []air.Term[F]{term.Const64[F, air.Term[F]](1)}
 	case 1:
 		return terms[0]
 	}
@@ -588,7 +589,7 @@ func disjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
 	// explore whether extractNormalisedCondition could help here.
 	for _, l := range lhs {
 		for _, r := range rhs {
-			disjunct := ir.Product(l, r)
+			disjunct := term.Product(l, r)
 			nterms = append(nterms, disjunct)
 		}
 	}

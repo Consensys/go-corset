@@ -13,7 +13,7 @@
 package mir
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -36,14 +36,14 @@ func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping mo
 	return vanishing.NewConstraint(p.Handle, p.Context, p.Domain, c)
 }
 
-func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping register.LimbsMap,
+func splitLogicalTerm[F field.Element[F]](expr LogicalTerm[F], mapping register.LimbsMap,
 	env agnostic.RegisterAllocator) LogicalTerm[F] {
 	//
-	switch t := term.(type) {
+	switch t := expr.(type) {
 	case *Conjunct[F]:
-		return ir.Conjunction(splitLogicalTerms(t.Args, mapping, env)...)
+		return term.Conjunction(splitLogicalTerms(t.Args, mapping, env)...)
 	case *Disjunct[F]:
-		return ir.Disjunction(splitLogicalTerms(t.Args, mapping, env)...)
+		return term.Disjunction(splitLogicalTerms(t.Args, mapping, env)...)
 	case *Equal[F]:
 		return splitEquality(true, t.Lhs, t.Rhs, mapping, env)
 	case *Ite[F]:
@@ -51,9 +51,9 @@ func splitLogicalTerm[F field.Element[F]](term LogicalTerm[F], mapping register.
 		trueBranch := splitOptionalLogicalTerm(t.TrueBranch, mapping, env)
 		falseBranch := splitOptionalLogicalTerm(t.FalseBranch, mapping, env)
 		//
-		return ir.IfThenElse(condition, trueBranch, falseBranch)
+		return term.IfThenElse(condition, trueBranch, falseBranch)
 	case *Negate[F]:
-		return ir.Negation(splitLogicalTerm(t.Arg, mapping, env))
+		return term.Negation(splitLogicalTerm(t.Arg, mapping, env))
 	case *NotEqual[F]:
 		return splitEquality(false, t.Lhs, t.Rhs, mapping, env)
 	default:
@@ -104,15 +104,15 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping regi
 		r := polynomialToTerm[F](eq.RightHandSide)
 		//
 		if sign {
-			terms[i] = ir.Equals[F, LogicalTerm[F]](l, r)
+			terms[i] = term.Equals[F, LogicalTerm[F]](l, r)
 		} else {
-			terms[i] = ir.NotEquals[F, LogicalTerm[F]](l, r)
+			terms[i] = term.NotEquals[F, LogicalTerm[F]](l, r)
 		}
 	}
 	// Done (for now)
 	if sign {
-		return ir.Conjunction(terms...)
+		return term.Conjunction(terms...)
 	}
 	//
-	return ir.Disjunction(terms...)
+	return term.Disjunction(terms...)
 }

@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -293,7 +293,7 @@ func splitVariable(rid register.Id, bitwidth uint, p RelativePolynomial,
 	)
 	//
 	for i, w := range limbWidths {
-		limbs[i] = mapping.Allocate(reg.Name, w, util.None[ir.Computation[word.BigEndian]]())
+		limbs[i] = mapping.Allocate(reg.Name, w, util.None[term.Computation[word.BigEndian]]())
 	}
 	// FIXME: assignment required for filling limbs
 	//

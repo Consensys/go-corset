@@ -13,7 +13,7 @@
 package mir
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -51,18 +51,18 @@ func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ module.LimbsMa
 	return c
 }
 
-func splitTerm[F field.Element[F]](term Term[F], mapping register.LimbsMap) Term[F] {
-	switch t := term.(type) {
+func splitTerm[F field.Element[F]](expr Term[F], mapping register.LimbsMap) Term[F] {
+	switch t := expr.(type) {
 	case *Add[F]:
-		return ir.Sum(splitTerms(t.Args, mapping)...)
+		return term.Sum(splitTerms(t.Args, mapping)...)
 	case *Constant[F]:
 		return t
 	case *RegisterAccess[F]:
 		return splitRegisterAccess(t, mapping)
 	case *Mul[F]:
-		return ir.Product(splitTerms(t.Args, mapping)...)
+		return term.Product(splitTerms(t.Args, mapping)...)
 	case *Sub[F]:
-		return ir.Subtract(splitTerms(t.Args, mapping)...)
+		return term.Subtract(splitTerms(t.Args, mapping)...)
 	case *VectorAccess[F]:
 		return splitVectorAccess(t, mapping)
 	default:
@@ -80,16 +80,16 @@ func splitTerms[F field.Element[F]](terms []Term[F], mapping register.LimbsMap) 
 	return nterms
 }
 
-func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping register.LimbsMap) Term[F] {
+func splitRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping register.LimbsMap) Term[F] {
 	var (
 		// Determine limbs for this register
-		limbs = mapping.LimbIds(term.Register)
+		limbs = mapping.LimbIds(expr.Register)
 		// Construct appropriate terms
 		terms = make([]*RegisterAccess[F], len(limbs))
 	)
 	//
 	for i, limb := range limbs {
-		terms[i] = &ir.RegisterAccess[F, Term[F]]{Register: limb, Shift: term.Shift}
+		terms[i] = &term.RegisterAccess[F, Term[F]]{Register: limb, Shift: expr.Shift}
 	}
 	// Check whether vector required, or not
 	if len(limbs) == 1 {
@@ -98,20 +98,20 @@ func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping re
 		return terms[0]
 	}
 	//
-	return ir.NewVectorAccess(terms)
+	return term.NewVectorAccess(terms)
 }
 
-func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping register.LimbsMap) Term[F] {
+func splitVectorAccess[F field.Element[F]](expr *VectorAccess[F], mapping register.LimbsMap) Term[F] {
 	var terms []*RegisterAccess[F]
 	//
-	for _, v := range term.Vars {
+	for _, v := range expr.Vars {
 		for _, limb := range mapping.LimbIds(v.Register) {
-			term := &ir.RegisterAccess[F, Term[F]]{Register: limb, Shift: v.Shift}
+			term := &term.RegisterAccess[F, Term[F]]{Register: limb, Shift: v.Shift}
 			terms = append(terms, term)
 		}
 	}
 	//
-	return ir.NewVectorAccess(terms)
+	return term.NewVectorAccess(terms)
 }
 
 func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], mapping register.LimbsMap,
@@ -128,19 +128,19 @@ func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], ma
 	return vecs
 }
 
-func splitRawRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping register.LimbsMap,
+func splitRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping register.LimbsMap,
 ) *VectorAccess[F] {
 	//
 	var (
 		// Determine limbs for this register
-		limbs = mapping.LimbIds(term.Register)
+		limbs = mapping.LimbIds(expr.Register)
 		// Construct appropriate terms
 		terms = make([]*RegisterAccess[F], len(limbs))
 	)
 	//
 	for i, limb := range limbs {
-		terms[i] = &ir.RegisterAccess[F, Term[F]]{Register: limb, Shift: term.Shift}
+		terms[i] = &term.RegisterAccess[F, Term[F]]{Register: limb, Shift: expr.Shift}
 	}
 	//
-	return ir.RawVectorAccess(terms)
+	return term.RawVectorAccess(terms)
 }

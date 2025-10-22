@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"math/big"
@@ -26,12 +26,12 @@ import (
 
 // Norm reduces the value of an expression to either zero (if it was zero)
 // or one (otherwise).
-type Norm[F field.Element[F], T Term[F, T]] struct{ Arg T }
+type Norm[F field.Element[F], T Expr[F, T]] struct{ Arg T }
 
 // Normalise normalises the result of evaluating a given expression to be
 // either 0 (if its value was 0) or 1 (otherwise).
-func Normalise[F field.Element[F], T Term[F, T]](arg T) T {
-	var term Term[F, T] = &Norm[F, T]{arg}
+func Normalise[F field.Element[F], T Expr[F, T]](arg T) T {
+	var term Expr[F, T] = &Norm[F, T]{arg}
 	return term.(T)
 }
 
@@ -89,7 +89,7 @@ func (p *Norm[F, T]) ShiftRange() (int, int) {
 func (p *Norm[F, T]) Simplify(casts bool) T {
 	var (
 		arg  T          = p.Arg.Simplify(casts)
-		targ Term[F, T] = arg
+		targ Expr[F, T] = arg
 	)
 	//
 	if c, ok := targ.(*Constant[F, T]); ok {

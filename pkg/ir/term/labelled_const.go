@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ir
+package term
 
 import (
 	"math"
@@ -28,21 +28,21 @@ import (
 // LabelledConst represents a constant value which is labelled with a given
 // name.  The purpose of this is to allow labelled constants to be substituted
 // for different values when desired.
-type LabelledConst[F field.Element[F], T Term[F, T]] struct {
+type LabelledConst[F field.Element[F], T Expr[F, T]] struct {
 	Label string
 	Value F
 }
 
 // LabelledConstant construct an expression representing a constant with a given
 // label.
-func LabelledConstant[F field.Element[F], T Term[F, T]](label string, value F) T {
-	var term Term[F, T] = &LabelledConst[F, T]{Label: label, Value: value}
+func LabelledConstant[F field.Element[F], T Expr[F, T]](label string, value F) T {
+	var term Expr[F, T] = &LabelledConst[F, T]{Label: label, Value: value}
 	return term.(T)
 }
 
 // ApplyShift implementation for Term interface.
 func (p *LabelledConst[F, T]) ApplyShift(int) T {
-	var term Term[F, T] = p
+	var term Expr[F, T] = p
 	return term.(T)
 }
 
@@ -78,7 +78,7 @@ func (p *LabelledConst[F, T]) ShiftRange() (int, int) {
 
 // Simplify implementation for Term interface.
 func (p *LabelledConst[F, T]) Simplify(casts bool) T {
-	var tmp Term[F, T] = p
+	var tmp Expr[F, T] = p
 	return tmp.(T)
 }
 

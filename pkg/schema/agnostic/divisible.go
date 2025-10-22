@@ -13,21 +13,31 @@
 package agnostic
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
+// Computation here represents an "agnostic" computation.  That is one which
+// operates over unbounded words.
+type Computation = term.Computation[word.BigEndian]
+
 // EMPTY_COMPUTATION is used to signal no filler is required for an allocated
 // register.
-var EMPTY_COMPUTATION = util.None[ir.Computation[word.BigEndian]]()
+var EMPTY_COMPUTATION = util.None[Computation]()
 
 // RegisterAllocator is used to allocate fresh registers with optional
 // "fillers". That is, computation which can be used to assign values to them in
 // the final trace.
-type RegisterAllocator = register.Allocator[ir.Computation[word.BigEndian]]
+type RegisterAllocator = register.Allocator[term.Computation[word.BigEndian]]
+
+// NewRegisterAllocator constructs a new register allocator from a given
+// register map.
+func NewRegisterAllocator(mapping register.Map) RegisterAllocator {
+	return register.NewAllocator[Computation](mapping)
+}
 
 // SubDivisible captures the notion of an entity (e.g. module, constraint or
 // assignment) which is agnostic to the underlying field being used.  More

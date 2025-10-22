@@ -15,7 +15,7 @@ package interleaving
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -28,11 +28,11 @@ type Failure[F any] struct {
 	// Relevant context for target expressions.
 	TargetContext schema.ModuleId
 	// Target expression involved
-	Target ir.Evaluable[F]
+	Target term.Evaluable[F]
 	// Relevant context for source expressions.
 	SourceContext schema.ModuleId
 	// Source expression which were missing
-	Source ir.Evaluable[F]
+	Source term.Evaluable[F]
 	// Target row on which constraint
 	Row uint
 }

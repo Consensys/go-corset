@@ -15,6 +15,7 @@ package ir
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -35,7 +36,7 @@ type BuildableModule[F any, C schema.Constraint[F], M any] interface {
 }
 
 // BuildSchema builds all modules defined within a give SchemaBuilder instance.
-func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constraint[F], T Term[F, T]](
+func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](
 	p SchemaBuilder[F, C, T]) []M {
 	//
 	var modules = make([]M, len(p.modules))
@@ -48,7 +49,7 @@ func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constr
 }
 
 // BuildModule builds a module from a given ModuleBuilder instance.
-func BuildModule[F field.Element[F], C schema.Constraint[F], T Term[F, T], M BuildableModule[F, C, M]](
+func BuildModule[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], M BuildableModule[F, C, M]](
 	m ModuleBuilder[F, C, T]) M {
 	//
 	var module M
@@ -64,7 +65,7 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T Term[F, T], M Bui
 // SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
 // simplify the problem of mapping source-level names to e.g. module-specific
 // register indexes.
-type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] struct {
+type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
 	// Modmap maps modules identifers to modules
 	modmap map[string]uint
 	// Externs represent modules which have already been constructed.  These
@@ -77,7 +78,7 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] str
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T], E register.Map](externs ...E,
+func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], E register.Map](externs ...E,
 ) SchemaBuilder[F, C, T] {
 	var (
 		modmap   = make(map[string]uint, 0)
@@ -149,7 +150,7 @@ func (p *SchemaBuilder[F, C, T]) ModuleOf(name string) *ModuleBuilder[F, C, T] {
 // use in schemas.  For example, it maintains a mapping from register names to
 // their relevant indices.  It also provides a mechanism for constructing a
 // register access based on the register name, etc.
-type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] struct {
+type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
 	extern bool
 	// Name of the module being constructed
 	name string
@@ -174,7 +175,7 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]] str
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](name string, mid schema.ModuleId,
+func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name string, mid schema.ModuleId,
 	multiplier uint, padding, public, synthetic bool) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
@@ -183,7 +184,7 @@ func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](
 
 // NewExternModuleBuilder constructs a new builder suitable for external
 // modules.  These are just used for linking purposes.
-func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T Term[F, T]](mid schema.ModuleId,
+func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](mid schema.ModuleId,
 	module register.Map) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
@@ -340,11 +341,11 @@ func (p *ModuleBuilder[F, C, T]) Registers() []register.Register {
 }
 
 // RegisterAccessOf returns a register accessor for the register with the given name.
-func (p *ModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int) *RegisterAccess[F, T] {
+func (p *ModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int) *term.RegisterAccess[F, T] {
 	// Lookup register associated with this name
 	rid := p.regmap[name]
 	//
-	return &RegisterAccess[F, T]{
+	return &term.RegisterAccess[F, T]{
 		Register: register.NewId(rid),
 		Shift:    shift,
 	}
