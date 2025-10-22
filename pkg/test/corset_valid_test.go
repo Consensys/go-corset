@@ -22,8 +22,9 @@ import (
 func Check(t *testing.T, stdlib bool, test string) {
 	util.CheckWithFields(t, stdlib, test, util.CORSET_MAX_PADDING,
 		field.BLS12_377,
-		field.GF_8209,
-		field.GF_251)
+		field.KOALABEAR_16,
+		//field.GF_8209,
+	)
 }
 
 // ===================================================================
@@ -43,7 +44,7 @@ func Test_Valid_Basic_03(t *testing.T) {
 }
 
 func Test_Valid_Basic_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/basic_04")
+	Check(t, false, "corset/valid/basic_04")
 }
 
 // Ignored because uses a negative constant.
@@ -53,23 +54,23 @@ func Test_Valid_Basic_04(t *testing.T) {
 // }
 
 func Test_Valid_Basic_06(t *testing.T) {
-	util.Check(t, false, "corset/valid/basic_06")
+	Check(t, false, "corset/valid/basic_06")
 }
 
 func Test_Valid_Basic_07(t *testing.T) {
-	util.Check(t, false, "corset/valid/basic_07")
+	Check(t, false, "corset/valid/basic_07")
 }
 
 func Test_Valid_Basic_08(t *testing.T) {
-	util.Check(t, false, "corset/valid/basic_08")
+	Check(t, false, "corset/valid/basic_08")
 }
 
 func Test_Valid_Basic_09(t *testing.T) {
-	util.Check(t, false, "corset/valid/basic_09")
+	Check(t, false, "corset/valid/basic_09")
 }
 
 func Test_Valid_Basic_10(t *testing.T) {
-	util.Check(t, false, "corset/valid/basic_10")
+	Check(t, false, "corset/valid/basic_10")
 }
 
 func Test_Valid_Basic_11(t *testing.T) {
@@ -83,6 +84,9 @@ func Test_Valid_Basic_13(t *testing.T) {
 }
 func Test_Valid_Basic_14(t *testing.T) {
 	Check(t, false, "corset/valid/basic_14")
+}
+func Test_Valid_Basic_15(t *testing.T) {
+	Check(t, false, "corset/valid/basic_15")
 }
 
 // ===================================================================
@@ -105,15 +109,15 @@ func Test_Valid_Constant_04(t *testing.T) {
 }
 
 func Test_Valid_Constant_05(t *testing.T) {
-	util.Check(t, false, "corset/valid/constant_05")
+	Check(t, false, "corset/valid/constant_05")
 }
 
 func Test_Valid_Constant_06(t *testing.T) {
-	util.Check(t, false, "corset/valid/constant_06")
+	Check(t, false, "corset/valid/constant_06")
 }
 
 func Test_Valid_Constant_07(t *testing.T) {
-	util.Check(t, false, "corset/valid/constant_07")
+	Check(t, false, "corset/valid/constant_07")
 }
 
 func Test_Valid_Constant_08(t *testing.T) {
@@ -187,7 +191,7 @@ func Test_Valid_Domain_02(t *testing.T) {
 }
 
 func Test_Valid_Domain_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/domain_03")
+	Check(t, false, "corset/valid/domain_03")
 }
 
 // ===================================================================
@@ -203,7 +207,7 @@ func Test_Valid_Block_02(t *testing.T) {
 }
 
 func Test_Valid_Block_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/block_03")
+	Check(t, false, "corset/valid/block_03")
 }
 
 func Test_Valid_Block_04(t *testing.T) {
@@ -220,7 +224,7 @@ func Test_Valid_Logic_01(t *testing.T) {
 
 func Test_Valid_Logic_02(t *testing.T) {
 	// Performance
-	util.Check(t, false, "corset/valid/logic_02")
+	Check(t, false, "corset/valid/logic_02")
 }
 
 // ===================================================================
@@ -228,7 +232,7 @@ func Test_Valid_Logic_02(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Property_01(t *testing.T) {
-	util.Check(t, false, "corset/valid/property_01")
+	Check(t, false, "corset/valid/property_01")
 }
 
 func Test_Valid_Property_02(t *testing.T) {
@@ -239,7 +243,7 @@ func Test_Valid_Property_03(t *testing.T) {
 	Check(t, false, "corset/valid/property_03")
 }
 func Test_Valid_Property_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/property_04")
+	Check(t, false, "corset/valid/property_04")
 }
 
 // ===================================================================
@@ -247,7 +251,7 @@ func Test_Valid_Property_04(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Shift_01(t *testing.T) {
-	util.Check(t, false, "corset/valid/shift_01")
+	Check(t, false, "corset/valid/shift_01")
 }
 
 func Test_Valid_Shift_02(t *testing.T) {
@@ -255,19 +259,19 @@ func Test_Valid_Shift_02(t *testing.T) {
 }
 
 func Test_Valid_Shift_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/shift_03")
+	Check(t, false, "corset/valid/shift_03")
 }
 
 func Test_Valid_Shift_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/shift_04")
+	Check(t, false, "corset/valid/shift_04")
 }
 
 func Test_Valid_Shift_05(t *testing.T) {
-	util.Check(t, false, "corset/valid/shift_05")
+	Check(t, false, "corset/valid/shift_05")
 }
 
 func Test_Valid_Shift_06(t *testing.T) {
-	util.Check(t, false, "corset/valid/shift_06")
+	Check(t, false, "corset/valid/shift_06")
 }
 
 func Test_Valid_Shift_07(t *testing.T) {
@@ -286,39 +290,39 @@ func Test_Valid_Shift_09(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Spillage_01(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_01")
+	Check(t, false, "corset/valid/spillage_01")
 }
 
 func Test_Valid_Spillage_02(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_02")
+	Check(t, false, "corset/valid/spillage_02")
 }
 
 func Test_Valid_Spillage_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_03")
+	Check(t, false, "corset/valid/spillage_03")
 }
 
 func Test_Valid_Spillage_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_04")
+	Check(t, false, "corset/valid/spillage_04")
 }
 
 func Test_Valid_Spillage_05(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_05")
+	Check(t, false, "corset/valid/spillage_05")
 }
 
 func Test_Valid_Spillage_06(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_06")
+	Check(t, false, "corset/valid/spillage_06")
 }
 
 func Test_Valid_Spillage_07(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_07")
+	Check(t, false, "corset/valid/spillage_07")
 }
 
 func Test_Valid_Spillage_08(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_08")
+	Check(t, false, "corset/valid/spillage_08")
 }
 
 func Test_Valid_Spillage_09(t *testing.T) {
-	util.Check(t, false, "corset/valid/spillage_09")
+	Check(t, false, "corset/valid/spillage_09")
 }
 
 // ===================================================================
@@ -350,7 +354,7 @@ func Test_Valid_Norm_06(t *testing.T) {
 }
 
 func Test_Valid_Norm_07(t *testing.T) {
-	util.Check(t, false, "corset/valid/norm_07")
+	Check(t, false, "corset/valid/norm_07")
 }
 
 // ===================================================================
@@ -362,7 +366,7 @@ func Test_Valid_If_01(t *testing.T) {
 }
 
 func Test_Valid_If_02(t *testing.T) {
-	util.Check(t, false, "corset/valid/if_02")
+	Check(t, false, "corset/valid/if_02")
 }
 
 func Test_Valid_If_03(t *testing.T) {
@@ -394,33 +398,33 @@ func Test_Valid_If_09(t *testing.T) {
 }
 
 func Test_Valid_If_10(t *testing.T) {
-	util.Check(t, false, "corset/valid/if_10")
+	Check(t, false, "corset/valid/if_10")
 }
 
 func Test_Valid_If_11(t *testing.T) {
 	Check(t, false, "corset/valid/if_11")
 }
 func Test_Valid_If_12(t *testing.T) {
-	util.Check(t, false, "corset/valid/if_12")
+	Check(t, false, "corset/valid/if_12")
 }
 func Test_Valid_If_13(t *testing.T) {
 	Check(t, false, "corset/valid/if_13")
 }
 
 func Test_Valid_If_14(t *testing.T) {
-	util.Check(t, false, "corset/valid/if_14")
+	Check(t, false, "corset/valid/if_14")
 }
 
 func Test_Valid_If_15(t *testing.T) {
-	util.Check(t, false, "corset/valid/if_15")
+	Check(t, false, "corset/valid/if_15")
 }
 
 func Test_Valid_If_16(t *testing.T) {
-	util.Check(t, false, "corset/valid/if_16")
+	Check(t, false, "corset/valid/if_16")
 }
 
 func Test_Valid_If_17(t *testing.T) {
-	util.Check(t, false, "corset/valid/if_17")
+	Check(t, false, "corset/valid/if_17")
 }
 
 func Test_Valid_If_18(t *testing.T) {
@@ -444,7 +448,7 @@ func Test_Valid_If_21(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Guard_01(t *testing.T) {
-	util.Check(t, false, "corset/valid/guard_01")
+	Check(t, false, "corset/valid/guard_01")
 }
 
 func Test_Valid_Guard_02(t *testing.T) {
@@ -468,7 +472,7 @@ func Test_Valid_Guard_05(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Type_01(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_01")
+	Check(t, false, "corset/valid/type_01")
 }
 
 func Test_Valid_Type_02(t *testing.T) {
@@ -476,35 +480,35 @@ func Test_Valid_Type_02(t *testing.T) {
 }
 
 func Test_Valid_Type_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_03")
+	Check(t, false, "corset/valid/type_03")
 }
 
 func Test_Valid_Type_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_04")
+	Check(t, false, "corset/valid/type_04")
 }
 
 func Test_Valid_Type_05(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_05")
+	Check(t, false, "corset/valid/type_05")
 }
 
 func Test_Valid_Type_06(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_06")
+	Check(t, false, "corset/valid/type_06")
 }
 
 func Test_Valid_Type_07(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_07")
+	Check(t, false, "corset/valid/type_07")
 }
 
 func Test_Valid_Type_08(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_08")
+	Check(t, false, "corset/valid/type_08")
 }
 
 func Test_Valid_Type_09(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_09")
+	Check(t, false, "corset/valid/type_09")
 }
 
 func Test_Valid_Type_10(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_10")
+	Check(t, false, "corset/valid/type_10")
 }
 
 func Test_Valid_Type_11(t *testing.T) {
@@ -512,7 +516,7 @@ func Test_Valid_Type_11(t *testing.T) {
 }
 
 func Test_Valid_Type_12(t *testing.T) {
-	util.Check(t, false, "corset/valid/type_12")
+	Check(t, false, "corset/valid/type_12")
 }
 
 func Test_Valid_Type_13(t *testing.T) {
@@ -536,7 +540,7 @@ func Test_Valid_Range_03(t *testing.T) {
 }
 
 func Test_Valid_Range_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/range_04")
+	Check(t, false, "corset/valid/range_04")
 }
 
 // #1247 --- This is an issue as we have a potentially negative expression used
@@ -563,7 +567,7 @@ func Test_Valid_ConstExpr_03(t *testing.T) {
 }
 
 func Test_Valid_ConstExpr_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/constexpr_04")
+	Check(t, false, "corset/valid/constexpr_04")
 }
 
 func Test_Valid_ConstExpr_05(t *testing.T) {
@@ -595,23 +599,23 @@ func Test_Valid_Module_05(t *testing.T) {
 }
 
 func Test_Valid_Module_06(t *testing.T) {
-	util.Check(t, false, "corset/valid/module_06")
+	Check(t, false, "corset/valid/module_06")
 }
 
 func Test_Valid_Module_07(t *testing.T) {
-	util.Check(t, false, "corset/valid/module_07")
+	Check(t, false, "corset/valid/module_07")
 }
 
 func Test_Valid_Module_08(t *testing.T) {
-	util.Check(t, false, "corset/valid/module_08")
+	Check(t, false, "corset/valid/module_08")
 }
 
 func Test_Valid_Module_09(t *testing.T) {
-	util.Check(t, false, "corset/valid/module_09")
+	Check(t, false, "corset/valid/module_09")
 }
 
 func Test_Valid_Module_10(t *testing.T) {
-	util.Check(t, false, "corset/valid/module_10")
+	Check(t, false, "corset/valid/module_10")
 }
 
 // NOTE: uses conditional module
@@ -735,11 +739,11 @@ func Test_Valid_Lookup_03(t *testing.T) {
 }
 
 func Test_Valid_Lookup_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_04")
+	Check(t, false, "corset/valid/lookup_04")
 }
 
 func Test_Valid_Lookup_05(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_05")
+	Check(t, false, "corset/valid/lookup_05")
 }
 
 func Test_Valid_Lookup_06(t *testing.T) {
@@ -761,7 +765,7 @@ func Test_Valid_Lookup_09(t *testing.T) {
 }
 
 func Test_Valid_Lookup_10(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_10")
+	Check(t, false, "corset/valid/lookup_10")
 }
 
 func Test_Valid_Lookup_11(t *testing.T) {
@@ -781,7 +785,7 @@ func Test_Valid_Lookup_14(t *testing.T) {
 }
 
 func Test_Valid_Lookup_15(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_15")
+	Check(t, false, "corset/valid/lookup_15")
 }
 
 func Test_Valid_Lookup_16(t *testing.T) {
@@ -789,38 +793,38 @@ func Test_Valid_Lookup_16(t *testing.T) {
 }
 
 func Test_Valid_Lookup_17(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_17")
+	Check(t, false, "corset/valid/lookup_17")
 }
 
 func Test_Valid_Lookup_18(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_18")
+	Check(t, false, "corset/valid/lookup_18")
 }
 
 func Test_Valid_Lookup_19(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_19")
+	Check(t, false, "corset/valid/lookup_19")
 }
 
 func Test_Valid_Lookup_20(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_20")
+	Check(t, false, "corset/valid/lookup_20")
 }
 
 func Test_Valid_Lookup_21(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_21")
+	Check(t, false, "corset/valid/lookup_21")
 }
 
 func Test_Valid_Lookup_22(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_22")
+	Check(t, false, "corset/valid/lookup_22")
 }
 
 func Test_Valid_Lookup_23(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_23")
+	Check(t, false, "corset/valid/lookup_23")
 }
 
 func Test_Valid_Lookup_24(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_24")
+	Check(t, false, "corset/valid/lookup_24")
 }
 func Test_Valid_Lookup_25(t *testing.T) {
-	util.Check(t, false, "corset/valid/lookup_25")
+	Check(t, false, "corset/valid/lookup_25")
 }
 
 func Test_Valid_Lookup_26(t *testing.T) {
@@ -873,7 +877,7 @@ func Test_Valid_Fun_02(t *testing.T) {
 }
 
 func Test_Valid_Fun_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/fun_03")
+	Check(t, false, "corset/valid/fun_03")
 }
 
 func Test_Valid_Fun_04(t *testing.T) {
@@ -885,7 +889,7 @@ func Test_Valid_Fun_05(t *testing.T) {
 }
 
 func Test_Valid_Fun_06(t *testing.T) {
-	util.Check(t, false, "corset/valid/fun_06")
+	Check(t, false, "corset/valid/fun_06")
 }
 
 func Test_Valid_Fun_07(t *testing.T) {
@@ -921,11 +925,11 @@ func Test_Valid_PureFun_06(t *testing.T) {
 }
 
 func Test_Valid_PureFun_07(t *testing.T) {
-	util.Check(t, false, "corset/valid/purefun_07")
+	Check(t, false, "corset/valid/purefun_07")
 }
 
 func Test_Valid_PureFun_08(t *testing.T) {
-	util.Check(t, false, "corset/valid/purefun_08")
+	Check(t, false, "corset/valid/purefun_08")
 }
 
 func Test_Valid_PureFun_09(t *testing.T) {
@@ -1012,7 +1016,7 @@ func Test_Valid_Reduce_02(t *testing.T) {
 }
 
 func Test_Valid_Reduce_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/reduce_03")
+	Check(t, false, "corset/valid/reduce_03")
 }
 
 func Test_Valid_Reduce_04(t *testing.T) {
@@ -1044,23 +1048,23 @@ func Test_Valid_Debug_03(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Perspective_01(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_01")
+	Check(t, false, "corset/valid/perspective_01")
 }
 
 func Test_Valid_Perspective_02(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_02")
+	Check(t, false, "corset/valid/perspective_02")
 }
 
 func Test_Valid_Perspective_03(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_03")
+	Check(t, false, "corset/valid/perspective_03")
 }
 
 func Test_Valid_Perspective_04(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_04")
+	Check(t, false, "corset/valid/perspective_04")
 }
 
 func Test_Valid_Perspective_05(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_05")
+	Check(t, false, "corset/valid/perspective_05")
 }
 
 func Test_Valid_Perspective_06(t *testing.T) {
@@ -1096,63 +1100,63 @@ func Test_Valid_Perspective_13(t *testing.T) {
 }
 
 func Test_Valid_Perspective_14(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_14")
+	Check(t, false, "corset/valid/perspective_14")
 }
 
 func Test_Valid_Perspective_15(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_15")
+	Check(t, false, "corset/valid/perspective_15")
 }
 
 func Test_Valid_Perspective_16(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_16")
+	Check(t, false, "corset/valid/perspective_16")
 }
 
 func Test_Valid_Perspective_17(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_17")
+	Check(t, false, "corset/valid/perspective_17")
 }
 
 func Test_Valid_Perspective_18(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_18")
+	Check(t, false, "corset/valid/perspective_18")
 }
 
 func Test_Valid_Perspective_19(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_19")
+	Check(t, false, "corset/valid/perspective_19")
 }
 
 func Test_Valid_Perspective_20(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_20")
+	Check(t, false, "corset/valid/perspective_20")
 }
 
 func Test_Valid_Perspective_21(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_21")
+	Check(t, false, "corset/valid/perspective_21")
 }
 
 func Test_Valid_Perspective_22(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_22")
+	Check(t, false, "corset/valid/perspective_22")
 }
 
 func Test_Valid_Perspective_23(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_23")
+	Check(t, false, "corset/valid/perspective_23")
 }
 
 func Test_Valid_Perspective_24(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_24")
+	Check(t, false, "corset/valid/perspective_24")
 }
 
 func Test_Valid_Perspective_26(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_26")
+	Check(t, false, "corset/valid/perspective_26")
 }
 
 func Test_Valid_Perspective_27(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_27")
+	Check(t, false, "corset/valid/perspective_27")
 }
 
 func Test_Valid_Perspective_28(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_28")
+	Check(t, false, "corset/valid/perspective_28")
 }
 
 func Test_Valid_Perspective_29(t *testing.T) {
-	util.Check(t, false, "corset/valid/perspective_29")
+	Check(t, false, "corset/valid/perspective_29")
 }
 
 func Test_Valid_Perspective_30(t *testing.T) {

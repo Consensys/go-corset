@@ -20,8 +20,20 @@ import (
 func GenerateRandomUints(n, m uint) []uint {
 	items := make([]uint, n)
 
-	for i := uint(0); i < n; i++ {
+	for i := range n {
 		items[i] = rand.UintN(m)
+	}
+
+	return items
+}
+
+// GenerateRandomUint64s generates n random 64bit unsigned integers in the range
+// 0..m.
+func GenerateRandomUint64s(n, m uint64) []uint64 {
+	items := make([]uint64, n)
+
+	for i := range n {
+		items[i] = rand.Uint64N(m)
 	}
 
 	return items

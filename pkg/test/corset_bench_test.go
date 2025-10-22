@@ -19,119 +19,110 @@ import (
 )
 
 func Test_Bench_Counter(t *testing.T) {
-	util.Check(t, true, "corset/bench/counter")
+	Check(t, true, "corset/bench/counter")
 }
 
 func Test_Bench_ByteDecomp(t *testing.T) {
-	util.Check(t, true, "corset/bench/byte_decomposition")
+	Check(t, true, "corset/bench/byte_decomposition")
 }
 
 func Test_Bench_BitDecomp(t *testing.T) {
-	util.Check(t, true, "corset/bench/bit_decomposition")
+	Check(t, true, "corset/bench/bit_decomposition")
 }
 
 func Test_Bench_BitShift(t *testing.T) {
-	util.Check(t, true, "corset/bench/bit_shift")
+	Check(t, true, "corset/bench/bit_shift")
 }
 
 func Test_Bench_ByteSorting(t *testing.T) {
-	util.Check(t, true, "corset/bench/byte_sorting")
+	Check(t, true, "corset/bench/byte_sorting")
 }
 
 func Test_Bench_WordSorting(t *testing.T) {
-	util.Check(t, true, "corset/bench/word_sorting")
+	Check(t, true, "corset/bench/word_sorting")
 }
 
 func Test_Bench_Multiplier(t *testing.T) {
-	util.Check(t, false, "corset/bench/multiplier")
+	Check(t, false, "corset/bench/multiplier")
 }
 
-// #1247
-//
-//	func Test_Bench_Memory16u8(t *testing.T) {
-//		util.Check(t, true, "corset/bench/memory16u8")
-//	}
+func Test_Bench_Memory16u8(t *testing.T) {
+	Check(t, true, "corset/bench/memory16u8")
+}
 
-// #1247
-//
-//	func Test_Bench_Memory32u32(t *testing.T) {
-//		util.Check(t, true, "corset/bench/memory32u32")
-//	}
+func Test_Bench_Memory32u32(t *testing.T) {
+	util.Check(t, true, "corset/bench/memory32u32")
+}
 
-// #1247
-//
-//	func Test_Bench_Memory32u64(t *testing.T) {
-//		util.Check(t, true, "corset/bench/memory32u64")
-//	}
+func Test_Bench_Memory32u64(t *testing.T) {
+	util.Check(t, true, "corset/bench/memory32u64")
+}
 func Test_Bench_Adder(t *testing.T) {
-	util.Check(t, true, "corset/bench/adder")
+	Check(t, true, "corset/bench/adder")
 }
 
 func Test_Bench_Fields(t *testing.T) {
-	util.Check(t, true, "corset/bench/fields")
+	Check(t, true, "corset/bench/fields")
 }
 
 func Test_Bench_Add(t *testing.T) {
-	util.Check(t, true, "corset/bench/add")
+	Check(t, true, "corset/bench/add")
 }
 
 func Test_Bench_BinStatic(t *testing.T) {
-	util.Check(t, true, "corset/bench/bin-static")
+	Check(t, true, "corset/bench/bin-static")
 }
 
 func Test_Bench_Bin(t *testing.T) {
-	util.Check(t, true, "corset/bench/bin")
+	Check(t, true, "corset/bench/bin")
 }
 
 func Test_Bench_Wcp(t *testing.T) {
-	util.Check(t, true, "corset/bench/wcp")
+	Check(t, true, "corset/bench/wcp")
 }
 
-//#1247
-// func Test_Bench_Mxp(t *testing.T) {
-// 	util.Check(t, true, "corset/bench/mxp")
-// }
+func Test_Bench_Mxp(t *testing.T) {
+	Check(t, true, "corset/bench/mxp")
+}
 
 func Test_Bench_Shf(t *testing.T) {
-	util.Check(t, true, "corset/bench/shf")
+	Check(t, true, "corset/bench/shf")
 }
 
 func Test_Bench_Euc(t *testing.T) {
-	util.Check(t, true, "corset/bench/euc")
+	Check(t, true, "corset/bench/euc")
 }
 
-//#1247
-// func Test_Bench_Oob(t *testing.T) {
-// 	util.Check(t, true, "corset/bench/oob")
-// }
+func Test_Bench_Oob(t *testing.T) {
+	Check(t, true, "corset/bench/oob")
+}
 
 func Test_Bench_Stp(t *testing.T) {
-	util.Check(t, true, "corset/bench/stp")
+	Check(t, true, "corset/bench/stp")
 }
 
 func Test_Bench_Mmio(t *testing.T) {
-	util.Check(t, true, "corset/bench/mmio")
+	Check(t, true, "corset/bench/mmio")
 }
 
 func Test_Bench_Rom(t *testing.T) {
-	util.Check(t, true, "corset/bench/rom")
+	Check(t, true, "corset/bench/rom")
 }
 
 func Test_Bench_Gas(t *testing.T) {
-	util.Check(t, true, "corset/bench/gas")
+	Check(t, true, "corset/bench/gas")
 }
 
 func Test_Bench_Exp(t *testing.T) {
-	util.Check(t, true, "corset/bench/exp")
+	Check(t, true, "corset/bench/exp")
 }
 
-//#1247
-// func Test_Bench_Mul(t *testing.T) {
-// 	util.Check(t, true, "corset/bench/mul")
-// }
+func Test_Bench_Mul(t *testing.T) {
+	Check(t, true, "corset/bench/mul")
+}
 
 func Test_Bench_Mod(t *testing.T) {
-	util.Check(t, true, "corset/bench/mod")
+	Check(t, true, "corset/bench/mod")
 }
 
 //#834
