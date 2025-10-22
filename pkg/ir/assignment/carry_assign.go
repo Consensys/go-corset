@@ -27,7 +27,7 @@ import (
 )
 
 // Polynomial provides a useful alias
-type Polynomial = sc.RelativePolynomial
+type Polynomial = register.RelativePolynomial
 
 // CarryAssign is used for computing the value of carry lines introduced during
 // register splitting.  The intuition is that we have an expression which is

@@ -100,8 +100,6 @@ func (p *Register) MaxValue() *big.Int {
 	return max
 }
 
-var one = *big.NewInt(1)
-
 // QualifiedName returns the fully qualified name of this register
 func (p Register) QualifiedName(mod Map) string {
 	var name = p.Name

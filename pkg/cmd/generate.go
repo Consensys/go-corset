@@ -42,10 +42,10 @@ var generateCmd = &cobra.Command{
 
 // Available instances
 var generateCmds = []FieldAgnosticCmd{
-	{sc.GF_251, runGenerateCmd[gf251.Element]},
-	{sc.GF_8209, runGenerateCmd[gf8209.Element]},
-	{sc.KOALABEAR_16, runGenerateCmd[koalabear.Element]},
-	{sc.BLS12_377, runGenerateCmd[bls12_377.Element]},
+	{field.GF_251, runGenerateCmd[gf251.Element]},
+	{field.GF_8209, runGenerateCmd[gf8209.Element]},
+	{field.KOALABEAR_16, runGenerateCmd[koalabear.Element]},
+	{field.BLS12_377, runGenerateCmd[bls12_377.Element]},
 }
 
 func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {

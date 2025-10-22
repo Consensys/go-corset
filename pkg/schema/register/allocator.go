@@ -44,17 +44,12 @@ type RelativePolynomial = Polynomial[RelativeId]
 // Allocator extends a register mapping with the ability to allocate new
 // registers as necessary.  This is useful, for example,  in the context of
 // register splitting for introducing new carry registers.
-type Allocator interface {
+type Allocator[T any] interface {
 	Map
 	// Allocate a fresh register of the given width within the target module.
 	// This is presumed to be a computed register, and automatically assigned a
-	// unique name.  Furthermore, an optional
-	Allocate(prefix string, width uint) Id
-	// Assign a given register the outcome of evaluating a given polynomial,
-	// shifted by a given amount.
-	Assign(reg Id, shift uint, poly RelativePolynomial)
-	// Assignments returns the list of carry assignments
-	Assignments() []CarryAssignment
+	// unique name.  Furthermore, optional metadata can for the column.
+	Allocate(prefix string, width uint, metadata util.Option[T]) Id
 	// Reset back to a given number of registers.  This is essentially for
 	// "undoing" allocations in algorithms that perform speculative allocation.
 	Reset(uint)
@@ -62,21 +57,21 @@ type Allocator interface {
 
 // ============================================================================
 
-type registerAllocator struct {
+type registerAllocator[T any] struct {
 	mapping     Map
-	assignments []CarryAssignment
+	assignments []util.Option[T]
 	registers   []Register
 }
 
 // NewAllocator converts a mapping into a full allocator simply by wrapping the
 // two fields.
-func NewAllocator(mapping Map) Allocator {
+func NewAllocator[T any](mapping Map) Allocator[T] {
 	registers := slices.Clone(mapping.Registers())
-	return &registerAllocator{mapping, nil, registers}
+	return &registerAllocator[T]{mapping, nil, registers}
 }
 
 // Allocate implementation for the RegisterAllocator interface
-func (p *registerAllocator) Allocate(prefix string, width uint) Id {
+func (p *registerAllocator[T]) Allocate(prefix string, width uint, filler util.Option[T]) Id {
 	var (
 		// Determine index for new register
 		index = uint(len(p.registers))
@@ -92,22 +87,17 @@ func (p *registerAllocator) Allocate(prefix string, width uint) Id {
 }
 
 // Assign implementation for the RegisterAllocator interface
-func (p *registerAllocator) Assign(target Id, shift uint, poly RelativePolynomial) {
-	p.assignments = append(p.assignments, CarryAssignment{target, shift, poly})
-}
-
-// Assign implementation for the RegisterAllocator interface
-func (p *registerAllocator) Assignments() []CarryAssignment {
-	return p.assignments
+func (p *registerAllocator[T]) Assignments() []util.Pair[Id, T] {
+	panic("todo")
 }
 
 // Name implementation for RegisterMapping interface
-func (p *registerAllocator) Name() string {
+func (p *registerAllocator[T]) Name() string {
 	return p.mapping.Name()
 }
 
 // HasRegister implementation for RegisterMap interface.
-func (p *registerAllocator) HasRegister(name string) (Id, bool) {
+func (p *registerAllocator[T]) HasRegister(name string) (Id, bool) {
 	for i, reg := range p.registers {
 		if reg.Name == name {
 			return NewId(uint(i)), true
@@ -118,20 +108,20 @@ func (p *registerAllocator) HasRegister(name string) (Id, bool) {
 }
 
 // Register implementation for RegisterMap interface.
-func (p *registerAllocator) Register(rid Id) Register {
+func (p *registerAllocator[T]) Register(rid Id) Register {
 	return p.registers[rid.Unwrap()]
 }
 
 // Registers implementation for RegisterMap interface.
-func (p *registerAllocator) Registers() []Register {
+func (p *registerAllocator[T]) Registers() []Register {
 	return p.registers
 }
 
 // Reset implementation for RegisterAllocator interface.
-func (p *registerAllocator) Reset(n uint) {
+func (p *registerAllocator[T]) Reset(n uint) {
 	p.registers = p.registers[:n]
 }
 
-func (p *registerAllocator) String() string {
+func (p *registerAllocator[T]) String() string {
 	return MapToString(p)
 }

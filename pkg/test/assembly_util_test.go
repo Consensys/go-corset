@@ -15,45 +15,45 @@ package test
 import (
 	"testing"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 func Test_AsmUtil_Byte(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/byte", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/byte", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUtil_BitShr(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/bit_shr", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/util/bit_shr", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmUtil_BitShl(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/bit_shl", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/bit_shl", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUtil_FillBytes(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/fill_bytes", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/fill_bytes", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUtil_FirstByte(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/first_byte", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/first_byte", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUtil_Log2(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/log2", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/log2", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUtil_Log256(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/log256", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/log256", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 func Test_AsmUtil_Min(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/min", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/min", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUtil_SetByte(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/set_byte", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/set_byte", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUtil_Signextend(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/signextend", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/signextend", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }

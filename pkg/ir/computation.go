@@ -16,7 +16,7 @@ import (
 	"encoding/gob"
 	"fmt"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -159,7 +159,7 @@ func NewLogicalComputations[F field.Element[F], S LogicalTerm[F, S], T Term[F, T
 
 // SubdivideComputation subdivides a computation by splitting all register
 // accesses into vector accesses over their limbs.
-func SubdivideComputation[F field.Element[F]](c Computation[F], mapping sc.RegisterLimbsMap) Computation[F] {
+func SubdivideComputation[F field.Element[F]](c Computation[F], mapping register.LimbsMap) Computation[F] {
 	switch t := c.(type) {
 	case *Add[F, Computation[F]]:
 		args := SubdivideComputations(t.Args, mapping)
@@ -201,7 +201,7 @@ func SubdivideComputation[F field.Element[F]](c Computation[F], mapping sc.Regis
 }
 
 // SubdivideComputations subdivides an array of zero or more logical computations.
-func SubdivideComputations[F field.Element[F]](cs []Computation[F], mapping sc.RegisterLimbsMap) []Computation[F] {
+func SubdivideComputations[F field.Element[F]](cs []Computation[F], mapping register.LimbsMap) []Computation[F] {
 	var computations = make([]Computation[F], len(cs))
 	//
 	for i, t := range cs {
@@ -211,7 +211,7 @@ func SubdivideComputations[F field.Element[F]](cs []Computation[F], mapping sc.R
 	return computations
 }
 
-func subdivideRegAccesses[F field.Element[F]](mapping sc.RegisterLimbsMap, regs ...*RegisterAccess[F, Computation[F]],
+func subdivideRegAccesses[F field.Element[F]](mapping register.LimbsMap, regs ...*RegisterAccess[F, Computation[F]],
 ) Computation[F] {
 	var nterms []*RegisterAccess[F, Computation[F]]
 	//
@@ -230,7 +230,7 @@ func subdivideRegAccesses[F field.Element[F]](mapping sc.RegisterLimbsMap, regs 
 
 // SubdivideLogicalComputation subdivides a logical computation by splitting all
 // register accesses into vector accesses over their limbs.
-func SubdivideLogicalComputation[F field.Element[F]](c LogicalComputation[F], mapping sc.RegisterLimbsMap,
+func SubdivideLogicalComputation[F field.Element[F]](c LogicalComputation[F], mapping register.LimbsMap,
 ) LogicalComputation[F] {
 	//
 	switch t := c.(type) {
@@ -273,7 +273,7 @@ func SubdivideLogicalComputation[F field.Element[F]](c LogicalComputation[F], ma
 }
 
 // SubdivideLogicalComputations Subdivides an array of zero or more logical computations.
-func SubdivideLogicalComputations[F field.Element[F]](cs []LogicalComputation[F], mapping sc.RegisterLimbsMap,
+func SubdivideLogicalComputations[F field.Element[F]](cs []LogicalComputation[F], mapping register.LimbsMap,
 ) []LogicalComputation[F] {
 	//
 	var computations = make([]LogicalComputation[F], len(cs))

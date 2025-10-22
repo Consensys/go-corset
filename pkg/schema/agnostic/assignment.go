@@ -134,7 +134,7 @@ func (p *Assignment) Terminate(env register.Map) (Assignment, StaticPolynomial) 
 // assignment, and the number consumed by the left-hand side.  If the more bits
 // are produced than are consumed, then a carry register is introduced to make
 // up the difference.
-func (p *Assignment) Link(env register.Allocator) (Assignment, StaticPolynomial) {
+func (p *Assignment) Link(env RegisterAllocator) (Assignment, StaticPolynomial) {
 	var overflow, underflow = p.Overflow(env)
 	// Check whether anything to resolve
 	if p.RightHandSide.Signed() {
@@ -147,14 +147,14 @@ func (p *Assignment) Link(env register.Allocator) (Assignment, StaticPolynomial)
 	return p.linkUnsigned(overflow, env)
 }
 
-func (p *Assignment) linkUnsigned(overflow uint, env register.Allocator) (Assignment, StaticPolynomial) {
+func (p *Assignment) linkUnsigned(overflow uint, env RegisterAllocator) (Assignment, StaticPolynomial) {
 	var carry StaticPolynomial
 	// Sanity check whether actually need to do anything.
 	if overflow == 0 {
 		return *p, carry.Set()
 	}
 	// Allocate new register to get an Id
-	carryRegId := env.Allocate("c", overflow)
+	carryRegId := env.Allocate("c", overflow, EMPTY_COMPUTATION)
 	// Construct carry to be propagated forward
 	carry = carry.Set(poly.NewMonomial(one, carryRegId))
 	// Update left-hand side to include carry
@@ -163,19 +163,19 @@ func (p *Assignment) linkUnsigned(overflow uint, env register.Allocator) (Assign
 	return NewAssignment(lhs, p.RightHandSide), carry
 }
 
-func (p *Assignment) linkSigned(underflow uint, env register.Allocator) (Assignment, StaticPolynomial) {
+func (p *Assignment) linkSigned(underflow uint, env RegisterAllocator) (Assignment, StaticPolynomial) {
 	var (
 		tmp     StaticPolynomial
 		carry   []StaticMonomial
 		lhs     = p.LeftHandSide
-		signBit = env.Allocate("s", 1)
+		signBit = env.Allocate("s", 1, EMPTY_COMPUTATION)
 	)
 	// Append sign bit to borrow calculation
 	carry = append(carry, poly.NewMonomial(*math.NegPow2(underflow), signBit))
 	// Add carry component (if applicable)
 	if underflow > 0 {
 		// Allocate new register to get an Id
-		carryRegId := env.Allocate("c", underflow)
+		carryRegId := env.Allocate("c", underflow, EMPTY_COMPUTATION)
 		// Construct carry to be propagated forward
 		carry = append(carry, poly.NewMonomial(one, carryRegId))
 		// Update left-hand side to include carry
@@ -235,7 +235,7 @@ func (p *Assignment) linkSigned(underflow uint, env register.Allocator) (Assignm
 // For (sub-)assignments which still exceed the bandwidth requirement (such as
 // above), we must further split them by introducing additional temporary
 // registers.
-func (p *Assignment) Split(bandwidth uint, env register.Allocator) []Assignment {
+func (p *Assignment) Split(bandwidth uint, env RegisterAllocator) []Assignment {
 	var (
 		// worklist of remaining assignments
 		worklist stack.Stack[Assignment]
@@ -264,7 +264,7 @@ func (p *Assignment) Split(bandwidth uint, env register.Allocator) []Assignment 
 // bandwidth, but does not guarantee that the resulting assignments fit within
 // the given bandwidth.  Rather, the resulting assignments may themselves need
 // to be split further.
-func (p *Assignment) innerSplit(bandwidth uint, env register.Allocator) []Assignment {
+func (p *Assignment) innerSplit(bandwidth uint, env RegisterAllocator) []Assignment {
 	var assignments []Assignment = p.initialiseSplit(env)
 	// Merge to exploit available bandwidth.
 	assignments = coalesceAssignments(assignments, bandwidth, env)
@@ -411,7 +411,7 @@ func identifyEnclosingRegister(regs []register.Id, value big.Int, env register.M
 // NOTE: this implementation does not attempt to find an optimal allocation of
 // assignments (as this may indeed be a hard computational problem).  Instead,
 // assignments are merged greedily starting from the least significant position.
-func coalesceAssignments(assignments []Assignment, bandwidth uint, env register.Allocator) []Assignment {
+func coalesceAssignments(assignments []Assignment, bandwidth uint, env RegisterAllocator) []Assignment {
 	var (
 		// Set of coalesced assignments
 		coalesced []Assignment
@@ -468,7 +468,7 @@ func coalesceAssignments(assignments []Assignment, bandwidth uint, env register.
 // monomial previously assigned to x'1.  The offset factor (in this case) is
 // determined by the width of x'0.
 func coalesce(last bool, assignments []Assignment, carry StaticPolynomial,
-	env register.Allocator) (Assignment, StaticPolynomial) {
+	env RegisterAllocator) (Assignment, StaticPolynomial) {
 	//
 	var (
 		offset uint
@@ -546,7 +546,7 @@ func withinBitRange(val big.Int, start, end uint) bool {
 }
 
 // nolint
-func debugAssignments(env register.Allocator, assignments ...Assignment) {
+func debugAssignments(env RegisterAllocator, assignments ...Assignment) {
 	for i, ith := range assignments {
 
 		if i != 0 {

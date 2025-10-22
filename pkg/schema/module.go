@@ -15,30 +15,12 @@ package schema
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
-	"reflect"
 
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
-
-// ModuleMap provides a mapping from module identifiers (or names) to register
-// maps.
-type ModuleMap[T register.Map] interface {
-	fmt.Stringer
-	// Field returns the underlying field configuration used for this mapping.
-	// This includes the field bandwidth (i.e. number of bits available in
-	// underlying field) and the maximum register width (i.e. width at which
-	// registers are capped).
-	Field() FieldConfig
-	// Module returns register mapping information for the given module.
-	Module(ModuleId) T
-	// ModuleOf returns register mapping information for the given module.
-	ModuleOf(string) T
-	// Returns number of modules in this map
-	Width() uint
-}
 
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
@@ -80,39 +62,6 @@ type Module[F any] interface {
 	LengthMultiplier() uint
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
-}
-
-// FieldAgnosticModule captures the notion of a module which is agnostic to the
-// underlying field being used.
-type FieldAgnosticModule[F any, M Module[F]] interface {
-	Module[F]
-	// Subdivide for a given bandwidth and maximum register width. This will
-	// split all registers wider than the maximum permitted width into two or
-	// more "limbs" (i.e. subregisters which do not exceeded the permitted
-	// width).  For example, consider a register "r" of width u32. Subdividing
-	// this register into registers of at most 8bits will result in four limbs:
-	// r'0, r'1, r'2 and r'3 where (by convention) r'0 is the least significant.
-	//
-	// As part of the subdivision process, constraints may also need to be
-	// divided when they exceed the maximum permitted bandwidth.  For example,
-	// consider a simple constraint such as "x = y + 1" using 16bit registers
-	// x,y.  Subdividing for a bandwidth of 10bits and a maximum register width
-	// of 8bits means splitting each register into two limbs, and transforming
-	// our constraint into:
-	//
-	// 256*x'1 + x'0 = 256*y'1 + y'0 + 1
-	//
-	// However, as it stands, this constraint exceeds our bandwidth requirement
-	// since it requires at least 17bits of information to safely evaluate each
-	// side.  Thus, the constraint itself must be subdivided into two parts:
-	//
-	// 256*c + x'0 = y'0 + 1  // lower
-	//
-	//         x'1 = y'1 + c  // upper
-	//
-	// Here, c is a 1bit register introduced as part of the transformation to
-	// act as a "carry" between the two constraints.
-	Subdivide(RegisterLimbsMap) M
 }
 
 // ============================================================================
@@ -265,40 +214,41 @@ func (p *Table[F, C]) String() string {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[F, C]) Subdivide(mid ModuleId, mapping LimbsMap,
+func (p *Table[F, C]) Subdivide(mid ModuleId, mapping module.LimbsMap,
 	assigner func(register.CarryAssignment) Assignment[F]) *Table[F, C] {
-	//
-	var (
-		constraints []C
-		assignments []Assignment[F]
-		env         = register.NewAllocator(mapping.Module(mid).LimbsMap())
-	)
-	// Subdivide assignments
-	for _, c := range p.assignments {
-		var a any = c
-		//nolint
-		if fc, ok := a.(FieldAgnostic[Assignment[F]]); ok {
-			assignments = append(assignments, fc.Subdivide(env, mapping))
-		} else {
-			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
-		}
-	}
-	// Subdivide constraints
-	for _, c := range p.constraints {
-		var a any = c
-		//nolint
-		if fc, ok := a.(FieldAgnostic[C]); ok {
-			constraints = append(constraints, fc.Subdivide(env, mapping))
-		} else {
-			panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
-		}
-	}
-	// Include any additional assignments required for carry lines
-	for _, a := range env.Assignments() {
-		assignments = append(assignments, assigner(a))
-	}
-	//
-	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, env.Registers(), constraints, assignments}
+	// //
+	// var (
+	// 	constraints []C
+	// 	assignments []Assignment[F]
+	// 	env         = register.NewAllocator[register.LimbsMap](mapping.Module(mid).LimbsMap())
+	// )
+	// // Subdivide assignments
+	// for _, c := range p.assignments {
+	// 	var a any = c
+	// 	//nolint
+	// 	if fc, ok := a.(agnostic.FieldAgnostic[Assignment[F]]); ok {
+	// 		assignments = append(assignments, fc.Subdivide(env, mapping))
+	// 	} else {
+	// 		panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
+	// 	}
+	// }
+	// // Subdivide constraints
+	// for _, c := range p.constraints {
+	// 	var a any = c
+	// 	//nolint
+	// 	if fc, ok := a.(agnostic.FieldAgnostic[C]); ok {
+	// 		constraints = append(constraints, fc.Subdivide(env, mapping))
+	// 	} else {
+	// 		panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
+	// 	}
+	// }
+	// // Include any additional assignments required for carry lines
+	// for _, a := range env.Assignments() {
+	// 	assignments = append(assignments, assigner(a))
+	// }
+	// //
+	// return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, env.Registers(), constraints, assignments}
+	panic("put back")
 }
 
 // ============================================================================

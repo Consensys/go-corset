@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
@@ -121,10 +120,10 @@ func (p *Assign) String(fn register.Map) string {
 // > b,x1,x0 := 256*(y1+z1) + (y0+z0+1)
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
-func (p *Assign) Split(mapping schema.RegisterLimbsMap, env register.Allocator) []Code {
+func (p *Assign) Split(mapping register.LimbsMap, env agnostic.RegisterAllocator) []Code {
 	var (
 		// map target registers into corresponding limbs
-		lhs = agnostic.ApplyMapping(mapping, p.Targets...)
+		lhs = register.ApplyLimbsMap(mapping, p.Targets...)
 		// map lhs registers into corresponding limbs
 		rhs = SplitPolynomial(p.Source, mapping)
 		// construct initial assignment

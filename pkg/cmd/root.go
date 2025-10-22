@@ -22,7 +22,6 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/spf13/cobra"
 )
@@ -76,20 +75,20 @@ const SCHEMA_DEFAULT_AIR = uint(2)
 
 // FieldAgnosticCmd represents a command to be executed for a given field.
 type FieldAgnosticCmd struct {
-	Field    schema.FieldConfig
+	Field    field.Config
 	Function func(*cobra.Command, []string)
 }
 
 // Run a field agnostic top-level command.
 func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnosticCmd) {
 	var (
-		field = GetString(cmd, "field")
+		fieldName = GetString(cmd, "field")
 		// Field configuration
-		config = schema.GetFieldConfig(field)
+		config = field.GetConfig(fieldName)
 	)
 	// Sanity check
 	if config == nil {
-		fmt.Printf("unknown field \"%s\"\n", field)
+		fmt.Printf("unknown field \"%s\"\n", fieldName)
 		os.Exit(3)
 	}
 	// Find command to dispatch
@@ -102,7 +101,7 @@ func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnostic
 		}
 	}
 	//
-	fmt.Printf("field %s unsupported for command '%s'\n", field, cmd.Name())
+	fmt.Printf("field %s unsupported for command '%s'\n", fieldName, cmd.Name())
 	os.Exit(2)
 }
 
@@ -111,7 +110,7 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 		stacker      cmd_util.SchemaStacker[F]
 		corsetConfig corset.CompilationConfig
 		asmConfig    asm.LoweringConfig
-		field        = GetString(cmd, "field")
+		fieldName    = GetString(cmd, "field")
 		mirEnable    = GetFlag(cmd, "mir")
 		airEnable    = GetFlag(cmd, "air")
 		asmEnable    = GetFlag(cmd, "asm")
@@ -126,10 +125,10 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 		validate  = GetFlag(cmd, "validate")
 	)
 	// Field configuration
-	fieldConfig := schema.GetFieldConfig(field)
+	fieldConfig := field.GetConfig(fieldName)
 	// Sanity check
 	if fieldConfig == nil {
-		fmt.Printf("unknown prime field \"%s\"\n", field)
+		fmt.Printf("unknown prime field \"%s\"\n", fieldName)
 		os.Exit(3)
 	}
 	// Apply field overrides

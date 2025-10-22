@@ -14,43 +14,44 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/ir"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.LimbsMap) Assertion[F] {
+func subdivideAssertion[F field.Element[F]](c Assertion[F], _ module.LimbsMap) Assertion[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.LimbsMap,
+func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ module.LimbsMap,
 ) InterleavingConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ schema.LimbsMap,
+func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ module.LimbsMap,
 ) PermutationConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ schema.LimbsMap) RangeConstraint[F] {
+func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ module.LimbsMap) RangeConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ schema.LimbsMap) SortedConstraint[F] {
+func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ module.LimbsMap) SortedConstraint[F] {
 	// TODO: implement this
 	return c
 }
 
-func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap) Term[F] {
+func splitTerm[F field.Element[F]](term Term[F], mapping register.LimbsMap) Term[F] {
 	switch t := term.(type) {
 	case *Add[F]:
 		return ir.Sum(splitTerms(t.Args, mapping)...)
@@ -69,7 +70,7 @@ func splitTerm[F field.Element[F]](term Term[F], mapping schema.RegisterLimbsMap
 	}
 }
 
-func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterLimbsMap) []Term[F] {
+func splitTerms[F field.Element[F]](terms []Term[F], mapping register.LimbsMap) []Term[F] {
 	var nterms []Term[F] = make([]Term[F], len(terms))
 	//
 	for i := range len(terms) {
@@ -79,7 +80,7 @@ func splitTerms[F field.Element[F]](terms []Term[F], mapping schema.RegisterLimb
 	return nterms
 }
 
-func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
+func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping register.LimbsMap) Term[F] {
 	var (
 		// Determine limbs for this register
 		limbs = mapping.LimbIds(term.Register)
@@ -100,7 +101,7 @@ func splitRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping sc
 	return ir.NewVectorAccess(terms)
 }
 
-func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema.RegisterLimbsMap) Term[F] {
+func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping register.LimbsMap) Term[F] {
 	var terms []*RegisterAccess[F]
 	//
 	for _, v := range term.Vars {
@@ -113,7 +114,7 @@ func splitVectorAccess[F field.Element[F]](term *VectorAccess[F], mapping schema
 	return ir.NewVectorAccess(terms)
 }
 
-func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], mapping schema.RegisterLimbsMap,
+func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], mapping register.LimbsMap,
 ) []*VectorAccess[F] {
 	//
 	var (
@@ -127,7 +128,7 @@ func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], ma
 	return vecs
 }
 
-func splitRawRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping schema.RegisterLimbsMap,
+func splitRawRegisterAccess[F field.Element[F]](term *RegisterAccess[F], mapping register.LimbsMap,
 ) *VectorAccess[F] {
 	//
 	var (

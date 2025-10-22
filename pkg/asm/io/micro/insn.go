@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 )
@@ -45,7 +45,7 @@ type Code interface {
 	String(register.Map) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
-	Split(mapping schema.RegisterLimbsMap, env register.Allocator) []Code
+	Split(mapping register.LimbsMap, env agnostic.RegisterAllocator) []Code
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
@@ -166,7 +166,7 @@ func (p Instruction) RegistersWritten() []io.RegisterId {
 // challenge for this method is the correct handling of skip instructions.
 // Specifically, the targets for a skip change as the number of instructions
 // increase.
-func (p Instruction) SplitRegisters(mapping schema.RegisterLimbsMap, env register.Allocator) Instruction {
+func (p Instruction) SplitRegisters(mapping register.LimbsMap, env agnostic.RegisterAllocator) Instruction {
 	var (
 		ncodes  []Code
 		packets [][]Code = make([][]Code, len(p.Codes))

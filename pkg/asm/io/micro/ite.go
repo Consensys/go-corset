@@ -17,7 +17,6 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -89,11 +88,11 @@ func (p *Ite) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Ite) Split(mapping schema.RegisterLimbsMap, _ register.Allocator) []Code {
+func (p *Ite) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
 	// Split targets
-	targets := agnostic.ApplyMapping(mapping, p.Targets...)
+	targets := register.ApplyLimbsMap(mapping, p.Targets...)
 	// Split left-hand register
-	left := agnostic.ApplyMapping(mapping, p.Left)
+	left := register.ApplyLimbsMap(mapping, p.Left)
 	// Sanity check for nwo
 	if len(left) != 1 {
 		panic(fmt.Sprintf("if-then-else cannot split register \"%s\"", mapping.Register(p.Left).Name))

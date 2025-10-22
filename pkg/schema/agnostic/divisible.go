@@ -10,25 +10,26 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package schema
+package agnostic
 
 import (
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/poly"
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// Limb is just an alias for Register, but it helps to clarify when we are
-// referring to a register after subdivision.
-type Limb = register.Register
+// EMPTY_COMPUTATION is used to signal no filler is required for an allocated
+// register.
+var EMPTY_COMPUTATION = util.None[ir.Computation[word.BigEndian]]()
 
-// LimbId is just an alias for register.RegisterId, but it helps to clarify when we are
-// referring to a register after subdivision.
-type LimbId = register.Id
+// RegisterAllocator is used to allocate fresh registers with optional
+// "fillers". That is, computation which can be used to assign values to them in
+// the final trace.
+type RegisterAllocator = register.Allocator[ir.Computation[word.BigEndian]]
 
-// RelativePolynomial defines the type of polynomials which can be used in constraints.
-type RelativePolynomial = *poly.ArrayPoly[register.RelativeId]
-
-// FieldAgnostic captures the notion of an entity (e.g. module, constraint or
+// SubDivisible captures the notion of an entity (e.g. module, constraint or
 // assignment) which is agnostic to the underlying field being used.  More
 // specificially, any registers used within (and constraints, etc) can be
 // subdivided as necessary to ensure a maximum bandwidth requirement is met.
@@ -42,7 +43,7 @@ type RelativePolynomial = *poly.ArrayPoly[register.RelativeId]
 // it follows that the maximum width cannot be greater than the bandwidth.
 // However, in practice, we want it to be marginally less than the bandwidth to
 // ensure there is some capacity for calculations involving registers.
-type FieldAgnostic[T any] interface {
+type SubDivisible[T any] interface {
 	// Subdivide for a given bandwidth and maximum register width. This will
 	// split all registers wider than the maximum permitted width into two or
 	// more "limbs" (i.e. subregisters which do not exceeded the permitted
@@ -69,35 +70,5 @@ type FieldAgnostic[T any] interface {
 	//
 	// Here, c is a 1bit register introduced as part of the transformation to
 	// act as a "carry" between the two constraints.
-	Subdivide(register.Allocator, LimbsMap) T
-}
-
-// LimbsMap provides a high-level mapping of all registers across all
-// modules before and after subdivision occurs.
-type LimbsMap = ModuleMap[RegisterLimbsMap]
-
-// RegisterLimbsMap provides a high-level mapping of all registers before and
-// after subdivision occurs within a given module.  That is, it maps a given
-// register to those limbs into which it was subdivided.
-type RegisterLimbsMap interface {
-	register.Map
-	// Field returns the underlying field configuration used for this mapping.
-	// This includes the field bandwidth (i.e. number of bits available in
-	// underlying field) and the maximum register width (i.e. width at which
-	// registers are capped).
-	Field() FieldConfig
-	// Limbs identifies the limbs into which a given register is divided.
-	// Observe that limbs are ordered by their position in the original
-	// register.  In particular, the first limb (i.e. at index 0) is always
-	// least significant limb, and the last always most significant.
-	LimbIds(register.Id) []LimbId
-	// Limbs returns information about a given limb (i.e. a register which
-	// exists after the split).
-	Limb(LimbId) Limb
-	// Limbs returns all limbs in the mapping.
-	Limbs() []Limb
-	// LimbsMap returns a register map for the limbs themselves.  This is useful
-	// where we need a register map over the limbs, rather than the original
-	// registers.
-	LimbsMap() register.Map
+	Subdivide(RegisterAllocator, module.LimbsMap) T
 }

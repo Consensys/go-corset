@@ -21,7 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -75,15 +75,15 @@ type UniformSchema[F field.Element[F]] = sc.UniformSchema[F, mir.Module[F]]
 //
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
-func Concretize[F Element[F]](cfg sc.FieldConfig, hp MicroHirProgram,
-) (UniformSchema[F], sc.LimbsMap) {
+func Concretize[F Element[F]](cfg field.Config, hp MicroHirProgram,
+) (UniformSchema[F], module.LimbsMap) {
 	var (
 		// Lower HIR program first.  This is necessary to ensure any registers
 		// added during this process are included in the subsequent limbs map.
 		p = lowerHirProgram(hp)
 		// Construct a limbs map which determines the mapping of all registers
 		// into their limbs.
-		mapping = agnostic.NewLimbsMap(cfg, p.Modules().Collect()...)
+		mapping = module.NewLimbsMap[F](cfg, p.Modules().Collect()...)
 		n       = len(p.Functions())
 		// Construct compiler
 		comp    = compiler.NewCompiler[F, register.Id, compiler.MirExpr[F], compiler.MirModule[F]]()
@@ -113,7 +113,7 @@ func lowerHirProgram(hp MicroHirProgram) MicroMirProgram[word.BigEndian] {
 // Subdivide a given program.  In principle, this should be located within
 // io.Program, however this would require io.Instruction to have a
 // SplitRegisters method (which we want to avoid right now).
-func subdivideProgram(mapping schema.LimbsMap, p MicroProgram) MicroProgram {
+func subdivideProgram(mapping module.LimbsMap, p MicroProgram) MicroProgram {
 	var (
 		fns  = p.Functions()
 		nfns = make([]*MicroFunction, len(fns))
@@ -138,11 +138,11 @@ func subdivideProgram(mapping schema.LimbsMap, p MicroProgram) MicroProgram {
 // Subdivide a given function.  In principle, this should be located within
 // io.Function, however this would require io.Instruction to have a
 // SplitRegisters method (which we want to avoid right now).
-func subdivideFunction(mapping sc.LimbsMap, fn MicroFunction) MicroFunction {
+func subdivideFunction(mapping module.LimbsMap, fn MicroFunction) MicroFunction {
 	var (
 		modmap = mapping.ModuleOf(fn.Name())
 		// Construct suitable splitting environment
-		env = register.NewAllocator(modmap.LimbsMap())
+		env = register.NewAllocator[ir.Computation[word.BigEndian]](modmap.LimbsMap())
 		// Updated instruction sequence
 		ninsns []micro.Instruction
 		nbuses []io.Bus = make([]io.Bus, len(fn.Buses()))

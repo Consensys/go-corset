@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -36,7 +37,7 @@ type Element[F any] = field.Element[F]
 // constants (which no longer make sense).  Furthermore, this stage can
 // technically fail if the relevant constraints cannot be correctly concretized.
 // For example, they contain a constant which does not fit within the field.
-func Concretize[F1 Element[F1], F2 Element[F2]](mapping schema.LimbsMap, offset uint, rawModules []Module[F1],
+func Concretize[F1 Element[F1], F2 Element[F2]](mapping module.LimbsMap, offset uint, rawModules []Module[F1],
 ) []Module[F2] {
 	var (
 		modules = make([]Module[F2], len(rawModules))

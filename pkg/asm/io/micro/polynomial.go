@@ -15,7 +15,6 @@ package micro
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
@@ -25,7 +24,7 @@ import (
 // producing an equivalent (but not necessarily identical) polynomial.  For
 // example, suppose that X and Y split into limbs X'1, X'0 and Y'1, Y'0.  Then
 // the polynomial 2*X + Y splits into 512*X'1 + 2*X'0 + 256*Y'1 + Y'0.
-func SplitPolynomial(p Polynomial, env schema.RegisterLimbsMap) Polynomial {
+func SplitPolynomial(p Polynomial, env register.LimbsMap) Polynomial {
 	var npoly Polynomial
 	//
 	for i := range p.Len() {
@@ -54,7 +53,7 @@ func SplitPolynomial(p Polynomial, env schema.RegisterLimbsMap) Polynomial {
 //
 // Of course, things get more involved when more than one register is being
 // split, but the basic idea above applies.
-func SplitMonomial(p agnostic.StaticMonomial, env schema.RegisterLimbsMap) Polynomial {
+func SplitMonomial(p agnostic.StaticMonomial, env register.LimbsMap) Polynomial {
 	var res Polynomial
 	// FIXME: what to do with the coefficient?  This is a problem because its
 	// not clear how we should split this.  Presumably it should be split
@@ -78,7 +77,7 @@ func SplitMonomial(p agnostic.StaticMonomial, env schema.RegisterLimbsMap) Polyn
 // which splits into two u8 limbs x'0 and x'1.  Then, the constructed "limb
 // polynomial" is simply x'0 + 256*x'1 (recall that x'0 is the last significant
 // limb).
-func LimbPolynomial(limbs []register.Id, env schema.RegisterLimbsMap) Polynomial {
+func LimbPolynomial(limbs []register.Id, env register.LimbsMap) Polynomial {
 	var (
 		res Polynomial
 		// Offset is used to determine the coefficient for the next limb.

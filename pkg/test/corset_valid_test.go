@@ -15,15 +15,15 @@ package test
 import (
 	"testing"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 func Check(t *testing.T, stdlib bool, test string) {
 	util.CheckWithFields(t, stdlib, test, util.CORSET_MAX_PADDING,
-		sc.BLS12_377,
-		sc.GF_8209,
-		sc.GF_251)
+		field.BLS12_377,
+		field.GF_8209,
+		field.GF_251)
 }
 
 // ===================================================================

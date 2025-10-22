@@ -14,8 +14,8 @@ package view
 
 import (
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -42,7 +42,7 @@ type Builder[F field.Element[F]] struct {
 	// Limbs mapping identifies how source-level registers are mapped into
 	// limbs.  This is necessary in order to reconstruct source-level column
 	// data from the trace.
-	mapping schema.LimbsMap
+	mapping module.LimbsMap
 	// Formatting to use
 	formatting TraceFormatting
 	// Optional source map information.  This is primarily used to determine
@@ -50,7 +50,7 @@ type Builder[F field.Element[F]] struct {
 }
 
 // NewBuilder constructs a default builder.
-func NewBuilder[F field.Element[F]](mapping schema.LimbsMap) Builder[F] {
+func NewBuilder[F field.Element[F]](mapping module.LimbsMap) Builder[F] {
 	return Builder[F]{util.None[CellRefSet](), false, 16, 16, mapping,
 		DefaultFormatter(), util.None[corset.SourceMap]()}
 }
@@ -149,7 +149,7 @@ func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[string]corse
 }
 
 func extractSourceMapData(name string, srcmap map[string]corset.SourceModule,
-	mapping sc.RegisterLimbsMap) (bool, []SourceColumn) {
+	mapping register.LimbsMap) (bool, []SourceColumn) {
 	// Check whether any
 	var (
 		public  = true
@@ -169,7 +169,7 @@ func extractSourceMapData(name string, srcmap map[string]corset.SourceModule,
 // want to show the original name for a column (e.g. when its in a perspective),
 // rather than the raw register name.
 func extractSourceColumns(path file.Path, selector util.Option[string], columns []corset.SourceColumn,
-	submodules []corset.SourceModule, mapping sc.RegisterLimbsMap) []SourceColumn {
+	submodules []corset.SourceModule, mapping register.LimbsMap) []SourceColumn {
 	//
 	var srcColumns []SourceColumn
 	//

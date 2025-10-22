@@ -14,6 +14,7 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
@@ -21,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -133,7 +135,7 @@ func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p Constraint[F]) Subdivide(alloc register.Allocator, mapping schema.LimbsMap) Constraint[F] {
+func (p Constraint[F]) Subdivide(alloc agnostic.RegisterAllocator, mapping module.LimbsMap) Constraint[F] {
 	var constraint schema.Constraint[F]
 	//
 	switch c := p.constraint.(type) {

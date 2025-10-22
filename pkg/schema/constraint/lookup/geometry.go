@@ -16,8 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/ir"
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -27,7 +26,7 @@ import (
 // a lookup where (X Y) looksup into (A B).  Suppose X is 16bit and Y is 32bit,
 // whilst A is 64bit and B is 8bit. Then, the geometry of the lookup is [16,32].
 type Geometry struct {
-	config schema.FieldConfig
+	config field.Config
 	// bitwidth for each source/target pairing
 	geometry []uint
 }
@@ -36,7 +35,7 @@ type Geometry struct {
 // is, for each source/target pair, the maximum bitwidth of any source or target
 // value.
 func NewGeometry[F field.Element[F], E ir.Evaluable[F], T register.Map](c Constraint[F, E],
-	mapping schema.ModuleMap[T]) Geometry {
+	mapping module.Map[T]) Geometry {
 	//
 	var geometry []uint = make([]uint, c.Sources[0].Len())
 	// Include sources
@@ -68,11 +67,11 @@ func (p *Geometry) LimbWidths(i uint) []uint {
 		return nil
 	}
 	//
-	return agnostic.LimbWidths(p.config.RegisterWidth, p.geometry[i])
+	return register.LimbWidths(p.config.RegisterWidth, p.geometry[i])
 }
 
 func updateGeometry[F field.Element[F], E ir.Evaluable[F], T register.Map](geometry []uint, source Vector[F, E],
-	mapping schema.ModuleMap[T]) {
+	mapping module.Map[T]) {
 	//
 	var (
 		regmap = mapping.Module(source.Module)

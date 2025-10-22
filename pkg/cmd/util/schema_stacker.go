@@ -144,7 +144,7 @@ func (p SchemaStacker[F]) BinaryFile() *binfile.BinaryFile {
 }
 
 // Field returns the field configuration used within this schema stack.
-func (p SchemaStacker[F]) Field() schema.FieldConfig {
+func (p SchemaStacker[F]) Field() field.Config {
 	return p.asmConfig.Field
 }
 

@@ -17,8 +17,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -115,7 +116,7 @@ func (p *SortedPermutation[F]) RegistersWritten() []register.Ref {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *SortedPermutation[F]) Subdivide(_ register.Allocator, mapping schema.LimbsMap) sc.Assignment[F] {
+func (p *SortedPermutation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
 	return p
 }
 

@@ -6,7 +6,6 @@ import (
 	"slices"
 	"sort"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
@@ -33,10 +32,10 @@ var traceDiffCmd = &cobra.Command{
 
 // Available instances
 var traceDiffCmds = []FieldAgnosticCmd{
-	{sc.GF_251, runTraceDiffCmd[gf251.Element]},
-	{sc.GF_8209, runTraceDiffCmd[gf8209.Element]},
-	{sc.KOALABEAR_16, runTraceDiffCmd[koalabear.Element]},
-	{sc.BLS12_377, runTraceDiffCmd[bls12_377.Element]},
+	{field.GF_251, runTraceDiffCmd[gf251.Element]},
+	{field.GF_8209, runTraceDiffCmd[gf8209.Element]},
+	{field.KOALABEAR_16, runTraceDiffCmd[koalabear.Element]},
+	{field.BLS12_377, runTraceDiffCmd[bls12_377.Element]},
 }
 
 func runTraceDiffCmd[F field.Element[F]](cmd *cobra.Command, args []string) {

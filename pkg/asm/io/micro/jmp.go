@@ -16,7 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
@@ -50,7 +50,7 @@ func (p *Jmp) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Jmp) Split(schema.RegisterLimbsMap, register.Allocator) []Code {
+func (p *Jmp) Split(register.LimbsMap, agnostic.RegisterAllocator) []Code {
 	return []Code{p}
 }
 

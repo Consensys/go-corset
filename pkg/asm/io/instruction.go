@@ -16,6 +16,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
@@ -71,7 +72,7 @@ type Instruction[T any] interface {
 type SplittableInstruction[T any] interface {
 	Instruction[T]
 
-	SplitRegisters(register.Allocator) T
+	SplitRegisters(agnostic.RegisterAllocator) T
 }
 
 // InOutInstruction is simply a kind of instruction which performs some kind of I/O

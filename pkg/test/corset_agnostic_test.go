@@ -15,62 +15,68 @@ package test
 import (
 	"testing"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-func Test_Agnostic_Padding_01(t *testing.T) {
-	util.CheckWithFields(t, false, "corset/agnostic/padding_01", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+func Test_field_Padding_01(t *testing.T) {
+	util.CheckWithFields(t, false, "corset/field/padding_01", util.CORSET_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
-// func Test_Agnostic_Vanish_01(t *testing.T) {
-// 	test_util.Check(t, false, "corset/agnostic/vanish_01")
+// func Test_field_Vanish_01(t *testing.T) {
+// 	test_util.Check(t, false, "corset/field/vanish_01")
 // }
 
 // func Test_Vanish_02(t *testing.T) {
-// 	test_util.Check(t, false, "corset/agnostic/vanish_02")
+// 	test_util.Check(t, false, "corset/field/vanish_02")
 // }
 
-func Test_Agnostic_Lookup_01(t *testing.T) {
-	util.CheckWithFields(t, false, "corset/agnostic/lookup_01", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+func Test_field_Lookup_01(t *testing.T) {
+	util.CheckWithFields(t, false, "corset/field/lookup_01", util.CORSET_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 // #1247
-// func Test_Agnostic_Lookup_02(t *testing.T) {
-// 	util.CheckWithFields(t, false, "corset/agnostic/lookup_02", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+// func Test_field_Lookup_02(t *testing.T) {
+// 	util.CheckWithFields(t, false, "corset/field/lookup_02", util.CORSET_MAX_PADDING, field.BLS12_377,
+//  field.KOALABEAR_16)
 // }
 
 // #1247
-// func Test_Agnostic_Lookup_03(t *testing.T) {
+// func Test_field_Lookup_03(t *testing.T) {
 // 	// NOTE: BLS12_377 generates an irregular lookup (which, at the time of
 // 	// writing, are not supported).
-// 	util.CheckWithFields(t, false, "corset/agnostic/lookup_03", util.CORSET_MAX_PADDING, sc.KOALABEAR_16)
+// 	util.CheckWithFields(t, false, "corset/field/lookup_03", util.CORSET_MAX_PADDING, field.KOALABEAR_16)
 // }
 
 // #1247
-// func Test_Agnostic_Lookup_04(t *testing.T) {
-// 	util.CheckWithFields(t, false, "corset/agnostic/lookup_04", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+// func Test_field_Lookup_04(t *testing.T) {
+// 	util.CheckWithFields(t, false, "corset/field/lookup_04", util.CORSET_MAX_PADDING, field.BLS12_377,
+// field.KOALABEAR_16)
 // }
 
 // #1247
 //
-//	func Test_Agnostic_Lookup_05(t *testing.T) {
-//		util.CheckWithFields(t, false, "corset/agnostic/lookup_05", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+//	func Test_field_Lookup_05(t *testing.T) {
+//		util.CheckWithFields(t, false, "corset/field/lookup_05", util.CORSET_MAX_PADDING, field.BLS12_377,
+// field.KOALABEAR_16)
 //	}
 
 // #1247
 //
-//	func Test_Agnostic_Lookup_06(t *testing.T) {
-//		util.CheckWithFields(t, false, "corset/agnostic/lookup_06", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+//	func Test_field_Lookup_06(t *testing.T) {
+//		util.CheckWithFields(t, false, "corset/field/lookup_06", util.CORSET_MAX_PADDING, field.BLS12_377,
+// field.KOALABEAR_16)
 //	}
 
 // #1247
 //
-//	func Test_Agnostic_Lookup_07(t *testing.T) {
-//		util.CheckWithFields(t, false, "corset/agnostic/lookup_07", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+//	func Test_field_Lookup_07(t *testing.T) {
+//		util.CheckWithFields(t, false, "corset/field/lookup_07", util.CORSET_MAX_PADDING, field.BLS12_377,
+// field.KOALABEAR_16)
 //	}
 
 // #1247
-// func Test_Agnostic_Lookup_08(t *testing.T) {
-// 	util.CheckWithFields(t, false, "corset/agnostic/lookup_08", util.CORSET_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+// func Test_field_Lookup_08(t *testing.T) {
+// 	util.CheckWithFields(t, false, "corset/field/lookup_08", util.CORSET_MAX_PADDING, field.BLS12_377,
+// field.KOALABEAR_16)
 // }

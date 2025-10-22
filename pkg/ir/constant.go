@@ -17,7 +17,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -85,7 +84,7 @@ func (p *Constant[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	//
 	val.SetBytes(p.Value.Bytes())
 	// Check if power of 2
-	if n, ok := agnostic.IsPowerOf2(val); ok && n > 8 {
+	if n, ok := IsPowerOf2(val); ok && n > 8 {
 		// Not power of 2
 		return sexp.NewSymbol(fmt.Sprintf("2^%d", n))
 	}
@@ -126,4 +125,20 @@ func (p *Constant[F, T]) ValueRange(_ register.Map) util_math.Interval {
 	c.SetBytes(p.Value.Bytes())
 	// Return as interval
 	return util_math.NewInterval(c, c)
+}
+
+// IsPowerOf2 checks whether a given big integer matches 2^n for some n and, if
+// so, n is returned.
+func IsPowerOf2(val big.Int) (n uint, ok bool) {
+	w := val.BitLen()
+	//
+	if w > 0 {
+		m := big.NewInt(2)
+		// compute 2^n-1
+		m.Exp(m, big.NewInt(int64(w-1)), nil)
+		// check for match
+		return uint(w - 1), val.Cmp(m) == 0
+	}
+	//
+	return 0, false
 }

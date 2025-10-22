@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/inspector"
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -46,10 +46,10 @@ var inspectCmd = &cobra.Command{
 
 // Available instances
 var inspectCmds = []FieldAgnosticCmd{
-	{sc.GF_251, runInspectCmd[gf251.Element]},
-	{sc.GF_8209, runInspectCmd[gf8209.Element]},
-	{sc.KOALABEAR_16, runInspectCmd[koalabear.Element]},
-	{sc.BLS12_377, runInspectCmd[bls12_377.Element]},
+	{field.GF_251, runInspectCmd[gf251.Element]},
+	{field.GF_8209, runInspectCmd[gf8209.Element]},
+	{field.KOALABEAR_16, runInspectCmd[koalabear.Element]},
+	{field.BLS12_377, runInspectCmd[bls12_377.Element]},
 }
 
 func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
@@ -117,7 +117,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 }
 
 // Inspect a given trace using a given schema.
-func inspect[F field.Element[F]](mapping sc.LimbsMap, srcmap *corset.SourceMap, trace tr.Trace[F]) []error {
+func inspect[F field.Element[F]](mapping module.LimbsMap, srcmap *corset.SourceMap, trace tr.Trace[F]) []error {
 	// Construct inspector window
 	inspector := construct(mapping, trace, srcmap)
 	// Render inspector
@@ -128,7 +128,7 @@ func inspect[F field.Element[F]](mapping sc.LimbsMap, srcmap *corset.SourceMap, 
 	return inspector.Start()
 }
 
-func construct[F field.Element[F]](mapping sc.LimbsMap, trace tr.Trace[F], srcmap *corset.SourceMap,
+func construct[F field.Element[F]](mapping module.LimbsMap, trace tr.Trace[F], srcmap *corset.SourceMap,
 ) *inspector.Inspector {
 	//
 	term, err := termio.NewTerminal()

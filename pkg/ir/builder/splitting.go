@@ -15,8 +15,8 @@ package builder
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -26,7 +26,7 @@ import (
 
 // TraceSplitting splits a given set of raw columns according to a given
 // register mapping or, otherwise, simply lowers them.
-func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
+func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping module.LimbsMap) (array.Builder[F],
 	[]lt.Module[F], []error) {
 	//
 	var (
@@ -47,7 +47,7 @@ func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping 
 	return builder, modules, err
 }
 
-func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
+func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping module.LimbsMap) (array.Builder[F],
 	[]lt.Module[F], []error) {
 	//
 	var (
@@ -75,7 +75,7 @@ func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schem
 	return builder, modules, errors
 }
 
-func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.LimbsMap) (array.Builder[F],
+func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping module.LimbsMap) (array.Builder[F],
 	[]lt.Module[F], []error) {
 	//
 	var (
@@ -98,7 +98,7 @@ func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping schema.
 		//
 		for j, jth := range ith.Columns {
 			// Start go-routine for this column
-			go func(mid, cid int, column lt.Column[word.BigEndian], mapping schema.LimbsMap) {
+			go func(mid, cid int, column lt.Column[word.BigEndian], mapping module.LimbsMap) {
 				// Send outcome back
 				data, errors := splitRawColumn(column, builder, modmap)
 				c <- splitResult[F]{mid, cid, data, errors}
@@ -139,7 +139,7 @@ func flatten[W any](tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.Module[W] {
 
 // SplitRawColumn splits a given raw column using the given register mapping.
 func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder array.Builder[F],
-	modmap schema.RegisterLimbsMap) ([]lt.Column[F], []error) {
+	modmap register.LimbsMap) ([]lt.Column[F], []error) {
 	//
 	var (
 		height uint
@@ -165,9 +165,9 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 		return []lt.Column[F]{lowerRawColumn(col, builder)}, nil
 	}
 	// Yes, must split into two or more limbs of given widths.
-	limbWidths := agnostic.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
+	limbWidths := register.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 	// Determine limbs of this register
-	limbs := agnostic.LimbsOf(modmap, limbIds)
+	limbs := register.LimbsOf(modmap, limbIds)
 	// Construct temporary place holder for new array data.
 	arrays := make([]array.MutArray[F], len(limbIds))
 	//

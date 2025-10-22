@@ -15,83 +15,84 @@ package test
 import (
 	"testing"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 func Test_AsmUnit_BitShift(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/bit_shift", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/bit_shift", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmUnit_ByteShift(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUnit_Dec4(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/dec4", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/dec4", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmUnit_Dec251(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/dec251", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/unit/dec251", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUnit_Diamond(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/diamond", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/unit/diamond", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUnit_ParseNonDecimal(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/parse_nondecimal", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	util.CheckWithFields(t, false, "asm/unit/parse_nondecimal", util.ASM_MAX_PADDING, field.BLS12_377, field.GF_8209,
+		field.GF_251)
 }
 
 func Test_AsmUnit_Counter(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/counter", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16, sc.GF_8209,
-		sc.GF_251)
+	util.CheckWithFields(t, false, "asm/unit/counter", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16,
+		field.GF_8209, field.GF_251)
 }
 
 func Test_AsmUnit_Counter256(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/counter256", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/counter256", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmUnit_Diff(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/diff", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16,
-		sc.GF_8209, sc.GF_251)
+	util.CheckWithFields(t, false, "asm/unit/diff", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16,
+		field.GF_8209, field.GF_251)
 }
 
 func Test_AsmUnit_FastPow(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/fast_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/fast_pow", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 func Test_AsmUnit_Gf251(t *testing.T) {
 	util.Check(t, false, "asm/unit/gf251")
 }
 
 func Test_AsmUnit_Inc(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/inc", util.ASM_MAX_PADDING, sc.BLS12_377, sc.GF_8209, sc.GF_251)
+	util.CheckWithFields(t, false, "asm/unit/inc", util.ASM_MAX_PADDING, field.BLS12_377, field.GF_8209, field.GF_251)
 }
 
 func Test_AsmUnit_Max(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/max", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/unit/max", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmUnit_MixedSmall(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/mixed_small", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/mixed_small", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 func Test_AsmUnit_MultiLine(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/multiline", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/multiline", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmUnit_MixedLarge(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/mixed_large", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/mixed_large", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmUnit_SlowPow(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/slow_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/slow_pow", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmUnit_Sub(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/sub", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16, sc.GF_8209,
-		sc.GF_251)
+	util.CheckWithFields(t, false, "asm/unit/sub", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16,
+		field.GF_8209, field.GF_251)
 }
 
 func Test_AsmUnit_RecPow(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, field.BLS12_377)
 }

@@ -10,16 +10,15 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package agnostic
+package register
 
 import (
 	"math/big"
 )
 
 var (
-	zero     big.Int
-	one      big.Int
-	minusOne big.Int
+	zero big.Int
+	one  big.Int
 )
 
 // SplitConstant splits a given constant into a number of "limbs". For example,
@@ -55,5 +54,4 @@ func SplitConstant(constant big.Int, limbWidths ...uint) []big.Int {
 func init() {
 	zero = *big.NewInt(0)
 	one = *big.NewInt(1)
-	minusOne = *big.NewInt(-1)
 }

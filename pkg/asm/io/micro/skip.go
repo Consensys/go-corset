@@ -17,7 +17,6 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
@@ -88,7 +87,7 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Skip) Split(mapping schema.RegisterLimbsMap, _ register.Allocator) []Code {
+func (p *Skip) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
 	// NOTE: we can assume left and right have matching bitwidths
 	var (
 		lhsLimbs = mapping.LimbIds(p.Left)
@@ -105,8 +104,8 @@ func (p *Skip) Split(mapping schema.RegisterLimbsMap, _ register.Allocator) []Co
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		lhsLimbWidths := agnostic.WidthsOfLimbs(mapping, lhsLimbs)
-		constantLimbs := agnostic.SplitConstant(p.Constant, lhsLimbWidths...)
+		lhsLimbWidths := register.WidthsOfLimbs(mapping, lhsLimbs)
+		constantLimbs := register.SplitConstant(p.Constant, lhsLimbWidths...)
 		//
 		for i := range n {
 			ncode := &Skip{lhsLimbs[i], register.UnusedId(), constantLimbs[i], skip - i}

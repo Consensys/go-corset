@@ -7,7 +7,6 @@ import (
 	"github.com/consensys/go-corset/pkg/cmd/verify/picus"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
@@ -27,10 +26,10 @@ var genVerifyCmd = &cobra.Command{
 
 // Available instances
 var verifyCmd = []FieldAgnosticCmd{
-	{sc.GF_251, runVerifyCmd[gf251.Element]},
-	{sc.GF_8209, runVerifyCmd[gf8209.Element]},
-	{sc.KOALABEAR_16, runVerifyCmd[koalabear.Element]},
-	{sc.BLS12_377, runVerifyCmd[bls12_377.Element]},
+	{field.GF_251, runVerifyCmd[gf251.Element]},
+	{field.GF_8209, runVerifyCmd[gf8209.Element]},
+	{field.KOALABEAR_16, runVerifyCmd[koalabear.Element]},
+	{field.BLS12_377, runVerifyCmd[bls12_377.Element]},
 }
 
 // The `verify` command takes as input a constraint file and translates the constraints

@@ -15,48 +15,32 @@ package agnostic
 import (
 	"math/big"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
-// ApplyMapping applies a given mapping to a set of registers producing a
-// corresponding set of limbs.  In essence, each register is convert to its
-// limbs in turn, and these are all appended together in order of ococurence.
-func ApplyMapping(mapping sc.RegisterLimbsMap, rids ...register.Id) []sc.LimbId {
-	var limbs []sc.LimbId
-	//
-	for _, rid := range rids {
-		limbs = append(limbs, mapping.LimbIds(rid)...)
-	}
-	//
-	return limbs
-}
+var (
+	zero     big.Int
+	one      big.Int
+	minusOne big.Int
+)
 
-// LimbsOf returns those limbs corresponding to a given set of identifiers.
-func LimbsOf(mapping sc.RegisterLimbsMap, lids []sc.LimbId) []sc.Limb {
+// CombinedWidthOfRegisters returns the combined bitwidth of all limbs.  For example,
+// suppose we have three limbs: x:u8, y:u8, z:u11.  Then the combined width is
+// 8+8+11=27.
+func CombinedWidthOfRegisters(mapping register.Map, registers ...register.LimbId) uint {
 	var (
-		limbs []sc.Limb = make([]sc.Limb, len(lids))
+		width uint
 	)
 	//
-	for i, lid := range lids {
-		limbs[i] = mapping.Limb(lid)
+	for _, rid := range registers {
+		width += mapping.Register(rid).Width
 	}
 	//
-	return limbs
+	return width
 }
 
-// IsPowerOf2 checks whether a given big integer matches 2^n for some n and, if
-// so, n is returned.
-func IsPowerOf2(val big.Int) (n uint, ok bool) {
-	w := val.BitLen()
-	//
-	if w > 0 {
-		m := big.NewInt(2)
-		// compute 2^n-1
-		m.Exp(m, big.NewInt(int64(w-1)), nil)
-		// check for match
-		return uint(w - 1), val.Cmp(m) == 0
-	}
-	//
-	return 0, false
+func init() {
+	zero = *big.NewInt(0)
+	one = *big.NewInt(1)
+	minusOne = *big.NewInt(-1)
 }
