@@ -35,7 +35,7 @@ const qSUB = 11
 // QueryEnv abstracts the notion of an environment for evaluating a query.
 // Specifically, the environment provides a mapping from variable names to their
 // values on a given row.
-type QueryEnv = func(string, uint) big.Int
+type QueryEnv = func(string, uint) (big.Int, bool)
 
 var biZero *big.Int = big.NewInt(0)
 var biOne *big.Int = big.NewInt(1)
@@ -160,14 +160,14 @@ func (p *Query) String() string {
 }
 
 // Eval evaluates the given query in the given environment.
-func (p *Query) Eval(row uint, env QueryEnv) big.Int {
+func (p *Query) Eval(row uint, env QueryEnv) (big.Int, bool) {
 	switch p.op {
 	case qROW:
-		return *big.NewInt(int64(row))
+		return *big.NewInt(int64(row)), true
 	case qVAR:
 		return env(p.name, row)
 	case qNUM:
-		return p.number
+		return p.number, true
 	case qEQ:
 		return eval_binary(row, env, p.args[0], p.args[1], eval_eq)
 	case qNEQ:
@@ -195,23 +195,29 @@ type binary_op func(big.Int, big.Int) big.Int
 type nary_op func([]big.Int) big.Int
 
 func eval_binary(row uint, env QueryEnv, lhs Query, rhs Query,
-	fn binary_op) big.Int {
+	fn binary_op) (big.Int, bool) {
 	// Evaluate left-hand side
-	lv := lhs.Eval(row, env)
+	lv, lb := lhs.Eval(row, env)
 	// Evaluate right-hand side
-	rv := rhs.Eval(row, env)
+	rv, rb := rhs.Eval(row, env)
 	// Performan binary operation
-	return fn(lv, rv)
+	return fn(lv, rv), lb && rb
 }
 
-func eval_nary(row uint, env QueryEnv, args []Query, fn nary_op) big.Int {
-	vals := make([]big.Int, len(args))
+func eval_nary(row uint, env QueryEnv, args []Query, fn nary_op) (big.Int, bool) {
+	var (
+		vals      = make([]big.Int, len(args))
+		ok   bool = true
+	)
 	// Evaluate arguments
 	for i, arg := range args {
-		vals[i] = arg.Eval(row, env)
+		var iok bool
+
+		vals[i], iok = arg.Eval(row, env)
+		ok = ok && iok
 	}
 	//
-	return fn(vals)
+	return fn(vals), ok
 }
 
 func eval_eq(lhs big.Int, rhs big.Int) big.Int {

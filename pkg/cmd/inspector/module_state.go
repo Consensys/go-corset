@@ -97,7 +97,7 @@ func (p *ModuleState) gotoRow(ncol uint) uint {
 	if col != ncol {
 		// Update history
 		rowOffsetStr := fmt.Sprintf("%d", ncol)
-		p.targetRowHistory = history_append(p.targetRowHistory, rowOffsetStr)
+		p.targetRowHistory = historyAppend(p.targetRowHistory, rowOffsetStr)
 	}
 	// failed
 	return row
@@ -114,7 +114,7 @@ func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool)
 		//
 		if history {
 			regex_string := filter.Regex.String()
-			p.columnFilterHistory = history_append(p.columnFilterHistory, regex_string)
+			p.columnFilterHistory = historyAppend(p.columnFilterHistory, regex_string)
 		}
 	}
 }
@@ -123,18 +123,9 @@ func (p *ModuleState) applyColumnFilter(filter SourceColumnFilter, history bool)
 // trace, looking for the first row where the query holds.
 func (p *ModuleState) matchQuery(col uint, forwards bool, query *Query) termio.FormattedText {
 	var (
-		mapping  = p.view.Data().Mapping()
 		width, _ = p.view.Data().Dimensions()
 		// Construct query environment
-		env = func(col string, row uint) big.Int {
-			id, ok := mapping.HasRegister(col)
-			//
-			if !ok {
-				panic(fmt.Sprintf("unknown column \"%s\"", col))
-			}
-			//
-			return p.view.Data().DataOf(id).Get(row)
-		}
+		env = buildEnvironment(p.view.Data())
 		// Direction text
 		dir string
 		// Determine current cursor offset
@@ -147,13 +138,13 @@ func (p *ModuleState) matchQuery(col uint, forwards bool, query *Query) termio.F
 		dir = "backwards"
 	}
 	// Always update history
-	p.scanHistory = history_append(p.scanHistory, query.String())
+	p.scanHistory = historyAppend(p.scanHistory, query.String())
 	p.lastQuery = query
 	// evaluate forward
 	for i := col; i < width; {
-		val := query.Eval(i, env)
+		val, active := query.Eval(i, env)
 		//
-		if val.Cmp(biZero) == 0 {
+		if active && val.Cmp(biZero) == 0 {
 			p.view.Goto(i, row)
 			msg := fmt.Sprintf("%s from row %d, matched row %d", dir, col, i)
 
@@ -175,9 +166,43 @@ func (p *ModuleState) matchQuery(col uint, forwards bool, query *Query) termio.F
 // History append will append a given item to the end of the history.  However,
 // if that item already existed in the history, then that is removed.  This is
 // to avoid duplicates in the history.
-func history_append[T comparable](history []T, item T) []T {
+func historyAppend[T comparable](history []T, item T) []T {
 	// Remove previous entry (if applicable)
 	history = array.RemoveMatching(history, func(ith T) bool { return ith == item })
 	// Add item to end
 	return append(history, item)
+}
+
+// Build an environment suitable for querying from a given module's data.
+func buildEnvironment(data view.ModuleData) QueryEnv {
+	var (
+		mapping = data.Mapping()
+	)
+	//
+	return func(col string, row uint) (big.Int, bool) {
+		var (
+			id schema.RegisterId
+			ok bool
+		)
+		// Look in the register mapping first
+		if id, ok = mapping.HasRegister(col); !ok {
+			var (
+				srcId  view.SourceColumnId
+				srcCol view.SourceColumn
+			)
+			// Failed, so try for a source column.
+			if srcId, ok = data.HasSourceColumn(col); !ok {
+				// give up
+				panic(fmt.Sprintf("unknown column \"%s\"", col))
+			}
+			// Extract source column
+			srcCol = data.SourceColumn(srcId)
+			// Extract underlying register id
+			id = srcCol.Register
+			// Check whether source column actually active
+			ok = data.IsActive(srcCol, row)
+		}
+		//
+		return data.DataOf(id).Get(row), ok
+	}
 }

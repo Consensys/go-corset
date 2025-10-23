@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/corset"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -68,10 +69,15 @@ type ModuleData interface {
 	Mapping() sc.RegisterLimbsMap
 	// Name returns the name of the given module
 	Name() string
+	// HasSourceColumn is useful for querying whether a source column exists
+	// with the given name.
+	HasSourceColumn(name string) (SourceColumnId, bool)
 	// SourceColumn returns the source column associated with a given id.
 	SourceColumn(col SourceColumnId) SourceColumn
 	// SourceColumnOf returns the source column associated with a given name.
 	SourceColumnOf(name string) SourceColumn
+	// SourceColumns returns the set of all known source columns.
+	SourceColumns() []SourceColumn
 }
 
 // ============================================================================
@@ -144,10 +150,27 @@ func (p *moduleData[F]) IsActive(col SourceColumn, row uint) bool {
 	return val.BitLen() != 0
 }
 
+// SourceColumns returns the set of all known source columns.
+func (p *moduleData[F]) SourceColumns() []SourceColumn {
+	return p.rows
+}
+
 // SourceColumn returns the source column associated with the given source
 // column id.
 func (p *moduleData[F]) SourceColumn(col SourceColumnId) SourceColumn {
 	return p.rows[col.Unwrap()]
+}
+
+// SourceColumnOf returns the source column associated with the given source
+// column name.  This will panic if the given source column does not exist.
+func (p *moduleData[F]) HasSourceColumn(name string) (SourceColumnId, bool) {
+	for i, col := range p.rows {
+		if col.Name == name {
+			return schema.NewRegisterId(uint(i)), true
+		}
+	}
+
+	return schema.NewUnusedRegisterId(), false
 }
 
 // SourceColumnOf returns the source column associated with the given source
