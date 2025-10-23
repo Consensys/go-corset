@@ -89,9 +89,14 @@ func NewInspector(term *termio.Terminal, trace view.TraceView) *Inspector {
 		return strings.Compare(trace.Module(l).Data().Name(), trace.Module(r).Data().Name())
 	})
 	// Filter out non-public modules
-	ntrace = ntrace.Filter(view.FilterForModules(func(mid schema.ModuleId) bool {
+	ntrace = ntrace.Filter(view.NewTraceFilter(func(mid schema.ModuleId) view.ModuleFilter {
 		_, height := trace.Module(mid).Data().Dimensions()
-		return height > 0 && trace.Module(mid).Data().IsPublic()
+		//
+		if height > 0 && trace.Module(mid).Data().IsPublic() {
+			return view.DefaultModuleFilter()
+		}
+		//
+		return nil
 	}))
 	//
 	for i := range ntrace.Width() {
