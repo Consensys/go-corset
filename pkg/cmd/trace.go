@@ -32,10 +32,8 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
-	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
@@ -199,13 +197,15 @@ func init() {
 // TraceConfig packages together useful things for the various supported
 // options.
 type TraceConfig struct {
-	mapping       module.LimbsMap
-	sourceMap     *corset.SourceMap
-	maxCellWidth  uint
+	mapping      module.LimbsMap
+	sourceMap    *corset.SourceMap
+	maxCellWidth uint
+	//nolint
 	maxTitleWidth uint
 	// Column / Module summarisers to include
 	includes []string
-	limbs    bool
+	//nolint
+	limbs bool
 	// Column to sort on
 	sortColumn uint
 	// Start/end row for trace view
@@ -260,46 +260,6 @@ func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 	}
 	// Now, reconstruct it!
 	return tr
-}
-
-// NOTE: parallelising this algorithm did not improve performance as there is
-// (presumably) too much contention.  A better solution would be to construct
-// local heaps for each column in parallel and then merge them at the end.  But
-// that remains complex since the indexing will be different.
-func seqReconstructRawTrace[F field.Element[F]](metadata []byte, tr trace.Trace[F]) lt.TraceFile {
-	var (
-		perf     = util.NewPerfStats()
-		expanded = make([]lt.Module[word.BigEndian], tr.Width())
-		// Construct fresh heap for this trace
-		heap       = pool.NewLocalHeap[word.BigEndian]()
-		arrBuilder = array.NewDynamicBuilder(heap)
-	)
-	//
-	for mid := range tr.Width() {
-		var (
-			module  = tr.Module(mid)
-			columns = make([]lt.Column[word.BigEndian], module.Width())
-		)
-		// Initialise modules
-		// Dispatch go-routines
-		for cid := range module.Width() {
-			col := module.Column(cid)
-			//
-			columns[cid] = lt.Column[word.BigEndian]{
-				Name: col.Name(),
-				Data: array.CloneArray(col.Data(), &arrBuilder),
-			}
-		}
-		//
-		expanded[mid] = lt.Module[word.BigEndian]{
-			Name:    module.Name(),
-			Columns: columns,
-		}
-	}
-	//
-	perf.Log("Trace reconstruction")
-	//
-	return lt.NewTraceFile(metadata, *heap, expanded)
 }
 
 func printTraceFileHeader(header *lt.Header) {
@@ -359,7 +319,7 @@ func listModules(cfg TraceConfig, window view.TraceView) {
 			row = summariseModule(mod, moduleSumarisers)
 		)
 		// Set row
-		tbl.SetRow(uint(i+1), row...)
+		tbl.SetRow(i+1, row...)
 	}
 	//
 	tbl.SetMaxWidths(cfg.maxCellWidth)
@@ -730,14 +690,11 @@ func nonZeroCounter(col view.RegisterView) string {
 
 func nonZeroCount(data view.RegisterView) uint {
 	var count = uint(0)
-	//
-	if data.Len() > 0 {
-		// Count all rows which have same value as previous row.
-		for i := uint(1); i < data.Len(); i++ {
-			ith := data.Get(i)
-			if ith.Sign() != 0 {
-				count++
-			}
+	// Count all non-zero rows.
+	for i := range data.Len() {
+		ith := data.Get(i)
+		if ith.Sign() != 0 {
+			count++
 		}
 	}
 	//

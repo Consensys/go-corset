@@ -109,6 +109,7 @@ func GetIntArray(cmd *cobra.Command, flag string) []int {
 	return r
 }
 
+// nolint
 func writeBatchedTracesFile(filename string, traces ...lt.TraceFile) {
 	var buf bytes.Buffer
 	// Check file extension
@@ -131,6 +132,7 @@ func writeBatchedTracesFile(filename string, traces ...lt.TraceFile) {
 }
 
 // Write a given trace file to disk
+// nolint
 func writeTraceFile(filename string, tracefile lt.TraceFile) {
 	var err error
 
