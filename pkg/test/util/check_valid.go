@@ -15,6 +15,7 @@ package util
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -52,6 +53,11 @@ const ASM_MAX_PADDING uint = 2
 // upto this value.
 const CORSET_MAX_PADDING uint = 7
 
+// FIELD_REGEX is used to restrict which fields will be tested.  This is
+// primarily useful for the CI pipeline where we want to test individual fields
+// in separate runners.
+var FIELD_REGEX *regexp.Regexp
+
 // Check that all traces which we expect to be accepted are accepted by a given
 // set of constraints, and all traces that we expect to be rejected are
 // rejected.  A default field is used for these tests (BLS12_377)
@@ -69,6 +75,10 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, maxPadding uint, fi
 	}
 	// Run checks for each field
 	for _, f := range fields {
+		// Check whether field is active
+		if !FIELD_REGEX.MatchString(f.Name) {
+			continue
+		}
 		// Dispatch based on field config
 		switch f {
 		case field.GF_251:
@@ -409,4 +419,21 @@ func getSchemaStack[F field.Element[F]](stdlib bool, field field.Config, filenam
 		WithLayer(cmd_util.AIR_LAYER)
 	// Read in all specified constraint files.
 	return stack.Read(filenames...)
+}
+
+func init() {
+	var (
+		regex = ""
+		err   error
+	)
+	// Check whether a field regex is specified in the environment.
+	if val, ok := os.LookupEnv("GOCORSET_FIELD"); ok {
+		regex = val
+	}
+	// Compile the regex
+	FIELD_REGEX, err = regexp.Compile(regex)
+	//
+	if err != nil {
+		panic(fmt.Sprintf("GOCORSET_FIELD is malformed: %s", err.Error()))
+	}
 }

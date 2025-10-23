@@ -66,7 +66,7 @@ func Test_Bench_Fields(t *testing.T) {
 }
 
 func Test_Bench_Add(t *testing.T) {
-	Check(t, true, "corset/bench/add")
+	util.Check(t, true, "corset/bench/add")
 }
 
 func Test_Bench_BinStatic(t *testing.T) {
@@ -74,15 +74,15 @@ func Test_Bench_BinStatic(t *testing.T) {
 }
 
 func Test_Bench_Bin(t *testing.T) {
-	Check(t, true, "corset/bench/bin")
+	util.Check(t, true, "corset/bench/bin")
 }
 
 func Test_Bench_Wcp(t *testing.T) {
-	Check(t, true, "corset/bench/wcp")
+	util.Check(t, true, "corset/bench/wcp")
 }
 
 func Test_Bench_Mxp(t *testing.T) {
-	Check(t, true, "corset/bench/mxp")
+	util.Check(t, true, "corset/bench/mxp")
 }
 
 func Test_Bench_Shf(t *testing.T) {
@@ -94,7 +94,7 @@ func Test_Bench_Euc(t *testing.T) {
 }
 
 func Test_Bench_Oob(t *testing.T) {
-	Check(t, true, "corset/bench/oob")
+	util.Check(t, true, "corset/bench/oob")
 }
 
 func Test_Bench_Stp(t *testing.T) {
@@ -102,7 +102,7 @@ func Test_Bench_Stp(t *testing.T) {
 }
 
 func Test_Bench_Mmio(t *testing.T) {
-	Check(t, true, "corset/bench/mmio")
+	util.Check(t, true, "corset/bench/mmio")
 }
 
 func Test_Bench_Rom(t *testing.T) {

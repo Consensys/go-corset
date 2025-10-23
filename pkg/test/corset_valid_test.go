@@ -516,7 +516,7 @@ func Test_Valid_Type_11(t *testing.T) {
 }
 
 func Test_Valid_Type_12(t *testing.T) {
-	Check(t, false, "corset/valid/type_12")
+	util.Check(t, false, "corset/valid/type_12")
 }
 
 func Test_Valid_Type_13(t *testing.T) {
