@@ -16,8 +16,10 @@ import (
 	"encoding/gob"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -34,14 +36,14 @@ type Computation[F field.Element[F]] struct {
 	Function string
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
-	Targets []sc.RegisterRef
+	Targets []register.Ref
 	// Source columns which define the new (sorted) columns.
-	Sources []sc.RegisterRef
+	Sources []register.Ref
 }
 
 // NewComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
-func NewComputation[F field.Element[F]](fn string, targets []sc.RegisterRef, sources []sc.RegisterRef) *Computation[F] {
+func NewComputation[F field.Element[F]](fn string, targets []register.Ref, sources []register.Ref) *Computation[F] {
 	//
 	return &Computation[F]{fn, targets, sources}
 }
@@ -80,23 +82,23 @@ func (p *Computation[F]) Consistent(_ sc.AnySchema[F]) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *Computation[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *Computation[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *Computation[F]) RegistersRead() []sc.RegisterRef {
+func (p *Computation[F]) RegistersRead() []register.Ref {
 	return p.Sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *Computation[F]) RegistersWritten() []sc.RegisterRef {
+func (p *Computation[F]) RegistersWritten() []register.Ref {
 	return p.Targets
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Computation[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
+func (p *Computation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
 	return p
 }
 
@@ -149,7 +151,7 @@ func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 // set of output columns as a function of a given set of input columns.
 type NativeComputation[F any] func([]array.Array[F], array.Builder[F]) []array.MutArray[F]
 
-func computeNative[F field.Element[F]](sources []sc.RegisterRef, fn NativeComputation[F], trace tr.Trace[F],
+func computeNative[F field.Element[F]](sources []register.Ref, fn NativeComputation[F], trace tr.Trace[F],
 ) []array.MutArray[F] {
 	// Read inputs
 	inputs := ReadRegisters(trace, sources...)

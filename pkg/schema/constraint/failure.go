@@ -13,7 +13,7 @@
 package constraint
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -29,7 +29,7 @@ type InternalFailure[F any] struct {
 	// Row on which the constraint failed
 	Row uint
 	// Cells involved (if any)
-	Term ir.Contextual
+	Term term.Contextual
 	// Error message
 	Error string
 }

@@ -15,7 +15,7 @@ package ranged
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -28,7 +28,7 @@ import (
 // Constraint restricts all values for a given expression to be within a
 // range [0..n) for some bound n.  Any bound is supported, and the system will
 // choose the best underlying implementation as needed.
-type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
+type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 	// A unique identifier for this constraint.  This is primarily useful for
 	// debugging.
 	Handle string
@@ -44,7 +44,7 @@ type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 }
 
 // NewConstraint constructs a new Range constraint!
-func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, context schema.ModuleId,
+func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, context schema.ModuleId,
 	expr E, bitwidth uint) Constraint[F, E] {
 	return Constraint[F, E]{handle, context, expr, bitwidth}
 }

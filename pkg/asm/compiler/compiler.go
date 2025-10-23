@@ -18,7 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -197,10 +197,10 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction) {
 	if !bus.atomic {
 		// Create program counter
 		bus.columns = append(bus.columns,
-			module.NewColumn(schema.COMPUTED_REGISTER, io.PC_NAME, pcWidth, padding))
+			module.NewColumn(register.COMPUTED_REGISTER, io.PC_NAME, pcWidth, padding))
 		// Create return line
 		bus.columns = append(bus.columns,
-			module.NewColumn(schema.COMPUTED_REGISTER, io.RET_NAME, 1, padding))
+			module.NewColumn(register.COMPUTED_REGISTER, io.RET_NAME, 1, padding))
 	}
 	//
 	p.buses[busId] = bus

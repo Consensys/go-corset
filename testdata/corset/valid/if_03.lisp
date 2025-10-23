@@ -1,0 +1,10 @@
+(defcolumns (A :i16) (B :i16))
+(defconstraint c1 ()
+  (if (== 0 A)
+      (== 0 0)
+      (== 0 B)))
+
+(defconstraint c2 ()
+  (if (!= 0 A)
+      (== 0 B)
+      (== 0 0)))

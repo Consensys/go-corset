@@ -18,8 +18,8 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
 )
@@ -34,21 +34,21 @@ type Expr interface {
 	// Evaluate this expression in a given environment producing a given value.
 	Eval([]big.Int) big.Int
 	// Polynomial returns this expression flatterned into a polynomial form.
-	Polynomial() agnostic.Polynomial
+	Polynomial() agnostic.StaticPolynomial
 	// RegistersRead returns the set of registers read by this expression
 	RegistersRead() bit.Set
 	// String returns a string representation of this expression in a given base.
-	String(mapping schema.RegisterMap) string
+	String(mapping register.Map) string
 	// ValueRange returns the interval of values that this term can evaluate to.
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.
-	ValueRange(mapping schema.RegisterMap) math.Interval
+	ValueRange(mapping register.Map) math.Interval
 }
 
 // BitWidth returns the minimum number of bits required to store any evaluation
 // of this expression.  In addition, it provides an indicator as to whether or
 // not any evaluation could result in a negative value.
-func BitWidth(e Expr, mapping schema.RegisterMap) (uint, bool) {
+func BitWidth(e Expr, mapping register.Map) (uint, bool) {
 	var (
 		// Determine set of all values that right-hand side can evaluate to
 		values = e.ValueRange(mapping)
@@ -77,9 +77,9 @@ func Eval(state []big.Int, exprs []Expr) []big.Int {
 
 // RegistersRead determines the (unique) set of registers read by any expression
 // in the given set of expressions.
-func RegistersRead(exprs ...Expr) []schema.RegisterId {
+func RegistersRead(exprs ...Expr) []register.Id {
 	var (
-		reads []schema.RegisterId
+		reads []register.Id
 		bits  bit.Set
 	)
 	// extract all usages
@@ -90,7 +90,7 @@ func RegistersRead(exprs ...Expr) []schema.RegisterId {
 	for iter := bits.Iter(); iter.HasNext(); {
 		next := iter.Next()
 		//
-		reads = append(reads, schema.NewRegisterId(next))
+		reads = append(reads, register.NewId(next))
 	}
 	//
 	return reads
@@ -98,7 +98,7 @@ func RegistersRead(exprs ...Expr) []schema.RegisterId {
 
 // String provides a generic facility for converting an expression into a
 // suitable string.
-func String(e Expr, mapping schema.RegisterMap) string {
+func String(e Expr, mapping register.Map) string {
 	var (
 		exprs    []Expr
 		operator string

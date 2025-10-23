@@ -13,7 +13,7 @@
 package lookup
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -21,7 +21,7 @@ import (
 
 // Vector encapsulates all columns on one side of a lookup (i.e. it
 // represents all source columns or all target columns).
-type Vector[F any, E ir.Evaluable[F]] struct {
+type Vector[F any, E term.Evaluable[F]] struct {
 	// Module in which all terms are evaluated.
 	Module schema.ModuleId
 	// Selector for this vector (optional)
@@ -31,7 +31,7 @@ type Vector[F any, E ir.Evaluable[F]] struct {
 }
 
 // NewVector constructs a new vector in a given context with an optional selector.
-func NewVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, selector util.Option[E], terms ...E) Vector[F, E] {
+func NewVector[F any, E term.Evaluable[F]](mid schema.ModuleId, selector util.Option[E], terms ...E) Vector[F, E] {
 	if selector.HasValue() {
 		return FilteredVector(mid, selector.Unwrap(), terms...)
 	}
@@ -40,7 +40,7 @@ func NewVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, selector util.Opti
 }
 
 // UnfilteredVector constructs a new vector in a given context which has no selector.
-func UnfilteredVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, terms ...E) Vector[F, E] {
+func UnfilteredVector[F any, E term.Evaluable[F]](mid schema.ModuleId, terms ...E) Vector[F, E] {
 	return Vector[F, E]{
 		mid,
 		util.None[E](),
@@ -49,7 +49,7 @@ func UnfilteredVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, terms ...E)
 }
 
 // FilteredVector constructs a new vector in a given context which has a selector.
-func FilteredVector[F any, E ir.Evaluable[F]](mid schema.ModuleId, selector E, terms ...E) Vector[F, E] {
+func FilteredVector[F any, E term.Evaluable[F]](mid schema.ModuleId, selector E, terms ...E) Vector[F, E] {
 	return Vector[F, E]{
 		mid,
 		util.Some(selector),

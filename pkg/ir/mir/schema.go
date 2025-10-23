@@ -14,6 +14,7 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -40,12 +41,12 @@ type (
 	// Term represents the fundamental for arithmetic expressions in the MIR
 	// representation.
 	Term[F any] interface {
-		ir.Term[F, Term[F]]
+		term.Expr[F, Term[F]]
 	}
 	// LogicalTerm represents the fundamental for logical expressions in the MIR
 	// representation.
 	LogicalTerm[F any] interface {
-		ir.LogicalTerm[F, LogicalTerm[F]]
+		term.Logical[F, LogicalTerm[F]]
 	}
 )
 
@@ -86,41 +87,38 @@ type (
 // Following types capture permitted expression forms at the MIR level.
 type (
 	// Add represents the addition of zero or more expressions.
-	Add[F field.Element[F]] = ir.Add[F, Term[F]]
+	Add[F field.Element[F]] = term.Add[F, Term[F]]
 	// Constant represents a constant value within an expression.
-	Constant[F field.Element[F]] = ir.Constant[F, Term[F]]
+	Constant[F field.Element[F]] = term.Constant[F, Term[F]]
 	// RegisterAccess represents reading the value held at a given column in the
 	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
 	// a given amount.
-	RegisterAccess[F field.Element[F]] = ir.RegisterAccess[F, Term[F]]
+	RegisterAccess[F field.Element[F]] = term.RegisterAccess[F, Term[F]]
 	// Mul represents the product over zero or more expressions.
-	Mul[F field.Element[F]] = ir.Mul[F, Term[F]]
+	Mul[F field.Element[F]] = term.Mul[F, Term[F]]
 	// Sub represents the subtraction over zero or more expressions.
-	Sub[F field.Element[F]] = ir.Sub[F, Term[F]]
+	Sub[F field.Element[F]] = term.Sub[F, Term[F]]
 	// VectorAccess represents a compound variable
-	VectorAccess[F field.Element[F]] = ir.VectorAccess[F, Term[F]]
+	VectorAccess[F field.Element[F]] = term.VectorAccess[F, Term[F]]
 )
 
 // Following types capture permitted logical forms at the MIR level.
 type (
 	// Conjunct represents a logical conjunction at the MIR level.
-	Conjunct[F field.Element[F]] = ir.Conjunct[F, LogicalTerm[F]]
+	Conjunct[F field.Element[F]] = term.Conjunct[F, LogicalTerm[F]]
 	// Disjunct represents a logical conjunction at the MIR level.
-	Disjunct[F field.Element[F]] = ir.Disjunct[F, LogicalTerm[F]]
+	Disjunct[F field.Element[F]] = term.Disjunct[F, LogicalTerm[F]]
 	// Equal represents an equality comparator between two arithmetic terms
 	// at the MIR level.
-	Equal[F field.Element[F]] = ir.Equal[F, LogicalTerm[F], Term[F]]
+	Equal[F field.Element[F]] = term.Equal[F, LogicalTerm[F], Term[F]]
 	// Ite represents an If-Then-Else expression where either branch is optional
 	// (though we must have at least one).
-	Ite[F field.Element[F]] = ir.Ite[F, LogicalTerm[F]]
+	Ite[F field.Element[F]] = term.Ite[F, LogicalTerm[F]]
 	// Negate represents a logical negation at the MIR level.
-	Negate[F field.Element[F]] = ir.Negate[F, LogicalTerm[F]]
+	Negate[F field.Element[F]] = term.Negate[F, LogicalTerm[F]]
 	// NotEqual represents a non-equality comparator between two arithmetic terms
 	// at the MIR level.
-	NotEqual[F field.Element[F]] = ir.NotEqual[F, LogicalTerm[F], Term[F]]
-	// Inequality an inequality comparator (e.g. X < Y or X <= Y) between two arithmetic terms
-	// at the MIR level.
-	Inequality[F field.Element[F]] = ir.Inequality[F, LogicalTerm[F], Term[F]]
+	NotEqual[F field.Element[F]] = term.NotEqual[F, LogicalTerm[F], Term[F]]
 )
 
 // SubstituteConstants substitutes the value of matching labelled constants for

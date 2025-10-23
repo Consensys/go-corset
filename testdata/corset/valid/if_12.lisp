@@ -1,0 +1,5 @@
+(defcolumns (A :binary) (B :i16) (C :i16))
+(defconstraint c1 ()
+  (if (== 0 A)
+      (== 0 B)
+      (== 0 C)))

@@ -15,14 +15,15 @@ package mir
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.LimbsMap) LookupConstraint[F] {
+func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping module.LimbsMap) LookupConstraint[F] {
 	var (
 		// Determine overall geometry for this lookup.
 		geometry = lookup.NewGeometry(c, mapping)
@@ -46,7 +47,7 @@ func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.L
 // existing pairings only.  Later stages will subdivide and pad the
 // source/target pairings as necessary.
 func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, *RegisterAccess[F]],
-	mapping schema.LimbsMap) []lookup.Vector[F, *VectorAccess[F]] {
+	mapping module.LimbsMap) []lookup.Vector[F, *VectorAccess[F]] {
 	//
 	var nterms = make([]lookup.Vector[F, *VectorAccess[F]], len(vectors))
 	//
@@ -76,7 +77,7 @@ func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, *RegisterAc
 // notice padding has been applied to ensure we have a matching number of
 // columns on the left- and right-hand sides.
 func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []lookup.Vector[F, *VectorAccess[F]],
-	mapping schema.LimbsMap) []lookup.Vector[F, *RegisterAccess[F]] {
+	mapping module.LimbsMap) []lookup.Vector[F, *RegisterAccess[F]] {
 	//
 	var nterms = make([]lookup.Vector[F, *RegisterAccess[F]], len(vectors))
 	//
@@ -88,7 +89,7 @@ func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []
 }
 
 func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector lookup.Vector[F, *VectorAccess[F]],
-	mapping schema.LimbsMap) lookup.Vector[F, *RegisterAccess[F]] {
+	mapping module.LimbsMap) lookup.Vector[F, *RegisterAccess[F]] {
 	//
 	var (
 		modmap   = mapping.Module(vector.Module)
@@ -161,7 +162,7 @@ func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector look
 // NOTE: For now, this function only checks that limbs are aligned and panics
 // otherwise.
 func padLookupLimb[F field.Element[F]](i uint, term *VectorAccess[F], geometry lookup.Geometry,
-	mapping schema.RegisterLimbsMap) []*RegisterAccess[F] {
+	mapping register.LimbsMap) []*RegisterAccess[F] {
 	//
 	var (
 		widths = geometry.LimbWidths(i)

@@ -18,32 +18,19 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
-
-// ModuleMap provides a mapping from module identifiers (or names) to register
-// maps.
-type ModuleMap[T RegisterMap] interface {
-	fmt.Stringer
-	// Field returns the underlying field configuration used for this mapping.
-	// This includes the field bandwidth (i.e. number of bits available in
-	// underlying field) and the maximum register width (i.e. width at which
-	// registers are capped).
-	Field() FieldConfig
-	// Module returns register mapping information for the given module.
-	Module(ModuleId) T
-	// ModuleOf returns register mapping information for the given module.
-	ModuleOf(string) T
-	// Returns number of modules in this map
-	Width() uint
-}
 
 // ModuleId abstracts the notion of a "module identifier"
 type ModuleId = uint
 
 // ModuleView provides access to certain structural information about a module.
 type ModuleView interface {
-	RegisterMap
+	register.Map
 	// Module name
 	Name() string
 	// IsPublic indicates whether or not this module is externally visible.
@@ -80,13 +67,6 @@ type Module[F any] interface {
 	Substitute(map[string]F)
 }
 
-// FieldAgnosticModule captures the notion of a module which is agnostic to the
-// underlying field being used.
-type FieldAgnosticModule[F any, M Module[F]] interface {
-	Module[F]
-	FieldAgnostic[M]
-}
-
 // ============================================================================
 //
 // ============================================================================
@@ -98,19 +78,21 @@ type FieldAgnosticModule[F any, M Module[F]] interface {
 // and Y (in that order) where both are to be halfed.  Then, the result is X'0,
 // X'1, Y'0. Y'1 (in that order).  Hence, predicting the new register indices is
 // relatively straightforward.
-type Table[F any, C Constraint[F]] struct {
+type Table[F field.Element[F], C Constraint[F]] struct {
 	name        string
 	multiplier  uint
 	padding     bool
 	public      bool
 	synthetic   bool
-	registers   []Register
+	registers   []register.Register
 	constraints []C
 	assignments []Assignment[F]
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[F any, C Constraint[F]](name string, multiplier uint, padding, public, synthetic bool) *Table[F, C] {
+func NewTable[F field.Element[F], C Constraint[F]](name string, multiplier uint,
+	padding, public, synthetic bool) *Table[F, C] {
+	//
 	return &Table[F, C]{name, multiplier, padding, public, synthetic, nil, nil, nil}
 }
 
@@ -151,14 +133,14 @@ func (p *Table[F, C]) Consistent(fieldWidth uint, schema AnySchema[F]) []error {
 
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
-func (p *Table[F, C]) HasRegister(name string) (RegisterId, bool) {
+func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 	for i := range p.Width() {
 		if p.registers[i].Name == name {
-			return NewRegisterId(i), true
+			return register.NewId(i), true
 		}
 	}
 	// Fail
-	return NewUnusedRegisterId(), false
+	return register.UnusedId(), false
 }
 
 // Name returns the module name.
@@ -204,13 +186,13 @@ func (p *Table[F, C]) RawConstraints() []C {
 }
 
 // Register returns the given register in this table.
-func (p *Table[F, C]) Register(id RegisterId) Register {
+func (p *Table[F, C]) Register(id register.Id) register.Register {
 	return p.registers[id.Unwrap()]
 }
 
 // Registers returns an iterator over the underlying registers of this schema.
 // Specifically, the index of a register in this array is its register index.
-func (p *Table[F, C]) Registers() []Register {
+func (p *Table[F, C]) Registers() []register.Register {
 	return p.registers
 }
 
@@ -231,31 +213,24 @@ func (p *Table[F, C]) Width() uint {
 }
 
 func (p *Table[F, C]) String() string {
-	return RegisterMapToString(p)
+	return register.MapToString(p)
 }
 
 // Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[F, C]) Subdivide(mapping LimbsMap) *Table[F, C] {
+func (p *Table[F, C]) Subdivide(mid ModuleId, mapping module.LimbsMap,
+	assigner func([]register.Id, agnostic.Computation) Assignment[F]) *Table[F, C] {
+	//
 	var (
-		modmap      = mapping.ModuleOf(p.name)
-		registers   []Register
 		constraints []C
 		assignments []Assignment[F]
+		env         = agnostic.NewRegisterAllocator(mapping.Module(mid).LimbsMap())
 	)
-	// Append mapping registers
-	for i := range p.registers {
-		rid := NewRegisterId(uint(i))
-		//
-		for _, limb := range modmap.LimbIds(rid) {
-			registers = append(registers, modmap.Limb(limb))
-		}
-	}
 	// Subdivide assignments
 	for _, c := range p.assignments {
 		var a any = c
 		//nolint
-		if fc, ok := a.(FieldAgnostic[Assignment[F]]); ok {
-			assignments = append(assignments, fc.Subdivide(mapping))
+		if fc, ok := a.(agnostic.SubDivisible[Assignment[F]]); ok {
+			assignments = append(assignments, fc.Subdivide(env, mapping))
 		} else {
 			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
 		}
@@ -264,14 +239,18 @@ func (p *Table[F, C]) Subdivide(mapping LimbsMap) *Table[F, C] {
 	for _, c := range p.constraints {
 		var a any = c
 		//nolint
-		if fc, ok := a.(FieldAgnostic[C]); ok {
-			constraints = append(constraints, fc.Subdivide(mapping))
+		if fc, ok := a.(agnostic.SubDivisible[C]); ok {
+			constraints = append(constraints, fc.Subdivide(env, mapping))
 		} else {
 			panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
 		}
 	}
+	// Include any additional assignments required for carry lines
+	for _, a := range env.Assignments() {
+		assignments = append(assignments, assigner(a.Left, a.Right))
+	}
 	//
-	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, registers, constraints, assignments}
+	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, env.Registers(), constraints, assignments}
 }
 
 // ============================================================================
@@ -289,7 +268,7 @@ func (p *Table[F, C]) AddConstraints(constraints ...C) {
 }
 
 // AddRegisters adds new registers to this table.
-func (p *Table[F, C]) AddRegisters(registers ...Register) {
+func (p *Table[F, C]) AddRegisters(registers ...register.Register) {
 	// Add registers
 	p.registers = append(p.registers, registers...)
 }

@@ -16,8 +16,8 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // InOut captures input / output instructions for reading / writing to a bus.
@@ -85,16 +85,16 @@ func (p *InOut) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *InOut) Split(env schema.RegisterAllocator) []Code {
+func (p *InOut) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
 	// Split bus
-	address := agnostic.ApplyMapping(env, p.bus.Address()...)
-	data := agnostic.ApplyMapping(env, p.bus.Data()...)
+	address := register.ApplyLimbsMap(mapping, p.bus.Address()...)
+	data := register.ApplyLimbsMap(mapping, p.bus.Data()...)
 	bus := io.NewBus(p.bus.Name, p.bus.BusId, address, data)
 	// Done
 	return []Code{&InOut{p.input, bus}}
 }
 
-func (p *InOut) String(fn schema.RegisterMap) string {
+func (p *InOut) String(fn register.Map) string {
 	if p.input {
 		return fmt.Sprintf("in %s", p.bus.Name)
 	}
@@ -103,6 +103,6 @@ func (p *InOut) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *InOut) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *InOut) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }

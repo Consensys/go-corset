@@ -17,7 +17,7 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
@@ -50,7 +50,7 @@ func (p *Executor[T]) Instance(bus uint) FunctionInstance {
 	for i := range fn.NumInputs() {
 		var (
 			ith big.Int
-			reg = fn.Register(schema.NewRegisterId(i))
+			reg = fn.Register(register.NewId(i))
 		)
 		// Initialise input from padding value
 		inputs[i] = *ith.Set(&reg.Padding)

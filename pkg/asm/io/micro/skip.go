@@ -17,8 +17,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Skip microcode performs a conditional skip over a given number of codes. The
@@ -87,28 +87,28 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Skip) Split(env schema.RegisterAllocator) []Code {
+func (p *Skip) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
 	// NOTE: we can assume left and right have matching bitwidths
 	var (
-		lhsLimbs = env.LimbIds(p.Left)
+		lhsLimbs = mapping.LimbIds(p.Left)
 		ncodes   []Code
 		n        = uint(len(lhsLimbs))
 		skip     = p.Skip + n - 1
 	)
 	//
 	if p.Right.IsUsed() {
-		rhsLimbs := env.LimbIds(p.Right)
+		rhsLimbs := mapping.LimbIds(p.Right)
 		//
 		for i := range n {
 			ncode := &Skip{lhsLimbs[i], rhsLimbs[i], p.Constant, skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	} else {
-		lhsLimbWidths := agnostic.WidthsOfLimbs(env, lhsLimbs)
-		constantLimbs := agnostic.SplitConstant(p.Constant, lhsLimbWidths...)
+		lhsLimbWidths := register.WidthsOfLimbs(mapping, lhsLimbs)
+		constantLimbs := register.SplitConstant(p.Constant, lhsLimbWidths...)
 		//
 		for i := range n {
-			ncode := &Skip{lhsLimbs[i], schema.NewUnusedRegisterId(), constantLimbs[i], skip - i}
+			ncode := &Skip{lhsLimbs[i], register.UnusedId(), constantLimbs[i], skip - i}
 			ncodes = append(ncodes, ncode)
 		}
 	}
@@ -116,7 +116,7 @@ func (p *Skip) Split(env schema.RegisterAllocator) []Code {
 	return ncodes
 }
 
-func (p *Skip) String(fn schema.RegisterMap) string {
+func (p *Skip) String(fn register.Map) string {
 	var (
 		l = fn.Register(p.Left).Name
 	)
@@ -129,7 +129,7 @@ func (p *Skip) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Skip) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Skip) Validate(fieldWidth uint, fn register.Map) error {
 	var lw = fn.Register(p.Left).Width
 	//
 	if p.Right.IsUsed() {

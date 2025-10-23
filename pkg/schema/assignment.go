@@ -13,6 +13,7 @@
 package schema
 
 import (
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -48,12 +49,12 @@ type Assignment[F any] interface {
 	// a trace which contains only rows of input/output values to a trace where
 	// each function instance can occupy more than one row.  Then the I/O
 	// columns are said to be "expanded".
-	RegistersExpanded() []RegisterRef
+	RegistersExpanded() []register.Ref
 	// Returns the set of columns that this assignment depends upon.  That can
 	// include both input columns, as well as other computed columns.
-	RegistersRead() []RegisterRef
+	RegistersRead() []register.Ref
 	// Identifier registers assigned by this assignment.
-	RegistersWritten() []RegisterRef
+	RegistersWritten() []register.Ref
 	// Substitute any matchined labelled constants within this assignment
 	Substitute(map[string]F)
 	// Lisp converts this schema element into a simple S-Expression, for example

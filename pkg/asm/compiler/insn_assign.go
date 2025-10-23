@@ -17,9 +17,8 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -28,7 +27,7 @@ func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Cod
 	var (
 		code = codes[cc].(*micro.Assign)
 		// Determine sign of polynomial
-		_, signed = agnostic.WidthOfPolynomial(code.Source, p.mapping.Registers)
+		_, signed = agnostic.WidthOfPolynomial(code.Source, agnostic.EnvironmentFromArray(p.mapping.Registers))
 		// build rhs
 		rhs = p.translatePolynomial(code.Source)
 		// build lhs (must be after rhs)
@@ -69,7 +68,7 @@ func (p *StateTranslator[F, T, E, M]) rebalanceAssign(lhs []E, rhs []E) ([]E, []
 // Translate polynomial (c0*x0$0*...*xn$0) + ... + (cm*x0$m*...*xn$m) where cX
 // are constant coefficients.  This generates a given translation of terms,
 // along with an indication as to whether this is signed or not.
-func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomial) (pos []E) {
+func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.StaticPolynomial) (pos []E) {
 	var (
 		terms []E
 	)
@@ -84,7 +83,7 @@ func (p *StateTranslator[F, T, E, M]) translatePolynomial(poly agnostic.Polynomi
 }
 
 // Translate a monomial of the form c*x0*...*xn where c is a constant coefficient.
-func (p *StateTranslator[F, T, E, M]) translateMonomial(mono agnostic.Monomial) E {
+func (p *StateTranslator[F, T, E, M]) translateMonomial(mono agnostic.StaticMonomial) E {
 	var (
 		n         = mono.Len()
 		coeff     = mono.Coefficient()
@@ -100,7 +99,7 @@ func (p *StateTranslator[F, T, E, M]) translateMonomial(mono agnostic.Monomial) 
 	return Product(terms)
 }
 
-func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
+func hasSignBit(targets []register.Id, regs []register.Register) bool {
 	var (
 		n = len(targets) - 1
 	)
@@ -117,7 +116,7 @@ func hasSignBit(targets []schema.RegisterId, regs []schema.Register) bool {
 // useful for debugging
 //
 // nolint
-func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs agnostic.Polynomial) string {
+func assignToString(registers []register.Register, lhs []register.Id, rhs agnostic.StaticPolynomial) string {
 	var builder strings.Builder
 	//
 	for i, ith := range lhs {
@@ -129,7 +128,7 @@ func assignToString(registers []schema.Register, lhs []schema.RegisterId, rhs ag
 	//
 	builder.WriteString(" := ")
 	//
-	builder.WriteString(poly.String(rhs, func(id sc.RegisterId) string {
+	builder.WriteString(poly.String(rhs, func(id register.Id) string {
 		return registers[id.Unwrap()].Name
 	}))
 	//

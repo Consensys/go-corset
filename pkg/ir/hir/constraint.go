@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -64,8 +65,8 @@ func NewLookupConstraint(handle string, targets []lookup.Vector[word.BigEndian, 
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint(handle string, context schema.ModuleId, targets []schema.RegisterId,
-	sources []schema.RegisterId) Constraint {
+func NewPermutationConstraint(handle string, context schema.ModuleId, targets []register.Id,
+	sources []register.Id) Constraint {
 	return Constraint{permutation.NewConstraint[word.BigEndian](handle, context, targets, sources)}
 }
 

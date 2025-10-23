@@ -19,7 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Environment captures useful information used during the assembling process.
@@ -87,13 +87,13 @@ func (p *Environment) DeclareLabel(name string, pc uint) {
 
 // DeclareRegister declares a new register with the given name and bitwidth.  If
 // a register with the same name already exists, this panics.
-func (p *Environment) DeclareRegister(kind schema.RegisterType, name string, width uint, padding big.Int) {
+func (p *Environment) DeclareRegister(kind register.Type, name string, width uint, padding big.Int) {
 	//
 	if p.IsRegister(name) {
 		panic(fmt.Sprintf("register %s already declared", name))
 	}
 	//
-	p.registers = append(p.registers, schema.NewRegister(kind, name, width, padding))
+	p.registers = append(p.registers, register.New(kind, name, width, padding))
 }
 
 // IsRegister checks whether or not a given name is already declared as a
@@ -130,7 +130,7 @@ func (p *Environment) IsLabelBound(index uint) bool {
 func (p *Environment) LookupRegister(name string) io.RegisterId {
 	for i, reg := range p.registers {
 		if reg.Name == name {
-			return schema.NewRegisterId(uint(i))
+			return register.NewId(uint(i))
 		}
 	}
 	//

@@ -18,6 +18,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -61,7 +63,7 @@ type TraceBuilder[F field.Element[F]] struct {
 	batchSize uint
 	// Mapping specifies whether or not columns in the trace need to be split to
 	// match the given field configuration.
-	mapping sc.LimbsMap
+	mapping module.LimbsMap
 }
 
 // NewTraceBuilder constructs a default trace builder.  The idea is that this
@@ -98,7 +100,7 @@ func (tb TraceBuilder[F]) WithExpansion(flag bool) TraceBuilder[F] {
 
 // WithRegisterMapping updates a given builder configuration to split the trace
 // according to a given mapping of registers.
-func (tb TraceBuilder[F]) WithRegisterMapping(mapping sc.LimbsMap) TraceBuilder[F] {
+func (tb TraceBuilder[F]) WithRegisterMapping(mapping module.LimbsMap) TraceBuilder[F] {
 	ntb := tb
 	ntb.mapping = mapping
 	//
@@ -156,7 +158,7 @@ func (tb TraceBuilder[F]) BatchSize() uint {
 }
 
 // Mapping returns the mapping from registers to limbs used with this builder.
-func (tb TraceBuilder[F]) Mapping() sc.LimbsMap {
+func (tb TraceBuilder[F]) Mapping() module.LimbsMap {
 	return tb.mapping
 }
 
@@ -241,7 +243,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 	for i := range traceColumns {
 		var (
 			data    array.MutArray[F]
-			reg     = mod.Register(sc.NewRegisterId(uint(i)))
+			reg     = mod.Register(register.NewId(uint(i)))
 			padding F
 		)
 		//

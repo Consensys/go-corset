@@ -18,9 +18,12 @@ import (
 	"math"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -39,10 +42,10 @@ type ComputedRegister[F field.Element[F]] struct {
 	// Module in which expression is evaluated
 	Module schema.ModuleId
 	// Target indices for computed column
-	Targets []schema.RegisterId
+	Targets []register.Id
 	// The computation which accepts a given trace and computes
 	// the value of this column at a given row.
-	Expr ir.Computation[word.BigEndian]
+	Expr term.Computation[word.BigEndian]
 	// Direction in which value is computed (true = forward, false = backward).
 	// More specifically, a forwards direction means the computation starts on
 	// the first row, whilst a backwards direction means it starts on the last.
@@ -53,8 +56,8 @@ type ComputedRegister[F field.Element[F]] struct {
 // determining expression.  More specifically, that expression is used to
 // compute the values for the columns during trace expansion.  For each, the
 // resulting value is split across the target columns.
-func NewComputedRegister[F field.Element[F]](expr ir.Computation[word.BigEndian], dir bool, module schema.ModuleId,
-	limbs ...schema.RegisterId) *ComputedRegister[F] {
+func NewComputedRegister[F field.Element[F]](expr term.Computation[word.BigEndian], dir bool, module schema.ModuleId,
+	limbs ...register.Id) *ComputedRegister[F] {
 	//
 	if len(limbs) == 0 {
 		panic("computed register requires at least one limb")
@@ -161,7 +164,7 @@ func (p *ComputedRegister[F]) IsRecursive() bool {
 	// Walk through registers accessed by the computation and see whether target
 	// register is amongst them.
 	for i, iter := 0, regs.Iter(); iter.HasNext(); i++ {
-		rid := sc.NewRegisterId(iter.Next())
+		rid := register.NewId(iter.Next())
 		// Did we find it?
 		if slices.Contains(p.Targets, rid) {
 			// Yes!
@@ -173,26 +176,26 @@ func (p *ComputedRegister[F]) IsRecursive() bool {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *ComputedRegister[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *ComputedRegister[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *ComputedRegister[F]) RegistersRead() []schema.RegisterRef {
+func (p *ComputedRegister[F]) RegistersRead() []register.Ref {
 	var (
 		module = p.Module
 		regs   = p.Expr.RequiredRegisters()
-		rids   = make([]schema.RegisterRef, regs.Iter().Count())
+		rids   = make([]register.Ref, regs.Iter().Count())
 	)
 	//
 	for i, iter := 0, regs.Iter(); iter.HasNext(); i++ {
-		rid := sc.NewRegisterId(iter.Next())
-		rids[i] = schema.NewRegisterRef(module, rid)
+		rid := register.NewId(iter.Next())
+		rids[i] = register.NewRef(module, rid)
 	}
 	// Remove target to allow recursive definitions.  Observe this does not
 	// guarantee they make sense!
-	return array.RemoveMatching(rids, func(r schema.RegisterRef) bool {
+	return array.RemoveMatching(rids, func(r register.Ref) bool {
 		if r.Module() == p.Module {
 			return slices.Contains(p.Targets, r.Column())
 		}
@@ -202,22 +205,22 @@ func (p *ComputedRegister[F]) RegistersRead() []schema.RegisterRef {
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *ComputedRegister[F]) RegistersWritten() []sc.RegisterRef {
-	var written = make([]schema.RegisterRef, len(p.Targets))
+func (p *ComputedRegister[F]) RegistersWritten() []register.Ref {
+	var written = make([]register.Ref, len(p.Targets))
 	//
 	for i, r := range p.Targets {
-		written[i] = schema.NewRegisterRef(p.Module, r)
+		written[i] = register.NewRef(p.Module, r)
 	}
 	//
 	return written
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *ComputedRegister[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
+func (p *ComputedRegister[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
 	var (
-		ntargets []schema.RegisterId
+		ntargets []register.Id
 		modmap   = mapping.Module(p.Module)
-		expr     = ir.SubdivideComputation(p.Expr, modmap)
+		expr     = term.SubdivideComputation(p.Expr, modmap)
 	)
 	//
 	for _, target := range p.Targets {
@@ -263,8 +266,8 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		})
 }
 
-func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir.Evaluable[word.BigEndian],
-	trMod trace.Module[word.BigEndian], scMod schema.RegisterMap) error {
+func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr term.Evaluable[word.BigEndian],
+	trMod trace.Module[word.BigEndian], scMod register.Map) error {
 	// Forwards computation
 	for i := range height {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
@@ -279,8 +282,8 @@ func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir
 	return nil
 }
 
-func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr ir.Evaluable[word.BigEndian],
-	trMod trace.Module[word.BigEndian], scMod schema.RegisterMap) error {
+func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr term.Evaluable[word.BigEndian],
+	trMod trace.Module[word.BigEndian], scMod register.Map) error {
 	// Backwards computation
 	for i := height; i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
@@ -309,7 +312,7 @@ func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []ui
 // Specifically, it allows the expression being evaluated to access as it is
 // being generated.
 type recursiveModule struct {
-	col      []schema.RegisterId
+	col      []register.Id
 	data     [][]word.BigEndian
 	trModule trace.Module[word.BigEndian]
 }

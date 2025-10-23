@@ -19,8 +19,8 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
-	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/term"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -37,7 +37,7 @@ func Normalise[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) 
 	// Construct pseudo multiplicative inverse of e.
 	ie := applyPseudoInverseGadget(e, module)
 	// Return e * e⁻¹.
-	return ir.Product(e, ie)
+	return term.Product(e, ie)
 }
 
 // applyPseudoInverseGadget constructs an expression representing the
@@ -61,23 +61,23 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 		// Indicate column has "field element width".
 		var bitwidth uint = math.MaxUint
 		// Add computed register.
-		index = module.NewRegister(sc.NewComputedRegister(name, bitwidth, padding))
-		target := sc.NewRegisterRef(module.Id(), index)
+		index = module.NewRegister(register.NewComputed(name, bitwidth, padding))
+		target := register.NewRef(module.Id(), index)
 		// Add inverse assignment
 		module.AddAssignment(assignment.NewPseudoInverse(target, e))
 		// Construct proof of 1/e
-		inv_e := ir.NewRegisterAccess[F, air.Term[F]](index, 0)
+		inv_e := term.NewRegisterAccess[F, air.Term[F]](index, 0)
 		// Construct e/e
-		e_inv_e := ir.Product(e, inv_e)
+		e_inv_e := term.Product(e, inv_e)
 		// Construct 1 == e/e
-		one_e_e := ir.Subtract(ir.Const64[F, air.Term[F]](1), e_inv_e)
+		one_e_e := term.Subtract(term.Const64[F, air.Term[F]](1), e_inv_e)
 		// Construct (e != 0) ==> (1 == e/e)
-		e_implies_one_e_e := ir.Product(e, one_e_e)
+		e_implies_one_e_e := term.Product(e, one_e_e)
 		l_name := fmt.Sprintf("%s <=", name)
 		module.AddConstraint(air.NewVanishingConstraint(l_name, module.Id(), util.None[int](), e_implies_one_e_e))
 	}
 	// Done
-	return ir.NewRegisterAccess[F, air.Term[F]](index, 0)
+	return term.NewRegisterAccess[F, air.Term[F]](index, 0)
 }
 
 // pseudoInverse represents a computation which computes the multiplicative
@@ -89,7 +89,7 @@ type pseudoInverse[F field.Element[F]] struct {
 
 // EvalAt computes the multiplicative inverse of a given expression at a given
 // row in the table.
-func (e *pseudoInverse[F]) EvalAt(k int, tr trace.Module[F], sc schema.RegisterMap) (F, error) {
+func (e *pseudoInverse[F]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
 	// Convert expression into something which can be evaluated, then evaluate
 	// it.
 	val, err := e.Expr.EvalAt(k, tr, sc)
@@ -118,7 +118,7 @@ func (e *pseudoInverse[F]) RequiredCells(row int, mid trace.ModuleId) *set.AnySo
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (e *pseudoInverse[F]) Lisp(global bool, mapping sc.RegisterMap) sexp.SExp {
+func (e *pseudoInverse[F]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("inv"),
 		e.Expr.Lisp(global, mapping),
@@ -131,7 +131,7 @@ func (e *pseudoInverse[F]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (e *pseudoInverse[F]) ValueRange(mapping schema.RegisterMap) util_math.Interval {
+func (e *pseudoInverse[F]) ValueRange(mapping register.Map) util_math.Interval {
 	// This could be managed by having a mechanism for representing infinity
 	// (e.g. nil). For now, this is never actually used, so we can just ignore
 	// it.

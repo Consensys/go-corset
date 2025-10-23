@@ -16,7 +16,8 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // UNKNOWN_BUS signals a bus which is unknown.
@@ -60,10 +61,10 @@ type Instruction[T any] interface {
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
 	// needed for this calculation, so as to allow an instruction to check it
 	// does not overflow the underlying field.
-	Validate(fieldWidth uint, fn schema.RegisterMap) error
+	Validate(fieldWidth uint, fn register.Map) error
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
-	String(fn schema.RegisterMap) string
+	String(fn register.Map) string
 }
 
 // SplittableInstruction is an instruction which supports register splitting for
@@ -71,7 +72,7 @@ type Instruction[T any] interface {
 type SplittableInstruction[T any] interface {
 	Instruction[T]
 
-	SplitRegisters(schema.RegisterAllocator) T
+	SplitRegisters(agnostic.RegisterAllocator) T
 }
 
 // InOutInstruction is simply a kind of instruction which performs some kind of I/O

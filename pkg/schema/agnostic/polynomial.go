@@ -15,98 +15,60 @@ package agnostic
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
+// Environment provides a generic mechanism for associating details of a
+// register with its ID.
+type Environment func(register.Id) register.Register
+
+// StaticPolynomial represents a polynomial over registers on the current row.
+// In other words, a polynomial which cannot refer to a register on a different
+// (i.e. relative) row.
+type StaticPolynomial = Polynomial[register.Id]
+
+// StaticMonomial defines the type of monomials contained within a given (static) polynomial.
+type StaticMonomial = Monomial[register.Id]
+
+// RelativePolynomial represents a polynomial over "relative registers".  That
+// is, it can refer to registers on the current row or on a row relative to the
+// current row (e.g. the next row, or the previous row, etc).
+type RelativePolynomial = Polynomial[register.RelativeId]
+
+// RelativeMonomial defines the type of monomials contained within a given (relative) polynomial.
+type RelativeMonomial = Monomial[register.RelativeId]
+
 // Polynomial defines the type of polynomials over which packets (and register
 // splitting in general) operate.
-type Polynomial = *poly.ArrayPoly[schema.RegisterId]
+type Polynomial[T util.Comparable[T]] = *poly.ArrayPoly[T]
 
 // Monomial defines the type of monomials contained within a given polynomial.
-type Monomial = poly.Monomial[schema.RegisterId]
+type Monomial[T util.Comparable[T]] = poly.Monomial[T]
 
-// SplitPolynomial splits the registers in a given polynomial into their limbs,
-// producing an equivalent (but not necessarily identical) polynomial.  For
-// example, suppose that X and Y split into limbs X'1, X'0 and Y'1, Y'0.  Then
-// the polynomial 2*X + Y splits into 512*X'1 + 2*X'0 + 256*Y'1 + Y'0.
-func SplitPolynomial(p Polynomial, env schema.RegisterLimbsMap) Polynomial {
-	var npoly Polynomial
-	//
-	for i := range p.Len() {
-		ith := SplitMonomial(p.Term(i), env)
-		//
-		if i == 0 {
-			npoly = ith
-		} else {
-			npoly = npoly.Add(ith)
-		}
-	}
-	// Sanity check p was not zero.
-	if npoly != nil {
-		// No, p was not zero.
-		return npoly
-	}
-	// Yes, p was zero (hence, had no terms).
-	return p
+// RegisterIdentifier enables functions which are generic over the identifier
+// used in a polynomial (either relative or not relative, etc).
+type RegisterIdentifier[T any] interface {
+	util.Comparable[T]
+	// Id returns the underlying register id for this identifier.
+	Id() register.Id
 }
 
-// SplitMonomial splits a given monomial (e.g. 2*x*y) according to a given
-// register-to-limb mapping.  For example, suppose x is u16 and maps to x'0 and
-// x'1 (both u8), whilst y maps to itself.  Then, the resulting polynomial is:
-//
-// 2*(x'0 + 256*x'1)*y --> (2*x'0*y) + (512*x'1*y)
-//
-// Of course, things get more involved when more than one register is being
-// split, but the basic idea above applies.
-func SplitMonomial(p Monomial, env schema.RegisterLimbsMap) Polynomial {
-	var res Polynomial
-	// FIXME: what to do with the coefficient?  This is a problem because its
-	// not clear how we should split this.  Presumably it should be split
-	// according to the maximum register width.
-	res = res.Set(poly.NewMonomial[schema.RegisterId](p.Coefficient()))
-	//
-	for i := range p.Len() {
-		// Determine limbs corresponding to the given constraint.
-		limbs := env.LimbIds(p.Nth(i))
-		// Construct polynomial representing limbs
-		ith := LimbPolynomial(limbs, env)
-		//
-		res = res.Mul(ith)
+// EnvironmentFromMap constructs an environment from a register map.
+func EnvironmentFromMap(mapping register.Map) Environment {
+	return func(rid register.Id) register.Register {
+		return mapping.Register(rid)
 	}
-	//
-	return res
 }
 
-// LimbPolynomial constructs a polynomial from the given limbs which represents
-// the value of the original register.  For example, suppose x is a u16 register
-// which splits into two u8 limbs x'0 and x'1.  Then, the constructed "limb
-// polynomial" is simply x'0 + 256*x'1 (recall that x'0 is the last significant
-// limb).
-func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterLimbsMap) Polynomial {
-	var (
-		res Polynomial
-		// Offset is used to determine the coefficient for the next limb.
-		offset big.Int = *big.NewInt(1)
-		//
-		terms = make([]Monomial, len(limbs))
-	)
-	//
-	for i, rid := range limbs {
-		var (
-			coeff big.Int
-			reg   = env.Limb(rid)
-		)
-		// Clone coefficient
-		coeff.Set(&offset)
-		// Construct term
-		terms[i] = poly.NewMonomial(coeff, rid)
-		// Shift offset up
-		offset.Lsh(&offset, reg.Width)
+// EnvironmentFromArray constructs an environment from a register array.
+func EnvironmentFromArray(registers []register.Register) Environment {
+	return func(rid register.Id) register.Register {
+		return registers[rid.Unwrap()]
 	}
-	// Done
-	return res.Set(terms...)
 }
 
 // WidthOfPolynomial determines the minimum number of bits required to store
@@ -123,9 +85,11 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterLimbsMap) Poly
 // smallest enclosing integer range.  From this is then determines the required
 // widths of the negative and positive components, before combining them to give
 // the result.
-func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint, signed bool) {
+func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Environment,
+) (bitwidth uint, signed bool) {
+	//
 	var (
-		intRange  = IntegerRangeOfPolynomial(source, regs)
+		intRange  = IntegerRangeOfPolynomial(source, env)
 		lower     = intRange.MinIntValue()
 		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
@@ -144,13 +108,36 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint
 	return upperBits, false
 }
 
+// WidthOfMonomial determines the minimum number of bits required to store all
+// possible evaluations of this mononomial.  To determine the bitwidth of a
+// monomial, this function first determines its smallest enclosing integer
+// range.
+func WidthOfMonomial[T RegisterIdentifier[T]](source Monomial[T], env Environment,
+) (bitwidth uint) {
+	//
+	var (
+		coeff     = source.Coefficient()
+		intRange  = IntegerRangeOfMonomial(source, env)
+		lower     = intRange.MinIntValue()
+		upper     = intRange.MaxIntValue()
+		upperBits = uint(upper.BitLen())
+		lowerBits = uint(lower.BitLen())
+	)
+	// Check whether negative mononial
+	if coeff.Sign() < 0 {
+		return lowerBits
+	}
+	// Positive mononial
+	return upperBits
+}
+
 // SplitWidthOfPolynomial resturns the number of bits required for all positive
 // values, along with the number of bits required for all negative values.
 // Observe that, unlike WidthOfPolynomial, this does not account for an
 // additional sign bit.
-func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth uint, negwidth uint) {
+func SplitWidthOfPolynomial(source StaticPolynomial, env Environment) (poswidth uint, negwidth uint) {
 	var (
-		intRange  = IntegerRangeOfPolynomial(source, regs)
+		intRange  = IntegerRangeOfPolynomial(source, env)
 		lower     = intRange.MinIntValue()
 		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
@@ -173,11 +160,11 @@ func SplitWidthOfPolynomial(source Polynomial, regs []schema.Register) (poswidth
 // evaluations of this polynomial lie.  For example, consider "2*X + 1" where X
 // is an 8bit register.  Then, the smallest integer range which includes this
 // polynomial is "0..511".
-func IntegerRangeOfPolynomial(poly Polynomial, regs []schema.Register) math.Interval {
+func IntegerRangeOfPolynomial[T RegisterIdentifier[T]](poly Polynomial[T], env Environment) math.Interval {
 	var intRange math.Interval
 	//
 	for i := range poly.Len() {
-		intRange.Add(IntegerRangeOfMonomial(poly.Term(i), regs))
+		intRange.Add(IntegerRangeOfMonomial(poly.Term(i), env))
 	}
 	//
 	return intRange
@@ -187,14 +174,14 @@ func IntegerRangeOfPolynomial(poly Polynomial, regs []schema.Register) math.Inte
 // evaluations of the monomial lie.  For example, consider the monomial "3*X*Y"
 // where X and are 8bit and 16bit registers respectively.  Then, the smallest
 // enclosing integer range is 0 .. 3*255*65535.
-func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) math.Interval {
+func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], env Environment) math.Interval {
 	var (
 		coeff    = mono.Coefficient()
 		intRange = math.NewInterval(coeff, coeff)
 	)
 	//
 	for i := range mono.Len() {
-		intRange.Mul(IntegerRangeOfRegister(mono.Nth(i), regs))
+		intRange.Mul(IntegerRangeOfRegister(mono.Nth(i), env))
 	}
 	//
 	return intRange
@@ -203,14 +190,75 @@ func IntegerRangeOfMonomial(mono Monomial, regs []schema.Register) math.Interval
 // IntegerRangeOfRegister determines the smallest integer range enclosing all possible
 // values for a given register.  For example, a register of width 16 has an
 // integer range of 0..65535 (inclusive).
-func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) math.Interval {
+func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, env func(register.Id) register.Register) math.Interval {
 	var (
 		val   = big.NewInt(2)
-		width = regs[rid.Unwrap()].Width
+		width = env(id.Id()).Width
 	)
 	// NOTE: following is safe since the width of any registers must sure be
 	// less than 65536 bits :)
 	val.Exp(val, big.NewInt(int64(width)), nil)
 	// Subtract one since the interval is inclusive.
 	return math.NewInterval(zero, *val.Sub(val, &one))
+}
+
+// RegistersRead returns the set of registers read by this instruction.
+func RegistersRead[T RegisterIdentifier[T]](p Polynomial[T]) []register.Id {
+	var (
+		regs bit.Set
+		read []register.Id
+	)
+	//
+	for i := range p.Len() {
+		for _, ident := range p.Term(i).Vars() {
+			rid := ident.Id()
+			//
+			if !regs.Contains(rid.Unwrap()) {
+				regs.Insert(rid.Unwrap())
+				read = append(read, rid)
+			}
+		}
+	}
+	//
+	return read
+}
+
+// SubstitutePolynomial replaces all occurrences of a given variable with a set
+// of (zero or more) variables (e.g. typically used for substituting limbs).
+func SubstitutePolynomial[T RegisterIdentifier[T]](p Polynomial[T], mapping func(T) Polynomial[T]) (r Polynomial[T]) {
+	//
+	for i := range p.Len() {
+		ith := SubstituteMonomial(p.Term(i), mapping)
+		//
+		if i == 0 {
+			r = ith
+		} else {
+			r = r.Add(ith)
+		}
+	}
+	// Done
+	return r
+}
+
+// SubstituteMonomial replaces all occurrences of a given variable with a set of
+// (zero or more) variables (e.g. typically used for substituting limbs).
+func SubstituteMonomial[T RegisterIdentifier[T]](t Monomial[T], mapping func(T) Polynomial[T]) Polynomial[T] {
+	var (
+		r Polynomial[T]
+	)
+	// Initialise
+	r = r.Set(poly.NewMonomial[T](t.Coefficient()))
+	// Initially, attempt to avoid substitution altgoether.  This ensures we
+	// only allocate memory when an actual subistition happens.
+	for _, v := range t.Vars() {
+		tmp := mapping(v)
+		// Sanity check what happened
+		if tmp == nil {
+			tmp = tmp.Set(poly.NewMonomial(one, v))
+		}
+		//
+		r = r.Mul(tmp)
+	}
+	// No substitution required
+	return r
 }

@@ -9,6 +9,18 @@ jobs:
     strategy:
       matrix:
         test: [asm-bench,asm-racer,asm-util,asm-unit,corset-bench,corset-racer,corset-test,unit-test]
+        field: [BLS12_377,KOALABEAR_16]
+        exclude:
+          - test: asm-bench
+            field: KOALABEAR_16
+          - test: corset-bench
+            field: KOALABEAR_16
+          - test: unit-test
+            field: KOALABEAR_16
+          - test: asm-racer
+            field: KOALABEAR_16
+          - test: corset-racer
+            field: KOALABEAR_16
       fail-fast: false
     runs-on: gha-runner-scale-set-ubuntu-22.04-amd64-large
     steps:
@@ -16,4 +28,6 @@ jobs:
       - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b #v5.4.0
         with:
           go-version: '>=1.24'
-      - run: make ${{ matrix.test }}
+      - run: echo $GOCORSET_FIELD ; make ${{ matrix.test }}
+        env:
+          GOCORSET_FIELD: ${{ matrix.field }}

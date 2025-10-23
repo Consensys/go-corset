@@ -14,7 +14,8 @@ package micro
 
 import (
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Ret signals a return from the enclosing function.
@@ -49,15 +50,15 @@ func (p *Ret) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Ret) Split(env schema.RegisterAllocator) []Code {
+func (p *Ret) Split(register.LimbsMap, agnostic.RegisterAllocator) []Code {
 	return []Code{p}
 }
 
-func (p *Ret) String(fn schema.RegisterMap) string {
+func (p *Ret) String(fn register.Map) string {
 	return "ret"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Ret) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Ret) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }

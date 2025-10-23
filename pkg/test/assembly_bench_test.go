@@ -15,20 +15,20 @@ package test
 import (
 	"testing"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 func Test_AsmBench_Add(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/add", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/bench/add", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmBench_Exp(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/exp", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/bench/exp", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmBench_Gas(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/gas", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/bench/gas", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmBench_Shf(t *testing.T) {
@@ -40,14 +40,14 @@ func Test_AsmBench_Stp(t *testing.T) {
 }
 
 func Test_AsmBench_Trm(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/trm", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/bench/trm", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmBench_Bin(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/bin", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/bench/bin", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 // Field Element Out-Of-Bounds
 func Test_AsmBench_Wcp(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/wcp", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/bench/wcp", util.ASM_MAX_PADDING, field.BLS12_377)
 }

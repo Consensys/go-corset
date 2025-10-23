@@ -17,31 +17,31 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
-var xRegId = schema.NewRegisterId(0)
-var yRegId = schema.NewRegisterId(1)
-var zRegId = schema.NewRegisterId(2)
+var xRegId = register.NewId(0)
+var yRegId = register.NewId(1)
+var zRegId = register.NewId(2)
 
-func x(coeff int64) Polynomial {
+func x(coeff int64) StaticPolynomial {
 	return Var(xRegId, coeff)
 }
 
-func y(coeff int64) Polynomial {
+func y(coeff int64) StaticPolynomial {
 	return Var(yRegId, coeff)
 }
 
-func z(coeff int64) Polynomial {
+func z(coeff int64) StaticPolynomial {
 	return Var(zRegId, coeff)
 }
 
 // Var constructs a polynomial representing a given variable multiplied by a
 // given coefficient.
-func Var(id schema.RegisterId, coeff int64) Polynomial {
+func Var(id register.Id, coeff int64) StaticPolynomial {
 	var (
-		p Polynomial
+		p StaticPolynomial
 		c = *big.NewInt(coeff)
 	)
 	//
@@ -87,14 +87,14 @@ func Test_Poly_08(t *testing.T) {
 	check(t, 5, x(-2).AddScalar(&minusOne).Add(y(-2).Add(y(1).Mul(z(1)))), 2, 1, 1)
 }
 
-func check(t *testing.T, bitwidth uint, p Polynomial, widths ...uint) {
-	var regs = make([]schema.Register, len(widths))
+func check(t *testing.T, bitwidth uint, p StaticPolynomial, widths ...uint) {
+	var regs = make([]register.Register, len(widths))
 	//
 	for i := range regs {
-		regs[i] = schema.NewInputRegister("?", widths[i], big.Int{})
+		regs[i] = register.NewInput("?", widths[i], big.Int{})
 	}
 	// Determine computed bitwidth
-	actual, _ := WidthOfPolynomial(p, regs)
+	actual, _ := WidthOfPolynomial(p, EnvironmentFromArray(regs))
 	// Check for any differences
 	if actual != bitwidth {
 		err := fmt.Sprintf("invalid bitwidth (expected %d got %d)", bitwidth, actual)

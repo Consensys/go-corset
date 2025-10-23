@@ -19,11 +19,15 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
+
+// Polynomial provides a useful alias which captures the fact that all
+// polynomials in assembly are static.  That is, we never consider the
+// possibility that registers can be "shifted".
+type Polynomial = agnostic.StaticPolynomial
 
 // Assign represents a generic assignment of the following form:
 //
@@ -45,7 +49,7 @@ type Assign struct {
 	// Target registers for addition where the least significant come first.
 	Targets []io.RegisterId
 	// Source register for addition
-	Source agnostic.Polynomial
+	Source Polynomial
 }
 
 // Clone this micro code.
@@ -76,21 +80,7 @@ func (p *Assign) MicroExecute(state io.State) (uint, uint) {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Assign) RegistersRead() []io.RegisterId {
-	var (
-		regs bit.Set
-		read []io.RegisterId
-	)
-	//
-	for i := range p.Source.Len() {
-		for _, id := range p.Source.Term(i).Vars() {
-			if !regs.Contains(id.Unwrap()) {
-				regs.Insert(id.Unwrap())
-				read = append(read, id)
-			}
-		}
-	}
-	//
-	return read
+	return agnostic.RegistersRead(p.Source)
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
@@ -98,7 +88,7 @@ func (p *Assign) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *Assign) String(fn schema.RegisterMap) string {
+func (p *Assign) String(fn register.Map) string {
 	var (
 		builder strings.Builder
 		regs    = fn.Registers()
@@ -130,16 +120,16 @@ func (p *Assign) String(fn schema.RegisterMap) string {
 // > b,x1,x0 := 256*(y1+z1) + (y0+z0+1)
 //
 // Thus, y0+z0+1 define all of the bits for x0 and some of the bits for x1.
-func (p *Assign) Split(env schema.RegisterAllocator) []Code {
+func (p *Assign) Split(mapping register.LimbsMap, env agnostic.RegisterAllocator) []Code {
 	var (
 		// map target registers into corresponding limbs
-		lhs = agnostic.ApplyMapping(env, p.Targets...)
+		lhs = register.ApplyLimbsMap(mapping, p.Targets...)
 		// map lhs registers into corresponding limbs
-		rhs = agnostic.SplitPolynomial(p.Source, env)
+		rhs = SplitPolynomial(p.Source, mapping)
 		// construct initial assignment
 		assignment = agnostic.NewAssignment(lhs, rhs)
 		// split into smaller assignments as needed
-		assignments = assignment.Split(env.Field().FieldBandWidth, env)
+		assignments = assignment.Split(mapping.Field().BandWidth, env)
 		// codes to be filled out
 		codes = make([]Code, len(assignments))
 	)
@@ -152,13 +142,13 @@ func (p *Assign) Split(env schema.RegisterAllocator) []Code {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Assign) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Assign) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs = fn.Registers()
 		// Determine number of bits required to hold the left-hand side.
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		// Determine number of bits  required to hold the right-hand side.
-		rhs_bits, _ = agnostic.WidthOfPolynomial(p.Source, regs)
+		rhs_bits, _ = agnostic.WidthOfPolynomial(p.Source, agnostic.EnvironmentFromArray(regs))
 	)
 	// check
 	if lhs_bits < rhs_bits {
@@ -181,7 +171,7 @@ func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	return sum
 }
 
-func evalMonomial(term poly.Monomial[schema.RegisterId], state io.State) big.Int {
+func evalMonomial(term poly.Monomial[register.Id], state io.State) big.Int {
 	var (
 		acc   big.Int
 		coeff big.Int = term.Coefficient()

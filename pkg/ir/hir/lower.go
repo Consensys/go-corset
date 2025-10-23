@@ -20,8 +20,9 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -35,7 +36,7 @@ type mirRegisterAccess = mir.RegisterAccess[word.BigEndian]
 // LowerToMir lowers (or refines) an HIR schema into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToMir[E schema.RegisterMap](externs []E, modules []Module) []mir.Module[word.BigEndian] {
+func LowerToMir[E register.Map](externs []E, modules []Module) []mir.Module[word.BigEndian] {
 	var lowering = NewMirLowering(externs, modules)
 	//
 	return lowering.Lower()
@@ -53,7 +54,7 @@ type MirLowering struct {
 }
 
 // NewMirLowering constructs an initial state for lowering a given MIR schema.
-func NewMirLowering[E schema.RegisterMap](externs []E, modules []Module) MirLowering {
+func NewMirLowering[E register.Map](externs []E, modules []Module) MirLowering {
 	var (
 		mirSchema = ir.NewSchemaBuilder[word.BigEndian, mir.Constraint[word.BigEndian], mirTerm](externs...)
 	)
@@ -247,19 +248,17 @@ func (p *MirLowering) lowerLogical(e LogicalTerm, module *mirModuleBuilder) mirL
 	//
 	switch e := e.(type) {
 	case *Conjunct:
-		return ir.Conjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
+		return term.Conjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
 	case *Disjunct:
-		return ir.Disjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
+		return term.Disjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
 	case *Equal:
 		return p.lowerEquality(true, e.Lhs, e.Rhs, module)
 	case *Ite:
 		return p.lowerIte(e, module)
 	case *Negate:
-		return ir.Negation[word.BigEndian](p.lowerLogical(e.Arg, module))
+		return term.Negation[word.BigEndian](p.lowerLogical(e.Arg, module))
 	case *NotEqual:
 		return p.lowerEquality(false, e.Lhs, e.Rhs, module)
-	case *Inequality:
-		return p.lowerInequality(*e, module)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown HIR expression \"%s\"", name))
@@ -292,37 +291,23 @@ func (p *MirLowering) lowerEquality(sign bool, left Term, right Term, module *mi
 	var fn = func(lhs, rhs mirTerm) mirLogicalTerm {
 		//
 		if sign {
-			return ir.Equals[word.BigEndian, mirLogicalTerm](lhs, rhs)
+			return term.Equals[word.BigEndian, mirLogicalTerm](lhs, rhs)
 		}
 		//
-		return ir.NotEquals[word.BigEndian, mirLogicalTerm](lhs, rhs)
+		return term.NotEquals[word.BigEndian, mirLogicalTerm](lhs, rhs)
 	}
 	//
 	return p.lowerBinaryLogical(left, right, fn, module)
 }
 
-func (p *MirLowering) lowerInequality(term Inequality, module *mirModuleBuilder,
-) mirLogicalTerm {
-	//
-	var fn = func(lhs, rhs mirTerm) mirLogicalTerm {
-		if term.Strict {
-			return ir.LessThan[word.BigEndian, mirLogicalTerm](lhs, rhs)
-		}
-		//
-		return ir.LessThanOrEquals[word.BigEndian, mirLogicalTerm](lhs, rhs)
-	}
-	//
-	return p.lowerBinaryLogical(term.Lhs, term.Rhs, fn, module)
-}
-
-func (p *MirLowering) lowerIte(term *Ite, module *mirModuleBuilder) mirLogicalTerm {
+func (p *MirLowering) lowerIte(expr *Ite, module *mirModuleBuilder) mirLogicalTerm {
 	var (
-		condition   = p.lowerLogical(term.Condition, module)
-		trueBranch  = p.lowerOptionalLogical(term.TrueBranch, module)
-		falseBranch = p.lowerOptionalLogical(term.FalseBranch, module)
+		condition   = p.lowerLogical(expr.Condition, module)
+		trueBranch  = p.lowerOptionalLogical(expr.TrueBranch, module)
+		falseBranch = p.lowerOptionalLogical(expr.FalseBranch, module)
 	)
 	//
-	return ir.IfThenElse(condition, trueBranch, falseBranch)
+	return term.IfThenElse(condition, trueBranch, falseBranch)
 }
 
 func (p *MirLowering) lowerBinaryLogical(lhs, rhs Term, fn BinaryLogicalFn, module *mirModuleBuilder,
@@ -359,13 +344,13 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 	// Check whether this really requires expansion (or not).
 	if ca, ok := e.(*RegisterAccess); ok && ca.Shift == 0 {
 		// No, expansion is not required
-		return ir.RawRegisterAccess[word.BigEndian, mirTerm](ca.Register, ca.Shift)
+		return term.RawRegisterAccess[word.BigEndian, mirTerm](ca.Register, ca.Shift)
 	}
 	// Yes, expansion is really necessary
 	var (
-		term = p.lowerTerm(e, module)
+		expr = p.lowerTerm(e, module)
 		// Determine bitwidth required for target register
-		bitwidth = term.BitWidth(module)
+		bitwidth = expr.BitWidth(module)
 		// Determine computed column name
 		name = e.Lisp(true, module).String(false)
 		// Look up column
@@ -376,20 +361,20 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Convert expression into a generic computation
-		computation := ir.NewComputation[word.BigEndian, LogicalTerm](e)
+		computation := term.NewComputation[word.BigEndian, LogicalTerm](e)
 		// Declared a new computed column
-		index = module.NewRegister(schema.NewComputedRegister(name, bitwidth, padding))
+		index = module.NewRegister(register.NewComputed(name, bitwidth, padding))
 		// Add assignment for filling said computed column
 		module.AddAssignment(
 			assignment.NewComputedRegister[word.BigEndian](computation, true, module.Id(), index))
 		// Construct v == [e]
-		eq_e_v := term.Equate(index)
+		eq_e_v := expr.Equate(index)
 		// Ensure v == e, where v is value of computed column.
 		module.AddConstraint(
 			mir.NewVanishingConstraint(name, module.Id(), util.None[int](), eq_e_v))
 	}
 	// FIXME: eventually we just want to return the index
-	return ir.RawRegisterAccess[word.BigEndian, mirTerm](index, 0)
+	return term.RawRegisterAccess[word.BigEndian, mirTerm](index, 0)
 }
 
 // Lower a given HIR expression into one or more "conditional" MIR expressions.
@@ -419,16 +404,16 @@ func (p *MirLowering) lowerTerm(e Term, mirModule *mirModuleBuilder) IfTerm {
 	switch e := e.(type) {
 	case *Add:
 		fn := func(args []mirTerm) mirTerm {
-			return ir.Sum(args...)
+			return term.Sum(args...)
 		}
 		//
 		return p.lowerTerms(fn, mirModule, e.Args...)
 	case *Cast:
 		return p.lowerTerm(e.Arg, mirModule)
 	case *Constant:
-		return UnconditionalTerm(ir.Const[word.BigEndian, mirTerm](e.Value))
+		return UnconditionalTerm(term.Const[word.BigEndian, mirTerm](e.Value))
 	case *RegisterAccess:
-		return UnconditionalTerm(ir.NewRegisterAccess[word.BigEndian, mirTerm](e.Register, e.Shift))
+		return UnconditionalTerm(term.NewRegisterAccess[word.BigEndian, mirTerm](e.Register, e.Shift))
 	case *Exp:
 		return p.lowerExpTo(e, mirModule)
 	case *IfZero:
@@ -438,24 +423,24 @@ func (p *MirLowering) lowerTerm(e Term, mirModule *mirModuleBuilder) IfTerm {
 		//
 		return IfThenElse(condition, trueBranch, falseBranch)
 	case *LabelledConst:
-		return UnconditionalTerm(ir.Const[word.BigEndian, mirTerm](e.Value))
+		return UnconditionalTerm(term.Const[word.BigEndian, mirTerm](e.Value))
 	case *Mul:
 		fn := func(args []mirTerm) mirTerm {
-			return ir.Product(args...)
+			return term.Product(args...)
 		}
 		//
 		return p.lowerTerms(fn, mirModule, e.Args...)
 	case *Norm:
 		var (
-			zero = ir.Const[word.BigEndian, mirTerm](field.Zero[word.BigEndian]())
-			one  = ir.Const[word.BigEndian, mirTerm](field.One[word.BigEndian]())
+			zero = term.Const[word.BigEndian, mirTerm](field.Zero[word.BigEndian]())
+			one  = term.Const[word.BigEndian, mirTerm](field.One[word.BigEndian]())
 			arg  = p.lowerTerm(e.Arg, mirModule)
 		)
 		//
 		return IfEqElse(arg, zero, zero, one)
 	case *Sub:
 		fn := func(args []mirTerm) mirTerm {
-			return ir.Subtract(args...)
+			return term.Subtract(args...)
 		}
 		//
 		return p.lowerTerms(fn, mirModule, e.Args...)
@@ -484,10 +469,10 @@ func (p *MirLowering) lowerTerms(fn NaryFn, mirModule *mirModuleBuilder, exprs .
 func (p *MirLowering) lowerExpTo(e *Exp, mirModule *mirModuleBuilder) IfTerm {
 	var (
 		// Lower expression being raised
-		term = p.lowerTerm(e.Arg, mirModule)
+		expr = p.lowerTerm(e.Arg, mirModule)
 	)
 	//
-	return term.Map(func(arg mirTerm) mirTerm {
+	return expr.Map(func(arg mirTerm) mirTerm {
 		// Multiply it out k times
 		es := make([]mirTerm, e.Pow)
 		//
@@ -495,18 +480,18 @@ func (p *MirLowering) lowerExpTo(e *Exp, mirModule *mirModuleBuilder) IfTerm {
 			es[i] = arg
 		}
 		// Done
-		return ir.Product[word.BigEndian](es...)
+		return term.Product[word.BigEndian](es...)
 	})
 }
 
 func (p *MirLowering) lowerVectorAccess(e *VectorAccess) mirTerm {
 	var (
-		vars = make([]*ir.RegisterAccess[word.BigEndian, mirTerm], len(e.Vars))
+		vars = make([]*term.RegisterAccess[word.BigEndian, mirTerm], len(e.Vars))
 	)
 	//
 	for i, v := range e.Vars {
-		vars[i] = ir.RawRegisterAccess[word.BigEndian, mirTerm](v.Register, v.Shift)
+		vars[i] = term.RawRegisterAccess[word.BigEndian, mirTerm](v.Register, v.Shift)
 	}
 	//
-	return ir.NewVectorAccess(vars)
+	return term.NewVectorAccess(vars)
 }

@@ -15,6 +15,7 @@ package util
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -24,8 +25,8 @@ import (
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/trace/json"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -52,41 +53,50 @@ const ASM_MAX_PADDING uint = 2
 // upto this value.
 const CORSET_MAX_PADDING uint = 7
 
+// FIELD_REGEX is used to restrict which fields will be tested.  This is
+// primarily useful for the CI pipeline where we want to test individual fields
+// in separate runners.
+var FIELD_REGEX *regexp.Regexp
+
 // Check that all traces which we expect to be accepted are accepted by a given
 // set of constraints, and all traces that we expect to be rejected are
 // rejected.  A default field is used for these tests (BLS12_377)
 func Check(t *testing.T, stdlib bool, test string) {
-	CheckWithFields(t, stdlib, test, CORSET_MAX_PADDING, schema.BLS12_377)
+	CheckWithFields(t, stdlib, test, CORSET_MAX_PADDING, field.BLS12_377)
 }
 
 // CheckWithFields checks that all traces which we expect to be accepted are
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
-func CheckWithFields(t *testing.T, stdlib bool, test string, maxPadding uint, fields ...schema.FieldConfig) {
+func CheckWithFields(t *testing.T, stdlib bool, test string, maxPadding uint, fields ...field.Config) {
 	// Sanity check
 	if len(fields) == 0 {
 		panic("no field configurations")
 	}
 	// Run checks for each field
-	for _, field := range fields {
+	for _, f := range fields {
+		// Check whether field is active
+		if !FIELD_REGEX.MatchString(f.Name) {
+			continue
+		}
 		// Dispatch based on field config
-		switch field {
-		case schema.GF_251:
-			checkWithField[gf251.Element](t, stdlib, test, maxPadding, field)
-		case schema.GF_8209:
-			checkWithField[gf8209.Element](t, stdlib, test, maxPadding, field)
-		case schema.KOALABEAR_16:
-			checkWithField[koalabear.Element](t, stdlib, test, maxPadding, field)
-		case schema.BLS12_377:
-			checkWithField[bls12_377.Element](t, stdlib, test, maxPadding, field)
+		switch f {
+		case field.GF_251:
+			checkWithField[gf251.Element](t, stdlib, test, maxPadding, f)
+		case field.GF_8209:
+			checkWithField[gf8209.Element](t, stdlib, test, maxPadding, f)
+		case field.KOALABEAR_16:
+			checkWithField[koalabear.Element](t, stdlib, test, maxPadding, f)
+		case field.BLS12_377:
+			checkWithField[bls12_377.Element](t, stdlib, test, maxPadding, f)
 		default:
-			panic(fmt.Sprintf("unknown field configuration: %s", field.Name))
+			panic(fmt.Sprintf("unknown field configuration: %s", f.Name))
 		}
 	}
 }
 
 func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, maxPadding uint,
-	field schema.FieldConfig) {
+	field field.Config) {
 	//
 	var (
 		filenames = matchSourceFiles(test)
@@ -123,7 +133,7 @@ func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, 
 		// Extract root schema
 		schema := stack.BinaryFile().Schema
 		// Apply trace propagation
-		if traces, errors = asm.PropagateAll(schema, traces); len(errors) != 0 {
+		if traces, errors = asm.PropagateAll(schema, traces, cfg.expand); len(errors) != 0 {
 			t.Errorf("Trace propagation failed (%s): %s", test, errors)
 			return
 		}
@@ -229,7 +239,7 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 }
 
 func checkTrace[F field.Element[F], C sc.Constraint[F]](t *testing.T, tf lt.TraceFile, id traceId,
-	schema sc.Schema[F, C], mapping sc.LimbsMap) {
+	schema sc.Schema[F, C], mapping module.LimbsMap) {
 	// Construct the trace
 	tr, errs := ir.NewTraceBuilder[F]().
 		WithExpansion(id.expand).
@@ -385,7 +395,7 @@ func encodeDecodeSchema(t *testing.T, binf binfile.BinaryFile) *binfile.BinaryFi
 	return &nbinf
 }
 
-func getSchemaStack[F field.Element[F]](stdlib bool, field schema.FieldConfig, filenames ...string,
+func getSchemaStack[F field.Element[F]](stdlib bool, field field.Config, filenames ...string,
 ) cmd_util.SchemaStacker[F] {
 	//
 	var (
@@ -409,4 +419,21 @@ func getSchemaStack[F field.Element[F]](stdlib bool, field schema.FieldConfig, f
 		WithLayer(cmd_util.AIR_LAYER)
 	// Read in all specified constraint files.
 	return stack.Read(filenames...)
+}
+
+func init() {
+	var (
+		regex = ""
+		err   error
+	)
+	// Check whether a field regex is specified in the environment.
+	if val, ok := os.LookupEnv("GOCORSET_FIELD"); ok {
+		regex = val
+	}
+	// Compile the regex
+	FIELD_REGEX, err = regexp.Compile(regex)
+	//
+	if err != nil {
+		panic(fmt.Sprintf("GOCORSET_FIELD is malformed: %s", err.Error()))
+	}
 }

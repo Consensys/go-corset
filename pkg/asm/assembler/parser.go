@@ -24,7 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -194,13 +194,13 @@ func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 		return nil, errs
 	}
 	// Parse inputs
-	if errs = p.parseArgsList(schema.INPUT_REGISTER, &env); len(errs) > 0 {
+	if errs = p.parseArgsList(register.INPUT_REGISTER, &env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse optional '->'
 	if p.match(RIGHTARROW) {
 		// Parse returns
-		if errs = p.parseArgsList(schema.OUTPUT_REGISTER, &env); len(errs) > 0 {
+		if errs = p.parseArgsList(register.OUTPUT_REGISTER, &env); len(errs) > 0 {
 			return nil, errs
 		}
 	}
@@ -263,7 +263,7 @@ func (p *Parser) checkLabelsDeclared(env *Environment, code []macro.Instruction)
 	return nil
 }
 
-func (p *Parser) parseArgsList(kind schema.RegisterType, env *Environment) []source.SyntaxError {
+func (p *Parser) parseArgsList(kind register.Type, env *Environment) []source.SyntaxError {
 	var (
 		arg     string
 		width   uint
@@ -448,7 +448,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	}
 	//
 	for _, name := range names {
-		env.DeclareRegister(schema.COMPUTED_REGISTER, name, width, padding)
+		env.DeclareRegister(register.COMPUTED_REGISTER, name, width, padding)
 	}
 	//
 	return nil
@@ -479,7 +479,7 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 	// Dispatch on rhs expression form
 	switch e := rhsExpr.(type) {
 	case *expr.Const:
-		rhs = schema.NewUnusedRegisterId()
+		rhs = register.UnusedId()
 		constant = e.Constant
 		label = e.Label
 	case *expr.RegAccess:

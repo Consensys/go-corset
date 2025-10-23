@@ -1,0 +1,7 @@
+(defcolumns (X :i16) (Y :i16) (Z :i16))
+(defconstraint c1 () (== 0 (* Z (- Z 1))))
+(defconstraint c2 () (== 0 (* (- Y Z) (- Y Z 2))))
+(defconstraint c3 () (== 0 (* (- X Y) (- X Y 4))))
+(defconstraint c4 () (∨ (== 0 Z) (== Z 1)))
+(defconstraint c5 () (∨ (== Y Z) (== Y (+ Z 2))))
+(defconstraint c6 () (∨ (== X Y) (== X (+ Y 4))))

@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -35,15 +36,15 @@ type Constraint[F field.Element[F]] struct {
 	Context schema.ModuleId
 	// Targets returns the indices of the columns composing the "left" table of the
 	// permutation.
-	Targets []schema.RegisterId
+	Targets []register.Id
 	// Sources returns the indices of the columns composing the "right" table of the
 	// permutation.
-	Sources []schema.RegisterId
+	Sources []register.Id
 }
 
 // NewConstraint creates a new permutation
-func NewConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []schema.RegisterId,
-	sources []schema.RegisterId) Constraint[F] {
+func NewConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []register.Id,
+	sources []register.Id) Constraint[F] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
@@ -141,7 +142,7 @@ func (p Constraint[F]) Substitute(map[string]F) {
 	// nothing to do here
 }
 
-func sliceColumns[F any](columns []schema.RegisterId, tr trace.Module[F]) []array.Array[F] {
+func sliceColumns[F any](columns []register.Id, tr trace.Module[F]) []array.Array[F] {
 	// Allocate return array
 	cols := make([]array.Array[F], len(columns))
 	// Slice out the data
@@ -156,7 +157,7 @@ func sliceColumns[F any](columns []schema.RegisterId, tr trace.Module[F]) []arra
 
 // QualifiedColumnNamesToCommaSeparatedString produces a suitable string for use
 // in error messages from a list of one or more column identifies.
-func qualifiedColumnNamesToCommaSeparatedString[F any](columns []schema.RegisterId, module trace.Module[F]) string {
+func qualifiedColumnNamesToCommaSeparatedString[F any](columns []register.Id, module trace.Module[F]) string {
 	var names strings.Builder
 
 	for i, c := range columns {

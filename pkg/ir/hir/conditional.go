@@ -13,9 +13,9 @@
 package hir
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/ir/term"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -27,7 +27,7 @@ type BinaryLogicalFn func(l, r mirTerm) mir.LogicalTerm[word.BigEndian]
 
 // UnconditionalTerm returns a term which has no condition associated with it.
 func UnconditionalTerm(value mirTerm) IfTerm {
-	var ncase = ifTermCase{ir.True[word.BigEndian, mir.LogicalTerm[word.BigEndian]](), value}
+	var ncase = ifTermCase{term.True[word.BigEndian, mir.LogicalTerm[word.BigEndian]](), value}
 	//
 	return IfTerm{[]ifTermCase{ncase}}
 }
@@ -38,16 +38,16 @@ func IfThenElse(cond mir.LogicalTerm[word.BigEndian], tt, ff IfTerm) IfTerm {
 		n       = len(tt.cases)
 		m       = len(ff.cases)
 		ncases  = make([]ifTermCase, n+m)
-		negCond = ir.Negation(cond)
+		negCond = term.Negation(cond)
 	)
 	// True branches
 	for i, c := range tt.cases {
-		condition := ir.Conjunction(cond, c.condition).Simplify(false)
+		condition := term.Conjunction(cond, c.condition).Simplify(false)
 		ncases[i] = ifTermCase{condition, c.target}
 	}
 	// False branches
 	for i, c := range ff.cases {
-		condition := ir.Conjunction(negCond, c.condition).Simplify(false)
+		condition := term.Conjunction(negCond, c.condition).Simplify(false)
 		ncases[i+n] = ifTermCase{condition, c.target}
 	}
 	// Done
@@ -62,12 +62,14 @@ func IfEqElse(lhs IfTerm, rhs mirTerm, tt, ff mirTerm) IfTerm {
 	)
 	// True branches
 	for i, c := range lhs.cases {
-		condition := ir.Conjunction(c.condition, ir.Equals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](c.target, rhs))
+		condition := term.Conjunction(c.condition,
+			term.Equals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](c.target, rhs))
 		ncases[i] = ifTermCase{condition, tt}
 	}
 	// False branches
 	for i, c := range lhs.cases {
-		condition := ir.Conjunction(c.condition, ir.NotEquals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](c.target, rhs))
+		condition := term.Conjunction(c.condition,
+			term.NotEquals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](c.target, rhs))
 		ncases[i+n] = ifTermCase{condition, ff}
 	}
 	// Done
@@ -90,11 +92,11 @@ func DisjunctIfTerms(fn BinaryLogicalFn, lhs, rhs IfTerm) mir.LogicalTerm[word.B
 	for _, lCase := range lhs.cases {
 		for _, rCase := range rhs.cases {
 			target := fn(lCase.target, rCase.target)
-			terms = append(terms, ir.Conjunction(lCase.condition, rCase.condition, target))
+			terms = append(terms, term.Conjunction(lCase.condition, rCase.condition, target))
 		}
 	}
 	//
-	return ir.Disjunction(terms...).Simplify(false)
+	return term.Disjunction(terms...).Simplify(false)
 }
 
 // IfTerm represents a set of one or more conditional terms.  Observe that the
@@ -109,7 +111,7 @@ type IfTerm struct {
 // determines the width of registers within the term, from which the overall
 // bitwidth is determined.  For example, given the term X+1 where X is u16, this
 // function returns a bitwidth of 17bits.
-func (p *IfTerm) BitWidth(env schema.RegisterMap) uint {
+func (p *IfTerm) BitWidth(env register.Map) uint {
 	var bitwidth uint
 	//
 	for _, c := range p.cases {
@@ -130,18 +132,18 @@ func (p *IfTerm) BitWidth(env schema.RegisterMap) uint {
 
 // Equate returns a logical condition that constraints the target register to
 // hold the values represented by this term on each row.
-func (p *IfTerm) Equate(target schema.RegisterId) mir.LogicalTerm[word.BigEndian] {
+func (p *IfTerm) Equate(target register.Id) mir.LogicalTerm[word.BigEndian] {
 	var (
 		terms     = make([]mir.LogicalTerm[word.BigEndian], len(p.cases))
-		targetVar = ir.NewRegisterAccess[word.BigEndian, mirTerm](target, 0)
+		targetVar = term.NewRegisterAccess[word.BigEndian, mirTerm](target, 0)
 	)
 	//
 	for i, c := range p.cases {
-		ith := ir.Equals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](targetVar, c.target)
-		terms[i] = ir.Conjunction(c.condition, ith)
+		ith := term.Equals[word.BigEndian, mir.LogicalTerm[word.BigEndian]](targetVar, c.target)
+		terms[i] = term.Conjunction(c.condition, ith)
 	}
 	//
-	return ir.Disjunction(terms...).Simplify(false)
+	return term.Disjunction(terms...).Simplify(false)
 }
 
 // Map a given function over the targets of this set of conditional terms.
@@ -177,7 +179,7 @@ func constructTerms(i int, terms []IfTerm, fn NaryFn, cases []ifTermCase) []ifTe
 			conditions[i] = c.condition
 		}
 		// Apply constructor
-		return []ifTermCase{{ir.Conjunction(conditions...), fn(args)}}
+		return []ifTermCase{{term.Conjunction(conditions...), fn(args)}}
 	}
 	//
 	for _, c := range terms[i].cases {

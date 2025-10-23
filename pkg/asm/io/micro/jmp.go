@@ -16,7 +16,8 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Jmp provides an unconditional branching instruction to a given instructon.
@@ -49,15 +50,15 @@ func (p *Jmp) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Jmp) Split(env schema.RegisterAllocator) []Code {
+func (p *Jmp) Split(register.LimbsMap, agnostic.RegisterAllocator) []Code {
 	return []Code{p}
 }
 
-func (p *Jmp) String(fn schema.RegisterMap) string {
+func (p *Jmp) String(fn register.Map) string {
 	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Jmp) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Jmp) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }

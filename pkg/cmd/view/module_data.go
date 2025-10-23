@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -28,7 +29,7 @@ import (
 // to register allocation, we can have multiple source-level columns mapped to
 // the same register; likewise, due to register splitting, we can have one
 // register mapping to multiple limbs.
-type SourceColumnId = sc.RegisterId
+type SourceColumnId = register.Id
 
 // SourceColumn provides key information to the inspector about source-level
 // columns and their mapping to registers at the MIR/AIR levels (i.e. columns we
@@ -43,9 +44,9 @@ type SourceColumn struct {
 	// Selector determines when column active.
 	Selector util.Option[string]
 	// RegisterId to which this column was allocated.
-	Register sc.RegisterId
+	Register register.Id
 	// Limbs making up the register to which this column is allocated.
-	Limbs []sc.RegisterId
+	Limbs []register.Id
 	// rendered column data
 	data []string
 }
@@ -55,7 +56,7 @@ type ModuleData interface {
 	// Id returns the module identifier
 	Id() sc.ModuleId
 	// Access abtract data for given register
-	DataOf(sc.RegisterId) RegisterView
+	DataOf(register.Id) RegisterView
 	// Dimensions returns width and height of data
 	Dimensions() (uint, uint)
 	// Determine whether a given source column is active on a given row.  A
@@ -65,7 +66,7 @@ type ModuleData interface {
 	// Determines whether or not this module is externally visible.
 	IsPublic() bool
 	// Mapping returns the register limbs map being used by this module view.
-	Mapping() sc.RegisterLimbsMap
+	Mapping() register.LimbsMap
 	// Name returns the name of the given module
 	Name() string
 	// SourceColumn returns the source column associated with a given id.
@@ -84,7 +85,7 @@ type moduleData[F field.Element[F]] struct {
 	// Height of module
 	height uint
 	// Mapping registers <-> limbs
-	mapping sc.RegisterLimbsMap
+	mapping register.LimbsMap
 	// Enumeration values
 	enumerations []corset.Enumeration
 	// public modifier
@@ -97,7 +98,7 @@ type moduleData[F field.Element[F]] struct {
 	rows []SourceColumn
 }
 
-func newModuleData[F field.Element[F]](id sc.ModuleId, mapping sc.RegisterLimbsMap, trace tr.Module[F], public bool,
+func newModuleData[F field.Element[F]](id sc.ModuleId, mapping register.LimbsMap, trace tr.Module[F], public bool,
 	enums []corset.Enumeration, rows []SourceColumn) *moduleData[F] {
 	//
 	return &moduleData[F]{id, trace.Height(), mapping, enums, public, trace, nil, rows}
@@ -163,7 +164,7 @@ func (p *moduleData[F]) SourceColumnOf(name string) SourceColumn {
 }
 
 // Data returns an abtract view of the data for given register
-func (p *moduleData[F]) DataOf(reg sc.RegisterId) RegisterView {
+func (p *moduleData[F]) DataOf(reg register.Id) RegisterView {
 	return &registerView[F]{
 		p.trace, reg, p.mapping,
 	}
@@ -181,7 +182,7 @@ func (p *moduleData[F]) Window() Window {
 	)
 	//
 	for i := range height {
-		rows[i] = sc.NewRegisterId(i)
+		rows[i] = register.NewId(i)
 	}
 	//
 	return NewWindow(width, rows)
@@ -197,7 +198,7 @@ func (p *moduleData[F]) Filter(filter ModuleFilter) Window {
 	//
 	for i, ith := range p.rows {
 		// Construct source column id
-		sid := sc.NewRegisterId(uint(i))
+		sid := register.NewId(uint(i))
 		// If any limb is included, the whole limb is included.
 		if filter.Column(ith) {
 			nrows = append(nrows, sid)
@@ -219,7 +220,7 @@ func (p *moduleData[F]) IsPublic() bool {
 }
 
 // Mapping returns the register-limbs mapping used within this view.
-func (p *moduleData[F]) Mapping() sc.RegisterLimbsMap {
+func (p *moduleData[F]) Mapping() register.LimbsMap {
 	return p.mapping
 }
 
@@ -229,7 +230,7 @@ func (p *moduleData[F]) Name() string {
 }
 
 // RowTitle returns the title for a given data row
-func (p *moduleData[F]) RowTitle(row sc.RegisterId) string {
+func (p *moduleData[F]) RowTitle(row register.Id) string {
 	return p.rows[row.Unwrap()].Name
 }
 

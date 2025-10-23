@@ -13,7 +13,7 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -38,7 +39,7 @@ import (
 type ConstraintBound[F field.Element[F]] interface {
 	schema.Constraint[F]
 
-	constraint.Assertion[F, ir.Testable[F]] |
+	constraint.Assertion[F, term.Testable[F]] |
 		interleaving.Constraint[F, *ColumnAccess[F]] |
 		lookup.Constraint[F, *ColumnAccess[F]] |
 		permutation.Constraint[F] |
@@ -61,8 +62,8 @@ func newAir[F field.Element[F], C ConstraintBound[F]](constraint C) Air[F, C] {
 }
 
 // NewAssertion constructs a new AIR assertion
-func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int], term ir.Testable[F],
-) Assertion[F] {
+func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
+	term term.Testable[F]) Assertion[F] {
 	//
 	return newAir(constraint.NewAssertion(handle, ctx, domain, term))
 }
@@ -81,8 +82,8 @@ func NewLookupConstraint[F field.Element[F]](handle string, targets []lookup.Vec
 }
 
 // NewPermutationConstraint creates a new permutation
-func NewPermutationConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []schema.RegisterId,
-	sources []schema.RegisterId) Constraint[F] {
+func NewPermutationConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []register.Id,
+	sources []register.Id) Constraint[F] {
 	return newAir(permutation.NewConstraint[F](handle, context, targets, sources))
 }
 

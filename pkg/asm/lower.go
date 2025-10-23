@@ -18,8 +18,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // LoweringConfig provides configuration options for configuring the lowering
@@ -28,7 +28,7 @@ type LoweringConfig struct {
 	// Field determines necessary parameters for the underlying field.  This
 	// includes: the maximum field bandwidth, which is number of bits the
 	// underlying field can hold; and, the maximum register width.
-	Field schema.FieldConfig
+	Field field.Config
 	// Vectorize determines whether or not to enable vectorisation.  More
 	// specifically, vectorisation attempts to combine multiple machine
 	// instructions together into batches which can be "executed" concurrently,

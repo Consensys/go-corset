@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -137,7 +138,7 @@ func extractState[F field.Element[F]](row int, state io.State, trace tr.Module[F
 	//
 	for i := range state.Registers() {
 		var (
-			rid   = sc.NewRegisterId(uint(i))
+			rid   = register.NewId(uint(i))
 			col   = trace.Column(uint(i))
 			frVal = col.Get(row)
 			biVal big.Int
@@ -155,7 +156,7 @@ func checkState[F field.Element[F]](row int, state io.State, mid sc.ModuleId, tr
 	// Check each regsiter in turn
 	for i := range trace.Width() {
 		var (
-			rid   = sc.NewRegisterId(i)
+			rid   = register.NewId(i)
 			col   = trace.Column(i)
 			frVal = col.Get(row)
 			biVal big.Int

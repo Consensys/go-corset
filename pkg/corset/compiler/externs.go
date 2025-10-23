@@ -15,6 +15,7 @@ package compiler
 import (
 	"github.com/consensys/go-corset/pkg/corset/ast"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
@@ -42,7 +43,7 @@ type ExternSymbolDefinition struct {
 
 // NewExternSymbolDefinition creates a new external symbol definition for a
 // given register in a given module.
-func NewExternSymbolDefinition(path file.Path, reg schema.Register) *ExternSymbolDefinition {
+func NewExternSymbolDefinition(path file.Path, reg register.Register) *ExternSymbolDefinition {
 	var kind uint8 = ast.NOT_COMPUTED
 	//
 	if reg.IsComputed() {

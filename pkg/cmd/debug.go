@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/debug"
 	"github.com/consensys/go-corset/pkg/corset"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
@@ -42,10 +41,10 @@ var debugCmd = &cobra.Command{
 
 // Available instances
 var debugCmds = []FieldAgnosticCmd{
-	{sc.GF_251, runDebugCmd[gf251.Element]},
-	{sc.GF_8209, runDebugCmd[gf8209.Element]},
-	{sc.KOALABEAR_16, runDebugCmd[koalabear.Element]},
-	{sc.BLS12_377, runDebugCmd[bls12_377.Element]},
+	{field.GF_251, runDebugCmd[gf251.Element]},
+	{field.GF_8209, runDebugCmd[gf8209.Element]},
+	{field.KOALABEAR_16, runDebugCmd[koalabear.Element]},
+	{field.BLS12_377, runDebugCmd[bls12_377.Element]},
 }
 
 func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {

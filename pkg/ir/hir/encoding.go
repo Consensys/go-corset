@@ -19,9 +19,10 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -592,12 +593,6 @@ func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
 		return encode_tagged_logicals(negationTag, buf, t.Arg)
 	case *NotEqual:
 		return encode_tagged_terms(notEqualTag, buf, t.Lhs, t.Rhs)
-	case *Inequality:
-		if t.Strict {
-			return encode_tagged_terms(lessThanTag, buf, t.Lhs, t.Rhs)
-		}
-		//
-		return encode_tagged_terms(lessThanEqTag, buf, t.Lhs, t.Rhs)
 	default:
 		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(false, nil).String(false))
 	}
@@ -658,10 +653,6 @@ func decode_logical(buf *bytes.Buffer) (LogicalTerm, error) {
 		return decode_logicals(1, negationConstructor, buf)
 	case notEqualTag:
 		return decode_terms(2, notEqualConstructor, buf)
-	case lessThanTag:
-		return decode_terms(2, lessThanConstructor, buf)
-	case lessThanEqTag:
-		return decode_terms(2, lessThanOrEqualsConstructor, buf)
 	default:
 		return nil, fmt.Errorf("unknown constraint (tag %d)", tag)
 	}
@@ -922,7 +913,7 @@ func decode_terms[S any](n uint, constructor func([]Term) S, buf *bytes.Buffer) 
 func decode_cast(buf *bytes.Buffer) (Term, error) {
 	var (
 		bitwidth uint16
-		term     Term
+		expr     Term
 		err      error
 	)
 	// Exponent
@@ -930,11 +921,11 @@ func decode_cast(buf *bytes.Buffer) (Term, error) {
 		return nil, err
 	}
 	// Term
-	if term, err = decode_term(buf); err != nil {
-		return term, err
+	if expr, err = decode_term(buf); err != nil {
+		return expr, err
 	}
 	// Done
-	return ir.CastOf(term, uint(bitwidth)), nil
+	return term.CastOf(expr, uint(bitwidth)), nil
 }
 
 func decode_constant(buf *bytes.Buffer) (Term, error) {
@@ -959,13 +950,13 @@ func decode_constant(buf *bytes.Buffer) (Term, error) {
 	//
 	element = element.SetBytes(bytes)
 	//
-	return ir.Const[word.BigEndian, Term](element), nil
+	return term.Const[word.BigEndian, Term](element), nil
 }
 
 func decode_exponent(buf *bytes.Buffer) (Term, error) {
 	var (
 		exponent uint64
-		term     Term
+		expr     Term
 		err      error
 	)
 	// Exponent
@@ -973,11 +964,11 @@ func decode_exponent(buf *bytes.Buffer) (Term, error) {
 		return nil, err
 	}
 	// Term
-	if term, err = decode_term(buf); err != nil {
-		return term, err
+	if expr, err = decode_term(buf); err != nil {
+		return expr, err
 	}
 	// Done
-	return ir.Exponent(term, exponent), nil
+	return term.Exponent(expr, exponent), nil
 }
 
 func decode_ifzero(buf *bytes.Buffer) (Term, error) {
@@ -995,7 +986,7 @@ func decode_ifzero(buf *bytes.Buffer) (Term, error) {
 		return &IfZero{}, err
 	}
 	// Done
-	return ir.IfElse(condition, branches[0], branches[1]), nil
+	return term.IfElse(condition, branches[0], branches[1]), nil
 }
 
 func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
@@ -1033,7 +1024,7 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 	//
 	element = element.SetBytes(const_bytes)
 	//
-	return ir.LabelledConstant[word.BigEndian, Term](string(str_bytes), element), nil
+	return term.LabelledConstant[word.BigEndian, Term](string(str_bytes), element), nil
 }
 
 func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
@@ -1050,15 +1041,15 @@ func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
 		return nil, err
 	}
 	// Construct raw register id
-	rid := schema.NewRegisterId(uint(index))
+	rid := register.NewId(uint(index))
 	// Done
-	return &ir.RegisterAccess[word.BigEndian, Term]{Register: rid, Shift: int(shift)}, nil
+	return &term.RegisterAccess[word.BigEndian, Term]{Register: rid, Shift: int(shift)}, nil
 }
 
 func decode_vec_access(buf *bytes.Buffer) (Term, error) {
 	vars, err := decode_nary(decode_reg_access, buf)
 	//
-	return &ir.VectorAccess[word.BigEndian, Term]{Vars: vars}, err
+	return &term.VectorAccess[word.BigEndian, Term]{Vars: vars}, err
 }
 
 // ============================================================================
@@ -1119,57 +1110,49 @@ func decode_n[T any](n uint, decoder func(*bytes.Buffer) (T, error), buf *bytes.
 // ============================================================================
 
 func addConstructor(terms []Term) Term {
-	return ir.Sum(terms...)
+	return term.Sum(terms...)
 }
 
 func conjunctionConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.Conjunction(terms...)
+	return term.Conjunction(terms...)
 }
 
 func disjunctionConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.Disjunction(terms...)
+	return term.Disjunction(terms...)
 }
 
 func equalConstructor(terms []Term) LogicalTerm {
-	return ir.Equals[word.BigEndian, LogicalTerm](terms[0], terms[1])
+	return term.Equals[word.BigEndian, LogicalTerm](terms[0], terms[1])
 }
 
 func iteTrueFalseConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.IfThenElse(terms[0], terms[1], terms[2])
+	return term.IfThenElse(terms[0], terms[1], terms[2])
 }
 
 func iteTrueConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.IfThenElse(terms[0], terms[1], nil)
+	return term.IfThenElse(terms[0], terms[1], nil)
 }
 
 func iteFalseConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.IfThenElse(terms[0], nil, terms[1])
+	return term.IfThenElse(terms[0], nil, terms[1])
 }
 
 func mulConstructor(terms []Term) Term {
-	return ir.Product(terms...)
+	return term.Product(terms...)
 }
 
 func negationConstructor(terms []LogicalTerm) LogicalTerm {
-	return ir.Negation(terms[0])
+	return term.Negation(terms[0])
 }
 
 func notEqualConstructor(terms []Term) LogicalTerm {
-	return ir.NotEquals[word.BigEndian, LogicalTerm](terms[0], terms[1])
-}
-
-func lessThanConstructor(terms []Term) LogicalTerm {
-	return ir.LessThan[word.BigEndian, LogicalTerm](terms[0], terms[1])
-}
-
-func lessThanOrEqualsConstructor(terms []Term) LogicalTerm {
-	return ir.LessThanOrEquals[word.BigEndian, LogicalTerm](terms[0], terms[1])
+	return term.NotEquals[word.BigEndian, LogicalTerm](terms[0], terms[1])
 }
 
 func subConstructor(terms []Term) Term {
-	return ir.Subtract(terms...)
+	return term.Subtract(terms...)
 }
 
 func normConstructor(terms []Term) Term {
-	return ir.Normalise(terms[0])
+	return term.Normalise(terms[0])
 }

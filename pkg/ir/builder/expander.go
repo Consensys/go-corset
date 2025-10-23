@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -132,7 +133,7 @@ func (p *Expander[F]) isReady(i int) bool {
 
 // isExpandedBy checks whether a given register is actually being expanded by a
 // given assignment.
-func (p *Expander[F]) isExpandedBy(ref sc.RegisterRef, i int) bool {
+func (p *Expander[F]) isExpandedBy(ref register.Ref, i int) bool {
 	if p.expanding.Contains(ref.Index(p.width)) {
 		ith := p.worklist[i]
 		// Check whether the given register is actually written by this assignment

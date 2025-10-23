@@ -16,9 +16,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -31,14 +32,14 @@ import (
 // inverse of a given expression.
 type PseudoInverse[F field.Element[F]] struct {
 	// Target index for computed column
-	Target schema.RegisterRef
+	Target register.Ref
 
 	Expr air.Term[F]
 }
 
 // NewPseudoInverse constructs a new pseudo-inverse assignment for the given
 // target register and expression.
-func NewPseudoInverse[F field.Element[F]](target schema.RegisterRef, expr air.Term[F]) *PseudoInverse[F] {
+func NewPseudoInverse[F field.Element[F]](target register.Ref, expr air.Term[F]) *PseudoInverse[F] {
 	return &PseudoInverse[F]{
 		Target: target,
 		Expr:   expr,
@@ -90,33 +91,33 @@ func (e *PseudoInverse[F]) Consistent(schema.AnySchema[F]) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (e *PseudoInverse[F]) RegistersExpanded() []schema.RegisterRef {
+func (e *PseudoInverse[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include input columns, as well as other computed columns.
-func (e *PseudoInverse[F]) RegistersRead() []schema.RegisterRef {
+func (e *PseudoInverse[F]) RegistersRead() []register.Ref {
 	var (
 		module = e.Target.Module()
 		regs   = e.Expr.RequiredRegisters()
-		rids   = make([]schema.RegisterRef, regs.Iter().Count())
+		rids   = make([]register.Ref, regs.Iter().Count())
 	)
 	//
 	for i, iter := 0, regs.Iter(); iter.HasNext(); i++ {
-		rid := schema.NewRegisterId(iter.Next())
-		rids[i] = schema.NewRegisterRef(module, rid)
+		rid := register.NewId(iter.Next())
+		rids[i] = register.NewRef(module, rid)
 	}
 	// Remove target to allow recursive definitions.  Observe this does not
 	// guarantee they make sense!
-	return array.RemoveMatching(rids, func(r schema.RegisterRef) bool {
+	return array.RemoveMatching(rids, func(r register.Ref) bool {
 		return r == e.Target
 	})
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (e *PseudoInverse[F]) RegistersWritten() []schema.RegisterRef {
-	return []schema.RegisterRef{e.Target}
+func (e *PseudoInverse[F]) RegistersWritten() []register.Ref {
+	return []register.Ref{e.Target}
 }
 
 // Lisp converts this constraint into an S-Expression.
@@ -162,7 +163,7 @@ func (e *PseudoInverse[F]) Substitute(map[string]F) {
 
 func invert[F field.Element[F]](
 	data array.MutArray[F],
-	expr ir.Evaluable[F],
+	expr term.Evaluable[F],
 	trMod trace.Module[F],
 	scMod schema.Module[F],
 ) error {

@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
@@ -206,7 +207,7 @@ func columnWidthSummariser[F field.Element[F]](lowWidth uint, highWidth uint) sc
 			for i := schema.Modules(); i.HasNext(); {
 				m := i.Next()
 				for c := uint(0); c < m.Width(); c++ {
-					ith := m.Register(sc.NewRegisterId(c))
+					ith := m.Register(register.NewId(c))
 					ithWidth := ith.Width
 					if ithWidth >= lowWidth && ithWidth <= highWidth {
 						count++

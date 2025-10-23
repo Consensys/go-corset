@@ -17,7 +17,7 @@ import (
 	"encoding/gob"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Program encapsulates one of more functions together, such that one may call
@@ -64,7 +64,7 @@ func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
 		for i := range registers {
 			var (
 				val big.Int
-				rid = schema.NewRegisterId(uint(i))
+				rid = register.NewId(uint(i))
 			)
 			// Load ith register value
 			val.Set(state.Load(rid))

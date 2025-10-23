@@ -17,7 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Goto provides an unconditional branching instruction to a given instructon.
@@ -54,11 +54,11 @@ func (p *Goto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *Goto) String(fn schema.RegisterMap) string {
+func (p *Goto) String(fn register.Map) string {
 	return fmt.Sprintf("goto %d", p.Target)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Goto) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Goto) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }

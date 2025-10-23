@@ -13,6 +13,7 @@
 package schema
 
 import (
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
 
@@ -58,7 +59,7 @@ type Schema[F any, C any] interface {
 	// schema.
 	Modules() iter.Iterator[Module[F]]
 	// Access a given register in this schema.
-	Register(RegisterRef) Register
+	Register(register.Ref) register.Register
 	// Returns the number of modules in this schema.
 	Width() uint
 }

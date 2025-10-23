@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -42,7 +42,7 @@ import (
 // pairs (and perhaps other constraints to ensure the required relationship) and
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
-type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
+type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 	// Handle returns the handle for this lookup constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
@@ -57,7 +57,7 @@ type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 }
 
 // NewConstraint creates a new lookup constraint with a given handle.
-func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, targets []Vector[F, E],
+func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, targets []Vector[F, E],
 	sources []Vector[F, E]) Constraint[F, E] {
 	var width uint
 	// Check sources
@@ -237,7 +237,7 @@ func (p *Constraint[F, E]) insertTargetVectors(tr trace.Trace[F], sc schema.AnyS
 }
 
 // State is just bringing somethings together to make life simpler
-type State[F field.Element[F], E ir.Evaluable[F]] struct {
+type State[F field.Element[F], E term.Evaluable[F]] struct {
 	handle string
 	// Set of target rows
 	rows *hash.Set[hash.Array[F]]
@@ -363,7 +363,7 @@ func (p *State[F, E]) checkSourceVector(k int, vec Vector[F, E], trModule trace.
 	}
 	// Check whether contained.
 	if !p.rows.Contains(hash.NewArray(p.buffer)) {
-		sources := make([]ir.Evaluable[F], vec.Len())
+		sources := make([]term.Evaluable[F], vec.Len())
 		for i, e := range vec.Terms {
 			sources[i] = e
 		}

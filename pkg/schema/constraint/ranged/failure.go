@@ -15,7 +15,7 @@ package ranged
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -28,7 +28,7 @@ type Failure[F any] struct {
 	// Enclosing context
 	Context schema.ModuleId
 	// Constraint expression
-	Expr ir.Evaluable[F]
+	Expr term.Evaluable[F]
 	// Range restriction
 	Bitwidth uint
 	// Row on which the constraint failed

@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -35,7 +36,7 @@ type SchemaStack[F field.Element[F]] struct {
 	// The various (concrete) layers which are refined from the abstract layers.
 	concreteSchemas []schema.AnySchema[F]
 	// Register mapping used
-	mapping schema.LimbsMap
+	mapping module.LimbsMap
 	// Name of IR used for corresponding schema
 	names []string
 	// Configuration for trace expansion
@@ -80,7 +81,7 @@ func (p *SchemaStack[F]) HasUniqueSchema() bool {
 
 // RegisterMapping returns the register mapping used to split registers
 // according to the given field configuration.
-func (p *SchemaStack[F]) RegisterMapping() schema.LimbsMap {
+func (p *SchemaStack[F]) RegisterMapping() module.LimbsMap {
 	return p.mapping
 }
 

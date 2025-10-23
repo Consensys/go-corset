@@ -18,7 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/math"
 )
 
@@ -91,7 +91,7 @@ func (p *IfThenElse) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
 
-func (p *IfThenElse) String(fn schema.RegisterMap) string {
+func (p *IfThenElse) String(fn register.Map) string {
 	var (
 		regs    = fn.Registers()
 		targets = io.RegistersToString(p.Targets, regs)
@@ -115,7 +115,7 @@ func (p *IfThenElse) String(fn schema.RegisterMap) string {
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *IfThenElse) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *IfThenElse) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs     = fn.Registers()
 		lhs_bits = sumTargetBits(p.Targets, regs)

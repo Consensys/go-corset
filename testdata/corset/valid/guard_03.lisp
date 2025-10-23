@@ -1,0 +1,5 @@
+(defcolumns (ST :i3) (A :i16) (B :i16))
+(defconstraint c1 (:guard ST)
+  (if (== 0 A)
+      (== 0 0)
+      (== 0 B)))

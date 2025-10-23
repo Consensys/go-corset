@@ -17,8 +17,10 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -32,16 +34,16 @@ import (
 type SortedPermutation[F field.Element[F]] struct {
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
-	Targets []sc.RegisterRef
+	Targets []register.Ref
 	// Signs determines the sorting direction for each target column.
 	Signs []bool
 	// Source columns which define the new (sorted) columns.
-	Sources []sc.RegisterRef
+	Sources []register.Ref
 }
 
 // NewSortedPermutation creates a new sorted permutation
-func NewSortedPermutation[F field.Element[F]](targets []sc.RegisterRef, signs []bool,
-	sources []sc.RegisterRef) *SortedPermutation[F] {
+func NewSortedPermutation[F field.Element[F]](targets []register.Ref, signs []bool,
+	sources []register.Ref) *SortedPermutation[F] {
 	//
 	if len(targets) != len(sources) {
 		panic("target and source column have differing lengths!")
@@ -98,23 +100,23 @@ func (p *SortedPermutation[F]) Consistent(schema sc.AnySchema[F]) []error {
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *SortedPermutation[F]) RegistersExpanded() []sc.RegisterRef {
+func (p *SortedPermutation[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *SortedPermutation[F]) RegistersRead() []sc.RegisterRef {
+func (p *SortedPermutation[F]) RegistersRead() []register.Ref {
 	return p.Sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *SortedPermutation[F]) RegistersWritten() []sc.RegisterRef {
+func (p *SortedPermutation[F]) RegistersWritten() []register.Ref {
 	return p.Targets
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *SortedPermutation[F]) Subdivide(mapping schema.LimbsMap) sc.Assignment[F] {
+func (p *SortedPermutation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
 	return p
 }
 

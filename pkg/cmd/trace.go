@@ -23,7 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/asm"
 	cmd "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/ir"
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
@@ -55,10 +54,10 @@ var traceCmd = &cobra.Command{
 
 // Available instances
 var traceCmds = []FieldAgnosticCmd{
-	{sc.GF_251, runTraceCmd[gf251.Element]},
-	{sc.GF_8209, runTraceCmd[gf8209.Element]},
-	{sc.KOALABEAR_16, runTraceCmd[koalabear.Element]},
-	{sc.BLS12_377, runTraceCmd[bls12_377.Element]},
+	{field.GF_251, runTraceCmd[gf251.Element]},
+	{field.GF_8209, runTraceCmd[gf8209.Element]},
+	{field.KOALABEAR_16, runTraceCmd[koalabear.Element]},
+	{field.BLS12_377, runTraceCmd[bls12_377.Element]},
 }
 
 func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
@@ -185,7 +184,7 @@ func expandColumns[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 	if bldr.Expanding() {
 		perf := util.NewPerfStats()
 		//
-		tf, errors = asm.Propagate(schema, tf)
+		tf, errors = asm.Propagate(schema, tf, true)
 		//
 		perf.Log("Trace propagation")
 	}

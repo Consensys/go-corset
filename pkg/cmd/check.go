@@ -24,12 +24,12 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
@@ -58,10 +58,10 @@ var checkCmd = &cobra.Command{
 
 // Available instances
 var checkCmds = []FieldAgnosticCmd{
-	{sc.GF_251, runCheckCmd[gf251.Element]},
-	{sc.GF_8209, runCheckCmd[gf8209.Element]},
-	{sc.KOALABEAR_16, runCheckCmd[koalabear.Element]},
-	{sc.BLS12_377, runCheckCmd[bls12_377.Element]},
+	{field.GF_251, runCheckCmd[gf251.Element]},
+	{field.GF_8209, runCheckCmd[gf8209.Element]},
+	{field.KOALABEAR_16, runCheckCmd[koalabear.Element]},
+	{field.BLS12_377, runCheckCmd[bls12_377.Element]},
 }
 
 func runCheckCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
@@ -197,7 +197,7 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	if expanding {
 		perf := util.NewPerfStats()
 		//
-		traces, errors = asm.PropagateAll(schema, traces)
+		traces, errors = asm.PropagateAll(schema, traces, expanding)
 		//
 		perf.Log("Trace propagation")
 	}
@@ -255,7 +255,7 @@ func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.Sch
 }
 
 // Report constraint failures, whilst providing contextual information (when requested).
-func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], mapping schema.LimbsMap,
+func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], mapping module.LimbsMap,
 	cfg checkConfig) {
 	//
 	var (
@@ -276,7 +276,7 @@ func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace 
 }
 
 // Print a human-readable report detailing the given failure
-func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], mapping schema.LimbsMap,
+func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], mapping module.LimbsMap,
 	cfg checkConfig) {
 	//
 	if f, ok := failure.(*vanishing.Failure[F]); ok {
@@ -304,7 +304,7 @@ func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], ma
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
 func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F],
-	mapping schema.LimbsMap, cfg checkConfig) {
+	mapping module.LimbsMap, cfg checkConfig) {
 	// Construct trace window
 	window := view.NewBuilder[F](mapping).
 		WithLimbs(cfg.reportLimbs).

@@ -15,7 +15,7 @@ package sorted
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -27,7 +27,7 @@ import (
 
 // Constraint declares a constraint that one (or more) columns are
 // lexicographically sorted.
-type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
+type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 	Handle string
 	// Evaluation Context for this constraint which must match that of the
 	// source expressions.
@@ -48,7 +48,7 @@ type Constraint[F field.Element[F], E ir.Evaluable[F]] struct {
 }
 
 // NewConstraint creates a new Sorted
-func NewConstraint[F field.Element[F], E ir.Evaluable[F]](handle string, context schema.ModuleId, bitwidth uint,
+func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, context schema.ModuleId, bitwidth uint,
 	selector util.Option[E], sources []E, signs []bool, strict bool) Constraint[F, E] {
 	//
 	return Constraint[F, E]{handle, context, bitwidth, selector, sources, signs, strict}
@@ -202,8 +202,8 @@ func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 	}
 }
 
-func sorted[F field.Element[F], E ir.Evaluable[F]](first, second uint, bound F, sources []E, signs []bool, strict bool,
-	trMod trace.Module[F], scMod schema.Module[F], lhs []F, rhs []F) (bool, error) {
+func sorted[F field.Element[F], E term.Evaluable[F]](first, second uint, bound F, sources []E, signs []bool,
+	strict bool, trMod trace.Module[F], scMod schema.Module[F], lhs []F, rhs []F) (bool, error) {
 	//
 	var (
 		delta F
@@ -239,7 +239,7 @@ func sorted[F field.Element[F], E ir.Evaluable[F]](first, second uint, bound F, 
 	return !strict, nil
 }
 
-func evalExprsAt[F field.Element[F], E ir.Evaluable[F]](k uint, sources []E, trMod trace.Module[F],
+func evalExprsAt[F field.Element[F], E term.Evaluable[F]](k uint, sources []E, trMod trace.Module[F],
 	scMod schema.Module[F], buffer []F) error {
 	//
 	var err error

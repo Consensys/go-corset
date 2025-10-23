@@ -21,6 +21,7 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -97,9 +98,9 @@ func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchem
 	//
 	fmt.Println()
 	// Print inputs / outputs
-	printRegisters(module, "inputs", func(r schema.Register) bool { return r.IsInput() })
-	printRegisters(module, "outputs", func(r schema.Register) bool { return r.IsOutput() })
-	printRegisters(module, "computed", func(r schema.Register) bool { return r.IsComputed() })
+	printRegisters(module, "inputs", func(r register.Register) bool { return r.IsInput() })
+	printRegisters(module, "outputs", func(r register.Register) bool { return r.IsOutput() })
+	printRegisters(module, "computed", func(r register.Register) bool { return r.IsComputed() })
 	// Print computations
 	for i := module.Assignments(); i.HasNext(); {
 		ith := i.Next()
@@ -119,7 +120,7 @@ func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchem
 	}
 }
 
-func printRegisters[F any](module schema.Module[F], prefix string, filter func(schema.Register) bool) {
+func printRegisters[F any](module schema.Module[F], prefix string, filter func(register.Register) bool) {
 	var (
 		regT string
 	)
@@ -149,7 +150,7 @@ func printRegisters[F any](module schema.Module[F], prefix string, filter func(s
 	}
 }
 
-func countRegisters[F any](module schema.Module[F], filter func(schema.Register) bool) uint {
+func countRegisters[F any](module schema.Module[F], filter func(register.Register) bool) uint {
 	var count = uint(0)
 	//
 	for _, r := range module.Registers() {

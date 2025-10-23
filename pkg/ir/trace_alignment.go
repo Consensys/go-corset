@@ -15,7 +15,7 @@ package ir
 import (
 	"fmt"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 )
@@ -30,7 +30,7 @@ import (
 // NOTE: alignment is impacted by whether or not the trace is being expanded or
 // not. Specifically, expanding traces don't need to include data for computed
 // columns, since these will be added during expansion.
-func AlignTrace[F any, M sc.RegisterMap](schema []M, trace []lt.Module[F], expanding bool,
+func AlignTrace[F any, M register.Map](schema []M, trace []lt.Module[F], expanding bool,
 ) ([]lt.Module[F], []error) {
 	//
 	var errors []error
@@ -48,7 +48,7 @@ func AlignTrace[F any, M sc.RegisterMap](schema []M, trace []lt.Module[F], expan
 	return trace, errors
 }
 
-func alignModules[F any, M sc.RegisterMap](schema []M, mods []lt.Module[F], expanding bool) ([]lt.Module[F], []error) {
+func alignModules[F any, M register.Map](schema []M, mods []lt.Module[F], expanding bool) ([]lt.Module[F], []error) {
 	//
 	var (
 		width  = uint(len(schema))
@@ -74,7 +74,7 @@ func alignModules[F any, M sc.RegisterMap](schema []M, mods []lt.Module[F], expa
 	return nmods, errs
 }
 
-func alignColumns[F any](mapping sc.RegisterMap, columns []lt.Column[F], expanding bool) ([]lt.Column[F], []error) {
+func alignColumns[F any](mapping register.Map, columns []lt.Column[F], expanding bool) ([]lt.Column[F], []error) {
 	var (
 		// Errs contains the set of filling errors which are accumulated
 		errs  []error
@@ -93,7 +93,7 @@ func alignColumns[F any](mapping sc.RegisterMap, columns []lt.Column[F], expandi
 	)
 	// Initialise column map
 	for i := range width {
-		ith := mapping.Register(sc.NewRegisterId(i))
+		ith := mapping.Register(register.NewId(i))
 		ncols[i].Name = ith.Name
 		colmap[ith.Name] = i
 	}
@@ -123,7 +123,7 @@ func alignColumns[F any](mapping sc.RegisterMap, columns []lt.Column[F], expandi
 	// Sanity check everything we expected was assigned
 	for i := range width {
 		var (
-			reg = mapping.Register(sc.NewRegisterId(i))
+			reg = mapping.Register(register.NewId(i))
 			col = ncols[i]
 		)
 		//

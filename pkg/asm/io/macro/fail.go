@@ -15,7 +15,7 @@ package macro
 import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Fail signals an exceptional return from the enclosing function.
@@ -49,11 +49,11 @@ func (p *Fail) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
-func (p *Fail) String(fn schema.RegisterMap) string {
+func (p *Fail) String(fn register.Map) string {
 	return "fail"
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
-func (p *Fail) Validate(fieldWidth uint, fn schema.RegisterMap) error {
+func (p *Fail) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }

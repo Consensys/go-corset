@@ -14,6 +14,7 @@ package air
 
 import (
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -21,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -49,7 +51,7 @@ type (
 	// multiplication of constants and column accesses.  No other terms are
 	// permitted at this, the lowest, layer of the stack.
 	Term[F field.Element[F]] interface {
-		ir.Term[F, Term[F]]
+		term.Expr[F, Term[F]]
 		// Air marks terms which are valid for the AIR representation.
 		Air()
 	}
@@ -69,7 +71,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F, ir.Testable[F]]]
+	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F, term.Testable[F]]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
 	InterleavingConstraint[F field.Element[F]] = Air[F, interleaving.Constraint[F, *ColumnAccess[F]]]
@@ -90,17 +92,17 @@ type (
 // Following types capture permitted expression forms at the AIR level.
 type (
 	// Add represents the addition of zero or more AIR expressio
-	Add[F field.Element[F]] = ir.Add[F, Term[F]]
+	Add[F field.Element[F]] = term.Add[F, Term[F]]
 	// Constant represents a constant value within AIR an expression.
-	Constant[F field.Element[F]] = ir.Constant[F, Term[F]]
+	Constant[F field.Element[F]] = term.Constant[F, Term[F]]
 	// ColumnAccess represents reading the value held at a given column in the
 	// tabular context.  Furthermore, the current row maybe shifted up (or down) by
 	// a given amount.
-	ColumnAccess[F field.Element[F]] = ir.RegisterAccess[F, Term[F]]
+	ColumnAccess[F field.Element[F]] = term.RegisterAccess[F, Term[F]]
 	// Mul represents the product over zero or more expressions.
-	Mul[F field.Element[F]] = ir.Mul[F, Term[F]]
+	Mul[F field.Element[F]] = term.Mul[F, Term[F]]
 	// Sub represents the subtraction over zero or more expressions.
-	Sub[F field.Element[F]] = ir.Sub[F, Term[F]]
+	Sub[F field.Element[F]] = term.Sub[F, Term[F]]
 )
 
 // LogicalTerm provides a wrapper around a given term allowing to be "testable".
@@ -115,7 +117,7 @@ func (p LogicalTerm[F]) Bounds() util.Bounds {
 }
 
 // TestAt implementation for Testable interface.
-func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap) (bool, uint, error) {
+func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc register.Map) (bool, uint, error) {
 	var (
 		val, err = p.Term.EvalAt(k, tr, sc)
 		zero     F
@@ -130,7 +132,7 @@ func (p LogicalTerm[F]) TestAt(k int, tr trace.Module[F], sc schema.RegisterMap)
 
 // Lisp returns a lisp representation of this NotEqual, which is useful for
 // debugging.
-func (p LogicalTerm[F]) Lisp(global bool, mapping schema.RegisterMap) sexp.SExp {
+func (p LogicalTerm[F]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	return p.Term.Lisp(global, mapping)
 }
 
