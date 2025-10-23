@@ -110,11 +110,14 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 		var traces []lt.TraceFile
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
-		// Read traces from file
-		traces = ReadTracesFile(testFilename)
-		if len(traces) > 0 {
-			// Run tests
-			fullCheckTraces(t, testFilename, cfg, maxPadding, traces, stacks)
+		// Sanity check field aligns
+		if cfg.field == "" || cfg.field == field.Name {
+			// Read traces from file
+			traces = ReadTracesFile(testFilename)
+			if len(traces) > 0 {
+				// Run tests
+				fullCheckTraces(t, testFilename, cfg, maxPadding, traces, stacks)
+			}
 		}
 		// Record how many tests we found
 		nTests += len(traces)
