@@ -151,10 +151,14 @@ func (p *NavigationMode) scanInputMode(parent *Inspector) Mode {
 		history      = parent.currentView().scanHistory
 		historyIndex = uint(len(history))
 		columns      set.SortedSet[string]
-		mapping      = parent.CurrentModule().view.Data().Mapping()
+		data         = parent.CurrentModule().view.Data()
 	)
 	// Identify available columns
-	for _, c := range mapping.Registers() {
+	for _, c := range data.Mapping().Registers() {
+		columns.Insert(c.Name)
+	}
+	//
+	for _, c := range data.SourceColumns() {
 		columns.Insert(c.Name)
 	}
 	// Construct environment
