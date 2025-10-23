@@ -9,18 +9,19 @@ jobs:
     strategy:
       matrix:
         test: [asm-bench,asm-racer,asm-util,asm-unit,corset-bench,corset-racer,corset-test,unit-test]
-        field: [BLS12_377,KOALABEAR_16]
+        field: [BLS12_377,KOALABEAR_16,GF_8209]
         exclude:
-          - test: asm-bench
-            field: KOALABEAR_16
-          - test: corset-bench
-            field: KOALABEAR_16
-          - test: unit-test
-            field: KOALABEAR_16
-          - test: asm-racer
-            field: KOALABEAR_16
-          - test: corset-racer
-            field: KOALABEAR_16
+          - { field: KOALABEAR_16, test: asm-bench }
+          - { field: KOALABEAR_16, test: asm-racer }
+          - { field: KOALABEAR_16, test: corset-bench }
+          - { field: KOALABEAR_16, test: corset-racer }
+          - { field: KOALABEAR_16, test: unit-test }
+          - { field: GF_8209,      test: asm-bench }
+          - { field: GF_8209,      test: asm-racer }
+          - { field: GF_8209,      test: asm-util }
+          - { field: GF_8209,      test: corset-bench }
+          - { field: GF_8209,      test: corset-racer }
+          - { field: GF_8209,      test: unit-test }
       fail-fast: false
     runs-on: gha-runner-scale-set-ubuntu-22.04-amd64-large
     steps:

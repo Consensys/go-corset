@@ -65,6 +65,13 @@ func Check(t *testing.T, stdlib bool, test string) {
 	CheckWithFields(t, stdlib, test, CORSET_MAX_PADDING, field.BLS12_377)
 }
 
+// CheckCorset checks that all traces which we expect to be accepted are
+// accepted by a given set of constraints, and all traces that we expect to be
+// rejected are rejected.  All fields provided are tested against.
+func CheckCorset(t *testing.T, stdlib bool, test string, fields ...field.Config) {
+	CheckWithFields(t, stdlib, test, CORSET_MAX_PADDING, fields...)
+}
+
 // CheckWithFields checks that all traces which we expect to be accepted are
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against.
