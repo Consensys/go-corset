@@ -72,7 +72,7 @@ func (p *SortedPermutation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // according to the permutation criteria.
 func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]array.MutArray[F], error) {
 	// Read inputs
-	sources := ReadRegisters(trace, p.Sources...)
+	sources := ReadRegistersRef(trace, p.Sources...)
 	// Apply native function
 	data := sortedPermutationNativeFunction(sources, p.Signs, trace.Builder())
 	//

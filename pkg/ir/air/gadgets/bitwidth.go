@@ -258,7 +258,7 @@ func (p *typeDecomposition[F]) AddSource(source register.Ref) {
 func (p *typeDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	// Read inputs
-	sources := assignment.ReadRegisters(tr, p.sources...)
+	sources := assignment.ReadRegistersRef(tr, p.sources...)
 	padding := assignment.ReadPadding(tr, p.sources...)
 	// Combine all sources
 	combined := combineSources(p.loWidth+p.hiWidth, sources, padding, tr.Builder())
@@ -359,7 +359,7 @@ func (p *byteDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F]
 ) ([]array.MutArray[F], error) {
 	var n = uint(len(p.targets))
 	// Read inputs
-	sources := assignment.ReadRegisters(tr, p.source)
+	sources := assignment.ReadRegistersRef(tr, p.source)
 	// Apply native function
 	data := byteDecompositionNativeFunction(n, sources, tr.Builder())
 	//

@@ -12,7 +12,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package register
 
-import "github.com/consensys/go-corset/pkg/trace"
+import (
+	"github.com/consensys/go-corset/pkg/trace"
+)
 
 // Ref abstracts a complete (i.e. global) register identifier.
 type Ref = trace.ColumnRef
@@ -21,4 +23,49 @@ type Ref = trace.ColumnRef
 // register identifiers.
 func NewRef(mid trace.ModuleId, id Id) Ref {
 	return trace.NewColumnRef(mid, id)
+}
+
+// Refs is a "registers reference" which abstracts a set of registers in a given
+// module.
+type Refs struct {
+	mid  trace.ModuleId
+	regs []Id
+}
+
+// NewRefs constructs a new registers reference for a given module and
+// identifier set.
+func NewRefs(mid trace.ModuleId, ids ...Id) Refs {
+	return Refs{mid, ids}
+}
+
+// Module returns the module identifier of this registers reference.
+func (p *Refs) Module() trace.ModuleId {
+	return p.mid
+}
+
+// Registers returns the register identifiers for the referenced registers.
+func (p *Refs) Registers() []Id {
+	return p.regs
+}
+
+// Apply a given mapping to this set of registers.
+func (p *Refs) Apply(mapping LimbsMap) Refs {
+	var nids []Id
+
+	for _, ith := range p.regs {
+		nids = append(nids, mapping.LimbIds(ith)...)
+	}
+
+	return NewRefs(p.mid, nids...)
+}
+
+// AsRefArray converts a register refs array into an array of register ref.
+func AsRefArray(p Refs) []Ref {
+	var nrefs = make([]Ref, len(p.regs))
+	//
+	for i, r := range p.regs {
+		nrefs[i] = NewRef(p.mid, r)
+	}
+	//
+	return nrefs
 }

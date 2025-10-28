@@ -306,13 +306,13 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 func (t *translator) translateDefComputed(decl *ast.DefComputed, path file.Path) []SyntaxError {
 	var context ast.Context = ast.VoidContext()
 	//
-	targets := make([]register.Ref, len(decl.Targets))
-	sources := make([]register.Ref, len(decl.Sources))
+	targets := make([]register.Refs, len(decl.Targets))
+	sources := make([]register.Refs, len(decl.Sources))
 	// Identify source registers
 	for i := 0; i < len(decl.Sources); i++ {
 		ith := decl.Sources[i].Binding().(*ast.ColumnBinding)
 		source := t.env.Register(t.env.RegisterOf(&ith.Path))
-		sources[i] = t.registerRefOf(&ith.Path)
+		sources[i] = t.registerRefsOf(&ith.Path)
 		// Join contexts
 		context = context.Join(source.Context)
 	}
@@ -320,7 +320,7 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, path file.Path)
 	for i := 0; i < len(decl.Targets); i++ {
 		targetPath := path.Extend(decl.Targets[i].Name())
 		target := t.env.Register(t.env.RegisterOf(targetPath))
-		targets[i] = t.registerRefOf(targetPath)
+		targets[i] = t.registerRefsOf(targetPath)
 		// Join contexts
 		context = context.Join(target.Context)
 	}
@@ -531,8 +531,8 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path file
 	var (
 		errors []SyntaxError
 		//
-		sources = make([]register.Ref, len(decl.Sources))
-		targets = make([]register.Ref, 1)
+		sources = make([]register.Refs, len(decl.Sources))
+		targets = make([]register.Refs, 1)
 		//
 		sourceContext ast.Context
 		sourceTerms   = make([]hir.Term, len(decl.Sources))
@@ -554,14 +554,14 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path file
 		ith, errs := t.registerOfRegisterAccess(source, 0)
 		//
 		if len(errs) == 0 {
-			sources[i] = register.NewRef(srcModule.Id(), ith.Register)
+			sources[i] = register.NewRefs(srcModule.Id(), ith.Register)
 			sourceTerms[i] = ith
 		}
 		//
 		errors = append(errors, errs...)
 	}
 	// Determine target register refs
-	targets[0] = register.NewRef(tgtModule.Id(), t.registerIndexOf(targetPath))
+	targets[0] = register.NewRefs(tgtModule.Id(), t.registerIndexOf(targetPath))
 	targetTerm := t.registerOf(targetPath, 0)
 	// Register constraint
 	tgtModule.AddConstraint(
@@ -1114,7 +1114,7 @@ func (t *translator) registerIndexOf(path *file.Path) register.Id {
 	panic("unreachable")
 }
 
-func (t *translator) registerRefOf(path *file.Path) register.Ref {
+func (t *translator) registerRefsOf(path *file.Path) register.Refs {
 	// Determine register id
 	rid := t.env.RegisterOf(path)
 	//
@@ -1123,7 +1123,7 @@ func (t *translator) registerRefOf(path *file.Path) register.Ref {
 	module := t.moduleOf(reg.Context)
 	//
 	if rid, ok := module.HasRegister(reg.Name()); ok {
-		return register.NewRef(module.Id(), rid)
+		return register.NewRefs(module.Id(), rid)
 	}
 	//
 	panic("unreachable")

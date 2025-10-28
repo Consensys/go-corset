@@ -36,14 +36,14 @@ type Computation[F field.Element[F]] struct {
 	Function string
 	// Target columns declared by this sorted permutation (in the order
 	// of declaration).
-	Targets []register.Ref
+	Targets []register.Refs
 	// Source columns which define the new (sorted) columns.
-	Sources []register.Ref
+	Sources []register.Refs
 }
 
 // NewComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
-func NewComputation[F field.Element[F]](fn string, targets []register.Ref, sources []register.Ref) *Computation[F] {
+func NewComputation[F field.Element[F]](fn string, targets []register.Refs, sources []register.Refs) *Computation[F] {
 	//
 	return &Computation[F]{fn, targets, sources}
 }
@@ -89,17 +89,22 @@ func (p *Computation[F]) RegistersExpanded() []register.Ref {
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *Computation[F]) RegistersRead() []register.Ref {
-	return p.Sources
+	return array.FlatMap(p.Sources, register.AsRefArray)
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
 func (p *Computation[F]) RegistersWritten() []register.Ref {
-	return p.Targets
+	return array.FlatMap(p.Targets, register.AsRefArray)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
 func (p *Computation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
-	return p
+	var (
+		targets = SubdivideRegisterRefs[F](mapping, p.Targets...)
+		sources = SubdivideRegisterRefs[F](mapping, p.Sources...)
+	)
+	//
+	return NewComputation[F](p.Function, targets, sources)
 }
 
 // Substitute any matchined labelled constants within this assignment
@@ -119,20 +124,36 @@ func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		sources = sexp.EmptyList()
 	)
 
-	for _, ref := range p.Targets {
-		module := schema.Module(ref.Module())
-		ith := module.Register(ref.Register())
-		name := sexp.NewSymbol(ith.QualifiedName(module))
-		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
-		def := sexp.NewList([]sexp.SExp{name, datatype})
-		targets.Append(def)
+	for _, refs := range p.Targets {
+		var (
+			regs   = sexp.EmptyList()
+			module = schema.Module(refs.Module())
+		)
+		//
+		for _, ref := range refs.Registers() {
+			ith := module.Register(ref)
+			name := sexp.NewSymbol(ith.QualifiedName(module))
+			datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
+			def := sexp.NewList([]sexp.SExp{name, datatype})
+			regs.Append(def)
+		}
+		//
+		targets.Append(regs)
 	}
-
-	for _, ref := range p.Sources {
-		module := schema.Module(ref.Module())
-		ith := module.Register(ref.Register())
-		ithName := ith.QualifiedName(module)
-		sources.Append(sexp.NewSymbol(ithName))
+	//
+	for _, refs := range p.Sources {
+		var (
+			regs   = sexp.EmptyList()
+			module = schema.Module(refs.Module())
+		)
+		//
+		for _, ref := range refs.Registers() {
+			ith := module.Register(ref)
+			name := ith.QualifiedName(module)
+			regs.Append(sexp.NewSymbol(name))
+		}
+		//
+		sources.Append(regs)
 	}
 
 	return sexp.NewList([]sexp.SExp{
@@ -149,19 +170,18 @@ func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 
 // NativeComputation defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation[F any] func([]array.Array[F], array.Builder[F]) []array.MutArray[F]
+type NativeComputation[F any] func([][]array.Array[F], array.Builder[F]) [][]array.MutArray[F]
 
-func computeNative[F field.Element[F]](sources []register.Ref, fn NativeComputation[F], trace tr.Trace[F],
+func computeNative[F field.Element[F]](sources []register.Refs, fn NativeComputation[F], trace tr.Trace[F],
 ) []array.MutArray[F] {
 	// Read inputs
-	inputs := ReadRegisters(trace, sources...)
-	// Read inputs
-	for i, ref := range sources {
-		mid, rid := ref.Module(), ref.Register().Unwrap()
-		inputs[i] = trace.Module(mid).Column(rid).Data()
-	}
+	inputs := ReadRegisterRefs(trace, sources...)
 	// Apply native function
-	return fn(inputs, trace.Builder())
+	targets := fn(inputs, trace.Builder())
+	// Flattern targets
+	return array.FlatMap(targets, func(arrs []array.MutArray[F]) []array.MutArray[F] {
+		return arrs
+	})
 }
 
 // ============================================================================
@@ -174,20 +194,20 @@ func findNative[F field.Element[F]](name string) NativeComputation[F] {
 		return idNativeFunction
 	case "interleave":
 		return interleaveNativeFunction
-	case "filter":
-		return filterNativeFunction
-	case "map-if":
-		return mapIfNativeFunction
-	case "fwd-changes-within":
-		return fwdChangesWithinNativeFunction
-	case "fwd-unchanged-within":
-		return fwdUnchangedWithinNativeFunction
-	case "bwd-changes-within":
-		return bwdChangesWithinNativeFunction
-	case "fwd-fill-within":
-		return fwdFillWithinNativeFunction
-	case "bwd-fill-within":
-		return bwdFillWithinNativeFunction
+	// case "filter":
+	// 	return filterNativeFunction
+	// case "map-if":
+	// 	return mapIfNativeFunction
+	// case "fwd-changes-within":
+	// 	return fwdChangesWithinNativeFunction
+	// case "fwd-unchanged-within":
+	// 	return fwdUnchangedWithinNativeFunction
+	// case "bwd-changes-within":
+	// 	return bwdChangesWithinNativeFunction
+	// case "fwd-fill-within":
+	// 	return fwdFillWithinNativeFunction
+	// case "bwd-fill-within":
+	// 	return bwdFillWithinNativeFunction
 	default:
 		panic(fmt.Sprintf("unknown native function: %s", name))
 	}
@@ -195,18 +215,40 @@ func findNative[F field.Element[F]](name string) NativeComputation[F] {
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction[F field.Element[F]](sources []array.Array[F], _ array.Builder[F],
-) []array.MutArray[F] {
+func idNativeFunction[F field.Element[F]](sources [][]array.Array[F], _ array.Builder[F],
+) [][]array.MutArray[F] {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
 	}
+	//
+	var (
+		source  []array.Array[F] = sources[0]
+		targets                  = make([]array.MutArray[F], len(source))
+	)
+	//
+	for i, ith := range source {
+		targets[i] = ith.Clone()
+	}
 	// Clone source column (that's it)
-	return []array.MutArray[F]{sources[0].Clone()}
+	return [][]array.MutArray[F]{targets}
 }
 
 // interleaving constructs a single interleaved column from a give set of source
 // columns.  The assumption is that the height of all columns is the same.
-func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
+func interleaveNativeFunction[F field.Element[F]](sources [][]array.Array[F], builder array.Builder[F],
+) [][]array.MutArray[F] {
+	var (
+		targets = make([][]array.MutArray[F], len(sources))
+	)
+	//
+	for i, ith := range sources {
+		targets[i] = interleave(ith, builder)
+	}
+	//
+	return targets
+}
+
+func interleave[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	var (
 		bitwidth   uint
