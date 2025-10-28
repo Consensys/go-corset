@@ -841,29 +841,29 @@ func Test_Valid_Lookup_27(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Interleave_01(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/interleave_01", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/interleave_01", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Interleave_02(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/interleave_02", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/interleave_02", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Interleave_03(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/interleave_03", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/interleave_03", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Interleave_04(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/interleave_04", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/interleave_04", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Interleave_05(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/interleave_05", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/interleave_05", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 func Test_Valid_Interleave_06(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/interleave_06", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/interleave_06", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 func Test_Valid_Interleave_07(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/interleave_07", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/interleave_07", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 // ===================================================================

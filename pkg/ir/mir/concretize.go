@@ -132,8 +132,8 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		//
 		return NewAssertion(c.Handle, c.Context, c.Domain, term)
 	case InterleavingConstraint[F1]:
-		target := concretizeRegisterAccess[F1, F2](c.Target)
-		sources := concretizeRegisterAccesses[F1, F2](c.Sources)
+		target := concretizeVectorAccess[F1, F2](c.Target)
+		sources := concretizeVectorAccesses[F1, F2](c.Sources)
 		//
 		return NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
 	case LookupConstraint[F1]:
@@ -261,13 +261,7 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	case *Sub[F1]:
 		return term.Subtract(concretizeTerms[F1, F2](t.Args)...)
 	case *VectorAccess[F1]:
-		var nterms = make([]*RegisterAccess[F2], len(t.Vars))
-		//
-		for i, t := range t.Vars {
-			nterms[i] = term.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
-		}
-		//
-		return term.NewVectorAccess(nterms)
+		return concretizeVectorAccess[F1, F2](t)
 	default:
 		panic("unreachable")
 	}
@@ -281,6 +275,21 @@ func concretizeTerms[F1 Element[F1], F2 Element[F2]](terms []Term[F1]) []Term[F2
 	}
 	//
 	return nterms
+}
+
+func concretizeVectorAccesses[F1 Element[F1], F2 Element[F2]](terms []*VectorAccess[F1]) []*VectorAccess[F2] {
+	var nterms = make([]*VectorAccess[F2], len(terms))
+	//
+	for i, t := range terms {
+		nterms[i] = concretizeVectorAccess[F1, F2](t)
+	}
+	//
+	return nterms
+}
+
+func concretizeVectorAccess[F1 Element[F1], F2 Element[F2]](expr *VectorAccess[F1]) *VectorAccess[F2] {
+	var regs = concretizeRegisterAccesses[F1, F2](expr.Vars)
+	return term.RawVectorAccess(regs)
 }
 
 func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](expr *RegisterAccess[F1]) *RegisterAccess[F2] {

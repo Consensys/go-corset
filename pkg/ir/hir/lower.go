@@ -32,6 +32,7 @@ type mirTerm = mir.Term[word.BigEndian]
 type mirLogicalTerm = mir.LogicalTerm[word.BigEndian]
 type mirModuleBuilder = mir.ModuleBuilder[word.BigEndian]
 type mirRegisterAccess = mir.RegisterAccess[word.BigEndian]
+type mirVectorAccess = mir.VectorAccess[word.BigEndian]
 
 // LowerToMir lowers (or refines) an HIR schema into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
@@ -182,9 +183,9 @@ func (p *MirLowering) lowerRangeConstraint(v RangeConstraint, module *mirModuleB
 func (p *MirLowering) lowerInterleavingConstraint(c InterleavingConstraint, mod *mirModuleBuilder) {
 	//
 	// Lower sources
-	sources := p.expandTerms(c.Sources, mod)
+	sources := p.expandTermsAsVectors(c.Sources, mod)
 	// Lower target
-	target := p.expandTerm(c.Target, mod)
+	target := p.expandTermAsVector(c.Target, mod)
 	// Add constraint
 	mod.AddConstraint(
 		mir.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources))
@@ -214,7 +215,7 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 ) lookup.Vector[word.BigEndian, *mirRegisterAccess] {
 	var (
 		module   = p.mirSchema.Module(vec.Module)
-		terms    = p.expandTerms(vec.Terms, module)
+		terms    = p.expandTerms(module, vec.Terms...)
 		selector util.Option[*mirRegisterAccess]
 	)
 	//
@@ -231,7 +232,7 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, module *mirModuleBuilder) {
 	var (
-		terms    = p.expandTerms(c.Sources, module)
+		terms    = p.expandTerms(module, c.Sources...)
 		selector util.Option[*mirRegisterAccess]
 	)
 	//
@@ -321,7 +322,21 @@ func (p *MirLowering) lowerBinaryLogical(lhs, rhs Term, fn BinaryLogicalFn, modu
 	return DisjunctIfTerms(fn, lTerm, rTerm)
 }
 
-func (p *MirLowering) expandTerms(es []Term, mirModule *mirModuleBuilder) (terms []*mirRegisterAccess) {
+func (p *MirLowering) expandTermsAsVectors(es []Term, module *mirModuleBuilder) []*mirVectorAccess {
+	vecs := make([]*mirVectorAccess, len(es))
+	//
+	for i, e := range es {
+		vecs[i] = p.expandTermAsVector(e, module)
+	}
+	//
+	return vecs
+}
+
+func (p *MirLowering) expandTermAsVector(e Term, module *mirModuleBuilder) *mirVectorAccess {
+	return term.RawVectorAccess(p.expandTerms(module, e))
+}
+
+func (p *MirLowering) expandTerms(mirModule *mirModuleBuilder, es ...Term) (terms []*mirRegisterAccess) {
 	//
 	terms = make([]*mirRegisterAccess, len(es))
 	//

@@ -14,6 +14,7 @@ package mir
 
 import (
 	"github.com/consensys/go-corset/pkg/ir/term"
+	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -26,10 +27,20 @@ func subdivideAssertion[F field.Element[F]](c Assertion[F], _ module.LimbsMap) A
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ module.LimbsMap,
+func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], mapping module.LimbsMap,
 ) InterleavingConstraint[F] {
-	// TODO: implement this
-	return c
+	var (
+		targetModule = mapping.Module(c.TargetContext)
+		sourceModule = mapping.Module(c.SourceContext)
+		target       = splitVectorAccess(c.Target, targetModule)
+		sources      = make([]*VectorAccess[F], len(c.Sources))
+	)
+	// Split sources
+	for i, src := range c.Sources {
+		sources[i] = splitVectorAccess(src, sourceModule)
+	}
+	// Done
+	return interleaving.NewConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -101,7 +112,7 @@ func splitRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping re
 	return term.NewVectorAccess(terms)
 }
 
-func splitVectorAccess[F field.Element[F]](expr *VectorAccess[F], mapping register.LimbsMap) Term[F] {
+func splitVectorAccess[F field.Element[F]](expr *VectorAccess[F], mapping register.LimbsMap) *VectorAccess[F] {
 	var terms []*RegisterAccess[F]
 	//
 	for _, v := range expr.Vars {
@@ -111,7 +122,7 @@ func splitVectorAccess[F field.Element[F]](expr *VectorAccess[F], mapping regist
 		}
 	}
 	//
-	return term.NewVectorAccess(terms)
+	return term.RawVectorAccess(terms)
 }
 
 func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], mapping register.LimbsMap,
