@@ -1,8 +1,9 @@
-const MAX_PRC_ADDRESS = 0x09
+const MAX_PRC_CONTIGUOUS_ADDRESS = 0x11
+;; const P256_VERIFY_ADDRESS = 0x100
 
 ;; The address trimming module does two things: (i) reduce 256bit
 ;; addresses into u160 addresses (i.e. modulo 2^160); (b) identify
-;; addresses of precompiles.
+;; addresses of precompiles : {0x1, 0x2 ... 0x11} U {0x100}
 ;;
 ;; The need for this function arises as some EVM opcodes take an u256
 ;; stack argument requires trimming to be interpreted as an address.
@@ -22,17 +23,21 @@ const MAX_PRC_ADDRESS = 0x09
 fn trm(RAW_ADDRESS u256) -> (ADDRESS_HI u32, IS_PRECOMPILE u1) {
   var low, tmp u128
   var high u96
-  var b u1
+  var b1, b2, c0, c1 u1
+  var P256_VERIFY_ADDRESS u256
+  P256_VERIFY_ADDRESS = 256
   ;; trim off most significant 96 bytes
   high,ADDRESS_HI,low = RAW_ADDRESS
   ;; if hi word not zero, cannot be precompile.
   if ADDRESS_HI != 0 goto exit_0
   ;; discount address 0
   if low == 0 goto exit_0
-  ;; determine low <= MAX_PRC_ADDRESS
-  b,tmp = low - MAX_PRC_ADDRESS - 1
+  ;; determine low <= MAX_PRC_CONTIGUOUS_ADDRESS
+  ;; or low is P256_VERIFY_ADDRESS
+  b1,tmp = low - MAX_PRC_CONTIGUOUS_ADDRESS - 1
+  b2 = low == 256 ? 1 : 0
   ;; done
-  IS_PRECOMPILE=b
+  c0, c1, IS_PRECOMPILE= (b1 + b2) - (b1 * b2)
   return
 exit_0:
   ;; no, not precompile
