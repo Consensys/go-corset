@@ -26,27 +26,31 @@ type RegisterView interface {
 	BitWidth() uint
 	Get(uint) big.Int
 	Len() uint
-	Name() string
 }
 
 type registerView[F field.Element[F]] struct {
-	trace    tr.Module[F]
-	register register.Id
-	mapping  register.LimbsMap
+	trace   tr.Module[F]
+	limbs   []register.LimbId
+	mapping register.LimbsMap
 }
 
 func (p *registerView[F]) BitWidth() uint {
-	return p.mapping.Register(p.register).Width
+	var bitwidth uint
+	//
+	for _, lid := range p.limbs {
+		bitwidth += p.mapping.Limb(lid).Width
+	}
+	//
+	return bitwidth
 }
 
 func (p *registerView[F]) Get(row uint) big.Int {
 	var (
 		bits  = uint(0)
 		value big.Int
-		limbs = p.mapping.LimbIds(p.register)
 	)
 	//
-	for _, lid := range limbs {
+	for _, lid := range p.limbs {
 		var (
 			data    = p.trace.Column(lid.Unwrap()).Data()
 			element = data.Get(row)
@@ -66,8 +70,4 @@ func (p *registerView[F]) Get(row uint) big.Int {
 
 func (p *registerView[F]) Len() uint {
 	return p.trace.Height()
-}
-
-func (p *registerView[F]) Name() string {
-	return p.mapping.Register(p.register).Name
 }

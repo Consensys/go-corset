@@ -15,6 +15,7 @@ package trace
 import (
 	"cmp"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -88,9 +89,35 @@ func (p ModuleName) Cmp(q ModuleName) int {
 }
 
 func (p ModuleName) String() string {
+	if p.Multiplier == 1 {
+		return p.Name
+	}
+	//
 	return fmt.Sprintf("%s×%d", p.Name, p.Multiplier)
 }
 
 func ParseModuleName(name string) ModuleName {
-	panic("todo")
+	var (
+		splits     = strings.Split(name, "×")
+		multiplier uint
+	)
+	//
+	switch {
+	case len(splits) == 1:
+		multiplier = 1
+	case len(splits) == 2:
+		tmp, err := strconv.Atoi(splits[1])
+		//
+		if err != nil {
+			panic(err.Error())
+		} else if tmp <= 0 {
+			panic(fmt.Sprintf("invalid module name \"%s\"", name))
+		}
+		//
+		multiplier = uint(tmp)
+	default:
+		panic(fmt.Sprintf("invalid module name \"%s\"", name))
+	}
+	// Done
+	return ModuleName{splits[0], multiplier}
 }

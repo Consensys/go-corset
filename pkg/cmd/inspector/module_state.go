@@ -181,11 +181,13 @@ func buildEnvironment(data view.ModuleData) QueryEnv {
 	//
 	return func(col string, row uint) (big.Int, bool) {
 		var (
-			id register.Id
-			ok bool
+			limbs []register.LimbId
+			ok    bool
 		)
 		// Look in the register mapping first
-		if id, ok = mapping.HasRegister(col); !ok {
+		if id, ok := mapping.HasRegister(col); ok {
+			limbs = mapping.LimbIds(id)
+		} else {
 			var (
 				srcId  view.SourceColumnId
 				srcCol view.SourceColumn
@@ -198,11 +200,11 @@ func buildEnvironment(data view.ModuleData) QueryEnv {
 			// Extract source column
 			srcCol = data.SourceColumn(srcId)
 			// Extract underlying register id
-			id = srcCol.Register
+			limbs = srcCol.Limbs
 			// Check whether source column actually active
 			ok = data.IsActive(srcCol, row)
 		}
 		//
-		return data.DataOf(id).Get(row), ok
+		return data.DataOf(limbs).Get(row), ok
 	}
 }

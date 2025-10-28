@@ -56,8 +56,8 @@ type SourceColumn struct {
 type ModuleData interface {
 	// Id returns the module identifier
 	Id() sc.ModuleId
-	// Access abtract data for given register
-	DataOf(register.Id) RegisterView
+	// Access abtract data for given set of register limbs register
+	DataOf([]register.LimbId) RegisterView
 	// Dimensions returns width and height of data
 	Dimensions() (uint, uint)
 	// Determine whether a given source column is active on a given row.  A
@@ -146,7 +146,7 @@ func (p *moduleData[F]) IsActive(col SourceColumn, row uint) bool {
 	// Extract relevant selector
 	selector := p.SourceColumnOf(col.Selector.Unwrap())
 	// Extract selector's value on this row
-	val := p.DataOf(selector.Register).Get(row)
+	val := p.DataOf(selector.Limbs).Get(row)
 	// Check whether selector is active (or not)
 	return val.BitLen() != 0
 }
@@ -186,10 +186,10 @@ func (p *moduleData[F]) SourceColumnOf(name string) SourceColumn {
 	panic(fmt.Sprintf("unknown source column %s", name))
 }
 
-// Data returns an abtract view of the data for given register
-func (p *moduleData[F]) DataOf(reg register.Id) RegisterView {
+// Data returns an abtract view of the data for a set of register limbs.
+func (p *moduleData[F]) DataOf(limbs []register.LimbId) RegisterView {
 	return &registerView[F]{
-		p.trace, reg, p.mapping,
+		p.trace, limbs, p.mapping,
 	}
 }
 
@@ -267,7 +267,7 @@ func (p *moduleData[F]) expand(col, row uint) {
 		// Yes
 		ndata := make([]string, col+1)
 		//
-		view := p.DataOf(srcColumn.Register)
+		view := p.DataOf(srcColumn.Limbs)
 		// Copy existing data
 		copy(ndata, srcColumn.data)
 		// Construct new data

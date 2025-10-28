@@ -88,6 +88,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	cfg.includes = GetStringArray(cmd, "include")
 	cfg.maxCellWidth = GetUint(cmd, "max-width")
+	cfg.limbs = GetFlag(cmd, "limbs")
 	cfg.startRow = GetUint(cmd, "start")
 	cfg.endRow = GetUint(cmd, "end")
 	cfg.filter, err = regexp.Compile(GetString(cmd, "filter"))
@@ -137,6 +138,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		window := view.NewBuilder[F](cfg.mapping).
 			WithCellWidth(cfg.maxCellWidth).
 			WithSourceMap(*cfg.sourceMap).
+			WithLimbs(cfg.limbs).
 			Build(traces[i])
 		// Construct & apply trace filter
 		window = window.Filter(constructTraceFilter(cfg, traces[i]))
@@ -185,6 +187,7 @@ func init() {
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
+	traceCmd.Flags().BoolP("limbs", "l", false, "show register limbs")
 	traceCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
@@ -350,18 +353,20 @@ func listColumns(cfg TraceConfig, window view.TraceView) {
 	// Compute data
 	for i := range window.Width() {
 		var (
-			ith  = window.Module(i)
-			data = ith.Data()
+			mod     = window.Module(i)
+			data    = mod.Data()
+			mapping = data.Mapping()
 		)
 		//
-		for _, jth := range activeRegisters(ith) {
+		for _, reg := range activeRegisters(mod) {
 			// Launch summarisers
-			go func(index uint) {
+			go func(index uint, reg register.Id) {
+				name := mapping.Register(reg).Name
 				// Apply summarisers to column
-				row := summariseColumn(data.Name(), data.DataOf(jth), summarisers)
+				row := summariseColumn(data.Name(), name, data.DataOf(mapping.LimbIds(reg)), summarisers)
 				// Package result
 				c <- util.NewPair(index, row)
-			}(index)
+			}(index, reg)
 			//
 			index = index + 1
 		}
@@ -451,11 +456,15 @@ func summariseModule(mod view.ModuleView, summarisers []ModuleSummariser) []term
 	return row
 }
 
-func summariseColumn(module module.Name, column view.RegisterView, summarisers []ColumnSummariser) []termio.FormattedText {
-	m := 1 + uint(len(summarisers))
+func summariseColumn(module module.Name, name string, column view.RegisterView,
+	summarisers []ColumnSummariser) []termio.FormattedText {
 	//
-	row := make([]termio.FormattedText, m)
-	row[0] = termio.NewText(fmt.Sprintf("%s.%s", module, column.Name()))
+	var (
+		m   = 1 + uint(len(summarisers))
+		row = make([]termio.FormattedText, m)
+	)
+	//
+	row[0] = termio.NewText(fmt.Sprintf("%s.%s", module, name))
 	// Generate each summary
 	for j := 0; j < len(summarisers); j++ {
 		row[j+1] = termio.NewText(summarisers[j].summary(column))
@@ -511,12 +520,13 @@ var moduleSumarisers = []ModuleSummariser{
 
 func moduleCellSummariser(mod view.ModuleView) string {
 	var (
-		data  = mod.Data()
-		count uint
+		data    = mod.Data()
+		mapping = data.Mapping()
+		count   uint
 	)
 	//
-	for _, rid := range activeRegisters(mod) {
-		count += data.DataOf(rid).Len()
+	for _, reg := range activeRegisters(mod) {
+		count += data.DataOf(mapping.LimbIds(reg)).Len()
 	}
 	//
 	return fmt.Sprintf("%d", count)
@@ -536,20 +546,28 @@ func moduleLineSummariser(mod view.ModuleView) string {
 }
 
 func moduleBitwidthSummariser(mod view.ModuleView) string {
-	var total = uint(0)
+	var (
+		total   = uint(0)
+		data    = mod.Data()
+		mapping = data.Mapping()
+	)
 	//
-	for _, c := range activeRegisters(mod) {
-		total += mod.Data().DataOf(c).BitWidth()
+	for _, reg := range activeRegisters(mod) {
+		total += data.DataOf(mapping.LimbIds(reg)).BitWidth()
 	}
 	//
 	return fmt.Sprintf("%d", total)
 }
 
 func moduleBytesSummariser(mod view.ModuleView) string {
-	total := uint(0)
+	var (
+		total   = uint(0)
+		data    = mod.Data()
+		mapping = data.Mapping()
+	)
 	//
-	for _, c := range activeRegisters(mod) {
-		reg := mod.Data().DataOf(c)
+	for _, reg := range activeRegisters(mod) {
+		reg := data.DataOf(mapping.LimbIds(reg))
 		bitwidth := reg.BitWidth()
 		byteWidth := bitwidth / 8
 		// Determine proper bytewidth
@@ -564,10 +582,14 @@ func moduleBytesSummariser(mod view.ModuleView) string {
 }
 
 func moduleNonZeroCounter(mod view.ModuleView) string {
-	count := uint(0)
+	var (
+		count   = uint(0)
+		data    = mod.Data()
+		mapping = data.Mapping()
+	)
 
-	for _, col := range activeRegisters(mod) {
-		count += nonZeroCount(mod.Data().DataOf(col))
+	for _, reg := range activeRegisters(mod) {
+		count += nonZeroCount(data.DataOf(mapping.LimbIds(reg)))
 	}
 	//
 	return fmt.Sprintf("%d", count)
@@ -726,10 +748,14 @@ func trRawCellCount(trace view.TraceView) uint {
 	total := uint(0)
 	//
 	for i := range trace.Width() {
-		ith := trace.Module(i)
+		var (
+			mod     = trace.Module(i)
+			data    = mod.Data()
+			mapping = data.Mapping()
+		)
 		//
-		for _, jth := range activeRegisters(ith) {
-			total += ith.Data().DataOf(jth).Len()
+		for _, reg := range activeRegisters(mod) {
+			total += data.DataOf(mapping.LimbIds(reg)).Len()
 		}
 	}
 	//
@@ -769,9 +795,14 @@ func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 		summary: func(tr view.TraceView) string {
 			count := 0
 			for i := range tr.Width() {
-				ith := tr.Module(i)
-				for _, jth := range activeRegisters(ith) {
-					ithWidth := ith.Data().DataOf(jth).BitWidth()
+				var (
+					mod     = tr.Module(i)
+					data    = mod.Data()
+					mapping = data.Mapping()
+				)
+				//
+				for _, reg := range activeRegisters(mod) {
+					ithWidth := data.DataOf(mapping.LimbIds(reg)).BitWidth()
 					if ithWidth >= lowWidth && ithWidth <= highWidth {
 						count++
 					}
