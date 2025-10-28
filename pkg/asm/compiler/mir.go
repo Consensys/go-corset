@@ -40,7 +40,7 @@ type MirModule[F field.Element[F]] struct {
 
 // Initialise this module
 func (p MirModule[F]) Initialise(mid uint, fn MicroFunction, iomap io.Map) MirModule[F] {
-	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid, 1, false, fn.IsPublic(), false)
+	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid, false, fn.IsPublic(), false)
 	// Add corresponding assignment for this function.
 	builder.AddAssignment(program.NewAssignment[F](mid, fn, iomap))
 	//

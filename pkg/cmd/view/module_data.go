@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -68,7 +69,7 @@ type ModuleData interface {
 	// Mapping returns the register limbs map being used by this module view.
 	Mapping() register.LimbsMap
 	// Name returns the name of the given module
-	Name() string
+	Name() module.Name
 	// HasSourceColumn is useful for querying whether a source column exists
 	// with the given name.
 	HasSourceColumn(name string) (SourceColumnId, bool)
@@ -247,7 +248,7 @@ func (p *moduleData[F]) Mapping() register.LimbsMap {
 }
 
 // Name return name of this module
-func (p *moduleData[F]) Name() string {
+func (p *moduleData[F]) Name() module.Name {
 	return p.trace.Name()
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -99,7 +100,7 @@ func (t *translator) translateModules(circuit *ast.Circuit) {
 // one HIR module.
 func (t *translator) translateModule(name string) {
 	// Always include module with base multiplier (even if empty).
-	t.schema.NewModule(name, 1, true, true, false)
+	t.schema.NewModule(module.NewName(name, 1), true, true, false)
 	// Initialise the corresponding family of HIR modules.
 	for _, regIndex := range t.env.RegistersOf(name) {
 		var (
@@ -111,7 +112,7 @@ func (t *translator) translateModule(name string) {
 		// Check whether module created this already (or not)
 		if _, ok := t.schema.HasModule(moduleName); !ok {
 			// No, therefore create new module.
-			t.schema.NewModule(moduleName, regInfo.Context.LengthMultiplier(), true, true, false)
+			t.schema.NewModule(moduleName, true, true, false)
 		}
 	}
 	// Translate all corset registers in this module into HIR registers across

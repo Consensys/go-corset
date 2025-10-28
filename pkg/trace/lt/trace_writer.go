@@ -114,7 +114,7 @@ func toHeaderBytes(modules []Module[word.BigEndian], encodings [][]array.Encodin
 func writeModuleHeader(buf io.Writer, module Module[word.BigEndian], encodings []array.Encoding) (err error) {
 	var height = uint32(module.Height())
 	// Write module name
-	if err = writeName(buf, module.Name); err != nil {
+	if err = writeName(buf, module.Name.String()); err != nil {
 		return err
 	}
 	// Write module height

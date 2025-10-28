@@ -15,7 +15,6 @@ package inspector
 import (
 	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/consensys/go-corset/pkg/cmd/view"
@@ -86,7 +85,11 @@ func NewInspector(term *termio.Terminal, trace view.TraceView) *Inspector {
 	)
 	// Sort into alpabetical order
 	ntrace := trace.Sort(func(l, r schema.ModuleId) int {
-		return strings.Compare(trace.Module(l).Data().Name(), trace.Module(r).Data().Name())
+		var (
+			lName = trace.Module(l).Data().Name()
+			rName = trace.Module(r).Data().Name()
+		)
+		return lName.Cmp(rName)
 	})
 	// Filter out non-public modules
 	ntrace = ntrace.Filter(view.NewTraceFilter(func(mid schema.ModuleId) view.ModuleFilter {
@@ -391,7 +394,7 @@ func initInspectorTabs(states []ModuleState) *widget.Tabs {
 	var titles []string
 
 	for _, state := range states {
-		titles = append(titles, state.view.Data().Name())
+		titles = append(titles, state.view.Data().Name().String())
 	}
 	//
 	return widget.NewTabs(titles...)

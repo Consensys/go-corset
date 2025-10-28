@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"encoding/binary"
 
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -84,7 +85,7 @@ func FromBytes(data []byte) (WordHeap, []Module[word.BigEndian], error) {
 		}
 		//
 		modules[i] = Module[word.BigEndian]{
-			Name:    ith.name,
+			Name:    trace.ParseModuleName(ith.name),
 			Columns: columns,
 		}
 	}

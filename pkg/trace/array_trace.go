@@ -44,7 +44,7 @@ func (p *ArrayTrace[T]) Column(cref ColumnRef) Column[T] {
 
 // HasModule determines whether this trace has a module with the given name and,
 // if so, what its module index is.
-func (p *ArrayTrace[T]) HasModule(module string) (uint, bool) {
+func (p *ArrayTrace[T]) HasModule(module ModuleName) (uint, bool) {
 	// Linea scan through list of modules
 	for mid, mod := range p.modules {
 		if mod.name == module {
@@ -111,14 +111,9 @@ func (p *ArrayTrace[T]) String() string {
 // ArrayModule describes an individual module within a trace.
 type ArrayModule[T any] struct {
 	// Holds the name of this module
-	name string
+	name ModuleName
 	// Holds the height of all columns within this module.
 	height uint
-	// Holds the length multiplier of all columns in this module.  Specifically,
-	// the length of all modules must be a multiple of this value.  This then
-	// means, for example, that padding must padd in multiples of this to be
-	// safe.
-	multiplier uint
 	// Holds the complete set of columns in this trace.  The index of each
 	// column in this array uniquely identifies it, and is referred to as the
 	// "column index".
@@ -127,7 +122,7 @@ type ArrayModule[T any] struct {
 
 // NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
-func NewArrayModule[T fmt.Stringer](name string, multiplier uint, columns []ArrayColumn[T]) ArrayModule[T] {
+func NewArrayModule[T fmt.Stringer](name ModuleName, columns []ArrayColumn[T]) ArrayModule[T] {
 	var (
 		height uint = 0
 		first       = true
@@ -144,17 +139,17 @@ func NewArrayModule[T fmt.Stringer](name string, multiplier uint, columns []Arra
 		}
 	}
 	// Sanity check height is a multiple of the length multiplier
-	if multiplier == 0 {
-		panic(fmt.Sprintf("invalid length multiplier (%d)", multiplier))
-	} else if height%multiplier != 0 {
-		panic(fmt.Sprintf("invalid module height (have %d, expected multiple of %d)", height, multiplier))
+	if name.Multiplier == 0 {
+		panic(fmt.Sprintf("invalid length multiplier (%d)", name.Multiplier))
+	} else if height%name.Multiplier != 0 {
+		panic(fmt.Sprintf("invalid module height (have %d, expected multiple of %d)", height, name.Multiplier))
 	}
 	//
-	return ArrayModule[T]{name, height, multiplier, columns}
+	return ArrayModule[T]{name, height, columns}
 }
 
 // Name returns the name of this module.
-func (p ArrayModule[T]) Name() string {
+func (p ArrayModule[T]) Name() ModuleName {
 	return p.name
 }
 
@@ -212,8 +207,9 @@ func (p *ArrayModule[T]) FillColumn(cid uint, data array.MutArray[T]) bool {
 // was not previously reset; or, if the column heights are inconsistent.
 func (p *ArrayModule[T]) Resize() {
 	var (
-		nsize uint = math.MaxUint
-		first bool = true
+		multiplier      = p.name.Multiplier
+		nsize      uint = math.MaxUint
+		first      bool = true
 	)
 	//
 	for i := 0; i != len(p.columns); i++ {
@@ -229,8 +225,8 @@ func (p *ArrayModule[T]) Resize() {
 		}
 	}
 	// Sanity check height is a multiple of the length multiplier
-	if nsize%p.multiplier != 0 {
-		panic(fmt.Sprintf("invalid module height (have %d, expected multiple of %d)", nsize, p.multiplier))
+	if nsize%multiplier != 0 {
+		panic(fmt.Sprintf("invalid module height (have %d, expected multiple of %d)", nsize, multiplier))
 	}
 	// Done
 	p.height = nsize
@@ -239,10 +235,14 @@ func (p *ArrayModule[T]) Resize() {
 // Pad prepends (front) and appends (back) all columns in this module with a
 // given number of padding rows.
 func (p *ArrayModule[T]) Pad(front uint, back uint) {
-	if front%p.multiplier != 0 {
-		panic(fmt.Sprintf("invalid front padding (have %d, expected multiple of %d)", front, p.multiplier))
-	} else if back%p.multiplier != 0 {
-		panic(fmt.Sprintf("invalid back padding (have %d, expected multiple of %d)", front, p.multiplier))
+	var (
+		multiplier = p.name.Multiplier
+	)
+	//
+	if front%multiplier != 0 {
+		panic(fmt.Sprintf("invalid front padding (have %d, expected multiple of %d)", front, multiplier))
+	} else if back%multiplier != 0 {
+		panic(fmt.Sprintf("invalid back padding (have %d, expected multiple of %d)", back, multiplier))
 	}
 	// Update height accordingly
 	p.height += front + back
@@ -253,12 +253,15 @@ func (p *ArrayModule[T]) Pad(front uint, back uint) {
 }
 
 func (p *ArrayModule[T]) String() string {
-	var id strings.Builder
+	var (
+		id   strings.Builder
+		name = p.name.String()
+	)
 	//
-	if p.name == "" {
+	if name == "" {
 		id.WriteString("∅")
 	} else {
-		id.WriteString(p.name)
+		id.WriteString(name)
 	}
 
 	id.WriteString("={")

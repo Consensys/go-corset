@@ -13,6 +13,8 @@
 package view
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -112,7 +114,15 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 		trMod := trace.Module(i)
 		scMod := p.mapping.Module(i)
 		//
+		fmt.Printf("SEEN: %s\n", trMod.Name())
+		//
 		public, columns := extractSourceMapData(trMod.Name(), srcmap, scMod)
+		//
+		fmt.Printf("Module %s has %d columns ", trMod.Name(), len(columns))
+		if public {
+			fmt.Printf("and is public")
+		}
+		fmt.Println(".")
 		//
 		data := newModuleData(i, scMod, trMod, public, enums, columns)
 		// construct initial module view
@@ -129,9 +139,9 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 	return &traceView{windows}
 }
 
-func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[string]corset.SourceModule, []corset.Enumeration) {
+func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[module.Name]corset.SourceModule, []corset.Enumeration) {
 	var (
-		mapping = make(map[string]corset.SourceModule)
+		mapping = make(map[module.Name]corset.SourceModule)
 		enums   []corset.Enumeration
 	)
 
@@ -148,7 +158,7 @@ func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[string]corse
 	return mapping, enums
 }
 
-func extractSourceMapData(name string, srcmap map[string]corset.SourceModule,
+func extractSourceMapData(name module.Name, srcmap map[module.Name]corset.SourceModule,
 	mapping register.LimbsMap) (bool, []SourceColumn) {
 	// Check whether any
 	var (

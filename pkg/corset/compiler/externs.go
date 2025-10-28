@@ -25,9 +25,12 @@ import (
 // way that they can then be resolved against.
 func DeclareExterns[M schema.ModuleView](scope *ModuleScope, externs ...M) {
 	for _, e := range externs {
-		path := file.NewAbsolutePath(e.Name())
+		var (
+			name = e.Name().String()
+			path = file.NewAbsolutePath(name)
+		)
 		// Declare external module
-		scope.Declare(e.Name(), util.None[string](), e.IsPublic())
+		scope.Declare(name, util.None[string](), e.IsPublic())
 		// Define external symbol
 		for _, r := range e.Registers() {
 			scope.Define(NewExternSymbolDefinition(path, r))

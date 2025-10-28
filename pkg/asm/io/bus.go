@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
@@ -29,7 +30,7 @@ import (
 // lines.
 type Bus struct {
 	// Bus name
-	Name string
+	Name module.Name
 	// Global bus identifier.  This uniquely identifies the bus across all
 	// functions and components.
 	BusId uint
@@ -47,12 +48,12 @@ func (p *Bus) IsUnlinked() bool {
 // UnlinkedBus constructs a new bus which is not yet connected with anything.
 // Rather it simply has a name which will be used later to establish the
 // connection.
-func UnlinkedBus(name string) Bus {
+func UnlinkedBus(name module.Name) Bus {
 	return Bus{name, UNKNOWN_BUS, nil, nil}
 }
 
 // NewBus constructs a new bus with the given components.
-func NewBus(name string, id uint, address []RegisterId, data []RegisterId) Bus {
+func NewBus(name module.Name, id uint, address []RegisterId, data []RegisterId) Bus {
 	return Bus{name, id, address, data}
 }
 

@@ -185,13 +185,14 @@ func HoldsLocally[F field.Element[F], T term.Testable[F]](k uint, handle string,
 //nolint:revive
 func (p Constraint[F, T]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
-		module = mapping.Module(p.Context)
-		name   string
-		vanish string = "vanish"
+		module  = mapping.Module(p.Context)
+		name    string
+		modName        = module.Name().String()
+		vanish  string = "vanish"
 	)
 	// Construct qualified name
-	if module.Name() != "" {
-		name = fmt.Sprintf("\"%s:%s\"", module.Name(), p.Handle)
+	if modName != "" {
+		name = fmt.Sprintf("\"%s:%s\"", modName, p.Handle)
 	} else {
 		name = fmt.Sprintf("\"%s\"", p.Handle)
 	}

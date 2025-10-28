@@ -13,6 +13,7 @@
 package schema
 
 import (
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -52,7 +53,7 @@ type Schema[F any, C any] interface {
 	Constraints() iter.Iterator[C]
 	// HasModule checks whether a module with the given name exists and, if so,
 	// returns its module identifier.  Otherwise, it returns false.
-	HasModule(name string) (ModuleId, bool)
+	HasModule(name module.Name) (ModuleId, bool)
 	// Access a given module in this schema.
 	Module(module uint) Module[F]
 	// Modules returns an iterator over the declared set of modules within this

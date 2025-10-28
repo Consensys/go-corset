@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"slices"
 
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
@@ -155,7 +156,7 @@ func (p *registerAllocator[T]) Assignments() []util.Pair[[]Id, T] {
 }
 
 // Name implementation for RegisterMapping interface
-func (p *registerAllocator[T]) Name() string {
+func (p *registerAllocator[T]) Name() trace.ModuleName {
 	return p.mapping.Name()
 }
 

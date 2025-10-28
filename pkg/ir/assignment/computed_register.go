@@ -318,7 +318,7 @@ type recursiveModule struct {
 }
 
 // Module implementation for trace.Module interface.
-func (p *recursiveModule) Name() string {
+func (p *recursiveModule) Name() module.Name {
 	return p.trModule.Name()
 }
 

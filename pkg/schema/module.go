@@ -32,7 +32,7 @@ type ModuleId = uint
 type ModuleView interface {
 	register.Map
 	// Module name
-	Name() string
+	Name() module.Name
 	// IsPublic indicates whether or not this module is externally visible.
 	IsPublic() bool
 	// IsSynthetic modules are generated during compilation, rather than being
@@ -59,10 +59,6 @@ type Module[F any] interface {
 	Consistent(fieldWidth uint, schema AnySchema[F]) []error
 	// AllowPadding determines the amount of initial padding a module expects.
 	AllowPadding() bool
-	// Identifies the length multiplier for this module.  For every trace, the
-	// height of the corresponding module must be a multiple of this.  This is
-	// used specifically to support interleaving constraints.
-	LengthMultiplier() uint
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
 }
@@ -79,8 +75,7 @@ type Module[F any] interface {
 // X'1, Y'0. Y'1 (in that order).  Hence, predicting the new register indices is
 // relatively straightforward.
 type Table[F field.Element[F], C Constraint[F]] struct {
-	name        string
-	multiplier  uint
+	name        module.Name
 	padding     bool
 	public      bool
 	synthetic   bool
@@ -90,15 +85,15 @@ type Table[F field.Element[F], C Constraint[F]] struct {
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[F field.Element[F], C Constraint[F]](name string, multiplier uint,
+func NewTable[F field.Element[F], C Constraint[F]](name module.Name,
 	padding, public, synthetic bool) *Table[F, C] {
 	//
-	return &Table[F, C]{name, multiplier, padding, public, synthetic, nil, nil, nil}
+	return &Table[F, C]{name, padding, public, synthetic, nil, nil, nil}
 }
 
 // Init implementation for ir.InitModule interface.
-func (p *Table[F, C]) Init(name string, multiplier uint, padding, public, synthetic bool) *Table[F, C] {
-	return &Table[F, C]{name, multiplier, padding, public, synthetic, nil, nil, nil}
+func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic bool) *Table[F, C] {
+	return &Table[F, C]{name, padding, public, synthetic, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -144,15 +139,8 @@ func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 }
 
 // Name returns the module name.
-func (p *Table[F, C]) Name() string {
+func (p *Table[F, C]) Name() module.Name {
 	return p.name
-}
-
-// LengthMultiplier identifies the length multiplier for this module.  For every
-// trace, the height of the corresponding module must be a multiple of this.
-// This is used specifically to support interleaving constraints.
-func (p *Table[F, C]) LengthMultiplier() uint {
-	return p.multiplier
 }
 
 // AllowPadding determines whether the given module supports padding at the
@@ -250,7 +238,7 @@ func (p *Table[F, C]) Subdivide(mid ModuleId, mapping module.LimbsMap,
 		assignments = append(assignments, assigner(a.Left, a.Right))
 	}
 	//
-	return &Table[F, C]{p.name, p.multiplier, p.padding, p.public, p.synthetic, env.Registers(), constraints, assignments}
+	return &Table[F, C]{p.name, p.padding, p.public, p.synthetic, env.Registers(), constraints, assignments}
 }
 
 // ============================================================================
@@ -283,11 +271,11 @@ func (p *Table[F, M]) GobEncode() (data []byte, err error) {
 	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Name
-	if err := gobEncoder.Encode(p.name); err != nil {
+	if err := gobEncoder.Encode(p.name.Name); err != nil {
 		return nil, err
 	}
 	// Multiplier
-	if err := gobEncoder.Encode(p.multiplier); err != nil {
+	if err := gobEncoder.Encode(p.name.Multiplier); err != nil {
 		return nil, err
 	}
 	// Padding
@@ -315,11 +303,11 @@ func (p *Table[F, M]) GobDecode(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	gobDecoder := gob.NewDecoder(buffer)
 	// Name
-	if err := gobDecoder.Decode(&p.name); err != nil {
+	if err := gobDecoder.Decode(&p.name.Name); err != nil {
 		return err
 	}
 	// Multiplier
-	if err := gobDecoder.Decode(&p.multiplier); err != nil {
+	if err := gobDecoder.Decode(&p.name.Multiplier); err != nil {
 		return err
 	}
 	// Padding

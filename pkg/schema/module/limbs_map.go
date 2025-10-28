@@ -60,7 +60,7 @@ func (p limbsMap[T]) Module(mid Id) T {
 }
 
 // ModuleOf implementation for register.RegisterMappings interface
-func (p limbsMap[T]) ModuleOf(name string) T {
+func (p limbsMap[T]) ModuleOf(name Name) T {
 	for _, m := range p.modules {
 		if m.Name() == name {
 			return m

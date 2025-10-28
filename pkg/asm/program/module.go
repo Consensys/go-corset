@@ -16,6 +16,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -43,7 +44,7 @@ func (p *Module[F, T]) Function() io.Function[T] {
 // ============================================================================
 
 // Name implementation for register.RegisterMap interface.
-func (p *Module[F, T]) Name() string {
+func (p *Module[F, T]) Name() module.Name {
 	return p.function.Name()
 }
 

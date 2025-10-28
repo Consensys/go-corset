@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -28,18 +29,18 @@ import (
 // as a function or constant, etc.
 type AssemblyComponent interface {
 	// Return name of this component
-	Name() string
+	Name() module.Name
 }
 
 // AssemblyConstant represents a named constant at the assembly level.
 type AssemblyConstant struct {
-	name     string
+	name     module.Name
 	constant big.Int
 	base     uint
 }
 
 // Name implementation for AssemblyComponent interface
-func (p *AssemblyConstant) Name() string {
+func (p *AssemblyConstant) Name() module.Name {
 	return p.name
 }
 
@@ -56,7 +57,7 @@ type AssemblyItem struct {
 }
 
 // ConstMap is a convenient alias
-type ConstMap map[string]util.Pair[big.Int, uint]
+type ConstMap map[module.Name]util.Pair[big.Int, uint]
 
 // Link a set of one or more assembly items together to produce a complete
 // program, or one or more errors.  Linking is the process of connecting buses
@@ -96,25 +97,25 @@ func Link(items ...AssemblyItem) ([]*MacroFunction, source.Maps[any], []source.S
 // the assembly files.
 type Linker struct {
 	srcmap     source.Maps[any]
-	busmap     map[string]uint
+	busmap     map[module.Name]uint
 	constmap   ConstMap
 	components []*MacroFunction
-	names      map[string]bool
+	names      map[module.Name]bool
 }
 
 // NewLinker constructs a new linker
 func NewLinker() *Linker {
 	return &Linker{
 		srcmap:     *source.NewSourceMaps[any](),
-		busmap:     make(map[string]uint),
+		busmap:     make(map[module.Name]uint),
 		constmap:   make(ConstMap),
 		components: nil,
-		names:      make(map[string]bool),
+		names:      make(map[module.Name]bool),
 	}
 }
 
 // Exists checks whether or not a component of the given name already exists.
-func (p *Linker) Exists(name string) bool {
+func (p *Linker) Exists(name module.Name) bool {
 	_, ok := p.names[name]
 	//
 	return ok
@@ -202,7 +203,7 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 		return p.linkExprs(insn.Sources)
 	case *macro.IfGoto:
 		if insn.Label != "" {
-			deats, ok := p.constmap[insn.Label]
+			deats, ok := p.constmap[module.NewName(insn.Label, 1)]
 			//
 			if !ok {
 				msg := fmt.Sprintf("unknown register or constant \"%s\"", insn.Label)
@@ -224,7 +225,7 @@ func (p *Linker) linkExpr(e macro.Expr) *source.SyntaxError {
 		return p.linkExprs(e.Exprs)
 	case *expr.Const:
 		if e.Label != "" {
-			deats, ok := p.constmap[e.Label]
+			deats, ok := p.constmap[module.NewName(e.Label, 1)]
 			//
 			if !ok {
 				return p.srcmap.SyntaxError(e, "unknown register or constant")
@@ -278,7 +279,7 @@ func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components 
 	return bus
 }
 
-func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunction) []io.RegisterId {
+func allocateIoRegisters(busName module.Name, registers []io.Register, fn *MacroFunction) []io.RegisterId {
 	//
 	var lines []io.RegisterId
 	//
@@ -286,9 +287,9 @@ func allocateIoRegisters(busName string, registers []io.Register, fn *MacroFunct
 		var regName string
 		// Determine suitable register name
 		if reg.IsInput() {
-			regName = fmt.Sprintf("%s>%s[%s]", fn.Name(), busName, reg.Name)
+			regName = fmt.Sprintf("%s>%s[%s]", fn.Name().String(), busName.String(), reg.Name)
 		} else if reg.IsOutput() {
-			regName = fmt.Sprintf("%s<%s[%s]", fn.Name(), busName, reg.Name)
+			regName = fmt.Sprintf("%s<%s[%s]", fn.Name().String(), busName.String(), reg.Name)
 		} else {
 			panic("unreachable")
 		}

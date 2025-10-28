@@ -61,7 +61,7 @@ func NewMirLowering[E register.Map](externs []E, modules []Module) MirLowering {
 	)
 	// Initialise MIR modules
 	for _, m := range modules {
-		mirSchema.NewModule(m.Name(), m.LengthMultiplier(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
+		mirSchema.NewModule(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
 	}
 	//
 	return MirLowering{

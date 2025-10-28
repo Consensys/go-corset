@@ -75,7 +75,8 @@ func FromBytesLegacy(data []byte) (WordHeap, []lt.Module[word.BigEndian], error)
 		if strData[mod] == nil {
 			strData[mod] = make(map[string][]big.Int)
 		} else if _, ok := strData[mod][col]; ok {
-			return WordHeap{}, nil, fmt.Errorf("duplicate column %s encountered", trace.QualifiedColumnName(mod, col))
+			modName := trace.ParseModuleName(mod)
+			return WordHeap{}, nil, fmt.Errorf("duplicate column %s encountered", trace.QualifiedColumnName(modName, col))
 		}
 		// Assign values
 		strData[mod][col] = rawInts
@@ -113,7 +114,7 @@ func fromBytesInternal(rawData map[string]map[string][]big.Int) (WordHeap, []lt.
 		}
 		//
 		modules = append(modules, lt.Module[word.BigEndian]{
-			Name:    mod,
+			Name:    trace.ParseModuleName(mod),
 			Columns: columns,
 		})
 	}

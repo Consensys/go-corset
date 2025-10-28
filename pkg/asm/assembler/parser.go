@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -143,7 +144,7 @@ func (p *Parser) parseConstant() (*AssemblyConstant, []source.SyntaxError) {
 	base := p.baserOfNumber(lookahead)
 	//
 	component := &AssemblyConstant{
-		name, val, base,
+		module.NewName(name, 1), val, base,
 	}
 	//
 	p.srcmap.Put(component, p.spanOf(start, end-1))
@@ -235,7 +236,7 @@ func (p *Parser) parseFunction() (*MacroFunction, []source.SyntaxError) {
 	// Finalise labels
 	env.BindLabels(code)
 	// Construct function
-	fn := io.NewFunction(name, public, env.registers, env.buses, code)
+	fn := io.NewFunction(module.NewName(name, 1), public, env.registers, env.buses, code)
 	//
 	p.srcmap.Put(&fn, p.spanOf(start, end-1))
 	// Done
@@ -563,7 +564,7 @@ func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Inst
 		return nil, errs
 	}
 	// Generate temporary bus identifier
-	bus := env.BindBus(fn)
+	bus := env.BindBus(module.NewName(fn, 1))
 	// Done
 	return macro.NewCall(bus, lhs, rhs), nil
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -26,7 +27,7 @@ import (
 // the various required components.  This provides a useful way for constructing
 // modules once all the various pieces of information have been finalised.
 type BuildableModule[F any, C schema.Constraint[F], M any] interface {
-	Init(name string, multiplier uint, padding, public, synthetic bool) M
+	Init(name module.Name, padding, public, synthetic bool) M
 	// Add one or more assignments to this buildable module
 	AddAssignments(assignments ...schema.Assignment[F])
 	// Add one or more constraints to this buildable module
@@ -54,7 +55,7 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], 
 	//
 	var module M
 	// Build it
-	module = module.Init(m.name, m.multiplier, m.padding, m.public, m.synthetic)
+	module = module.Init(m.name, m.padding, m.public, m.synthetic)
 	module.AddRegisters(m.registers...)
 	module.AddAssignments(m.assignments...)
 	module.AddConstraints(m.constraints...)
@@ -67,7 +68,7 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], 
 // register indexes.
 type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
 	// Modmap maps modules identifers to modules
-	modmap map[string]uint
+	modmap map[module.Name]uint
 	// Externs represent modules which have already been constructed.  These
 	// will be given the lower module identifiers, since they are already
 	// packaged and, hence, we must avoid breaking thein linkage.
@@ -81,7 +82,7 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], E register.Map](externs ...E,
 ) SchemaBuilder[F, C, T] {
 	var (
-		modmap   = make(map[string]uint, 0)
+		modmap   = make(map[module.Name]uint, 0)
 		nexterns = make([]register.Map, len(externs))
 	)
 	// Initialise module map
@@ -103,14 +104,14 @@ func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F,
 
 // NewModule constructs a new, empty module and returns its unique module
 // identifier.
-func (p *SchemaBuilder[F, C, T]) NewModule(name string, multiplier uint, padding, public, synthetic bool) uint {
+func (p *SchemaBuilder[F, C, T]) NewModule(name module.Name, padding, public, synthetic bool) uint {
 	var mid = uint(len(p.externs) + len(p.modules))
 	// Sanity check this module is not already declared
 	if _, ok := p.modmap[name]; ok {
 		panic(fmt.Sprintf("module \"%s\" already declared", name))
 	}
 	//
-	p.modules = append(p.modules, NewModuleBuilder[F, C, T](name, mid, multiplier, padding, public, synthetic))
+	p.modules = append(p.modules, NewModuleBuilder[F, C, T](name, mid, padding, public, synthetic))
 	p.modmap[name] = mid
 	//
 	return mid
@@ -123,7 +124,7 @@ func (p *SchemaBuilder[F, C, T]) Externs() []register.Map {
 
 // HasModule checks whether a moduleregister of the given name exists already
 // and,if so, returns its index.
-func (p *SchemaBuilder[F, C, T]) HasModule(name string) (uint, bool) {
+func (p *SchemaBuilder[F, C, T]) HasModule(name module.Name) (uint, bool) {
 	// Lookup module associated with this name
 	mid, ok := p.modmap[name]
 	// That's it.
@@ -142,7 +143,7 @@ func (p *SchemaBuilder[F, C, T]) Module(mid uint) *ModuleBuilder[F, C, T] {
 }
 
 // ModuleOf returns the builder for the given module based on its name.
-func (p *SchemaBuilder[F, C, T]) ModuleOf(name string) *ModuleBuilder[F, C, T] {
+func (p *SchemaBuilder[F, C, T]) ModuleOf(name module.Name) *ModuleBuilder[F, C, T] {
 	return p.Module(p.modmap[name])
 }
 
@@ -153,11 +154,9 @@ func (p *SchemaBuilder[F, C, T]) ModuleOf(name string) *ModuleBuilder[F, C, T] {
 type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
 	extern bool
 	// Name of the module being constructed
-	name string
+	name module.Name
 	// Id of this module
 	moduleId schema.ModuleId
-	// Length multiplier for this module
-	multiplier uint
 	// Indicates whether padding supported for this module
 	padding bool
 	// Indicates whether externally visible
@@ -175,11 +174,11 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name string, mid schema.ModuleId,
-	multiplier uint, padding, public, synthetic bool) *ModuleBuilder[F, C, T] {
+func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name module.Name, mid schema.ModuleId,
+	padding, public, synthetic bool) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
-	return &ModuleBuilder[F, C, T]{false, name, mid, multiplier, padding, public, synthetic, regmap, nil, nil, nil}
+	return &ModuleBuilder[F, C, T]{false, name, mid, padding, public, synthetic, regmap, nil, nil, nil}
 }
 
 // NewExternModuleBuilder constructs a new builder suitable for external
@@ -193,7 +192,7 @@ func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.E
 		regmap[r.Name] = uint(i)
 	}
 	// Done
-	return &ModuleBuilder[F, C, T]{true, module.Name(), mid, 1, false, false, false, regmap, module.Registers(), nil, nil}
+	return &ModuleBuilder[F, C, T]{true, module.Name(), mid, false, false, false, regmap, module.Registers(), nil, nil}
 }
 
 // AddAssignment adds a new assignment to this module.  Assignments are
@@ -251,13 +250,6 @@ func (p *ModuleBuilder[F, C, T]) Id() uint {
 	return p.moduleId
 }
 
-// LengthMultiplier identifies the length multiplier for this module.  For every
-// trace, the height of the corresponding module must be a multiple of this.
-// This is used specifically to support interleaving constraints.
-func (p *ModuleBuilder[F, C, T]) LengthMultiplier() uint {
-	return p.multiplier
-}
-
 // AllowPadding determines the minimum amount of padding requested at the
 // beginning of the module.  This is necessary because legacy modules expect an
 // initial padding row.
@@ -298,7 +290,7 @@ func (p *ModuleBuilder[F, C, T]) HasRegister(name string) (register.Id, bool) {
 }
 
 // Name returns the name of the module being constructed.
-func (p *ModuleBuilder[F, C, T]) Name() string {
+func (p *ModuleBuilder[F, C, T]) Name() module.Name {
 	return p.name
 }
 

@@ -283,15 +283,17 @@ func printTrace(cfg TraceConfig, window view.TraceView) {
 		var (
 			ith       = window.Module(i)
 			_, height = ith.Dimensions()
+			// Construct & configure printer
+			tp = widget.NewTable(ith)
+			//
+			name = ith.Data().Name().String()
 		)
-		// Construct & configure printer
-		tp := widget.NewTable(ith)
 		// Print out module name
 		if height <= 1 {
 			// Don't bother print empty modules
 			continue
-		} else if window.Width() > 1 && ith.Data().Name() != "" {
-			fmt.Printf("%s:\n", ith.Data().Name())
+		} else if window.Width() > 1 && name != "" {
+			fmt.Printf("%s:\n", name)
 		}
 		// Print out report
 		tp.Print()
@@ -440,7 +442,7 @@ func summariseModule(mod view.ModuleView, summarisers []ModuleSummariser) []term
 		row = make([]termio.FormattedText, m)
 	)
 	//
-	row[0] = termio.NewText(mod.Data().Name())
+	row[0] = termio.NewText(mod.Data().Name().String())
 	//
 	for j, s := range summarisers {
 		row[j+1] = termio.NewText(s.summary(mod))
@@ -449,7 +451,7 @@ func summariseModule(mod view.ModuleView, summarisers []ModuleSummariser) []term
 	return row
 }
 
-func summariseColumn(module string, column view.RegisterView, summarisers []ColumnSummariser) []termio.FormattedText {
+func summariseColumn(module module.Name, column view.RegisterView, summarisers []ColumnSummariser) []termio.FormattedText {
 	m := 1 + uint(len(summarisers))
 	//
 	row := make([]termio.FormattedText, m)

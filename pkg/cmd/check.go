@@ -317,12 +317,16 @@ func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef]
 	window = window.Filter(view.FilterForCells(*cells, cfg.reportPadding))
 	// Print all windows
 	for i := range window.Width() {
-		ith := window.Module(i)
-		// Construct & configure printer
-		tp := widget.NewTable(window.Module(i))
+		var (
+			ith = window.Module(i)
+			// Construct & configure printer
+			tp = widget.NewTable(window.Module(i))
+			//
+			name = ith.Data().Name().String()
+		)
 		// Print out module name
-		if window.Width() > 1 && ith.Data().Name() != "" {
-			fmt.Printf("%s:\n", ith.Data().Name())
+		if window.Width() > 1 && name != "" {
+			fmt.Printf("%s:\n", name)
 		}
 		// Print out report
 		tp.Print()
