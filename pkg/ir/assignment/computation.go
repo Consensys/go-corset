@@ -241,22 +241,24 @@ func interleaveNativeFunction[F field.Element[F]](sources [][]array.Array[F], bu
 		targets = make([][]array.MutArray[F], len(sources))
 	)
 	//
-	for i, ith := range sources {
-		targets[i] = interleave(ith, builder)
+	for i := range sources {
+		targets[i] = interleave(i, sources, builder)
 	}
 	//
 	return targets
 }
 
-func interleave[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
+func interleave[F field.Element[F]](limb int, sources [][]array.Array[F], builder array.Builder[F],
 ) []array.MutArray[F] {
 	var (
 		bitwidth   uint
-		height     = sources[0].Len()
+		height     = sources[0][limb].Len()
 		multiplier = uint(len(sources))
 	)
 	// Sanity check column heights
-	for _, src := range sources {
+	for _, ith := range sources {
+		src := ith[limb]
+		//
 		if src.Len() != height {
 			panic(fmt.Sprintf("inconsistent column height for interleaving (%d v %d)", src.Len(), height))
 		}
@@ -267,7 +269,7 @@ func interleave[F field.Element[F]](sources []array.Array[F], builder array.Buil
 	target := builder.NewArray(height*multiplier, bitwidth)
 	//
 	for i := range multiplier {
-		src := sources[i]
+		src := sources[i][limb]
 		//
 		for j := range height {
 			row := (j * multiplier) + i
