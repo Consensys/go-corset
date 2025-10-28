@@ -96,6 +96,8 @@ func (p ModuleName) String() string {
 	return fmt.Sprintf("%s×%d", p.Name, p.Multiplier)
 }
 
+// ParseModuleName parses a string formatted as a module name into a ModuleName
+// structure.  This will panic if the string is malformed.
 func ParseModuleName(name string) ModuleName {
 	var (
 		splits     = strings.Split(name, "×")

@@ -174,8 +174,8 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 }
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name module.Name, mid schema.ModuleId,
-	padding, public, synthetic bool) *ModuleBuilder[F, C, T] {
+func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name module.Name,
+	mid schema.ModuleId, padding, public, synthetic bool) *ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
 	return &ModuleBuilder[F, C, T]{false, name, mid, padding, public, synthetic, regmap, nil, nil, nil}

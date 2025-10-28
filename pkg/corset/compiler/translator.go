@@ -334,7 +334,7 @@ func (t *translator) translateDefComputed(decl *ast.DefComputed, path file.Path)
 	// Determine enclosing module
 	module := t.moduleOf(context)
 	// Add the assignment and check the first identifier.
-	module.AddAssignment(assignment.NewComputation[word.BigEndian](binding.name, targets, sources))
+	module.AddAssignment(assignment.NewNativeComputation[word.BigEndian](binding.name, targets, sources))
 	//
 	return nil
 }
@@ -570,7 +570,7 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path file
 	)
 	// Register assignment
 	tgtModule.AddAssignment(
-		assignment.NewComputation[word.BigEndian]("interleave", targets, sources))
+		assignment.NewNativeComputation[word.BigEndian]("interleave", targets, sources))
 
 	// Done
 	return errors

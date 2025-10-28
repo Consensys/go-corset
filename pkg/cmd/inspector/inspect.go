@@ -89,6 +89,7 @@ func NewInspector(term *termio.Terminal, trace view.TraceView) *Inspector {
 			lName = trace.Module(l).Data().Name()
 			rName = trace.Module(r).Data().Name()
 		)
+		//
 		return lName.Cmp(rName)
 	})
 	// Filter out non-public modules

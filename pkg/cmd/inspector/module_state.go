@@ -183,9 +183,10 @@ func buildEnvironment(data view.ModuleData) QueryEnv {
 		var (
 			limbs []register.LimbId
 			ok    bool
+			id    register.Id
 		)
 		// Look in the register mapping first
-		if id, ok := mapping.HasRegister(col); ok {
+		if id, ok = mapping.HasRegister(col); ok {
 			limbs = mapping.LimbIds(id)
 		} else {
 			var (

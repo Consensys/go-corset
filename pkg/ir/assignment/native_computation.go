@@ -29,9 +29,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// Computation currently describes a native computation which accepts a set of
+// NativeComputation currently describes a native computation which accepts a set of
 // input columns, and assigns a set of output columns.
-type Computation[F field.Element[F]] struct {
+type NativeComputation[F field.Element[F]] struct {
 	// Name of the function being invoked.
 	Function string
 	// Target columns declared by this sorted permutation (in the order
@@ -41,11 +41,12 @@ type Computation[F field.Element[F]] struct {
 	Sources []register.Refs
 }
 
-// NewComputation defines a set of target columns which are assigned from a
+// NewNativeComputation defines a set of target columns which are assigned from a
 // given set of source columns using a function to multiplex input to output.
-func NewComputation[F field.Element[F]](fn string, targets []register.Refs, sources []register.Refs) *Computation[F] {
+func NewNativeComputation[F field.Element[F]](fn string, targets []register.Refs,
+	sources []register.Refs) *NativeComputation[F] {
 	//
-	return &Computation[F]{fn, targets, sources}
+	return &NativeComputation[F]{fn, targets, sources}
 }
 
 // ============================================================================
@@ -57,14 +58,14 @@ func NewComputation[F field.Element[F]](fn string, targets []register.Refs, sour
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p *Computation[F]) Bounds(_ sc.ModuleId) util.Bounds {
+func (p *NativeComputation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
+func (p *NativeComputation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	// Identify Computation
 	fn := findNative[F](p.Function)
@@ -75,40 +76,40 @@ func (p *Computation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *Computation[F]) Consistent(_ sc.AnySchema[F]) []error {
+func (p *NativeComputation[F]) Consistent(_ sc.AnySchema[F]) []error {
 	// NOTE: this is where we could (in principle) check the type of the
 	// function being defined to ensure it is, for example, typed correctly.
 	return nil
 }
 
 // RegistersExpanded identifies registers expanded by this assignment.
-func (p *Computation[F]) RegistersExpanded() []register.Ref {
+func (p *NativeComputation[F]) RegistersExpanded() []register.Ref {
 	return nil
 }
 
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
-func (p *Computation[F]) RegistersRead() []register.Ref {
+func (p *NativeComputation[F]) RegistersRead() []register.Ref {
 	return array.FlatMap(p.Sources, register.AsRefArray)
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
-func (p *Computation[F]) RegistersWritten() []register.Ref {
+func (p *NativeComputation[F]) RegistersWritten() []register.Ref {
 	return array.FlatMap(p.Targets, register.AsRefArray)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Computation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
+func (p *NativeComputation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
 	var (
 		targets = SubdivideRegisterRefs[F](mapping, p.Targets...)
 		sources = SubdivideRegisterRefs[F](mapping, p.Sources...)
 	)
 	//
-	return NewComputation[F](p.Function, targets, sources)
+	return NewNativeComputation[F](p.Function, targets, sources)
 }
 
 // Substitute any matchined labelled constants within this assignment
-func (p *Computation[F]) Substitute(map[string]F) {
+func (p *NativeComputation[F]) Substitute(map[string]F) {
 	// Nothing to do here.
 }
 
@@ -118,7 +119,7 @@ func (p *Computation[F]) Substitute(map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *NativeComputation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()
@@ -168,11 +169,11 @@ func (p *Computation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 // Native Generic Computation
 // ============================================================================
 
-// NativeComputation defines the type of a native function for computing a given
+// NativeComputationFn defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputation[F any] func([][]array.Array[F], array.Builder[F]) [][]array.MutArray[F]
+type NativeComputationFn[F any] func([][]array.Array[F], array.Builder[F]) [][]array.MutArray[F]
 
-func computeNative[F field.Element[F]](sources []register.Refs, fn NativeComputation[F], trace tr.Trace[F],
+func computeNative[F field.Element[F]](sources []register.Refs, fn NativeComputationFn[F], trace tr.Trace[F],
 ) []array.MutArray[F] {
 	// Read inputs
 	inputs := ReadRegisterRefs(trace, sources...)
@@ -188,7 +189,7 @@ func computeNative[F field.Element[F]](sources []register.Refs, fn NativeComputa
 // Native Function Definitions
 // ============================================================================
 
-func findNative[F field.Element[F]](name string) NativeComputation[F] {
+func findNative[F field.Element[F]](name string) NativeComputationFn[F] {
 	switch name {
 	case "id":
 		return idNativeFunction
@@ -590,5 +591,5 @@ func extractIthColumns[F any](index uint, cols []array.Array[F]) []F {
 // ============================================================================
 
 func init() {
-	gob.Register(sc.Assignment[word.BigEndian](&Computation[word.BigEndian]{}))
+	gob.Register(sc.Assignment[word.BigEndian](&NativeComputation[word.BigEndian]{}))
 }

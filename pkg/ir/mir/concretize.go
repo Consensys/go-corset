@@ -97,12 +97,10 @@ func concretizeAssignments[F1 Element[F1], F2 Element[F2]](assigns []schema.Assi
 
 func concretizeAssignment[F1 Element[F1], F2 Element[F2]](assign schema.Assignment[F1]) schema.Assignment[F2] {
 	switch a := assign.(type) {
-	case *assignment.CarryAssign[F1]:
-		return assignment.NewCarryAssign[F2](a.Target, a.Shift, a.Source)
 	case *assignment.ComputedRegister[F1]:
 		return assignment.NewComputedRegister[F2](a.Expr, a.Direction, a.Module, a.Targets...)
-	case *assignment.Computation[F1]:
-		return assignment.NewComputation[F2](a.Function, a.Targets, a.Sources)
+	case *assignment.NativeComputation[F1]:
+		return assignment.NewNativeComputation[F2](a.Function, a.Targets, a.Sources)
 	case *assignment.SortedPermutation[F1]:
 		return assignment.NewSortedPermutation[F2](a.Targets, a.Signs, a.Sources)
 	default:
