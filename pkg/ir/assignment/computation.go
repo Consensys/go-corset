@@ -238,10 +238,11 @@ func idNativeFunction[F field.Element[F]](sources [][]array.Array[F], _ array.Bu
 func interleaveNativeFunction[F field.Element[F]](sources [][]array.Array[F], builder array.Builder[F],
 ) [][]array.MutArray[F] {
 	var (
+		limbs   = len(sources[0])
 		targets = make([][]array.MutArray[F], len(sources))
 	)
 	//
-	for i := range sources {
+	for i := range limbs {
 		targets[i] = interleave(i, sources, builder)
 	}
 	//
