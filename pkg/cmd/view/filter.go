@@ -138,7 +138,7 @@ type moduleCellFilter struct {
 }
 
 func (p *traceCellFilter) Module(mid sc.ModuleId) ModuleFilter {
-	var n = uint(len(p.modules[mid].columns))
+	var n = uint(len(p.modules))
 	//
 	if n <= mid || len(p.modules[mid].columns) == 0 {
 		return nil
