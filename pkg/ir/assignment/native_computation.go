@@ -24,6 +24,7 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -197,8 +198,8 @@ func findNative[F field.Element[F]](name string) NativeComputationFn[F] {
 		return interleaveNativeFunction
 	case "filter":
 		return filterNativeFunction
-	// case "map-if":
-	// 	return mapIfNativeFunction
+	case "map-if":
+		return mapIfNativeFunction
 	case "fwd-changes-within":
 		return fwdChangesWithinNativeFunction
 	case "fwd-unchanged-within":
@@ -279,7 +280,7 @@ func filterNativeFunction[F field.Element[F]](sources []array.Vector[F], builder
 		source   = sources[0]
 		selector = sources[1]
 		// Create target column
-		target = source.EmptyClone(builder)
+		target = source.EmptyClone(source.Len(), builder)
 		// Construct temporary buffer
 		values = make([]F, array.MaxWidthOfVectors(sources...))
 	)
@@ -295,81 +296,87 @@ func filterNativeFunction[F field.Element[F]](sources []array.Vector[F], builder
 	return []array.MutVector[F]{target}
 }
 
-// // apply a key-value map conditionally.
-// func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-// ) []array.MutArray[F] {
-// 	//
-// 	n := len(sources) - 3
-// 	if n%2 != 0 {
-// 		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
-// 	}
-// 	//
-// 	n = n / 2
-// 	// Setup what we need
-// 	sourceSelector := sources[1+n]
-// 	sourceKeys := make([]array.Array[F], n)
-// 	sourceValue := sources[2+n+n]
-// 	sourceMap := hash.NewMap[hash.Array[F], F](sourceValue.Len())
-// 	targetSelector := sources[0]
-// 	targetKeys := make([]array.Array[F], n)
-// 	targetValue := builder.NewArray(targetSelector.Len(), sourceValue.BitWidth())
-// 	// Initialise source / target keys
-// 	for i := 0; i < n; i++ {
-// 		targetKeys[i] = sources[1+i]
-// 		sourceKeys[i] = sources[2+n+i]
-// 	}
-// 	// Build source map
-// 	for i := uint(0); i < sourceValue.Len(); i++ {
-// 		ithSelector := sourceSelector.Get(i)
-// 		// Check whether selector non-zero
-// 		if !ithSelector.IsZero() {
-// 			ithValue := sourceValue.Get(i)
-// 			ithKey := extractIthKey(i, sourceKeys)
-// 			//
-// 			if val, ok := sourceMap.Get(ithKey); ok && val.Cmp(ithValue) != 0 {
-// 				// Conflicting item already in map, so fail with useful error.
-// 				ithRow := extractIthColumns(i, sourceKeys)
-// 				lhs := fmt.Sprintf("%v=>%s", ithRow, ithValue.String())
-// 				rhs := fmt.Sprintf("%v=>%s", ithRow, val.String())
-// 				panic(fmt.Sprintf("conflicting values in source map (row %d): %s vs %s", i, lhs, rhs))
-// 			} else if !ok {
-// 				// Item not previously in map
-// 				sourceMap.Insert(ithKey, ithValue)
-// 			}
-// 		}
-// 	}
-// 	// Construct target value column
-// 	for i := uint(0); i < targetValue.Len(); i++ {
-// 		ithSelector := targetSelector.Get(i)
-// 		if !ithSelector.IsZero() {
-// 			ithKey := extractIthKey(i, targetKeys)
-// 			//nolint:revive
-// 			if val, ok := sourceMap.Get(ithKey); !ok {
-// 				// Couldn't find key in source map, so fail with useful error.
-// 				ith_row := extractIthColumns(i, targetKeys)
-// 				panic(fmt.Sprintf("target key (%v) missing from source map (row %d)", ith_row, i))
-// 			} else {
-// 				// Assign target value
-// 				targetValue.Set(i, val)
-// 			}
-// 		}
-// 	}
-// 	// Done
-// 	return []array.MutArray[F]{targetValue}
-// }
+// apply a key-value map conditionally.
+func mapIfNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
+	//
+	n := len(sources) - 3
+	if n%2 != 0 {
+		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
+	}
+	//
+	n = n / 2
+	// Setup what we need
+	sourceSelector := sources[1+n]
+	sourceKeys := make([]array.Vector[F], n)
+	sourceValue := sources[2+n+n]
+	sourceMap := hash.NewMap[hash.Array[F], []F](sourceValue.Len())
+	targetSelector := sources[0]
+	targetKeys := make([]array.Vector[F], n)
+	targetValue := sourceValue.EmptyClone(targetSelector.Len(), builder)
+	// Construct temporary buffer
+	tmpBuffer := make([]F, array.WidthOfVectors(sourceValue))
+	// Initialise source / target keys
+	for i := 0; i < n; i++ {
+		targetKeys[i] = sources[1+i]
+		sourceKeys[i] = sources[2+n+i]
+	}
+	// Build source map
+	for i := uint(0); i < sourceValue.Len(); i++ {
+		// Check whether selector non-zero
+		if !isZero(i, sourceSelector) {
+			// Extract ith key
+			ithKey := extractIthKey(i, sourceKeys)
+			// Read ith value
+			sourceValue.Read(i, tmpBuffer)
+			//
+			if val, ok := sourceMap.Get(ithKey); ok && array.Compare(val, tmpBuffer) != 0 {
+				// Conflicting item already in map, so fail with useful error.
+				ithRow := extractIthColumns(i, sourceKeys, nil)
+				lhs := fmt.Sprintf("%v=>%v", ithRow, tmpBuffer)
+				rhs := fmt.Sprintf("%v=>%v", ithRow, val)
+				panic(fmt.Sprintf("conflicting values in source map (row %d): %s vs %s", i, lhs, rhs))
+			} else if !ok {
+				// Item not previously in map
+				sourceMap.Insert(ithKey, slices.Clone(tmpBuffer))
+			}
+		}
+	}
+	// Construct target value column
+	for i := uint(0); i < targetValue.Len(); i++ {
+		if !isZero(i, targetSelector) {
+			ithKey := extractIthKey(i, targetKeys)
+			//nolint:revive
+			if val, ok := sourceMap.Get(ithKey); !ok {
+				// Couldn't find key in source map, so fail with useful error.
+				ith_row := extractIthColumns(i, targetKeys, nil)
+				panic(fmt.Sprintf("target key (%v) missing from source map (row %d)", ith_row, i))
+			} else {
+				// Assign target value
+				targetValue.Write(i, val)
+			}
+		}
+	}
+	// Done
+	return []array.MutVector[F]{targetValue}
+}
 
-// func extractIthKey[F field.Element[F]](index uint, cols []array.Array[F]) hash.Array[F] {
-// 	var (
-// 		// Each column has 1 x 64bit hash
-// 		buffer = make([]F, len(cols))
-// 	)
-// 	// Evaluate each expression in turn
-// 	for i := 0; i < len(cols); i++ {
-// 		buffer[i] = cols[i].Get(index)
-// 	}
-// 	// Done
-// 	return hash.NewArray(buffer)
-// }
+func extractIthKey[F field.Element[F]](index uint, cols []array.Vector[F]) hash.Array[F] {
+	var (
+		count uint
+		// Each column has 1 x 64bit hash
+		buffer = make([]F, array.WidthOfVectors(cols...))
+	)
+	// Evaluate each expression in turn
+	for _, col := range cols {
+		for i := range col.Width() {
+			buffer[count] = col.Limb(i).Get(index)
+			count++
+		}
+	}
+	// Done
+	return hash.NewArray(buffer)
+}
 
 // determines changes of a given set of columns within a given region.
 func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
@@ -508,7 +515,7 @@ func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], 
 		first    = sources[1]
 		source   = sources[2]
 		// Construct output column
-		data = source.EmptyClone(builder)
+		data = source.EmptyClone(source.Len(), builder)
 		// Initialise current value
 		current = make([]F, source.Width())
 	)
@@ -541,7 +548,7 @@ func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], 
 		first     = sources[1]
 		sourceCol = sources[2]
 		// Construct output column
-		target = sourceCol.EmptyClone(builder)
+		target = sourceCol.EmptyClone(source.Len(), builder)
 		// Initialise current value
 		current = make([]F, sourceCol.Width())
 	)

@@ -62,16 +62,17 @@ func (p *Vector[T]) Clone() MutVector[T] {
 	return MutVector[T]{p.length, limbs}
 }
 
-// EmptyClone construct a vector of mutable arrays which are all empty, but have
-// matching dimensions (i.e. height and bitwidth).
-func (p *Vector[T]) EmptyClone(builder Builder[T]) MutVector[T] {
+// EmptyClone constructs a vector of mutable arrays of a given height which are
+// all empty, but have matching dimension (i.e. same number of arrays with
+// matching bitwidths).
+func (p *Vector[T]) EmptyClone(length uint, builder Builder[T]) MutVector[T] {
 	var limbs = make([]MutArray[T], len(p.limbs))
 	//
 	for i, ith := range p.limbs {
-		limbs[i] = builder.NewArray(p.length, ith.BitWidth())
+		limbs[i] = builder.NewArray(length, ith.BitWidth())
 	}
 	//
-	return MutVector[T]{p.length, limbs}
+	return MutVector[T]{length, limbs}
 }
 
 // Limb returns the ith limb in this vector.
