@@ -28,7 +28,7 @@ import (
 // whether defensive padding is enabled or not.
 func RequiredPaddingRows[F any](module uint, defensive bool, schema AnySchema[F]) uint {
 	var (
-		multiplier = schema.Module(module).LengthMultiplier()
+		multiplier = schema.Module(module).Name().Multiplier
 		padding    = requiredSpillage(module, schema)
 	)
 	//

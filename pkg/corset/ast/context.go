@@ -15,6 +15,8 @@ package ast
 import (
 	"fmt"
 	"math"
+
+	"github.com/consensys/go-corset/pkg/schema/module"
 )
 
 // Context represents the evaluation context in which an expression can be
@@ -81,12 +83,8 @@ func (p Context) Module() string {
 // ModuleName returns the name of the module represented by this context.  Since
 // context's include length multipliers, this may not match the original
 // (Corset) module name exactly.
-func (p Context) ModuleName() string {
-	if p.LengthMultiplier() == 1 {
-		return p.ModuleId
-	}
-	//
-	return fmt.Sprintf("%s×%d", p.ModuleId, p.Multiplier)
+func (p Context) ModuleName() module.Name {
+	return module.NewName(p.ModuleId, p.Multiplier)
 }
 
 // LengthMultiplier returns the length multiplier for this context.  Note,

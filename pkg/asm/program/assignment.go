@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -31,7 +32,7 @@ import (
 // conform to the schema.Assignment interface.
 type Assignment[F field.Element[F], T io.Instruction[T]] struct {
 	id         sc.ModuleId
-	name       string
+	name       module.Name
 	registers  []io.Register
 	buses      []io.Bus
 	numInputs  uint
@@ -90,7 +91,7 @@ func (p Assignment[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),
-		sexp.NewSymbol(p.name),
+		sexp.NewSymbol(p.name.String()),
 	})
 }
 

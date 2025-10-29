@@ -64,7 +64,7 @@ type (
 	Assertion[F field.Element[F]] = constraint.Assertion[F, LogicalTerm[F]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
-	InterleavingConstraint[F field.Element[F]] = interleaving.Constraint[F, *RegisterAccess[F]]
+	InterleavingConstraint[F field.Element[F]] = interleaving.Constraint[F, *VectorAccess[F]]
 	// LookupConstraint captures the essence of a lookup constraint at the MIR
 	// level.
 	LookupConstraint[F field.Element[F]] = lookup.Constraint[F, *RegisterAccess[F]]

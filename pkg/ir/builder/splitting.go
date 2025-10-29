@@ -145,44 +145,47 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 		height uint
 		//
 		reg, regExists = modmap.HasRegister(col.Name)
+		// Determine register id for this column (we can assume it exists)
+		limbIds = modmap.LimbIds(reg)
+		// Determine limbs of this register
+		limbs = register.LimbsOf(modmap, limbIds)
 	)
 	// Check whether register is known
 	if !regExists {
 		// Unknown register --- this is an error
 		return nil, []error{fmt.Errorf("unknown register \"%s\"", col.Name)}
-	}
-	// Calculate register height.  Observe that computed registers will have nil
-	// for their data at this point since they haven't been computed yet.
-	if col.Data != nil {
-		height = col.Data.Len()
-	}
-	// Determine register id for this column (we can assume it exists)
-	limbIds := modmap.LimbIds(reg)
-	//
-	if len(limbIds) == 1 {
+	} else if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
 		return []lt.Column[F]{lowerRawColumn(col, builder)}, nil
 	}
-	// Yes, must split into two or more limbs of given widths.
-	limbWidths := register.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
-	// Determine limbs of this register
-	limbs := register.LimbsOf(modmap, limbIds)
-	// Construct temporary place holder for new array data.
-	arrays := make([]array.MutArray[F], len(limbIds))
-	//
-	for i, limb := range limbs {
-		arrays[i] = builder.NewArray(height, limb.Width)
+	// Proceed with splitting column data
+	var (
+		// Construct temporary place holder for new array data.
+		arrays = make([]array.MutArray[F], len(limbIds))
+		// Construct final columns
+		columns = make([]lt.Column[F], len(limbIds))
+	)
+	// Check whether data present or not.  Observe computed columns will have
+	// nil here (i.e. since their values have not yet been computed).
+	if col.Data != nil {
+		// Calculate register height.  Observe that computed registers will have nil
+		// for their data at this point since they haven't been computed yet.
+		height = col.Data.Len()
+		// Yes, must split into two or more limbs of given widths.
+		limbWidths := register.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
+		//
+		for i, limb := range limbs {
+			arrays[i] = builder.NewArray(height, limb.Width)
+		}
+		// Deconstruct all data
+		for i := range height {
+			// Extract ith data
+			ith := col.Data.Get(i)
+			// Assign split components
+			setSplitWord(ith, i, arrays, limbWidths)
+		}
 	}
-	// Deconstruct all data
-	for i := range height {
-		// Extract ith data
-		ith := col.Data.Get(i)
-		// Assign split components
-		setSplitWord(ith, i, arrays, limbWidths)
-	}
-	// Construct final columns
-	columns := make([]lt.Column[F], len(limbIds))
 	// Construct final columns
 	for i, limb := range limbs {
 		columns[i] = lt.Column[F]{

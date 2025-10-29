@@ -112,7 +112,7 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 		trMod := trace.Module(i)
 		scMod := p.mapping.Module(i)
 		//
-		public, columns := extractSourceMapData(trMod.Name(), srcmap, scMod)
+		public, columns := extractSourceMapData(trMod.Name(), p.limbs, srcmap, scMod)
 		//
 		data := newModuleData(i, scMod, trMod, public, enums, columns)
 		// construct initial module view
@@ -148,7 +148,7 @@ func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[string]corse
 	return mapping, enums
 }
 
-func extractSourceMapData(name string, srcmap map[string]corset.SourceModule,
+func extractSourceMapData(name module.Name, limbs bool, srcmap map[string]corset.SourceModule,
 	mapping register.LimbsMap) (bool, []SourceColumn) {
 	// Check whether any
 	var (
@@ -156,9 +156,10 @@ func extractSourceMapData(name string, srcmap map[string]corset.SourceModule,
 		columns []SourceColumn
 	)
 	//
-	if m, ok := srcmap[name]; ok {
+	if m, ok := srcmap[name.Name]; ok {
 		public = m.Public
-		columns = extractSourceColumns(file.NewAbsolutePath(""), m.Selector, m.Columns, m.Submodules, mapping)
+		columns = extractSourceColumns(file.NewAbsolutePath(""),
+			name.Multiplier, m.Selector, limbs, m.Columns, m.Submodules, mapping)
 	}
 	//
 	return public, columns
@@ -168,30 +169,49 @@ func extractSourceMapData(name string, srcmap map[string]corset.SourceModule,
 // based on the corset source mapping.  This is particularly useful when you
 // want to show the original name for a column (e.g. when its in a perspective),
 // rather than the raw register name.
-func extractSourceColumns(path file.Path, selector util.Option[string], columns []corset.SourceColumn,
-	submodules []corset.SourceModule, mapping register.LimbsMap) []SourceColumn {
+func extractSourceColumns(path file.Path, multiplier uint, selector util.Option[string], limbs bool,
+	columns []corset.SourceColumn, submodules []corset.SourceModule, mapping register.LimbsMap) []SourceColumn {
 	//
 	var srcColumns []SourceColumn
 	//
 	for _, col := range columns {
-		name := path.Extend(col.Name).String()[1:]
 		//
-		srcCol := SourceColumn{
-			Name:     name,
-			Display:  col.Display,
-			Computed: col.Computed,
-			Selector: selector,
-			Register: col.Register.Register(),
-			Limbs:    mapping.LimbIds(col.Register.Register()),
+		if col.Multiplier == multiplier {
+			name := path.Extend(col.Name).String()[1:]
+			//
+			if limbs {
+				for _, lid := range mapping.LimbIds(col.Register.Register()) {
+					limb := mapping.Limb(lid)
+					//
+					srcColumns = append(srcColumns, SourceColumn{
+						Name:     limb.Name,
+						Display:  col.Display,
+						Computed: col.Computed,
+						Selector: selector,
+						Register: col.Register.Register(),
+						Limbs:    []register.Id{lid},
+					})
+				}
+			} else {
+				srcColumns = append(srcColumns, SourceColumn{
+					Name:     name,
+					Display:  col.Display,
+					Computed: col.Computed,
+					Selector: selector,
+					Register: col.Register.Register(),
+					Limbs:    mapping.LimbIds(col.Register.Register()),
+				})
+			}
 		}
-		srcColumns = append(srcColumns, srcCol)
 	}
 	//
 	for _, submod := range submodules {
 		// Curiously, it only makes sense to recurse on virtual modules here.
 		if submod.Virtual {
 			subpath := path.Extend(submod.Name)
-			subSrcColumns := extractSourceColumns(*subpath, submod.Selector, submod.Columns, submod.Submodules, mapping)
+			subSrcColumns := extractSourceColumns(*subpath, multiplier, submod.Selector, limbs,
+				submod.Columns, submod.Submodules, mapping)
+			//
 			srcColumns = append(srcColumns, subSrcColumns...)
 		}
 	}

@@ -62,7 +62,7 @@ func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
 		constraints = concretizeConstraints[F1, F2](m.RawConstraints())
 	)
 	// Initialise new module
-	r = r.Init(m.Name(), m.LengthMultiplier(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
+	r = r.Init(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
 	// Add concretized components
 	r.AddRegisters(m.Registers()...)
 	r.AddAssignments(assignments...)
@@ -97,12 +97,10 @@ func concretizeAssignments[F1 Element[F1], F2 Element[F2]](assigns []schema.Assi
 
 func concretizeAssignment[F1 Element[F1], F2 Element[F2]](assign schema.Assignment[F1]) schema.Assignment[F2] {
 	switch a := assign.(type) {
-	case *assignment.CarryAssign[F1]:
-		return assignment.NewCarryAssign[F2](a.Target, a.Shift, a.Source)
 	case *assignment.ComputedRegister[F1]:
 		return assignment.NewComputedRegister[F2](a.Expr, a.Direction, a.Module, a.Targets...)
-	case *assignment.Computation[F1]:
-		return assignment.NewComputation[F2](a.Function, a.Targets, a.Sources)
+	case *assignment.NativeComputation[F1]:
+		return assignment.NewNativeComputation[F2](a.Function, a.Targets, a.Sources)
 	case *assignment.SortedPermutation[F1]:
 		return assignment.NewSortedPermutation[F2](a.Targets, a.Signs, a.Sources)
 	default:
@@ -132,8 +130,8 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		//
 		return NewAssertion(c.Handle, c.Context, c.Domain, term)
 	case InterleavingConstraint[F1]:
-		target := concretizeRegisterAccess[F1, F2](c.Target)
-		sources := concretizeRegisterAccesses[F1, F2](c.Sources)
+		target := concretizeVectorAccess[F1, F2](c.Target)
+		sources := concretizeVectorAccesses[F1, F2](c.Sources)
 		//
 		return NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
 	case LookupConstraint[F1]:
@@ -261,13 +259,7 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 	case *Sub[F1]:
 		return term.Subtract(concretizeTerms[F1, F2](t.Args)...)
 	case *VectorAccess[F1]:
-		var nterms = make([]*RegisterAccess[F2], len(t.Vars))
-		//
-		for i, t := range t.Vars {
-			nterms[i] = term.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
-		}
-		//
-		return term.NewVectorAccess(nterms)
+		return concretizeVectorAccess[F1, F2](t)
 	default:
 		panic("unreachable")
 	}
@@ -281,6 +273,21 @@ func concretizeTerms[F1 Element[F1], F2 Element[F2]](terms []Term[F1]) []Term[F2
 	}
 	//
 	return nterms
+}
+
+func concretizeVectorAccesses[F1 Element[F1], F2 Element[F2]](terms []*VectorAccess[F1]) []*VectorAccess[F2] {
+	var nterms = make([]*VectorAccess[F2], len(terms))
+	//
+	for i, t := range terms {
+		nterms[i] = concretizeVectorAccess[F1, F2](t)
+	}
+	//
+	return nterms
+}
+
+func concretizeVectorAccess[F1 Element[F1], F2 Element[F2]](expr *VectorAccess[F1]) *VectorAccess[F2] {
+	var regs = concretizeRegisterAccesses[F1, F2](expr.Vars)
+	return term.RawVectorAccess(regs)
 }
 
 func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](expr *RegisterAccess[F1]) *RegisterAccess[F2] {

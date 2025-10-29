@@ -15,6 +15,7 @@ package ir
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
@@ -52,15 +53,15 @@ func alignModules[F any, M register.Map](schema []M, mods []lt.Module[F], expand
 	//
 	var (
 		width  = uint(len(schema))
-		modmap = make(map[string]uint)
+		modmap = make(map[module.Name]uint)
 		nmods  = make([]lt.Module[F], width)
 		errs   []error
 	)
 	// Initialise module mapping
 	for i := range width {
-		ith := schema[i]
-		nmods[i].Name = ith.Name()
-		modmap[ith.Name()] = i
+		ith := schema[i].Name()
+		nmods[i].Name = ith
+		modmap[ith] = i
 	}
 	// Rearrange layout
 	for _, m := range mods {

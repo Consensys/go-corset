@@ -17,6 +17,7 @@ import (
 	"encoding/binary"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
@@ -58,7 +59,7 @@ func groupLegacyColumns(columns []Column[word.BigEndian]) []Module[word.BigEndia
 		//
 		if !ok {
 			index = len(modules)
-			modules = append(modules, Module[word.BigEndian]{mod, nil})
+			modules = append(modules, Module[word.BigEndian]{trace.ParseModuleName(mod), nil})
 			modmap[mod] = index
 		}
 		// Update column name

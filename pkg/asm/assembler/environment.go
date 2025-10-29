@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
@@ -34,7 +35,7 @@ type Environment struct {
 
 // BindBus associates a bus name with an abstract bus index.  The latter needs
 // to be subsequently "aligned" with external bus definitions.
-func (p *Environment) BindBus(name string) io.Bus {
+func (p *Environment) BindBus(name module.Name) io.Bus {
 	// Check whether bus already encountered
 	for _, bus := range p.buses {
 		if bus.Name == name {

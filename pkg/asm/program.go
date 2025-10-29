@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -95,7 +96,7 @@ func (p *MixedProgram[F, T, M]) Constraints() iter.Iterator[schema.Constraint[F]
 
 // HasModule checks whether a module with the given name exists and, if so,
 // returns its module identifier.  Otherwise, it returns false.
-func (p *MixedProgram[F, T, M]) HasModule(name string) (schema.ModuleId, bool) {
+func (p *MixedProgram[F, T, M]) HasModule(name module.Name) (schema.ModuleId, bool) {
 	for i := range p.Width() {
 		if p.Module(i).Name() == name {
 			return i, true

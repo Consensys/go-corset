@@ -13,6 +13,11 @@
 package trace
 
 import (
+	"cmp"
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -26,7 +31,7 @@ type Trace[F any] interface {
 	Column(ColumnRef) Column[F]
 	// Determine whether this trace has a module with the given name and, if so,
 	// what its module index is.
-	HasModule(name string) (uint, bool)
+	HasModule(name ModuleName) (uint, bool)
 	// Access a given module in this trace.
 	Module(ModuleId) Module[F]
 	// Returns an iterator over the contained modules
@@ -39,7 +44,7 @@ type Trace[F any] interface {
 // number of columns, and has a specific height.
 type Module[T any] interface {
 	// Module name
-	Name() string
+	Name() ModuleName
 	// Access a given column in this module.
 	Column(uint) Column[T]
 	// Access a given column by its name.
@@ -63,4 +68,58 @@ type Column[T any] interface {
 	Data() array.Array[T]
 	// Padding returns the value which will be used for padding this column.
 	Padding() T
+}
+
+// ModuleName abstracts the notion of a module name, since this is made up of
+// two distinct components.
+type ModuleName struct {
+	// Name of the module (excluding multiplier)
+	Name string
+	// Multiplier for the module
+	Multiplier uint
+}
+
+// Cmp two module names
+func (p ModuleName) Cmp(q ModuleName) int {
+	if c := strings.Compare(p.Name, q.Name); c != 0 {
+		return c
+	}
+	//
+	return cmp.Compare(p.Multiplier, q.Multiplier)
+}
+
+func (p ModuleName) String() string {
+	if p.Multiplier == 1 {
+		return p.Name
+	}
+	//
+	return fmt.Sprintf("%s×%d", p.Name, p.Multiplier)
+}
+
+// ParseModuleName parses a string formatted as a module name into a ModuleName
+// structure.  This will panic if the string is malformed.
+func ParseModuleName(name string) ModuleName {
+	var (
+		splits     = strings.Split(name, "×")
+		multiplier uint
+	)
+	//
+	switch {
+	case len(splits) == 1:
+		multiplier = 1
+	case len(splits) == 2:
+		tmp, err := strconv.Atoi(splits[1])
+		//
+		if err != nil {
+			panic(err.Error())
+		} else if tmp <= 0 {
+			panic(fmt.Sprintf("invalid module name \"%s\"", name))
+		}
+		//
+		multiplier = uint(tmp)
+	default:
+		panic(fmt.Sprintf("invalid module name \"%s\"", name))
+	}
+	// Done
+	return ModuleName{splits[0], multiplier}
 }

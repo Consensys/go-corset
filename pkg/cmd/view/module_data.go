@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/corset"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -55,8 +56,8 @@ type SourceColumn struct {
 type ModuleData interface {
 	// Id returns the module identifier
 	Id() sc.ModuleId
-	// Access abtract data for given register
-	DataOf(register.Id) RegisterView
+	// Access abtract data for given set of register limbs register
+	DataOf([]register.LimbId) RegisterView
 	// Dimensions returns width and height of data
 	Dimensions() (uint, uint)
 	// Determine whether a given source column is active on a given row.  A
@@ -68,7 +69,7 @@ type ModuleData interface {
 	// Mapping returns the register limbs map being used by this module view.
 	Mapping() register.LimbsMap
 	// Name returns the name of the given module
-	Name() string
+	Name() module.Name
 	// HasSourceColumn is useful for querying whether a source column exists
 	// with the given name.
 	HasSourceColumn(name string) (SourceColumnId, bool)
@@ -145,7 +146,7 @@ func (p *moduleData[F]) IsActive(col SourceColumn, row uint) bool {
 	// Extract relevant selector
 	selector := p.SourceColumnOf(col.Selector.Unwrap())
 	// Extract selector's value on this row
-	val := p.DataOf(selector.Register).Get(row)
+	val := p.DataOf(selector.Limbs).Get(row)
 	// Check whether selector is active (or not)
 	return val.BitLen() != 0
 }
@@ -185,10 +186,10 @@ func (p *moduleData[F]) SourceColumnOf(name string) SourceColumn {
 	panic(fmt.Sprintf("unknown source column %s", name))
 }
 
-// Data returns an abtract view of the data for given register
-func (p *moduleData[F]) DataOf(reg register.Id) RegisterView {
+// Data returns an abtract view of the data for a set of register limbs.
+func (p *moduleData[F]) DataOf(limbs []register.LimbId) RegisterView {
 	return &registerView[F]{
-		p.trace, reg, p.mapping,
+		p.trace, limbs, p.mapping,
 	}
 }
 
@@ -247,7 +248,7 @@ func (p *moduleData[F]) Mapping() register.LimbsMap {
 }
 
 // Name return name of this module
-func (p *moduleData[F]) Name() string {
+func (p *moduleData[F]) Name() module.Name {
 	return p.trace.Name()
 }
 
@@ -266,7 +267,7 @@ func (p *moduleData[F]) expand(col, row uint) {
 		// Yes
 		ndata := make([]string, col+1)
 		//
-		view := p.DataOf(srcColumn.Register)
+		view := p.DataOf(srcColumn.Limbs)
 		// Copy existing data
 		copy(ndata, srcColumn.data)
 		// Construct new data

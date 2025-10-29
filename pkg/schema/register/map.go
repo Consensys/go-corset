@@ -15,6 +15,8 @@ package register
 import (
 	"fmt"
 	"strings"
+
+	"github.com/consensys/go-corset/pkg/trace"
 )
 
 // Map provides a generic interface for entities which hold information
@@ -22,8 +24,8 @@ import (
 type Map interface {
 	fmt.Stringer
 	// Name returns the name given to the enclosing entity (i.e. module or
-	// function).
-	Name() string
+	// function), along with its multiplier.
+	Name() trace.ModuleName
 	// HasRegister checks whether a register with the given name exists and, if
 	// so, returns its register identifier.  Otherwise, it returns false.
 	HasRegister(name string) (Id, bool)
@@ -39,7 +41,7 @@ func MapToString(p Map) string {
 	var builder strings.Builder
 	//
 	builder.WriteString("{")
-	builder.WriteString(p.Name())
+	builder.WriteString(p.Name().String())
 	builder.WriteString(":")
 	//
 	for i, r := range p.Registers() {

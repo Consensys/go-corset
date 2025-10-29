@@ -54,7 +54,7 @@ func (p *MirPicusTranslator[F]) TranslateModule(i uint) {
 		panic("Cannot translate synthetic modules now")
 	}
 	// initialize the corresponding PCL module
-	picusModule := p.picusProgram.AddModule(mirModule.Name())
+	picusModule := p.picusProgram.AddModule(mirModule.Name().String())
 	// register inputs and outputs from MIR inputs/outputs
 	for _, register := range mirModule.Registers() {
 		picusVar := pcl.V[F](register.Name)

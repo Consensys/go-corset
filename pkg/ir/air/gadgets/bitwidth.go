@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -154,9 +155,9 @@ func (p *BitwidthGadget[F]) applyHorizontalBitwidthGadget(ref register.Ref, bitw
 // recursively applied to those columns, etc.
 func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwidth uint) {
 	var (
-		module       = p.schema.Module(ref.Module())
-		reg          = module.Register(ref.Register())
-		proofHandle  = fmt.Sprintf("u%d", bitwidth)
+		proofHandle  = module.Name{Name: fmt.Sprintf("u%d", bitwidth), Multiplier: 1}
+		mod          = p.schema.Module(ref.Module())
+		reg          = mod.Register(ref.Register())
 		lookupHandle = fmt.Sprintf("%s:u%d", reg.Name, bitwidth)
 	)
 	// Recursive case.
@@ -178,9 +179,9 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 	targets := []lookup.Vector[F, *air.ColumnAccess[F]]{
 		lookup.UnfilteredVector(mid, targetAccesses...)}
 	sources := []lookup.Vector[F, *air.ColumnAccess[F]]{
-		lookup.UnfilteredVector(module.Id(), sourceAccesses...)}
+		lookup.UnfilteredVector(mod.Id(), sourceAccesses...)}
 	//
-	module.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
+	mod.AddConstraint(air.NewLookupConstraint(lookupHandle, targets, sources))
 	// Add column to assignment so its proof is included
 	typeModule := p.schema.Module(mid)
 	//
@@ -188,10 +189,10 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 	decomposition.AddSource(ref)
 }
 
-func (p *BitwidthGadget[F]) constructTypeProof(handle string, bitwidth uint) sc.ModuleId {
+func (p *BitwidthGadget[F]) constructTypeProof(handle module.Name, bitwidth uint) sc.ModuleId {
 	var (
 		// Create new module for this type proof
-		mid    = p.schema.NewModule(handle, 1, false, false, true)
+		mid    = p.schema.NewModule(handle, false, false, true)
 		module = p.schema.Module(mid)
 		// Determine limb widths.
 		loWidth, hiWidth = determineLimbSplit(bitwidth)
@@ -258,7 +259,7 @@ func (p *typeDecomposition[F]) AddSource(source register.Ref) {
 func (p *typeDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	// Read inputs
-	sources := assignment.ReadRegisters(tr, p.sources...)
+	sources := assignment.ReadRegistersRef(tr, p.sources...)
 	padding := assignment.ReadPadding(tr, p.sources...)
 	// Combine all sources
 	combined := combineSources(p.loWidth+p.hiWidth, sources, padding, tr.Builder())
@@ -359,7 +360,7 @@ func (p *byteDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F]
 ) ([]array.MutArray[F], error) {
 	var n = uint(len(p.targets))
 	// Read inputs
-	sources := assignment.ReadRegisters(tr, p.source)
+	sources := assignment.ReadRegistersRef(tr, p.source)
 	// Apply native function
 	data := byteDecompositionNativeFunction(n, sources, tr.Builder())
 	//

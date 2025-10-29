@@ -20,12 +20,16 @@ import (
 )
 
 // QualifiedColumnName returns the fully qualified name of a given column.
-func QualifiedColumnName(module string, column string) string {
-	if module == "" {
+func QualifiedColumnName(module ModuleName, column string) string {
+	var (
+		name = module.String()
+	)
+	//
+	if name == "" {
 		return column
 	}
 
-	return fmt.Sprintf("%s.%s", module, column)
+	return fmt.Sprintf("%s.%s", name, column)
 }
 
 // NumberOfColumns returns the total number of all columns in the given trace.
@@ -53,7 +57,7 @@ type moduleAdapter[F1 field.Element[F1], F2 field.Element[F2]] struct {
 }
 
 // Module implementation for trace.Module interface.
-func (p *moduleAdapter[F1, F2]) Name() string {
+func (p *moduleAdapter[F1, F2]) Name() ModuleName {
 	return p.module.Name()
 }
 

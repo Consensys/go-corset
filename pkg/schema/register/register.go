@@ -102,14 +102,17 @@ func (p *Register) MaxValue() *big.Int {
 
 // QualifiedName returns the fully qualified name of this register
 func (p Register) QualifiedName(mod Map) string {
-	var name = p.Name
+	var (
+		name    = p.Name
+		modName = mod.Name().String()
+	)
 	//
 	if strings.Contains(name, " ") {
 		name = fmt.Sprintf("\"%s\"", name)
 	}
 	//
-	if mod.Name() != "" {
-		return fmt.Sprintf("%s:%s", mod.Name(), name)
+	if modName != "" {
+		return fmt.Sprintf("%s:%s", modName, name)
 	}
 	//
 	return name

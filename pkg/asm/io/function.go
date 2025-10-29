@@ -18,6 +18,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -65,7 +66,9 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](name string, public bool, registers []Register, buses []Bus, code []T) Function[T] {
+func NewFunction[T Instruction[T]](name module.Name, public bool, registers []Register, buses []Bus,
+	code []T) Function[T] {
+	//
 	var (
 		numInputs  = array.CountMatching(registers, func(r Register) bool { return r.IsInput() })
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
@@ -73,9 +76,11 @@ func NewFunction[T Instruction[T]](name string, public bool, registers []Registe
 	// Check registers sorted as: inputs, outputs then internal.
 	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind }) {
 		panic("function registers ordered incorrectly")
+	} else if name.Multiplier != 1 {
+		panic("functions only support multiplers of 1")
 	}
 	// All good
-	return Function[T]{name, public, registers, buses, numInputs, numOutputs, code}
+	return Function[T]{name.Name, public, registers, buses, numInputs, numOutputs, code}
 }
 
 // Buses returns the set of all buses used by any instruction within this
@@ -144,8 +149,9 @@ func (p *Function[T]) NumOutputs() uint {
 }
 
 // Name returns the name of this function.
-func (p *Function[T]) Name() string {
-	return p.name
+func (p *Function[T]) Name() module.Name {
+	// Functions always have a multiplier of 1.
+	return module.NewName(p.name, 1)
 }
 
 // Outputs returns the set of output registers for this function.

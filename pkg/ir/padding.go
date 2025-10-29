@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -48,7 +49,7 @@ type traceModule[F field.Element[F]] struct {
 }
 
 // Name implementation for trace.Module interface
-func (p *traceModule[F]) Name() string {
+func (p *traceModule[F]) Name() module.Name {
 	return p.mod.Name()
 }
 

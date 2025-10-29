@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -60,7 +61,7 @@ type TraceFile struct {
 
 // Module groups together columns from the same module.
 type Module[F any] struct {
-	Name    string
+	Name    trace.ModuleName
 	Columns []Column[F]
 }
 

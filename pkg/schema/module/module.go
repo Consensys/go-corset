@@ -16,8 +16,18 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
+
+// Name abstracts the notion of a module name, since this is made up of two
+// distinct components.
+type Name = trace.ModuleName
+
+// NewName constructs a new module name
+func NewName(name string, multiplier uint) Name {
+	return Name{Name: name, Multiplier: multiplier}
+}
 
 // Id abstracts the notion of a "module identifier"
 type Id = uint
@@ -34,7 +44,7 @@ type Map[T register.Map] interface {
 	// Module returns register mapping information for the given module.
 	Module(Id) T
 	// ModuleOf returns register mapping information for the given module.
-	ModuleOf(string) T
+	ModuleOf(Name) T
 	// Returns number of modules in this map
 	Width() uint
 }

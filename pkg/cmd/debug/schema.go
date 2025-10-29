@@ -73,6 +73,7 @@ func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 
 func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchema[F], width uint) {
 	var (
+		name      = module.Name().String()
 		formatter = sexp.NewFormatter(width)
 		postfix   string
 	)
@@ -86,8 +87,8 @@ func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchem
 	formatter.Add(&sexp.IFormatter{Head: "+", Priority: 3})
 	formatter.Add(&sexp.IFormatter{Head: "*", Priority: 4})
 
-	if module.Name() != "" {
-		postfix = fmt.Sprintf(" %s", module.Name())
+	if name != "" {
+		postfix = fmt.Sprintf(" %s", name)
 	}
 
 	if module.IsSynthetic() {

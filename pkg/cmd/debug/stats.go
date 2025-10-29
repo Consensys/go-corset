@@ -77,7 +77,7 @@ func getSummerisers[F field.Element[F]]() []schemaSummariser[F] {
 		assignmentCounter[F]("Computed Columns",
 			reflect.TypeOf((*assignment.ComputedRegister[F])(nil))),
 		assignmentCounter[F]("Computation Columns",
-			reflect.TypeOf((*assignment.Computation[F])(nil))),
+			reflect.TypeOf((*assignment.NativeComputation[F])(nil))),
 		assignmentCounter[F]("Lexicographic Orderings",
 			reflect.TypeOf((*assignment.LexicographicSort[F])(nil))),
 		assignmentCounter[F]("Sorted Permutations",

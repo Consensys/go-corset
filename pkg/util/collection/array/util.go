@@ -330,7 +330,6 @@ func Flatten[T any](items []T, fn func(T) []T) []T {
 	// no change
 	return items
 }
-
 func forceFlatten[T any](items []T, fn func(T) []T) []T {
 	nitems := make([]T, 0)
 	//
@@ -340,6 +339,17 @@ func forceFlatten[T any](items []T, fn func(T) []T) []T {
 		} else {
 			nitems = append(nitems, t)
 		}
+	}
+	// no change
+	return nitems
+}
+
+// FlatMap flattens items from an array which expand into arrays of terms.
+func FlatMap[S, T any](items []S, fn func(S) []T) []T {
+	nitems := make([]T, 0)
+	//
+	for _, t := range items {
+		nitems = append(nitems, fn(t)...)
 	}
 	// no change
 	return nitems

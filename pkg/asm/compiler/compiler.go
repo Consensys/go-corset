@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -38,7 +39,7 @@ type MicroProgram = io.Program[micro.Instruction]
 // the underlying constraint system.
 type FunctionMapping[T any] struct {
 	// Name of the Bus
-	name string
+	name module.Name
 	// Atomic tells us whether this is a one-line function or not.
 	atomic bool
 	// Registers
@@ -106,7 +107,7 @@ type Compiler[F Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
 	// Bus records
 	buses []FunctionMapping[T]
 	// Mapping  of Bus names to Bus records.
-	busMap map[string]uint
+	busMap map[module.Name]uint
 	// Executor to use for assignments.
 	executor io.Executor[micro.Instruction]
 	// types & reftables
@@ -121,7 +122,7 @@ func NewCompiler[F Element[F], T any, E Expr[T, E],
 		modules:      nil,
 		maxInstances: 32,
 		buses:        nil,
-		busMap:       make(map[string]uint),
+		busMap:       make(map[module.Name]uint),
 	}
 }
 

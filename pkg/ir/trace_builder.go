@@ -256,7 +256,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 		traceColumns[i] = trace.NewArrayColumn(reg.Name, data, padding)
 	}
 	//
-	return trace.NewArrayModule(mod.Name(), mod.LengthMultiplier(), traceColumns)
+	return trace.NewArrayModule(mod.Name(), traceColumns)
 }
 
 // pad each module with its given level of spillage and (optionally) ensure a
@@ -319,7 +319,7 @@ func padColumns[F any](tr *trace.ArrayTrace[F], schema sc.AnySchema[F], padding 
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
-		multiplier := schema.Module(i).LengthMultiplier()
+		multiplier := schema.Module(i).Name().Multiplier
 		tr.Pad(i, padding*multiplier, 0)
 	}
 }

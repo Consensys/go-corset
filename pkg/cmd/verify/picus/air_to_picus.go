@@ -47,7 +47,7 @@ func (p *AirPicusTranslator[F]) TranslateModule(i uint) {
 		return
 	}
 	// initialize the corresponding PCL module
-	picusModule := p.picusProgram.AddModule(airModule.Name())
+	picusModule := p.picusProgram.AddModule(airModule.Name().String())
 	// register inputs and outputs from MIR inputs/outputs
 	for _, register := range airModule.Registers() {
 		picusVar := pcl.V[F](register.Name)
@@ -116,7 +116,7 @@ func (p *AirPicusTranslator[F]) translateLookup(v air.LookupConstraint[F], picus
 		target := v.Unwrap().Targets[0]
 
 		targetModule := p.airSchema.Module(target.Module)
-		if targetModule.Name() != "u128" {
+		if targetModule.Name().Name != "u128" {
 			panic(fmt.Sprintf("Unhandled lookup target: %s", targetModule.Name()))
 		}
 

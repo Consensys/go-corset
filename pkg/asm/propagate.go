@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -144,7 +145,7 @@ func writeFunctionInstances[T io.Instruction[T]](fid uint, p io.Program[T], mod 
 	return errors
 }
 
-func executeAndCheck[T io.Instruction[T]](fid uint, name string, inputs, outputs []big.Int,
+func executeAndCheck[T io.Instruction[T]](fid uint, name module.Name, inputs, outputs []big.Int,
 	executor *io.Executor[T]) []error {
 	var (
 		errors []error
@@ -161,7 +162,7 @@ func executeAndCheck[T io.Instruction[T]](fid uint, name string, inputs, outputs
 			outs := toArgumentString(outputs)
 			acts := toArgumentString(actual)
 			errors = append(errors, fmt.Errorf("inconsistent instance %s(%s)=%s in trace (expected %s(%s)=%s)",
-				name, ins, outs, name, ins, acts))
+				name.String(), ins, outs, name, ins, acts))
 		}
 	}
 	//

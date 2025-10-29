@@ -59,7 +59,7 @@ func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
 	)
 	// Initialise AIR modules
 	for _, m := range mirSchema.RawModules() {
-		airSchema.NewModule(m.Name(), m.LengthMultiplier(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
+		airSchema.NewModule(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
 	}
 	//
 	return AirLowering[F]{
@@ -211,13 +211,26 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 // constraints to enforce the expected value.
 func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstraint[F],
 	airModule *air.ModuleBuilder[F]) {
-	// Lower sources
-	sources := p.lowerRegisterAccesses(c.Sources...)
-	// Lower target
-	target := p.lowerRegisterAccesses(c.Target)[0]
-	// Add constraint
-	airModule.AddConstraint(
-		air.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, *target, sources))
+	var (
+		n = len(c.Target.Vars)
+	)
+	//
+	for i := range n {
+		var (
+			sources = make([]*air.ColumnAccess[F], len(c.Sources))
+			ith     = c.Target.Vars[i]
+		)
+		// Lower sources
+		for j, src := range c.Sources {
+			jth := src.Vars[i]
+			sources[j] = term.RawRegisterAccess[F, air.Term[F]](jth.Register, jth.Shift)
+		}
+		// Lower target
+		target := term.RawRegisterAccess[F, air.Term[F]](ith.Register, ith.Shift)
+		// Add constraint
+		airModule.AddConstraint(
+			air.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, *target, sources))
+	}
 }
 
 // Lower a lookup constraint to the AIR level.  The challenge here is that

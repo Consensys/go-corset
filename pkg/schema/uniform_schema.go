@@ -17,6 +17,7 @@ import (
 	"encoding/gob"
 	"math"
 
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 )
@@ -60,7 +61,7 @@ func (p UniformSchema[F, M]) Constraints() iter.Iterator[Constraint[F]] {
 
 // HasModule checks whether a module with the given name exists and, if so,
 // returns its module identifier.  Otherwise, it returns false.
-func (p UniformSchema[F, M]) HasModule(name string) (ModuleId, bool) {
+func (p UniformSchema[F, M]) HasModule(name module.Name) (ModuleId, bool) {
 	for i := range p.Width() {
 		if p.Module(i).Name() == name {
 			return i, true
