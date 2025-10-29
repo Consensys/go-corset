@@ -171,7 +171,7 @@ func (p *NativeComputation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 
 // NativeComputationFn defines the type of a native function for computing a given
 // set of output columns as a function of a given set of input columns.
-type NativeComputationFn[F any] func([][]array.Array[F], array.Builder[F]) [][]array.MutArray[F]
+type NativeComputationFn[F any] func([]array.Vector[F], array.Builder[F]) []array.MutVector[F]
 
 func computeNative[F field.Element[F]](sources []register.Refs, fn NativeComputationFn[F], trace tr.Trace[F],
 ) []array.MutArray[F] {
@@ -180,8 +180,8 @@ func computeNative[F field.Element[F]](sources []register.Refs, fn NativeComputa
 	// Apply native function
 	targets := fn(inputs, trace.Builder())
 	// Flattern targets
-	return array.FlatMap(targets, func(arrs []array.MutArray[F]) []array.MutArray[F] {
-		return arrs
+	return array.FlatMap(targets, func(arrs array.MutVector[F]) []array.MutArray[F] {
+		return arrs.Unwrap()
 	})
 }
 
@@ -195,8 +195,8 @@ func findNative[F field.Element[F]](name string) NativeComputationFn[F] {
 		return idNativeFunction
 	case "interleave":
 		return interleaveNativeFunction
-	// case "filter":
-	// 	return filterNativeFunction
+	case "filter":
+		return filterNativeFunction
 	// case "map-if":
 	// 	return mapIfNativeFunction
 	// case "fwd-changes-within":
@@ -216,77 +216,59 @@ func findNative[F field.Element[F]](name string) NativeComputationFn[F] {
 
 // id assigns the target column with the corresponding value of the source
 // column
-func idNativeFunction[F field.Element[F]](sources [][]array.Array[F], _ array.Builder[F],
-) [][]array.MutArray[F] {
+func idNativeFunction[F field.Element[F]](sources []array.Vector[F], _ array.Builder[F],
+) []array.MutVector[F] {
 	if len(sources) != 1 {
 		panic("incorrect number of arguments")
 	}
 	//
 	var (
-		source  []array.Array[F] = sources[0]
-		targets                  = make([]array.MutArray[F], len(source))
+		// Clone source vector (that's it)
+		target = sources[0].Clone()
 	)
-	//
-	for i, ith := range source {
-		targets[i] = ith.Clone()
-	}
-	// Clone source column (that's it)
-	return [][]array.MutArray[F]{targets}
+	// Done
+	return []array.MutVector[F]{target}
 }
 
 // interleaving constructs a single interleaved column from a give set of source
 // columns.  The assumption is that the height of all columns is the same.
-func interleaveNativeFunction[F field.Element[F]](sources [][]array.Array[F], builder array.Builder[F],
-) [][]array.MutArray[F] {
+func interleaveNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
 	var (
-		limbs   = len(sources[0])
-		targets = make([][]array.MutArray[F], len(sources))
-	)
-	//
-	for i := range limbs {
-		targets[i] = interleave(i, sources, builder)
-	}
-	//
-	return targets
-}
-
-func interleave[F field.Element[F]](limb int, sources [][]array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
-	var (
-		bitwidth   uint
-		height     = sources[0][limb].Len()
+		bitwidths  = array.BitwidthOfVectors(sources...)
+		values     = make([]F, array.MaxWidthOfVectors(sources...))
+		height     = sources[0].Len()
 		multiplier = uint(len(sources))
 	)
 	// Sanity check column heights
-	for _, ith := range sources {
-		src := ith[limb]
-		//
+	for _, src := range sources {
 		if src.Len() != height {
 			panic(fmt.Sprintf("inconsistent column height for interleaving (%d v %d)", src.Len(), height))
 		}
-		//
-		bitwidth = max(bitwidth, src.BitWidth())
 	}
 	// Construct interleaved column
-	target := builder.NewArray(height*multiplier, bitwidth)
+	target := array.NewMutVector(height*multiplier, bitwidths, builder)
 	//
 	for i := range multiplier {
-		src := sources[i][limb]
+		source := sources[i]
 		//
 		for j := range height {
 			row := (j * multiplier) + i
-			target.Set(row, src.Get(j))
+			// Read source value
+			source.Read(j, values)
+			// Write target value
+			target.Write(row, values)
 		}
 	}
 	// Done
-	return []array.MutArray[F]{target}
+	return []array.MutVector[F]{target}
 }
 
 // filter assigns the target column with the corresponding value of the source
 // column *when* a given selector column is non-zero.  Otherwise, the target
 // column remains zero at the given position.
-func filterNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
+func filterNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
 	//
 	if len(sources) != 2 {
 		panic("incorrect number of arguments")
@@ -294,22 +276,23 @@ func filterNativeFunction[F field.Element[F]](sources []array.Array[F], builder 
 
 	var (
 		// Extract input column info
-		srcCol = sources[0]
-		selCol = sources[1]
-		// Clone source column
-		data = builder.NewArray(srcCol.Len(), srcCol.BitWidth())
+		source   = sources[0]
+		selector = sources[1]
+		// Create target column
+		target = source.EmptyClone(builder)
+		// Construct temporary buffer
+		values = make([]F, array.MaxWidthOfVectors(sources...))
 	)
 	//
-	for i := uint(0); i < data.Len(); i++ {
-		selector := selCol.Get(i)
+	for i := uint(0); i < target.Len(); i++ {
 		// Check whether selctor non-zero
-		if !selector.IsZero() {
-			ithValue := srcCol.Get(i)
-			data.Set(i, ithValue)
+		if selector.Some(i, func(f F) bool { return !f.IsZero() }) {
+			source.Read(i, values)
+			target.Write(i, values)
 		}
 	}
 	// Done
-	return []array.MutArray[F]{data}
+	return []array.MutVector[F]{target}
 }
 
 // apply a key-value map conditionally.

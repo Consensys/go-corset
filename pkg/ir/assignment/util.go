@@ -21,9 +21,9 @@ import (
 )
 
 // ReadRegisterRefs reads the values for a given set of registers from a trace.
-func ReadRegisterRefs[F field.Element[F]](trace tr.Trace[F], regs ...register.Refs) [][]array.Array[F] {
+func ReadRegisterRefs[F field.Element[F]](trace tr.Trace[F], regs ...register.Refs) []array.Vector[F] {
 	var (
-		targets = make([][]array.Array[F], len(regs))
+		targets = make([]array.Vector[F], len(regs))
 	)
 	// Read registers
 	for i, ref := range regs {
@@ -34,7 +34,7 @@ func ReadRegisterRefs[F field.Element[F]](trace tr.Trace[F], regs ...register.Re
 }
 
 // ReadRegisters reads the values for a given set of registers from a trace.
-func ReadRegisters[F field.Element[F]](trace tr.Trace[F], mid module.Id, regs ...register.Id) []array.Array[F] {
+func ReadRegisters[F field.Element[F]](trace tr.Trace[F], mid module.Id, regs ...register.Id) array.Vector[F] {
 	var (
 		targets = make([]array.Array[F], len(regs))
 	)
@@ -43,7 +43,7 @@ func ReadRegisters[F field.Element[F]](trace tr.Trace[F], mid module.Id, regs ..
 		targets[i] = trace.Module(mid).Column(rid.Unwrap()).Data()
 	}
 	//
-	return targets
+	return array.VectorOf(targets)
 }
 
 // ReadRegistersRef reads the values for a given set of registers from a trace.
