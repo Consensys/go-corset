@@ -43,7 +43,7 @@ func ReadRegisters[F field.Element[F]](trace tr.Trace[F], mid module.Id, regs ..
 		targets[i] = trace.Module(mid).Column(rid.Unwrap()).Data()
 	}
 	//
-	return array.VectorOf(targets)
+	return array.VectorOf(targets...)
 }
 
 // ReadRegistersRef reads the values for a given set of registers from a trace.

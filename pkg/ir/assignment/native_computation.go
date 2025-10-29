@@ -15,6 +15,7 @@ package assignment
 import (
 	"encoding/gob"
 	"fmt"
+	"slices"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
@@ -23,7 +24,6 @@ import (
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -199,16 +199,16 @@ func findNative[F field.Element[F]](name string) NativeComputationFn[F] {
 		return filterNativeFunction
 	// case "map-if":
 	// 	return mapIfNativeFunction
-	// case "fwd-changes-within":
-	// 	return fwdChangesWithinNativeFunction
-	// case "fwd-unchanged-within":
-	// 	return fwdUnchangedWithinNativeFunction
-	// case "bwd-changes-within":
-	// 	return bwdChangesWithinNativeFunction
-	// case "fwd-fill-within":
-	// 	return fwdFillWithinNativeFunction
-	// case "bwd-fill-within":
-	// 	return bwdFillWithinNativeFunction
+	case "fwd-changes-within":
+		return fwdChangesWithinNativeFunction
+	case "fwd-unchanged-within":
+		return fwdUnchangedWithinNativeFunction
+	case "bwd-changes-within":
+		return bwdChangesWithinNativeFunction
+	case "fwd-fill-within":
+		return fwdFillWithinNativeFunction
+	case "bwd-fill-within":
+		return bwdFillWithinNativeFunction
 	default:
 		panic(fmt.Sprintf("unknown native function: %s", name))
 	}
@@ -286,7 +286,7 @@ func filterNativeFunction[F field.Element[F]](sources []array.Vector[F], builder
 	//
 	for i := uint(0); i < target.Len(); i++ {
 		// Check whether selctor non-zero
-		if selector.Some(i, func(f F) bool { return !f.IsZero() }) {
+		if !isZero(i, selector) {
 			source.Read(i, values)
 			target.Write(i, values)
 		}
@@ -295,154 +295,154 @@ func filterNativeFunction[F field.Element[F]](sources []array.Vector[F], builder
 	return []array.MutVector[F]{target}
 }
 
-// apply a key-value map conditionally.
-func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
-	//
-	n := len(sources) - 3
-	if n%2 != 0 {
-		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
-	}
-	//
-	n = n / 2
-	// Setup what we need
-	sourceSelector := sources[1+n]
-	sourceKeys := make([]array.Array[F], n)
-	sourceValue := sources[2+n+n]
-	sourceMap := hash.NewMap[hash.Array[F], F](sourceValue.Len())
-	targetSelector := sources[0]
-	targetKeys := make([]array.Array[F], n)
-	targetValue := builder.NewArray(targetSelector.Len(), sourceValue.BitWidth())
-	// Initialise source / target keys
-	for i := 0; i < n; i++ {
-		targetKeys[i] = sources[1+i]
-		sourceKeys[i] = sources[2+n+i]
-	}
-	// Build source map
-	for i := uint(0); i < sourceValue.Len(); i++ {
-		ithSelector := sourceSelector.Get(i)
-		// Check whether selector non-zero
-		if !ithSelector.IsZero() {
-			ithValue := sourceValue.Get(i)
-			ithKey := extractIthKey(i, sourceKeys)
-			//
-			if val, ok := sourceMap.Get(ithKey); ok && val.Cmp(ithValue) != 0 {
-				// Conflicting item already in map, so fail with useful error.
-				ithRow := extractIthColumns(i, sourceKeys)
-				lhs := fmt.Sprintf("%v=>%s", ithRow, ithValue.String())
-				rhs := fmt.Sprintf("%v=>%s", ithRow, val.String())
-				panic(fmt.Sprintf("conflicting values in source map (row %d): %s vs %s", i, lhs, rhs))
-			} else if !ok {
-				// Item not previously in map
-				sourceMap.Insert(ithKey, ithValue)
-			}
-		}
-	}
-	// Construct target value column
-	for i := uint(0); i < targetValue.Len(); i++ {
-		ithSelector := targetSelector.Get(i)
-		if !ithSelector.IsZero() {
-			ithKey := extractIthKey(i, targetKeys)
-			//nolint:revive
-			if val, ok := sourceMap.Get(ithKey); !ok {
-				// Couldn't find key in source map, so fail with useful error.
-				ith_row := extractIthColumns(i, targetKeys)
-				panic(fmt.Sprintf("target key (%v) missing from source map (row %d)", ith_row, i))
-			} else {
-				// Assign target value
-				targetValue.Set(i, val)
-			}
-		}
-	}
-	// Done
-	return []array.MutArray[F]{targetValue}
-}
+// // apply a key-value map conditionally.
+// func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
+// ) []array.MutArray[F] {
+// 	//
+// 	n := len(sources) - 3
+// 	if n%2 != 0 {
+// 		panic(fmt.Sprintf("map-if expects 3 + 2*n columns (given %d)", len(sources)))
+// 	}
+// 	//
+// 	n = n / 2
+// 	// Setup what we need
+// 	sourceSelector := sources[1+n]
+// 	sourceKeys := make([]array.Array[F], n)
+// 	sourceValue := sources[2+n+n]
+// 	sourceMap := hash.NewMap[hash.Array[F], F](sourceValue.Len())
+// 	targetSelector := sources[0]
+// 	targetKeys := make([]array.Array[F], n)
+// 	targetValue := builder.NewArray(targetSelector.Len(), sourceValue.BitWidth())
+// 	// Initialise source / target keys
+// 	for i := 0; i < n; i++ {
+// 		targetKeys[i] = sources[1+i]
+// 		sourceKeys[i] = sources[2+n+i]
+// 	}
+// 	// Build source map
+// 	for i := uint(0); i < sourceValue.Len(); i++ {
+// 		ithSelector := sourceSelector.Get(i)
+// 		// Check whether selector non-zero
+// 		if !ithSelector.IsZero() {
+// 			ithValue := sourceValue.Get(i)
+// 			ithKey := extractIthKey(i, sourceKeys)
+// 			//
+// 			if val, ok := sourceMap.Get(ithKey); ok && val.Cmp(ithValue) != 0 {
+// 				// Conflicting item already in map, so fail with useful error.
+// 				ithRow := extractIthColumns(i, sourceKeys)
+// 				lhs := fmt.Sprintf("%v=>%s", ithRow, ithValue.String())
+// 				rhs := fmt.Sprintf("%v=>%s", ithRow, val.String())
+// 				panic(fmt.Sprintf("conflicting values in source map (row %d): %s vs %s", i, lhs, rhs))
+// 			} else if !ok {
+// 				// Item not previously in map
+// 				sourceMap.Insert(ithKey, ithValue)
+// 			}
+// 		}
+// 	}
+// 	// Construct target value column
+// 	for i := uint(0); i < targetValue.Len(); i++ {
+// 		ithSelector := targetSelector.Get(i)
+// 		if !ithSelector.IsZero() {
+// 			ithKey := extractIthKey(i, targetKeys)
+// 			//nolint:revive
+// 			if val, ok := sourceMap.Get(ithKey); !ok {
+// 				// Couldn't find key in source map, so fail with useful error.
+// 				ith_row := extractIthColumns(i, targetKeys)
+// 				panic(fmt.Sprintf("target key (%v) missing from source map (row %d)", ith_row, i))
+// 			} else {
+// 				// Assign target value
+// 				targetValue.Set(i, val)
+// 			}
+// 		}
+// 	}
+// 	// Done
+// 	return []array.MutArray[F]{targetValue}
+// }
 
-func extractIthKey[F field.Element[F]](index uint, cols []array.Array[F]) hash.Array[F] {
-	var (
-		// Each column has 1 x 64bit hash
-		buffer = make([]F, len(cols))
-	)
-	// Evaluate each expression in turn
-	for i := 0; i < len(cols); i++ {
-		buffer[i] = cols[i].Get(index)
-	}
-	// Done
-	return hash.NewArray(buffer)
-}
+// func extractIthKey[F field.Element[F]](index uint, cols []array.Array[F]) hash.Array[F] {
+// 	var (
+// 		// Each column has 1 x 64bit hash
+// 		buffer = make([]F, len(cols))
+// 	)
+// 	// Evaluate each expression in turn
+// 	for i := 0; i < len(cols); i++ {
+// 		buffer[i] = cols[i].Get(index)
+// 	}
+// 	// Done
+// 	return hash.NewArray(buffer)
+// }
 
 // determines changes of a given set of columns within a given region.
-func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
+func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
-	// Useful constant
-	one := field.One[F]()
-	// Extract input column info
-	selectorCol := sources[0]
-	sourceCols := make([]array.Array[F], len(sources)-1)
 	//
-	for i := 1; i < len(sources); i++ {
-		sourceCols[i-1] = sources[i]
-	}
-	// Construct (binary) output column
-	data := builder.NewArray(selectorCol.Len(), 1)
+	var (
+		// Useful constant
+		one = field.One[F]()
+		// Extract input column info
+		selector = sources[0]
+		// Construct (binary) output column
+		data    = builder.NewArray(selector.Len(), 1)
+		row     []F
+		started = false
+	)
+	// Trim off selector
+	sources = sources[1:]
 	// Set current value
-	current := make([]F, len(sourceCols))
-	started := false
+	current := make([]F, array.WidthOfVectors(sources...))
 	//
-	for i := uint(0); i < selectorCol.Len(); i++ {
-		ithSelector := selectorCol.Get(i)
+	for i := uint(0); i < selector.Len(); i++ {
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if !isZero(i, selector) {
 			//
-			row := extractIthColumns(i, sourceCols)
+			row := extractIthColumns(i, sources, row)
 			// Trigger required?
 			if !started || array.Compare(current, row) != 0 {
 				started = true
-				current = row
+				current = slices.Clone(row)
 				//
 				data.Set(i, one)
 			}
 		}
 	}
 	// Done
-	return []array.MutArray[F]{data}
+	return []array.MutVector[F]{array.MutVectorOf(data)}
 }
 
-func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
+func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
 	//
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
-	// Useful constant
-	one := field.One[F]()
-	zero := field.Zero[F]()
-	// Extract input column info
-	selectorCol := sources[0]
-	sourceCols := make([]array.Array[F], len(sources)-1)
 	//
-	for i := 1; i < len(sources); i++ {
-		sourceCols[i-1] = sources[i]
-	}
-	// Construct (binary) output column
-	data := builder.NewArray(selectorCol.Len(), 1)
+	var (
+		// Useful constant
+		one  = field.One[F]()
+		zero = field.Zero[F]()
+		// Extract input column info
+		selector = sources[0]
+		// Construct (binary) output column
+		data    = builder.NewArray(selector.Len(), 1)
+		row     []F
+		started = false
+	)
+	// Trim off selector
+	sources = sources[1:]
 	// Set current value
-	current := make([]F, len(sourceCols))
-	started := false
+	current := make([]F, array.WidthOfVectors(sources...))
 	//
-	for i := uint(0); i < selectorCol.Len(); i++ {
-		ithSelector := selectorCol.Get(i)
+	for i := uint(0); i < selector.Len(); i++ {
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if !isZero(i, selector) {
 			//
-			row := extractIthColumns(i, sourceCols)
+			row = extractIthColumns(i, sources, row)
 			// Trigger required?
 			if !started || array.Compare(current, row) != 0 {
 				started = true
-				current = row
+				current = slices.Clone(row)
 				//
 				data.Set(i, zero)
 			} else {
@@ -451,122 +451,140 @@ func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[
 		}
 	}
 	// Done
-	return []array.MutArray[F]{data}
+	return []array.MutVector[F]{array.MutVectorOf(data)}
 }
 
 // determines changes of a given set of columns within a given region.
-func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
+func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
 	//
 	if len(sources) < 2 {
 		panic("incorrect number of arguments")
 	}
-	// Useful constant
-	one := field.One[F]()
-	// Extract input column info
-	selectorCol := sources[0]
-	sourceCols := make([]array.Array[F], len(sources)-1)
 	//
-	for i := 1; i < len(sources); i++ {
-		sourceCols[i-1] = sources[i]
-	}
-	// Construct (binary) output column
-	data := builder.NewArray(selectorCol.Len(), 1)
+	var (
+		// Useful constant
+		one = field.One[F]()
+		// Extract input column info
+		selector = sources[0]
+		// Construct (binary) output column
+		data    = builder.NewArray(selector.Len(), 1)
+		row     []F
+		started = false
+	)
+	// Trim off selector
+	sources = sources[1:]
 	// Set current value
-	current := make([]F, len(sourceCols))
-	started := false
+	current := make([]F, array.WidthOfVectors(sources...))
 	//
-	for i := selectorCol.Len(); i > 0; i-- {
-		ithSelector := selectorCol.Get(i - 1)
+	for i := selector.Len(); i > 0; i-- {
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
+		if !isZero(i-1, selector) {
 			//
-			row := extractIthColumns(i-1, sourceCols)
+			row = extractIthColumns(i-1, sources, row)
 			// Trigger required?
 			if !started || array.Compare(current, row) != 0 {
 				started = true
-				current = row
+				current = slices.Clone(row)
 				//
 				data.Set(i-1, one)
 			}
 		}
 	}
 	// Done
-	return []array.MutArray[F]{data}
+	return []array.MutVector[F]{array.MutVectorOf(data)}
 }
 
-func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
+func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
 	//
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
-	// Extract input column info
-	selectorCol := sources[0]
-	firstCol := sources[1]
-	sourceCol := sources[2]
-	// Construct (binary) output column
-	data := builder.NewArray(sourceCol.Len(), sourceCol.BitWidth())
-	// Set current value
-	current := field.Zero[F]()
 	//
-	for i := uint(0); i < selectorCol.Len(); i++ {
-		ithSelector := selectorCol.Get(i)
+	var (
+		// Extract input column info
+		selector = sources[0]
+		first    = sources[1]
+		source   = sources[2]
+		// Construct output column
+		data = source.EmptyClone(builder)
+		// Initialise current value
+		current = make([]F, source.Width())
+	)
+	//
+	for i := uint(0); i < selector.Len(); i++ {
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
-			ithFirst := firstCol.Get(i)
+		if !isZero(i, selector) {
 			//
-			if !ithFirst.IsZero() {
-				current = sourceCol.Get(i)
+			if !isZero(i, first) {
+				source.Read(i, current)
 			}
 			//
-			data.Set(i, current)
+			data.Write(i, current)
 		}
 	}
 	// Done
-	return []array.MutArray[F]{data}
+	return []array.MutVector[F]{data}
 }
 
-func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], builder array.Builder[F],
-) []array.MutArray[F] {
+func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Vector[F], builder array.Builder[F],
+) []array.MutVector[F] {
 	//
 	if len(sources) != 3 {
 		panic("incorrect number of arguments")
 	}
-	// Extract input column info
-	selectorCol := sources[0]
-	firstCol := sources[1]
-	sourceCol := sources[2]
-	// Construct (binary) output column
-	data := builder.NewArray(sourceCol.Len(), sourceCol.BitWidth())
-	// Set current value
-	current := field.Zero[F]()
 	//
-	for i := selectorCol.Len(); i > 0; i-- {
-		ithSelector := selectorCol.Get(i - 1)
+	var (
+		// Extract input column info
+		source    = sources[0]
+		first     = sources[1]
+		sourceCol = sources[2]
+		// Construct output column
+		target = sourceCol.EmptyClone(builder)
+		// Initialise current value
+		current = make([]F, sourceCol.Width())
+	)
+	//
+	for i := source.Len(); i > 0; i-- {
 		// Check whether within region or not.
-		if !ithSelector.IsZero() {
-			ithFirst := firstCol.Get(i - 1)
+		if !isZero(i-1, source) {
 			//
-			if !ithFirst.IsZero() {
-				current = sourceCol.Get(i - 1)
+			if !isZero(i-1, first) {
+				sourceCol.Read(i-1, current)
 			}
 			//
-			data.Set(i-1, current)
+			target.Write(i-1, current)
 		}
 	}
 	// Done
-	return []array.MutArray[F]{data}
+	return []array.MutVector[F]{target}
 }
 
-func extractIthColumns[F any](index uint, cols []array.Array[F]) []F {
-	row := make([]F, len(cols))
-	//
-	for i := range row {
-		row[i] = cols[i].Get(index)
+func extractIthColumns[F any](index uint, cols []array.Vector[F], buffer []F) []F {
+	var count uint
+	// Sanity check buffer is big enough, or not.
+	if buffer == nil {
+		buffer = make([]F, array.WidthOfVectors(cols...))
 	}
 	//
-	return row
+	for _, ith := range cols {
+		for j := range ith.Width() {
+			buffer[count] = ith.Limb(j).Get(index)
+			count++
+		}
+	}
+	//
+	return buffer
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+// Check whether all limbs within a given vector are zero, or not.
+func isZero[F field.Element[F]](index uint, vec array.Vector[F]) bool {
+	return vec.All(index, func(f F) bool { return f.IsZero() })
 }
 
 // ============================================================================

@@ -25,7 +25,7 @@ type Vector[T any] struct {
 // VectorOf constructs a new vector array from a given set of arrays.  All
 // supplied arrays are expected to have the same height, otherwise this will
 // panic.
-func VectorOf[T any](arrays []Array[T]) Vector[T] {
+func VectorOf[T any](arrays ...Array[T]) Vector[T] {
 	var length uint
 	//
 	for i, arr := range arrays {
@@ -136,6 +136,23 @@ func NewMutVector[T any](height uint, bitwidths []uint, builder Builder[T]) MutV
 	return MutVector[T]{height, limbs}
 }
 
+// MutVectorOf constructs a mutable vector from a given set of mutable arrays.
+// All supplied arrays are expected to have the same height, otherwise this will
+// panic.
+func MutVectorOf[T any](arrays ...MutArray[T]) MutVector[T] {
+	var length uint
+	//
+	for i, arr := range arrays {
+		if i == 0 {
+			length = arr.Len()
+		} else if length != arr.Len() {
+			panic(fmt.Sprintf("incompatible array lengths (%d vs %d)", length, arr.Len()))
+		}
+	}
+	//
+	return MutVector[T]{length, arrays}
+}
+
 // Len returns the length of each array in this vector.
 func (p *MutVector[T]) Len() uint {
 	return p.length
@@ -179,6 +196,17 @@ func (p *MutVector[T]) Write(index uint, values []T) {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+// WidthOfVectors returns the total number of limbs across all vectors.
+func WidthOfVectors[T any](vectors ...Vector[T]) uint {
+	var totalWidth uint
+	//
+	for _, v := range vectors {
+		totalWidth += v.Width()
+	}
+	//
+	return totalWidth
+}
 
 // BitwidthOfVectors returns the maximum bitwidth of each limb across a given
 // set of vectors.
