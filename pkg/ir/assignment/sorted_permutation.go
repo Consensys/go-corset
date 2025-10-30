@@ -117,7 +117,7 @@ func (p *SortedPermutation[F]) RegistersWritten() []register.Ref {
 
 // Subdivide implementation for the FieldAgnostic interface.
 func (p *SortedPermutation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
-	return p
+	panic("todo")
 }
 
 // Substitute any matchined labelled constants within this assignment
