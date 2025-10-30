@@ -631,47 +631,47 @@ func Test_Valid_Module_10(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Permute_01(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_01", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_01", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_02(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_02", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_02", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_03(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_03", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_03", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_04(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_04", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_04", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_05(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_05", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_05", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_06(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_06", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_06", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_07(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_07", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_07", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_08(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_08", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_08", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_09(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_09", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_09", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_10(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_10", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_10", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Permute_11(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/permute_11", field.BLS12_377)
+	util.CheckCorset(t, false, "corset/valid/permute_11", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 // ===================================================================
