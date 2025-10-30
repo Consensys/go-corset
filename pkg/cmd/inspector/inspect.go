@@ -220,23 +220,27 @@ func (p *Inspector) gotoRow(row uint) termio.FormattedText {
 
 // filter columns based on a regex
 func (p *Inspector) filterColumns(regex *regexp.Regexp) termio.FormattedText {
+	row, _ := p.CurrentModule().view.Offset()
 	filter := p.CurrentModule().columnFilter
 	filter.Regex = regex
 	p.CurrentModule().applyColumnFilter(filter, true)
 	// Success
-	return termio.NewText("")
+	return p.gotoRow(row)
 }
 
 func (p *Inspector) clearColumnFilter() bool {
+	row, _ := p.CurrentModule().view.Offset()
 	filter := p.CurrentModule().columnFilter
 	filter.Regex = nil
 	p.CurrentModule().applyColumnFilter(filter, false)
+	p.gotoRow(row)
 	// Success
 	return true
 }
 
 func (p *Inspector) toggleColumnFilter() bool {
 	var (
+		row, _ = p.CurrentModule().view.Offset()
 		filter = p.CurrentModule().columnFilter
 		msg    string
 	)
@@ -255,6 +259,7 @@ func (p *Inspector) toggleColumnFilter() bool {
 	}
 	//
 	p.CurrentModule().applyColumnFilter(filter, false)
+	p.CurrentModule().gotoRow(row)
 	p.SetStatus(termio.NewColouredText(msg, termio.TERM_GREEN))
 	// Success
 	return true
