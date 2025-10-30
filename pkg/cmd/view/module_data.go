@@ -48,8 +48,12 @@ type SourceColumn struct {
 	// Limbs making up the register to which this column is allocated.
 	Limbs []sc.RegisterId
 	// rendered column data
-	data []string
+	data []util.Option[string]
 }
+
+// ============================================================================
+// Module Data
+// ============================================================================
 
 // ModuleData abstracts the raw data of a module.
 type ModuleData interface {
@@ -80,10 +84,6 @@ type ModuleData interface {
 	SourceColumns() []SourceColumn
 }
 
-// ============================================================================
-// Module Data
-// ============================================================================
-
 type moduleData[F field.Element[F]] struct {
 	// Module identifier
 	id sc.ModuleId
@@ -98,7 +98,7 @@ type moduleData[F field.Element[F]] struct {
 	// Trace provides the raw data for this view
 	trace tr.Module[F]
 	// Set of column titles
-	columns []string
+	columns []util.Option[string]
 	// Set of rows in this window
 	rows []SourceColumn
 }
@@ -111,27 +111,42 @@ func newModuleData[F field.Element[F]](id sc.ModuleId, mapping sc.RegisterLimbsM
 
 // CellAt returns the contents of a specific cell in this table.
 func (p *moduleData[F]) CellAt(col uint, row uint) string {
-	// Ensure enough space
-	p.expand(col, row)
-	//
-	return p.rows[row].data[col]
+	var (
+		src  = &p.rows[row]
+		n    = uint(len(src.data))
+		view = p.DataOf(src.Register)
+	)
+	// Check whether need to resize
+	if n <= col {
+		tmp := make([]util.Option[string], (col+1)*2)
+		copy(tmp, src.data)
+		src.data = tmp
+	}
+	// Check whether value aleady rendered
+	if !src.data[col].HasValue() {
+		// Read value
+		val := view.Get(col)
+		// Render value
+		src.data[col] = util.Some(renderCellValue(src.Display, val, p.enumerations))
+	}
+	// Done
+	return src.data[col].Unwrap()
 }
 
 // ColumnTitle returns the title for a given data column
 func (p *moduleData[F]) ColumnTitle(col uint) string {
 	// Construct titles lazily
-	if col >= uint(len(p.columns)) {
-		ncols := make([]string, col+1)
-		copy(ncols, p.columns)
-		//
-		for i := len(p.columns); i < len(ncols); i++ {
-			ncols[i] = fmt.Sprintf("#%d", i)
-		}
-		//
-		p.columns = ncols
+	if uint(len(p.columns)) <= col {
+		tmp := make([]util.Option[string], (col+1)*2)
+		copy(tmp, p.columns)
+		p.columns = tmp
+	}
+	// Check whether title already rendered
+	if p.columns[col].IsEmpty() {
+		p.columns[col] = util.Some(fmt.Sprintf("#%d", col))
 	}
 	//
-	return p.columns[col]
+	return p.columns[col].Unwrap()
 }
 
 // IsActive determines whether a given cell is active, or not.  A cell can be
@@ -254,29 +269,6 @@ func (p *moduleData[F]) Name() string {
 // RowTitle returns the title for a given data row
 func (p *moduleData[F]) RowTitle(row sc.RegisterId) string {
 	return p.rows[row.Unwrap()].Name
-}
-
-func (p *moduleData[F]) expand(col, row uint) {
-	var (
-		srcColumn = p.rows[row]
-		n         = uint(len(srcColumn.data))
-	)
-	// Check whether expansion required
-	if col >= n {
-		// Yes
-		ndata := make([]string, col+1)
-		//
-		view := p.DataOf(srcColumn.Register)
-		// Copy existing data
-		copy(ndata, srcColumn.data)
-		// Construct new data
-		for i := n; i <= col; i++ {
-			ith := view.Get(i)
-			ndata[i] = renderCellValue(srcColumn.Display, ith, p.enumerations)
-		}
-		//
-		p.rows[row].data = ndata
-	}
 }
 
 // Determine the (unclipped) string value at a given column and row in a given
