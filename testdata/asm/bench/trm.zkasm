@@ -24,8 +24,6 @@ fn trm(RAW_ADDRESS u256) -> (ADDRESS_HI u32, IS_PRECOMPILE u1) {
   var low, tmp u128
   var high u96
   var b1, b2, c0, c1 u1
-  var P256_VERIFY_ADDRESS u256
-  P256_VERIFY_ADDRESS = 256
   ;; trim off most significant 96 bytes
   high,ADDRESS_HI,low = RAW_ADDRESS
   ;; if hi word not zero, cannot be precompile.
@@ -35,7 +33,7 @@ fn trm(RAW_ADDRESS u256) -> (ADDRESS_HI u32, IS_PRECOMPILE u1) {
   ;; determine low <= MAX_PRC_CONTIGUOUS_ADDRESS
   ;; or low is P256_VERIFY_ADDRESS
   b1,tmp = low - MAX_PRC_CONTIGUOUS_ADDRESS - 1
-  b2 = low == 256 ? 1 : 0
+  b2 = low == 0x100 ? 1 : 0
   ;; done
   c0, c1, IS_PRECOMPILE= (b1 + b2) - (b1 * b2)
   return
