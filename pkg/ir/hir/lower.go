@@ -221,7 +221,7 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 	//
 	if vec.HasSelector() {
 		sel := p.expandTerm(vec.Selector.Unwrap(), module)
-		selector = util.Some[*mirRegisterAccess](sel)
+		selector = util.Some(sel)
 	}
 	//
 	return lookup.NewVector(vec.Module, selector, terms...)
@@ -238,7 +238,7 @@ func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, module *mirModul
 	//
 	if c.Selector.HasValue() {
 		sel := p.expandTerm(c.Selector.Unwrap(), module)
-		selector = util.Some[*mirRegisterAccess](sel)
+		selector = util.Some(sel)
 	}
 	// Add constraint
 	module.AddConstraint(

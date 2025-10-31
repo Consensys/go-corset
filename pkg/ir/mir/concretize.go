@@ -147,8 +147,8 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		return NewRangeConstraint(c.Handle, c.Context, term, c.Bitwidth)
 	case SortedConstraint[F1]:
 		var (
-			sources                                   = concretizeRegisterAccesses[F1, F2](c.Sources)
-			selector util.Option[*RegisterAccess[F2]] = util.None[*RegisterAccess[F2]]()
+			sources  = concretizeRegisterAccesses[F1, F2](c.Sources)
+			selector = util.None[*RegisterAccess[F2]]()
 		)
 		//
 		if c.Selector.HasValue() {

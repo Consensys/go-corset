@@ -275,13 +275,20 @@ func (p *AirLowering[F]) expandLookupVectorToAir(vector LookupVector[F],
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule *air.ModuleBuilder[F]) {
-	var sources = make([]register.Id, len(c.Sources))
+	var (
+		sources = make([]register.Id, len(c.Sources))
+	)
 	//
-	for i, ith := range c.Sources {
-		sources[i] = ith.Register
+	for i, source := range c.Sources {
+		var ith_width = airModule.Register(source.Register).Width
+		// Sanity check
+		if i < len(c.Signs) && ith_width > c.BitWidth {
+			msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", ith_width, c.BitWidth)
+			panic(msg)
+		}
+		//
+		sources[i] = source.Register
 	}
-	// Determine number of ordered columns
-	numSignedCols := len(c.Signs)
 	// finally add the sorting constraint
 	gadget := air_gadgets.NewLexicographicSortingGadget[F](c.Handle, sources, c.BitWidth).
 		WithSigns(c.Signs...).
@@ -295,22 +302,6 @@ func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airMo
 	}
 	// Done
 	gadget.Apply(airModule.Id(), &p.airSchema)
-	// Sanity check bitwidth
-	bitwidth := uint(0)
-
-	for i := 0; i < numSignedCols; i++ {
-		// Extract bitwidth of ith column
-		ith := airModule.Register(sources[i]).Width
-		if ith > bitwidth {
-			bitwidth = ith
-		}
-	}
-	//
-	if bitwidth != c.BitWidth {
-		// Should be unreachable.
-		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
-		panic(msg)
-	}
 }
 
 func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*air.ColumnAccess[F] {

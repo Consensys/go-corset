@@ -13,10 +13,15 @@
 package mir
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
+	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
+	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -33,21 +38,36 @@ func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], mapp
 		targetModule = mapping.Module(c.TargetContext)
 		sourceModule = mapping.Module(c.SourceContext)
 		target       = splitVectorAccess(c.Target, targetModule)
-		sources      = make([]*VectorAccess[F], len(c.Sources))
+		sources      = splitVectorAccesses(c.Sources, sourceModule)
 	)
-	// Split sources
-	for i, src := range c.Sources {
-		sources[i] = splitVectorAccess(src, sourceModule)
-	}
 	// Done
 	return interleaving.NewConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], _ module.LimbsMap,
+func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], mapping module.LimbsMap,
 ) PermutationConstraint[F] {
-	// TODO: implement this
-	return c
+	var (
+		module  = mapping.Module(c.Context)
+		sources []register.Id
+		targets []register.Id
+	)
+	//
+	for i := range len(c.Sources) {
+		var (
+			sourceLimbs = module.LimbIds(c.Sources[i])
+			targetLimbs = module.LimbIds(c.Targets[i])
+		)
+		// Sanity check for now
+		if len(sourceLimbs) != len(targetLimbs) {
+			panic("encountered irregular permutation constraint")
+		}
+		//
+		sources = append(sources, sourceLimbs...)
+		targets = append(targets, targetLimbs...)
+	}
+	//
+	return permutation.NewConstraint[F](c.Handle, c.Context, targets, sources)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -57,9 +77,41 @@ func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ module.LimbsMap)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideSorted[F field.Element[F]](c SortedConstraint[F], _ module.LimbsMap) SortedConstraint[F] {
-	// TODO: implement this
-	return c
+func subdivideSorted[F field.Element[F]](c SortedConstraint[F], mapping module.LimbsMap) SortedConstraint[F] {
+	var (
+		modmap   = mapping.Module(c.Context)
+		signs    []bool
+		sources  []*RegisterAccess[F]
+		selector = util.None[*RegisterAccess[F]]()
+		bitwidth uint
+	)
+	// Split sources
+	for i, source := range c.Sources {
+		var split = splitRawRegisterAccess(source, modmap)
+		// Append in reverse order to ensure most signicant limb comes first.
+		for j := len(split.Vars); j > 0; j-- {
+			jth := split.Vars[j-1]
+			sources = append(sources, jth)
+			// Update sign (if applicable)
+			if i < len(c.Signs) {
+				signs = append(signs, c.Signs[i])
+			}
+			// Update bitwidth
+			bitwidth = max(bitwidth, modmap.Limb(jth.Register).Width)
+		}
+	}
+	// Split optional selector
+	if c.Selector.HasValue() {
+		tmp := splitRawRegisterAccess(c.Selector.Unwrap(), modmap)
+		//
+		if len(tmp.Vars) != 1 {
+			panic(fmt.Sprintf("encountered irregular selectored with %d limbs.", len(tmp.Vars)))
+		}
+		//
+		selector = util.Some(tmp.Vars[0])
+	}
+	// Done
+	return sorted.NewConstraint(c.Handle, c.Context, bitwidth, selector, sources, signs, c.Strict)
 }
 
 func splitTerm[F field.Element[F]](expr Term[F], mapping register.LimbsMap) Term[F] {
@@ -110,6 +162,18 @@ func splitRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping re
 	}
 	//
 	return term.NewVectorAccess(terms)
+}
+
+func splitVectorAccesses[F field.Element[F]](terms []*VectorAccess[F], mapping register.LimbsMap) []*VectorAccess[F] {
+	var (
+		nterms = make([]*VectorAccess[F], len(terms))
+	)
+	// Split sources
+	for i, src := range terms {
+		nterms[i] = splitVectorAccess(src, mapping)
+	}
+	//
+	return nterms
 }
 
 func splitVectorAccess[F field.Element[F]](expr *VectorAccess[F], mapping register.LimbsMap) *VectorAccess[F] {
