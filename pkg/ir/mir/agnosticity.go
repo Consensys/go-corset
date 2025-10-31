@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
 	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
+	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -71,9 +72,32 @@ func subdividePermutation[F field.Element[F]](c PermutationConstraint[F], mappin
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideRange[F field.Element[F]](c RangeConstraint[F], _ module.LimbsMap) RangeConstraint[F] {
-	// TODO: implement this
-	return c
+func subdivideRange[F field.Element[F]](c RangeConstraint[F], mapping module.LimbsMap) RangeConstraint[F] {
+	var (
+		modmap    = mapping.Module(c.Context)
+		terms     []*RegisterAccess[F]
+		bitwidths []uint
+	)
+	//
+	for i, source := range c.Sources {
+		var (
+			split    = splitRawRegisterAccess(source, modmap)
+			bitwidth = c.Bitwidths[i]
+		)
+		// Include all registers
+		terms = append(terms, split.Vars...)
+		// Split bitwidths
+		for _, jth := range split.Vars {
+			jth_width := modmap.Limb(jth.Register).Width
+			bitwidths = append(bitwidths, min(bitwidth, jth_width))
+			//
+			if bitwidth > 0 {
+				bitwidth -= jth_width
+			}
+		}
+	}
+	//
+	return ranged.NewConstraint(c.Handle, c.Context, terms, bitwidths)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.

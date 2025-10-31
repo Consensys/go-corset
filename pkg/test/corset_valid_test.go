@@ -705,23 +705,23 @@ func Test_Valid_Sorted_08(t *testing.T) {
 }
 
 func Test_Valid_StrictSorted_01(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/strictsorted_01", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/strictsorted_01", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_StrictSorted_02(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/strictsorted_02", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/strictsorted_02", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_StrictSorted_03(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/strictsorted_03", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/strictsorted_03", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_StrictSorted_04(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/strictsorted_04", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/strictsorted_04", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_StrictSorted_05(t *testing.T) {
-	util.CheckCorset(t, false, "corset/valid/strictsorted_05", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/strictsorted_05", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 // ===================================================================

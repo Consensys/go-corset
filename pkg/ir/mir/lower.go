@@ -192,15 +192,16 @@ func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint
 // expected value.
 func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModule *air.ModuleBuilder[F]) {
 	// Extract target expression
-	reg := v.Expr.Register
-	// Apply bitwidth gadget
-	ref := register.NewRef(airModule.Id(), reg)
-	// Construct gadget
-	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
-		WithLimitless(p.config.LimitlessTypeProofs).
-		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
-	//
-	gadget.Constrain(ref, v.Bitwidth)
+	for i, e := range v.Sources {
+		// Apply bitwidth gadget
+		ref := register.NewRef(airModule.Id(), e.Register)
+		// Construct gadget
+		gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
+			WithLimitless(p.config.LimitlessTypeProofs).
+			WithMaxRangeConstraint(p.config.MaxRangeConstraint)
+		//
+		gadget.Constrain(ref, v.Bitwidths[i])
+	}
 }
 
 // Lower an interleaving constraint to the AIR level.  The challenge here is

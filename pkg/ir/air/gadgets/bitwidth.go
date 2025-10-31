@@ -86,7 +86,8 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 		// Construct access to register
 		access := term.RawRegisterAccess[F, air.Term[F]](ref.Register(), 0)
 		// Add range constraint
-		module.AddConstraint(air.NewRangeConstraint(handle, module.Id(), *access, bitwidth))
+		module.AddConstraint(air.NewRangeConstraint(handle, module.Id(),
+			[]*term.RegisterAccess[F, air.Term[F]]{access}, []uint{bitwidth}))
 		// Done
 		return
 	case p.limitless:
@@ -595,7 +596,9 @@ func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, mod
 		ith_access := term.RawRegisterAccess[F, air.Term[F]](rid, 0)
 		//
 		module.AddConstraint(
-			air.NewRangeConstraint(name, module.Id(), *ith_access, byteRegister.Width))
+			air.NewRangeConstraint(name, module.Id(),
+				[]*term.RegisterAccess[F, air.Term[F]]{ith_access},
+				[]uint{byteRegister.Width}))
 		//
 		bitwidth -= 8
 	}

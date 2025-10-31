@@ -63,9 +63,11 @@ func (p MirModule[F]) NewColumn(kind register.Type, name string, bitwidth uint, 
 		// Add new register
 		rid = p.Module.NewRegister(register.New(kind, name, bitwidth, padding))
 	)
+	//
+	terms := []*term.RegisterAccess[F, mir.Term[F]]{term.RawRegisterAccess[F, mir.Term[F]](rid, 0)}
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
-		mir.NewRangeConstraint(name, p.Module.Id(), term.RawRegisterAccess[F, mir.Term[F]](rid, 0), bitwidth))
+		mir.NewRangeConstraint(name, p.Module.Id(), terms, []uint{bitwidth}))
 	// Done
 	return rid
 }

@@ -171,10 +171,10 @@ func (p *MirLowering) lowerPermutationConstraint(v PermutationConstraint, module
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering) lowerRangeConstraint(v RangeConstraint, module *mirModuleBuilder) {
-	var term = p.expandTerm(v.Expr, module)
+	var term = p.expandTerms(module, v.Sources...)
 	//
 	module.AddConstraint(
-		mir.NewRangeConstraint(v.Handle, v.Context, term, v.Bitwidth))
+		mir.NewRangeConstraint(v.Handle, v.Context, term, v.Bitwidths))
 }
 
 // Lower an interleaving constraint to the MIR level.  Since interleaving
