@@ -78,6 +78,8 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 	)
 	// Base cases
 	switch {
+	case bitwidth == 0:
+		p.applyZeroGadget(ref)
 	case bitwidth <= 1:
 		p.applyBinaryGadget(ref)
 		return
@@ -97,6 +99,22 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 		// established.
 		p.applyHorizontalBitwidthGadget(ref, bitwidth)
 	}
+}
+
+// Enforce that a given register is zero.
+func (p *BitwidthGadget[F]) applyZeroGadget(ref register.Ref) {
+	var (
+		module   = p.schema.Module(ref.Module())
+		register = module.Register(ref.Register())
+		handle   = fmt.Sprintf("%s:u1", register.Name)
+	)
+	// Construct X
+	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 0)
+	// Construct X == 0
+	X_eq0 := term.Subtract(X, term.Const64[F, air.Term[F]](0))
+	// Done!
+	module.AddConstraint(
+		air.NewVanishingConstraint(handle, module.Id(), util.None[int](), X_eq0))
 }
 
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
