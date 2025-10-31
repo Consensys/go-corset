@@ -91,8 +91,10 @@ func subdivideRange[F field.Element[F]](c RangeConstraint[F], mapping module.Lim
 			jth_width := modmap.Limb(jth.Register).Width
 			bitwidths = append(bitwidths, min(bitwidth, jth_width))
 			//
-			if bitwidth > 0 {
+			if bitwidth >= jth_width {
 				bitwidth -= jth_width
+			} else {
+				bitwidth = 0
 			}
 		}
 	}
