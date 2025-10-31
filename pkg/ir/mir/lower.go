@@ -192,15 +192,16 @@ func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint
 // expected value.
 func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModule *air.ModuleBuilder[F]) {
 	// Extract target expression
-	reg := v.Expr.Register
-	// Apply bitwidth gadget
-	ref := register.NewRef(airModule.Id(), reg)
-	// Construct gadget
-	gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
-		WithLimitless(p.config.LimitlessTypeProofs).
-		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
-	//
-	gadget.Constrain(ref, v.Bitwidth)
+	for i, e := range v.Sources {
+		// Apply bitwidth gadget
+		ref := register.NewRef(airModule.Id(), e.Register)
+		// Construct gadget
+		gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
+			WithLimitless(p.config.LimitlessTypeProofs).
+			WithMaxRangeConstraint(p.config.MaxRangeConstraint)
+		//
+		gadget.Constrain(ref, v.Bitwidths[i])
+	}
 }
 
 // Lower an interleaving constraint to the AIR level.  The challenge here is
@@ -275,13 +276,20 @@ func (p *AirLowering[F]) expandLookupVectorToAir(vector LookupVector[F],
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
 func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule *air.ModuleBuilder[F]) {
-	var sources = make([]register.Id, len(c.Sources))
+	var (
+		sources = make([]register.Id, len(c.Sources))
+	)
 	//
-	for i, ith := range c.Sources {
-		sources[i] = ith.Register
+	for i, source := range c.Sources {
+		var ith_width = airModule.Register(source.Register).Width
+		// Sanity check
+		if i < len(c.Signs) && ith_width > c.BitWidth {
+			msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", ith_width, c.BitWidth)
+			panic(msg)
+		}
+		//
+		sources[i] = source.Register
 	}
-	// Determine number of ordered columns
-	numSignedCols := len(c.Signs)
 	// finally add the sorting constraint
 	gadget := air_gadgets.NewLexicographicSortingGadget[F](c.Handle, sources, c.BitWidth).
 		WithSigns(c.Signs...).
@@ -295,22 +303,6 @@ func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airMo
 	}
 	// Done
 	gadget.Apply(airModule.Id(), &p.airSchema)
-	// Sanity check bitwidth
-	bitwidth := uint(0)
-
-	for i := 0; i < numSignedCols; i++ {
-		// Extract bitwidth of ith column
-		ith := airModule.Register(sources[i]).Width
-		if ith > bitwidth {
-			bitwidth = ith
-		}
-	}
-	//
-	if bitwidth != c.BitWidth {
-		// Should be unreachable.
-		msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", bitwidth, c.BitWidth)
-		panic(msg)
-	}
 }
 
 func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*air.ColumnAccess[F] {

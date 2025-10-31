@@ -312,11 +312,11 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Bitwidth
-	if err := gobEncoder.Encode(c.Bitwidth); err != nil {
+	if err := gobEncoder.Encode(c.Bitwidths); err != nil {
 		return nil, err
 	}
 	// Expression
-	err := encode_term(c.Expr, &buffer)
+	err := encode_nary(encode_term, &buffer, c.Sources)
 	// Done
 	return buffer.Bytes(), err
 }
@@ -541,11 +541,11 @@ func decode_range(data []byte) (schema.Constraint[word.BigEndian], error) {
 		return constraint, err
 	}
 	// Bitwidth
-	if err = gobDecoder.Decode(&constraint.Bitwidth); err != nil {
+	if err = gobDecoder.Decode(&constraint.Bitwidths); err != nil {
 		return constraint, err
 	}
 	//
-	constraint.Expr, err = decode_term(buffer)
+	constraint.Sources, err = decode_nary(decode_term, buffer)
 	// Success!
 	return constraint, err
 }

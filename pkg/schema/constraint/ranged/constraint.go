@@ -35,25 +35,37 @@ type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 	// Evaluation Context for this constraint which must match that of the
 	// constrained expression itself.
 	Context schema.ModuleId
-	// The expression whose values are being constrained to within the given
-	// bound.
-	Expr E
-	// The number of bits permitted for all values matching this constraint.
+	// The expressions whose values are being constrained to be within the given
+	// bound(s).
+	Sources []E
+	// The number of bits permitted for all values of the corresponding expression.
 	// For example, with a bitwidth of 8, the maximum permitted value is 255.
-	Bitwidth uint
+	Bitwidths []uint
 }
 
 // NewConstraint constructs a new Range constraint!
 func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, context schema.ModuleId,
-	expr E, bitwidth uint) Constraint[F, E] {
-	return Constraint[F, E]{handle, context, expr, bitwidth}
+	exprs []E, bitwidths []uint) Constraint[F, E] {
+	return Constraint[F, E]{handle, context, exprs, bitwidths}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
-	return constraint.CheckConsistent(p.Context, schema, p.Expr)
+	var errors []error
+	//
+	if len(p.Bitwidths) != len(p.Sources) {
+		errors = append(errors,
+			fmt.Errorf("inconsistent number of expressions (%d) and bitwdiths (%d)", len(p.Sources), len(p.Bitwidths)))
+	}
+	//
+	for _, e := range p.Sources {
+		errs := constraint.CheckConsistent(p.Context, schema, e)
+		errors = append(errors, errs...)
+	}
+	//
+	return errors
 }
 
 // Name returns a unique name for a given constraint.  This is useful
@@ -79,11 +91,16 @@ func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 //
 //nolint:revive
 func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
-	if p.Context == module {
-		return p.Expr.Bounds()
+	var bound util.Bounds
+	//
+	if module == p.Context {
+		for _, e := range p.Sources {
+			eth := e.Bounds()
+			bound.Union(&eth)
+		}
 	}
 	//
-	return util.EMPTY_BOUND
+	return bound
 }
 
 // Accepts checks whether a range constraint holds on every row of a table. If so, return
@@ -91,33 +108,13 @@ func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 //
 //nolint:revive
 func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
-	var (
-		coverage bit.Set
-		trModule = tr.Module(p.Context)
-		scModule = sc.Module(p.Context)
-		handle   = constraint.DetermineHandle(p.Handle, p.Context, tr)
-		bound    F
-	)
-	// Compute 2^n
-	bound = field.TwoPowN[F](p.Bitwidth)
-	// Determine height of enclosing module
-	height := tr.Module(p.Context).Height()
-	// Iterate every row
-	for k := 0; k < int(height); k++ {
-		// Get the value on the kth row
-		kth, err := p.Expr.EvalAt(k, trModule, scModule)
-		// Perform the range check
+	var coverage bit.Set
+	//
+	for i := range p.Sources {
+		_, err := p.accepts(i, tr, sc)
+		//
 		if err != nil {
-			return coverage, &constraint.InternalFailure[F]{
-				Handle:  p.Handle,
-				Context: p.Context,
-				Row:     uint(k),
-				Term:    p.Expr,
-				Error:   err.Error(),
-			}
-		} else if kth.Cmp(bound) >= 0 {
-			// Evaluation failure
-			return coverage, &Failure[F]{handle, p.Context, p.Expr, p.Bitwidth, uint(k)}
+			return coverage, err
 		}
 	}
 	// All good
@@ -129,16 +126,63 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 //
 //nolint:revive
 func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
-	module := mapping.Module(p.Context)
+	var (
+		module = mapping.Module(p.Context)
+		pairs  = make([]sexp.SExp, len(p.Sources))
+	)
+	//
+	for i, e := range p.Sources {
+		pairs[i] = sexp.NewList([]sexp.SExp{
+			e.Lisp(false, module),
+			sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidths[i])),
+		})
+	}
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("range"),
-		p.Expr.Lisp(false, module),
-		sexp.NewSymbol(fmt.Sprintf("u%d", p.Bitwidth)),
+		sexp.NewList(pairs),
 	})
 }
 
 // Substitute any matchined labelled constants within this constraint
 func (p Constraint[F, E]) Substitute(mapping map[string]F) {
-	p.Expr.Substitute(mapping)
+	for _, s := range p.Sources {
+		s.Substitute(mapping)
+	}
+}
+
+func (p Constraint[F, E]) accepts(i int, tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+	var (
+		coverage bit.Set
+		trModule = tr.Module(p.Context)
+		scModule = sc.Module(p.Context)
+		handle   = constraint.DetermineHandle(p.Handle, p.Context, tr)
+		bound    F
+		expr     = p.Sources[i]
+		bitwidth = p.Bitwidths[i]
+	)
+	// Compute 2^n
+	bound = field.TwoPowN[F](bitwidth)
+	// Determine height of enclosing module
+	height := tr.Module(p.Context).Height()
+	// Iterate every row
+	for k := 0; k < int(height); k++ {
+		// Get the value on the kth row
+		kth, err := expr.EvalAt(k, trModule, scModule)
+		// Perform the range check
+		if err != nil {
+			return coverage, &constraint.InternalFailure[F]{
+				Handle:  p.Handle,
+				Context: p.Context,
+				Row:     uint(k),
+				Term:    expr,
+				Error:   err.Error(),
+			}
+		} else if kth.Cmp(bound) >= 0 {
+			// Evaluation failure
+			return coverage, &Failure[F]{handle, p.Context, expr, bitwidth, uint(k)}
+		}
+	}
+	// All good
+	return coverage, nil
 }

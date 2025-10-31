@@ -74,7 +74,7 @@ func NewPermutationConstraint(handle string, context schema.ModuleId, targets []
 func NewRangeConstraint(handle string, ctx schema.ModuleId, expr Term,
 	bitwidth uint) Constraint {
 	//
-	return Constraint{ranged.NewConstraint(handle, ctx, expr, bitwidth)}
+	return Constraint{ranged.NewConstraint(handle, ctx, []Term{expr}, []uint{bitwidth})}
 }
 
 // NewSortedConstraint creates a new Sorted

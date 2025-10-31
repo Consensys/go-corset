@@ -88,10 +88,10 @@ func NewPermutationConstraint[F field.Element[F]](handle string, context schema.
 }
 
 // NewRangeConstraint constructs a new AIR range constraint
-func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, expr ColumnAccess[F],
-	bitwidth uint) RangeConstraint[F] {
+func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, exprs []*ColumnAccess[F],
+	bitwidths []uint) RangeConstraint[F] {
 	//
-	return newAir(ranged.NewConstraint(handle, ctx, &expr, bitwidth))
+	return newAir(ranged.NewConstraint(handle, ctx, exprs, bitwidths))
 }
 
 // NewVanishingConstraint constructs a new AIR vanishing constraint

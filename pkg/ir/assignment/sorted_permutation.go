@@ -117,7 +117,38 @@ func (p *SortedPermutation[F]) RegistersWritten() []register.Ref {
 
 // Subdivide implementation for the FieldAgnostic interface.
 func (p *SortedPermutation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
-	return p
+	var (
+		sources []register.Ref
+		targets []register.Ref
+		signs   []bool
+	)
+	//
+	for i := range len(p.Sources) {
+		var (
+			source = p.Sources[i]
+			target = p.Targets[i]
+			//
+			sourceMapping = mapping.Module(source.Module())
+			targetMapping = mapping.Module(target.Module())
+			sourceLimbs   = sourceMapping.LimbIds(source.Register())
+			targetLimbs   = targetMapping.LimbIds(target.Register())
+		)
+		// Sanity check for now
+		if len(sourceLimbs) != len(targetLimbs) {
+			panic("encountered irregular permutation constraint")
+		}
+		// Append limbs in reverse order to ensure most significant limb comes first.
+		for j := len(sourceLimbs); j > 0; j-- {
+			sources = append(sources, register.NewRef(source.Module(), sourceLimbs[j-1]))
+			targets = append(targets, register.NewRef(target.Module(), targetLimbs[j-1]))
+			//
+			if i < len(p.Signs) {
+				signs = append(signs, p.Signs[i])
+			}
+		}
+	}
+	//
+	return NewSortedPermutation[F](targets, signs, sources)
 }
 
 // Substitute any matchined labelled constants within this assignment

@@ -73,10 +73,10 @@ func NewPermutationConstraint[F field.Element[F]](handle string, context schema.
 }
 
 // NewRangeConstraint constructs a new Range constraint!
-func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, col *RegisterAccess[F],
-	bitwidth uint) Constraint[F] {
+func NewRangeConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, registers []*RegisterAccess[F],
+	bitwidths []uint) Constraint[F] {
 	//
-	return Constraint[F]{ranged.NewConstraint(handle, ctx, col, bitwidth)}
+	return Constraint[F]{ranged.NewConstraint(handle, ctx, registers, bitwidths)}
 }
 
 // NewSortedConstraint creates a new Sorted
