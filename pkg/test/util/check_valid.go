@@ -67,9 +67,19 @@ func Check(t *testing.T, stdlib bool, test string) {
 
 // CheckCorset checks that all traces which we expect to be accepted are
 // accepted by a given set of constraints, and all traces that we expect to be
-// rejected are rejected.  All fields provided are tested against.
+// rejected are rejected.  All fields provided are tested against, and also all
+// padding amounts upto 7.
 func CheckCorset(t *testing.T, stdlib bool, test string, fields ...field.Config) {
 	CheckWithFields(t, stdlib, test, CORSET_MAX_PADDING, fields...)
+}
+
+// CheckCorsetNoPadding checks that all traces which we expect to be accepted
+// are accepted by a given set of constraints, and all traces that we expect to
+// be rejected are rejected.  All fields provided are tested against but without
+// any padding.  This is useful to reduce unnecessary testing for cases where we
+// know padding is not relevant.
+func CheckCorsetNoPadding(t *testing.T, stdlib bool, test string, fields ...field.Config) {
+	CheckWithFields(t, stdlib, test, 0, fields...)
 }
 
 // CheckWithFields checks that all traces which we expect to be accepted are
