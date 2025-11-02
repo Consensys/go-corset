@@ -709,8 +709,7 @@ func Test_Valid_Sorted_08(t *testing.T) {
 
 func Test_Valid_StrictSorted_01(t *testing.T) {
 	// FIXME: GF_8209
-	//util.CheckCorset(t, false, "corset/valid/strictsorted_01", field.BLS12_377, field.KOALABEAR_16)
-	util.CheckCorset(t, false, "corset/valid/strictsorted_01", field.GF_8209)
+	util.CheckCorset(t, false, "corset/valid/strictsorted_01", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_Valid_StrictSorted_02(t *testing.T) {

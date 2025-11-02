@@ -106,7 +106,7 @@ func (p *BitwidthGadget[F]) applyZeroGadget(ref register.Ref) {
 	var (
 		module   = p.schema.Module(ref.Module())
 		register = module.Register(ref.Register())
-		handle   = fmt.Sprintf("%s:u1", register.Name)
+		handle   = fmt.Sprintf("%s:u0", register.Name)
 	)
 	// Construct X
 	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 0)
