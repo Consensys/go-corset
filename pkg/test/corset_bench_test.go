@@ -40,8 +40,7 @@ func Test_Bench_ByteSorting(t *testing.T) {
 }
 
 func Test_Bench_WordSorting(t *testing.T) {
-	// FIXME: GF_8209
-	util.CheckCorset(t, true, "corset/bench/word_sorting", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, true, "corset/bench/word_sorting", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Bench_Multiplier(t *testing.T) {
@@ -134,11 +133,11 @@ func Test_Bench_Exp(t *testing.T) {
 }
 
 func Test_Bench_Mul(t *testing.T) {
-	// FIXME: KOALABEAR_16 [PERF] ?
+	// FIXME: KOALABEAR_16 [PERF]
 	util.CheckCorset(t, true, "corset/bench/mul", field.BLS12_377)
 }
 
 func Test_Bench_Mod(t *testing.T) {
-	// FIXME: KOALABEAR_16 [PERF] ?
+	// FIXME: KOALABEAR_16 [PERF]
 	util.CheckCorset(t, true, "corset/bench/mod", field.BLS12_377)
 }

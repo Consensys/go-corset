@@ -183,7 +183,10 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 			// Extract ith data
 			ith := col.Data.Get(i)
 			// Assign split components
-			setSplitWord(ith, i, arrays, limbWidths)
+			if !setSplitWord(ith, i, arrays, limbWidths) {
+				err := fmt.Errorf("row %d of column %s is out-of-bounds (%s)", i, col.Name, ith.String())
+				return nil, []error{err}
+			}
 		}
 	}
 	// Construct final columns
@@ -199,14 +202,19 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 // split a given field element into a given set of limbs, where the least
 // significant comes first.  NOTE: this is really a temporary function which
 // should be eliminated when RawColumn is moved away from fr.Element.
-func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []array.MutArray[F], widths []uint) {
+func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []array.MutArray[F], widths []uint) bool {
 	// FIXME: following is not efficient, as it allocates memory and does quite
 	// a lot of work overall.
-	var elements = field.SplitWord[F](val, widths)
-	//
-	for i := range widths {
-		arrays[i].Set(row, elements[i])
+	var elements, ok = field.SplitWord[F](val, widths)
+	// Sanity check split successful
+	if ok {
+		//
+		for i := range widths {
+			arrays[i].Set(row, elements[i])
+		}
 	}
+
+	return ok
 }
 
 // SplitResult is returned by worker threads during parallel trace splitting.

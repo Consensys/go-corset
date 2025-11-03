@@ -276,7 +276,11 @@ func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 			return err
 		}
 		// Write data across limbs
-		write(i, val, data, widths)
+		if !write(i, val, data, widths) {
+			// Generate error
+			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i, val.String(),
+				expr.Lisp(false, scMod).String(true))
+		}
 	}
 	//
 	return nil
@@ -292,20 +296,28 @@ func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 			return err
 		}
 		// Write data across limbs
-		write(i-1, val, data, widths)
+		if !write(i-1, val, data, widths) {
+			// Generate error
+			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i, val.String(),
+				expr.Lisp(false, scMod).String(true))
+		}
 	}
 	//
 	return nil
 }
 
-func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) {
+func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) bool {
 	// FIXME: following is not efficient, as it allocates memory and does quite
 	// a lot of work overall.
-	var elements = field.SplitWord[word.BigEndian](val, bitwidths)
+	var elements, ok = field.SplitWord[word.BigEndian](val, bitwidths)
 	//
-	for i := range data {
-		data[i][row] = elements[i]
+	if ok {
+		for i := range data {
+			data[i][row] = elements[i]
+		}
 	}
+	//
+	return ok
 }
 
 // RecModule is a wrapper which enables a computation to be recursive.
