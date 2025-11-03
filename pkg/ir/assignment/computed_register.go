@@ -298,7 +298,7 @@ func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 		// Write data across limbs
 		if !write(i-1, val, data, widths) {
 			// Generate error
-			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i, val.String(),
+			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i-1, val.String(),
 				expr.Lisp(false, scMod).String(true))
 		}
 	}
