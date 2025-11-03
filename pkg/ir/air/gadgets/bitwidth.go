@@ -78,6 +78,8 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 	)
 	// Base cases
 	switch {
+	case bitwidth == 0:
+		p.applyZeroGadget(ref)
 	case bitwidth <= 1:
 		p.applyBinaryGadget(ref)
 		return
@@ -86,7 +88,8 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 		// Construct access to register
 		access := term.RawRegisterAccess[F, air.Term[F]](ref.Register(), 0)
 		// Add range constraint
-		module.AddConstraint(air.NewRangeConstraint(handle, module.Id(), *access, bitwidth))
+		module.AddConstraint(air.NewRangeConstraint(handle, module.Id(),
+			[]*term.RegisterAccess[F, air.Term[F]]{access}, []uint{bitwidth}))
 		// Done
 		return
 	case p.limitless:
@@ -96,6 +99,22 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 		// established.
 		p.applyHorizontalBitwidthGadget(ref, bitwidth)
 	}
+}
+
+// Enforce that a given register is zero.
+func (p *BitwidthGadget[F]) applyZeroGadget(ref register.Ref) {
+	var (
+		module   = p.schema.Module(ref.Module())
+		register = module.Register(ref.Register())
+		handle   = fmt.Sprintf("%s:u0", register.Name)
+	)
+	// Construct X
+	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 0)
+	// Construct X == 0
+	X_eq0 := term.Subtract(X, term.Const64[F, air.Term[F]](0))
+	// Done!
+	module.AddConstraint(
+		air.NewVanishingConstraint(handle, module.Id(), util.None[int](), X_eq0))
 }
 
 // ApplyBinaryGadget adds a binarity constraint for a given column in the schema
@@ -595,7 +614,9 @@ func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, mod
 		ith_access := term.RawRegisterAccess[F, air.Term[F]](rid, 0)
 		//
 		module.AddConstraint(
-			air.NewRangeConstraint(name, module.Id(), *ith_access, byteRegister.Width))
+			air.NewRangeConstraint(name, module.Id(),
+				[]*term.RegisterAccess[F, air.Term[F]]{ith_access},
+				[]uint{byteRegister.Width}))
 		//
 		bitwidth -= 8
 	}

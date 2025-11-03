@@ -42,8 +42,10 @@ func Pow[F Element[F]](val F, n uint64) F {
 }
 
 // SplitWord splits a BigEndian word into one or more limbs in a given field F,
-// where each has a give width.
-func SplitWord[F Element[F]](val word.BigEndian, widths []uint) []F {
+// where each has a given width.  If the given value cannot be split into the
+// given widths (i.e. because it overflows their combined width), false is
+// returned to signal a splitting failure.
+func SplitWord[F Element[F]](val word.BigEndian, widths []uint) ([]F, bool) {
 	var (
 		bitwidth = sum(widths...)
 		// Determine bytewidth
@@ -57,6 +59,10 @@ func SplitWord[F Element[F]](val word.BigEndian, widths []uint) []F {
 		// FIXME: this should not be hardcoded
 		buf [32]byte
 	)
+	// sanity check input value
+	if val.Cmp(TwoPowN[word.BigEndian](bitwidth)) >= 0 {
+		return nil, false
+	}
 	// read actual bits
 	for i, w := range widths {
 		// Read bits
@@ -67,7 +73,7 @@ func SplitWord[F Element[F]](val word.BigEndian, widths []uint) []F {
 		elements[i] = FromBigEndianBytes[F](buf[:m])
 	}
 	//
-	return elements
+	return elements, true
 }
 
 func padAndReverse(bytes []byte, n uint) []byte {

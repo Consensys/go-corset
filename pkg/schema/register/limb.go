@@ -98,15 +98,13 @@ func CommonLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
 	var (
 		// Determine how many limbs required
 		n = NumberOfLimbs(maxRegisterWidth, registerWidth)
-		// Determine average limb width
-		width = registerWidth / n
 		//
-		acc = uint(1)
+		avgWidth = uint(1)
 	)
 	// Now, round up our average limb width to the nearest power of two.  This
 	// is because we "prefer" widths to be powers of two.
-	for ; acc < width; acc = acc * 2 {
+	for ; (avgWidth * n) < registerWidth; avgWidth = avgWidth * 2 {
 	}
 	//
-	return acc
+	return avgWidth
 }

@@ -92,13 +92,15 @@ func (p *MirPicusTranslator[F]) translateConstraint(c mir.Constraint[F],
 func (p *MirPicusTranslator[F]) translateRangeConstraint(r mir.RangeConstraint[F],
 	picusModule *pcl.Module[F], mirModule schema.Module[F],
 ) {
-	expr := p.lowerTerm(r.Expr, mirModule)
-	// 1. Get the `big.Int` representation of the max unisgned value for a given bitwidth.
-	// 2. Create a field element from the big integer.
-	// 3. Construct a PCL constant from the field element.
-	upperBound := pcl.C(field.BigInt[F](*MaxValueBig(int(r.Bitwidth))))
-	// Add (assert (<= `expr` `upperBound`))
-	picusModule.AddLeqConstraint(expr, upperBound)
+	for i, e := range r.Sources {
+		expr := p.lowerTerm(e, mirModule)
+		// 1. Get the `big.Int` representation of the max unisgned value for a given bitwidth.
+		// 2. Create a field element from the big integer.
+		// 3. Construct a PCL constant from the field element.
+		upperBound := pcl.C(field.BigInt[F](*MaxValueBig(int(r.Bitwidths[i]))))
+		// Add (assert (<= `expr` `upperBound`))
+		picusModule.AddLeqConstraint(expr, upperBound)
+	}
 }
 
 // translateVanishing translates an MIR vanishing constraint into one or more PCL constraints.

@@ -17,7 +17,6 @@ jobs:
         exclude:
           - { field: KOALABEAR_16, test: asm-bench }
           - { field: KOALABEAR_16, test: asm-racer }
-          - { field: KOALABEAR_16, test: corset-bench }
           - { field: KOALABEAR_16, test: corset-racer }
           - { field: KOALABEAR_16, test: unit-test }
           - { field: GF_8209,      test: asm-bench }

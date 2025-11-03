@@ -171,10 +171,10 @@ func (p *MirLowering) lowerPermutationConstraint(v PermutationConstraint, module
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
 func (p *MirLowering) lowerRangeConstraint(v RangeConstraint, module *mirModuleBuilder) {
-	var term = p.expandTerm(v.Expr, module)
+	var term = p.expandTerms(module, v.Sources...)
 	//
 	module.AddConstraint(
-		mir.NewRangeConstraint(v.Handle, v.Context, term, v.Bitwidth))
+		mir.NewRangeConstraint(v.Handle, v.Context, term, v.Bitwidths))
 }
 
 // Lower an interleaving constraint to the MIR level.  Since interleaving
@@ -221,7 +221,7 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 	//
 	if vec.HasSelector() {
 		sel := p.expandTerm(vec.Selector.Unwrap(), module)
-		selector = util.Some[*mirRegisterAccess](sel)
+		selector = util.Some(sel)
 	}
 	//
 	return lookup.NewVector(vec.Module, selector, terms...)
@@ -238,7 +238,7 @@ func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, module *mirModul
 	//
 	if c.Selector.HasValue() {
 		sel := p.expandTerm(c.Selector.Unwrap(), module)
-		selector = util.Some[*mirRegisterAccess](sel)
+		selector = util.Some(sel)
 	}
 	// Add constraint
 	module.AddConstraint(

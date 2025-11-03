@@ -142,13 +142,13 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 	case PermutationConstraint[F1]:
 		return NewPermutationConstraint[F2](c.Handle, c.Context, c.Targets, c.Sources)
 	case RangeConstraint[F1]:
-		term := term.RawRegisterAccess[F2, Term[F2]](c.Expr.Register, c.Expr.Shift)
+		var terms = concretizeRegisterAccesses[F1, F2](c.Sources)
 		//
-		return NewRangeConstraint(c.Handle, c.Context, term, c.Bitwidth)
+		return NewRangeConstraint(c.Handle, c.Context, terms, c.Bitwidths)
 	case SortedConstraint[F1]:
 		var (
-			sources                                   = concretizeRegisterAccesses[F1, F2](c.Sources)
-			selector util.Option[*RegisterAccess[F2]] = util.None[*RegisterAccess[F2]]()
+			sources  = concretizeRegisterAccesses[F1, F2](c.Sources)
+			selector = util.None[*RegisterAccess[F2]]()
 		)
 		//
 		if c.Selector.HasValue() {
