@@ -333,6 +333,8 @@ var TESTFILE_EXTENSIONS []Config = []Config{
 	{"rejects.bz2", false, true, false, "", allOptLevels},
 	{"auto.rejects", false, true, false, "", allOptLevels},
 	{"bls12_377.rejects", false, true, false, "BLS12_377", allOptLevels},
+	{"expanded.koalabear_16.rejects", false, false, false, "KOALABEAR_16", defaultOptLevel},
+	{"expanded.gf_8209.rejects", false, false, false, "GF_8209", defaultOptLevel},
 	{"expanded.rejects", false, false, false, "BLS12_377", allOptLevels},
 	{"expanded.O1.rejects", false, false, false, "BLS12_377", defaultOptLevel},
 }
