@@ -15,6 +15,7 @@ package poly
 import (
 	"bytes"
 	"math/big"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -31,6 +32,11 @@ type Monomial[S util.Comparable[S]] struct {
 // NewMonomial constructs a new array term with a given coefficient and zero or
 // more variables.
 func NewMonomial[S util.Comparable[S]](coefficient big.Int, vars ...S) Monomial[S] {
+	// Clone incoming variables
+	vars = slices.Clone(vars)
+	// Sort incoming variables
+	sortVars(vars)
+	//
 	return Monomial[S]{coefficient, vars}
 }
 
@@ -128,11 +134,11 @@ func (p Monomial[S]) Neg() Monomial[S] {
 // Mul returns a fresh monomial representing the multiplication of this monomial
 // and another.
 func (p Monomial[S]) Mul(other Monomial[S]) Monomial[S] {
-	var res = p.Clone()
+	var res Monomial[S]
 	// Multiply coefficients
-	res.coefficient.Mul(&res.coefficient, &other.coefficient)
+	res.coefficient.Mul(&p.coefficient, &other.coefficient)
 	// Append variables
-	res.vars = append(res.vars, other.vars...)
+	res.vars = array.MergeSorted(p.vars, other.vars)
 	// Done
 	return res
 }
@@ -205,4 +211,10 @@ func (p Monomial[S]) String(env func(S) string) string {
 // Vars retursnt the variables of this monomial as an array.
 func (p Monomial[S]) Vars() []S {
 	return p.vars
+}
+
+func sortVars[S util.Comparable[S]](vars []S) {
+	slices.SortFunc(vars, func(a, b S) int {
+		return a.Cmp(b)
+	})
 }

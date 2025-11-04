@@ -366,3 +366,36 @@ func Map[S, T any](items []S, mapping func(uint, S) T) []T {
 	//
 	return nitems
 }
+
+// MergeSorted combines two sorted arrays whilst maintaining the sorted
+// invariant.  You can think of this as first appending the second array to the
+// first, then sorting the result.  In fact, it uses a merge sort which is
+// slightly more efficient than resorting from scratch.
+func MergeSorted[S Comparable[S]](lhs []S, rhs []S) []S {
+	var (
+		result    = make([]S, len(lhs)+len(rhs))
+		li, ri, i int
+	)
+	//
+	for li < len(lhs) && ri < len(rhs) {
+		var (
+			lth = lhs[li]
+			rth = rhs[ri]
+		)
+		//
+		if c := lth.Cmp(rth); c <= 0 {
+			result[i] = lth
+			li++
+		} else {
+			result[i] = rth
+			ri++
+		}
+		//
+		i++
+	}
+	// Include any stragglers
+	copy(result[i:], lhs[li:])
+	copy(result[i:], rhs[ri:])
+	// Done
+	return result
+}
