@@ -46,6 +46,10 @@ func Test_PolyStruct_2xxpxpy(t *testing.T) {
 	checkEquiv(t, "(2*x*x)+x+y", "x+(2*x*x)+y", "x+y+(2*x*x)")
 }
 
+func Test_PolyStruct_3(t *testing.T) {
+	checkEquiv(t, "((256*x1)+x0) * (((256*x1)+x0) - 1)", "((x0*x0)+(512*x0*x1)+(65536*x1*x1))-x0-(256*x1)")
+}
+
 // =========================================================================================
 
 func checkEquiv(t *testing.T, terms ...string) {

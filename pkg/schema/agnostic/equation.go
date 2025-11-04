@@ -101,9 +101,6 @@ func (p *Equation) Split(field field.Config, env RegisterAllocator) (eqs []Equat
 	var (
 		bp = p.Balance()
 	)
-	//
-	// fmt.Printf("BANDWIDTH: %d\n", bandwidth)
-	// fmt.Printf("EQUATION: %s\n", p.String(env))
 	// Check whether any splitting required
 	if bp.Width(env) > field.BandWidth {
 		// Yes!
