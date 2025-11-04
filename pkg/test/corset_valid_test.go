@@ -50,8 +50,7 @@ func Test_Valid_Basic_06(t *testing.T) {
 }
 
 func Test_Valid_Basic_07(t *testing.T) {
-	// FIXME: GF_8209 [#1266]
-	util.CheckCorset(t, false, "corset/valid/basic_07", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/basic_07", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Basic_08(t *testing.T) {
@@ -94,8 +93,7 @@ func Test_Valid_Constant_02(t *testing.T) {
 }
 
 func Test_Valid_Constant_03(t *testing.T) {
-	// FIXME: GF_8209 [#1266]
-	util.CheckCorset(t, false, "corset/valid/constant_03", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/constant_03", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Constant_04(t *testing.T) {
@@ -143,8 +141,7 @@ func Test_Valid_Constant_14(t *testing.T) {
 }
 
 func Test_Valid_Constant_15(t *testing.T) {
-	// FIXME: GF_8209 [#1266]
-	util.CheckCorset(t, false, "corset/valid/constant_15", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/constant_15", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Constant_16(t *testing.T) {
@@ -1195,7 +1192,7 @@ func Test_Valid_Let_05(t *testing.T) {
 }
 
 func Test_Valid_Let_06(t *testing.T) {
-	// FIXME: GF_8209 [#1266]
+	// FIXME: GF_8209 [???]
 	util.CheckCorset(t, false, "corset/valid/let_06", field.BLS12_377, field.KOALABEAR_16)
 }
 

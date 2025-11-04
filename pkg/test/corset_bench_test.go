@@ -102,7 +102,7 @@ func Test_Bench_Shf(t *testing.T) {
 
 func Test_Bench_Euc(t *testing.T) {
 	// FIXME: KOALABEAR_16 [PERF]
-	util.CheckCorset(t, true, "corset/bench/euc", field.BLS12_377)
+	util.CheckCorset(t, true, "corset/bench/euc", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_Bench_Oob(t *testing.T) {
