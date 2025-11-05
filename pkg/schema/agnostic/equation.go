@@ -79,17 +79,30 @@ func (p *Equation) Width(mapping register.Map) uint {
 }
 
 func (p *Equation) String(mapping register.Map) string {
-	var builder strings.Builder
+	var (
+		builder strings.Builder
+		env     = EnvironmentFromMap(mapping)
+		// Determine lhs width
+		lhs, lSign = WidthOfPolynomial(p.LeftHandSide, env)
+		// Determine rhs width
+		rhs, rSign = WidthOfPolynomial(p.RightHandSide, env)
+		//
+		width = fmt.Sprintf("%d", max(lhs, rhs))
+	)
+	// Sanity check
+	if lSign || rSign {
+		width = "?"
+	}
 	//
 	builder.WriteString("[")
 	// Write left-hand side
-	builder.WriteString(poly2string(p.LeftHandSide, mapping))
+	builder.WriteString(Poly2String(p.LeftHandSide, mapping))
 	//
 	builder.WriteString(" == ")
 	// write right-hand side
-	builder.WriteString(poly2string(p.RightHandSide, mapping))
+	builder.WriteString(Poly2String(p.RightHandSide, mapping))
 	//
-	builder.WriteString(fmt.Sprintf("]^%d", p.Width(mapping)))
+	builder.WriteString(fmt.Sprintf("]^%s", width))
 	//
 	return builder.String()
 }
@@ -435,9 +448,21 @@ func balancePolynomial(poly RelativePolynomial) (pos, neg RelativePolynomial) {
 	return pos, neg
 }
 
-// Convenient helper function
-func poly2string(p RelativePolynomial, env register.Map) string {
+// Poly2String provides a convenient helper function for debugging polynomials.
+func Poly2String(p RelativePolynomial, env register.Map) string {
 	return poly.String(p, func(r register.RelativeId) string {
-		return env.Register(r.Id()).Name
+		var (
+			name  = env.Register(r.Id()).Name
+			shift = r.Shift()
+		)
+		//
+		switch {
+		case shift == 0:
+			return fmt.Sprintf("%s[i]", name)
+		case shift > 0:
+			return fmt.Sprintf("%s[i+%d]", name, shift)
+		default:
+			return fmt.Sprintf("%s[i%d]", name, shift)
+		}
 	})
 }

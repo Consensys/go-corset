@@ -16,11 +16,12 @@ import (
 	"bytes"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
 // Polynomial represents a sum of terms of a type T of variables.
-type Polynomial[S comparable, T Term[S, T], P any] interface {
+type Polynomial[S util.Comparable[S], T Term[S, T], P any] interface {
 	// Len returns the number of terms in this polynomial.
 	Len() uint
 
@@ -53,7 +54,7 @@ type Polynomial[S comparable, T Term[S, T], P any] interface {
 }
 
 // Eval evaluates a given polynomial with a given environment (i.e. mapping of variables to values)
-func Eval[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) big.Int) *big.Int {
+func Eval[S util.Comparable[S], T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) big.Int) *big.Int {
 	val := big.NewInt(0)
 	// Sum evaluated terms
 	for i := uint(0); i < poly.Len(); i++ {
@@ -64,7 +65,7 @@ func Eval[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S)
 	return val
 }
 
-func evalTerm[S comparable, T Term[S, T]](term T, env func(S) big.Int) *big.Int {
+func evalTerm[S util.Comparable[S], T Term[S, T]](term T, env func(S) big.Int) *big.Int {
 	var (
 		acc   big.Int
 		coeff big.Int = term.Coefficient()
@@ -82,7 +83,7 @@ func evalTerm[S comparable, T Term[S, T]](term T, env func(S) big.Int) *big.Int 
 
 // String constructs a suitable string representation for a given polynomial
 // assuming an environment which maps identifiers to strings.
-func String[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) string) string {
+func String[S util.Comparable[S], T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) string) string {
 	var buf bytes.Buffer
 	//
 	if poly.Len() == 0 {
@@ -134,7 +135,7 @@ var one = big.NewInt(1)
 
 // Lisp constructs a suitable lisp representation for a given polynomial
 // assuming an environment which maps identifiers to strings.
-func Lisp[S comparable, T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) string) sexp.SExp {
+func Lisp[S util.Comparable[S], T Term[S, T], P Polynomial[S, T, P]](poly P, env func(S) string) sexp.SExp {
 	var terms []sexp.SExp
 	//
 	terms = append(terms, sexp.NewSymbol("+"))
