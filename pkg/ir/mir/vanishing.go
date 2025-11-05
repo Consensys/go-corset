@@ -24,6 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// EXPLODING_MULTIPLIER determines the multipler to use for logging "exploding"
+// constraints.  This is essentially an aid to debugging.
+var EXPLODING_MULTIPLIER = uint(10)
+
 // Subdivide implementation for the FieldAgnostic interface.
 func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping module.LimbsMap,
 	env agnostic.RegisterAllocator) VanishingConstraint[F] {
@@ -40,7 +44,7 @@ func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping mo
 		multiplier = float64(m) / float64(n)
 	)
 	// Check for any exploding constraints
-	if multiplier > 5 {
+	if multiplier > float64(EXPLODING_MULTIPLIER) {
 		multiplier := fmt.Sprintf("%.2f", multiplier)
 		log.Debug("exploding (x", multiplier, ") constraint \"", p.Handle, "\" in module \"", modmap.Name(), "\" detected.")
 	}
