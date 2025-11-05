@@ -271,6 +271,10 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 		}
 	}
 	//
+	fmt.Printf("===============================================\n")
+	fmt.Printf("REGISTER WIDTH: %d\n", regWidth)
+	fmt.Printf("===============================================\n")
+	//
 	for iter := vars.Iter(); iter.HasNext(); {
 		// Identify variable to split
 		var (
@@ -278,16 +282,50 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 			constraint Equation
 		)
 		// Split the variable
-		p, constraint = splitVariable(v, regWidth, p, mapping)
+		constraint = splitVariable(v, regWidth, mapping)
 		// Include constraint needed to enforce split
 		constraints = append(constraints, constraint)
 	}
 	//
+	fmt.Printf("POLYNOMIAL: %s\n", poly2string(p, mapping))
+	//
+	p = SubstitutePolynomial(p, splitVariableMapper(rid, limbs, limbWidths))
+	//
 	return p, constraints
 }
 
-func splitVariable(rid register.Id, bitwidth uint, p RelativePolynomial,
-	mapping RegisterAllocator) (RelativePolynomial, Equation) {
+type VariableSplitter struct {
+	// Allocator used for allocating limbs
+	mapping RegisterAllocator
+	// Bitwidth to split variables
+	width uint
+	// Holds limbs for all split variables
+	limbs [][]register.Id
+	// Holds limb widths for all split variables
+	limbWidths [][]uint
+	// Accumulate constraints
+	constraints []Equation
+}
+
+func NewVariableSplitter(mapping RegisterAllocator, bitwidth uint) VariableSplitter {
+	return VariableSplitter{mapping, bitwidth, nil, nil, nil}
+}
+
+func (p *VariableSplitter) SplitVariables(variables bit.Set) {
+	for iter := vars.Iter(); iter.HasNext(); {
+		// Identify variable to split
+		var (
+			v          = register.NewId(iter.Next())
+			constraint Equation
+		)
+		// Split the variable
+		constraint = splitVariable(v, regWidth, mapping)
+		// Include constraint needed to enforce split
+		constraints = append(constraints, constraint)
+	}
+}
+
+func splitVariable(rid register.Id, bitwidth uint, mapping RegisterAllocator) Equation {
 	//
 	var (
 		reg = mapping.Register(rid)
@@ -302,17 +340,25 @@ func splitVariable(rid register.Id, bitwidth uint, p RelativePolynomial,
 	limbs := mapping.AllocateWithN(reg.Name, filler, limbWidths...)
 	// Construct constraint connecting reg and limbs
 	lhs = lhs.Set(poly.NewMonomial(one, rid.Shift(0)))
-	constraint := NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
-	// Substitute through polynomial
-	return SubstitutePolynomial(p, splitVariableMapper(rid, limbs, limbWidths)), constraint
+	// Done
+	return NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
 }
 
 func splitVariableMapper(reg register.Id, limbs []register.Id, limbWidths []uint,
 ) func(register.RelativeId) RelativePolynomial {
+	var cache [16]RelativePolynomial
 	//
 	return func(v register.RelativeId) RelativePolynomial {
 		if v.Id() == reg {
-			return buildSplitPolynomial(v.Shift(), limbs, limbWidths)
+			var index = v.Shift() + 8
+			//
+			if index < 0 || index >= len(cache) {
+				return buildSplitPolynomial(v.Shift(), limbs, limbWidths)
+			} else if cache[index] == nil {
+				cache[index] = buildSplitPolynomial(v.Shift(), limbs, limbWidths)
+			}
+			//
+			return cache[index]
 		}
 		//
 		return nil
