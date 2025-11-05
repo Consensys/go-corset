@@ -168,10 +168,7 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) []Equa
 			right, rightEqs = splitNonLinearTerms(chunkWidth, field, p.RightHandSide, mapping)
 		)
 		// Attempt to chunk polynomials
-		fmt.Printf("Chunking left-hand side ...\n")
 		lhs, lhsChunked = chunkPolynomial(left, chunkWidths, field, mapping)
-
-		fmt.Printf("Chunking right-hand side ...\n")
 		rhs, rhsChunked = chunkPolynomial(right, chunkWidths, field, mapping)
 		//
 		if lhsChunked && rhsChunked {
@@ -271,8 +268,6 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 			}
 		}
 	}
-	//
-	fmt.Printf("Splitting %d variables into limbs of width %d\n", len(mapping.Registers()), regWidth)
 	// Split all variables according to the given register width.
 	constraints := splitter.SplitVariables(vars)
 	// Substitute through the given polynomial
@@ -290,12 +285,10 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 		chunks []RelativePolynomial
 	)
 	// Subdivide polynomial into chunks
-	for i, chunkWidth := range chunkWidths {
+	for _, chunkWidth := range chunkWidths {
 		var remainder RelativePolynomial
 		// Chunk the polynomials
-		p, remainder = dividePolynomial(p, chunkWidth)
-		//
-		fmt.Printf("Chunking[%d] = %d / %d\n", i, remainder.Len(), p.Len())
+		p, remainder = p.Subdivide(chunkWidth)
 		// Include remainder as chunk
 		chunks = append(chunks, remainder)
 	}
@@ -308,7 +301,6 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 		)
 		// Calculate overflow from ith chunk (if any)
 		if ithWidth > field.BandWidth {
-			fmt.Printf("Failed on chunk %d (u%d versus u%d): %s\n", i, ithWidth, field.BandWidth, poly2string(chunks[i], mapping))
 			// This arises when a given term of the polynomial being chunked
 			// cannot be safely evaluated within the given bandwidth (i.e.
 			// cannot be evaluated without overflow).  To resolve this
@@ -332,41 +324,6 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 	}
 	//
 	return chunks, true
-}
-
-// For a given bitwidth n, divide a polynomial by 2^n produces a quotient and
-// remainder.  For example, dividing 256*x1+x0 by 2^8 gives x1 remainder x0.
-// This algorithm is somehow akin to "shifting" a polynomial downwards.  For
-// example, consider our example again:
-//
-//	 15             8 7               0
-//	+----------------+-----------------+
-//	|     2^8*x1     |        x0       |
-//	+----------------+-----------------+
-//
-// Then, shifting this down by 8bits gives:
-//
-//	                  7               0
-//	                 +-----------------+
-//	>>>>>>>>>>>>>>>> |        x1       |
-//	                 +-----------------+
-//
-// And we are left with a remainder as well.
-func dividePolynomial(poly RelativePolynomial, n uint) (RelativePolynomial, RelativePolynomial) {
-	var (
-		quotient, remainder RelativePolynomial
-		quotients           []RelativeMonomial
-		remainders          []RelativeMonomial
-	)
-	//
-	for i := range poly.Len() {
-		quot, rem := divideMonomial(poly.Term(i), n)
-		//
-		quotients = append(quotients, quot)
-		remainders = append(remainders, rem)
-	}
-	//
-	return quotient.Set(quotients...), remainder.Set(remainders...)
 }
 
 // Split a polynomial into its positive and negative components.

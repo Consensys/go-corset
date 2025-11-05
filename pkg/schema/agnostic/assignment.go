@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -314,7 +313,7 @@ func (p *Assignment) initialiseSplit(env register.Map) []Assignment {
 		// Identify target register
 		i, offset := identifyEnclosingRegister(p.LeftHandSide, next.Coefficient(), env)
 		// Divide monomial by bit offset
-		next, rest := divideMonomial(next, offset)
+		next, rest := next.Subdivide(offset)
 		// Check wether division was exact
 		if !rest.IsZero() {
 			// No, therefore some remainder must still be processed
@@ -502,28 +501,6 @@ func coalesce(last bool, assignments []Assignment, carry StaticPolynomial,
 	}
 	// Resolve overflow by allocating carry as required.
 	return assign.Link(env)
-}
-
-// Divide a given monomial m by some value 2^n.  The division maybe exact, in
-// which case the remainder will be zero.  For example, dividing 7x by 3 gives
-// 2x (val) + x (rem).
-func divideMonomial[T util.Comparable[T]](m Monomial[T], n uint) (val Monomial[T], rem Monomial[T]) {
-	var (
-		coeff     = m.Coefficient()
-		nPow2     = math.Pow2(n)
-		quotient  big.Int
-		remainder big.Int
-	)
-	// sanity check division by zero!
-	if n == 0 {
-		return m, rem
-	}
-	// Determine quotient and remainder
-	quotient.Div(&coeff, nPow2)
-	remainder.Mod(&coeff, nPow2)
-	// Done
-	return poly.NewMonomial(quotient, m.Vars()...),
-		poly.NewMonomial(remainder, m.Vars()...)
 }
 
 // withinBitRange checks whether a given integer value it contained within a

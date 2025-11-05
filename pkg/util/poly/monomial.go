@@ -168,6 +168,20 @@ func (p Monomial[S]) Matches(other Monomial[S]) bool {
 	return true
 }
 
+// Subdivide this polynomial according a given bitwidth.
+func (p Monomial[S]) Subdivide(n uint) (quot Monomial[S], rem Monomial[S]) {
+	var (
+		coeff               = p.coefficient
+		quotient, remainder big.Int
+	)
+	// Determine quotient and remainder
+	quotient.Rsh(&coeff, n)
+	remainder.Lsh(&quotient, n)
+	remainder.Sub(&coeff, &remainder)
+	// Done
+	return Monomial[S]{quotient, p.vars}, Monomial[S]{remainder, p.vars}
+}
+
 // String constructs a suitable string representation for a given polynomial
 // assuming an environment which maps identifiers to strings.
 func (p Monomial[S]) String(env func(S) string) string {
