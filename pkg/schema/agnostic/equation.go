@@ -16,13 +16,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Equation provides a generic notion of an equation between two polynomials.
@@ -170,7 +168,10 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) []Equa
 			right, rightEqs = splitNonLinearTerms(chunkWidth, field, p.RightHandSide, mapping)
 		)
 		// Attempt to chunk polynomials
+		fmt.Printf("Chunking left-hand side ...\n")
 		lhs, lhsChunked = chunkPolynomial(left, chunkWidths, field, mapping)
+
+		fmt.Printf("Chunking right-hand side ...\n")
 		rhs, rhsChunked = chunkPolynomial(right, chunkWidths, field, mapping)
 		//
 		if lhsChunked && rhsChunked {
@@ -249,9 +250,9 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 	mapping RegisterAllocator) (RelativePolynomial, []Equation) {
 	//
 	var (
-		env         = EnvironmentFromMap(mapping)
-		constraints []Equation
-		vars        bit.Set
+		env      = EnvironmentFromMap(mapping)
+		splitter = NewVariableSplitter(mapping, regWidth)
+		vars     bit.Set
 	)
 	//
 	for i := range p.Len() {
@@ -271,116 +272,11 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 		}
 	}
 	//
-	fmt.Printf("===============================================\n")
-	fmt.Printf("REGISTER WIDTH: %d\n", regWidth)
-	fmt.Printf("===============================================\n")
-	//
-	for iter := vars.Iter(); iter.HasNext(); {
-		// Identify variable to split
-		var (
-			v          = register.NewId(iter.Next())
-			constraint Equation
-		)
-		// Split the variable
-		constraint = splitVariable(v, regWidth, mapping)
-		// Include constraint needed to enforce split
-		constraints = append(constraints, constraint)
-	}
-	//
-	fmt.Printf("POLYNOMIAL: %s\n", poly2string(p, mapping))
-	//
-	p = SubstitutePolynomial(p, splitVariableMapper(rid, limbs, limbWidths))
-	//
-	return p, constraints
-}
-
-type VariableSplitter struct {
-	// Allocator used for allocating limbs
-	mapping RegisterAllocator
-	// Bitwidth to split variables
-	width uint
-	// Holds limbs for all split variables
-	limbs [][]register.Id
-	// Holds limb widths for all split variables
-	limbWidths [][]uint
-	// Accumulate constraints
-	constraints []Equation
-}
-
-func NewVariableSplitter(mapping RegisterAllocator, bitwidth uint) VariableSplitter {
-	return VariableSplitter{mapping, bitwidth, nil, nil, nil}
-}
-
-func (p *VariableSplitter) SplitVariables(variables bit.Set) {
-	for iter := vars.Iter(); iter.HasNext(); {
-		// Identify variable to split
-		var (
-			v          = register.NewId(iter.Next())
-			constraint Equation
-		)
-		// Split the variable
-		constraint = splitVariable(v, regWidth, mapping)
-		// Include constraint needed to enforce split
-		constraints = append(constraints, constraint)
-	}
-}
-
-func splitVariable(rid register.Id, bitwidth uint, mapping RegisterAllocator) Equation {
-	//
-	var (
-		reg = mapping.Register(rid)
-		//
-		lhs RelativePolynomial
-		// Determine necessary widths
-		limbWidths = register.LimbWidths(bitwidth, reg.Width)
-		// Construct filler for limbs
-		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, 0)
-	)
-	// Allocate limbs with corresponding filler
-	limbs := mapping.AllocateWithN(reg.Name, filler, limbWidths...)
-	// Construct constraint connecting reg and limbs
-	lhs = lhs.Set(poly.NewMonomial(one, rid.Shift(0)))
-	// Done
-	return NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
-}
-
-func splitVariableMapper(reg register.Id, limbs []register.Id, limbWidths []uint,
-) func(register.RelativeId) RelativePolynomial {
-	var cache [16]RelativePolynomial
-	//
-	return func(v register.RelativeId) RelativePolynomial {
-		if v.Id() == reg {
-			var index = v.Shift() + 8
-			//
-			if index < 0 || index >= len(cache) {
-				return buildSplitPolynomial(v.Shift(), limbs, limbWidths)
-			} else if cache[index] == nil {
-				cache[index] = buildSplitPolynomial(v.Shift(), limbs, limbWidths)
-			}
-			//
-			return cache[index]
-		}
-		//
-		return nil
-	}
-}
-
-func buildSplitPolynomial(shift int, limbs []register.Id, widths []uint) (p RelativePolynomial) {
-	var (
-		terms    = make([]RelativeMonomial, len(limbs))
-		bitwidth uint
-	)
-	//
-	for i, limb := range limbs {
-		var (
-			c = math.Pow2(bitwidth)
-		)
-		//
-		terms[i] = poly.NewMonomial(*c, limb.Shift(shift))
-		bitwidth += widths[i]
-	}
-	//
-	return p.Set(terms...)
+	fmt.Printf("Splitting %d variables into limbs of width %d\n", len(mapping.Registers()), regWidth)
+	// Split all variables according to the given register width.
+	constraints := splitter.SplitVariables(vars)
+	// Substitute through the given polynomial
+	return splitter.Apply(p), constraints
 }
 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
@@ -394,10 +290,12 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 		chunks []RelativePolynomial
 	)
 	// Subdivide polynomial into chunks
-	for _, chunkWidth := range chunkWidths {
+	for i, chunkWidth := range chunkWidths {
 		var remainder RelativePolynomial
 		// Chunk the polynomials
 		p, remainder = dividePolynomial(p, chunkWidth)
+		//
+		fmt.Printf("Chunking[%d] = %d / %d\n", i, remainder.Len(), p.Len())
 		// Include remainder as chunk
 		chunks = append(chunks, remainder)
 	}
@@ -410,6 +308,7 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 		)
 		// Calculate overflow from ith chunk (if any)
 		if ithWidth > field.BandWidth {
+			fmt.Printf("Failed on chunk %d (u%d versus u%d): %s\n", i, ithWidth, field.BandWidth, poly2string(chunks[i], mapping))
 			// This arises when a given term of the polynomial being chunked
 			// cannot be safely evaluated within the given bandwidth (i.e.
 			// cannot be evaluated without overflow).  To resolve this

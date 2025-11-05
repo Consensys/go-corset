@@ -262,3 +262,24 @@ func SubstituteMonomial[T RegisterIdentifier[T]](t Monomial[T], mapping func(T) 
 	// No substitution required
 	return r
 }
+
+// LimbPolynomial constructs a polynomial representing the combined value of all
+// limbs according to their given bitwidths.  For example, given [l0, l1, l2]
+// with limbs widths [8,8,2] the resulting polynomial is: l0 + 2^8*l1 + 2^8*l2.
+func LimbPolynomial(shift int, limbs []register.Id, widths []uint) (p RelativePolynomial) {
+	var (
+		terms    = make([]RelativeMonomial, len(limbs))
+		bitwidth uint
+	)
+	//
+	for i, limb := range limbs {
+		var (
+			c = math.Pow2(bitwidth)
+		)
+		//
+		terms[i] = poly.NewMonomial(*c, limb.Shift(shift))
+		bitwidth += widths[i]
+	}
+	//
+	return p.Set(terms...)
+}
