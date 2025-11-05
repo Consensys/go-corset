@@ -70,7 +70,7 @@ type Polynomial[S util.Comparable[S], T Term[S, T], P any] interface {
 	//	                 +-----------------+
 	//
 	// And we are left with a remainder as well.
-	Subdivide(n uint) (quot P, rem P)
+	Shr(n uint) (quot P, rem P)
 }
 
 // Eval evaluates a given polynomial with a given environment (i.e. mapping of variables to values)

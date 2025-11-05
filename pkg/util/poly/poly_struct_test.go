@@ -50,9 +50,47 @@ func Test_PolyStruct_3(t *testing.T) {
 	checkEquiv(t, "((256*x1)+x0) * (((256*x1)+x0) - 1)", "((x0*x0)+(512*x0*x1)+(65536*x1*x1))-x0-(256*x1)")
 }
 
+func Test_Subdivide_1(t *testing.T) {
+	checkSubdivide(t, "(256*x)+y", 4, "(16*x)", "y")
+}
+func Test_Subdivide_2(t *testing.T) {
+	checkSubdivide(t, "((0-256)*x)+y", 4, "((0-16)*x)", "y")
+}
+func Test_Subdivide_3(t *testing.T) {
+	checkSubdivide(t, "(256*x)-y", 4, "(16*x)", "0-y")
+}
+
 // =========================================================================================
 
 func checkEquiv(t *testing.T, terms ...string) {
+	var (
+		ts = parseTerms(terms...)
+	)
+	//
+	for i := range len(ts) {
+		l, r := ts[0], ts[i]
+		// Check polynomials are equivalent
+		if !l.Equal(r) {
+			t.Errorf("polynomials not equivalent: %s vs %s", String(l, id), String(r, id))
+		}
+	}
+}
+
+func checkSubdivide(t *testing.T, term string, n uint, quot, rem string) {
+	terms := parseTerms(term, quot, rem)
+	//
+	q, r := terms[0].Shr(n)
+	// Check quotients
+	if !q.Equal(terms[1]) {
+		t.Errorf("quotients differ: %s vs %s", String(q, id), String(terms[1], id))
+	}
+	// Check remainders
+	if !r.Equal(terms[2]) {
+		t.Errorf("remainders differ: %s vs %s", String(r, id), String(terms[2], id))
+	}
+}
+
+func parseTerms(terms ...string) []*ArrayPoly[Var] {
 	var (
 		ts   = make([]*ArrayPoly[Var], len(terms))
 		errs []source.SyntaxError
@@ -64,13 +102,7 @@ func checkEquiv(t *testing.T, terms ...string) {
 		}
 	}
 	//
-	for i := range len(ts) {
-		l, r := ts[0], ts[i]
-		// Check polynomials are equivalent
-		if !l.Equal(r) {
-			t.Errorf("polynomials not equivalent: %s vs %s", String(l, id), String(r, id))
-		}
-	}
+	return ts
 }
 
 func id(x Var) string {

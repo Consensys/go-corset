@@ -313,7 +313,7 @@ func (p *Assignment) initialiseSplit(env register.Map) []Assignment {
 		// Identify target register
 		i, offset := identifyEnclosingRegister(p.LeftHandSide, next.Coefficient(), env)
 		// Divide monomial by bit offset
-		next, rest := next.Subdivide(offset)
+		next, rest := next.Shr(offset)
 		// Check wether division was exact
 		if !rest.IsZero() {
 			// No, therefore some remainder must still be processed

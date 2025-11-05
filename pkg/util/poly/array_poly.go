@@ -208,8 +208,8 @@ func (p *ArrayPoly[S]) SubTerm(other Monomial[S]) {
 	}
 }
 
-// Subdivide this polynomial according a given bitwidth.
-func (p *ArrayPoly[S]) Subdivide(n uint) (*ArrayPoly[S], *ArrayPoly[S]) {
+// Shr performs a "shift right" operation on this polynomial.
+func (p *ArrayPoly[S]) Shr(n uint) (*ArrayPoly[S], *ArrayPoly[S]) {
 	var (
 		quotients  []Monomial[S]
 		remainders []Monomial[S]
@@ -218,7 +218,7 @@ func (p *ArrayPoly[S]) Subdivide(n uint) (*ArrayPoly[S], *ArrayPoly[S]) {
 	for i := range p.Len() {
 		var ith = p.Term(i)
 		// Divide coefficient by bitwidth using shifts for efficiency.
-		quot, rem := ith.Subdivide(n)
+		quot, rem := ith.Shr(n)
 		//
 		if !quot.IsZero() {
 			quotients = append(quotients, quot)

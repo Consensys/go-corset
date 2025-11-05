@@ -288,7 +288,7 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 	for _, chunkWidth := range chunkWidths {
 		var remainder RelativePolynomial
 		// Chunk the polynomials
-		p, remainder = p.Subdivide(chunkWidth)
+		p, remainder = p.Shr(chunkWidth)
 		// Include remainder as chunk
 		chunks = append(chunks, remainder)
 	}
