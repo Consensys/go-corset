@@ -13,13 +13,14 @@
 package mir
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/math"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -42,7 +43,7 @@ func termToPolynomial[F field.Element[F]](term Term[F], mapping register.Map) Po
 	case *Constant[F]:
 		return termConstantToPolynomial(t.Value, mapping)
 	case *RegisterAccess[F]:
-		return termRegAccessToPolynomial(*t, mapping)
+		return termRegAccessToPolynomial(*t)
 	case *Mul[F]:
 		return termMulToPolynomial(*t, mapping)
 	case *Sub[F]:
@@ -97,9 +98,9 @@ func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping register.Map) 
 	return result
 }
 
-func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mapping register.Map) Polynomial {
+func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F]) Polynomial {
 	var (
-		identifier = term.Register.Shift(term.Shift)
+		identifier = term.Register().Shift(term.Shift())
 		monomial   = poly.NewMonomial(biONE, identifier)
 		result     Polynomial
 	)
@@ -130,18 +131,24 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping
 	)
 	//
 	for i, v := range term.Vars {
-		ith := termRegAccessToPolynomial(*v, mapping)
+		var (
+			ith = termRegAccessToPolynomial(*v)
+		)
+		// Sanity check (for now)
+		if v.Bitwidth() != math.MaxUint {
+			panic("todo: irregular vector access")
+		}
 		// Add to poly
 		if i == 0 {
 			result = ith
 		} else {
 			// Shift ith term
-			ith = ith.MulScalar(math.Pow2(shift))
+			ith = ith.MulScalar(util_math.Pow2(shift))
 			// Add ith term
 			result = result.Add(ith)
 		}
 		// Increase shift
-		shift += mapping.Register(v.Register).Width
+		shift += mapping.Register(v.Register()).Width
 	}
 	// Done
 	return result

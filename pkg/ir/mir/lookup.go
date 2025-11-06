@@ -14,6 +14,7 @@ package mir
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -175,7 +176,11 @@ func padLookupLimb[F field.Element[F]](i uint, term *VectorAccess[F], geometry l
 	)
 	// Sanity check
 	for i, t := range term.Vars {
-		bitwidth := mapping.Limb(t.Register).Width
+		if t.Bitwidth() != math.MaxUint {
+			panic("todo")
+		}
+		//
+		bitwidth := mapping.Limb(t.Register()).Width
 		// Sanity check for irregular lookups
 		if i != n && bitwidth > widths[i] {
 			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, widths[i]))

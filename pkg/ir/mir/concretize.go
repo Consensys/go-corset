@@ -253,7 +253,7 @@ func concretizeTerm[F1 Element[F1], F2 Element[F2]](t Term[F1]) Term[F2] {
 		// NOTE: could fail if  F1 value does not fit into F2 value.
 		return term.Const[F2, Term[F2]](tmp.SetBytes(t.Value.Bytes()))
 	case *RegisterAccess[F1]:
-		return term.NewRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
+		return concretizeRegisterAccess[F1, F2](t)
 	case *Mul[F1]:
 		return term.Product(concretizeTerms[F1, F2](t.Args)...)
 	case *Sub[F1]:
@@ -291,14 +291,14 @@ func concretizeVectorAccess[F1 Element[F1], F2 Element[F2]](expr *VectorAccess[F
 }
 
 func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](expr *RegisterAccess[F1]) *RegisterAccess[F2] {
-	return term.RawRegisterAccess[F2, Term[F2]](expr.Register, expr.Shift)
+	return term.NarrowRegisterAccess[F2, Term[F2]](expr.Register(), expr.Bitwidth(), expr.Shift())
 }
 
 func concretizeRegisterAccesses[F1 Element[F1], F2 Element[F2]](exprs []*RegisterAccess[F1]) []*RegisterAccess[F2] {
 	var nterms = make([]*RegisterAccess[F2], len(exprs))
 	//
 	for i, t := range exprs {
-		nterms[i] = term.RawRegisterAccess[F2, Term[F2]](t.Register, t.Shift)
+		nterms[i] = term.NarrowRegisterAccess[F2, Term[F2]](t.Register(), t.Bitwidth(), t.Shift())
 	}
 	//
 	return nterms

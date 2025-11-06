@@ -190,7 +190,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 		// Add appropriate type constraint
 		constraint := hir.NewRangeConstraint(reg.Name(),
 			mod.Id(),
-			mod.RegisterAccessOf(reg.Name(), 0),
+			mod.RegisterAccessOf(reg.Name(), math.MaxUint, 0),
 			reg.Bitwidth)
 		//
 		mod.AddConstraint(constraint)
@@ -555,7 +555,7 @@ func (t *translator) translateDefInterleaved(decl *ast.DefInterleaved, path file
 		ith, errs := t.registerOfRegisterAccess(source, 0)
 		//
 		if len(errs) == 0 {
-			sources[i] = register.NewRefs(srcModule.Id(), ith.Register)
+			sources[i] = register.NewRefs(srcModule.Id(), ith.Register())
 			sourceTerms[i] = ith
 		}
 		//
@@ -1096,7 +1096,7 @@ func (t *translator) registerOf(path *file.Path, shift int) *hir.RegisterAccess 
 	// Lookup corresponding module builder
 	module := t.moduleOf(reg.Context)
 	//
-	return module.RegisterAccessOf(reg.Name(), shift)
+	return module.RegisterAccessOf(reg.Name(), reg.Bitwidth, shift)
 }
 
 // Map columns to appropriate module register identifiers.
@@ -1148,7 +1148,7 @@ func determineMaxBitwidth(module *ModuleBuilder, sources []hir.Term) uint {
 		// Determine bitwidth of nth term
 		switch e := e.(type) {
 		case *term.RegisterAccess[word.BigEndian, hir.Term]:
-			reg := module.Register(e.Register)
+			reg := module.Register(e.Register())
 			//
 			if reg.Width > bitwidth {
 				bitwidth = reg.Width

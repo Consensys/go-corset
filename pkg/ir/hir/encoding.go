@@ -18,6 +18,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -847,11 +848,15 @@ func encode_vec_access(term VectorAccess, buf *bytes.Buffer) error {
 
 func encode_raw_access(term *RegisterAccess, buf *bytes.Buffer) error {
 	// Register Index
-	if err := binary.Write(buf, binary.BigEndian, uint16(term.Register.Unwrap())); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, uint16(term.Register().Unwrap())); err != nil {
+		return err
+	}
+	// Bitwidth
+	if err := binary.Write(buf, binary.BigEndian, uint16(term.Bitwidth())); err != nil {
 		return err
 	}
 	// Shift
-	if err := binary.Write(buf, binary.BigEndian, int16(term.Shift)); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, int16(term.Shift())); err != nil {
 		return err
 	}
 	//
@@ -1029,11 +1034,16 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 
 func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
 	var (
-		index uint16
-		shift int16
+		index    uint16
+		bitwidth uint16
+		shift    int16
 	)
 	// Register index
 	if err := binary.Read(buf, binary.BigEndian, &index); err != nil {
+		return nil, err
+	}
+	// Register bitwidth
+	if err := binary.Read(buf, binary.BigEndian, &bitwidth); err != nil {
 		return nil, err
 	}
 	// Register shift
@@ -1041,9 +1051,16 @@ func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
 		return nil, err
 	}
 	// Construct raw register id
-	rid := register.NewId(uint(index))
+	var (
+		rid        = register.NewId(uint(index))
+		width uint = uint(bitwidth)
+	)
+	// Handle upscaling unbounded width
+	if bitwidth == math.MaxUint16 {
+		width = math.MaxUint
+	}
 	// Done
-	return &term.RegisterAccess[word.BigEndian, Term]{Register: rid, Shift: int(shift)}, nil
+	return term.NarrowRegisterAccess[word.BigEndian, Term](rid, width, int(shift)), nil
 }
 
 func decode_vec_access(buf *bytes.Buffer) (Term, error) {

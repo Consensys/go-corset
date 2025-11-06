@@ -15,6 +15,7 @@ package term
 import (
 	"encoding/gob"
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -67,7 +68,7 @@ func NewComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Expr
 		arg := NewComputation[F, S, T](t.Arg)
 		return Normalise(arg)
 	case *RegisterAccess[F, T]:
-		return NewRegisterAccess[F, Computation[F]](t.Register, t.Shift)
+		return NarrowRegisterAccess[F, Computation[F]](t.Register(), t.Bitwidth(), t.Shift())
 	case *Sub[F, T]:
 		args := NewComputations[F, S](t.Args)
 		return Subtract(args...)
@@ -75,7 +76,7 @@ func NewComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Expr
 		var nterms = make([]*RegisterAccess[F, Computation[F]], len(t.Vars))
 		//
 		for i, v := range t.Vars {
-			nterms[i] = RawRegisterAccess[F, Computation[F]](v.Register, v.Shift)
+			nterms[i] = NarrowRegisterAccess[F, Computation[F]](v.Register(), v.Bitwidth(), v.Shift())
 		}
 		//
 		return NewVectorAccess(nterms)
@@ -216,8 +217,12 @@ func subdivideRegAccesses[F field.Element[F]](mapping register.LimbsMap, regs ..
 	var nterms []*RegisterAccess[F, Computation[F]]
 	//
 	for _, v := range regs {
-		for _, limb := range mapping.LimbIds(v.Register) {
-			nterms = append(nterms, RawRegisterAccess[F, Computation[F]](limb, v.Shift))
+		if v.Bitwidth() != math.MaxUint {
+			panic("todo")
+		}
+		//
+		for _, limb := range mapping.LimbIds(v.Register()) {
+			nterms = append(nterms, RawRegisterAccess[F, Computation[F]](limb, v.Shift()))
 		}
 	}
 	// Simplify (when possible)
