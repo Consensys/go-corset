@@ -168,6 +168,32 @@ func (p Monomial[S]) Matches(other Monomial[S]) bool {
 	return true
 }
 
+// Shr performs a "shift right" on this monomial.
+func (p Monomial[S]) Shr(n uint) (quot Monomial[S], rem Monomial[S]) {
+	var (
+		coeff               big.Int
+		quotient, remainder big.Int
+		neg                 = p.coefficient.Sign() < 0
+	)
+	// Handle negative values
+	if neg {
+		coeff.Abs(&p.coefficient)
+	} else {
+		coeff = p.coefficient
+	}
+	// Determine quotient and remainder
+	quotient.Rsh(&coeff, n)
+	remainder.Lsh(&quotient, n)
+	remainder.Sub(&coeff, &remainder)
+	// Handle negative values
+	if neg {
+		quotient.Neg(&quotient)
+		remainder.Neg(&remainder)
+	}
+	// Done
+	return Monomial[S]{quotient, p.vars}, Monomial[S]{remainder, p.vars}
+}
+
 // String constructs a suitable string representation for a given polynomial
 // assuming an environment which maps identifiers to strings.
 func (p Monomial[S]) String(env func(S) string) string {

@@ -16,13 +16,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Equation provides a generic notion of an equation between two polynomials.
@@ -249,9 +247,9 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 	mapping RegisterAllocator) (RelativePolynomial, []Equation) {
 	//
 	var (
-		env         = EnvironmentFromMap(mapping)
-		constraints []Equation
-		vars        bit.Set
+		env      = EnvironmentFromMap(mapping)
+		splitter = NewVariableSplitter(mapping, regWidth)
+		vars     bit.Set
 	)
 	//
 	for i := range p.Len() {
@@ -270,71 +268,10 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 			}
 		}
 	}
-	//
-	for iter := vars.Iter(); iter.HasNext(); {
-		// Identify variable to split
-		var (
-			v          = register.NewId(iter.Next())
-			constraint Equation
-		)
-		// Split the variable
-		p, constraint = splitVariable(v, regWidth, p, mapping)
-		// Include constraint needed to enforce split
-		constraints = append(constraints, constraint)
-	}
-	//
-	return p, constraints
-}
-
-func splitVariable(rid register.Id, bitwidth uint, p RelativePolynomial,
-	mapping RegisterAllocator) (RelativePolynomial, Equation) {
-	//
-	var (
-		reg = mapping.Register(rid)
-		//
-		lhs RelativePolynomial
-		// Determine necessary widths
-		limbWidths = register.LimbWidths(bitwidth, reg.Width)
-		// Construct filler for limbs
-		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, 0)
-	)
-	// Allocate limbs with corresponding filler
-	limbs := mapping.AllocateWithN(reg.Name, filler, limbWidths...)
-	// Construct constraint connecting reg and limbs
-	lhs = lhs.Set(poly.NewMonomial(one, rid.Shift(0)))
-	constraint := NewEquation(lhs, buildSplitPolynomial(0, limbs, limbWidths))
-	// Substitute through polynomial
-	return SubstitutePolynomial(p, splitVariableMapper(rid, limbs, limbWidths)), constraint
-}
-
-func splitVariableMapper(reg register.Id, limbs []register.Id, limbWidths []uint,
-) func(register.RelativeId) RelativePolynomial {
-	//
-	return func(v register.RelativeId) RelativePolynomial {
-		if v.Id() == reg {
-			return buildSplitPolynomial(v.Shift(), limbs, limbWidths)
-		}
-		//
-		return nil
-	}
-}
-
-func buildSplitPolynomial(shift int, limbs []register.Id, widths []uint) (p RelativePolynomial) {
-	var (
-		terms    = make([]RelativeMonomial, len(limbs))
-		bitwidth uint
-	)
-	//
-	for i, limb := range limbs {
-		var (
-			c = math.Pow2(bitwidth)
-		)
-		//
-		terms[i] = poly.NewMonomial(*c, limb.Shift(shift))
-		bitwidth += widths[i]
-	}
-	//
-	return p.Set(terms...)
+	// Split all variables according to the given register width.
+	constraints := splitter.SplitVariables(vars)
+	// Substitute through the given polynomial
+	return splitter.Apply(p), constraints
 }
 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
@@ -351,7 +288,7 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 	for _, chunkWidth := range chunkWidths {
 		var remainder RelativePolynomial
 		// Chunk the polynomials
-		p, remainder = dividePolynomial(p, chunkWidth)
+		p, remainder = p.Shr(chunkWidth)
 		// Include remainder as chunk
 		chunks = append(chunks, remainder)
 	}
@@ -387,41 +324,6 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 	}
 	//
 	return chunks, true
-}
-
-// For a given bitwidth n, divide a polynomial by 2^n produces a quotient and
-// remainder.  For example, dividing 256*x1+x0 by 2^8 gives x1 remainder x0.
-// This algorithm is somehow akin to "shifting" a polynomial downwards.  For
-// example, consider our example again:
-//
-//	 15             8 7               0
-//	+----------------+-----------------+
-//	|     2^8*x1     |        x0       |
-//	+----------------+-----------------+
-//
-// Then, shifting this down by 8bits gives:
-//
-//	                  7               0
-//	                 +-----------------+
-//	>>>>>>>>>>>>>>>> |        x1       |
-//	                 +-----------------+
-//
-// And we are left with a remainder as well.
-func dividePolynomial(poly RelativePolynomial, n uint) (RelativePolynomial, RelativePolynomial) {
-	var (
-		quotient, remainder RelativePolynomial
-		quotients           []RelativeMonomial
-		remainders          []RelativeMonomial
-	)
-	//
-	for i := range poly.Len() {
-		quot, rem := divideMonomial(poly.Term(i), n)
-		//
-		quotients = append(quotients, quot)
-		remainders = append(remainders, rem)
-	}
-	//
-	return quotient.Set(quotients...), remainder.Set(remainders...)
 }
 
 // Split a polynomial into its positive and negative components.

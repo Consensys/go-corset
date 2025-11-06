@@ -91,6 +91,8 @@ func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnostic
 		fmt.Printf("unknown field \"%s\"\n", fieldName)
 		os.Exit(3)
 	}
+	// Manage exploding multiplier
+	mir.EXPLODING_MULTIPLIER = GetUint(cmd, "exploding-multiplier")
 	// Find command to dispatch
 	for _, c := range cmds {
 		if c.Field == *config {
@@ -232,4 +234,6 @@ func init() {
 	rootCmd.PersistentFlags().UintP("batch", "b", 1024, "specify batch size for constraint checking")
 	// Misc
 	rootCmd.PersistentFlags().StringArrayP("set", "S", []string{}, "set value of externalised constant.")
+	rootCmd.PersistentFlags().Uint("exploding-multiplier", 10,
+		"set threshold above which constraints are logged as exploding.")
 }

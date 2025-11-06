@@ -13,13 +13,20 @@
 package mir
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
+	log "github.com/sirupsen/logrus"
 )
+
+// EXPLODING_MULTIPLIER determines the multipler to use for logging "exploding"
+// constraints.  This is essentially an aid to debugging.
+var EXPLODING_MULTIPLIER = uint(10)
 
 // Subdivide implementation for the FieldAgnostic interface.
 func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping module.LimbsMap,
@@ -29,7 +36,18 @@ func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping mo
 		modmap = mapping.Module(p.Context)
 		// Split all registers occurring in the logical term.
 		c = splitLogicalTerm(p.Constraint, modmap, env)
+		// Determine size of original tree
+		n = sizeOfTree(p.Constraint, modmap)
+		// Determine size of split tree
+		m = sizeOfTree(c, env)
+		//
+		multiplier = float64(m) / float64(n)
 	)
+	// Check for any exploding constraints
+	if multiplier > float64(EXPLODING_MULTIPLIER) {
+		multiplier := fmt.Sprintf("%.2f", multiplier)
+		log.Debug("exploding (x", multiplier, ") constraint \"", p.Handle, "\" in module \"", modmap.Name(), "\" detected.")
+	}
 	// FIXME: this is an insufficient solution because it does not address the
 	// potential issues around bandwidth.  Specifically, where additional carry
 	// lines are needed, etc.
@@ -115,4 +133,43 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping regi
 	}
 	//
 	return term.Disjunction(terms...)
+}
+
+func sizeOfTree[F field.Element[F]](term LogicalTerm[F], mapping register.Map) uint {
+	switch t := term.(type) {
+	case *Conjunct[F]:
+		return sizeOfTrees(t.Args, mapping)
+	case *Disjunct[F]:
+		return sizeOfTrees(t.Args, mapping)
+	case *Equal[F]:
+		return 1
+	case *Ite[F]:
+		size := sizeOfTree(t.Condition, mapping)
+		//
+		if t.TrueBranch != nil {
+			size += sizeOfTree(t.TrueBranch, mapping)
+		}
+		//
+		if t.FalseBranch != nil {
+			size += sizeOfTree(t.FalseBranch, mapping)
+		}
+		//
+		return size
+	case *Negate[F]:
+		return sizeOfTree(t.Arg, mapping)
+	case *NotEqual[F]:
+		return 1
+	default:
+		panic("unknown logical term encountered")
+	}
+}
+
+func sizeOfTrees[F field.Element[F]](terms []LogicalTerm[F], mapping register.Map) uint {
+	var size uint
+	//
+	for _, term := range terms {
+		size += sizeOfTree(term, mapping)
+	}
+	//
+	return size
 }
