@@ -14,12 +14,13 @@ package agnostic
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/math"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -28,13 +29,13 @@ import (
 // coefficient.
 type Equation struct {
 	// Left hand side.
-	LeftHandSide RelativePolynomial
+	LeftHandSide DynamicPolynomial
 	// Right hand side.
-	RightHandSide RelativePolynomial
+	RightHandSide DynamicPolynomial
 }
 
 // NewEquation simply constructs a new equation.
-func NewEquation(lhs RelativePolynomial, rhs RelativePolynomial) Equation {
+func NewEquation(lhs DynamicPolynomial, rhs DynamicPolynomial) Equation {
 	return Equation{lhs, rhs}
 }
 
@@ -150,7 +151,7 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) []Equa
 		// Record initial number of registers
 		n = uint(len(mapping.Registers()))
 		// Determine the bitwidth of each chunk
-		lhs, rhs []RelativePolynomial
+		lhs, rhs []DynamicPolynomial
 		// Equations being constructed
 		equations []Equation
 		// Current chunk width
@@ -243,8 +244,8 @@ func (p *Equation) determineChunkBitwidths(maxWidth uint, mapping RegisterAlloca
 	return chunks
 }
 
-func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial,
-	mapping RegisterAllocator) (RelativePolynomial, []Equation) {
+func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
+	mapping RegisterAllocator) (DynamicPolynomial, []Equation) {
 	//
 	var (
 		env      = EnvironmentFromMap(mapping)
@@ -277,16 +278,16 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p RelativePolynomial
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
 // determined by the chunk widths.  This inserts carry lines as needed to ensure
 // correctness.
-func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Config,
-	mapping RegisterAllocator) ([]RelativePolynomial, bool) {
+func chunkPolynomial(p DynamicPolynomial, chunkWidths []uint, field field.Config,
+	mapping RegisterAllocator) ([]DynamicPolynomial, bool) {
 	//
 	var (
 		env    = EnvironmentFromMap(mapping)
-		chunks []RelativePolynomial
+		chunks []DynamicPolynomial
 	)
 	// Subdivide polynomial into chunks
 	for _, chunkWidth := range chunkWidths {
-		var remainder RelativePolynomial
+		var remainder DynamicPolynomial
 		// Chunk the polynomials
 		p, remainder = p.Shr(chunkWidth)
 		// Include remainder as chunk
@@ -295,7 +296,7 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 	// Add carry lines as necessary
 	for i := 0; i < len(chunks); i++ {
 		var (
-			carry, borrow RelativePolynomial
+			carry, borrow DynamicPolynomial
 			ithWidth, _   = WidthOfPolynomial(chunks[i], env)
 			chunkWidth    = chunkWidths[i]
 		)
@@ -306,7 +307,7 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 			// cannot be evaluated without overflow).  To resolve this
 			// situation, we need to further subdivide one or more registers to
 			// reduce the maximum bandwidth required for any particular term.
-			return []RelativePolynomial{chunks[i]}, false
+			return []DynamicPolynomial{chunks[i]}, false
 		} else if (i+1) != len(chunks) && ithWidth > chunkWidth {
 			var (
 				// Construct filler for carry register
@@ -314,12 +315,12 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 				// Allocate carry register
 				carryReg = mapping.AllocateWith("c", ithWidth-chunkWidth, filler)
 				// Calculate amount to shift carry
-				chunkShift = math.Pow2(chunkWidth)
+				chunkShift = util_math.Pow2(chunkWidth)
 			)
 			// Subtract carry from this chunk
-			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg.Shift(0))))
+			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg.AccessOf(math.MaxUint, 0))))
 			// Add carry to next chunk
-			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg.Shift(0))))
+			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg.AccessOf(math.MaxUint, 0))))
 		}
 	}
 	//
@@ -327,14 +328,14 @@ func chunkPolynomial(p RelativePolynomial, chunkWidths []uint, field field.Confi
 }
 
 // Split a polynomial into its positive and negative components.
-func balancePolynomial(poly RelativePolynomial) (pos, neg RelativePolynomial) {
+func balancePolynomial(poly DynamicPolynomial) (pos, neg DynamicPolynomial) {
 	// Set both sides to zero
 	pos = pos.Set()
 	neg = neg.Set()
 	//
 	for i := range poly.Len() {
 		var (
-			tmp RelativePolynomial
+			tmp DynamicPolynomial
 			ith = poly.Term(i)
 		)
 		//
@@ -351,8 +352,8 @@ func balancePolynomial(poly RelativePolynomial) (pos, neg RelativePolynomial) {
 }
 
 // Poly2String provides a convenient helper function for debugging polynomials.
-func Poly2String(p RelativePolynomial, env register.Map) string {
-	return poly.String(p, func(r register.RelativeId) string {
+func Poly2String(p DynamicPolynomial, env register.Map) string {
+	return poly.String(p, func(r register.AccessId) string {
 		var (
 			name  = env.Register(r.Id()).Name
 			shift = r.Shift()

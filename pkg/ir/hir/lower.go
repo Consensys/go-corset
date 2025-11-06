@@ -358,7 +358,7 @@ func (p *MirLowering) expandTerms(mirModule *mirModuleBuilder, es ...Term) (term
 func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.RegisterAccess[word.BigEndian] {
 	// Check whether this really requires expansion (or not).
 	if ca, ok := e.(*RegisterAccess); ok {
-		// No, expansion is not required
+		// No, expansion not required
 		return term.NarrowRegisterAccess[word.BigEndian, mirTerm](ca.Register(), ca.Bitwidth(), ca.Shift())
 	}
 	// Yes, expansion is really necessary

@@ -13,8 +13,6 @@
 package term
 
 import (
-	"math"
-
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -125,12 +123,8 @@ func (p *VectorAccess[F, T]) ValueRange(mapping register.Map) util_math.Interval
 	var width = uint(0)
 	// Determine total bitwidth of the vector
 	for _, arg := range p.Vars {
-		if arg.Bitwidth() != math.MaxUint {
-			panic("todo")
-		}
-		//
 		ith_width := mapping.Register(arg.Register()).Width
-		width += ith_width
+		width += min(arg.Bitwidth(), ith_width)
 	}
 	//
 	return valueRangeOfBits(width)

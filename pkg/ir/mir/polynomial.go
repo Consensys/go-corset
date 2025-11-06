@@ -13,7 +13,6 @@
 package mir
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
@@ -29,7 +28,7 @@ var (
 )
 
 // Polynomial provides a useful alias
-type Polynomial = agnostic.RelativePolynomial
+type Polynomial = agnostic.DynamicPolynomial
 
 // ============================================================================
 // Term => Polynomial
@@ -77,7 +76,7 @@ func termConstantToPolynomial[F field.Element[F]](constant F, mapping register.M
 		value  big.Int
 	)
 	value.SetBytes(constant.Bytes())
-	monomial := poly.NewMonomial[register.RelativeId](value)
+	monomial := poly.NewMonomial[register.AccessId](value)
 	//
 	return result.Set(monomial)
 }
@@ -100,7 +99,7 @@ func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping register.Map) 
 
 func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F]) Polynomial {
 	var (
-		identifier = term.Register().Shift(term.Shift())
+		identifier = term.Register().AccessOf(term.Bitwidth(), term.Shift())
 		monomial   = poly.NewMonomial(biONE, identifier)
 		result     Polynomial
 	)
@@ -132,12 +131,10 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping
 	//
 	for i, v := range term.Vars {
 		var (
-			ith = termRegAccessToPolynomial(*v)
+			reg      = mapping.Register(v.Register())
+			regWidth = min(reg.Width, v.Bitwidth())
+			ith      = termRegAccessToPolynomial(*v)
 		)
-		// Sanity check (for now)
-		if v.Bitwidth() != math.MaxUint {
-			panic("todo: irregular vector access")
-		}
 		// Add to poly
 		if i == 0 {
 			result = ith
@@ -148,7 +145,7 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping
 			result = result.Add(ith)
 		}
 		// Increase shift
-		shift += mapping.Register(v.Register()).Width
+		shift += regWidth
 	}
 	// Done
 	return result
@@ -182,7 +179,7 @@ func polynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
 	return term.Sum(pos...)
 }
 
-func monomialToTerm[F field.Element[F]](monomial agnostic.RelativeMonomial) Term[F] {
+func monomialToTerm[F field.Element[F]](monomial agnostic.DynamicMonomial) Term[F] {
 	var (
 		terms = make([]Term[F], monomial.Len()+1)
 		tmp   = monomial.Coefficient()
@@ -193,7 +190,7 @@ func monomialToTerm[F field.Element[F]](monomial agnostic.RelativeMonomial) Term
 	//
 	for i := range monomial.Len() {
 		ith := monomial.Nth(i)
-		terms[i+1] = term.NewRegisterAccess[F, Term[F]](ith.Id(), ith.Shift())
+		terms[i+1] = term.NarrowRegisterAccess[F, Term[F]](ith.Id(), ith.Bitwidth(), ith.Shift())
 	}
 	//
 	return term.Product(terms...)

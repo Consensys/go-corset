@@ -13,6 +13,7 @@
 package agnostic
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
@@ -100,7 +101,7 @@ func (p *VariableSplitter) SplitVariable(rid register.Id) Equation {
 	var (
 		reg = p.mapping.Register(rid)
 		//
-		lhs RelativePolynomial
+		lhs DynamicPolynomial
 		// Determine necessary widths
 		limbWidths = register.LimbWidths(p.bitwidth, reg.Width)
 		// Construct filler for limbs
@@ -109,18 +110,18 @@ func (p *VariableSplitter) SplitVariable(rid register.Id) Equation {
 	// Allocate limbs with corresponding filler
 	limbs := p.allocate(rid, filler, limbWidths)
 	// Construct constraint connecting reg and limbs
-	lhs = lhs.Set(poly.NewMonomial(one, rid.Shift(0)))
+	lhs = lhs.Set(poly.NewMonomial(one, rid.AccessOf(math.MaxUint, 0)))
 	// Done
-	return NewEquation(lhs, LimbPolynomial(0, limbs, limbWidths))
+	return NewEquation(lhs, LimbPolynomial(math.MaxUint, 0, limbs, limbWidths))
 }
 
 // Apply the splitting to a given polynomial by substituting through all split
 // variables for their allocated limbs, whilst leaving all others untouched.
-func (p *VariableSplitter) Apply(poly RelativePolynomial) RelativePolynomial {
+func (p *VariableSplitter) Apply(poly DynamicPolynomial) DynamicPolynomial {
 	// Construct cache
-	var cache = make(map[register.RelativeId]RelativePolynomial, 0)
+	var cache = make(map[register.AccessId]DynamicPolynomial, 0)
 	//
-	return SubstitutePolynomial(poly, func(reg register.RelativeId) RelativePolynomial {
+	return SubstitutePolynomial(poly, func(reg register.AccessId) DynamicPolynomial {
 		var index = reg.Unwrap()
 		// Check whether variable is split, or not.
 		if index < uint(len(p.limbs)) && p.limbs[index] != nil {
@@ -130,7 +131,7 @@ func (p *VariableSplitter) Apply(poly RelativePolynomial) RelativePolynomial {
 				return rp
 			}
 			// No, so build and cache
-			rp := LimbPolynomial(reg.Shift(), p.limbs[index], p.limbWidths[index])
+			rp := LimbPolynomial(reg.Bitwidth(), reg.Shift(), p.limbs[index], p.limbWidths[index])
 			// Cache result
 			cache[reg] = rp
 			// Done

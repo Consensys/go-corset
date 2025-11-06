@@ -34,11 +34,11 @@ var _ Computation = &PolyFil{}
 // splitting.
 type PolyFil struct {
 	rshift uint
-	poly   RelativePolynomial
+	poly   DynamicPolynomial
 }
 
 // NewPolyFil constructs a new poly fil computation.
-func NewPolyFil(rshift uint, poly RelativePolynomial) *PolyFil {
+func NewPolyFil(rshift uint, poly DynamicPolynomial) *PolyFil {
 	return &PolyFil{rshift, poly}
 }
 
@@ -65,7 +65,7 @@ func (p *PolyFil) EvalAt(k int, tr trace.Module[word.BigEndian], sc register.Map
 
 // Lisp implementation for Lispifiable interface.
 func (p *PolyFil) Lisp(global bool, mapping register.Map) sexp.SExp {
-	body := poly.Lisp(p.poly, func(id register.RelativeId) string {
+	body := poly.Lisp(p.poly, func(id register.AccessId) string {
 		var name = mapping.Register(id.Id()).Name
 		//
 		if id.Shift() == 0 {
@@ -130,7 +130,7 @@ func (p *PolyFil) ValueRange(mapping register.Map) math.Interval {
 // ============================================================================
 
 // EvalPolynomial evaluates a given polynomial with a given environment (i.e. mapping of variables to values)
-func EvalPolynomial[F field.Element[F]](row uint, poly RelativePolynomial, mod trace.Module[F]) F {
+func EvalPolynomial[F field.Element[F]](row uint, poly DynamicPolynomial, mod trace.Module[F]) F {
 	var val F
 	// Sum evaluated terms
 	for i := uint(0); i < poly.Len(); i++ {
@@ -147,7 +147,7 @@ func EvalPolynomial[F field.Element[F]](row uint, poly RelativePolynomial, mod t
 }
 
 // EvalMonomial evaluates a given polynomial with a given environment (i.e. mapping of variables to values)
-func EvalMonomial[F field.Element[F]](row uint, term RelativeMonomial, mod trace.Module[F]) F {
+func EvalMonomial[F field.Element[F]](row uint, term DynamicMonomial, mod trace.Module[F]) F {
 	var (
 		acc   F
 		coeff big.Int = term.Coefficient()
@@ -169,7 +169,7 @@ func EvalMonomial[F field.Element[F]](row uint, term RelativeMonomial, mod trace
 }
 
 // BoundsForPolynomial determines the largest positive / negative shift for any variable in a given polynomial.
-func BoundsForPolynomial(p RelativePolynomial) util.Bounds {
+func BoundsForPolynomial(p DynamicPolynomial) util.Bounds {
 	var bounds util.Bounds
 	//
 	for i := range p.Len() {
@@ -181,7 +181,7 @@ func BoundsForPolynomial(p RelativePolynomial) util.Bounds {
 }
 
 // BoundsForMonomial determines the largest positive / negative shift for any variable in a given monomial
-func BoundsForMonomial(p RelativeMonomial) util.Bounds {
+func BoundsForMonomial(p DynamicMonomial) util.Bounds {
 	var bounds util.Bounds
 	//
 	for i := range p.Len() {
@@ -193,7 +193,7 @@ func BoundsForMonomial(p RelativeMonomial) util.Bounds {
 }
 
 // BoundsForRegister determines the largest positive / negative shift for any relative register access.
-func BoundsForRegister(p register.RelativeId) util.Bounds {
+func BoundsForRegister(p register.AccessId) util.Bounds {
 	if p.Shift() >= 0 {
 		// Positive shift
 		return util.NewBounds(0, uint(p.Shift()))

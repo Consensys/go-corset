@@ -137,10 +137,6 @@ func (p *RegisterAccess[F, T]) IsDefined() bool {
 // Lisp implementation for Lispifiable interface.
 func (p *RegisterAccess[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	var name string
-	//
-	if p.bitwidth != math.MaxUint {
-		panic("todo")
-	}
 	// Generate name, whilst allowing for schema to be nil.
 	if mapping != nil && global {
 		name = mapping.Register(p.register).QualifiedName(mapping)
@@ -154,16 +150,21 @@ func (p *RegisterAccess[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp
 		name = fmt.Sprintf("#%d", p.register)
 	}
 	//
-	access := sexp.NewSymbol(name)
+	var access sexp.SExp = sexp.NewSymbol(name)
 	// Check whether shifted (or not)
-	if p.shift == 0 {
-		// Not shifted
-		return access
+	if p.shift != 0 {
+		// Shifted
+		shift := sexp.NewSymbol(fmt.Sprintf("%d", p.shift))
+		//
+		access = sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
 	}
-	// Shifted
-	shift := sexp.NewSymbol(fmt.Sprintf("%d", p.shift))
-
-	return sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
+	//
+	if p.bitwidth != math.MaxUint {
+		tw := fmt.Sprintf("u%d", p.bitwidth)
+		access = sexp.NewList([]sexp.SExp{sexp.NewSymbol(tw), access})
+	}
+	//
+	return access
 }
 
 // RequiredRegisters implementation for Contextual interface.
@@ -204,14 +205,17 @@ func (p *RegisterAccess[F, T]) Substitute(mapping map[string]F) {
 
 // ValueRange implementation for Term interface.
 func (p *RegisterAccess[F, T]) ValueRange(mapping register.Map) util_math.Interval {
+	var (
+		width = mapping.Register(p.register).Width
+	)
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume
 	// all possible values of the underlying field element.
-	if p.bitwidth == math.MaxUint {
+	if width == math.MaxUint {
 		return util_math.INFINITY
 	}
 	//
-	return valueRangeOfBits(p.bitwidth)
+	return valueRangeOfBits(min(width, p.bitwidth))
 }
 
 func valueRangeOfBits(bitwidth uint) util_math.Interval {

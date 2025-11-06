@@ -14,7 +14,6 @@ package mir
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/ir"
@@ -282,11 +281,10 @@ func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airMo
 	)
 	//
 	for i, source := range c.Sources {
-		var ith_width = airModule.Register(source.Register()).Width
-		//
-		if source.Bitwidth() != math.MaxUint {
-			panic("todo")
-		}
+		var (
+			ith       = airModule.Register(source.Register())
+			ith_width = min(ith.Width, source.Bitwidth())
+		)
 		// Sanity check
 		if i < len(c.Signs) && ith_width > c.BitWidth {
 			msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", ith_width, c.BitWidth)
@@ -514,15 +512,21 @@ func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule *air.Mo
 	)
 	//
 	for i, v := range e.Vars {
-		if v.Bitwidth() != math.MaxUint {
-			panic("todo")
+		var (
+			limb      = airModule.Register(v.Register())
+			limbWidth = min(v.Bitwidth(), limb.Width)
+			ith       *air.ColumnAccess[F]
+		)
+		// Ensure limbwidth normalised
+		if limbWidth == limb.Width {
+			ith = term.RawRegisterAccess[F, air.Term[F]](v.Register(), v.Shift())
+		} else {
+			ith = term.NarrowRegisterAccess[F, air.Term[F]](v.Register(), limbWidth, v.Shift())
 		}
-		//
-		ith := term.RawRegisterAccess[F, air.Term[F]](v.Register(), v.Shift())
 		// Apply shift
 		terms[i] = term.Product(shiftTerm(ith, shift))
 		//
-		shift = shift + airModule.Register(v.Register()).Width
+		shift = shift + limbWidth
 	}
 	//
 	return term.Sum(terms...)

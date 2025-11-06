@@ -151,45 +151,56 @@ func (p ColumnId) IsUsed() bool {
 	return p.index != math.MaxUint
 }
 
-// Shift constructs a relative column identifier from this identifier by
-// including a relative shift.
-func (p ColumnId) Shift(shift int) RelativeColumnId {
-	return RelativeColumnId{p, shift}
+// AccessOf constructs a relative column identifier from this identifier by
+// including a bitwidth and relative shift.
+func (p ColumnId) AccessOf(bitwidth uint, shift int) ColumnAccessId {
+	//
+	return ColumnAccessId{p, bitwidth, shift}
 }
 
 // ============================================================================
-// RelativeColumnId
+// ColumnAccessId
 // ============================================================================
 
-// RelativeColumnId is a wrapper around a column Id which adds a "relative
-// shift".  That is, it identifies a column on a relative row from the given
-// row.
-type RelativeColumnId struct {
-	id    ColumnId
-	shift int
+// ColumnAccessId is a wrapper around a column Id which adds a "relative shift"
+// and a "bitwidth access".  That is, it identifies a column on a relative row
+// from the given row.  It also enables direct column casting.
+type ColumnAccessId struct {
+	id       ColumnId
+	bitwidth uint
+	shift    int
 }
 
 // Cmp implementation for the Comparable interface
-func (p RelativeColumnId) Cmp(o RelativeColumnId) int {
+func (p ColumnAccessId) Cmp(o ColumnAccessId) int {
 	if c := p.id.Cmp(o.id); c != 0 {
+		return c
+	} else if c := cmp.Compare(p.shift, o.shift); c != 0 {
 		return c
 	}
 	//
-	return cmp.Compare(p.shift, o.shift)
+	return cmp.Compare(p.bitwidth, o.bitwidth)
 }
 
 // Id returns returns the underlying register id.
-func (p RelativeColumnId) Id() ColumnId {
+func (p ColumnAccessId) Id() ColumnId {
 	return p.id
 }
 
+// Bitwidth returns the bitwidth of this access.  That is the portion of the
+// original column which is being read.  If this is math.MaxUint, then all of
+// the original column is being read.
+func (p ColumnAccessId) Bitwidth() uint {
+	return p.bitwidth
+}
+
 // Shift returns the relative shift for this register.
-func (p RelativeColumnId) Shift() int {
+func (p ColumnAccessId) Shift() int {
 	return p.shift
 }
 
 // Unwrap returns the underlying Column index.
-func (p RelativeColumnId) Unwrap() uint {
+func (p ColumnAccessId) Unwrap() uint {
 	return p.id.Unwrap()
 }
 

@@ -26,10 +26,10 @@ import (
 // splitting in general) operate.
 type Polynomial[T util.Comparable[T]] = *poly.ArrayPoly[T]
 
-// RelativePolynomial represents a polynomial over "relative registers".  That
+// DynamicPolynomial represents a polynomial over "relative registers".  That
 // is, it can refer to registers on the current row or on a row relative to the
 // current row (e.g. the next row, or the previous row, etc).
-type RelativePolynomial = Polynomial[RelativeId]
+type DynamicPolynomial = Polynomial[AccessId]
 
 // Allocator extends a register mapping with the ability to allocate new
 // registers as necessary.  This is useful, for example,  in the context of

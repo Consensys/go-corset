@@ -86,18 +86,18 @@ func subdivideRange[F field.Element[F]](c RangeConstraint[F], mapping module.Lim
 			bitwidth = c.Bitwidths[i]
 		)
 		// Include all registers
-		terms = append(terms, split.Vars...)
+		terms = append(terms, split...)
 		// Split bitwidths
-		for _, jth := range split.Vars {
-			jth_width := modmap.Limb(jth.Register()).Width
-			bitwidths = append(bitwidths, min(bitwidth, jth_width))
+		for _, jth := range split {
+			var (
+				limb      = modmap.Limb(jth.Register())
+				limbWidth = min(jth.Bitwidth(), limb.Width)
+			)
+
+			bitwidths = append(bitwidths, min(bitwidth, limbWidth))
 			//
-			if jth.Bitwidth() != math.MaxUint {
-				panic("todo")
-			}
-			//
-			if bitwidth >= jth_width {
-				bitwidth -= jth_width
+			if bitwidth >= limbWidth {
+				bitwidth -= limbWidth
 			} else {
 				bitwidth = 0
 			}
@@ -120,30 +120,30 @@ func subdivideSorted[F field.Element[F]](c SortedConstraint[F], mapping module.L
 	for i, source := range c.Sources {
 		var split = splitRawRegisterAccess(source, modmap)
 		// Append in reverse order to ensure most signicant limb comes first.
-		for j := len(split.Vars); j > 0; j-- {
-			jth := split.Vars[j-1]
+		for j := len(split); j > 0; j-- {
+			var (
+				jth       = split[j-1]
+				limbWidth = modmap.Limb(jth.Register()).Width
+			)
+			//
 			sources = append(sources, jth)
 			// Update sign (if applicable)
 			if i < len(c.Signs) {
 				signs = append(signs, c.Signs[i])
 			}
-			//
-			if jth.Bitwidth() != math.MaxUint {
-				panic("todo")
-			}
 			// Update bitwidth
-			bitwidth = max(bitwidth, modmap.Limb(jth.Register()).Width)
+			bitwidth = max(bitwidth, min(limbWidth, jth.Bitwidth()))
 		}
 	}
 	// Split optional selector
 	if c.Selector.HasValue() {
 		tmp := splitRawRegisterAccess(c.Selector.Unwrap(), modmap)
 		//
-		if len(tmp.Vars) != 1 {
-			panic(fmt.Sprintf("encountered irregular selectored with %d limbs.", len(tmp.Vars)))
+		if len(tmp) != 1 {
+			panic(fmt.Sprintf("encountered irregular selectored with %d limbs.", len(tmp)))
 		}
 		//
-		selector = util.Some(tmp.Vars[0])
+		selector = util.Some(tmp[0])
 	}
 	// Done
 	return sorted.NewConstraint(c.Handle, c.Context, bitwidth, selector, sources, signs, c.Strict)
@@ -180,21 +180,11 @@ func splitTerms[F field.Element[F]](terms []Term[F], mapping register.LimbsMap) 
 
 func splitRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping register.LimbsMap) Term[F] {
 	var (
-		// Determine limbs for this register
-		limbs = mapping.LimbIds(expr.Register())
 		// Construct appropriate terms
-		terms = make([]*RegisterAccess[F], len(limbs))
+		terms = splitRawRegisterAccess(expr, mapping)
 	)
-	//
-	if expr.Bitwidth() != math.MaxUint {
-		panic("TODO: irregular register access")
-	}
-	//
-	for i, limb := range limbs {
-		terms[i] = term.RawRegisterAccess[F, Term[F]](limb, expr.Shift())
-	}
 	// Check whether vector required, or not
-	if len(limbs) == 1 {
+	if len(terms) == 1 {
 		// NOTE: we cannot return the original term directly, as its index may
 		// differ under the limb mapping.
 		return terms[0]
@@ -219,14 +209,9 @@ func splitVectorAccess[F field.Element[F]](expr *VectorAccess[F], mapping regist
 	var terms []*RegisterAccess[F]
 	//
 	for _, v := range expr.Vars {
-		if v.Bitwidth() != math.MaxUint {
-			panic("TODO: irregular vector access")
-		}
+		var ith = splitRawRegisterAccess(v, mapping)
 		//
-		for _, limb := range mapping.LimbIds(v.Register()) {
-			term := term.RawRegisterAccess[F, Term[F]](limb, v.Shift())
-			terms = append(terms, term)
-		}
+		terms = append(terms, ith...)
 	}
 	//
 	return term.RawVectorAccess(terms)
@@ -239,30 +224,42 @@ func splitRawRegisterAccesses[F field.Element[F]](terms []*RegisterAccess[F], ma
 		vecs = make([]*VectorAccess[F], len(terms))
 	)
 	//
-	for i, term := range terms {
-		vecs[i] = splitRawRegisterAccess(term, mapping)
+	for i, t := range terms {
+		ith := splitRawRegisterAccess(t, mapping)
+		vecs[i] = term.RawVectorAccess(ith)
 	}
 	//
 	return vecs
 }
 
 func splitRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping register.LimbsMap,
-) *VectorAccess[F] {
+) []*RegisterAccess[F] {
 	//
 	var (
 		// Determine limbs for this register
 		limbs = mapping.LimbIds(expr.Register())
 		// Construct appropriate terms
-		terms = make([]*RegisterAccess[F], len(limbs))
+		terms []*RegisterAccess[F]
+		//
+		bitwidth = expr.Bitwidth()
 	)
 	//
-	if expr.Bitwidth() != math.MaxUint {
-		panic("TODO: irregular register access")
+	for _, limbId := range limbs {
+		var (
+			limb      = mapping.Limb(limbId)
+			limbWidth = min(bitwidth, limb.Width)
+		)
+		//
+		bitwidth -= limbWidth
+		// Normalise limb width
+		if limbWidth == limb.Width {
+			limbWidth = math.MaxUint
+		}
+		//
+		if limbWidth > 0 {
+			terms = append(terms, term.NarrowRegisterAccess[F, Term[F]](limbId, limbWidth, expr.Shift()))
+		}
 	}
 	//
-	for i, limb := range limbs {
-		terms[i] = term.RawRegisterAccess[F, Term[F]](limb, expr.Shift())
-	}
-	//
-	return term.RawVectorAccess(terms)
+	return terms
 }

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -60,7 +61,8 @@ func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, *RegisterAc
 		)
 		// Split selector
 		if vector.Selector.HasValue() {
-			selector = util.Some(splitRawRegisterAccess(vector.Selector.Unwrap(), modmap))
+			split := splitRawRegisterAccess(vector.Selector.Unwrap(), modmap)
+			selector = util.Some(term.RawVectorAccess(split))
 		}
 		// Done
 		nterms[i] = lookup.NewVector(vector.Module, selector, terms...)

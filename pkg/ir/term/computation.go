@@ -217,12 +217,23 @@ func subdivideRegAccesses[F field.Element[F]](mapping register.LimbsMap, regs ..
 	var nterms []*RegisterAccess[F, Computation[F]]
 	//
 	for _, v := range regs {
-		if v.Bitwidth() != math.MaxUint {
-			panic("todo")
-		}
+		var bitwidth = v.Bitwidth()
 		//
-		for _, limb := range mapping.LimbIds(v.Register()) {
-			nterms = append(nterms, RawRegisterAccess[F, Computation[F]](limb, v.Shift()))
+		for _, limbId := range mapping.LimbIds(v.Register()) {
+			var (
+				limb      = mapping.Limb(limbId)
+				limbWidth = min(limb.Width, bitwidth)
+			)
+			//
+			bitwidth -= limbWidth
+			// Normalise limbWidth
+			if limbWidth == limb.Width {
+				limbWidth = math.MaxUint
+			}
+			//
+			if limbWidth > 0 {
+				nterms = append(nterms, NarrowRegisterAccess[F, Computation[F]](limbId, limbWidth, v.Shift()))
+			}
 		}
 	}
 	// Simplify (when possible)
