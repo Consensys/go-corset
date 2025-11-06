@@ -13,6 +13,8 @@
 package term
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/big"
@@ -226,4 +228,68 @@ func valueRangeOfBits(bitwidth uint) util_math.Interval {
 	bound.Sub(bound, &biONE)
 	// Done
 	return util_math.NewInterval(biZERO, *bound)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// MarshalBinary converts the RegisterAccess into a sequence of bytes.
+func (p *RegisterAccess[F, T]) MarshalBinary() ([]byte, error) {
+	var buf bytes.Buffer
+	// Register Index
+	if err := binary.Write(&buf, binary.BigEndian, uint16(p.Register().Unwrap())); err != nil {
+		return nil, err
+	}
+	// Bitwidth
+	if err := binary.Write(&buf, binary.BigEndian, uint16(p.Bitwidth())); err != nil {
+		return nil, err
+	}
+	// Shift
+	if err := binary.Write(&buf, binary.BigEndian, int16(p.Shift())); err != nil {
+		return nil, err
+	}
+	//
+	return buf.Bytes(), nil
+}
+
+// UnmarshalBinary initialises this RegisterAccess from a given set of data
+// bytes. This should match exactly the encoding above.
+func (p *RegisterAccess[F, T]) UnmarshalBinary(data []byte) error {
+	return p.UnmarshalBuffer(bytes.NewBuffer(data))
+}
+
+// UnmarshalBuffer initialises this RegisterAccess from a given byte buffer.
+// This should match exactly the encoding above.
+func (p *RegisterAccess[F, T]) UnmarshalBuffer(buf *bytes.Buffer) error {
+	var (
+		index    uint16
+		bitwidth uint16
+		shift    int16
+	)
+	// Register index
+	if err := binary.Read(buf, binary.BigEndian, &index); err != nil {
+		return err
+	}
+	// Register bitwidth
+	if err := binary.Read(buf, binary.BigEndian, &bitwidth); err != nil {
+		return err
+	}
+	// Register shift
+	if err := binary.Read(buf, binary.BigEndian, &shift); err != nil {
+		return err
+	}
+	// Construct raw register id
+	var (
+		rid        = register.NewId(uint(index))
+		width uint = uint(bitwidth)
+	)
+	// Handle upscaling unbounded width
+	if bitwidth == math.MaxUint16 {
+		width = math.MaxUint
+	}
+	// Construct new register access
+	*p = *NarrowRegisterAccess[F, T](rid, width, int(shift))
+	// Done
+	return nil
 }

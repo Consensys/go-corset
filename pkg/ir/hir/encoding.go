@@ -18,12 +18,10 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
-	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -847,17 +845,14 @@ func encode_vec_access(term VectorAccess, buf *bytes.Buffer) error {
 }
 
 func encode_raw_access(term *RegisterAccess, buf *bytes.Buffer) error {
-	// Register Index
-	if err := binary.Write(buf, binary.BigEndian, uint16(term.Register().Unwrap())); err != nil {
+	var bytes, err = term.MarshalBinary()
+	//
+	if err != nil {
 		return err
-	}
-	// Bitwidth
-	if err := binary.Write(buf, binary.BigEndian, uint16(term.Bitwidth())); err != nil {
+	} else if n, err := buf.Write(bytes); err != nil {
 		return err
-	}
-	// Shift
-	if err := binary.Write(buf, binary.BigEndian, int16(term.Shift())); err != nil {
-		return err
+	} else if n != len(bytes) {
+		return fmt.Errorf("failed writing buffer (wrote only %d of %d bytes)", n, len(bytes))
 	}
 	//
 	return nil
@@ -1033,34 +1028,11 @@ func decode_labelled_constant(buf *bytes.Buffer) (Term, error) {
 }
 
 func decode_reg_access(buf *bytes.Buffer) (*RegisterAccess, error) {
-	var (
-		index    uint16
-		bitwidth uint16
-		shift    int16
-	)
-	// Register index
-	if err := binary.Read(buf, binary.BigEndian, &index); err != nil {
-		return nil, err
-	}
-	// Register bitwidth
-	if err := binary.Read(buf, binary.BigEndian, &bitwidth); err != nil {
-		return nil, err
-	}
-	// Register shift
-	if err := binary.Read(buf, binary.BigEndian, &shift); err != nil {
-		return nil, err
-	}
-	// Construct raw register id
-	var (
-		rid        = register.NewId(uint(index))
-		width uint = uint(bitwidth)
-	)
-	// Handle upscaling unbounded width
-	if bitwidth == math.MaxUint16 {
-		width = math.MaxUint
-	}
-	// Done
-	return term.NarrowRegisterAccess[word.BigEndian, Term](rid, width, int(shift)), nil
+	var term RegisterAccess
+	//
+	err := term.UnmarshalBuffer(buf)
+	//
+	return &term, err
 }
 
 func decode_vec_access(buf *bytes.Buffer) (Term, error) {
