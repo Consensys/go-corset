@@ -190,7 +190,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 		// Add appropriate type constraint
 		constraint := hir.NewRangeConstraint(reg.Name(),
 			mod.Id(),
-			mod.RegisterAccessOf(reg.Name(), math.MaxUint, 0),
+			mod.RegisterAccessOf(reg.Name(), 0),
 			reg.Bitwidth)
 		//
 		mod.AddConstraint(constraint)
@@ -274,8 +274,9 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 		// Determine direction of comptuation
 		direction = d.Target.InnerBinding().Kind != ast.COMPUTED_BWD
 		// Determine HIR identifier for target register
-		targetPath = path.Extend(d.Target.Name())
-		target     = t.registerIndexOf(targetPath)
+		targetPath            = path.Extend(d.Target.Name())
+		targetId              = t.registerIndexOf(targetPath)
+		targetAccess hir.Term = t.registerOf(targetPath, 0)
 		// Translate computation
 		computation, errors = t.translateExpression(d.Computation, module, 0)
 	)
@@ -284,11 +285,11 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 		return errors
 	}
 	// Calculate and update padding value
-	module.Registers()[target.Unwrap()].Padding = ir.PaddingFor(computation, module)
+	module.Registers()[targetId.Unwrap()].Padding = ir.PaddingFor(computation, module)
 	// Add assignment
 	module.AddAssignment(assignment.NewComputedRegister[word.BigEndian](
 		term.NewComputation[word.BigEndian, hir.LogicalTerm](computation), direction,
-		module.Id(), target))
+		module.Id(), targetId))
 	// Add constraint (defconstraint target == computation)
 	module.AddConstraint(hir.NewVanishingConstraint(
 		d.Target.Name(), module.Id(),
@@ -296,8 +297,7 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 		// rows).
 		util.None[int](),
 		//
-		term.Equals[word.BigEndian, hir.LogicalTerm](
-			term.NewRegisterAccess[word.BigEndian, hir.Term](target, 0), computation),
+		term.Equals[word.BigEndian, hir.LogicalTerm](targetAccess, computation),
 	))
 	// Done
 	return nil
@@ -1096,7 +1096,7 @@ func (t *translator) registerOf(path *file.Path, shift int) *hir.RegisterAccess 
 	// Lookup corresponding module builder
 	module := t.moduleOf(reg.Context)
 	//
-	return module.RegisterAccessOf(reg.Name(), reg.Bitwidth, shift)
+	return module.RegisterAccessOf(reg.Name(), shift)
 }
 
 // Map columns to appropriate module register identifiers.

@@ -13,7 +13,6 @@
 package agnostic
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
@@ -105,14 +104,14 @@ func (p *VariableSplitter) SplitVariable(rid register.Id) Equation {
 		// Determine necessary widths
 		limbWidths = register.LimbWidths(p.bitwidth, reg.Width)
 		// Construct filler for limbs
-		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, 0)
+		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, reg.Width, 0)
 	)
 	// Allocate limbs with corresponding filler
 	limbs := p.allocate(rid, filler, limbWidths)
 	// Construct constraint connecting reg and limbs
-	lhs = lhs.Set(poly.NewMonomial(one, rid.AccessOf(math.MaxUint, 0)))
+	lhs = lhs.Set(poly.NewMonomial(one, rid.AccessOf(reg.Width)))
 	// Done
-	return NewEquation(lhs, LimbPolynomial(math.MaxUint, 0, limbs, limbWidths))
+	return NewEquation(lhs, LimbPolynomial(reg.Width, 0, limbs, limbWidths))
 }
 
 // Apply the splitting to a given polynomial by substituting through all split
@@ -131,7 +130,7 @@ func (p *VariableSplitter) Apply(poly DynamicPolynomial) DynamicPolynomial {
 				return rp
 			}
 			// No, so build and cache
-			rp := LimbPolynomial(reg.Bitwidth(), reg.Shift(), p.limbs[index], p.limbWidths[index])
+			rp := LimbPolynomial(reg.MaskWidth(), reg.RelativeShift(), p.limbs[index], p.limbWidths[index])
 			// Cache result
 			cache[reg] = rp
 			// Done

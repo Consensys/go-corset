@@ -132,10 +132,10 @@ func (p *IfTerm) BitWidth(env register.Map) uint {
 
 // Equate returns a logical condition that constraints the target register to
 // hold the values represented by this term on each row.
-func (p *IfTerm) Equate(target register.Id) mir.LogicalTerm[word.BigEndian] {
+func (p *IfTerm) Equate(target register.Id, bitwidth uint) mir.LogicalTerm[word.BigEndian] {
 	var (
 		terms     = make([]mir.LogicalTerm[word.BigEndian], len(p.cases))
-		targetVar = term.NewRegisterAccess[word.BigEndian, mirTerm](target, 0)
+		targetVar = term.NewRegisterAccess[word.BigEndian, mirTerm](target, bitwidth, 0)
 	)
 	//
 	for i, c := range p.cases {

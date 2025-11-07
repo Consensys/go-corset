@@ -67,7 +67,7 @@ func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) 
 	for i := 1; err == nil && i < len(p.Vars); i++ {
 		var (
 			ith       F
-			ith_width = sc.Register(p.Vars[i].Register()).Width
+			ith_width = p.Vars[i].MaskWidth()
 		)
 		// Evaluate ith argument
 		ith, err = p.Vars[i].EvalAt(k, tr, sc)
@@ -119,12 +119,11 @@ func (p *VectorAccess[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *VectorAccess[F, T]) ValueRange(mapping register.Map) util_math.Interval {
+func (p *VectorAccess[F, T]) ValueRange(_ register.Map) util_math.Interval {
 	var width = uint(0)
 	// Determine total bitwidth of the vector
 	for _, arg := range p.Vars {
-		ith_width := mapping.Register(arg.Register()).Width
-		width += min(arg.Bitwidth(), ith_width)
+		width += arg.MaskWidth()
 	}
 	//
 	return valueRangeOfBits(width)

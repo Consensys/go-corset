@@ -46,6 +46,8 @@ type FunctionMapping[T any] struct {
 	registers []io.Register
 	// Underlying column ids for registers
 	columns []T
+	// With of program counter / return line
+	pcWidth, retWidth uint
 }
 
 // ColumnsOf returns the underlying column identifiers for a given set of zero
@@ -202,6 +204,9 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction) {
 		// Create return line
 		bus.columns = append(bus.columns,
 			module.NewColumn(register.COMPUTED_REGISTER, io.RET_NAME, 1, padding))
+		// Record widths for reference
+		bus.pcWidth = pcWidth
+		bus.retWidth = 1
 	}
 	//
 	p.buses[busId] = bus
@@ -221,16 +226,17 @@ func (p *Compiler[F, T, E, M]) initFunctionFraming(busId uint, fn MicroFunction)
 func (p *Compiler[F, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroFunction) Framing[T, E] {
 	var (
 		module = p.modules[busId]
+		bus    = p.buses[busId]
 		// allocate PC register
-		pc  = p.buses[busId].ProgramCounter()
-		ret = p.buses[busId].ReturnLine()
+		pc  = bus.ProgramCounter()
+		ret = bus.ReturnLine()
 	)
 	// NOTE: a key requirement for the following constraints is that they don't
 	// need an inverse computation for a shifted row (i.e. no spillage is
 	// required).  In fact, this is only true because of shift normalisation.
-	pc_i := Variable[T, E](pc, 0)
-	pc_im1 := Variable[T, E](pc, -1)
-	ret_i := Variable[T, E](ret, 0)
+	pc_i := Variable[T, E](pc, bus.pcWidth, 0)
+	pc_im1 := Variable[T, E](pc, bus.pcWidth, -1)
+	ret_i := Variable[T, E](ret, bus.retWidth, 0)
 	zero := Number[T, E](0)
 	one := Number[T, E](1)
 	// PC[i]==0 ==> RET[i]==0 (prevents lookup in padding)
@@ -245,7 +251,7 @@ func (p *Compiler[F, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroF
 	// Add constancies for all input registers (if applicable)
 	p.addInputConstancies(pc, busId, fn)
 	//
-	return NewMultiLineFraming[T, E](pc, ret)
+	return NewMultiLineFraming[T, E](pc, bus.pcWidth, ret, bus.retWidth)
 }
 
 // Add input constancies for the given function.  That is, constraints which
@@ -254,9 +260,9 @@ func (p *Compiler[F, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroF
 // states.
 func (p *Compiler[F, T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFunction) {
 	var (
-		Bus    = p.buses[busId]
+		bus    = p.buses[busId]
 		module = p.modules[busId]
-		pc_i   = Variable[T, E](pc, 0)
+		pc_i   = Variable[T, E](pc, bus.pcWidth, 0)
 		zero   = Number[T, E](0)
 		one    = Number[T, E](1)
 	)
@@ -264,8 +270,8 @@ func (p *Compiler[F, T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFun
 	for i, r := range fn.Registers() {
 		if r.IsInput() {
 			name := fmt.Sprintf("const_%s", r.Name)
-			reg_i := Variable[T, E](Bus.columns[i], 0)
-			reg_im1 := Variable[T, E](Bus.columns[i], -1)
+			reg_i := Variable[T, E](bus.columns[i], r.Width, 0)
+			reg_im1 := Variable[T, E](bus.columns[i], r.Width, -1)
 			//
 			module.NewConstraint(name, util.None[int](),
 				If(pc_i.NotEquals(zero), If(pc_i.NotEquals(one), reg_im1.Equals(reg_i))))
@@ -298,7 +304,7 @@ func (p *Compiler[F, T, E, M]) initBuses(caller uint, fn MicroFunction) bit.Set 
 			calleeEnable = util.Some(b.ReturnLine())
 		}
 		// Add lookup constraint
-		module.NewLookup(name, callerLines, bus.BusId, calleeBus, calleeEnable)
+		module.NewLookup(name, callerLines, p.modules[bus.BusId], calleeBus, calleeEnable)
 		// Mark caller address / data lines as io registers
 		for _, r := range bus.Address() {
 			ioRegisters.Insert(r.Unwrap())

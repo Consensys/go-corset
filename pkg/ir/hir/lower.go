@@ -359,7 +359,8 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 	// Check whether this really requires expansion (or not).
 	if ca, ok := e.(*RegisterAccess); ok {
 		// No, expansion not required
-		return term.NarrowRegisterAccess[word.BigEndian, mirTerm](ca.Register(), ca.Bitwidth(), ca.Shift())
+		return term.RawRegisterAccess[word.BigEndian, mirTerm](ca.Register(),
+			ca.BitWidth(), ca.RelativeShift()).Mask(ca.MaskWidth())
 	}
 	// Yes, expansion is really necessary
 	var (
@@ -383,13 +384,13 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 		module.AddAssignment(
 			assignment.NewComputedRegister[word.BigEndian](computation, true, module.Id(), index))
 		// Construct v == [e]
-		eq_e_v := expr.Equate(index)
+		eq_e_v := expr.Equate(index, bitwidth)
 		// Ensure v == e, where v is value of computed column.
 		module.AddConstraint(
 			mir.NewVanishingConstraint(name, module.Id(), util.None[int](), eq_e_v))
 	}
 	// FIXME: eventually we just want to return the index
-	return term.RawRegisterAccess[word.BigEndian, mirTerm](index, 0)
+	return term.RawRegisterAccess[word.BigEndian, mirTerm](index, bitwidth, 0)
 }
 
 // Lower a given HIR expression into one or more "conditional" MIR expressions.
@@ -425,13 +426,18 @@ func (p *MirLowering) lowerTerm(e Term, mirModule *mirModuleBuilder) IfTerm {
 		return p.lowerTerms(fn, mirModule, e.Args...)
 	case *Cast:
 		if r, ok := e.Arg.(*RegisterAccess); ok {
+			var (
+				reg = mirModule.Register(r.Register())
+			)
 			// Sanity check cast makes sense
-			if mirModule.Register(r.Register()).Width < e.BitWidth {
+			if reg.Width < e.BitWidth {
 				// TODO: provide a proper error message
 				panic("cast out-of-bounds")
 			}
-			//
-			return UnconditionalTerm(term.NarrowRegisterAccess[word.BigEndian, mirTerm](r.Register(), e.BitWidth, r.Shift()))
+			// Construct access for the given register
+			t := term.RawRegisterAccess[word.BigEndian, mirTerm](r.Register(), reg.Width, r.RelativeShift())
+			// Implement cast by masking register
+			return UnconditionalTerm(t.Mask(e.BitWidth))
 		}
 		//
 		return p.lowerTerm(e.Arg, mirModule)
@@ -439,7 +445,9 @@ func (p *MirLowering) lowerTerm(e Term, mirModule *mirModuleBuilder) IfTerm {
 	case *Constant:
 		return UnconditionalTerm(term.Const[word.BigEndian, mirTerm](e.Value))
 	case *RegisterAccess:
-		return UnconditionalTerm(term.NarrowRegisterAccess[word.BigEndian, mirTerm](e.Register(), e.Bitwidth(), e.Shift()))
+		var t = term.RawRegisterAccess[word.BigEndian, mirTerm](e.Register(), e.BitWidth(), e.RelativeShift())
+		// Carry forward any mask
+		return UnconditionalTerm(t.Mask(e.MaskWidth()))
 	case *Exp:
 		return p.lowerExpTo(e, mirModule)
 	case *IfZero:
@@ -516,7 +524,9 @@ func (p *MirLowering) lowerVectorAccess(e *VectorAccess) mirTerm {
 	)
 	//
 	for i, v := range e.Vars {
-		vars[i] = term.NarrowRegisterAccess[word.BigEndian, mirTerm](v.Register(), v.Bitwidth(), v.Shift())
+		ith := term.RawRegisterAccess[word.BigEndian, mirTerm](v.Register(), v.BitWidth(), v.RelativeShift())
+		//
+		vars[i] = ith.Mask(v.MaskWidth())
 	}
 	//
 	return term.NewVectorAccess(vars)

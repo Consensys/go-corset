@@ -38,43 +38,44 @@ import (
 type RegisterAccess[F field.Element[F], T Expr[F, T]] struct {
 	// Id for register being accessed
 	register register.Id
-	// Bitwidth of access.  This can be math.MaxUint to signal the entire
-	// register is being read; otherwise, it can be a width below that of the
-	// given register to signal a cast.
+	// Bitwidth of register being accessed.  This can be MaxUint to signal it
+	// has "field width".
 	bitwidth uint
+	// Mask determines what subset of bitwidth is actively used.
+	maskwidth uint
 	// Relative shift of access.  This indicates on which row (relative to the
 	// current row) the given register is being read.
 	shift int
-	// Bound is precomputed when bitwidth != MaxUint for efficiency.
-	bound F
 }
 
 // NewRegisterAccess constructs an AIR expression representing the value of a
 // given register on the current row.
-func NewRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, shift int) T {
-	var term Expr[F, T] = NarrowRegisterAccess[F, T](register, math.MaxUint, shift)
+func NewRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, bitwidth uint, shift int) T {
+	var term Expr[F, T] = RawRegisterAccess[F, T](register, bitwidth, shift)
 	return term.(T)
 }
 
 // RawRegisterAccess constructs an AIR expression representing the value of a given
 // register on the current row.
-func RawRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, shift int) *RegisterAccess[F, T] {
-	return NarrowRegisterAccess[F, T](register, math.MaxUint, shift)
-}
-
-// NarrowRegisterAccess constructs an AIR expression representing the value of a
-// given register on the current row.  Additionally, the bitwidth can be
-// specified so as to narrow the width of the register being read (i.e. for
-// casting).
-func NarrowRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, bitwidth uint, shift int,
+func RawRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, bitwidth uint, shift int,
 ) *RegisterAccess[F, T] {
-	var bound F
-	// Precompute 2^bitwidth (if applicable)
-	if bitwidth != math.MaxUint {
-		bound = field.TwoPowN[F](bitwidth)
+	// TEMPORARY CHECK
+	if bitwidth > 1024 {
+		panic(fmt.Sprintf("invalid bitwidth (%d)", bitwidth))
 	}
 	//
-	return &RegisterAccess[F, T]{register, bitwidth, shift, bound}
+	return &RegisterAccess[F, T]{register, bitwidth, bitwidth, shift}
+}
+
+// FieldAccess constructs an AIR expression representing the value of a given
+// register on the current row.  There is an assumption here that the register
+// being read has "field type".  That is, it does not represent fixed width
+// value in the usual sense.  Such registers should only occur lower down in the
+// pipeling for e.g. handling inverses, etc.
+func FieldAccess[F field.Element[F], T Expr[F, T]](register register.Id, shift int,
+) *RegisterAccess[F, T] {
+	//
+	return &RegisterAccess[F, T]{register, math.MaxUint, math.MaxUint, shift}
 }
 
 // Air indicates this term can be used at the AIR level.
@@ -85,22 +86,50 @@ func (p *RegisterAccess[F, T]) Register() register.Id {
 	return p.register
 }
 
-// Bitwidth returns the width of this access.  This can be math.MaxUint to
-// signal an "unbounded" access; otherwise, it can be the actual register's
-// width or below.  If below, then this signals a cast.
-func (p *RegisterAccess[F, T]) Bitwidth() uint {
+// HasFieldType checks whether or not this register access is for a register
+// which has "field width".  That is, it does not have a true bitwidth per se.
+func (p *RegisterAccess[F, T]) HasFieldType() bool {
+	return p.bitwidth == math.MaxUint
+}
+
+// Mask constructs a variation on this register access which only uses the
+// "masked" portion of the given register.  For example, this can be used to
+// implement a cast.
+func (p *RegisterAccess[F, T]) Mask(maskwidth uint) *RegisterAccess[F, T] {
+	// Sanity check mask
+	if maskwidth > p.bitwidth {
+		panic(fmt.Sprintf("invalid mask (u%d > u%d)", maskwidth, p.bitwidth))
+	} else if p.HasFieldType() {
+		panic("cannot mask a register of field type")
+	}
+	//
+	return &RegisterAccess[F, T]{p.register, p.bitwidth, maskwidth, p.shift}
+}
+
+// MaskWidth returns the portion of the underlying column / register actually
+// read by this access.  For example, given a register of type u16 we might only
+// be accessing the first u8 portion.  In such case, the access is acting like a
+// cast.
+func (p *RegisterAccess[F, T]) MaskWidth() uint {
+	return p.maskwidth
+}
+
+// BitWidth returns the declared bitwidth of the variable being accessed.
+// Observe that the actual width of this access may be smaller than this if a
+// mask is being applied.
+func (p *RegisterAccess[F, T]) BitWidth() uint {
 	return p.bitwidth
 }
 
-// Shift returns the relative shift of this access.
-func (p *RegisterAccess[F, T]) Shift() int {
+// RelativeShift returns the relative shift of this access.
+func (p *RegisterAccess[F, T]) RelativeShift() int {
 	return p.shift
 }
 
 // ApplyShift implementation for Term interface.
 func (p *RegisterAccess[F, T]) ApplyShift(shift int) T {
 	var reg Expr[F, T] = &RegisterAccess[F, T]{
-		p.register, p.bitwidth, p.shift + shift, p.bound,
+		p.register, p.bitwidth, p.maskwidth, p.shift + shift,
 	}
 	//
 	return reg.(T)
@@ -122,11 +151,11 @@ func (p *RegisterAccess[F, T]) EvalAt(k int, module trace.Module[F], _ register.
 		val = module.Column(p.register.Unwrap()).Get(k + p.shift)
 		err error
 	)
-	// Dynamic cast
-	if p.bitwidth != math.MaxUint && val.Cmp(p.bound) >= 0 {
-		// Construct error
-		err = fmt.Errorf("read failure (value %s not u%d)", val.String(), p.bitwidth)
-	}
+	// // Dynamic cast
+	// if p.bitwidth != math.MaxUint && val.Cmp(p.bound) >= 0 {
+	// 	// Construct error
+	// 	err = fmt.Errorf("read failure (value %s not u%d)", val.String(), p.bitwidth)
+	// }
 	//
 	return val, err
 }
@@ -161,8 +190,8 @@ func (p *RegisterAccess[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp
 		access = sexp.NewList([]sexp.SExp{sexp.NewSymbol("shift"), access, shift})
 	}
 	//
-	if p.bitwidth != math.MaxUint {
-		tw := fmt.Sprintf("u%d", p.bitwidth)
+	if p.maskwidth != p.bitwidth {
+		tw := fmt.Sprintf("u%d", p.maskwidth)
 		access = sexp.NewList([]sexp.SExp{sexp.NewSymbol(tw), access})
 	}
 	//
@@ -206,18 +235,15 @@ func (p *RegisterAccess[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *RegisterAccess[F, T]) ValueRange(mapping register.Map) util_math.Interval {
-	var (
-		width = mapping.Register(p.register).Width
-	)
+func (p *RegisterAccess[F, T]) ValueRange(_ register.Map) util_math.Interval {
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume
 	// all possible values of the underlying field element.
-	if width == math.MaxUint {
+	if p.bitwidth == math.MaxUint {
 		return util_math.INFINITY
 	}
 	//
-	return valueRangeOfBits(min(width, p.bitwidth))
+	return valueRangeOfBits(p.maskwidth)
 }
 
 func valueRangeOfBits(bitwidth uint) util_math.Interval {
@@ -238,15 +264,19 @@ func valueRangeOfBits(bitwidth uint) util_math.Interval {
 func (p *RegisterAccess[F, T]) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	// Register Index
-	if err := binary.Write(&buf, binary.BigEndian, uint16(p.Register().Unwrap())); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint16(p.register.Unwrap())); err != nil {
 		return nil, err
 	}
 	// Bitwidth
-	if err := binary.Write(&buf, binary.BigEndian, uint16(p.Bitwidth())); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, uint16(p.bitwidth)); err != nil {
+		return nil, err
+	}
+	// Maskwidth
+	if err := binary.Write(&buf, binary.BigEndian, uint16(p.maskwidth)); err != nil {
 		return nil, err
 	}
 	// Shift
-	if err := binary.Write(&buf, binary.BigEndian, int16(p.Shift())); err != nil {
+	if err := binary.Write(&buf, binary.BigEndian, int16(p.RelativeShift())); err != nil {
 		return nil, err
 	}
 	//
@@ -263,9 +293,10 @@ func (p *RegisterAccess[F, T]) UnmarshalBinary(data []byte) error {
 // This should match exactly the encoding above.
 func (p *RegisterAccess[F, T]) UnmarshalBuffer(buf *bytes.Buffer) error {
 	var (
-		index    uint16
-		bitwidth uint16
-		shift    int16
+		index     uint16
+		bitwidth  uint16
+		maskwidth uint16
+		shift     int16
 	)
 	// Register index
 	if err := binary.Read(buf, binary.BigEndian, &index); err != nil {
@@ -275,21 +306,27 @@ func (p *RegisterAccess[F, T]) UnmarshalBuffer(buf *bytes.Buffer) error {
 	if err := binary.Read(buf, binary.BigEndian, &bitwidth); err != nil {
 		return err
 	}
+	// Register maskwidth
+	if err := binary.Read(buf, binary.BigEndian, &maskwidth); err != nil {
+		return err
+	}
 	// Register shift
 	if err := binary.Read(buf, binary.BigEndian, &shift); err != nil {
 		return err
 	}
-	// Construct raw register id
-	var (
-		rid        = register.NewId(uint(index))
-		width uint = uint(bitwidth)
-	)
-	// Handle upscaling unbounded width
+	// Normalise bitwidth
+	var normBitwidth = uint(bitwidth)
+	//
 	if bitwidth == math.MaxUint16 {
-		width = math.MaxUint
+		normBitwidth = math.MaxUint
 	}
 	// Construct new register access
-	*p = *NarrowRegisterAccess[F, T](rid, width, int(shift))
+	*p = RegisterAccess[F, T]{
+		register.NewId(uint(index)),
+		normBitwidth,
+		uint(maskwidth),
+		int(shift),
+	}
 	// Done
 	return nil
 }

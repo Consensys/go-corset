@@ -14,7 +14,6 @@ package mir
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -89,11 +88,8 @@ func subdivideRange[F field.Element[F]](c RangeConstraint[F], mapping module.Lim
 		terms = append(terms, split...)
 		// Split bitwidths
 		for _, jth := range split {
-			var (
-				limb      = modmap.Limb(jth.Register())
-				limbWidth = min(jth.Bitwidth(), limb.Width)
-			)
-
+			var limbWidth = jth.MaskWidth()
+			//
 			bitwidths = append(bitwidths, min(bitwidth, limbWidth))
 			//
 			if bitwidth >= limbWidth {
@@ -132,7 +128,7 @@ func subdivideSorted[F field.Element[F]](c SortedConstraint[F], mapping module.L
 				signs = append(signs, c.Signs[i])
 			}
 			// Update bitwidth
-			bitwidth = max(bitwidth, min(limbWidth, jth.Bitwidth()))
+			bitwidth = max(bitwidth, min(limbWidth, jth.MaskWidth()))
 		}
 	}
 	// Split optional selector
@@ -241,7 +237,7 @@ func splitRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping
 		// Construct appropriate terms
 		terms []*RegisterAccess[F]
 		//
-		bitwidth = expr.Bitwidth()
+		bitwidth = expr.MaskWidth()
 	)
 	//
 	for _, limbId := range limbs {
@@ -250,15 +246,14 @@ func splitRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], mapping
 			limbWidth = min(bitwidth, limb.Width)
 		)
 		//
-		bitwidth -= limbWidth
-		// Normalise limb width
-		if limbWidth == limb.Width {
-			limbWidth = math.MaxUint
+		if limbWidth > 0 {
+			// Construct register access
+			ith := term.RawRegisterAccess[F, Term[F]](limbId, limb.Width, expr.RelativeShift())
+			// Mask off any unrequired bits
+			terms = append(terms, ith.Mask(limbWidth))
 		}
 		//
-		if limbWidth > 0 {
-			terms = append(terms, term.NarrowRegisterAccess[F, Term[F]](limbId, limbWidth, expr.Shift()))
-		}
+		bitwidth -= limbWidth
 	}
 	//
 	return terms

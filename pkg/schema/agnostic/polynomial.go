@@ -13,7 +13,6 @@
 package agnostic
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -278,16 +277,13 @@ func LimbPolynomial(bitwidth uint, shift int, limbs []register.Id, widths []uint
 			c         = util_math.Pow2(width)
 			limbWidth = min(bitwidth, widths[i])
 		)
-		// Normalise limb width
-		if limbWidth == widths[i] {
-			limbWidth = math.MaxUint
-		}
 		//
 		if limbWidth > 0 {
-			terms = append(terms, poly.NewMonomial(*c, limb.AccessOf(limbWidth, shift)))
+			terms = append(terms, poly.NewMonomial(*c, limb.AccessOf(widths[i]).Shift(shift).Mask(limbWidth)))
 			width += limbWidth
-			bitwidth -= limbWidth
 		}
+		//
+		bitwidth -= limbWidth
 	}
 	//
 	return p.Set(terms...)

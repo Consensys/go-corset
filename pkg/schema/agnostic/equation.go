@@ -14,7 +14,6 @@ package agnostic
 
 import (
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -312,15 +311,17 @@ func chunkPolynomial(p DynamicPolynomial, chunkWidths []uint, field field.Config
 			var (
 				// Construct filler for carry register
 				filler = NewPolyFil(chunkWidth, chunks[i])
+				// Determine width of carry register
+				carryWidth = ithWidth - chunkWidth
 				// Allocate carry register
-				carryReg = mapping.AllocateWith("c", ithWidth-chunkWidth, filler)
+				carryReg = mapping.AllocateWith("c", carryWidth, filler)
 				// Calculate amount to shift carry
 				chunkShift = util_math.Pow2(chunkWidth)
 			)
 			// Subtract carry from this chunk
-			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg.AccessOf(math.MaxUint, 0))))
+			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg.AccessOf(carryWidth))))
 			// Add carry to next chunk
-			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg.AccessOf(math.MaxUint, 0))))
+			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg.AccessOf(carryWidth))))
 		}
 	}
 	//
@@ -356,7 +357,7 @@ func Poly2String(p DynamicPolynomial, env register.Map) string {
 	return poly.String(p, func(r register.AccessId) string {
 		var (
 			name  = env.Register(r.Id()).Name
-			shift = r.Shift()
+			shift = r.RelativeShift()
 		)
 		//
 		switch {

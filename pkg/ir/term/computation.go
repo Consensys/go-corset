@@ -15,7 +15,6 @@ package term
 import (
 	"encoding/gob"
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -68,7 +67,7 @@ func NewComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Expr
 		arg := NewComputation[F, S, T](t.Arg)
 		return Normalise(arg)
 	case *RegisterAccess[F, T]:
-		return NarrowRegisterAccess[F, Computation[F]](t.Register(), t.Bitwidth(), t.Shift())
+		return RawRegisterAccess[F, Computation[F]](t.Register(), t.BitWidth(), t.RelativeShift()).Mask(t.MaskWidth())
 	case *Sub[F, T]:
 		args := NewComputations[F, S](t.Args)
 		return Subtract(args...)
@@ -76,7 +75,7 @@ func NewComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Expr
 		var nterms = make([]*RegisterAccess[F, Computation[F]], len(t.Vars))
 		//
 		for i, v := range t.Vars {
-			nterms[i] = NarrowRegisterAccess[F, Computation[F]](v.Register(), v.Bitwidth(), v.Shift())
+			nterms[i] = RawRegisterAccess[F, Computation[F]](v.Register(), v.BitWidth(), v.RelativeShift()).Mask(v.MaskWidth())
 		}
 		//
 		return NewVectorAccess(nterms)
@@ -217,23 +216,22 @@ func subdivideRegAccesses[F field.Element[F]](mapping register.LimbsMap, regs ..
 	var nterms []*RegisterAccess[F, Computation[F]]
 	//
 	for _, v := range regs {
-		var bitwidth = v.Bitwidth()
+		var bitwidth = v.MaskWidth()
 		//
 		for _, limbId := range mapping.LimbIds(v.Register()) {
 			var (
-				limb      = mapping.Limb(limbId)
-				limbWidth = min(limb.Width, bitwidth)
+				limb = mapping.Limb(limbId)
+				mask = min(limb.Width, bitwidth)
 			)
 			//
-			bitwidth -= limbWidth
-			// Normalise limbWidth
-			if limbWidth == limb.Width {
-				limbWidth = math.MaxUint
+			if mask > 0 {
+				// Construct access for given limb
+				ith := RawRegisterAccess[F, Computation[F]](limbId, limb.Width, v.RelativeShift())
+				// Mask access to eliminate any unused bits
+				nterms = append(nterms, ith.Mask(mask))
 			}
 			//
-			if limbWidth > 0 {
-				nterms = append(nterms, NarrowRegisterAccess[F, Computation[F]](limbId, limbWidth, v.Shift()))
-			}
+			bitwidth -= mask
 		}
 	}
 	// Simplify (when possible)

@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"cmp"
 	"encoding/gob"
+	"fmt"
 	"math"
 )
 
@@ -153,9 +154,9 @@ func (p ColumnId) IsUsed() bool {
 
 // AccessOf constructs a relative column identifier from this identifier by
 // including a bitwidth and relative shift.
-func (p ColumnId) AccessOf(bitwidth uint, shift int) ColumnAccessId {
+func (p ColumnId) AccessOf(bitwidth uint) ColumnAccessId {
 	//
-	return ColumnAccessId{p, bitwidth, shift}
+	return ColumnAccessId{p, bitwidth, bitwidth, 0}
 }
 
 // ============================================================================
@@ -166,9 +167,15 @@ func (p ColumnId) AccessOf(bitwidth uint, shift int) ColumnAccessId {
 // and a "bitwidth access".  That is, it identifies a column on a relative row
 // from the given row.  It also enables direct column casting.
 type ColumnAccessId struct {
-	id       ColumnId
+	id ColumnId
+	// bitwidth is the declared bitwidth of this column.
 	bitwidth uint
-	shift    int
+	// maskwidth is the portion of the column actually used (which maybe less
+	// than the declared width).
+	maskwidth uint
+	// shift is the relative shift applied to determine which row of the column
+	// is being accessed.
+	shift int
 }
 
 // Cmp implementation for the Comparable interface
@@ -177,9 +184,11 @@ func (p ColumnAccessId) Cmp(o ColumnAccessId) int {
 		return c
 	} else if c := cmp.Compare(p.shift, o.shift); c != 0 {
 		return c
+	} else if c := cmp.Compare(p.bitwidth, o.bitwidth); c != 0 {
+		return c
 	}
 	//
-	return cmp.Compare(p.bitwidth, o.bitwidth)
+	return cmp.Compare(p.maskwidth, o.maskwidth)
 }
 
 // Id returns returns the underlying register id.
@@ -187,15 +196,40 @@ func (p ColumnAccessId) Id() ColumnId {
 	return p.id
 }
 
-// Bitwidth returns the bitwidth of this access.  That is the portion of the
-// original column which is being read.  If this is math.MaxUint, then all of
-// the original column is being read.
-func (p ColumnAccessId) Bitwidth() uint {
+// BitWidth returns the declared bitwidth of the variable being accessed.
+// Observe that the actual width of this access may be smaller than this if a
+// mask is being applied.
+func (p ColumnAccessId) BitWidth() uint {
 	return p.bitwidth
 }
 
-// Shift returns the relative shift for this register.
-func (p ColumnAccessId) Shift() int {
+// MaskWidth returns the portion of the underlying column / register actually
+// read by this access.  For example, given a register of type u16 we might only
+// be accessing the first u8 portion.
+func (p ColumnAccessId) MaskWidth() uint {
+	return p.maskwidth
+}
+
+// Shift shifts the given column access by a given (relative) amount.
+func (p ColumnAccessId) Shift(shift int) ColumnAccessId {
+	return ColumnAccessId{
+		p.id, p.bitwidth, p.maskwidth, p.shift + shift,
+	}
+}
+
+// Mask masks the given column access by a given number of bits.
+func (p ColumnAccessId) Mask(mask uint) ColumnAccessId {
+	if mask > p.bitwidth {
+		panic(fmt.Sprintf("invalid mask (u%d > u%d)", mask, p.bitwidth))
+	}
+	//
+	return ColumnAccessId{
+		p.id, p.bitwidth, mask, p.shift,
+	}
+}
+
+// RelativeShift returns the relative shift for this register.
+func (p ColumnAccessId) RelativeShift() int {
 	return p.shift
 }
 

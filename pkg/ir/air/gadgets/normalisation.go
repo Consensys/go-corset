@@ -55,20 +55,20 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 		index, ok = module.HasRegister(name)
 		// Default padding (for now)
 		padding = ir.PaddingFor(ie, module)
+		// Indicate column has "field element width".
+		bitwidth uint = math.MaxUint
 	)
 	// Add new column (if it does not already exist)
 	if !ok {
-		// Indicate column has "field element width".
-		var bitwidth uint = math.MaxUint
 		// Add computed register.
 		index = module.NewRegister(register.NewComputed(name, bitwidth, padding))
 		target := register.NewRef(module.Id(), index)
 		// Add inverse assignment
 		module.AddAssignment(assignment.NewPseudoInverse(target, e))
 		// Construct proof of 1/e
-		inv_e := term.NewRegisterAccess[F, air.Term[F]](index, 0)
+		inv_e := term.FieldAccess[F, air.Term[F]](index, 0)
 		// Construct e/e
-		e_inv_e := term.Product(e, inv_e)
+		e_inv_e := term.Product[F, air.Term[F]](e, inv_e)
 		// Construct 1 == e/e
 		one_e_e := term.Subtract(term.Const64[F, air.Term[F]](1), e_inv_e)
 		// Construct (e != 0) ==> (1 == e/e)
@@ -77,7 +77,7 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 		module.AddConstraint(air.NewVanishingConstraint(l_name, module.Id(), util.None[int](), e_implies_one_e_e))
 	}
 	// Done
-	return term.NewRegisterAccess[F, air.Term[F]](index, 0)
+	return term.FieldAccess[F, air.Term[F]](index, 0)
 }
 
 // pseudoInverse represents a computation which computes the multiplicative

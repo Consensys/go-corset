@@ -70,7 +70,7 @@ func termAddToPolynomial[F field.Element[F]](term Add[F], mapping register.Map) 
 	return result
 }
 
-func termConstantToPolynomial[F field.Element[F]](constant F, mapping register.Map) Polynomial {
+func termConstantToPolynomial[F field.Element[F]](constant F, _ register.Map) Polynomial {
 	var (
 		result Polynomial
 		value  big.Int
@@ -99,9 +99,13 @@ func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping register.Map) 
 
 func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F]) Polynomial {
 	var (
-		identifier = term.Register().AccessOf(term.Bitwidth(), term.Shift())
-		monomial   = poly.NewMonomial(biONE, identifier)
-		result     Polynomial
+		identifier = term.Register().
+				AccessOf(term.BitWidth()).
+				Shift(term.RelativeShift()).
+				Mask(term.MaskWidth())
+		//
+		monomial = poly.NewMonomial(biONE, identifier)
+		result   Polynomial
 	)
 	//
 	return result.Set(monomial)
@@ -123,7 +127,7 @@ func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping register.Map) 
 	return result
 }
 
-func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping register.Map) Polynomial {
+func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], _ register.Map) Polynomial {
 	var (
 		result Polynomial
 		shift  uint = 0
@@ -131,8 +135,7 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping
 	//
 	for i, v := range term.Vars {
 		var (
-			reg      = mapping.Register(v.Register())
-			regWidth = min(reg.Width, v.Bitwidth())
+			regWidth = v.MaskWidth()
 			ith      = termRegAccessToPolynomial(*v)
 		)
 		// Add to poly
@@ -190,7 +193,8 @@ func monomialToTerm[F field.Element[F]](monomial agnostic.DynamicMonomial) Term[
 	//
 	for i := range monomial.Len() {
 		ith := monomial.Nth(i)
-		terms[i+1] = term.NarrowRegisterAccess[F, Term[F]](ith.Id(), ith.Bitwidth(), ith.Shift())
+		ith_term := term.RawRegisterAccess[F, Term[F]](ith.Id(), ith.BitWidth(), ith.RelativeShift())
+		terms[i+1] = ith_term.Mask(ith.MaskWidth())
 	}
 	//
 	return term.Product(terms...)

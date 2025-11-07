@@ -273,8 +273,8 @@ func (p *MirPicusTranslator[F]) lowerTerm(t mir.Term[F], module schema.Module[F]
 			name = fmt.Sprintf("\"%s\"", name)
 		}
 
-		if e.Shift() != 0 {
-			name = fmt.Sprintf("%s_%d", name, e.Shift())
+		if e.RelativeShift() != 0 {
+			name = fmt.Sprintf("%s_%d", name, e.RelativeShift())
 		}
 
 		return pcl.V[F](name)

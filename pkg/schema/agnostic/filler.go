@@ -68,11 +68,11 @@ func (p *PolyFil) Lisp(global bool, mapping register.Map) sexp.SExp {
 	body := poly.Lisp(p.poly, func(id register.AccessId) string {
 		var name = mapping.Register(id.Id()).Name
 		//
-		if id.Shift() == 0 {
+		if id.RelativeShift() == 0 {
 			return name
 		}
 		//
-		return fmt.Sprintf("%s[%d]", name, id.Shift())
+		return fmt.Sprintf("%s[%d]", name, id.RelativeShift())
 	})
 	//
 	if p.rshift == 0 {
@@ -159,7 +159,7 @@ func EvalMonomial[F field.Element[F]](row uint, term DynamicMonomial, mod trace.
 		var (
 			jth = term.Nth(j)
 			col = mod.Column(jth.Unwrap())
-			v   = col.Get(int(row) + jth.Shift())
+			v   = col.Get(int(row) + jth.RelativeShift())
 		)
 		//
 		acc = acc.Mul(v)
@@ -194,10 +194,10 @@ func BoundsForMonomial(p DynamicMonomial) util.Bounds {
 
 // BoundsForRegister determines the largest positive / negative shift for any relative register access.
 func BoundsForRegister(p register.AccessId) util.Bounds {
-	if p.Shift() >= 0 {
+	if p.RelativeShift() >= 0 {
 		// Positive shift
-		return util.NewBounds(0, uint(p.Shift()))
+		return util.NewBounds(0, uint(p.RelativeShift()))
 	}
 	// Negative shift
-	return util.NewBounds(uint(-p.Shift()), 0)
+	return util.NewBounds(uint(-p.RelativeShift()), 0)
 }

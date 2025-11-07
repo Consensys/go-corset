@@ -223,11 +223,19 @@ func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstrai
 		)
 		// Lower sources
 		for j, src := range c.Sources {
-			jth := src.Vars[i]
-			sources[j] = term.NarrowRegisterAccess[F, air.Term[F]](jth.Register(), jth.Bitwidth(), jth.Shift())
+			var (
+				jth      = src.Vars[i]
+				jth_term = term.RawRegisterAccess[F, air.Term[F]](jth.Register(), jth.BitWidth(), jth.RelativeShift())
+			)
+			// Apply any mask
+			sources[j] = jth_term.Mask(jth.MaskWidth())
 		}
 		// Lower target
-		target := term.NarrowRegisterAccess[F, air.Term[F]](ith.Register(), ith.Bitwidth(), ith.Shift())
+		var (
+			ith_term = term.RawRegisterAccess[F, air.Term[F]](ith.Register(), ith.BitWidth(), ith.RelativeShift())
+			// Apply any mask
+			target = ith_term.Mask(ith.MaskWidth())
+		)
 		// Add constraint
 		airModule.AddConstraint(
 			air.NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, *target, sources))
@@ -281,10 +289,7 @@ func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airMo
 	)
 	//
 	for i, source := range c.Sources {
-		var (
-			ith       = airModule.Register(source.Register())
-			ith_width = min(ith.Width, source.Bitwidth())
-		)
+		var ith_width = source.MaskWidth()
 		// Sanity check
 		if i < len(c.Signs) && ith_width > c.BitWidth {
 			msg := fmt.Sprintf("incompatible bitwidths (%d vs %d)", ith_width, c.BitWidth)
@@ -312,7 +317,9 @@ func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*a
 	var nterms = make([]*air.ColumnAccess[F], len(terms))
 	//
 	for i, ith := range terms {
-		nterms[i] = term.NarrowRegisterAccess[F, air.Term[F]](ith.Register(), ith.Bitwidth(), ith.Shift())
+		ith_term := term.RawRegisterAccess[F, air.Term[F]](ith.Register(), ith.BitWidth(), ith.RelativeShift())
+		// Apply any mask
+		nterms[i] = ith_term.Mask(ith.MaskWidth())
 	}
 	//
 	return nterms
@@ -479,7 +486,7 @@ func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F])
 	case *Constant[F]:
 		return term.Const[F, air.Term[F]](e.Value)
 	case *RegisterAccess[F]:
-		return term.NarrowRegisterAccess[F, air.Term[F]](e.Register(), e.Bitwidth(), e.Shift())
+		return term.RawRegisterAccess[F, air.Term[F]](e.Register(), e.BitWidth(), e.RelativeShift()).Mask(e.MaskWidth())
 	case *Mul[F]:
 		args := p.lowerTerms(e.Args, airModule)
 		return term.Product(args...)
@@ -513,20 +520,16 @@ func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule *air.Mo
 	//
 	for i, v := range e.Vars {
 		var (
-			limb      = airModule.Register(v.Register())
-			limbWidth = min(v.Bitwidth(), limb.Width)
-			ith       *air.ColumnAccess[F]
+			limb  = airModule.Register(v.Register())
+			width = v.MaskWidth()
+			ith   *air.ColumnAccess[F]
 		)
 		// Ensure limbwidth normalised
-		if limbWidth == limb.Width {
-			ith = term.RawRegisterAccess[F, air.Term[F]](v.Register(), v.Shift())
-		} else {
-			ith = term.NarrowRegisterAccess[F, air.Term[F]](v.Register(), limbWidth, v.Shift())
-		}
+		ith = term.RawRegisterAccess[F, air.Term[F]](v.Register(), limb.Width, v.RelativeShift()).Mask(width)
 		// Apply shift
 		terms[i] = term.Product(shiftTerm(ith, shift))
 		//
-		shift = shift + limbWidth
+		shift = shift + width
 	}
 	//
 	return term.Sum(terms...)

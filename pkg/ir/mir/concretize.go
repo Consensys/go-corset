@@ -291,14 +291,16 @@ func concretizeVectorAccess[F1 Element[F1], F2 Element[F2]](expr *VectorAccess[F
 }
 
 func concretizeRegisterAccess[F1 Element[F1], F2 Element[F2]](expr *RegisterAccess[F1]) *RegisterAccess[F2] {
-	return term.NarrowRegisterAccess[F2, Term[F2]](expr.Register(), expr.Bitwidth(), expr.Shift())
+	access := term.RawRegisterAccess[F2, Term[F2]](expr.Register(), expr.BitWidth(), expr.RelativeShift())
+	// Apply any mask
+	return access.Mask(expr.MaskWidth())
 }
 
 func concretizeRegisterAccesses[F1 Element[F1], F2 Element[F2]](exprs []*RegisterAccess[F1]) []*RegisterAccess[F2] {
 	var nterms = make([]*RegisterAccess[F2], len(exprs))
 	//
 	for i, t := range exprs {
-		nterms[i] = term.NarrowRegisterAccess[F2, Term[F2]](t.Register(), t.Bitwidth(), t.Shift())
+		nterms[i] = term.RawRegisterAccess[F2, Term[F2]](t.Register(), t.BitWidth(), t.RelativeShift()).Mask(t.MaskWidth())
 	}
 	//
 	return nterms
