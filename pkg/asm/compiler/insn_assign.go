@@ -27,7 +27,7 @@ func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Cod
 	var (
 		code = codes[cc].(*micro.Assign)
 		// Determine sign of polynomial
-		_, signed = agnostic.WidthOfPolynomial(code.Source, agnostic.EnvironmentFromArray(p.mapping.Registers))
+		_, signed = agnostic.WidthOfPolynomial(code.Source, agnostic.ArrayEnvironment(p.mapping.Registers))
 		// build rhs
 		rhs = p.translatePolynomial(code.Source)
 		// build lhs (must be after rhs)

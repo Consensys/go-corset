@@ -62,7 +62,7 @@ func (p *Equation) Balance() Equation {
 // left-hand and right-hand sides.
 func (p *Equation) Width(mapping register.Map) uint {
 	var (
-		env = EnvironmentFromMap(mapping)
+		env = DynamicEnvironment()
 		// Determine lhs width
 		lhs, lSign = WidthOfPolynomial(p.LeftHandSide, env)
 		// Determine rhs width
@@ -79,7 +79,7 @@ func (p *Equation) Width(mapping register.Map) uint {
 func (p *Equation) String(mapping register.Map) string {
 	var (
 		builder strings.Builder
-		env     = EnvironmentFromMap(mapping)
+		env     = DynamicEnvironment()
 		// Determine lhs width
 		lhs, lSign = WidthOfPolynomial(p.LeftHandSide, env)
 		// Determine rhs width
@@ -247,7 +247,7 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
 	mapping RegisterAllocator) (DynamicPolynomial, []Equation) {
 	//
 	var (
-		env      = EnvironmentFromMap(mapping)
+		env      = DynamicEnvironment()
 		splitter = NewVariableSplitter(mapping, regWidth)
 		vars     bit.Set
 	)
@@ -281,7 +281,7 @@ func chunkPolynomial(p DynamicPolynomial, chunkWidths []uint, field field.Config
 	mapping RegisterAllocator) ([]DynamicPolynomial, bool) {
 	//
 	var (
-		env    = EnvironmentFromMap(mapping)
+		env    = DynamicEnvironment()
 		chunks []DynamicPolynomial
 	)
 	// Subdivide polynomial into chunks

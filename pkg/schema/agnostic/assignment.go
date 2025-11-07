@@ -78,7 +78,7 @@ func (p *Assignment) Width(env register.Map) uint {
 		// Determine lhs width
 		lhs = CombinedWidthOfRegisters(env, p.LeftHandSide...)
 		// Determine rhs width
-		rhs, _ = WidthOfPolynomial(p.RightHandSide, EnvironmentFromMap(env))
+		rhs, _ = WidthOfPolynomial(p.RightHandSide, StaticEnvironment(env))
 	)
 	//
 	return max(lhs, rhs)
@@ -92,7 +92,7 @@ func (p *Assignment) Overflow(env register.Map) (uint, uint) {
 		// Determine lhs width
 		lhs = CombinedWidthOfRegisters(env, p.LeftHandSide...)
 		// Determine rhs width
-		pos, neg = SplitWidthOfPolynomial(p.RightHandSide, EnvironmentFromMap(env))
+		pos, neg = SplitWidthOfPolynomial(p.RightHandSide, StaticEnvironment(env))
 	)
 	// Normalise positive contribution
 	if pos > lhs {
@@ -117,7 +117,7 @@ func (p *Assignment) Terminate(env register.Map) (Assignment, StaticPolynomial) 
 		// Determine lhs width
 		lhs = CombinedWidthOfRegisters(env, p.LeftHandSide...)
 		// Determine rhs width
-		rhs, _ = WidthOfPolynomial(p.RightHandSide, EnvironmentFromMap(env))
+		rhs, _ = WidthOfPolynomial(p.RightHandSide, StaticEnvironment(env))
 	)
 	// Sanity check this assignment is really terminating.  That means all bits
 	// on the right-hand side must be consumed by bits on the left-hand side.
