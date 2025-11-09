@@ -193,7 +193,7 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 	// representing limbs, etc.
 	targetAccesses := []*air.ColumnAccess[F]{
 		// Target Value
-		term.RawRegisterAccess[F, air.Term[F]](register.NewId(0), reg.Width, 0)}
+		term.RawRegisterAccess[F, air.Term[F]](register.NewId(0), bitwidth, 0)}
 	//
 	targets := []lookup.Vector[F, *air.ColumnAccess[F]]{
 		lookup.UnfilteredVector(mid, targetAccesses...)}

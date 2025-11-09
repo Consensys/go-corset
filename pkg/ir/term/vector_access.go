@@ -60,7 +60,7 @@ func (p *VectorAccess[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p
 
 // EvalAt implementation for Evaluable interface.
 func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
-	var shift = sc.Register(p.Vars[0].Register()).Width
+	var shift = p.Vars[0].MaskWidth()
 	// Evaluate first argument
 	val, err := p.Vars[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
