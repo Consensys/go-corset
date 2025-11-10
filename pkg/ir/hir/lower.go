@@ -364,9 +364,10 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 	}
 	// Yes, expansion is really necessary
 	var (
-		expr = p.lowerTerm(e, module)
+		expr   = p.lowerTerm(e, module)
+		values = e.ValueRange()
 		// Determine bitwidth required for target register
-		bitwidth = expr.BitWidth(module)
+		bitwidth, sign = values.BitWidth()
 		// Determine computed column name
 		name = e.Lisp(true, module).String(false)
 		// Look up column
@@ -374,6 +375,10 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 		// Default padding (for now)
 		padding big.Int = ir.PaddingFor(e, module)
 	)
+	// Sanity check
+	if sign {
+		panic("cannot determine bitwidth of (signed) term")
+	}
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Convert expression into a generic computation

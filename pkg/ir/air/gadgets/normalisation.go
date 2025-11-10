@@ -131,7 +131,7 @@ func (e *pseudoInverse[F]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (e *pseudoInverse[F]) ValueRange(mapping register.Map) util_math.Interval {
+func (e *pseudoInverse[F]) ValueRange() util_math.Interval {
 	// This could be managed by having a mechanism for representing infinity
 	// (e.g. nil). For now, this is never actually used, so we can just ignore
 	// it.

@@ -121,7 +121,7 @@ func (p *PolyFil) Substitute(mapping map[string]word.BigEndian) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *PolyFil) ValueRange(mapping register.Map) math.Interval {
+func (p *PolyFil) ValueRange() math.Interval {
 	panic("unsupported operation")
 }
 

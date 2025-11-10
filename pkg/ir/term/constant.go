@@ -119,7 +119,7 @@ func (p *Constant[F, T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Constant[F, T]) ValueRange(_ register.Map) util_math.Interval {
+func (p *Constant[F, T]) ValueRange() util_math.Interval {
 	var c big.Int
 	// Extract big integer from field element
 	c.SetBytes(p.Value.Bytes())

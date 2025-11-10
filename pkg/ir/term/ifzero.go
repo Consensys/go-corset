@@ -125,10 +125,10 @@ func (p *IfZero[F, S, T]) ShiftRange() (int, int) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *IfZero[F, S, T]) ValueRange(mapping register.Map) math.Interval {
+func (p *IfZero[F, S, T]) ValueRange() math.Interval {
 	var (
-		trueBounds  = p.TrueBranch.ValueRange(mapping)
-		falseBounds = p.FalseBranch.ValueRange(mapping)
+		trueBounds  = p.TrueBranch.ValueRange()
+		falseBounds = p.FalseBranch.ValueRange()
 	)
 	//
 	return trueBounds.Union(falseBounds)

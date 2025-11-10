@@ -235,7 +235,7 @@ func (p *RegisterAccess[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *RegisterAccess[F, T]) ValueRange(_ register.Map) util_math.Interval {
+func (p *RegisterAccess[F, T]) ValueRange() util_math.Interval {
 	// NOTE: the following is necessary because MaxUint is permitted as a signal
 	// that the given register has no fixed bitwidth.  Rather, it can consume
 	// all possible values of the underlying field element.
