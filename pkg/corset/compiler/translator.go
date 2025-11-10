@@ -516,7 +516,17 @@ func (t *translator) translateDefInRange(decl *ast.DefInRange) []SyntaxError {
 	// Translate constraint body
 	expr, errors := t.translateExpression(decl.Expr, module, 0)
 	//
-	if len(errors) == 0 {
+	if len(errors) != 0 {
+		return errors
+	}
+	//
+	valrange := expr.ValueRange()
+	// Sanity check sign of expression
+	_, signed := valrange.BitWidth()
+	// Sanity check signed lookups
+	if signed {
+		errors = append(errors, *t.srcmap.SyntaxError(decl.Expr, "signed term encountered"))
+	} else {
 		// Add translated constraint
 		module.AddConstraint(hir.NewRangeConstraint("", module.Id(), expr, decl.Bitwidth))
 	}

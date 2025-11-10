@@ -377,6 +377,9 @@ func Test_Invalid_Range_03(t *testing.T) {
 func Test_Invalid_Range_04(t *testing.T) {
 	checkCorsetInvalid(t, "corset/invalid/range_invalid_04")
 }
+func Test_Invalid_Range_05(t *testing.T) {
+	checkCorsetInvalid(t, "corset/invalid/range_invalid_05")
+}
 
 // ===================================================================
 // Modules
