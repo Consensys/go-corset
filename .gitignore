@@ -20,7 +20,7 @@ go.work
 bin
 *.lt
 *.bin
-
+*.before
+*.after
+*.bombs
 tmp
-
-
