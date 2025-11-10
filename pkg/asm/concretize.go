@@ -99,7 +99,7 @@ func Concretize[F Element[F]](cfg field.Config, hp MicroHirProgram,
 		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
 	}
 	// Concretize legacy components
-	copy(modules[n:], mir.Concretize[word.BigEndian, F](mapping, uint(n), p.Externs()))
+	copy(modules[n:], mir.Concretize[word.BigEndian, F](mapping, modules[:n], p.Externs()))
 	// Done
 	return schema.NewUniformSchema(modules), mapping
 }

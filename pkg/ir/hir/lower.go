@@ -379,6 +379,7 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 	if sign {
 		panic("cannot determine bitwidth of (signed) term")
 	}
+	//
 	if !ok {
 		// Convert expression into a generic computation
 		computation := term.NewComputation[word.BigEndian, LogicalTerm](e)

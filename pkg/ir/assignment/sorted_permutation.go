@@ -18,8 +18,6 @@ import (
 	"slices"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
-	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -113,42 +111,6 @@ func (p *SortedPermutation[F]) RegistersRead() []register.Ref {
 // RegistersWritten identifies registers assigned by this assignment.
 func (p *SortedPermutation[F]) RegistersWritten() []register.Ref {
 	return p.Targets
-}
-
-// Subdivide implementation for the FieldAgnostic interface.
-func (p *SortedPermutation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
-	var (
-		sources []register.Ref
-		targets []register.Ref
-		signs   []bool
-	)
-	//
-	for i := range len(p.Sources) {
-		var (
-			source = p.Sources[i]
-			target = p.Targets[i]
-			//
-			sourceMapping = mapping.Module(source.Module())
-			targetMapping = mapping.Module(target.Module())
-			sourceLimbs   = sourceMapping.LimbIds(source.Register())
-			targetLimbs   = targetMapping.LimbIds(target.Register())
-		)
-		// Sanity check for now
-		if len(sourceLimbs) != len(targetLimbs) {
-			panic("encountered irregular permutation constraint")
-		}
-		// Append limbs in reverse order to ensure most significant limb comes first.
-		for j := len(sourceLimbs); j > 0; j-- {
-			sources = append(sources, register.NewRef(source.Module(), sourceLimbs[j-1]))
-			targets = append(targets, register.NewRef(target.Module(), targetLimbs[j-1]))
-			//
-			if i < len(p.Signs) {
-				signs = append(signs, p.Signs[i])
-			}
-		}
-	}
-	//
-	return NewSortedPermutation[F](targets, signs, sources)
 }
 
 // Substitute any matchined labelled constants within this assignment

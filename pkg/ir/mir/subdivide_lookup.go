@@ -18,24 +18,23 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
-	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping module.LimbsMap) LookupConstraint[F] {
+func (p *Subdivider[F]) subdivideLookup(c LookupConstraint[F]) LookupConstraint[F] {
 	var (
 		// Determine overall geometry for this lookup.
-		geometry = lookup.NewGeometry(c, mapping)
+		geometry = lookup.NewGeometry(c, p.mapping)
 		// Split all registers in the source vectors
-		vSources = mapLookupVectors(c.Sources, mapping)
+		vSources = p.mapLookupVectors(c.Sources)
 		// Split all registers in the target vectors
-		vTargets = mapLookupVectors(c.Targets, mapping)
+		vTargets = p.mapLookupVectors(c.Targets)
 	)
 	//
-	targets := splitLookupVectors(geometry, vTargets, mapping)
-	sources := splitLookupVectors(geometry, vSources, mapping)
+	targets := p.splitLookupVectors(geometry, vTargets)
+	sources := p.splitLookupVectors(geometry, vSources)
 	//
 	return lookup.NewConstraint(c.Handle, targets, sources)
 }
@@ -47,20 +46,20 @@ func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping module.L
 // create more source/target pairings.  Rather, it splits registers within the
 // existing pairings only.  Later stages will subdivide and pad the
 // source/target pairings as necessary.
-func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, *RegisterAccess[F]],
-	mapping module.LimbsMap) []lookup.Vector[F, *VectorAccess[F]] {
+func (p *Subdivider[F]) mapLookupVectors(vectors []lookup.Vector[F, *RegisterAccess[F]],
+) []lookup.Vector[F, *VectorAccess[F]] {
 	//
 	var nterms = make([]lookup.Vector[F, *VectorAccess[F]], len(vectors))
 	//
 	for i, vector := range vectors {
 		var (
-			modmap   = mapping.Module(vector.Module)
-			terms    = splitRawRegisterAccesses(vector.Terms, modmap)
+			modmap   = p.mapping.Module(vector.Module)
+			terms    = subdivideRawRegisterAccesses(vector.Terms, modmap)
 			selector = util.None[*VectorAccess[F]]()
 		)
 		// Split selector
 		if vector.Selector.HasValue() {
-			split := splitRawRegisterAccess(vector.Selector.Unwrap(), modmap)
+			split := subdivideRawRegisterAccess(vector.Selector.Unwrap(), modmap)
 			selector = util.Some(term.RawVectorAccess(split))
 		}
 		// Done
@@ -78,23 +77,22 @@ func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, *RegisterAc
 // now changed to [u16,u16] to accommodate the field bandwidth.  Furthermore,
 // notice padding has been applied to ensure we have a matching number of
 // columns on the left- and right-hand sides.
-func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []lookup.Vector[F, *VectorAccess[F]],
-	mapping module.LimbsMap) []lookup.Vector[F, *RegisterAccess[F]] {
+func (p *Subdivider[F]) splitLookupVectors(geometry lookup.Geometry, vectors []lookup.Vector[F, *VectorAccess[F]],
+) []lookup.Vector[F, *RegisterAccess[F]] {
 	//
 	var nterms = make([]lookup.Vector[F, *RegisterAccess[F]], len(vectors))
 	//
 	for i, vector := range vectors {
-		nterms[i] = splitLookupVector(geometry, vector, mapping)
+		nterms[i] = p.splitLookupVector(geometry, vector)
 	}
 	//
 	return nterms
 }
 
-func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector lookup.Vector[F, *VectorAccess[F]],
-	mapping module.LimbsMap) lookup.Vector[F, *RegisterAccess[F]] {
+func (p *Subdivider[F]) splitLookupVector(geometry lookup.Geometry, vector lookup.Vector[F, *VectorAccess[F]],
+) lookup.Vector[F, *RegisterAccess[F]] {
 	//
 	var (
-		modmap   = mapping.Module(vector.Module)
 		limbs    []*RegisterAccess[F]
 		selector util.Option[*RegisterAccess[F]]
 	)
@@ -111,7 +109,7 @@ func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector look
 	// Check alignment
 	for i, ith := range vector.Terms {
 		// Pad & flattern
-		limbs = append(limbs, padLookupLimb(uint(i), ith, geometry, modmap)...)
+		limbs = append(limbs, p.padLookupLimb(uint(i), ith, geometry, vector.Module)...)
 	}
 	// Done
 	return lookup.NewVector(vector.Module, selector, limbs...)
@@ -163,20 +161,22 @@ func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector look
 //
 // NOTE: For now, this function only checks that limbs are aligned and panics
 // otherwise.
-func padLookupLimb[F field.Element[F]](i uint, term *VectorAccess[F], geometry lookup.Geometry,
-	mapping register.LimbsMap) []*RegisterAccess[F] {
+func (p *Subdivider[F]) padLookupLimb(i uint, vec *VectorAccess[F], geometry lookup.Geometry,
+	mid module.Id) []*RegisterAccess[F] {
 	//
 	var (
 		widths = geometry.LimbWidths(i)
 		// Determine expected geometry (i.e. number of columns) at this
 		// position.
 		n = len(widths)
-		m = len(term.Vars) - 1
+		m = len(vec.Vars) - 1
 		// Append available terms
-		nterms = term.Vars
+		nterms = vec.Vars
+		// Construct zero
+		zero = field.Zero[F]()
 	)
 	// Sanity check
-	for i, t := range term.Vars {
+	for i, t := range vec.Vars {
 		bitwidth := t.MaskWidth()
 		// Sanity check for irregular lookups
 		if i != n && bitwidth > widths[i] {
@@ -187,9 +187,11 @@ func padLookupLimb[F field.Element[F]](i uint, term *VectorAccess[F], geometry l
 	}
 	// Pad out with zeros to match geometry
 	//nolint
-	for m := n - len(term.Vars); m > 0; m-- {
-		//nterms = append(nterms, term.Const64[F, Term[F]](0))
-		panic("todo: irregular lookups")
+	for m := n - len(vec.Vars); m > 0; m-- {
+		// Get access to a constant zero register
+		zero := p.ConstantRegister(mid, zero)
+		// Pad out the vector
+		nterms = append(nterms, term.RawRegisterAccess[F, Term[F]](zero, 0, 0))
 	}
 	//
 	return nterms

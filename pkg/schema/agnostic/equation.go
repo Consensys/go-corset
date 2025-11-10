@@ -16,12 +16,19 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
+
+// RegisterAllocator is used to allocate fresh registers with optional
+// "fillers". That is, computation which can be used to assign values to them in
+// the final trace.
+type RegisterAllocator = register.Allocator[term.Computation[word.BigEndian]]
 
 // Equation provides a generic notion of an equation between two polynomials.
 // An equation is in *balanced form* if neither side contains a negative

@@ -50,12 +50,6 @@ type (
 	}
 )
 
-// Following types capture key assignment forms at the MIR level.
-type (
-// ComputedRegister captures one form of computation permitted at the MIR level.
-// ComputedRegister[F field.Element[F]] = assignment.ComputedRegister[F, Term[F]]
-)
-
 // Following types capture permitted constraint forms at the MIR level.
 type (
 	// Assertion captures the notion of an arbitrary property which should hold for

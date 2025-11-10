@@ -18,7 +18,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
-	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	log "github.com/sirupsen/logrus"
@@ -29,29 +28,30 @@ import (
 var EXPLODING_MULTIPLIER = uint(10)
 
 // Subdivide implementation for the FieldAgnostic interface.
-func subdivideVanishing[F field.Element[F]](p VanishingConstraint[F], mapping module.LimbsMap,
-	env agnostic.RegisterAllocator) VanishingConstraint[F] {
+func (p *Subdivider[F]) subdivideVanishing(vc VanishingConstraint[F]) VanishingConstraint[F] {
 	//
 	var (
-		modmap = mapping.Module(p.Context)
+		modmap = p.mapping.Module(vc.Context)
+		// Extract allocator
+		alloc = p.FreshAllocator(vc.Context)
 		// Split all registers occurring in the logical term.
-		c = splitLogicalTerm(p.Constraint, modmap, env)
+		c = splitLogicalTerm(vc.Constraint, modmap, alloc)
 		// Determine size of original tree
-		n = sizeOfTree(p.Constraint, modmap)
+		n = sizeOfTree(vc.Constraint, modmap)
 		// Determine size of split tree
-		m = sizeOfTree(c, env)
+		m = sizeOfTree(c, alloc)
 		//
 		multiplier = float64(m) / float64(n)
 	)
 	// Check for any exploding constraints
 	if multiplier > float64(EXPLODING_MULTIPLIER) {
 		multiplier := fmt.Sprintf("%.2f", multiplier)
-		log.Debug("exploding (x", multiplier, ") constraint \"", p.Handle, "\" in module \"", modmap.Name(), "\" detected.")
+		log.Debug("exploding (x", multiplier, ") constraint \"", vc.Handle, "\" in module \"", modmap.Name(), "\" detected.")
 	}
-	// FIXME: this is an insufficient solution because it does not address the
-	// potential issues around bandwidth.  Specifically, where additional carry
-	// lines are needed, etc.
-	return vanishing.NewConstraint(p.Handle, p.Context, p.Domain, c)
+	// Flush allocator
+	p.FlushAllocator(vc.Context, alloc)
+	//
+	return vanishing.NewConstraint(vc.Handle, vc.Context, vc.Domain, c)
 }
 
 func splitLogicalTerm[F field.Element[F]](expr LogicalTerm[F], mapping register.LimbsMap,
@@ -106,8 +106,8 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping regi
 	//
 	var (
 		// Split terms accordingl to mapping, and translate into polynomials
-		left  = termToPolynomial(splitTerm(lhs, mapping), mapping.LimbsMap())
-		right = termToPolynomial(splitTerm(rhs, mapping), mapping.LimbsMap())
+		left  = termToPolynomial(subdivideTerm(lhs, mapping), mapping.LimbsMap())
+		right = termToPolynomial(subdivideTerm(rhs, mapping), mapping.LimbsMap())
 		// Construct equality for spltting
 		equation = agnostic.NewEquation(left, right)
 		// Split the equation

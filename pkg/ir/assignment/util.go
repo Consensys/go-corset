@@ -73,17 +73,3 @@ func ReadPadding[F field.Element[F]](trace tr.Trace[F], regs ...register.Ref) []
 	//
 	return targets
 }
-
-// SubdivideRegisterRefs subdivides a set of register references according to a
-// given mapping.
-func SubdivideRegisterRefs[F field.Element[F]](mapping module.LimbsMap, refs ...register.Refs) []register.Refs {
-	var (
-		nrefs = make([]register.Refs, len(refs))
-	)
-	//
-	for i, ref := range refs {
-		nrefs[i] = ref.Apply(mapping.Module(ref.Module()))
-	}
-	//
-	return nrefs
-}

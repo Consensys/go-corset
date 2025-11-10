@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -26,6 +27,10 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
+
+// Computation here represents an "agnostic" computation.  That is one which
+// operates over unbounded words.
+type Computation = term.Computation[word.BigEndian]
 
 var _ Computation = &PolyFil{}
 

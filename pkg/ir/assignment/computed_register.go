@@ -21,7 +21,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -213,21 +212,6 @@ func (p *ComputedRegister[F]) RegistersWritten() []register.Ref {
 	}
 	//
 	return written
-}
-
-// Subdivide implementation for the FieldAgnostic interface.
-func (p *ComputedRegister[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
-	var (
-		ntargets []register.Id
-		modmap   = mapping.Module(p.Module)
-		expr     = term.SubdivideComputation(p.Expr, modmap)
-	)
-	//
-	for _, target := range p.Targets {
-		ntargets = append(ntargets, modmap.LimbIds(target)...)
-	}
-	//
-	return NewComputedRegister[F](expr, p.Direction, p.Module, ntargets...)
 }
 
 // Substitute any matchined labelled constants within this assignment
