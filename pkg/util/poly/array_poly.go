@@ -58,6 +58,18 @@ func (p *ArrayPoly[S]) Set(terms ...Monomial[S]) *ArrayPoly[S] {
 	return &poly
 }
 
+// Const64 Initialise this polynomial from a 64bit constant.
+func (p *ArrayPoly[S]) Const64(val uint64) *ArrayPoly[S] {
+	// Special case for zero
+	if val == 0 {
+		return &ArrayPoly[S]{}
+	}
+	//
+	coeff := big.NewInt(int64(val))
+	//
+	return p.Set(NewMonomial[S](*coeff))
+}
+
 // Clone performs a deep copy of this polynomial
 func (p *ArrayPoly[S]) Clone() *ArrayPoly[S] {
 	nterms := make([]Monomial[S], len(p.terms))

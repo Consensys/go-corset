@@ -57,6 +57,21 @@ func NewInterval64(lower int64, upper int64) Interval {
 	return NewInterval(*big.NewInt(lower), *big.NewInt(upper))
 }
 
+// Constant checks whether this interval represents a constant value and, if so,
+// returns it.  Otherwise, it returns nil.
+func (p *Interval) Constant() *big.Int {
+	if p.IsFinite() {
+		minv, maxv := p.min.IntVal(), p.max.IntVal()
+		// Check whether constant
+		if minv.Cmp(&maxv) == 0 {
+			// Yes
+			return &minv
+		}
+	}
+	//
+	return nil
+}
+
 // IsFinite determines whether or not this interval represents an a finite value
 // (i.e. not an infinity).
 func (p *Interval) IsFinite() bool {

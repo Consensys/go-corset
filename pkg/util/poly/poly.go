@@ -31,6 +31,9 @@ type Polynomial[S util.Comparable[S], T Term[S, T], P any] interface {
 	// Initialise this polynomial from zero or more terms, returnining this.
 	Set(...T) P
 
+	// Initialise this polynomial from a 64bit constant.
+	Const64(uint64) P
+
 	// IsZero returns an indication as to whether this polynomial is equivalent
 	// to zero (or not).  This is a three valued logic system which can return
 	// either "yes", "no" or "maybe" where: (i) "yes" means the polynomial

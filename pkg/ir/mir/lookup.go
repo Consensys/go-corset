@@ -188,7 +188,7 @@ func padLookupLimb[F field.Element[F]](i uint, term *VectorAccess[F], geometry l
 	// Pad out with zeros to match geometry
 	//nolint
 	for m := n - len(term.Vars); m > 0; m-- {
-		//nterms = append(nterms, ir.Const64[F, Term[F]](0))
+		//nterms = append(nterms, term.Const64[F, Term[F]](0))
 		panic("todo: irregular lookups")
 	}
 	//

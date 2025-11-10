@@ -747,15 +747,13 @@ func Test_Valid_Lookup_06(t *testing.T) {
 	util.CheckCorset(t, false, "corset/valid/lookup_06", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
-// #1260
-// func Test_Valid_Lookup_07(t *testing.T) {
-// 	util.Check(t, false, "corset/valid/lookup_07", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
-// }
+func Test_Valid_Lookup_07(t *testing.T) {
+	util.CheckCorset(t, false, "corset/valid/lookup_07", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
 
-// #1260
-// func Test_Valid_Lookup_08(t *testing.T) {
-// 	util.Check(t, false, "corset/valid/lookup_08", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
-// }
+func Test_Valid_Lookup_08(t *testing.T) {
+	util.CheckCorset(t, false, "corset/valid/lookup_08", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
 
 func Test_Valid_Lookup_09(t *testing.T) {
 	util.CheckCorset(t, false, "corset/valid/lookup_09", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)

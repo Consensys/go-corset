@@ -132,6 +132,8 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], _ regis
 		result Polynomial
 		shift  uint = 0
 	)
+	// Ensure polynomial initialise for case when there are no variables.
+	result = result.Const64(0)
 	//
 	for i, v := range term.Vars {
 		var (
