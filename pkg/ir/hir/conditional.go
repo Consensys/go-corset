@@ -106,30 +106,6 @@ type IfTerm struct {
 	cases []ifTermCase
 }
 
-// BitWidth returns the maximum bitwidth for any target term in this conditional
-// under the given register mapping.  Specifically, the register mapping
-// determines the width of registers within the term, from which the overall
-// bitwidth is determined.  For example, given the term X+1 where X is u16, this
-// function returns a bitwidth of 17bits.
-func (p *IfTerm) BitWidth(env register.Map) uint {
-	var bitwidth uint
-	//
-	for _, c := range p.cases {
-		// Determine the integer range for the given expression
-		vals := c.target.ValueRange(env)
-		// Extract bitwidth
-		width, sign := vals.BitWidth()
-		// Sanity check
-		if sign {
-			panic("cannot determine bitwidth of (signed) term")
-		}
-		//
-		bitwidth = max(bitwidth, width)
-	}
-	//
-	return bitwidth
-}
-
 // Equate returns a logical condition that constraints the target register to
 // hold the values represented by this term on each row.
 func (p *IfTerm) Equate(target register.Id, bitwidth uint) mir.LogicalTerm[word.BigEndian] {
