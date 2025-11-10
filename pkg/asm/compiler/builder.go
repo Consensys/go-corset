@@ -49,7 +49,7 @@ type Module[F field.Element[F], T any, E Expr[T, E], M any] interface {
 	NewConstraint(name string, domain util.Option[int], expr E)
 
 	// NewLookup constructs a new lookup constraint
-	NewLookup(name string, from []T, target uint, to []T, enable util.Option[T])
+	NewLookup(name string, from []T, target M, to []T, enable util.Option[T])
 
 	// String returns an appropriately formatted representation of the module.
 	String() string
@@ -94,7 +94,7 @@ type Expr[T, E any] interface {
 	Or(...E) E
 
 	// Variable constructs a variable with a given shift.
-	Variable(name T, shift int) E
+	Variable(name T, bitwidth uint, shift int) E
 
 	// String returns a suitable string representation
 	String(func(T) string) string
@@ -161,8 +161,8 @@ func True[T any, E Expr[T, E]]() E {
 
 // Variable is just a convenient wrapper for creating abstract expressions
 // representing variable accesses.
-func Variable[T any, E Expr[T, E]](id T, shift int) E {
+func Variable[T any, E Expr[T, E]](id T, bitwidth uint, shift int) E {
 	var empty E
 	//
-	return empty.Variable(id, shift)
+	return empty.Variable(id, bitwidth, shift)
 }

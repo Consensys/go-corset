@@ -18,13 +18,13 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/math"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
-// Environment provides a generic mechanism for associating details of a
+// Environment provides a generic mechanism for associating the bitwidth of a
 // register with its ID.
-type Environment func(register.Id) register.Register
+type Environment[T RegisterIdentifier[T]] func(T) uint
 
 // StaticPolynomial represents a polynomial over registers on the current row.
 // In other words, a polynomial which cannot refer to a register on a different
@@ -34,13 +34,13 @@ type StaticPolynomial = Polynomial[register.Id]
 // StaticMonomial defines the type of monomials contained within a given (static) polynomial.
 type StaticMonomial = Monomial[register.Id]
 
-// RelativePolynomial represents a polynomial over "relative registers".  That
+// DynamicPolynomial represents a polynomial over "relative registers".  That
 // is, it can refer to registers on the current row or on a row relative to the
 // current row (e.g. the next row, or the previous row, etc).
-type RelativePolynomial = Polynomial[register.RelativeId]
+type DynamicPolynomial = Polynomial[register.AccessId]
 
-// RelativeMonomial defines the type of monomials contained within a given (relative) polynomial.
-type RelativeMonomial = Monomial[register.RelativeId]
+// DynamicMonomial defines the type of monomials contained within a given (relative) polynomial.
+type DynamicMonomial = Monomial[register.AccessId]
 
 // Polynomial defines the type of polynomials over which packets (and register
 // splitting in general) operate.
@@ -57,17 +57,25 @@ type RegisterIdentifier[T any] interface {
 	Id() register.Id
 }
 
-// EnvironmentFromMap constructs an environment from a register map.
-func EnvironmentFromMap(mapping register.Map) Environment {
-	return func(rid register.Id) register.Register {
-		return mapping.Register(rid)
+// DynamicEnvironment provides a simple implementation of Environment for rich
+// register accesses.
+func DynamicEnvironment() Environment[register.AccessId] {
+	return func(rid register.AccessId) uint {
+		return rid.MaskWidth()
 	}
 }
 
-// EnvironmentFromArray constructs an environment from a register array.
-func EnvironmentFromArray(registers []register.Register) Environment {
-	return func(rid register.Id) register.Register {
-		return registers[rid.Unwrap()]
+// StaticEnvironment constructs an environment from a register map.
+func StaticEnvironment(mapping register.Map) Environment[register.Id] {
+	return func(rid register.Id) uint {
+		return mapping.Register(rid.Id()).Width
+	}
+}
+
+// ArrayEnvironment constructs an environment from a register array.
+func ArrayEnvironment(registers []register.Register) Environment[register.Id] {
+	return func(rid register.Id) uint {
+		return registers[rid.Id().Unwrap()].Width
 	}
 }
 
@@ -85,7 +93,7 @@ func EnvironmentFromArray(registers []register.Register) Environment {
 // smallest enclosing integer range.  From this is then determines the required
 // widths of the negative and positive components, before combining them to give
 // the result.
-func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Environment,
+func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Environment[T],
 ) (bitwidth uint, signed bool) {
 	//
 	var (
@@ -112,7 +120,7 @@ func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Enviro
 // possible evaluations of this mononomial.  To determine the bitwidth of a
 // monomial, this function first determines its smallest enclosing integer
 // range.
-func WidthOfMonomial[T RegisterIdentifier[T]](source Monomial[T], env Environment,
+func WidthOfMonomial[T RegisterIdentifier[T]](source Monomial[T], env Environment[T],
 ) (bitwidth uint) {
 	//
 	var (
@@ -135,7 +143,7 @@ func WidthOfMonomial[T RegisterIdentifier[T]](source Monomial[T], env Environmen
 // values, along with the number of bits required for all negative values.
 // Observe that, unlike WidthOfPolynomial, this does not account for an
 // additional sign bit.
-func SplitWidthOfPolynomial(source StaticPolynomial, env Environment) (poswidth uint, negwidth uint) {
+func SplitWidthOfPolynomial(source StaticPolynomial, env Environment[register.Id]) (poswidth uint, negwidth uint) {
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, env)
 		lower     = intRange.MinIntValue()
@@ -160,8 +168,8 @@ func SplitWidthOfPolynomial(source StaticPolynomial, env Environment) (poswidth 
 // evaluations of this polynomial lie.  For example, consider "2*X + 1" where X
 // is an 8bit register.  Then, the smallest integer range which includes this
 // polynomial is "0..511".
-func IntegerRangeOfPolynomial[T RegisterIdentifier[T]](poly Polynomial[T], env Environment) math.Interval {
-	var intRange math.Interval
+func IntegerRangeOfPolynomial[T RegisterIdentifier[T]](poly Polynomial[T], env Environment[T]) util_math.Interval {
+	var intRange util_math.Interval
 	//
 	for i := range poly.Len() {
 		intRange.Add(IntegerRangeOfMonomial(poly.Term(i), env))
@@ -174,10 +182,10 @@ func IntegerRangeOfPolynomial[T RegisterIdentifier[T]](poly Polynomial[T], env E
 // evaluations of the monomial lie.  For example, consider the monomial "3*X*Y"
 // where X and are 8bit and 16bit registers respectively.  Then, the smallest
 // enclosing integer range is 0 .. 3*255*65535.
-func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], env Environment) math.Interval {
+func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], env Environment[T]) util_math.Interval {
 	var (
 		coeff    = mono.Coefficient()
-		intRange = math.NewInterval(coeff, coeff)
+		intRange = util_math.NewInterval(coeff, coeff)
 	)
 	//
 	for i := range mono.Len() {
@@ -190,16 +198,16 @@ func IntegerRangeOfMonomial[T RegisterIdentifier[T]](mono Monomial[T], env Envir
 // IntegerRangeOfRegister determines the smallest integer range enclosing all possible
 // values for a given register.  For example, a register of width 16 has an
 // integer range of 0..65535 (inclusive).
-func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, env func(register.Id) register.Register) math.Interval {
+func IntegerRangeOfRegister[T RegisterIdentifier[T]](id T, env Environment[T]) util_math.Interval {
 	var (
 		val   = big.NewInt(2)
-		width = env(id.Id()).Width
+		width = env(id)
 	)
 	// NOTE: following is safe since the width of any registers must sure be
 	// less than 65536 bits :)
 	val.Exp(val, big.NewInt(int64(width)), nil)
 	// Subtract one since the interval is inclusive.
-	return math.NewInterval(zero, *val.Sub(val, &one))
+	return util_math.NewInterval(zero, *val.Sub(val, &one))
 }
 
 // RegistersRead returns the set of registers read by this instruction.
@@ -266,19 +274,24 @@ func SubstituteMonomial[T RegisterIdentifier[T]](t Monomial[T], mapping func(T) 
 // LimbPolynomial constructs a polynomial representing the combined value of all
 // limbs according to their given bitwidths.  For example, given [l0, l1, l2]
 // with limbs widths [8,8,2] the resulting polynomial is: l0 + 2^8*l1 + 2^8*l2.
-func LimbPolynomial(shift int, limbs []register.Id, widths []uint) (p RelativePolynomial) {
+func LimbPolynomial(bitwidth uint, shift int, limbs []register.Id, widths []uint) (p DynamicPolynomial) {
 	var (
-		terms    = make([]RelativeMonomial, len(limbs))
-		bitwidth uint
+		terms []DynamicMonomial
+		width uint
 	)
 	//
 	for i, limb := range limbs {
 		var (
-			c = math.Pow2(bitwidth)
+			c         = util_math.Pow2(width)
+			limbWidth = min(bitwidth, widths[i])
 		)
 		//
-		terms[i] = poly.NewMonomial(*c, limb.Shift(shift))
-		bitwidth += widths[i]
+		if limbWidth > 0 {
+			terms = append(terms, poly.NewMonomial(*c, limb.AccessOf(widths[i]).Shift(shift).Mask(limbWidth)))
+			width += limbWidth
+		}
+		//
+		bitwidth -= limbWidth
 	}
 	//
 	return p.Set(terms...)

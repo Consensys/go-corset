@@ -268,13 +268,13 @@ func (p *MirPicusTranslator[F]) lowerTerm(t mir.Term[F], module schema.Module[F]
 	case *mir.Constant[F]:
 		return pcl.C(e.Value)
 	case *mir.RegisterAccess[F]:
-		name := module.Register(e.Register).Name
+		name := module.Register(e.Register()).Name
 		if strings.Contains(name, " ") {
 			name = fmt.Sprintf("\"%s\"", name)
 		}
 
-		if e.Shift != 0 {
-			name = fmt.Sprintf("%s_%d", name, e.Shift)
+		if e.RelativeShift() != 0 {
+			name = fmt.Sprintf("%s_%d", name, e.RelativeShift())
 		}
 
 		return pcl.V[F](name)

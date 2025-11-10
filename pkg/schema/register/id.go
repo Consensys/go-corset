@@ -20,10 +20,11 @@ import "github.com/consensys/go-corset/pkg/trace"
 // which are expected to identify Columns.
 type Id = trace.ColumnId
 
-// RelativeId is a wrapper around a column Id which adds a "relative
-// shift".  That is, it identifies a column on a relative row from the given
-// row.
-type RelativeId = trace.RelativeColumnId
+// AccessId is a wrapper around a column Id which adds a "relative shift" and
+// "bitwidth window".  That is, it identifies a column on a relative row from
+// the given row, and allows only a portion of the original variable to be
+// accessed.
+type AccessId = trace.ColumnAccessId
 
 // NewId constructs a new register ID from a given raw index.
 func NewId(index uint) Id {

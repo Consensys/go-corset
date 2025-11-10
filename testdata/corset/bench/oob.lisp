@@ -398,7 +398,7 @@
 (defun (jumpi---jump-cond-hi)               [DATA 3])
 (defun (jumpi---jump-cond-lo)               [DATA 4])
 (defun (jumpi---code-size)                  [DATA 5])
-(defun (jumpi---jump-not-attempted)         [DATA 6])
+(defun (jumpi---jump-not-attempted) [DATA 6])
 (defun (jumpi---guaranteed-exception)       [DATA 7])
 (defun (jumpi---jump-must-be-attempted)     [DATA 8])
 (defun (jumpi---valid-pc-new)               OUTGOING_RES_LO)

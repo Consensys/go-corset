@@ -148,7 +148,7 @@ func (p *Assign) Validate(fieldWidth uint, fn register.Map) error {
 		// Determine number of bits required to hold the left-hand side.
 		lhs_bits = sumTargetBits(p.Targets, regs)
 		// Determine number of bits  required to hold the right-hand side.
-		rhs_bits, _ = agnostic.WidthOfPolynomial(p.Source, agnostic.EnvironmentFromArray(regs))
+		rhs_bits, _ = agnostic.WidthOfPolynomial(p.Source, agnostic.ArrayEnvironment(regs))
 	)
 	// check
 	if lhs_bits < rhs_bits {

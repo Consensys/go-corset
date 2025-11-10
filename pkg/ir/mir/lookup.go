@@ -15,6 +15,7 @@ package mir
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -59,7 +60,8 @@ func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, *RegisterAc
 		)
 		// Split selector
 		if vector.Selector.HasValue() {
-			selector = util.Some(splitRawRegisterAccess(vector.Selector.Unwrap(), modmap))
+			split := splitRawRegisterAccess(vector.Selector.Unwrap(), modmap)
+			selector = util.Some(term.RawVectorAccess(split))
 		}
 		// Done
 		nterms[i] = lookup.NewVector(vector.Module, selector, terms...)
@@ -175,7 +177,7 @@ func padLookupLimb[F field.Element[F]](i uint, term *VectorAccess[F], geometry l
 	)
 	// Sanity check
 	for i, t := range term.Vars {
-		bitwidth := mapping.Limb(t.Register).Width
+		bitwidth := t.MaskWidth()
 		// Sanity check for irregular lookups
 		if i != n && bitwidth > widths[i] {
 			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, widths[i]))

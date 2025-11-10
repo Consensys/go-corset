@@ -67,7 +67,7 @@ func NewComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Expr
 		arg := NewComputation[F, S, T](t.Arg)
 		return Normalise(arg)
 	case *RegisterAccess[F, T]:
-		return NewRegisterAccess[F, Computation[F]](t.Register, t.Shift)
+		return RawRegisterAccess[F, Computation[F]](t.Register(), t.BitWidth(), t.RelativeShift()).Mask(t.MaskWidth())
 	case *Sub[F, T]:
 		args := NewComputations[F, S](t.Args)
 		return Subtract(args...)
@@ -75,7 +75,7 @@ func NewComputation[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Expr
 		var nterms = make([]*RegisterAccess[F, Computation[F]], len(t.Vars))
 		//
 		for i, v := range t.Vars {
-			nterms[i] = RawRegisterAccess[F, Computation[F]](v.Register, v.Shift)
+			nterms[i] = RawRegisterAccess[F, Computation[F]](v.Register(), v.BitWidth(), v.RelativeShift()).Mask(v.MaskWidth())
 		}
 		//
 		return NewVectorAccess(nterms)
@@ -216,8 +216,22 @@ func subdivideRegAccesses[F field.Element[F]](mapping register.LimbsMap, regs ..
 	var nterms []*RegisterAccess[F, Computation[F]]
 	//
 	for _, v := range regs {
-		for _, limb := range mapping.LimbIds(v.Register) {
-			nterms = append(nterms, RawRegisterAccess[F, Computation[F]](limb, v.Shift))
+		var bitwidth = v.MaskWidth()
+		//
+		for _, limbId := range mapping.LimbIds(v.Register()) {
+			var (
+				limb = mapping.Limb(limbId)
+				mask = min(limb.Width, bitwidth)
+			)
+			//
+			if mask > 0 {
+				// Construct access for given limb
+				ith := RawRegisterAccess[F, Computation[F]](limbId, limb.Width, v.RelativeShift())
+				// Mask access to eliminate any unused bits
+				nterms = append(nterms, ith.Mask(mask))
+			}
+			//
+			bitwidth -= mask
 		}
 	}
 	// Simplify (when possible)

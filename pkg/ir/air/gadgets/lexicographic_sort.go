@@ -165,7 +165,7 @@ func (p *LexicographicSortingGadget[F]) Apply(mid sc.ModuleId, schema *air.Schem
 		gadget.Constrain(ref, p.bitwidth)
 	}
 	// Construct delta terms
-	constraint := constructLexicographicDeltaConstraint[F](deltaIndex, p.columns, p.signs)
+	constraint := constructLexicographicDeltaConstraint[F](deltaIndex, p.columns, p.signs, module)
 	// Apply selector
 	constraint = term.Product(p.selector, constraint)
 	// Add delta constraint
@@ -200,20 +200,24 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 	terms := make([]air.Term[F], ncols)
 
 	for i := uint(0); i < ncols; i++ {
-		ith_id := register.NewId(bitIndex + i)
-		pterms := make([]air.Term[F], i+1)
-		qterms := make([]air.Term[F], i)
-		c_i := term.NewRegisterAccess[F, air.Term[F]](p.columns[i], 0)
-		c_pi := term.NewRegisterAccess[F, air.Term[F]](p.columns[i], -1)
-		terms[i] = term.NewRegisterAccess[F, air.Term[F]](ith_id, 0)
+		var (
+			ith_id  = register.NewId(bitIndex + i)
+			ith_col = module.Register(p.columns[i])
+			pterms  = make([]air.Term[F], i+1)
+			qterms  = make([]air.Term[F], i)
+			c_i     = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width, 0)
+			c_pi    = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width, -1)
+		)
+
+		terms[i] = term.NewRegisterAccess[F, air.Term[F]](ith_id, 1, 0)
 
 		for j := uint(0); j < i; j++ {
 			jth_id := register.NewId(bitIndex + j)
-			pterms[j] = term.NewRegisterAccess[F, air.Term[F]](jth_id, 0)
-			qterms[j] = term.NewRegisterAccess[F, air.Term[F]](jth_id, 0)
+			pterms[j] = term.NewRegisterAccess[F, air.Term[F]](jth_id, 1, 0)
+			qterms[j] = term.NewRegisterAccess[F, air.Term[F]](jth_id, 1, 0)
 		}
 		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
-		pterms[i] = term.NewRegisterAccess[F, air.Term[F]](ith_id, 0)
+		pterms[i] = term.NewRegisterAccess[F, air.Term[F]](ith_id, 1, 0)
 		pDiff := term.Subtract(c_i, c_pi)
 		pName := fmt.Sprintf("%s:%d", p.prefix, i)
 		module.AddConstraint(
@@ -257,28 +261,30 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 // set. This is assumes that multiplexer bits are mutually exclusive (i.e. at
 // most is one).
 func constructLexicographicDeltaConstraint[F field.Element[F]](deltaIndex register.Id, columns []register.Id,
-	signs []bool) air.Term[F] {
+	signs []bool, mapping register.Map) air.Term[F] {
 	//
 	var (
 		ncols = uint(len(signs))
 		// Calculate column index of first selector bit
 		bitIndex = deltaIndex.Unwrap() + 1
 		// Construct delta terms
-		terms = make([]air.Term[F], ncols)
-		Dk    = term.NewRegisterAccess[F, air.Term[F]](deltaIndex, 0)
+		terms      = make([]air.Term[F], ncols)
+		deltaWidth = mapping.Register(deltaIndex).Width
+		Dk         = term.NewRegisterAccess[F, air.Term[F]](deltaIndex, deltaWidth, 0)
 	)
 	//
 	for i := uint(0); i < ncols; i++ {
 		var (
 			Xdiff   air.Term[F]
+			ith_col = mapping.Register(columns[i])
 			ith_bit = register.NewId(bitIndex + i)
 		)
 		// Ith bit column (at row k)
-		Bk := term.NewRegisterAccess[F, air.Term[F]](ith_bit, 0)
+		Bk := term.NewRegisterAccess[F, air.Term[F]](ith_bit, 1, 0)
 		// Ith column (at row k)
-		Xk := term.NewRegisterAccess[F, air.Term[F]](columns[i], 0)
+		Xk := term.NewRegisterAccess[F, air.Term[F]](columns[i], ith_col.Width, 0)
 		// Ith column (at row k-1)
-		Xkm1 := term.NewRegisterAccess[F, air.Term[F]](columns[i], -1)
+		Xkm1 := term.NewRegisterAccess[F, air.Term[F]](columns[i], ith_col.Width, -1)
 		if signs[i] {
 			Xdiff = term.Subtract(Xk, Xkm1)
 		} else {

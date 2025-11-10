@@ -117,28 +117,28 @@
                (vanishes! ROOB)))
 
 (defconstraint setting-roob-type-4 (:guard [MXP_TYPE 4])
-  (begin (if-not-zero SIZE_1_HI
-                      (eq! ROOB 1))
-         (if-not-zero (* OFFSET_1_HI SIZE_1_LO)
-                      (eq! ROOB 1))
-         (if-zero SIZE_1_HI
-                  (if-zero (* OFFSET_1_HI SIZE_1_LO)
-                           (vanishes! ROOB)))))
+  (begin (if (!= 0 SIZE_1_HI)
+             (== ROOB 1))
+         (if (∧ (!= 0 OFFSET_1_HI) (!= SIZE_1_LO 0))
+             (== ROOB 1))
+         (if (== 0 SIZE_1_HI)
+             (if (∨ (== 0 OFFSET_1_HI) (== 0 SIZE_1_LO))
+                 (== 0 ROOB)))))
 
 (defconstraint setting-roob-type-5 (:guard [MXP_TYPE 5])
-  (begin (if-not-zero SIZE_1_HI
-                      (eq! ROOB 1))
-         (if-not-zero SIZE_2_HI
-                      (eq! ROOB 1))
-         (if-not-zero (* OFFSET_1_HI SIZE_1_LO)
-                      (eq! ROOB 1))
-         (if-not-zero (* OFFSET_2_HI SIZE_2_LO)
-                      (eq! ROOB 1))
-         (if-zero SIZE_1_HI
-                  (if-zero SIZE_2_HI
-                           (if-zero (* OFFSET_1_HI SIZE_1_LO)
-                                    (if-zero (* OFFSET_2_HI SIZE_2_LO)
-                                             (vanishes! ROOB)))))))
+  (begin (if (!= 0 SIZE_1_HI)
+             (== ROOB 1))
+         (if (!= 0 SIZE_2_HI)
+             (== ROOB 1))
+         (if (∧ (!= 0 OFFSET_1_HI) (!= SIZE_1_LO 0))
+             (eq! ROOB 1))
+         (if (∧ (!= 0 OFFSET_2_HI) (!= SIZE_2_LO 0))
+                      (== ROOB 1))
+         (if (== 0 SIZE_1_HI)
+             (if (== 0 SIZE_2_HI)
+                 (if (∨ (== 0 OFFSET_1_HI) (== 0 SIZE_1_LO))
+                     (if (∨ (== 0 OFFSET_2_HI) (== 0 SIZE_2_LO))
+                         (== 0 ROOB)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;                     ;;

@@ -335,12 +335,12 @@ func (p *ModuleBuilder[F, C, T]) Registers() []register.Register {
 // RegisterAccessOf returns a register accessor for the register with the given name.
 func (p *ModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int) *term.RegisterAccess[F, T] {
 	// Lookup register associated with this name
-	rid := p.regmap[name]
+	var (
+		rid = register.NewId(p.regmap[name])
+		reg = p.Register(rid)
+	)
 	//
-	return &term.RegisterAccess[F, T]{
-		Register: register.NewId(rid),
-		Shift:    shift,
-	}
+	return term.RawRegisterAccess[F, T](rid, reg.Width, shift)
 }
 
 func (p *ModuleBuilder[F, C, T]) String() string {

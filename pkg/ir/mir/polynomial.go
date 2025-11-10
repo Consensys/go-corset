@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/math"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -28,7 +28,7 @@ var (
 )
 
 // Polynomial provides a useful alias
-type Polynomial = agnostic.RelativePolynomial
+type Polynomial = agnostic.DynamicPolynomial
 
 // ============================================================================
 // Term => Polynomial
@@ -42,7 +42,7 @@ func termToPolynomial[F field.Element[F]](term Term[F], mapping register.Map) Po
 	case *Constant[F]:
 		return termConstantToPolynomial(t.Value, mapping)
 	case *RegisterAccess[F]:
-		return termRegAccessToPolynomial(*t, mapping)
+		return termRegAccessToPolynomial(*t)
 	case *Mul[F]:
 		return termMulToPolynomial(*t, mapping)
 	case *Sub[F]:
@@ -70,13 +70,13 @@ func termAddToPolynomial[F field.Element[F]](term Add[F], mapping register.Map) 
 	return result
 }
 
-func termConstantToPolynomial[F field.Element[F]](constant F, mapping register.Map) Polynomial {
+func termConstantToPolynomial[F field.Element[F]](constant F, _ register.Map) Polynomial {
 	var (
 		result Polynomial
 		value  big.Int
 	)
 	value.SetBytes(constant.Bytes())
-	monomial := poly.NewMonomial[register.RelativeId](value)
+	monomial := poly.NewMonomial[register.AccessId](value)
 	//
 	return result.Set(monomial)
 }
@@ -97,11 +97,15 @@ func termMulToPolynomial[F field.Element[F]](term Mul[F], mapping register.Map) 
 	return result
 }
 
-func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F], mapping register.Map) Polynomial {
+func termRegAccessToPolynomial[F field.Element[F]](term RegisterAccess[F]) Polynomial {
 	var (
-		identifier = term.Register.Shift(term.Shift)
-		monomial   = poly.NewMonomial(biONE, identifier)
-		result     Polynomial
+		identifier = term.Register().
+				AccessOf(term.BitWidth()).
+				Shift(term.RelativeShift()).
+				Mask(term.MaskWidth())
+		//
+		monomial = poly.NewMonomial(biONE, identifier)
+		result   Polynomial
 	)
 	//
 	return result.Set(monomial)
@@ -123,25 +127,28 @@ func termSubToPolynomial[F field.Element[F]](term Sub[F], mapping register.Map) 
 	return result
 }
 
-func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], mapping register.Map) Polynomial {
+func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], _ register.Map) Polynomial {
 	var (
 		result Polynomial
 		shift  uint = 0
 	)
 	//
 	for i, v := range term.Vars {
-		ith := termRegAccessToPolynomial(*v, mapping)
+		var (
+			regWidth = v.MaskWidth()
+			ith      = termRegAccessToPolynomial(*v)
+		)
 		// Add to poly
 		if i == 0 {
 			result = ith
 		} else {
 			// Shift ith term
-			ith = ith.MulScalar(math.Pow2(shift))
+			ith = ith.MulScalar(util_math.Pow2(shift))
 			// Add ith term
 			result = result.Add(ith)
 		}
 		// Increase shift
-		shift += mapping.Register(v.Register).Width
+		shift += regWidth
 	}
 	// Done
 	return result
@@ -175,7 +182,7 @@ func polynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
 	return term.Sum(pos...)
 }
 
-func monomialToTerm[F field.Element[F]](monomial agnostic.RelativeMonomial) Term[F] {
+func monomialToTerm[F field.Element[F]](monomial agnostic.DynamicMonomial) Term[F] {
 	var (
 		terms = make([]Term[F], monomial.Len()+1)
 		tmp   = monomial.Coefficient()
@@ -186,7 +193,8 @@ func monomialToTerm[F field.Element[F]](monomial agnostic.RelativeMonomial) Term
 	//
 	for i := range monomial.Len() {
 		ith := monomial.Nth(i)
-		terms[i+1] = term.NewRegisterAccess[F, Term[F]](ith.Id(), ith.Shift())
+		ith_term := term.RawRegisterAccess[F, Term[F]](ith.Id(), ith.BitWidth(), ith.RelativeShift())
+		terms[i+1] = ith_term.Mask(ith.MaskWidth())
 	}
 	//
 	return term.Product(terms...)

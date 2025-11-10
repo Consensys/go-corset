@@ -73,8 +73,8 @@ func (p *BitwidthGadget[F]) WithLimitless(flag bool) *BitwidthGadget[F] {
 // Constrain ensures all values in a given register fit within a given bitwidth.
 func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 	var (
-		module   = p.schema.Module(ref.Module())
-		register = module.Register(ref.Register())
+		module = p.schema.Module(ref.Module())
+		reg    = module.Register(ref.Register())
 	)
 	// Base cases
 	switch {
@@ -84,9 +84,9 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 		p.applyBinaryGadget(ref)
 		return
 	case bitwidth <= p.maxRangeConstraint:
-		handle := fmt.Sprintf("%s:u%d", register.Name, bitwidth)
+		handle := fmt.Sprintf("%s:u%d", reg.Name, bitwidth)
 		// Construct access to register
-		access := term.RawRegisterAccess[F, air.Term[F]](ref.Register(), 0)
+		access := term.RawRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)
 		// Add range constraint
 		module.AddConstraint(air.NewRangeConstraint(handle, module.Id(),
 			[]*term.RegisterAccess[F, air.Term[F]]{access}, []uint{bitwidth}))
@@ -104,12 +104,12 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 // Enforce that a given register is zero.
 func (p *BitwidthGadget[F]) applyZeroGadget(ref register.Ref) {
 	var (
-		module   = p.schema.Module(ref.Module())
-		register = module.Register(ref.Register())
-		handle   = fmt.Sprintf("%s:u0", register.Name)
+		module = p.schema.Module(ref.Module())
+		reg    = module.Register(ref.Register())
+		handle = fmt.Sprintf("%s:u0", reg.Name)
 	)
 	// Construct X
-	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 0)
+	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)
 	// Construct X == 0
 	X_eq0 := term.Subtract(X, term.Const64[F, air.Term[F]](0))
 	// Done!
@@ -122,12 +122,12 @@ func (p *BitwidthGadget[F]) applyZeroGadget(ref register.Ref) {
 // column X, this corresponds to the vanishing constraint X * (X-1) == 0.
 func (p *BitwidthGadget[F]) applyBinaryGadget(ref register.Ref) {
 	var (
-		module   = p.schema.Module(ref.Module())
-		register = module.Register(ref.Register())
-		handle   = fmt.Sprintf("%s:u1", register.Name)
+		module = p.schema.Module(ref.Module())
+		reg    = module.Register(ref.Register())
+		handle = fmt.Sprintf("%s:u1", reg.Name)
 	)
 	// Construct X
-	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 0)
+	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)
 	// Construct X == 0
 	X_eq0 := term.Subtract(X, term.Const64[F, air.Term[F]](0))
 	// Construct X == 0
@@ -146,23 +146,23 @@ func (p *BitwidthGadget[F]) applyBinaryGadget(ref register.Ref) {
 func (p *BitwidthGadget[F]) applyHorizontalBitwidthGadget(ref register.Ref, bitwidth uint) {
 	var (
 		module       = p.schema.Module(ref.Module())
-		register     = module.Register(ref.Register())
-		lookupHandle = fmt.Sprintf("%s:u%d", register.Name, bitwidth)
+		reg          = module.Register(ref.Register())
+		lookupHandle = fmt.Sprintf("%s:u%d", reg.Name, bitwidth)
 	)
 	// Allocate computed byte registers in the given module, and add required
 	// range constraints.
-	byteRegisters := allocateByteRegisters(register.Name, bitwidth, module)
+	byteRegisters := allocateByteRegisters(reg.Name, bitwidth, module)
 	// Build up the decomposition sum
 	sum := buildDecompositionTerm[F](bitwidth, byteRegisters)
 	// Construct X == (X:0 * 1) + ... + (X:n * 2^n)
-	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 0)
+	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)
 	//
 	eq := term.Subtract(X, sum)
 	// Construct column name
 	module.AddConstraint(
 		air.NewVanishingConstraint(lookupHandle, module.Id(), util.None[int](), eq))
 	// Add decomposition assignment
-	module.AddAssignment(&byteDecomposition[F]{register.Name, bitwidth, ref, byteRegisters})
+	module.AddAssignment(&byteDecomposition[F]{reg.Name, bitwidth, ref, byteRegisters})
 }
 
 // ApplyRecursiveBitwidthGadget ensures all values in a given column fit within
@@ -188,12 +188,12 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 	// Add lookup constraint for register into proof
 	sourceAccesses := []*air.ColumnAccess[F]{
 		// Source Value
-		term.RawRegisterAccess[F, air.Term[F]](ref.Register(), 0)}
+		term.RawRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)}
 	// NOTE: 0th column always assumed to hold full value, with others
 	// representing limbs, etc.
 	targetAccesses := []*air.ColumnAccess[F]{
 		// Target Value
-		term.RawRegisterAccess[F, air.Term[F]](register.NewId(0), 0)}
+		term.RawRegisterAccess[F, air.Term[F]](register.NewId(0), bitwidth, 0)}
 	//
 	targets := []lookup.Vector[F, *air.ColumnAccess[F]]{
 		lookup.UnfilteredVector(mid, targetAccesses...)}
@@ -228,11 +228,11 @@ func (p *BitwidthGadget[F]) constructTypeProof(handle module.Name, bitwidth uint
 	module.AddConstraint(
 		air.NewVanishingConstraint("decomposition", mid, util.None[int](),
 			term.Subtract(
-				term.NewRegisterAccess[F, air.Term[F]](vid, 0),
+				term.NewRegisterAccess[F, air.Term[F]](vid, bitwidth, 0),
 				term.Sum(
-					term.NewRegisterAccess[F, air.Term[F]](vidLo, 0),
+					term.NewRegisterAccess[F, air.Term[F]](vidLo, loWidth, 0),
 					term.Product(term.Const[F, air.Term[F]](coeff),
-						term.NewRegisterAccess[F, air.Term[F]](vidHi, 0)),
+						term.NewRegisterAccess[F, air.Term[F]](vidHi, hiWidth, 0)),
 				),
 			)))
 	// Recursively proof lo/hi columns
@@ -611,7 +611,7 @@ func allocateByteRegisters[F field.Element[F]](prefix string, bitwidth uint, mod
 		rid := module.NewRegister(byteRegister)
 		targets[i] = register.NewRef(module.Id(), rid)
 		// Add suitable range constraint
-		ith_access := term.RawRegisterAccess[F, air.Term[F]](rid, 0)
+		ith_access := term.RawRegisterAccess[F, air.Term[F]](rid, byteRegister.Width, 0)
 		//
 		module.AddConstraint(
 			air.NewRangeConstraint(name, module.Id(),
@@ -636,7 +636,7 @@ func buildDecompositionTerm[F field.Element[F]](bitwidth uint, byteRegisters []r
 	// Construct Columns
 	for i, ref := range byteRegisters {
 		// Create Column + Constraint
-		reg := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 0)
+		reg := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), 8, 0)
 		terms[i] = term.Product(reg, term.Const[F, air.Term[F]](coefficient))
 		// Update coefficient
 		coefficient = coefficient.Mul(ranges[i])

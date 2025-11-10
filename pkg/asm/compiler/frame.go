@@ -32,8 +32,8 @@ func NewAtomicFraming[T any, E Expr[T, E]]() Framing[T, E] {
 }
 
 // NewMultiLineFraming constructs a suitable framing for a multi-line instruction.
-func NewMultiLineFraming[T any, E Expr[T, E]](pc T, ret T) Framing[T, E] {
-	return &MultiLineFraming[T, E]{pc, ret}
+func NewMultiLineFraming[T any, E Expr[T, E]](pc T, pcWidth uint, ret T, retWidth uint) Framing[T, E] {
+	return &MultiLineFraming[T, E]{pc, pcWidth, ret, retWidth}
 }
 
 // ============================================================================
@@ -68,9 +68,13 @@ func (p *OneLineFraming[T, E]) Return() E {
 type MultiLineFraming[T any, E Expr[T, E]] struct {
 	// Program Counter indicates which instruction is being executed.
 	pc T
+	// Width of program counter (for reference)
+	pcWidth uint
 	// Return indicates when an instruction returns from the current function.
 	// That is, the current frame is terminated.
 	ret T
+	// Width of return line (for reference)
+	retWidth uint
 }
 
 // Goto implementation for Framing interface.
@@ -78,8 +82,8 @@ func (p *MultiLineFraming[T, E]) Goto(pc uint) E {
 	// PC[i+1] = target
 	var (
 		zero   = Number[T, E](0)
-		pc_ip1 = Variable[T, E](p.pc, 1)
-		ret    = Variable[T, E](p.ret, 0)
+		pc_ip1 = Variable[T, E](p.pc, p.pcWidth, 1)
+		ret    = Variable[T, E](p.ret, p.retWidth, 0)
 	)
 	// Next pc is target of this jump. NOTE: pc+1 as pc==0 is for padding
 	eq := pc_ip1.Equals(Number[T, E](pc + 1))
@@ -90,12 +94,12 @@ func (p *MultiLineFraming[T, E]) Goto(pc uint) E {
 // Guard implementation for Framing interface.
 func (p *MultiLineFraming[T, E]) Guard(pc uint) E {
 	// NOTE: pc+1 as pc==0 is for padding
-	return Variable[T, E](p.pc, 0).Equals(Number[T, E](pc + 1))
+	return Variable[T, E](p.pc, p.pcWidth, 0).Equals(Number[T, E](pc + 1))
 }
 
 // Return implementation for Framing interface.
 func (p *MultiLineFraming[T, E]) Return() E {
 	var one = Number[T, E](1)
 	// return line must be high; next PC must be zero.
-	return Variable[T, E](p.ret, 0).Equals(one)
+	return Variable[T, E](p.ret, p.retWidth, 0).Equals(one)
 }

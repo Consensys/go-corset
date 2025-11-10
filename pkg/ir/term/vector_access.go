@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/math"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -60,14 +60,14 @@ func (p *VectorAccess[F, T]) Bounds() util.Bounds { return util.BoundsForArray(p
 
 // EvalAt implementation for Evaluable interface.
 func (p *VectorAccess[F, T]) EvalAt(k int, tr trace.Module[F], sc register.Map) (F, error) {
-	var shift = sc.Register(p.Vars[0].Register).Width
+	var shift = p.Vars[0].MaskWidth()
 	// Evaluate first argument
 	val, err := p.Vars[0].EvalAt(k, tr, sc)
 	// Continue evaluating the rest
 	for i := 1; err == nil && i < len(p.Vars); i++ {
 		var (
 			ith       F
-			ith_width = sc.Register(p.Vars[i].Register).Width
+			ith_width = p.Vars[i].MaskWidth()
 		)
 		// Evaluate ith argument
 		ith, err = p.Vars[i].EvalAt(k, tr, sc)
@@ -119,12 +119,11 @@ func (p *VectorAccess[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *VectorAccess[F, T]) ValueRange(mapping register.Map) math.Interval {
+func (p *VectorAccess[F, T]) ValueRange(_ register.Map) util_math.Interval {
 	var width = uint(0)
 	// Determine total bitwidth of the vector
 	for _, arg := range p.Vars {
-		ith_width := mapping.Register(arg.Register).Width
-		width += ith_width
+		width += arg.MaskWidth()
 	}
 	//
 	return valueRangeOfBits(width)

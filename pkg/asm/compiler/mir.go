@@ -64,7 +64,7 @@ func (p MirModule[F]) NewColumn(kind register.Type, name string, bitwidth uint, 
 		rid = p.Module.NewRegister(register.New(kind, name, bitwidth, padding))
 	)
 	//
-	terms := []*term.RegisterAccess[F, mir.Term[F]]{term.RawRegisterAccess[F, mir.Term[F]](rid, 0)}
+	terms := []*term.RegisterAccess[F, mir.Term[F]]{term.RawRegisterAccess[F, mir.Term[F]](rid, bitwidth, 0)}
 	// Add corresponding range constraint to enforce bitwidth
 	p.Module.AddConstraint(
 		mir.NewRangeConstraint(name, p.Module.Id(), terms, []uint{bitwidth}))
@@ -87,26 +87,30 @@ func (p MirModule[F]) NewConstraint(name string, domain util.Option[int], constr
 }
 
 // NewLookup constructs a new lookup constraint
-func (p MirModule[F]) NewLookup(name string, from []register.Id, targetMid uint, to []register.Id,
+func (p MirModule[F]) NewLookup(name string, from []register.Id, target MirModule[F], to []register.Id,
 	enable util.Option[register.Id]) {
 	//
 	var (
-		sources = wrapMirRegisterAccesses[F](from...)
-		targets = wrapMirRegisterAccesses[F](to...)
-		target  []lookup.Vector[F, *mir.RegisterAccess[F]]
-		source  []lookup.Vector[F, *mir.RegisterAccess[F]]
+		sources       = wrapMirRegisterAccesses[F](p.Module, from...)
+		targets       = wrapMirRegisterAccesses[F](target.Module, to...)
+		targetVectors []lookup.Vector[F, *mir.RegisterAccess[F]]
+		sourceVectors []lookup.Vector[F, *mir.RegisterAccess[F]]
 	)
 	//
 	if enable.IsEmpty() {
-		target = append(target, lookup.UnfilteredVector(targetMid, targets...))
+		targetVectors = append(targetVectors, lookup.UnfilteredVector(target.Module.Id(), targets...))
 	} else {
-		en := term.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), 0)
-		target = append(target, lookup.FilteredVector(targetMid, en, targets...))
+		var (
+			enReg = target.Module.Register(enable.Unwrap())
+			en    = term.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), enReg.Width, 0)
+		)
+		//
+		targetVectors = append(targetVectors, lookup.FilteredVector(target.Module.Id(), en, targets...))
 	}
 	//
-	source = append(source, lookup.UnfilteredVector(p.Module.Id(), sources...))
+	sourceVectors = append(sourceVectors, lookup.UnfilteredVector(p.Module.Id(), sources...))
 	//
-	p.Module.AddConstraint(mir.NewLookupConstraint(name, target, source))
+	p.Module.AddConstraint(mir.NewLookupConstraint(name, targetVectors, sourceVectors))
 }
 
 // String returns an appropriately formatted representation of the module.
@@ -216,8 +220,8 @@ func (p MirExpr[F]) Or(exprs ...MirExpr[F]) MirExpr[F] {
 }
 
 // Variable constructs a variable with a given shift.
-func (p MirExpr[F]) Variable(index register.Id, shift int) MirExpr[F] {
-	return MirExpr[F]{term.NewRegisterAccess[F, mir.Term[F]](index, shift), nil}
+func (p MirExpr[F]) Variable(index register.Id, bitwidth uint, shift int) MirExpr[F] {
+	return MirExpr[F]{term.NewRegisterAccess[F, mir.Term[F]](index, bitwidth, shift), nil}
 }
 
 func (p MirExpr[F]) String(func(register.Id) string) string {
@@ -262,11 +266,13 @@ func unwrapSplitMirLogicals[F field.Element[F]](head MirExpr[F], tail ...MirExpr
 	return cexprs
 }
 
-func wrapMirRegisterAccesses[F field.Element[F]](regs ...register.Id) []*mir.RegisterAccess[F] {
+func wrapMirRegisterAccesses[F field.Element[F]](mapping register.Map, regs ...register.Id) []*mir.RegisterAccess[F] {
 	var vars = make([]*mir.RegisterAccess[F], len(regs))
 	//
 	for i, rid := range regs {
-		vars[i] = term.RawRegisterAccess[F, mir.Term[F]](rid, 0)
+		var reg = mapping.Register(rid)
+		//
+		vars[i] = term.RawRegisterAccess[F, mir.Term[F]](rid, reg.Width, 0)
 	}
 	//
 	return vars
