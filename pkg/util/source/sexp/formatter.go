@@ -28,14 +28,16 @@ type FormattingChunk struct {
 type Formatter struct {
 	// Maximum desired width
 	maxWidth uint
+	// Determine whether or not to quote symbols
+	quote bool
 	// Rules to be used for formatting
 	rules []FormattingRule
 }
 
 // NewFormatter constructs a new formatter which aims to fit its output within a
 // given width.
-func NewFormatter(width uint) *Formatter {
-	return &Formatter{width, nil}
+func NewFormatter(width uint, quote bool) *Formatter {
+	return &Formatter{width, quote, nil}
 }
 
 // Add a new formatting rule to this formatter.
@@ -53,7 +55,7 @@ func (p *Formatter) Format(sexp SExp) string {
 	// Keep going whilst things are still changing.
 	for changed {
 		changed = false
-		text = format(priority, p.maxWidth, sexp, p.rules)
+		text = format(priority, p.maxWidth, p.quote, sexp, p.rules)
 		//
 		if w := text.MaxWidth(); w > p.maxWidth && priority < 10 {
 			changed = true
@@ -64,38 +66,40 @@ func (p *Formatter) Format(sexp SExp) string {
 	return text.String()
 }
 
-func format(priority, maxWidth uint, sexp SExp, rules []FormattingRule) FormattedText {
+func format(priority, maxWidth uint, quote bool, sexp SExp, rules []FormattingRule) FormattedText {
 	var text FormattedText
 	//
-	format_inner(priority, maxWidth, false, sexp, rules, &text)
+	format_inner(priority, maxWidth, quote, false, sexp, rules, &text)
 	// Done
 	return text
 }
 
-func format_inner(priority, maxWidth uint, newline bool, sexp SExp, rules []FormattingRule, text *FormattedText) {
+func format_inner(priority, maxWidth uint, quote, newline bool, sexp SExp, rules []FormattingRule,
+	text *FormattedText) {
+	//
 	switch sexp := sexp.(type) {
-	case *Symbol:
-		text.WriteString(sexp.String(false))
+	case *Symbol, *Number:
+		text.WriteString(sexp.String(quote))
 	case *List:
 		for _, rule := range rules {
 			// Override priority?
-			if text.LineWidth()+uint(len(sexp.String(false))) <= maxWidth {
+			if text.LineWidth()+uint(len(sexp.String(quote))) <= maxWidth {
 				priority = 0
 			}
 			//
 			if chunks, indent := rule.Split(sexp); chunks != nil {
-				format_with(priority, maxWidth, newline, chunks, indent, rules, text)
+				format_with(priority, maxWidth, quote, newline, chunks, indent, rules, text)
 				return
 			}
 		}
 		// default rule
-		format_default(priority, maxWidth, sexp, rules, text)
+		format_default(priority, maxWidth, quote, sexp, rules, text)
 	default:
 		panic("unreachable")
 	}
 }
 
-func format_with(priority, maxWidth uint, newline bool, chunks []FormattingChunk, indent uint,
+func format_with(priority, maxWidth uint, quote, newline bool, chunks []FormattingChunk, indent uint,
 	rules []FormattingRule, text *FormattedText) {
 	//
 	if indent != math.MaxUint && !newline {
@@ -117,7 +121,7 @@ func format_with(priority, maxWidth uint, newline bool, chunks []FormattingChunk
 			text.WriteString(" ")
 		}
 		//
-		format_inner(priority, maxWidth, nl, chunk.Contents, rules, text)
+		format_inner(priority, maxWidth, quote, nl, chunk.Contents, rules, text)
 		//
 		if chunk.Priority <= priority {
 			text.Indent(-int(chunk.Indent))
@@ -131,7 +135,7 @@ func format_with(priority, maxWidth uint, newline bool, chunks []FormattingChunk
 	}
 }
 
-func format_default(priority, maxWidth uint, sexp *List, rules []FormattingRule, text *FormattedText) {
+func format_default(priority, maxWidth uint, quote bool, sexp *List, rules []FormattingRule, text *FormattedText) {
 	//
 	text.WriteString("(")
 	//
@@ -140,7 +144,7 @@ func format_default(priority, maxWidth uint, sexp *List, rules []FormattingRule,
 			text.WriteString(" ")
 		}
 
-		format_inner(priority, maxWidth, false, sexp.Get(i), rules, text)
+		format_inner(priority, maxWidth, quote, false, sexp.Get(i), rules, text)
 	}
 	//
 	text.WriteString(")")

@@ -13,7 +13,6 @@
 package term
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 
@@ -83,13 +82,13 @@ func (p *Constant[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp {
 	var val big.Int
 	//
 	val.SetBytes(p.Value.Bytes())
-	// Check if power of 2
-	if n, ok := IsPowerOf2(val); ok && n > 8 {
-		// Not power of 2
-		return sexp.NewSymbol(fmt.Sprintf("2^%d", n))
-	}
+	// // Check if power of 2
+	// if n, ok := IsPowerOf2(val); ok && n > 8 {
+	// 	// Not power of 2
+	// 	return sexp.NewSymbol(fmt.Sprintf("2^%d", n))
+	// }
 	//
-	return sexp.NewSymbol(p.Value.String())
+	return sexp.NewNumber(val)
 }
 
 // RequiredRegisters implementation for Contextual interface.

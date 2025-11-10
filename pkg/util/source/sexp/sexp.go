@@ -14,6 +14,7 @@ package sexp
 
 import (
 	"fmt"
+	"math/big"
 	"unicode"
 )
 
@@ -174,6 +175,41 @@ func (l *Set) String(quote bool) string {
 }
 
 // ===================================================================
+// Number
+// ===================================================================
+
+// Number represents a terminating number
+type Number struct {
+	Value big.Int
+}
+
+// NOTE: This is used for compile time type checking if the given type
+// satisfies the given interface.
+var _ SExp = (*Number)(nil)
+
+// NewNumber creates a new number from a given integer.
+func NewNumber(value big.Int) *Number {
+	return &Number{value}
+}
+
+// AsArray returns the given array.
+func (s *Number) AsArray() *Array { return nil }
+
+// AsList returns nil for a symbol.
+func (s *Number) AsList() *List { return nil }
+
+// AsSet returns nil for a symbol.
+func (s *Number) AsSet() *Set { return nil }
+
+// AsSymbol returns the given symbol
+func (s *Number) AsSymbol() *Symbol { return nil }
+
+func (s *Number) String(quote bool) string {
+	// No quote required
+	return s.Value.Text(10)
+}
+
+// ===================================================================
 // Symbol
 // ===================================================================
 
@@ -207,8 +243,8 @@ func (s *Symbol) String(quote bool) string {
 	if quote {
 		needed := false
 		// Check whether suitable symbol
-		for _, r := range s.Value {
-			if !isSymbolLetter(r) {
+		for i, r := range s.Value {
+			if (i == 0 && unicode.IsNumber(r)) || !isSymbolLetter(r) {
 				needed = true
 				break
 			}
