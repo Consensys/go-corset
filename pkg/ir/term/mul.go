@@ -146,11 +146,11 @@ func (p *Mul[F, T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Mul[F, T]) ValueRange(mapping register.Map) math.Interval {
+func (p *Mul[F, T]) ValueRange() math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
-		ith := arg.ValueRange(mapping)
+		ith := arg.ValueRange()
 		if i == 0 {
 			res.Set(ith)
 		} else {

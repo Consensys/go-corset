@@ -103,11 +103,11 @@ func (p *Add[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Add[F, T]) ValueRange(mapping register.Map) math.Interval {
+func (p *Add[F, T]) ValueRange() math.Interval {
 	var res math.Interval
 
 	for i, arg := range p.Args {
-		ith := arg.ValueRange(mapping)
+		ith := arg.ValueRange()
 		if i == 0 {
 			res.Set(ith)
 		} else {

@@ -478,13 +478,12 @@ func (t *translator) checkLookupVector(vector lookup.Vector[word.BigEndian, hir.
 	terms []ast.Expr) []SyntaxError {
 	//
 	var (
-		modmap = t.schema.Module(vector.Module)
 		errors []SyntaxError
 	)
 	// Look for any negative terms
 	for i, ith := range vector.Terms {
 		// Determine value range of ith term
-		valrange := ith.ValueRange(modmap)
+		valrange := ith.ValueRange()
 		// Determine bitwidth for that range
 		_, signed := valrange.BitWidth()
 		// Sanity check signed lookups
@@ -495,7 +494,7 @@ func (t *translator) checkLookupVector(vector lookup.Vector[word.BigEndian, hir.
 	// Check selector is binary
 	if vector.HasSelector() {
 		// Determine value range of ith term
-		valrange := vector.Selector.Unwrap().ValueRange(modmap)
+		valrange := vector.Selector.Unwrap().ValueRange()
 		// Determine bitwidth for that range
 		bitwidth, signed := valrange.BitWidth()
 		// Check for signed selector

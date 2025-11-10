@@ -129,10 +129,10 @@ func (p *Cast[F, T]) Substitute(mapping map[string]F) {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Cast[F, T]) ValueRange(mapping register.Map) math.Interval {
+func (p *Cast[F, T]) ValueRange() math.Interval {
 	cast := p.Range()
 	// Compute actual interval
-	res := p.Arg.ValueRange(mapping)
+	res := p.Arg.ValueRange()
 	// Check whether is within (or not)
 	if res.Within(cast) {
 		return res

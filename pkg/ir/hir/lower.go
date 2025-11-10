@@ -365,7 +365,7 @@ func (p *MirLowering) expandTerm(e Term, module *mirModuleBuilder) *mir.Register
 	// Yes, expansion is really necessary
 	var (
 		expr   = p.lowerTerm(e, module)
-		values = e.ValueRange(nil)
+		values = e.ValueRange()
 		// Determine bitwidth required for target register
 		bitwidth, sign = values.BitWidth()
 		// Determine computed column name

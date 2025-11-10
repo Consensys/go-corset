@@ -546,7 +546,7 @@ func shiftTerm[F field.Element[F]](expr air.Term[F], width uint) air.Term[F] {
 }
 
 func (p *AirLowering[F]) normalise(arg air.Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
-	bounds := arg.ValueRange(airModule)
+	bounds := arg.ValueRange()
 	// Check whether normalisation actually required.  For example, if the
 	// argument is just a binary column then a normalisation is not actually
 	// required.

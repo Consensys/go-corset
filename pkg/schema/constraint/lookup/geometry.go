@@ -83,7 +83,7 @@ func updateGeometry[F field.Element[F], E term.Evaluable[F], T register.Map](geo
 	}
 	//
 	for i, ith := range source.Terms {
-		ithRange := ith.ValueRange(regmap)
+		ithRange := ith.ValueRange()
 		bitwidth, signed := ithRange.BitWidth()
 		// Sanity check
 		if signed {

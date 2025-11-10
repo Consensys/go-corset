@@ -56,7 +56,7 @@ type Evaluable[F any] interface {
 	// ValueRange returns the interval of values that this term can evaluate to.
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.
-	ValueRange(mapping register.Map) math.Interval
+	ValueRange() math.Interval
 }
 
 // Substitutable captures the notion of a term which may contain labelled

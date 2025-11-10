@@ -105,8 +105,8 @@ func (p *Exp[F, T]) Simplify(casts bool) T {
 }
 
 // ValueRange implementation for Term interface.
-func (p *Exp[F, T]) ValueRange(mapping register.Map) math.Interval {
-	bounds := p.Arg.ValueRange(mapping)
+func (p *Exp[F, T]) ValueRange() math.Interval {
+	bounds := p.Arg.ValueRange()
 	bounds.Exp(uint(p.Pow))
 	//
 	return bounds
