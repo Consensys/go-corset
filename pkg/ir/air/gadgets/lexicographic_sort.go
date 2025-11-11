@@ -183,7 +183,9 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 	for i := uint(0); i < ncols; i++ {
 		ref := register.NewRef(mid, register.NewId(bitIndex+i))
 		// Add binarity constraints (i.e. to enforce that this column is a bit).
-		NewBitwidthGadget(schema).Constrain(ref, 1)
+		NewBitwidthGadget(schema).
+			WithMaxRangeConstraint(p.maxRangeConstraint).
+			Constrain(ref, 1)
 	}
 	// Apply constraints to ensure at most one is set.
 	terms := make([]air.Term[F], ncols)

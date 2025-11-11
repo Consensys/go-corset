@@ -47,7 +47,7 @@ type BitwidthGadget[F field.Element[F]] struct {
 // NewBitwidthGadget constructs a new bitwidth gadget.
 func NewBitwidthGadget[F field.Element[F]](schema *air.SchemaBuilder[F]) *BitwidthGadget[F] {
 	return &BitwidthGadget[F]{
-		maxRangeConstraint: 8,
+		maxRangeConstraint: 16,
 		schema:             schema,
 	}
 }
@@ -412,7 +412,7 @@ func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
 	)
 	// Sanity check assumption
 	if loWidth%8 != 0 {
-		panic("unreachable")
+		panic(fmt.Sprintf("unreachable (u%d)", loWidth))
 	}
 	//
 	if loByteWidth >= n {

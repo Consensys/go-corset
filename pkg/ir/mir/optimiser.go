@@ -37,7 +37,7 @@ type OptimisationConfig struct {
 // always improve performance).
 var OPTIMISATION_LEVELS = []OptimisationConfig{
 	// Level 0 == nothing enabled
-	{0, 8, false},
+	{0, 16, false},
 	// Level 1 == minimal optimisations applied.
 	{1, 16, true},
 }

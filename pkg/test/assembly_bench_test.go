@@ -32,11 +32,11 @@ func Test_AsmBench_Gas(t *testing.T) {
 }
 
 func Test_AsmBench_Shf(t *testing.T) {
-	util.Check(t, false, "asm/bench/shf")
+	util.CheckWithFields(t, false, "asm/bench/shf", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmBench_Stp(t *testing.T) {
-	util.Check(t, false, "asm/bench/stp")
+	util.CheckWithFields(t, false, "asm/bench/stp", util.ASM_MAX_PADDING, field.BLS12_377)
 }
 
 func Test_AsmBench_Trm(t *testing.T) {
