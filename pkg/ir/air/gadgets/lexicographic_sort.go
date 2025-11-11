@@ -62,10 +62,6 @@ type LexicographicSortingGadget[F field.Element[F]] struct {
 	// translated into AIR range constraints, versus  using a horizontal
 	// bitwidth gadget.
 	maxRangeConstraint uint
-	// Enables the use of type proofs which exploit the
-	// limitless prover. Specifically, modules with a recursive structure are
-	// created specifically for the purpose of checking types.
-	limitless bool
 }
 
 // NewLexicographicSortingGadget constructs a default sorting gadget which can
@@ -81,7 +77,7 @@ func NewLexicographicSortingGadget[F field.Element[F]](prefix string, columns []
 	}
 	//
 	return &LexicographicSortingGadget[F]{prefix, columns, signs, bitwidth, false,
-		term.Const64[F, air.Term[F]](1), 8, false}
+		term.Const64[F, air.Term[F]](1), 8}
 }
 
 // WithSigns configures the directions for all columns being sorted.
@@ -110,12 +106,6 @@ func (p *LexicographicSortingGadget[F]) WithSelector(selector air.Term[F]) *Lexi
 // WithMaxRangeConstraint determines the cutoff for range cosntraints.
 func (p *LexicographicSortingGadget[F]) WithMaxRangeConstraint(width uint) *LexicographicSortingGadget[F] {
 	p.maxRangeConstraint = width
-	return p
-}
-
-// WithLimitless enables or disables use of limitless type proofs.
-func (p *LexicographicSortingGadget[F]) WithLimitless(flag bool) *LexicographicSortingGadget[F] {
-	p.limitless = flag
 	return p
 }
 
@@ -159,7 +149,6 @@ func (p *LexicographicSortingGadget[F]) Apply(mid sc.ModuleId, schema *air.Schem
 		ref := register.NewRef(mid, deltaIndex)
 		// Constrict gadget
 		gadget := NewBitwidthGadget(schema).
-			WithLimitless(p.limitless).
 			WithMaxRangeConstraint(p.maxRangeConstraint)
 		// Apply bitwidth constraint
 		gadget.Constrain(ref, p.bitwidth)
