@@ -97,7 +97,9 @@ func Test_Invalid_Basic_18(t *testing.T) {
 func Test_Invalid_Basic_19(t *testing.T) {
 	checkCorsetInvalid(t, "corset/invalid/basic_invalid_19")
 }
-
+func Test_Invalid_Basic_20(t *testing.T) {
+	checkCorsetInvalid(t, "corset/invalid/basic_invalid_20")
+}
 func Test_Invalid_Logic_01(t *testing.T) {
 	checkCorsetInvalid(t, "corset/invalid/logic_invalid_01")
 }
@@ -514,6 +516,9 @@ func Test_Invalid_Lookup_17(t *testing.T) {
 }
 func Test_Invalid_Lookup_18(t *testing.T) {
 	checkCorsetInvalid(t, "corset/invalid/lookup_invalid_18")
+}
+func Test_Invalid_Lookup_19(t *testing.T) {
+	checkCorsetInvalid(t, "corset/invalid/lookup_invalid_19")
 }
 
 // ===================================================================
