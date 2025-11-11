@@ -1,4 +1,4 @@
-;;
+;;error:8:16-20:duplicate handle
 (module m1)
 
 (defcolumns (X :i16) (Y :i16))
