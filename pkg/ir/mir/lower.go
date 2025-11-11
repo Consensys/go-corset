@@ -197,7 +197,6 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 		ref := register.NewRef(airModule.Id(), e.Register())
 		// Construct gadget
 		gadget := air_gadgets.NewBitwidthGadget(&p.airSchema).
-			WithLimitless(p.config.LimitlessTypeProofs).
 			WithMaxRangeConstraint(p.config.MaxRangeConstraint)
 		//
 		gadget.Constrain(ref, v.Bitwidths[i])
@@ -302,7 +301,6 @@ func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airMo
 	gadget := air_gadgets.NewLexicographicSortingGadget[F](c.Handle, sources, c.BitWidth).
 		WithSigns(c.Signs...).
 		WithStrictness(c.Strict).
-		WithLimitless(p.config.LimitlessTypeProofs).
 		WithMaxRangeConstraint(p.config.MaxRangeConstraint)
 	// Add (optional) selector
 	if c.Selector.HasValue() {
