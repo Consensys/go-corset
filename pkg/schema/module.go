@@ -15,10 +15,7 @@ package schema
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
-	"reflect"
 
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
@@ -202,43 +199,6 @@ func (p *Table[F, C]) Width() uint {
 
 func (p *Table[F, C]) String() string {
 	return register.MapToString(p)
-}
-
-// Subdivide implementation for the FieldAgnosticModule interface.
-func (p *Table[F, C]) Subdivide(mid ModuleId, mapping module.LimbsMap,
-	assigner func([]register.Id, agnostic.Computation) Assignment[F]) *Table[F, C] {
-	//
-	var (
-		constraints []C
-		assignments []Assignment[F]
-		env         = agnostic.NewRegisterAllocator(mapping.Module(mid).LimbsMap())
-	)
-	// Subdivide assignments
-	for _, c := range p.assignments {
-		var a any = c
-		//nolint
-		if fc, ok := a.(agnostic.SubDivisible[Assignment[F]]); ok {
-			assignments = append(assignments, fc.Subdivide(env, mapping))
-		} else {
-			panic(fmt.Sprintf("non-field agnostic assignment (%s)", reflect.TypeOf(a).String()))
-		}
-	}
-	// Subdivide constraints
-	for _, c := range p.constraints {
-		var a any = c
-		//nolint
-		if fc, ok := a.(agnostic.SubDivisible[C]); ok {
-			constraints = append(constraints, fc.Subdivide(env, mapping))
-		} else {
-			panic(fmt.Sprintf("non-field agnostic constraint (%s)", reflect.TypeOf(a).String()))
-		}
-	}
-	// Include any additional assignments required for carry lines
-	for _, a := range env.Assignments() {
-		assignments = append(assignments, assigner(a.Left, a.Right))
-	}
-	//
-	return &Table[F, C]{p.name, p.padding, p.public, p.synthetic, env.Registers(), constraints, assignments}
 }
 
 // ============================================================================

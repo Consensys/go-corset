@@ -39,7 +39,7 @@ func SplitIntoLimbs(maxWidth uint, r Register) []Register {
 	)
 	// Special case when register doesn't require splitting.  This is useful
 	// because we want to retain the original register name exactly.
-	if nlimbs == 1 {
+	if nlimbs <= 1 {
 		return []Register{r}
 	}
 	//

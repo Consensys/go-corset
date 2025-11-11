@@ -43,7 +43,7 @@ func (pp *Program[F]) WriteTo(w io.Writer) (int64, error) {
 func (m *Module[F]) WriteTo(w io.Writer) (int64, error) {
 	var total int64
 
-	formatter := sexp.NewFormatter(80)
+	formatter := sexp.NewFormatter(80, true)
 	formatter.Add(&sexp.SFormatter{Head: "if", Priority: 0})
 	formatter.Add(&sexp.LFormatter{Head: "&&", Priority: 1})
 	formatter.Add(&sexp.LFormatter{Head: "||", Priority: 1})

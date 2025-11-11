@@ -19,8 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
-	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -38,19 +36,18 @@ type Element[F any] = field.Element[F]
 // constants (which no longer make sense).  Furthermore, this stage can
 // technically fail if the relevant constraints cannot be correctly concretized.
 // For example, they contain a constant which does not fit within the field.
-func Concretize[F1 Element[F1], F2 Element[F2]](mapping module.LimbsMap, offset uint, rawModules []Module[F1],
+func Concretize[F1 Element[F1], F2 Element[F2], E register.Map](mapping module.LimbsMap, externs []E, mods []Module[F1],
 ) []Module[F2] {
 	var (
-		modules = make([]Module[F2], len(rawModules))
+		nModules = make([]Module[F2], len(mods))
 	)
 	//
-	for i, m := range rawModules {
-		mid := uint(i) + offset
-		// Subdivice, then concretize the module.
-		modules[i] = concretizeModule[F1, F2](m.Subdivide(mid, mapping, mirAssignmentConstructor[F1](mid)))
+	for i, m := range Subdivide(mapping, externs, mods) {
+		// Concretize subdivided module.
+		nModules[i] = concretizeModule[F1, F2](m)
 	}
 	//
-	return modules
+	return nModules
 }
 
 func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
@@ -69,16 +66,6 @@ func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
 	r.AddConstraints(constraints...)
 	// Done
 	return r
-}
-
-// returns a construct for assignments for agnostically filling allocated
-// registers.
-func mirAssignmentConstructor[F field.Element[F]](module sc.ModuleId,
-) func([]register.Id, agnostic.Computation) schema.Assignment[F] {
-	//
-	return func(ids []register.Id, computation agnostic.Computation) schema.Assignment[F] {
-		return assignment.NewComputedRegister[F](computation, true, module, ids...)
-	}
 }
 
 // ============================================================================

@@ -18,8 +18,6 @@ import (
 	"slices"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
-	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -97,16 +95,6 @@ func (p *NativeComputation[F]) RegistersRead() []register.Ref {
 // RegistersWritten identifies registers assigned by this assignment.
 func (p *NativeComputation[F]) RegistersWritten() []register.Ref {
 	return array.FlatMap(p.Targets, register.AsRefArray)
-}
-
-// Subdivide implementation for the FieldAgnostic interface.
-func (p *NativeComputation[F]) Subdivide(_ agnostic.RegisterAllocator, mapping module.LimbsMap) sc.Assignment[F] {
-	var (
-		targets = SubdivideRegisterRefs[F](mapping, p.Targets...)
-		sources = SubdivideRegisterRefs[F](mapping, p.Sources...)
-	)
-	//
-	return NewNativeComputation[F](p.Function, targets, sources)
 }
 
 // Substitute any matchined labelled constants within this assignment
