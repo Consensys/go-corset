@@ -29,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Subdivide all modules to meet a given bandwidth and maximum register width.
@@ -166,12 +167,19 @@ func (p *Subdivider[F]) ConstantRegister(mid module.Id, constant F) register.Id 
 	if maxBitwidth < bitwidth {
 		panic(fmt.Sprintf("constant register exceeds maximum bitwidth (u%d v u%d)", bitwidth, maxBitwidth))
 	}
-	// no existing register, therefore create one.
-	rid := module.NewRegister(register.NewComputed(name, bitwidth, padding))
-	// add assignment (f non-zero)
-	if !constant.IsZero() {
-		panic("assignment required")
-	}
+	//
+	var (
+		// no existing register, therefore create one.
+		rid = module.NewRegister(register.NewComputed(name, bitwidth, padding))
+		// Construct word version of cosntant
+		wordVal = field.FromBigEndianBytes[word.BigEndian](constant.Bytes())
+	)
+	// Construct computation
+	computation := term.NewComputation[word.BigEndian, LogicalTerm[word.BigEndian]](
+		term.Const[word.BigEndian, Term[word.BigEndian]](wordVal))
+	// Add assignment for filling said computed column
+	module.AddAssignment(
+		assignment.NewComputedRegister[F](computation, true, module.Id(), rid))
 	// add constraint
 	module.AddConstraint(
 		NewVanishingConstraint(name, mid, util.None[int](), term.Equals[F, LogicalTerm[F]](
