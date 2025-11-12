@@ -372,9 +372,9 @@
 (defun (jump---pc-new-hi)                   [DATA 1])
 (defun (jump---pc-new-lo)                   [DATA 2])
 (defun (jump---code-size)                   [DATA 5])
-(defun (jump---guaranteed-exception)        [DATA 7])
-(defun (jump---jump-must-be-attempted)      [DATA 8])
-(defun (jump---valid-pc-new)                OUTGOING_RES_LO)
+(defun (jump---guaranteed-exception)        (i1 [DATA 7]))
+(defun (jump---jump-must-be-attempted)      (i1 [DATA 8]))
+(defun (jump---valid-pc-new)                (i1 OUTGOING_RES_LO))
 
 (defconstraint jump---compare-pc-new-against-code-size (:guard (* (assumption---fresh-new-stamp) (jump---standard-precondition)))
   (call-to-LT 0 (jump---pc-new-hi) (jump---pc-new-lo) 0 (jump---code-size)))
@@ -874,10 +874,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun (prc-modexp-pricing---standard-precondition)   IS_MODEXP_PRICING)
-(defun (prc-modexp-pricing---exponent-log)            [DATA 6])
+(defun (prc-modexp-pricing---exponent-log)            (i12 [DATA 6]))
 (defun (prc-modexp-pricing---max-xbs-ybs)             [DATA 7])
 (defun (prc-modexp-pricing---exponent-log-is-zero)    (i1 (next OUTGOING_RES_LO)))
-(defun (prc-modexp-pricing---f-of-max)                (*  (shift OUTGOING_RES_LO 2)  (shift OUTGOING_RES_LO 2)))
+(defun (prc-modexp-pricing---f-of-max)                (*  (i7 (shift OUTGOING_RES_LO 2))  (i7 (shift OUTGOING_RES_LO 2))))
 (defun (prc-modexp-pricing---big-quotient)            (shift OUTGOING_RES_LO 3))
 (defun (prc-modexp-pricing---big-quotient_LT_200)     (shift OUTGOING_RES_LO 4))
 (defun (prc-modexp-pricing---big-numerator)           (if-zero (prc-modexp-pricing---exponent-log-is-zero)
@@ -900,8 +900,23 @@
                0
                8))
 
+(defun (prc-modexp-pricing---f-of-max-elog)           (* (prc-modexp-pricing---f-of-max) (prc-modexp-pricing---exponent-log)))
+
 (defconstraint prc-modexp-pricing---div-big-numerator-by-quaddivisor (:guard (* (assumption---fresh-new-stamp) (prc-modexp-pricing---standard-precondition)))
-  (call-to-DIV 3 0 (prc-modexp-pricing---big-numerator) 0 G_QUADDIVISOR))
+  (begin
+   ;; inline call-to-DIV to pull out constant components
+   (eq! (wght-lookup-sum 3) 2)
+   (eq! (shift OUTGOING_INST 3) EVM_INST_DIV)
+   (eq! (shift [OUTGOING_DATA 1] 3) 0)
+   (eq! (shift [OUTGOING_DATA 3] 3) 0)
+   (eq! (shift [OUTGOING_DATA 4] 3) G_QUADDIVISOR)
+   ;; choose pricing
+   (if-zero (prc-modexp-pricing---exponent-log-is-zero)
+            (eq! (shift [OUTGOING_DATA 2] 3) (prc-modexp-pricing---f-of-max-elog))
+            (eq! (shift [OUTGOING_DATA 2] 3) (prc-modexp-pricing---f-of-max)))))
+
+;; (defconstraint prc-modexp-pricing---div-big-numerator-by-quaddivisor2 (:guard (* (assumption---fresh-new-stamp) (prc-modexp-pricing---standard-precondition)))
+;;   (call-to-DIV 3 0 (prc-modexp-pricing---big-numerator) 0 G_QUADDIVISOR))
 
 (defconstraint prc-modexp-pricing---compare-big-quotient-against-200 (:guard (* (assumption---fresh-new-stamp) (prc-modexp-pricing---standard-precondition)))
   (call-to-LT 4 0 (prc-modexp-pricing---big-quotient) 0 200))
