@@ -107,12 +107,12 @@ func Test_Bench_Euc(t *testing.T) {
 
 func Test_Bench_Oob(t *testing.T) {
 	// FIXME: KOALABEAR_16 [PERF]
-	util.CheckCorset(t, true, "corset/bench/oob", field.BLS12_377)
+	util.CheckCorset(t, true, "corset/bench/oob", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_Bench_Stp(t *testing.T) {
 	// FIXME: KOALABEAR_16 [PERF]
-	util.CheckCorset(t, true, "corset/bench/stp", field.BLS12_377)
+	util.CheckCorset(t, true, "corset/bench/stp", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_Bench_Mmio(t *testing.T) {
@@ -139,5 +139,5 @@ func Test_Bench_Mul(t *testing.T) {
 
 func Test_Bench_Mod(t *testing.T) {
 	// FIXME: KOALABEAR_16 [PERF]
-	util.CheckCorset(t, true, "corset/bench/mod", field.BLS12_377)
+	util.CheckCorset(t, true, "corset/bench/mod", field.BLS12_377, field.KOALABEAR_16)
 }

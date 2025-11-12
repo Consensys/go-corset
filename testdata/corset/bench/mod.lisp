@@ -306,13 +306,13 @@
 
 (defun (set-absolute-value a_hi a_lo x_hi x_lo sgn)
   (if-zero sgn
-           (begin (eq! a_hi x_hi)
-                  (eq! a_lo x_lo))
-           (begin (if-zero x_lo
-                           (begin (eq! a_hi (- THETA2 x_hi))
-                                  (vanishes! a_lo))
-                           (begin (eq! a_hi (- THETA2 (+ x_hi 1)))
-                                  (eq! a_lo (- THETA2 x_lo)))))))
+           (begin (== a_hi x_hi)
+                  (== a_lo x_lo))
+           (begin (if (== 0 x_lo)
+                           (begin (== a_hi (- THETA2 x_hi))
+                                  (== 0 a_lo))
+                           (begin (== a_hi (- THETA2 (+ x_hi 1)))
+                                  (== a_lo (- THETA2 x_lo)))))))
 
 (defconstraint set-absolute-values ()
   (if-eq CT MMEDIUMMO
