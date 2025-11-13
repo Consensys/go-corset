@@ -287,6 +287,8 @@ func (p *Parser) parseDeclaration(module file.Path, s *sexp.List) (ast.Declarati
 	//
 	if s.MatchSymbols(1, "defalias") {
 		decl, errors = p.parseDefAlias(s.Elements)
+	} else if s.Len() == 3 && s.MatchSymbols(1, "defcall") {
+		decl, errors = p.parseDefCall(module, s.Elements)
 	} else if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputed") {
@@ -873,6 +875,29 @@ func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (ast.TypedSy
 	}
 	//
 	return nil, errors
+}
+
+func (p *Parser) parseDefCall(module file.Path, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+	var (
+		errors             []SyntaxError
+		returns, retErrors = p.parseDefLookupSources("return", elements[1])
+		args, argErrors    = p.parseDefLookupSources("argument", elements[3])
+	)
+	// Sanity check function name
+	if !isIdentifier(elements[2]) {
+		return nil, p.translator.SyntaxErrors(elements[2], "malformed function name")
+	}
+	// Extract function name
+	fun := elements[2].AsSymbol().Value
+	// Combine any and all errors
+	errors = append(errors, argErrors...)
+	errors = append(errors, retErrors...)
+	// Error check
+	if len(errors) != 0 {
+		return nil, errors
+	}
+	//
+	return ast.NewDefCall(returns, fun, args), nil
 }
 
 // Parse a lookup declaration
