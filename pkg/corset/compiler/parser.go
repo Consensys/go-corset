@@ -287,7 +287,7 @@ func (p *Parser) parseDeclaration(module file.Path, s *sexp.List) (ast.Declarati
 	//
 	if s.MatchSymbols(1, "defalias") {
 		decl, errors = p.parseDefAlias(s.Elements)
-	} else if s.Len() == 3 && s.MatchSymbols(1, "defcall") {
+	} else if s.Len() == 4 && s.MatchSymbols(1, "defcall") {
 		decl, errors = p.parseDefCall(module, s.Elements)
 	} else if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)

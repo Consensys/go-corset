@@ -81,6 +81,8 @@ func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 	//
 	switch d := decl.(type) {
 	case *ast.DefAliases:
+	case *ast.DefCall:
+		errors = p.typeCheckDefCall(d)
 		// ignore
 	case *ast.DefColumns:
 		// ignore
@@ -114,6 +116,18 @@ func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 	}
 	//
 	return errors
+}
+
+// typeCheck a "defcall" declaration.
+//
+//nolint:staticcheck
+func (p *typeChecker) typeCheckDefCall(decl *ast.DefCall) []SyntaxError {
+	// typeCheck return expressions
+	_, errs1 := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Returns, true)
+	// typeCheck argument expressions
+	_, errs2 := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Arguments, true)
+	// Combine errors
+	return append(errs1, errs2...)
 }
 
 // ast.Type check one or more constant definitions within a given module.
