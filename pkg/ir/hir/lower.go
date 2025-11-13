@@ -143,10 +143,8 @@ func (p *MirLowering) lowerConstraint(c Constraint, mirModule *mirModuleBuilder)
 }
 
 // Lowering an assertion is straightforward since its not a true constraint.
-func (p *MirLowering) lowerAssertion(v Assertion, mirModule *mirModuleBuilder) {
-	var term = p.lowerLogical(v.Property, mirModule)
-	//
-	mirModule.AddConstraint(mir.NewAssertion(v.Handle, v.Context, v.Domain, term))
+func (p *MirLowering) lowerAssertion(v Assertion, module *mirModuleBuilder) {
+	module.AddConstraint(mir.NewAssertion[word.BigEndian](v.Handle, v.Context, v.Domain, v.Property))
 }
 
 // Lower a vanishing constraint to the MIR level.  This is relatively

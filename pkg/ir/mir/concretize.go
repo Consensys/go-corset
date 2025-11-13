@@ -113,9 +113,8 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 	//
 	switch c := constraint.Unwrap().(type) {
 	case Assertion[F1]:
-		term := concretizeLogicalTerm[F1, F2](c.Property)
 		//
-		return NewAssertion(c.Handle, c.Context, c.Domain, term)
+		return NewAssertion[F2](c.Handle, c.Context, c.Domain, c.Property)
 	case InterleavingConstraint[F1]:
 		target := concretizeVectorAccess[F1, F2](c.Target)
 		sources := concretizeVectorAccesses[F1, F2](c.Sources)

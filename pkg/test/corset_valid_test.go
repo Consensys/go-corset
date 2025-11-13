@@ -199,8 +199,7 @@ func Test_Valid_Block_02(t *testing.T) {
 }
 
 func Test_Valid_Block_03(t *testing.T) {
-	// FIXME: GF_8209 (#1298)
-	util.CheckCorset(t, false, "corset/valid/block_03", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/block_03", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Block_04(t *testing.T) {
@@ -225,8 +224,7 @@ func Test_Valid_Logic_02(t *testing.T) {
 // ===================================================================
 
 func Test_Valid_Property_01(t *testing.T) {
-	// FIXME: GF_8209 [#1298]
-	util.CheckCorset(t, false, "corset/valid/property_01", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/property_01", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Property_02(t *testing.T) {
@@ -237,8 +235,7 @@ func Test_Valid_Property_03(t *testing.T) {
 	util.CheckCorset(t, false, "corset/valid/property_03", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 func Test_Valid_Property_04(t *testing.T) {
-	// FIXME: GF_8209 [#1298]
-	util.CheckCorset(t, false, "corset/valid/property_04", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/property_04", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 // ===================================================================
@@ -606,8 +603,7 @@ func Test_Valid_Module_08(t *testing.T) {
 }
 
 func Test_Valid_Module_09(t *testing.T) {
-	// FIXME: GF_8209 [#1298]
-	util.CheckCorset(t, false, "corset/valid/module_09", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/module_09", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Module_10(t *testing.T) {
@@ -1183,8 +1179,7 @@ func Test_Valid_Let_03(t *testing.T) {
 }
 
 func Test_Valid_Let_04(t *testing.T) {
-	// FIXME: GF_8209 [#1298]
-	util.CheckCorset(t, false, "corset/valid/let_04", field.BLS12_377, field.KOALABEAR_16)
+	util.CheckCorset(t, false, "corset/valid/let_04", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_Valid_Let_05(t *testing.T) {

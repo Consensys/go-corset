@@ -38,10 +38,10 @@ type Constraint struct {
 }
 
 // NewAssertion constructs a new assertion
-func NewAssertion(handle string, ctx schema.ModuleId, domain util.Option[int], term LogicalTerm,
+func NewAssertion(handle string, ctx schema.ModuleId, domain util.Option[int], term constraint.Property,
 ) Constraint {
 	//
-	return Constraint{constraint.NewAssertion(handle, ctx, domain, term)}
+	return Constraint{constraint.NewAssertion[word.BigEndian](handle, ctx, domain, term)}
 }
 
 // NewVanishingConstraint constructs a new vanishing constraint

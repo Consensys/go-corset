@@ -52,7 +52,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = constraint.Assertion[word.BigEndian, LogicalTerm]
+	Assertion = constraint.Assertion[word.BigEndian]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the HIR level.
 	InterleavingConstraint = interleaving.Constraint[word.BigEndian, Term]

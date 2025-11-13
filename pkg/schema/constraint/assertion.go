@@ -23,7 +23,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
+
+// Property defines the type of logical properties which can be asserted.  This
+// is intentionally left wide, and could include many things which cannot
+// directly be represented at the AIR level.
+type Property = term.LogicalComputation[word.BigEndian]
 
 // AssertionFailure provides structural information about a failing vanishing constraint.
 type AssertionFailure[F any] struct {
@@ -32,7 +38,7 @@ type AssertionFailure[F any] struct {
 	//
 	Context schema.ModuleId
 	// Constraint expression
-	Constraint term.Testable[F]
+	Constraint Property
 	// Row on which the constraint failed
 	Row uint
 }
@@ -59,7 +65,7 @@ func (p *AssertionFailure[F]) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[F field.Element[F], T term.Testable[F]] struct {
+type Assertion[F field.Element[F]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -74,26 +80,26 @@ type Assertion[F field.Element[F], T term.Testable[F]] struct {
 	// Observe that this can be any function which is computable
 	// on a given trace --- we are not restricted to expressions
 	// which can be arithmetised.
-	Property T
+	Property term.LogicalComputation[word.BigEndian]
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[F field.Element[F], T term.Testable[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
-	property T) Assertion[F, T] {
+func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
+	property Property) Assertion[F] {
 	//
-	return Assertion[F, T]{handle, ctx, domain, property}
+	return Assertion[F]{handle, ctx, domain, property}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Assertion[F, T]) Consistent(schema schema.AnySchema[F]) []error {
+func (p Assertion[F]) Consistent(schema schema.AnySchema[F]) []error {
 	return CheckConsistent(p.Context, schema, p.Property)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Assertion[F, T]) Name() string {
+func (p Assertion[F]) Name() string {
 	return p.Handle
 }
 
@@ -102,13 +108,13 @@ func (p Assertion[F, T]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Assertion[F, T]) Contexts() []schema.ModuleId {
+func (p Assertion[F]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
 // Bounds is not required for a property assertion since these are not real
 // constraints.
-func (p Assertion[F, T]) Bounds(module uint) util.Bounds {
+func (p Assertion[F]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -116,7 +122,7 @@ func (p Assertion[F, T]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p Assertion[F]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine height of enclosing module
@@ -143,7 +149,7 @@ func (p Assertion[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Assertion[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Assertion[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		module           = schema.Module(p.Context)
 		assertion string = "assert"
@@ -169,15 +175,21 @@ func (p Assertion[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Assertion[F, T]) Substitute(mapping map[string]F) {
-	p.Property.Substitute(mapping)
+func (p Assertion[F]) Substitute(mapping map[string]F) {
+	// Sanity check we have what we expect
+	if m, ok := any(mapping).(map[string]word.BigEndian); ok {
+		p.Property.Substitute(m)
+		return
+	}
+	// Fail (should be unreachable)
+	panic("cannot substitute arbitrary field elements")
 }
 
-func (p Assertion[F, T]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F],
+func (p Assertion[F]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F],
 ) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		trModule = tr.Module(p.Context)
+		trModule = trace.ModuleAdapter[F, word.BigEndian](tr.Module(p.Context))
 		scModule = sc.Module(p.Context)
 	)
 	// Check all in-bounds values

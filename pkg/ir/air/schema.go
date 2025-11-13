@@ -71,7 +71,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F, term.Testable[F]]]
+	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
 	InterleavingConstraint[F field.Element[F]] = Air[F, interleaving.Constraint[F, *ColumnAccess[F]]]
