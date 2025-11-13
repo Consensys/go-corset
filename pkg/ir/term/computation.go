@@ -94,10 +94,6 @@ func NewComputations[F field.Element[F], S Logical[F, S], T Expr[F, T]](terms []
 	return computations
 }
 
-func AsExpr[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Computation[F]) Expr[F, T] {
-	panic("todo")
-}
-
 // ============================================================================
 // Logical Comptuation
 // ============================================================================

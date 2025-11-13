@@ -38,7 +38,7 @@ type Constraint struct {
 }
 
 // NewAssertion constructs a new assertion
-func NewAssertion(handle string, ctx schema.ModuleId, domain util.Option[int], term LogicalComputation,
+func NewAssertion(handle string, ctx schema.ModuleId, domain util.Option[int], term constraint.Property,
 ) Constraint {
 	//
 	return Constraint{constraint.NewAssertion[word.BigEndian](handle, ctx, domain, term)}

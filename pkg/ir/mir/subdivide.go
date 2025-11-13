@@ -213,7 +213,7 @@ func (p *Subdivider[F]) subdivideComputedRegister(cr *assignment.ComputedRegiste
 	var (
 		ntargets []register.Id
 		modmap   = p.mapping.Module(cr.Module)
-		expr     = term.SubdivideExpr[word.BigEndian, LogicalComputation](cr.Expr, modmap)
+		expr     = term.SubdivideExpr[word.BigEndian, constraint.Property](cr.Expr, modmap)
 	)
 	//
 	for _, target := range cr.Targets {
@@ -313,7 +313,8 @@ func (p *Subdivider[F]) subdivideConstraint(c Constraint[F]) Constraint[F] {
 func (p *Subdivider[F]) subdivideAssertion(c Assertion[F]) Assertion[F] {
 	var (
 		module = p.mapping.Module(c.Context)
-		prop   = term.SubdivideLogical[word.BigEndian, LogicalComputation, Computation](c.Property, module)
+		prop   = term.SubdivideLogical[word.BigEndian, constraint.Property, term.Computation[word.BigEndian]](
+			c.Property, module)
 	)
 	// Construct split constraint
 	return constraint.NewAssertion[F](c.Handle, c.Context, c.Domain, prop)

@@ -29,7 +29,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
-	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Following types capture top-level abstractions at the AIR level.
@@ -72,7 +71,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F, LogicalComputation]]
+	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
 	InterleavingConstraint[F field.Element[F]] = Air[F, interleaving.Constraint[F, *ColumnAccess[F]]]
@@ -105,9 +104,6 @@ type (
 	// Sub represents the subtraction over zero or more expressions.
 	Sub[F field.Element[F]] = term.Sub[F, Term[F]]
 )
-
-// LogicalComputation provides a convenient alias
-type LogicalComputation = term.LogicalComputation[word.BigEndian]
 
 // LogicalTerm provides a wrapper around a given term allowing to be "testable".
 // That is, it provides a default TestAt implementation.

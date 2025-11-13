@@ -38,7 +38,7 @@ import (
 type ConstraintBound[F field.Element[F]] interface {
 	schema.Constraint[F]
 
-	constraint.Assertion[F, LogicalComputation] |
+	constraint.Assertion[F] |
 		interleaving.Constraint[F, *ColumnAccess[F]] |
 		lookup.Constraint[F, *ColumnAccess[F]] |
 		permutation.Constraint[F] |
@@ -62,7 +62,7 @@ func newAir[F field.Element[F], C ConstraintBound[F]](constraint C) Air[F, C] {
 
 // NewAssertion constructs a new AIR assertion
 func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
-	term LogicalComputation) Assertion[F] {
+	term constraint.Property) Assertion[F] {
 	//
 	return newAir(constraint.NewAssertion[F](handle, ctx, domain, term))
 }

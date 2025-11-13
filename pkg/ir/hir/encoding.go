@@ -21,6 +21,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -104,7 +105,7 @@ func encode_assertion(c Assertion) ([]byte, error) {
 		return nil, err
 	}
 	// Constraint
-	err := encode_logical[LogicalComputation, Computation](c.Property, &buffer)
+	err := encode_logical[constraint.Property, term.Computation[word.BigEndian]](c.Property, &buffer)
 	// Done
 	return buffer.Bytes(), err
 }

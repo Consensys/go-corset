@@ -38,8 +38,8 @@ type Constraint[F field.Element[F]] struct {
 }
 
 // NewAssertion constructs a new assertion
-func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int], term LogicalComputation,
-) Constraint[F] {
+func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
+	term constraint.Property) Constraint[F] {
 	//
 	return Constraint[F]{constraint.NewAssertion[F](handle, ctx, domain, term)}
 }

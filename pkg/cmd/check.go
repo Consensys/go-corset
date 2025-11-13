@@ -24,7 +24,6 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
-	"github.com/consensys/go-corset/pkg/ir/air"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
@@ -292,7 +291,7 @@ func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], ma
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing lookup constraint %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, mapping, cfg)
-	} else if f, ok := failure.(*constraint.AssertionFailure[F, air.LogicalComputation]); ok {
+	} else if f, ok := failure.(*constraint.AssertionFailure[F]); ok {
 		cells := f.RequiredCells(trace)
 		fmt.Printf("failing assertion %s:\n", f.Handle)
 		reportRelevantCells(cells, trace, mapping, cfg)
