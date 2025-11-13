@@ -645,8 +645,9 @@ func (t *translator) translateDefProperty(decl *ast.DefProperty) []SyntaxError {
 	assertion, errors := t.translateLogical(decl.Assertion, module, 0)
 	//
 	if len(errors) == 0 {
+		comp := term.NewLogicalComputation[word.BigEndian, hir.LogicalTerm, hir.Term](assertion)
 		// Add translated constraint
-		module.AddConstraint(hir.NewAssertion(decl.Handle, module.Id(), decl.Domain, assertion))
+		module.AddConstraint(hir.NewAssertion(decl.Handle, module.Id(), decl.Domain, comp))
 	}
 	// Done
 	return errors

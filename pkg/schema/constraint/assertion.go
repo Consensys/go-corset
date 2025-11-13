@@ -23,32 +23,33 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // AssertionFailure provides structural information about a failing vanishing constraint.
-type AssertionFailure[F any] struct {
+type AssertionFailure[F any, T term.Logical[word.BigEndian, T]] struct {
 	// Handle of the failing constraint
 	Handle string
 	//
 	Context schema.ModuleId
 	// Constraint expression
-	Constraint term.Testable[F]
+	Constraint T
 	// Row on which the constraint failed
 	Row uint
 }
 
 // Message provides a suitable error message
-func (p *AssertionFailure[F]) Message() string {
+func (p *AssertionFailure[F, T]) Message() string {
 	// Construct useful error message
 	return fmt.Sprintf("assertion \"%s\" does not hold (row %d)", p.Handle, p.Row)
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
-func (p *AssertionFailure[F]) RequiredCells(tr trace.Trace[F]) *set.AnySortedSet[trace.CellRef] {
+func (p *AssertionFailure[F, T]) RequiredCells(tr trace.Trace[F]) *set.AnySortedSet[trace.CellRef] {
 	return p.Constraint.RequiredCells(int(p.Row), p.Context)
 }
 
-func (p *AssertionFailure[F]) String() string {
+func (p *AssertionFailure[F, T]) String() string {
 	return p.Message()
 }
 
@@ -59,7 +60,7 @@ func (p *AssertionFailure[F]) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[F field.Element[F], T term.Testable[F]] struct {
+type Assertion[F field.Element[F], T term.Logical[word.BigEndian, T]] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -78,7 +79,7 @@ type Assertion[F field.Element[F], T term.Testable[F]] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[F field.Element[F], T term.Testable[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
+func NewAssertion[F field.Element[F], T term.Logical[word.BigEndian, T]](handle string, ctx schema.ModuleId, domain util.Option[int],
 	property T) Assertion[F, T] {
 	//
 	return Assertion[F, T]{handle, ctx, domain, property}
@@ -170,14 +171,19 @@ func (p Assertion[F, T]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 
 // Substitute any matchined labelled constants within this constraint
 func (p Assertion[F, T]) Substitute(mapping map[string]F) {
-	p.Property.Substitute(mapping)
+	// Sanity check we have what we expect
+	if m, ok := any(mapping).(map[string]word.BigEndian); ok {
+		p.Property.Substitute(m)
+		return
+	}
+	panic("cannot substitute arbitrary field elements")
 }
 
 func (p Assertion[F, T]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F],
 ) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
-		trModule = tr.Module(p.Context)
+		trModule = trace.ModuleAdapter[F, word.BigEndian](tr.Module(p.Context))
 		scModule = sc.Module(p.Context)
 	)
 	// Check all in-bounds values
@@ -187,7 +193,7 @@ func (p Assertion[F, T]) acceptRange(start, end uint, tr trace.Trace[F], sc sche
 			// Evaluation failure
 			return coverage, &InternalFailure[F]{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
 		} else if !ok {
-			return coverage, &AssertionFailure[F]{p.Handle, p.Context, p.Property, k}
+			return coverage, &AssertionFailure[F, T]{p.Handle, p.Context, p.Property, k}
 		} else {
 			// Update coverage
 			coverage.Insert(id)

@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
 	"github.com/consensys/go-corset/pkg/schema/constraint/permutation"
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
@@ -212,7 +213,7 @@ func (p *Subdivider[F]) subdivideComputedRegister(cr *assignment.ComputedRegiste
 	var (
 		ntargets []register.Id
 		modmap   = p.mapping.Module(cr.Module)
-		expr     = term.SubdivideComputation(cr.Expr, modmap)
+		expr     = term.SubdivideExpr[word.BigEndian, LogicalComputation](cr.Expr, modmap)
 	)
 	//
 	for _, target := range cr.Targets {
@@ -310,8 +311,12 @@ func (p *Subdivider[F]) subdivideConstraint(c Constraint[F]) Constraint[F] {
 
 // Subdivide implementation for the FieldAgnostic interface.
 func (p *Subdivider[F]) subdivideAssertion(c Assertion[F]) Assertion[F] {
-	// TODO: implement this
-	return c
+	var (
+		module = p.mapping.Module(c.Context)
+		prop   = term.SubdivideLogical[word.BigEndian, LogicalComputation, Computation](c.Property, module)
+	)
+	// Construct split constraint
+	return constraint.NewAssertion[F](c.Handle, c.Context, c.Domain, prop)
 }
 
 // Subdivide implementation for the FieldAgnostic interface.

@@ -13,7 +13,6 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -39,7 +38,7 @@ import (
 type ConstraintBound[F field.Element[F]] interface {
 	schema.Constraint[F]
 
-	constraint.Assertion[F, term.Testable[F]] |
+	constraint.Assertion[F, LogicalComputation] |
 		interleaving.Constraint[F, *ColumnAccess[F]] |
 		lookup.Constraint[F, *ColumnAccess[F]] |
 		permutation.Constraint[F] |
@@ -63,9 +62,9 @@ func newAir[F field.Element[F], C ConstraintBound[F]](constraint C) Air[F, C] {
 
 // NewAssertion constructs a new AIR assertion
 func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
-	term term.Testable[F]) Assertion[F] {
+	term LogicalComputation) Assertion[F] {
 	//
-	return newAir(constraint.NewAssertion(handle, ctx, domain, term))
+	return newAir(constraint.NewAssertion[F](handle, ctx, domain, term))
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.

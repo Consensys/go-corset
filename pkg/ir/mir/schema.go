@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Following types capture top-level abstractions at the MIR level.
@@ -48,6 +49,8 @@ type (
 	LogicalTerm[F any] interface {
 		term.Logical[F, LogicalTerm[F]]
 	}
+	//
+	LogicalComputation = term.LogicalComputation[word.BigEndian]
 )
 
 // Following types capture permitted constraint forms at the MIR level.
@@ -55,7 +58,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion[F field.Element[F]] = constraint.Assertion[F, LogicalTerm[F]]
+	Assertion[F field.Element[F]] = constraint.Assertion[F, LogicalComputation]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
 	InterleavingConstraint[F field.Element[F]] = interleaving.Constraint[F, *VectorAccess[F]]
@@ -94,6 +97,8 @@ type (
 	Sub[F field.Element[F]] = term.Sub[F, Term[F]]
 	// VectorAccess represents a compound variable
 	VectorAccess[F field.Element[F]] = term.VectorAccess[F, Term[F]]
+	//
+	Computation = term.Computation[word.BigEndian]
 )
 
 // Following types capture permitted logical forms at the MIR level.

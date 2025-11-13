@@ -16,7 +16,6 @@ import (
 	"encoding/gob"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -95,6 +94,10 @@ func NewComputations[F field.Element[F], S Logical[F, S], T Expr[F, T]](terms []
 	return computations
 }
 
+func AsExpr[F field.Element[F], S Logical[F, S], T Expr[F, T]](term Computation[F]) Expr[F, T] {
+	panic("todo")
+}
+
 // ============================================================================
 // Logical Comptuation
 // ============================================================================
@@ -148,152 +151,6 @@ func NewLogicalComputations[F field.Element[F], S Logical[F, S], T Expr[F, T]](t
 	//
 	for i, t := range terms {
 		computations[i] = NewLogicalComputation[F, S, T](t)
-	}
-	//
-	return computations
-}
-
-// ============================================================================
-// Subdivision
-// ============================================================================
-
-// SubdivideComputation subdivides a computation by splitting all register
-// accesses into vector accesses over their limbs.
-func SubdivideComputation[F field.Element[F]](c Computation[F], mapping register.LimbsMap) Computation[F] {
-	switch t := c.(type) {
-	case *Add[F, Computation[F]]:
-		args := SubdivideComputations(t.Args, mapping)
-		return Sum(args...)
-	case *Cast[F, Computation[F]]:
-		arg := SubdivideComputation(t.Arg, mapping)
-		return CastOf(arg, t.BitWidth)
-	case *Constant[F, Computation[F]]:
-		var val F
-		return Const[F, Computation[F]](val.SetBytes(t.Value.Bytes()))
-	case *Exp[F, Computation[F]]:
-		arg := SubdivideComputation(t.Arg, mapping)
-		return Exponent(arg, t.Pow)
-	case *IfZero[F, LogicalComputation[F], Computation[F]]:
-		condition := SubdivideLogicalComputation(t.Condition, mapping)
-		trueBranch := SubdivideComputation(t.TrueBranch, mapping)
-		falseBranch := SubdivideComputation(t.FalseBranch, mapping)
-		// Done
-		return IfElse(condition, trueBranch, falseBranch)
-	case *LabelledConst[F, Computation[F]]:
-		var val F
-		return LabelledConstant[F, Computation[F]](t.Label, val.SetBytes(t.Value.Bytes()))
-	case *Mul[F, Computation[F]]:
-		args := SubdivideComputations(t.Args, mapping)
-		return Product(args...)
-	case *Norm[F, Computation[F]]:
-		arg := SubdivideComputation(t.Arg, mapping)
-		return Normalise(arg)
-	case *RegisterAccess[F, Computation[F]]:
-		return subdivideRegAccesses(mapping, t)
-	case *Sub[F, Computation[F]]:
-		args := SubdivideComputations(t.Args, mapping)
-		return Subtract(args...)
-	case *VectorAccess[F, Computation[F]]:
-		return subdivideRegAccesses(mapping, t.Vars...)
-	default:
-		panic(fmt.Sprintf("unknown computation encountered: %s", c.Lisp(false, nil).String(false)))
-	}
-}
-
-// SubdivideComputations subdivides an array of zero or more logical computations.
-func SubdivideComputations[F field.Element[F]](cs []Computation[F], mapping register.LimbsMap) []Computation[F] {
-	var computations = make([]Computation[F], len(cs))
-	//
-	for i, t := range cs {
-		computations[i] = SubdivideComputation(t, mapping)
-	}
-	//
-	return computations
-}
-
-func subdivideRegAccesses[F field.Element[F]](mapping register.LimbsMap, regs ...*RegisterAccess[F, Computation[F]],
-) Computation[F] {
-	var nterms []*RegisterAccess[F, Computation[F]]
-	//
-	for _, v := range regs {
-		var bitwidth = v.MaskWidth()
-		//
-		for _, limbId := range mapping.LimbIds(v.Register()) {
-			var (
-				limb = mapping.Limb(limbId)
-				mask = min(limb.Width, bitwidth)
-			)
-			//
-			if mask > 0 {
-				// Construct access for given limb
-				ith := RawRegisterAccess[F, Computation[F]](limbId, limb.Width, v.RelativeShift())
-				// Mask access to eliminate any unused bits
-				nterms = append(nterms, ith.Mask(mask))
-			}
-			//
-			bitwidth -= mask
-		}
-	}
-	// Simplify (when possible)
-	if len(nterms) == 1 {
-		return nterms[0]
-	}
-	//
-	return NewVectorAccess(nterms)
-}
-
-// SubdivideLogicalComputation subdivides a logical computation by splitting all
-// register accesses into vector accesses over their limbs.
-func SubdivideLogicalComputation[F field.Element[F]](c LogicalComputation[F], mapping register.LimbsMap,
-) LogicalComputation[F] {
-	//
-	switch t := c.(type) {
-	case *Conjunct[F, LogicalComputation[F]]:
-		args := SubdivideLogicalComputations(t.Args, mapping)
-		return Conjunction(args...)
-	case *Disjunct[F, LogicalComputation[F]]:
-		args := SubdivideLogicalComputations(t.Args, mapping)
-		return Disjunction(args...)
-	case *Equal[F, LogicalComputation[F], Computation[F]]:
-		lhs := SubdivideComputation(t.Lhs, mapping)
-		rhs := SubdivideComputation(t.Rhs, mapping)
-
-		return Equals[F, LogicalComputation[F]](lhs, rhs)
-	case *Ite[F, LogicalComputation[F]]:
-		var trueBranch, falseBranch LogicalComputation[F]
-
-		condition := SubdivideLogicalComputation(t.Condition, mapping)
-		//
-		if t.TrueBranch != nil {
-			trueBranch = SubdivideLogicalComputation(t.TrueBranch, mapping)
-		}
-		//
-		if t.FalseBranch != nil {
-			falseBranch = SubdivideLogicalComputation(t.FalseBranch, mapping)
-		}
-		//
-		return IfThenElse(condition, trueBranch, falseBranch)
-	case *Negate[F, LogicalComputation[F]]:
-		arg := SubdivideLogicalComputation(t.Arg, mapping)
-		return Negation(arg)
-	case *NotEqual[F, LogicalComputation[F], Computation[F]]:
-		lhs := SubdivideComputation(t.Lhs, mapping)
-		rhs := SubdivideComputation(t.Rhs, mapping)
-
-		return NotEquals[F, LogicalComputation[F]](lhs, rhs)
-	default:
-		panic(fmt.Sprintf("unknown computation encountered: %s", c.Lisp(false, nil).String(false)))
-	}
-}
-
-// SubdivideLogicalComputations Subdivides an array of zero or more logical computations.
-func SubdivideLogicalComputations[F field.Element[F]](cs []LogicalComputation[F], mapping register.LimbsMap,
-) []LogicalComputation[F] {
-	//
-	var computations = make([]LogicalComputation[F], len(cs))
-	//
-	for i, t := range cs {
-		computations[i] = SubdivideLogicalComputation(t, mapping)
 	}
 	//
 	return computations

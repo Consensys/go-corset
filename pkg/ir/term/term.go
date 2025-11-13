@@ -13,10 +13,13 @@
 package term
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
@@ -130,4 +133,152 @@ type Logical[F any, T any] interface {
 
 	// Negate this logical term
 	Negate() T
+}
+
+// ============================================================================
+// Subdivision
+// ============================================================================
+
+// SubdivideExpr subdivides a computation by splitting all register
+// accesses into vector accesses over their limbs.
+func SubdivideExpr[F field.Element[F], S Logical[F, S], T Expr[F, T]](c T, mapping register.LimbsMap) T {
+	var f Expr[F, T] = any(c).(Expr[F, T])
+	//
+	switch t := f.(type) {
+	case *Add[F, T]:
+		args := SubdivideExprs[F, S](t.Args, mapping)
+		return Sum(args...)
+	case *Cast[F, T]:
+		arg := SubdivideExpr[F, S](t.Arg, mapping)
+		return CastOf(arg, t.BitWidth)
+	case *Constant[F, T]:
+		var val F
+		return Const[F, T](val.SetBytes(t.Value.Bytes()))
+	case *Exp[F, T]:
+		arg := SubdivideExpr[F, S](t.Arg, mapping)
+		return Exponent(arg, t.Pow)
+	case *IfZero[F, S, T]:
+		condition := SubdivideLogical[F, S, T](t.Condition, mapping)
+		trueBranch := SubdivideExpr[F, S](t.TrueBranch, mapping)
+		falseBranch := SubdivideExpr[F, S](t.FalseBranch, mapping)
+		// Done
+		return IfElse(condition, trueBranch, falseBranch)
+	case *LabelledConst[F, T]:
+		var val F
+		return LabelledConstant[F, T](t.Label, val.SetBytes(t.Value.Bytes()))
+	case *Mul[F, T]:
+		args := SubdivideExprs[F, S](t.Args, mapping)
+		return Product(args...)
+	case *Norm[F, T]:
+		arg := SubdivideExpr[F, S](t.Arg, mapping)
+		return Normalise(arg)
+	case *RegisterAccess[F, T]:
+		return subdivideRegAccesses[F, S](mapping, t)
+	case *Sub[F, T]:
+		args := SubdivideExprs[F, S](t.Args, mapping)
+		return Subtract(args...)
+	case *VectorAccess[F, T]:
+		return subdivideRegAccesses[F, S](mapping, t.Vars...)
+	default:
+		panic(fmt.Sprintf("unknown computation encountered: %s", c.Lisp(false, nil).String(false)))
+	}
+}
+
+// SubdivideExprs subdivides an array of zero or more logical computations.
+func SubdivideExprs[F field.Element[F], S Logical[F, S], T Expr[F, T]](cs []T, mapping register.LimbsMap) []T {
+	var computations = make([]T, len(cs))
+	//
+	for i, t := range cs {
+		computations[i] = SubdivideExpr[F, S](t, mapping)
+	}
+	//
+	return computations
+}
+
+func subdivideRegAccesses[F field.Element[F], S Logical[F, S], T Expr[F, T]](mapping register.LimbsMap,
+	regs ...*RegisterAccess[F, T]) T {
+	var nterms []*RegisterAccess[F, T]
+	//
+	for _, v := range regs {
+		var bitwidth = v.MaskWidth()
+		//
+		for _, limbId := range mapping.LimbIds(v.Register()) {
+			var (
+				limb = mapping.Limb(limbId)
+				mask = min(limb.Width, bitwidth)
+			)
+			//
+			if mask > 0 {
+				// Construct access for given limb
+				ith := RawRegisterAccess[F, T](limbId, limb.Width, v.RelativeShift())
+				// Mask access to eliminate any unused bits
+				nterms = append(nterms, ith.Mask(mask))
+			}
+			//
+			bitwidth -= mask
+		}
+	}
+	// Simplify (when possible)
+	if len(nterms) == 1 {
+		return any(nterms[0]).(T)
+	}
+	//
+	return NewVectorAccess(nterms)
+}
+
+// SubdivideLogical subdivides a logical computation by splitting all
+// register accesses into vector accesses over their limbs.
+func SubdivideLogical[F field.Element[F], S Logical[F, S], T Expr[F, T]](c S, mapping register.LimbsMap) S {
+	var f Logical[F, S] = any(c).(Logical[F, S])
+	//
+	switch t := f.(type) {
+	case *Conjunct[F, S]:
+		args := SubdivideLogicals[F, S, T](t.Args, mapping)
+		return Conjunction(args...)
+	case *Disjunct[F, S]:
+		args := SubdivideLogicals[F, S, T](t.Args, mapping)
+		return Disjunction(args...)
+	case *Equal[F, S, T]:
+		lhs := SubdivideExpr[F, S, T](t.Lhs.(T), mapping)
+		rhs := SubdivideExpr[F, S, T](t.Rhs.(T), mapping)
+
+		return Equals[F, S, T](lhs, rhs)
+	case *Ite[F, S]:
+		var trueBranch, falseBranch S
+
+		condition := SubdivideLogical[F, S, T](t.Condition, mapping)
+		//
+		if t.TrueBranch != nil {
+			trueBranch = SubdivideLogical[F, S, T](t.TrueBranch.(S), mapping)
+		}
+		//
+		if t.FalseBranch != nil {
+			falseBranch = SubdivideLogical[F, S, T](t.FalseBranch.(S), mapping)
+		}
+		//
+		return IfThenElse(condition, trueBranch, falseBranch)
+	case *Negate[F, S]:
+		arg := SubdivideLogical[F, S, T](t.Arg, mapping)
+		return Negation(arg)
+	case *NotEqual[F, S, T]:
+		lhs := SubdivideExpr[F, S, T](t.Lhs.(T), mapping)
+		rhs := SubdivideExpr[F, S, T](t.Rhs.(T), mapping)
+
+		return NotEquals[F, S](lhs, rhs)
+	default:
+		panic(fmt.Sprintf("unknown computation encountered: %s", c.Lisp(false, nil).String(false)))
+	}
+}
+
+// SubdivideLogicals Subdivides an array of zero or more logical computations.
+func SubdivideLogicals[F field.Element[F], S Logical[F, S], T Expr[F, T]](cs []S, mapping register.LimbsMap,
+) []S {
+	//
+	var computations = make([]S, len(cs))
+	//
+	for i, t := range cs {
+		computations[i] = SubdivideLogical[F, S, T](t, mapping)
+	}
+	//
+	return computations
 }

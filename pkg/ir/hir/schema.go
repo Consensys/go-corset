@@ -45,6 +45,8 @@ type (
 	LogicalTerm interface {
 		term.Logical[word.BigEndian, LogicalTerm]
 	}
+	//
+	LogicalComputation = term.LogicalComputation[word.BigEndian]
 )
 
 // Following types capture permitted constraint forms at the HIR level.
@@ -52,7 +54,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion = constraint.Assertion[word.BigEndian, LogicalTerm]
+	Assertion = constraint.Assertion[word.BigEndian, LogicalComputation]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the HIR level.
 	InterleavingConstraint = interleaving.Constraint[word.BigEndian, Term]
@@ -100,6 +102,8 @@ type (
 	Sub = term.Sub[word.BigEndian, Term]
 	// VectorAccess represents a compound variable
 	VectorAccess = term.VectorAccess[word.BigEndian, Term]
+	//
+	Computation = term.Computation[word.BigEndian]
 )
 
 // Following types capture permitted logical forms at the HIR level.

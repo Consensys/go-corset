@@ -154,7 +154,7 @@ func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule *air.Mo
 
 // Lowering an assertion is straightforward since its not a true constraint.
 func (p *AirLowering[F]) lowerAssertionToAir(v Assertion[F], airModule *air.ModuleBuilder[F]) {
-	airModule.AddConstraint(air.NewAssertion(v.Handle, v.Context, v.Domain, v.Property))
+	airModule.AddConstraint(air.NewAssertion[F](v.Handle, v.Context, v.Domain, v.Property))
 }
 
 // Lower a vanishing constraint to the AIR level.  This is relatively

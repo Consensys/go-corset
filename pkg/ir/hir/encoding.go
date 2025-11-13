@@ -104,7 +104,7 @@ func encode_assertion(c Assertion) ([]byte, error) {
 		return nil, err
 	}
 	// Constraint
-	err := encode_logical(c.Property, &buffer)
+	err := encode_logical[LogicalComputation, Computation](c.Property, &buffer)
 	// Done
 	return buffer.Bytes(), err
 }
@@ -127,7 +127,7 @@ func encode_interleaving(c InterleavingConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Target term
-	if err := encode_term(c.Target, &buffer); err != nil {
+	if err := encode_term[LogicalTerm, Term](c.Target, &buffer); err != nil {
 		return nil, err
 	}
 	// Source Context
@@ -135,7 +135,7 @@ func encode_interleaving(c InterleavingConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Source terms
-	if err := encode_nary(encode_term, &buffer, c.Sources); err != nil {
+	if err := encode_nary(encode_term[LogicalTerm, Term], &buffer, c.Sources); err != nil {
 		return nil, err
 	}
 	//
@@ -182,12 +182,12 @@ func encode_lookup_vector(vector lookup.Vector[word.BigEndian, Term], buffer *by
 	}
 	// Selector itself (if applicable)
 	if selector {
-		if err := encode_term(vector.Selector.Unwrap(), buffer); err != nil {
+		if err := encode_term[LogicalTerm, Term](vector.Selector.Unwrap(), buffer); err != nil {
 			return err
 		}
 	}
 	// Source terms
-	return encode_nary(encode_term, buffer, vector.Terms)
+	return encode_nary(encode_term[LogicalTerm, Term], buffer, vector.Terms)
 }
 
 func encode_permutation(c PermutationConstraint) ([]byte, error) {
@@ -258,12 +258,12 @@ func encode_sorted(c SortedConstraint) ([]byte, error) {
 	// Optional Selector
 	if c.Selector.HasValue() {
 		// Constraint
-		if err := encode_term(c.Selector.Unwrap(), &buffer); err != nil {
+		if err := encode_term[LogicalTerm, Term](c.Selector.Unwrap(), &buffer); err != nil {
 			return nil, err
 		}
 	}
 	// Sources
-	err := encode_nary(encode_term, &buffer, c.Sources)
+	err := encode_nary(encode_term[LogicalTerm, Term], &buffer, c.Sources)
 	//
 	return buffer.Bytes(), err
 }
@@ -290,7 +290,7 @@ func encode_vanishing(c VanishingConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Constraint
-	err := encode_logical(c.Constraint, &buffer)
+	err := encode_logical[LogicalTerm, Term](c.Constraint, &buffer)
 	// Done
 	return buffer.Bytes(), err
 }
@@ -315,7 +315,7 @@ func encode_range(c RangeConstraint) ([]byte, error) {
 		return nil, err
 	}
 	// Expression
-	err := encode_nary(encode_term, &buffer, c.Sources)
+	err := encode_nary(encode_term[LogicalTerm, Term], &buffer, c.Sources)
 	// Done
 	return buffer.Bytes(), err
 }
@@ -347,6 +347,7 @@ func decode_assertion(data []byte) (schema.Constraint[word.BigEndian], error) {
 	var (
 		buffer     = bytes.NewBuffer(data)
 		gobDecoder = gob.NewDecoder(buffer)
+		property   LogicalTerm
 		assertion  Assertion
 		err        error
 	)
@@ -363,7 +364,14 @@ func decode_assertion(data []byte) (schema.Constraint[word.BigEndian], error) {
 		return assertion, err
 	}
 	//
-	assertion.Property, err = decode_logical(buffer)
+	property, err = decode_logical(buffer)
+	//
+	if err == nil {
+		// NOTE: the following will eventually need to be replaced if/when
+		// computations diverge from terms.  For example, computations support a
+		// more diverse set of operations than arithmetic terms.
+		assertion.Property = term.NewLogicalComputation[word.BigEndian, LogicalTerm, Term](property)
+	}
 	// Success!
 	return assertion, err
 }
@@ -578,51 +586,60 @@ func decode_vanishing(data []byte) (schema.Constraint[word.BigEndian], error) {
 // Logical Terms (encoding)
 // ============================================================================
 
-func encode_logical(term LogicalTerm, buf *bytes.Buffer) error {
-	switch t := term.(type) {
-	case *Conjunct:
-		return encode_tagged_nary_logicals(conjunctTag, buf, t.Args...)
-	case *Disjunct:
-		return encode_tagged_nary_logicals(disjunctTag, buf, t.Args...)
-	case *Equal:
-		return encode_tagged_terms(equalTag, buf, t.Lhs, t.Rhs)
-	case *Ite:
-		return encode_ite(t, buf)
-	case *Negate:
-		return encode_tagged_logicals(negationTag, buf, t.Arg)
-	case *NotEqual:
-		return encode_tagged_terms(notEqualTag, buf, t.Lhs, t.Rhs)
+// Logical provides a convenient shorthand
+type Logical[T any] = term.Logical[word.BigEndian, T]
+
+// Expr provides a convenient shorthand
+type Expr[T any] = term.Expr[word.BigEndian, T]
+
+func encode_logical[S Logical[S], T Expr[T]](t S, buf *bytes.Buffer) error {
+	var x = any(t).(Logical[S])
+	//
+	switch t := x.(type) {
+	case *term.Conjunct[word.BigEndian, S]:
+		return encode_tagged_nary_logicals[S, T](conjunctTag, buf, t.Args...)
+	case *term.Disjunct[word.BigEndian, S]:
+		return encode_tagged_nary_logicals[S, T](disjunctTag, buf, t.Args...)
+	case *term.Equal[word.BigEndian, S, T]:
+		return encode_tagged_terms[S, T](equalTag, buf, t.Lhs.(T), t.Rhs.(T))
+	case *term.Ite[word.BigEndian, S]:
+		return encode_ite[S, T](t, buf)
+	case *term.Negate[word.BigEndian, S]:
+		return encode_tagged_logicals[S, T](negationTag, buf, t.Arg)
+	case *term.NotEqual[word.BigEndian, S, T]:
+		return encode_tagged_terms[S, T](notEqualTag, buf, t.Lhs.(T), t.Rhs.(T))
 	default:
-		return fmt.Errorf("unknown logical term encountered (%s)", term.Lisp(false, nil).String(false))
+		return fmt.Errorf("encoding unknown logical term (%s)", x.Lisp(false, nil).String(false))
 	}
 }
 
-func encode_tagged_nary_logicals(tag byte, buf *bytes.Buffer, terms ...LogicalTerm) error {
+func encode_tagged_nary_logicals[S Logical[S], T Expr[T]](tag byte, buf *bytes.Buffer, terms ...S) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_nary(encode_logical, buf, terms)
+	return encode_nary(encode_logical[S, T], buf, terms)
 }
 
-func encode_tagged_logicals(tag byte, buf *bytes.Buffer, terms ...LogicalTerm) error {
+func encode_tagged_logicals[S Logical[S], T Expr[T]](tag byte, buf *bytes.Buffer, terms ...S) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_n(encode_logical, buf, terms...)
+	return encode_n(encode_logical[S, T], buf, terms...)
 }
 
-func encode_ite(term *Ite, buf *bytes.Buffer) error {
+func encode_ite[S Logical[S], T Expr[T]](term *term.Ite[word.BigEndian, S], buf *bytes.Buffer) error {
+	//
 	switch {
 	case term.FalseBranch != nil && term.TrueBranch != nil:
-		return encode_tagged_logicals(iteTagTF, buf, term.Condition, term.TrueBranch, term.FalseBranch)
+		return encode_tagged_logicals[S, T](iteTagTF, buf, term.Condition, term.TrueBranch.(S), term.FalseBranch.(S))
 	case term.FalseBranch == nil:
-		return encode_tagged_logicals(iteTagT, buf, term.Condition, term.TrueBranch)
+		return encode_tagged_logicals[S, T](iteTagT, buf, term.Condition, term.TrueBranch.(S))
 	case term.TrueBranch == nil:
-		return encode_tagged_logicals(iteTagF, buf, term.Condition, term.FalseBranch)
+		return encode_tagged_logicals[S, T](iteTagF, buf, term.Condition, term.FalseBranch.(S))
 	default:
 		panic("unreachable")
 	}
@@ -691,55 +708,56 @@ func decode_ite(tag byte, buf *bytes.Buffer) (LogicalTerm, error) {
 // Arithmetic Terms (encoding)
 // ============================================================================
 
-func encode_term(term Term, buf *bytes.Buffer) error {
+func encode_term[S Logical[S], T Expr[T]](t T, buf *bytes.Buffer) error {
+	var x = any(t).(Expr[T])
 	//
-	switch t := term.(type) {
-	case *Add:
-		return encode_tagged_nary_terms(addTag, buf, t.Args...)
-	case *Cast:
-		return encode_cast(*t, buf)
-	case *Constant:
-		return encode_constant(*t, buf)
-	case *Exp:
-		return encode_exponent(*t, buf)
-	case *IfZero:
-		return encode_ifZero(*t, buf)
-	case *LabelledConst:
-		return encode_labelled_constant(*t, buf)
-	case *Mul:
-		return encode_tagged_nary_terms(mulTag, buf, t.Args...)
-	case *Norm:
-		return encode_tagged_terms(normTag, buf, t.Arg)
-	case *RegisterAccess:
+	switch t := x.(type) {
+	case *term.Add[word.BigEndian, T]:
+		return encode_tagged_nary_terms[S, T](addTag, buf, t.Args...)
+	case *term.Cast[word.BigEndian, T]:
+		return encode_cast[S, T](*t, buf)
+	case *term.Constant[word.BigEndian, T]:
+		return encode_constant[T](*t, buf)
+	case *term.Exp[word.BigEndian, T]:
+		return encode_exponent[S, T](*t, buf)
+	case *term.IfZero[word.BigEndian, S, T]:
+		return encode_ifZero[S, T](*t, buf)
+	case *term.LabelledConst[word.BigEndian, T]:
+		return encode_labelled_constant[T](*t, buf)
+	case *term.Mul[word.BigEndian, T]:
+		return encode_tagged_nary_terms[S, T](mulTag, buf, t.Args...)
+	case *term.Norm[word.BigEndian, T]:
+		return encode_tagged_terms[S, T](normTag, buf, t.Arg)
+	case *term.RegisterAccess[word.BigEndian, T]:
 		return encode_reg_access(*t, buf)
-	case *Sub:
-		return encode_tagged_nary_terms(subTag, buf, t.Args...)
-	case *VectorAccess:
+	case *term.Sub[word.BigEndian, T]:
+		return encode_tagged_nary_terms[S, T](subTag, buf, t.Args...)
+	case *term.VectorAccess[word.BigEndian, T]:
 		return encode_vec_access(*t, buf)
 	default:
-		return fmt.Errorf("unknown arithmetic term encountered (%s)", term.Lisp(false, nil).String(false))
+		return fmt.Errorf("unknown arithmetic term encountered (%s)", x.Lisp(false, nil).String(false))
 	}
 }
 
-func encode_tagged_nary_terms(tag byte, buf *bytes.Buffer, terms ...Term) error {
+func encode_tagged_nary_terms[S Logical[S], T Expr[T]](tag byte, buf *bytes.Buffer, terms ...T) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_nary(encode_term, buf, terms)
+	return encode_nary(encode_term[S, T], buf, terms)
 }
 
-func encode_tagged_terms(tag byte, buf *bytes.Buffer, terms ...Term) error {
+func encode_tagged_terms[S Logical[S], T Expr[T]](tag byte, buf *bytes.Buffer, terms ...T) error {
 	// Write tag
 	if err := buf.WriteByte(tag); err != nil {
 		return err
 	}
 	//
-	return encode_n(encode_term, buf, terms...)
+	return encode_n(encode_term[S, T], buf, terms...)
 }
 
-func encode_cast(term Cast, buf *bytes.Buffer) error {
+func encode_cast[S Logical[S], T Expr[T]](term term.Cast[word.BigEndian, T], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(castTag); err != nil {
 		return err
@@ -749,10 +767,10 @@ func encode_cast(term Cast, buf *bytes.Buffer) error {
 		return err
 	}
 	// term
-	return encode_term(term.Arg, buf)
+	return encode_term[S, T](term.Arg, buf)
 }
 
-func encode_constant(term Constant, buf *bytes.Buffer) error {
+func encode_constant[T Expr[T]](term term.Constant[word.BigEndian, T], buf *bytes.Buffer) error {
 	bytes := term.Value.Bytes()
 	// Write tag
 	if err := buf.WriteByte(constantTag); err != nil {
@@ -769,20 +787,20 @@ func encode_constant(term Constant, buf *bytes.Buffer) error {
 	return err
 }
 
-func encode_ifZero(term IfZero, buf *bytes.Buffer) error {
+func encode_ifZero[S Logical[S], T Expr[T]](term term.IfZero[word.BigEndian, S, T], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(ifZeroTag); err != nil {
 		return err
 	}
 	// Write condition
-	if err := encode_logical(term.Condition, buf); err != nil {
+	if err := encode_logical[S, T](term.Condition, buf); err != nil {
 		return err
 	}
 	// Write true + false branches
-	return encode_n(encode_term, buf, term.TrueBranch, term.FalseBranch)
+	return encode_n(encode_term[S, T], buf, term.TrueBranch, term.FalseBranch)
 }
 
-func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
+func encode_labelled_constant[T Expr[T]](term term.LabelledConst[word.BigEndian, T], buf *bytes.Buffer) error {
 	var (
 		str_bytes   = []byte(term.Label)
 		str_len     = uint16(len(str_bytes))
@@ -813,7 +831,7 @@ func encode_labelled_constant(term LabelledConst, buf *bytes.Buffer) error {
 	return err
 }
 
-func encode_exponent(term Exp, buf *bytes.Buffer) error {
+func encode_exponent[S Logical[S], T Expr[T]](term term.Exp[word.BigEndian, T], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(expTag); err != nil {
 		return err
@@ -823,10 +841,10 @@ func encode_exponent(term Exp, buf *bytes.Buffer) error {
 		return err
 	}
 	// term
-	return encode_term(term.Arg, buf)
+	return encode_term[S, T](term.Arg, buf)
 }
 
-func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
+func encode_reg_access[T Expr[T]](term term.RegisterAccess[word.BigEndian, T], buf *bytes.Buffer) error {
 	// Write (appropriate) tag
 	if err := buf.WriteByte(registerAccessTag); err != nil {
 		return err
@@ -835,7 +853,7 @@ func encode_reg_access(term RegisterAccess, buf *bytes.Buffer) error {
 	return encode_raw_access(&term, buf)
 }
 
-func encode_vec_access(term VectorAccess, buf *bytes.Buffer) error {
+func encode_vec_access[T Expr[T]](term term.VectorAccess[word.BigEndian, T], buf *bytes.Buffer) error {
 	// Write tag
 	if err := buf.WriteByte(vectorAccessTag); err != nil {
 		return err
@@ -844,7 +862,7 @@ func encode_vec_access(term VectorAccess, buf *bytes.Buffer) error {
 	return encode_nary(encode_raw_access, buf, term.Vars)
 }
 
-func encode_raw_access(term *RegisterAccess, buf *bytes.Buffer) error {
+func encode_raw_access[T Expr[T]](term *term.RegisterAccess[word.BigEndian, T], buf *bytes.Buffer) error {
 	var bytes, err = term.MarshalBinary()
 	//
 	if err != nil {
