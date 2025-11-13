@@ -144,7 +144,13 @@ func (p *SchemaBuilder[F, C, T]) Module(mid uint) *ModuleBuilder[F, C, T] {
 
 // ModuleOf returns the builder for the given module based on its name.
 func (p *SchemaBuilder[F, C, T]) ModuleOf(name module.Name) *ModuleBuilder[F, C, T] {
-	return p.Module(p.modmap[name])
+	id, ok := p.modmap[name]
+	//
+	if ok {
+		return p.Module(id)
+	}
+	//
+	return nil
 }
 
 // ModuleBuilder provides a mechanism to ease the construction of modules for
@@ -255,6 +261,11 @@ func (p *ModuleBuilder[F, C, T]) Id() uint {
 // initial padding row.
 func (p *ModuleBuilder[F, C, T]) AllowPadding() bool {
 	return p.padding
+}
+
+// IsExtern determines whether or not this is an external module or not.
+func (p *ModuleBuilder[F, C, T]) IsExtern() bool {
+	return p.extern
 }
 
 // IsPublic determines whether or not this module is externally visible.

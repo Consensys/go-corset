@@ -231,6 +231,8 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path file.Path) 
 	switch d := decl.(type) {
 	case *ast.DefAliases:
 		// Not an assignment or a constraint, hence ignore.
+	case *ast.DefCall:
+		errors = t.translateDefCall(d)
 	case *ast.DefComputed:
 		return t.translateDefComputed(d, path)
 	case *ast.DefColumns:
@@ -263,6 +265,44 @@ func (t *translator) translateDeclaration(decl ast.Declaration, path file.Path) 
 		panic("unknown declaration")
 	}
 	//
+	return errors
+}
+
+// Translate a "deflookup" declaration.
+func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
+	var (
+		callerContext, _ = ast.ContextOfExpressions(decl.Arguments...)
+		calleeContext    = ast.NewContext(decl.Function, 1)
+		// Lookup callee module
+		calleeModule = t.moduleOf(calleeContext)
+	)
+	// Translate target expressions whilst again checking for a conflicting
+	// context.
+	if callerContext.IsConflicted() {
+		// This should be unreachable, as should already have been detected
+		// during resolution.
+		return t.srcmap.SyntaxErrors(decl, "conflicting argument context")
+	} else if calleeModule == nil {
+		return t.srcmap.SyntaxErrors(decl, fmt.Sprintf("unknown function \"%s\"", decl.Function))
+	} else if !calleeModule.IsExtern() {
+		return t.srcmap.SyntaxErrors(decl, "cannot call non-assembly module")
+	}
+	// Lookup caller module
+	callerModule := t.moduleOf(callerContext)
+	// Translate returns
+	_, errs1 := t.translateExpressions(callerModule, 0, decl.Returns...)
+	// Translate arguments
+	_, errs2 := t.translateExpressions(callerModule, 0, decl.Arguments...)
+	// Combine all errors
+	errors := append(errs1, errs2...)
+	// Sanity check whether we can construct the constraint, or not.
+	if len(errors) == 0 {
+		// Sanity check argument / return subtying
+		// Generate lookup
+		// Generate someway to trigger trace propagation
+		panic("implement translation for defcall")
+	}
+	// Done
 	return errors
 }
 

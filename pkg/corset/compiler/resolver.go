@@ -297,6 +297,8 @@ func (r *resolver) declarationDependenciesAreFinalised(scope *ModuleScope,
 // Finalise a declaration.
 func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl ast.Declaration) []SyntaxError {
 	switch d := decl.(type) {
+	case *ast.DefCall:
+		return r.finaliseDefCallInModule(scope, d)
 	case *ast.DefComputed:
 		return r.finaliseDefComputedInModule(d)
 	case *ast.DefConst:
@@ -324,6 +326,18 @@ func (r *resolver) finaliseDeclaration(scope *ModuleScope, decl ast.Declaration)
 	}
 	//
 	return nil
+}
+
+func (r *resolver) finaliseDefCallInModule(enclosing Scope, decl *ast.DefCall) []SyntaxError {
+	var (
+		scope = NewLocalScope(enclosing, false, false, false)
+	)
+	// Resolve return expressions
+	errs1 := r.finaliseExpressionsInModule(scope, decl.Returns)
+	// Resolve argument expressions
+	errs2 := r.finaliseExpressionsInModule(scope, decl.Arguments)
+	//
+	return append(errs1, errs2...)
 }
 
 func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxError {
