@@ -285,7 +285,7 @@
 (defun (call---first-row-unexceptional)          (*    (call---first-row-common) (- 1 OOGX)))
 
 
-(defun (call---transfers-value)                  (*    (cctv)    (-    1    (next RES_LO))))
+(defun (call---transfers-value)                  (*    (cctv)    (-    1    (i1 (next RES_LO)))))
 (defun (call---zero-value)                       (*    (cctv)    (next RES_LO)))
 (defun (call---gas-actual)                       GAS_ACTUAL)
 (defun (call---gas-access-cost)                  (if-not-zero    WARM

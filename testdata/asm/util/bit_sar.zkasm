@@ -132,12 +132,13 @@ fn bit_sar256_u1(word u256, n u1) -> (res u256) {
   return
 apply:
   ;; >>> START: workaround #1176
-  var hi u126
-  var lo u127
-  var mid, sign u1
-  sign, hi, mid, lo, lsw = word
-  ;; determine sign extension
-  res = (sign*0b11*2^254) + (hi*2^128) + (mid*2^127) + lo
+  var hi u247
+  var lo u7
+  var sign, b u1
+  ;;
+  sign, hi, lo, b = word
+  ;;
+  res = (sign*0b11*2^254) + (hi * 2^7) + lo
   ;; <<< END
   return
 }
