@@ -23,6 +23,9 @@ func Test_AsmBench_Add(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/add", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_AsmBench_Euc(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/bench/euc", util.ASM_MAX_PADDING, field.BLS12_377)
+}
 func Test_AsmBench_Exp(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/exp", util.ASM_MAX_PADDING, field.BLS12_377)
 }
