@@ -49,6 +49,11 @@ func IsTrue[F field.Element[F], T Logical[F, T]](term T) bool {
 // Conjunction builds the logical conjunction (i.e. and) for a given set of constraints.
 func Conjunction[F field.Element[F], T Logical[F, T]](terms ...T) T {
 	var term Logical[F, T] = &Conjunct[F, T]{terms}
+	//
+	if len(terms) == 1 {
+		return terms[0]
+	}
+	//
 	return term.(T)
 }
 

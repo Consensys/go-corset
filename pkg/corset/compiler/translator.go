@@ -275,6 +275,7 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 		calleeContext    = ast.NewContext(decl.Function, 1)
 		// Lookup callee module
 		calleeModule = t.moduleOf(calleeContext)
+		selector     = util.None[hir.LogicalTerm]()
 	)
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
@@ -295,18 +296,25 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 	// Translate arguments
 	//nolint
 	args, errs2 := t.translateExpressions(callerModule, 0, decl.Arguments...)
-	// Combine all errors
+	// Check arguments / returns
 	errs3 := t.checkArgsReturns(decl, rets, args, calleeModule)
 	// Combine all errors
 	errors := append(errs1, errs2...)
 	errors = append(errors, errs3...)
+	// Translate selector (if applicable)
+	if decl.Selector.HasValue() {
+		sel, errs := t.translateLogical(decl.Selector.Unwrap(), callerModule, 0)
+		selector = util.Some(sel)
+
+		errors = append(errors, errs...)
+	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
 		handle := fmt.Sprintf("%s=>%s", callerModule.Name().Name, calleeModule.Name().Name)
 		// FIXME: Sanity check argument / return subtying
 		//
 		callerModule.AddConstraint(hir.NewFunctionCall(
-			handle, callerModule.Id(), calleeModule.Id(), rets, args))
+			handle, callerModule.Id(), calleeModule.Id(), rets, args, selector))
 	}
 	// Done
 	return errors
@@ -370,9 +378,9 @@ func (t *translator) checkSubSuptype(subtype bool, term hir.Term, bitwidth uint,
 	if signed {
 		return t.srcmap.SyntaxErrors(node, "signed term encountered")
 	} else if subtype && termWidth > bitwidth {
-		return t.srcmap.SyntaxErrors(node, "argument width exceeds parameter")
+		return t.srcmap.SyntaxErrors(node, fmt.Sprintf("expected u%d, found u%d", bitwidth, termWidth))
 	} else if !subtype && termWidth < bitwidth {
-		return t.srcmap.SyntaxErrors(node, "return width insufficient")
+		return t.srcmap.SyntaxErrors(node, fmt.Sprintf("expected u%d, found u%d", termWidth, bitwidth))
 	}
 	//
 	return nil

@@ -15,7 +15,6 @@ package register
 import (
 	"fmt"
 	"math/big"
-	"strings"
 )
 
 // Register represents a specific register in the schema that, eventually, will
@@ -106,10 +105,6 @@ func (p Register) QualifiedName(mod Map) string {
 		name    = p.Name
 		modName = mod.Name().String()
 	)
-	//
-	if strings.Contains(name, " ") {
-		name = fmt.Sprintf("\"%s\"", name)
-	}
 	//
 	if modName != "" {
 		return fmt.Sprintf("%s:%s", modName, name)

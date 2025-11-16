@@ -54,13 +54,14 @@ func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Opti
 
 // NewFunctionCall creates a new function call with a given handle
 func NewFunctionCall(handle string, caller, callee module.Id,
-	returns []Term, args []Term) Constraint {
+	returns []Term, args []Term, selector util.Option[LogicalTerm]) Constraint {
 	//
 	return Constraint{&FunctionCall{Handle: handle,
 		Callee:    callee,
 		Caller:    caller,
 		Returns:   returns,
 		Arguments: args,
+		Selector:  selector,
 	}}
 }
 

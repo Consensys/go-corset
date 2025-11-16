@@ -32,6 +32,7 @@ type FunctionCall struct {
 	Callee, Caller module.Id
 	Returns        []Term
 	Arguments      []Term
+	Selector       util.Option[LogicalTerm]
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
@@ -111,6 +112,11 @@ func (p FunctionCall) Bounds(module uint) util.Bounds {
 			eth := e.Bounds()
 			bound.Union(&eth)
 		}
+		// Bound selector (if applicable)
+		if p.Selector.HasValue() {
+			eth := p.Selector.Unwrap().Bounds()
+			bound.Union(&eth)
+		}
 	}
 	//
 	return bound
@@ -138,11 +144,6 @@ func (p FunctionCall) Lisp(mapping schema.AnySchema[word.BigEndian]) sexp.SExp {
 		rets   = sexp.EmptyList()
 	)
 	//
-	// if p.HasSelector() {
-	// 	terms.Append(p.Selector.Unwrap().Lisp(true, module))
-	// } else {
-	// 	terms.Append(sexp.NewSymbol("_"))
-	// }
 	// Iterate arguments
 	for _, ith := range p.Arguments {
 		args.Append(ith.Lisp(true, module))
@@ -152,12 +153,18 @@ func (p FunctionCall) Lisp(mapping schema.AnySchema[word.BigEndian]) sexp.SExp {
 		rets.Append(ith.Lisp(true, module))
 	}
 	// Done
-	return sexp.NewList([]sexp.SExp{
+	list := sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("call"),
 		rets,
 		sexp.NewSymbol(callee.Name().Name),
 		args,
 	})
+	//
+	if p.Selector.HasValue() {
+		list.Append(p.Selector.Unwrap().Lisp(true, module))
+	}
+	//
+	return list
 }
 
 // Substitute any matchined labelled constants within this constraint
@@ -171,7 +178,7 @@ func (p FunctionCall) Substitute(mapping map[string]word.BigEndian) {
 		ith.Substitute(mapping)
 	}
 	// Substitute through selector (if applicable)
-	// 	if p.HasSelector() {
-	// 	p.Selector.Unwrap().Substitute(mapping)
-	// }
+	if p.Selector.HasValue() {
+		p.Selector.Unwrap().Substitute(mapping)
+	}
 }

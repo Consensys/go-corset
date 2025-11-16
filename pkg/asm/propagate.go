@@ -180,19 +180,38 @@ func writeExternCall[T io.Instruction[T]](call hir.FunctionCall, p io.Program[T]
 	executor *io.Executor[T]) []error {
 	//
 	var (
+		trMod   = &ltModuleAdaptor{mod}
 		height  = mod.Height()
 		fn      = p.Function(call.Callee)
 		inputs  = make([]big.Int, fn.NumInputs())
 		outputs = make([]big.Int, fn.NumOutputs())
 		errors  []error
 	)
-	// Invoke each user-defined instance in turn
-	for i := range height {
-		// Extract external columns
-		extractExternColumns(int(i), call, mod, inputs, outputs)
-		// Execute function call to produce outputs
-		errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
-		errors = append(errors, errs...)
+	//
+	if call.Selector.HasValue() {
+		var selector = call.Selector.Unwrap()
+		// Invoke each user-defined instance in turn
+		for i := range height {
+			// execute if selector enabled
+			if enabled, _, err := selector.TestAt(int(i), trMod, nil); enabled {
+				// Extract external columns
+				extractExternColumns(int(i), call, trMod, inputs, outputs)
+				// Execute function call to produce outputs
+				errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
+				errors = append(errors, errs...)
+			} else if err != nil {
+				errors = append(errors, err)
+			}
+		}
+	} else {
+		// Invoke each user-defined instance in turn
+		for i := range height {
+			// Extract external columns
+			extractExternColumns(int(i), call, trMod, inputs, outputs)
+			// Execute function call to produce outputs
+			errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
+			errors = append(errors, errs...)
+		}
 	}
 	//
 	return errors
@@ -251,7 +270,9 @@ func extractFunctionColumns(row uint, mod RawModule, inputs, outputs []big.Int) 
 	}
 }
 
-func extractExternColumns(row int, call hir.FunctionCall, mod RawModule, inputs, outputs []big.Int) []error {
+func extractExternColumns(row int, call hir.FunctionCall, mod trace.Module[word.BigEndian],
+	inputs, outputs []big.Int) []error {
+	//
 	// Extract function arguments
 	errs1 := extractExternTerms(row, call.Arguments, mod, inputs)
 	// Extract function returns
@@ -260,15 +281,13 @@ func extractExternColumns(row int, call hir.FunctionCall, mod RawModule, inputs,
 	return append(errs1, errs2...)
 }
 
-func extractExternTerms(row int, terms []hir.Term, mod RawModule, values []big.Int) []error {
-	var (
-		errors []error
-		trMod  = &ltModuleAdaptor{mod}
-	)
+func extractExternTerms(row int, terms []hir.Term, mod trace.Module[word.BigEndian], values []big.Int) []error {
+	var errors []error
+	//
 	for i, arg := range terms {
 		var (
 			ith      big.Int
-			val, err = arg.EvalAt(row, trMod, nil)
+			val, err = arg.EvalAt(row, mod, nil)
 		)
 		ith.SetBytes(val.Bytes())
 		values[i] = ith
@@ -278,6 +297,7 @@ func extractExternTerms(row int, terms []hir.Term, mod RawModule, values []big.I
 	//
 	return errors
 }
+
 func extractFunctionPadding(registers []register.Register, inputs, outputs []big.Int) {
 	var numInputs = len(inputs)
 	//

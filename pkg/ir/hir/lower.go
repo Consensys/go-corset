@@ -151,16 +151,21 @@ func (p *MirLowering) lowerAssertion(v Assertion, module *mirModuleBuilder) {
 
 func (p *MirLowering) lowerFunctionCall(v FunctionCall, module *mirModuleBuilder) {
 	var (
-		nargs   = len(v.Arguments)
-		nrets   = len(v.Returns)
-		sources = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], 1)
-		targets = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], 1)
-		// FIXME: implement source selector
+		nargs        = len(v.Arguments)
+		nrets        = len(v.Returns)
+		sources      = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], 1)
+		targets      = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], 1)
 		selector     = util.None[*mirRegisterAccess]()
 		calleeModule = p.mirSchema.Module(v.Callee)
 	)
-	// Construct source vector
+	// Expand arguments and returns
 	sourceTerms := p.expandTerms(module, append(v.Arguments, v.Returns...)...)
+	// Expand selector (if applicable)
+	if v.Selector.HasValue() {
+		sel := p.expandLogicalTerm(v.Selector.Unwrap(), module)
+		selector = util.Some(sel)
+	}
+	// Construct source vector
 	sources[0] = lookup.NewVector(v.Caller, selector, sourceTerms...)
 	// Construct target vector
 	targetTerms := make([]*mirRegisterAccess, nargs+nrets)
@@ -173,7 +178,7 @@ func (p *MirLowering) lowerFunctionCall(v FunctionCall, module *mirModuleBuilder
 		//
 		targetTerms[i] = term.RawRegisterAccess[word.BigEndian, mirTerm](rid, bitwidth, 0)
 	}
-	//
+	// Done
 	targets[0] = lookup.NewVector(v.Callee, util.None[*mirRegisterAccess](), targetTerms...)
 	// Add constraint
 	module.AddConstraint(mir.NewLookupConstraint(v.Handle, targets, sources))
@@ -279,15 +284,15 @@ func (p *MirLowering) lowerLogical(e LogicalTerm, module *mirModuleBuilder) mirL
 	//
 	switch e := e.(type) {
 	case *Conjunct:
-		return term.Conjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
+		return term.Conjunction(p.lowerLogicals(e.Args, module)...)
 	case *Disjunct:
-		return term.Disjunction[word.BigEndian](p.lowerLogicals(e.Args, module)...)
+		return term.Disjunction(p.lowerLogicals(e.Args, module)...)
 	case *Equal:
 		return p.lowerEquality(true, e.Lhs, e.Rhs, module)
 	case *Ite:
 		return p.lowerIte(e, module)
 	case *Negate:
-		return term.Negation[word.BigEndian](p.lowerLogical(e.Arg, module))
+		return term.Negation(p.lowerLogical(e.Arg, module))
 	case *NotEqual:
 		return p.lowerEquality(false, e.Lhs, e.Rhs, module)
 	default:
@@ -375,6 +380,16 @@ func (p *MirLowering) expandTerms(mirModule *mirModuleBuilder, es ...Term) (term
 	}
 	//
 	return terms
+}
+
+func (p *MirLowering) expandLogicalTerm(le LogicalTerm, module *mirModuleBuilder) *mir.RegisterAccess[word.BigEndian] {
+	var (
+		truth     = term.Const64[word.BigEndian, Term](1)
+		falsehood = term.Const64[word.BigEndian, Term](0)
+		expr      = term.IfElse(le, truth, falsehood)
+	)
+	// Expand if-term
+	return p.expandTerm(expr, module)
 }
 
 // Expand an arbitrary term into a column as necessary.  This is used to lower

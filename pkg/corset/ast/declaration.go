@@ -160,14 +160,16 @@ type DefCall struct {
 	Function string
 	// Arguments for the call
 	Arguments []Expr
+	// Optional source selector
+	Selector util.Option[Expr]
 	// determines whether or not this has been finalised.
 	finalised bool
 }
 
 // NewDefCall creates a new (unfinalised) function call.
-func NewDefCall(returns []Expr, fun string, args []Expr) *DefCall {
+func NewDefCall(returns []Expr, fun string, args []Expr, selector util.Option[Expr]) *DefCall {
 	//
-	return &DefCall{returns, fun, args, false}
+	return &DefCall{returns, fun, args, selector, false}
 }
 
 // Definitions returns the set of symbols defined by this declaration.  Observe
@@ -182,6 +184,10 @@ func (p *DefCall) Dependencies() iter.Iterator[Symbol] {
 	//
 	deps = append(deps, DependenciesOfExpressions(p.Arguments)...)
 	deps = append(deps, DependenciesOfExpressions(p.Returns)...)
+	// Include selector dependencies (if applicable)
+	if p.Selector.HasValue() {
+		deps = append(deps, p.Selector.Unwrap().Dependencies()...)
+	}
 	// Combine deps
 	return iter.NewArrayIterator(deps)
 }
@@ -218,12 +224,18 @@ func (p *DefCall) Lisp() sexp.SExp {
 		args[i] = t.Lisp()
 	}
 	//
-	return sexp.NewList([]sexp.SExp{
+	list := sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("defcall"),
 		sexp.NewList(returns),
 		sexp.NewSymbol(p.Function),
 		sexp.NewList(args),
 	})
+	// Include selector (if applicable)
+	if p.Selector.HasValue() {
+		list.Append(p.Selector.Unwrap().Lisp())
+	}
+	//
+	return list
 }
 
 // ============================================================================
