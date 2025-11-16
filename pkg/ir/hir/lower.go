@@ -123,6 +123,8 @@ func (p *MirLowering) lowerConstraint(c Constraint, mirModule *mirModuleBuilder)
 	switch v := c.constraint.(type) {
 	case Assertion:
 		p.lowerAssertion(v, mirModule)
+	case *FunctionCall:
+		p.lowerFunctionCall(*v, mirModule)
 	case InterleavingConstraint:
 		p.lowerInterleavingConstraint(v, mirModule)
 	case LookupConstraint:
@@ -145,6 +147,36 @@ func (p *MirLowering) lowerConstraint(c Constraint, mirModule *mirModuleBuilder)
 // Lowering an assertion is straightforward since its not a true constraint.
 func (p *MirLowering) lowerAssertion(v Assertion, module *mirModuleBuilder) {
 	module.AddConstraint(mir.NewAssertion[word.BigEndian](v.Handle, v.Context, v.Domain, v.Property))
+}
+
+func (p *MirLowering) lowerFunctionCall(v FunctionCall, module *mirModuleBuilder) {
+	var (
+		nargs   = len(v.Arguments)
+		nrets   = len(v.Returns)
+		sources = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], 1)
+		targets = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], 1)
+		// FIXME: implement source selector
+		selector     = util.None[*mirRegisterAccess]()
+		calleeModule = p.mirSchema.Module(v.Callee)
+	)
+	// Construct source vector
+	sourceTerms := p.expandTerms(module, append(v.Arguments, v.Returns...)...)
+	sources[0] = lookup.NewVector(v.Caller, selector, sourceTerms...)
+	// Construct target vector
+	targetTerms := make([]*mirRegisterAccess, nargs+nrets)
+	//
+	for i := range nargs + nrets {
+		var (
+			rid      = register.NewId(uint(i))
+			bitwidth = calleeModule.Register(rid).Width
+		)
+		//
+		targetTerms[i] = term.RawRegisterAccess[word.BigEndian, mirTerm](rid, bitwidth, 0)
+	}
+	//
+	targets[0] = lookup.NewVector(v.Callee, util.None[*mirRegisterAccess](), targetTerms...)
+	// Add constraint
+	module.AddConstraint(mir.NewLookupConstraint(v.Handle, targets, sources))
 }
 
 // Lower a vanishing constraint to the MIR level.  This is relatively

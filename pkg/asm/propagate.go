@@ -19,12 +19,13 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/ir/hir"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -38,8 +39,8 @@ type RawModule = lt.Module[word.BigEndian]
 // Validation?
 // Batch size?
 // Recursion limit (to prevent infinite loops)
-func PropagateAll[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedProgram[F, T, M], ts []lt.TraceFile,
-	expanding bool) ([]lt.TraceFile, []error) {
+func PropagateAll[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
+	ts []lt.TraceFile, expanding bool) ([]lt.TraceFile, []error) {
 	//
 	var (
 		errors  []error
@@ -76,12 +77,12 @@ func PropagateAll[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p Mix
 // Validation?
 // Batch size?
 // Recursion limit (to prevent infinite loops)
-func Propagate[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedProgram[F, T, M], trace lt.TraceFile,
-	expanding bool) (lt.TraceFile, []error) {
+func Propagate[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
+	trace lt.TraceFile, expanding bool) (lt.TraceFile, []error) {
 	// Construct suitable executior for the given program
 	var (
 		errors []error
-		n      = len(p.program.Functions())
+		n      = uint(len(p.program.Functions()))
 		//
 		executor = io.NewExecutor(p.program)
 		// Clone heap in trace file, since will mutate this.
@@ -94,7 +95,7 @@ func Propagate[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedP
 		return lt.TraceFile{}, errors
 	}
 	// Write seed instances
-	errors = writeInstances(p.program, trace.Modules[:n], executor)
+	errors = writeInstances(p, n, trace.Modules, executor)
 	// Read out generated instances
 	modules := readInstances(&heap, p.program, executor)
 	// Append external modules (which are unaffected by propagation).
@@ -106,14 +107,23 @@ func Propagate[F field.Element[F], T io.Instruction[T], M sc.Module[F]](p MixedP
 // WriteInstances writes all of the instances defined in the given trace columns
 // into the executor which, in turn, forces it to execute the relevant
 // functions, and functions they call, etc.
-func writeInstances[T io.Instruction[T]](p io.Program[T], trace []lt.Module[word.BigEndian],
-	executor *io.Executor[T]) []error {
+func writeInstances[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M], n uint,
+	trace []lt.Module[word.BigEndian], executor *io.Executor[T]) []error {
 	//
 	var errors []error
-	//
-	for i, m := range trace {
-		errs := writeFunctionInstances(uint(i), p, m, executor)
+	// Write all from assembly modules
+	for i, m := range trace[:n] {
+		errs := writeFunctionInstances(uint(i), p.program, m, executor)
 		errors = append(errors, errs...)
+	}
+	// Write all from non-assembly modules
+	for i, m := range trace[n:] {
+		var extern = p.externs[i]
+		// Write instances from any external calls
+		for _, call := range extractExternalCalls(extern) {
+			errs := writeExternCall(call, p.program, m, executor)
+			errors = append(errors, errs...)
+		}
 	}
 	//
 	return errors
@@ -139,6 +149,49 @@ func writeFunctionInstances[T io.Instruction[T]](fid uint, p io.Program[T], mod 
 		extractFunctionColumns(i, mod, inputs, outputs)
 		// Execute function call to produce outputs
 		errs := executeAndCheck(fid, fn.Name(), inputs, outputs, executor)
+		errors = append(errors, errs...)
+	}
+	//
+	return errors
+}
+
+// Extract any external function calls found within the given module, returning
+// them as an array.
+func extractExternalCalls[M sc.Module[word.BigEndian]](extern M) []hir.FunctionCall {
+	var calls []hir.FunctionCall
+	//
+	for iter := extern.Constraints(); iter.HasNext(); {
+		c := iter.Next()
+		// This should always hold
+		if hc, ok := c.(hir.Constraint); ok {
+			// Check whether its a call or not
+			if call, ok := hc.Unwrap().(*hir.FunctionCall); ok {
+				// Yes, so record it
+				calls = append(calls, *call)
+			}
+		}
+	}
+	//
+	return calls
+}
+
+// Write any function instances arising from the given call.
+func writeExternCall[T io.Instruction[T]](call hir.FunctionCall, p io.Program[T], mod RawModule,
+	executor *io.Executor[T]) []error {
+	//
+	var (
+		height  = mod.Height()
+		fn      = p.Function(call.Callee)
+		inputs  = make([]big.Int, fn.NumInputs())
+		outputs = make([]big.Int, fn.NumOutputs())
+		errors  []error
+	)
+	// Invoke each user-defined instance in turn
+	for i := range height {
+		// Extract external columns
+		extractExternColumns(int(i), call, mod, inputs, outputs)
+		// Execute function call to produce outputs
+		errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
 		errors = append(errors, errs...)
 	}
 	//
@@ -198,6 +251,33 @@ func extractFunctionColumns(row uint, mod RawModule, inputs, outputs []big.Int) 
 	}
 }
 
+func extractExternColumns(row int, call hir.FunctionCall, mod RawModule, inputs, outputs []big.Int) []error {
+	// Extract function arguments
+	errs1 := extractExternTerms(row, call.Arguments, mod, inputs)
+	// Extract function returns
+	errs2 := extractExternTerms(row, call.Returns, mod, outputs)
+	//
+	return append(errs1, errs2...)
+}
+
+func extractExternTerms(row int, terms []hir.Term, mod RawModule, values []big.Int) []error {
+	var (
+		errors []error
+		trMod  = &ltModuleAdaptor{mod}
+	)
+	for i, arg := range terms {
+		var (
+			ith      big.Int
+			val, err = arg.EvalAt(row, trMod, nil)
+		)
+		ith.SetBytes(val.Bytes())
+		values[i] = ith
+		//
+		errors = append(errors, err)
+	}
+	//
+	return errors
+}
 func extractFunctionPadding(registers []register.Register, inputs, outputs []big.Int) {
 	var numInputs = len(inputs)
 	//
@@ -281,4 +361,51 @@ func toArgumentString(args []big.Int) string {
 	}
 	//
 	return builder.String()
+}
+
+// The purpose of the lt adaptor is to make an lt.TraceFile look like a Trace.
+// In general, this is not safe.  However, we use this once we already know that
+// the trace has been aligned.  Also, it is only used in a specific context.
+type ltModuleAdaptor struct {
+	module lt.Module[word.BigEndian]
+}
+
+func (p *ltModuleAdaptor) Name() trace.ModuleName {
+	return p.module.Name
+}
+
+func (p *ltModuleAdaptor) Width() uint {
+	return uint(len(p.module.Columns))
+}
+
+func (p *ltModuleAdaptor) Height() uint {
+	return p.module.Height()
+}
+
+func (p *ltModuleAdaptor) Column(cid uint) trace.Column[word.BigEndian] {
+	return &ltColumnAdaptor{p.module.Columns[cid]}
+}
+
+func (p *ltModuleAdaptor) ColumnOf(col string) trace.Column[word.BigEndian] {
+	panic("unsupported operation")
+}
+
+type ltColumnAdaptor struct {
+	column lt.Column[word.BigEndian]
+}
+
+func (p *ltColumnAdaptor) Name() string {
+	return p.column.Name
+}
+
+func (p *ltColumnAdaptor) Get(row int) word.BigEndian {
+	return p.column.Data.Get(uint(row))
+}
+
+func (p *ltColumnAdaptor) Data() array.Array[word.BigEndian] {
+	return p.column.Data
+}
+
+func (p *ltColumnAdaptor) Padding() word.BigEndian {
+	panic("unsupported operation")
 }

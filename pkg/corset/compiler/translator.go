@@ -290,20 +290,30 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 	// Lookup caller module
 	callerModule := t.moduleOf(callerContext)
 	// Translate returns
-	_, errs1 := t.translateExpressions(callerModule, 0, decl.Returns...)
+	//nolint
+	rets, errs1 := t.translateExpressions(callerModule, 0, decl.Returns...)
 	// Translate arguments
-	_, errs2 := t.translateExpressions(callerModule, 0, decl.Arguments...)
+	//nolint
+	args, errs2 := t.translateExpressions(callerModule, 0, decl.Arguments...)
+	// Combine all errors
+	errs3 := t.checkArgumentsReturns(rets, args, callerModule)
 	// Combine all errors
 	errors := append(errs1, errs2...)
+	errors = append(errors, errs3...)
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
-		// Sanity check argument / return subtying
-		// Generate lookup
-		// Generate someway to trigger trace propagation
-		panic("implement translation for defcall")
+		handle := fmt.Sprintf("%s=>%s", callerModule.Name().Name, calleeModule.Name().Name)
+		// FIXME: Sanity check argument / return subtying
+		//
+		callerModule.AddConstraint(hir.NewFunctionCall(
+			handle, callerModule.Id(), calleeModule.Id(), rets, args))
 	}
 	// Done
 	return errors
+}
+
+func (t *translator) checkArgumentsReturns(rets, args []hir.Term, callerModule *ModuleBuilder) []SyntaxError {
+	panic("got here")
 }
 
 // Translate a "defcomputedcolumn" declaration.
