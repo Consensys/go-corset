@@ -888,12 +888,18 @@ func Test_Invalid_ComputedColumn_09(t *testing.T) {
 // }
 
 // ===================================================================
-// Function call
+// Function calls
 // ===================================================================
 
-// func Test_Invalid_FnCall_01(t *testing.T) {
-// 	checkCorsetInvalid(t, "corset/invalid/fncall_invalid_01")
-// }
+func Test_Invalid_FnCall_01(t *testing.T) {
+	checkCorsetInvalid(t, "corset/invalid/fncall_invalid_01")
+}
+func Test_Invalid_FnCall_02(t *testing.T) {
+	checkCorsetInvalid(t, "corset/invalid/fncall_invalid_02")
+}
+func Test_Invalid_FnCall_03(t *testing.T) {
+	checkCorsetInvalid(t, "corset/invalid/fncall_invalid_03")
+}
 
 // ===================================================================
 // Test Helpers

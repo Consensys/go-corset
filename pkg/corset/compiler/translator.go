@@ -296,7 +296,7 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 	//nolint
 	args, errs2 := t.translateExpressions(callerModule, 0, decl.Arguments...)
 	// Combine all errors
-	errs3 := t.checkArgumentsReturns(rets, args, callerModule)
+	errs3 := t.checkArgsReturns(decl, rets, args, calleeModule)
 	// Combine all errors
 	errors := append(errs1, errs2...)
 	errors = append(errors, errs3...)
@@ -312,8 +312,70 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 	return errors
 }
 
-func (t *translator) checkArgumentsReturns(rets, args []hir.Term, callerModule *ModuleBuilder) []SyntaxError {
-	panic("got here")
+func (t *translator) checkArgsReturns(decl *ast.DefCall, rets, args []hir.Term, callee *ModuleBuilder) []SyntaxError {
+	var (
+		errors []SyntaxError
+		nRets  = uint(len(rets))
+		nArgs  = uint(len(args))
+		n      = nRets + nArgs
+	)
+	//
+	for i := range n {
+		// Sanity check enough target registers
+		if i >= callee.Width() {
+			if i < nArgs {
+				errors = append(errors, *t.srcmap.SyntaxError(decl.Arguments[i],
+					fmt.Sprintf("too many arguments for function \"%s\"", decl.Function)))
+			} else {
+				errors = append(errors, *t.srcmap.SyntaxError(decl.Returns[i-nArgs],
+					fmt.Sprintf("too many returns for function \"%s\"", decl.Function)))
+			}
+			// Cannot continue
+			break
+		}
+		// Extract ith register
+		var ith = callee.Register(register.NewId(i))
+		// Santity arguments / returns align
+		if i < nArgs && !ith.IsInput() {
+			return append(errors, *t.srcmap.SyntaxError(decl.Arguments[i],
+				fmt.Sprintf("too many arguments for function \"%s\"", decl.Function)))
+		} else if i >= nArgs && ith.IsInput() {
+			return append(errors, *t.srcmap.SyntaxError(decl.Returns[i-nArgs],
+				fmt.Sprintf("insufficient arguments for function \"%s\"", decl.Function)))
+		} else if i >= nArgs && !ith.IsOutput() {
+			return append(errors, *t.srcmap.SyntaxError(decl.Returns[i-nArgs],
+				fmt.Sprintf("too many arguments for function \"%s\"", decl.Function)))
+		}
+		// Sanity check bitwidth
+		if i < nArgs {
+			// subtype
+			errors = append(errors, t.checkSubSuptype(true, args[i], ith.Width, decl.Arguments[i])...)
+		} else {
+			// supertype
+			errors = append(errors, t.checkSubSuptype(false, rets[i-nArgs], ith.Width, decl.Returns[i-nArgs])...)
+		}
+	}
+	//
+	return errors
+}
+
+func (t *translator) checkSubSuptype(subtype bool, term hir.Term, bitwidth uint, node ast.Node) []SyntaxError {
+	var (
+		// Compute value range of term
+		vals = term.ValueRange()
+		// Convert into bitwidth
+		termWidth, signed = vals.BitWidth()
+	)
+	// Sanity check signed lookup
+	if signed {
+		return t.srcmap.SyntaxErrors(node, "signed term encountered")
+	} else if subtype && termWidth > bitwidth {
+		return t.srcmap.SyntaxErrors(node, "argument width exceeds parameter")
+	} else if !subtype && termWidth < bitwidth {
+		return t.srcmap.SyntaxErrors(node, "return width insufficient")
+	}
+	//
+	return nil
 }
 
 // Translate a "defcomputedcolumn" declaration.
