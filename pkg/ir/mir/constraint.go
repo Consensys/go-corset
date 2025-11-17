@@ -43,6 +43,19 @@ func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain
 	return Constraint[F]{constraint.NewAssertion(handle, ctx, domain, term)}
 }
 
+// NewFunctionCall creates a new function call with a given handle
+func NewFunctionCall[F field.Element[F]](handle string, caller, callee schema.ModuleId,
+	returns []Term[F], args []Term[F], selector util.Option[LogicalTerm[F]]) Constraint[F] {
+	//
+	return Constraint[F]{FunctionCall[F]{Handle: handle,
+		Callee:    callee,
+		Caller:    caller,
+		Returns:   returns,
+		Arguments: args,
+		Selector:  selector,
+	}}
+}
+
 // NewVanishingConstraint constructs a new vanishing constraint
 func NewVanishingConstraint[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
 	term LogicalTerm[F]) Constraint[F] {

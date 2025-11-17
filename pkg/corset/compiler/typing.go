@@ -126,6 +126,11 @@ func (p *typeChecker) typeCheckDefCall(decl *ast.DefCall) []SyntaxError {
 	_, errs1 := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Returns, true)
 	// typeCheck argument expressions
 	_, errs2 := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Arguments, true)
+	// type check selector (if applicable)
+	if decl.Selector.HasValue() {
+		_, errs3 := p.typeCheckExpressionInModule(ast.BOOL_TYPE, decl.Selector.Unwrap(), true)
+		errs2 = append(errs2, errs3...)
+	}
 	// Combine errors
 	return append(errs1, errs2...)
 }

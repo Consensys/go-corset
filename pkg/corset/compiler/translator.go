@@ -278,6 +278,7 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 		calleeContext    = ast.NewContext(decl.Function, 1)
 		// Lookup callee module
 		calleeModule = t.moduleOf(calleeContext)
+		selector     = util.None[mirLogicalTerm]()
 	)
 	// Translate target expressions whilst again checking for a conflicting
 	// context.
@@ -293,20 +294,101 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 	// Lookup caller module
 	callerModule := t.moduleOf(callerContext)
 	// Translate returns
-	_, errs1 := t.translateExpressions(callerModule, 0, decl.Returns...)
+	//nolint
+	rets, errs1 := t.translateExpressions(callerModule, 0, decl.Returns...)
 	// Translate arguments
-	_, errs2 := t.translateExpressions(callerModule, 0, decl.Arguments...)
+	//nolint
+	args, errs2 := t.translateExpressions(callerModule, 0, decl.Arguments...)
+	// Check arguments / returns
+	errs3 := t.checkArgsReturns(decl, rets, args, callerModule, calleeModule)
 	// Combine all errors
 	errors := append(errs1, errs2...)
+	errors = append(errors, errs3...)
+	// Translate selector (if applicable)
+	if decl.Selector.HasValue() {
+		sel, errs := t.translateLogical(decl.Selector.Unwrap(), callerModule, 0)
+		selector = util.Some(sel)
+
+		errors = append(errors, errs...)
+	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
-		// Sanity check argument / return subtying
-		// Generate lookup
-		// Generate someway to trigger trace propagation
-		panic("implement translation for defcall")
+		handle := fmt.Sprintf("%s=>%s", callerModule.Name(), calleeModule.Name())
+		// FIXME: Sanity check argument / return subtying
+		//
+		callerModule.AddConstraint(mir.NewFunctionCall(
+			handle, callerModule.Id(), calleeModule.Id(), rets, args, selector))
 	}
 	// Done
 	return errors
+}
+
+func (t *translator) checkArgsReturns(decl *ast.DefCall, rets, args []mirTerm, caller, callee *ModuleBuilder,
+) []SyntaxError {
+	var (
+		errors []SyntaxError
+		nRets  = uint(len(rets))
+		nArgs  = uint(len(args))
+		n      = nRets + nArgs
+	)
+	//
+	for i := range n {
+		// Sanity check enough target registers
+		if i >= callee.Width() {
+			if i < nArgs {
+				errors = append(errors, *t.srcmap.SyntaxError(decl.Arguments[i],
+					fmt.Sprintf("too many arguments for function \"%s\"", decl.Function)))
+			} else {
+				errors = append(errors, *t.srcmap.SyntaxError(decl.Returns[i-nArgs],
+					fmt.Sprintf("too many returns for function \"%s\"", decl.Function)))
+			}
+			// Cannot continue
+			break
+		}
+		// Extract ith register
+		var ith = callee.Register(schema.NewRegisterId(i))
+		// Santity arguments / returns align
+		if i < nArgs && !ith.IsInput() {
+			return append(errors, *t.srcmap.SyntaxError(decl.Arguments[i],
+				fmt.Sprintf("too many arguments for function \"%s\"", decl.Function)))
+		} else if i >= nArgs && ith.IsInput() {
+			return append(errors, *t.srcmap.SyntaxError(decl.Returns[i-nArgs],
+				fmt.Sprintf("insufficient arguments for function \"%s\"", decl.Function)))
+		} else if i >= nArgs && !ith.IsOutput() {
+			return append(errors, *t.srcmap.SyntaxError(decl.Returns[i-nArgs],
+				fmt.Sprintf("too many arguments for function \"%s\"", decl.Function)))
+		}
+		// Sanity check bitwidth
+		if i < nArgs {
+			// subtype
+			errors = append(errors, t.checkSubSuptype(true, args[i], ith.Width, decl.Arguments[i], caller)...)
+		} else {
+			// supertype
+			errors = append(errors, t.checkSubSuptype(false, rets[i-nArgs], ith.Width, decl.Returns[i-nArgs], caller)...)
+		}
+	}
+	//
+	return errors
+}
+
+func (t *translator) checkSubSuptype(subtype bool, term mirTerm, bitwidth uint, node ast.Node, caller *ModuleBuilder,
+) []SyntaxError {
+	var (
+		// Compute value range of term
+		vals = term.ValueRange(caller)
+		// Convert into bitwidth
+		termWidth, signed = vals.BitWidth()
+	)
+	// Sanity check signed lookup
+	if signed {
+		return t.srcmap.SyntaxErrors(node, "signed term encountered")
+	} else if subtype && termWidth > bitwidth {
+		return t.srcmap.SyntaxErrors(node, fmt.Sprintf("expected u%d, found u%d", bitwidth, termWidth))
+	} else if !subtype && termWidth < bitwidth {
+		return t.srcmap.SyntaxErrors(node, fmt.Sprintf("expected u%d, found u%d", termWidth, bitwidth))
+	}
+	//
+	return nil
 }
 
 // Translate a "defcomputedcolumn" declaration.

@@ -123,6 +123,13 @@ func (p *preprocessor) preprocessDefCall(decl *ast.DefCall) []SyntaxError {
 	decl.Returns, errs1 = p.preprocessExpressionsInModule(decl.Returns)
 	// preprocess argument expressions
 	decl.Arguments, errs2 = p.preprocessExpressionsInModule(decl.Arguments)
+	// preprocess selector (if applicable)
+	if decl.Selector.HasValue() {
+		selector, errs3 := p.preprocessExpressionInModule(decl.Selector.Unwrap())
+		decl.Selector = util.Some(selector)
+		//
+		errs2 = append(errs2, errs3...)
+	}
 	// Combine errors
 	return append(errs1, errs2...)
 }

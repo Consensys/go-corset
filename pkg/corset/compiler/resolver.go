@@ -336,8 +336,15 @@ func (r *resolver) finaliseDefCallInModule(enclosing Scope, decl *ast.DefCall) [
 	errs1 := r.finaliseExpressionsInModule(scope, decl.Returns)
 	// Resolve argument expressions
 	errs2 := r.finaliseExpressionsInModule(scope, decl.Arguments)
+	// Combine errors
+	errors := append(errs1, errs2...)
+	// Resolve selector (if applicable)
+	if decl.Selector.HasValue() {
+		errs3 := r.finaliseExpressionInModule(scope, decl.Selector.Unwrap())
+		errors = append(errors, errs3...)
+	}
 	//
-	return append(errs1, errs2...)
+	return errors
 }
 
 func (r *resolver) finaliseDefComputedInModule(decl *ast.DefComputed) []SyntaxError {
