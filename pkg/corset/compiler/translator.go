@@ -382,6 +382,10 @@ func (t *translator) checkSubSuptype(subtype bool, term mirTerm, bitwidth uint, 
 	// Sanity check signed lookup
 	if signed {
 		return t.srcmap.SyntaxErrors(node, "signed term encountered")
+	} else if termWidth > schema.BLS12_377.FieldBandWidth {
+		// NOTE: this is a temporary measure to protect against accidental overflow.
+		return t.srcmap.SyntaxErrors(node,
+			fmt.Sprintf("exceeds field bandwidth (u%d > u%d)", termWidth, schema.BLS12_377.FieldBandWidth))
 	} else if subtype && termWidth > bitwidth {
 		return t.srcmap.SyntaxErrors(node, fmt.Sprintf("expected u%d, found u%d", bitwidth, termWidth))
 	} else if !subtype && termWidth < bitwidth {
