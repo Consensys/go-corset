@@ -1,5 +1,5 @@
-;; Add two 256bit integers using modulo arithmetic
-fn add(arg1 u256, arg2 u256) -> (res u256) {
+;; Add two 32bit integers using modulo arithmetic
+fn add(arg1 u32, arg2 u32) -> (res u32) {
    var tmp u1
    tmp,res = arg1 + arg2
    return

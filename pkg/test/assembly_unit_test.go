@@ -69,7 +69,9 @@ func Test_AsmUnit_FnCall_01(t *testing.T) {
 func Test_AsmUnit_FnCall_02(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/fncall_02", util.ASM_MAX_PADDING, field.BLS12_377)
 }
-
+func Test_AsmUnit_FnCall_03(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/fncall_03", util.ASM_MAX_PADDING, field.BLS12_377)
+}
 func Test_AsmUnit_Gf251(t *testing.T) {
 	util.Check(t, false, "asm/unit/gf251")
 }

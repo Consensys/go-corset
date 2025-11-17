@@ -900,6 +900,9 @@ func Test_Invalid_FnCall_02(t *testing.T) {
 func Test_Invalid_FnCall_03(t *testing.T) {
 	checkCorsetInvalid(t, "corset/invalid/fncall_invalid_03")
 }
+func Test_Invalid_FnCall_04(t *testing.T) {
+	checkCorsetInvalid(t, "corset/invalid/fncall_invalid_04")
+}
 
 // ===================================================================
 // Test Helpers

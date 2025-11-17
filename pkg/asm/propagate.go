@@ -165,9 +165,9 @@ func extractExternalCalls[M sc.Module[word.BigEndian]](extern M) []hir.FunctionC
 		// This should always hold
 		if hc, ok := c.(hir.Constraint); ok {
 			// Check whether its a call or not
-			if call, ok := hc.Unwrap().(*hir.FunctionCall); ok {
+			if call, ok := hc.Unwrap().(hir.FunctionCall); ok {
 				// Yes, so record it
-				calls = append(calls, *call)
+				calls = append(calls, call)
 			}
 		}
 	}

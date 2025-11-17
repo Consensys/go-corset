@@ -123,8 +123,8 @@ func (p *MirLowering) lowerConstraint(c Constraint, mirModule *mirModuleBuilder)
 	switch v := c.constraint.(type) {
 	case Assertion:
 		p.lowerAssertion(v, mirModule)
-	case *FunctionCall:
-		p.lowerFunctionCall(*v, mirModule)
+	case FunctionCall:
+		p.lowerFunctionCall(v, mirModule)
 	case InterleavingConstraint:
 		p.lowerInterleavingConstraint(v, mirModule)
 	case LookupConstraint:
