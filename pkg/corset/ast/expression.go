@@ -524,7 +524,7 @@ type For struct {
 // NewFor constructs a new for-expression given a variable name, a static index
 // range and a body.
 func NewFor(name string, start uint, end uint, body Expr) *For {
-	binding := NewLocalVariableBinding(name, INT_TYPE)
+	binding := NewLocalVariableBinding(name, UINT_TYPE)
 	return &For{binding, start, end, body}
 }
 
@@ -714,7 +714,7 @@ func NewLet(bindings []util.Pair[string, Expr], body Expr) *Let {
 	exprs := make([]Expr, len(bindings))
 	//
 	for i, p := range bindings {
-		vars[i] = NewLocalVariableBinding(p.Left, INT_TYPE)
+		vars[i] = NewLocalVariableBinding(p.Left, UINT_TYPE)
 		exprs[i] = p.Right
 	}
 	//

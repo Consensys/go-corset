@@ -148,6 +148,97 @@ func (p *DefAlias) Lisp() sexp.SExp {
 }
 
 // ============================================================================
+// defcall
+// ============================================================================
+
+// DefCall captures a function call between a lisp module and an assembly
+// function.  A key feature of this is that it triggers trace propagation.
+type DefCall struct {
+	// Returns for the call
+	Returns []Expr
+	// Function being called
+	Function string
+	// Arguments for the call
+	Arguments []Expr
+	// Optional source selector
+	Selector util.Option[Expr]
+	// determines whether or not this has been finalised.
+	finalised bool
+}
+
+// NewDefCall creates a new (unfinalised) function call.
+func NewDefCall(returns []Expr, fun string, args []Expr, selector util.Option[Expr]) *DefCall {
+	//
+	return &DefCall{returns, fun, args, selector, false}
+}
+
+// Definitions returns the set of symbols defined by this declaration.  Observe
+// that these may not yet have been finalised.
+func (p *DefCall) Definitions() iter.Iterator[SymbolDefinition] {
+	return iter.NewArrayIterator[SymbolDefinition](nil)
+}
+
+// Dependencies needed to signal declaration.
+func (p *DefCall) Dependencies() iter.Iterator[Symbol] {
+	var deps []Symbol
+	//
+	deps = append(deps, DependenciesOfExpressions(p.Arguments)...)
+	deps = append(deps, DependenciesOfExpressions(p.Returns)...)
+	// Include selector dependencies (if applicable)
+	if p.Selector.HasValue() {
+		deps = append(deps, p.Selector.Unwrap().Dependencies()...)
+	}
+	// Combine deps
+	return iter.NewArrayIterator(deps)
+}
+
+// Defines checks whether this declaration defines the given symbol.  The symbol
+// in question needs to have been resolved already for this to make sense.
+func (p *DefCall) Defines(symbol Symbol) bool {
+	return false
+}
+
+// IsFinalised checks whether this declaration has already been finalised.  If
+// so, then we don't need to finalise it again.
+func (p *DefCall) IsFinalised() bool {
+	return p.finalised
+}
+
+// Finalise this declaration, which means that all source and target expressions
+// have been resolved.
+func (p *DefCall) Finalise() {
+	p.finalised = true
+}
+
+// Lisp converts this node into its lisp representation.  This is primarily used
+// for debugging purposes.
+func (p *DefCall) Lisp() sexp.SExp {
+	returns := make([]sexp.SExp, len(p.Returns))
+	args := make([]sexp.SExp, len(p.Arguments))
+	// Returns
+	for i, t := range p.Returns {
+		returns[i] = t.Lisp()
+	}
+	// Arguments
+	for i, t := range p.Arguments {
+		args[i] = t.Lisp()
+	}
+	//
+	list := sexp.NewList([]sexp.SExp{
+		sexp.NewSymbol("defcall"),
+		sexp.NewList(returns),
+		sexp.NewSymbol(p.Function),
+		sexp.NewList(args),
+	})
+	// Include selector (if applicable)
+	if p.Selector.HasValue() {
+		list.Append(p.Selector.Unwrap().Lisp())
+	}
+	//
+	return list
+}
+
+// ============================================================================
 // defcolumns
 // ============================================================================
 

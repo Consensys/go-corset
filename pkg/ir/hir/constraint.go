@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/ranged"
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util"
@@ -49,6 +50,19 @@ func NewVanishingConstraint(handle string, ctx schema.ModuleId, domain util.Opti
 	term LogicalTerm) Constraint {
 	//
 	return Constraint{vanishing.NewConstraint(handle, ctx, domain, term)}
+}
+
+// NewFunctionCall creates a new function call with a given handle
+func NewFunctionCall(handle string, caller, callee module.Id,
+	returns []Term, args []Term, selector util.Option[LogicalTerm]) Constraint {
+	//
+	return Constraint{FunctionCall{Handle: handle,
+		Callee:    callee,
+		Caller:    caller,
+		Returns:   returns,
+		Arguments: args,
+		Selector:  selector,
+	}}
 }
 
 // NewInterleavingConstraint creates a new interleaving constraint with a given handle.

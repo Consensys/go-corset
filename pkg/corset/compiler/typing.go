@@ -81,6 +81,8 @@ func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 	//
 	switch d := decl.(type) {
 	case *ast.DefAliases:
+	case *ast.DefCall:
+		errors = p.typeCheckDefCall(d)
 		// ignore
 	case *ast.DefColumns:
 		// ignore
@@ -116,13 +118,30 @@ func (p *typeChecker) typeCheckDeclaration(decl ast.Declaration) []SyntaxError {
 	return errors
 }
 
+// typeCheck a "defcall" declaration.
+//
+//nolint:staticcheck
+func (p *typeChecker) typeCheckDefCall(decl *ast.DefCall) []SyntaxError {
+	// typeCheck return expressions
+	_, errs1 := p.typeCheckExpressionsInModule(ast.UINT_TYPE, decl.Returns, true)
+	// typeCheck argument expressions
+	_, errs2 := p.typeCheckExpressionsInModule(ast.UINT_TYPE, decl.Arguments, true)
+	// type check selector (if applicable)
+	if decl.Selector.HasValue() {
+		_, errs3 := p.typeCheckExpressionInModule(ast.BOOL_TYPE, decl.Selector.Unwrap(), true)
+		errs2 = append(errs2, errs3...)
+	}
+	// Combine errors
+	return append(errs1, errs2...)
+}
+
 // ast.Type check one or more constant definitions within a given module.
 func (p *typeChecker) typeCheckDefConstInModule(decl *ast.DefConst) []SyntaxError {
 	var errors []SyntaxError
 	//
 	for _, c := range decl.Constants {
 		// Resolve constant body
-		_, errs := p.typeCheckExpressionInModule(ast.INT_TYPE, c.ConstBinding.Value, true)
+		_, errs := p.typeCheckExpressionInModule(ast.UINT_TYPE, c.ConstBinding.Value, true)
 		// Accumulate errors
 		errors = append(errors, errs...)
 	}
@@ -136,7 +155,7 @@ func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxEr
 	// force a suitable interpretation.
 	//
 	// typeCheck (optional) guard
-	_, guard_errors := p.typeCheckOptionalExpressionInModule(ast.INT_TYPE, decl.Guard, true)
+	_, guard_errors := p.typeCheckOptionalExpressionInModule(ast.UINT_TYPE, decl.Guard, true)
 	// typeCheck constraint body
 	_, constraint_errors := p.typeCheckExpressionInModule(ast.BOOL_TYPE, decl.Constraint, false)
 	// Combine errors
@@ -146,7 +165,7 @@ func (p *typeChecker) typeCheckDefConstraint(decl *ast.DefConstraint) []SyntaxEr
 // typeCheck a "defconstraint" declaration.
 func (p *typeChecker) typeCheckDefComputedColumn(decl *ast.DefComputedColumn) []SyntaxError {
 	// typeCheck expression body
-	_, expr_errors := p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Computation, false)
+	_, expr_errors := p.typeCheckExpressionInModule(ast.UINT_TYPE, decl.Computation, false)
 	// Combine errors
 	return expr_errors
 }
@@ -176,15 +195,15 @@ func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
 		srcTypes []ast.Type
 		dstTypes []ast.Type
 	)
-	// typeCheck source expressions
+	// type check source expressions
 	for i := range decl.Sources {
-		ts, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Sources[i], true)
+		ts, errs := p.typeCheckExpressionsInModule(ast.UINT_TYPE, decl.Sources[i], true)
 		errors = append(errors, errs...)
 		srcTypes = ast.LeastUpperBounds(srcTypes, ts)
 	}
-	// typeCheck all target expressions
+	// type check all target expressions
 	for i := range decl.Targets {
-		ts, errs := p.typeCheckExpressionsInModule(ast.INT_TYPE, decl.Targets[i], true)
+		ts, errs := p.typeCheckExpressionsInModule(ast.UINT_TYPE, decl.Targets[i], true)
 		errors = append(errors, errs...)
 		dstTypes = ast.LeastUpperBounds(dstTypes, ts)
 	}
@@ -205,7 +224,7 @@ func (p *typeChecker) typeCheckDefLookup(decl *ast.DefLookup) []SyntaxError {
 // typeCheck a "definrange" declaration.
 func (p *typeChecker) typeCheckDefInRange(decl *ast.DefInRange) []SyntaxError {
 	// typeCheck constraint body
-	_, errors := p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Expr, true)
+	_, errors := p.typeCheckExpressionInModule(ast.UINT_TYPE, decl.Expr, true)
 	// Done
 	return errors
 }
@@ -216,7 +235,7 @@ func (p *typeChecker) typeCheckDefPerspective(decl *ast.DefPerspective) []Syntax
 	// force a suitable interpretation.
 	//
 	// typeCheck selector expression
-	_, errors := p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Selector, true)
+	_, errors := p.typeCheckExpressionInModule(ast.UINT_TYPE, decl.Selector, true)
 	// Combine errors
 	return errors
 }
@@ -236,7 +255,7 @@ func (p *typeChecker) typeCheckDefSorted(decl *ast.DefSorted) []SyntaxError {
 	if decl.Selector.HasValue() {
 		// FIXME: eventually, the selector should be a BOOLEAN_TYPE in order to
 		// force a suitable interpetation.
-		_, errors = p.typeCheckExpressionInModule(ast.INT_TYPE, decl.Selector.Unwrap(), true)
+		_, errors = p.typeCheckExpressionInModule(ast.UINT_TYPE, decl.Selector.Unwrap(), true)
 	}
 	//
 	return errors
@@ -296,7 +315,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	case *ast.ArrayAccess:
 		result, errors = p.typeCheckArrayAccessInModule(e)
 	case *ast.Add:
-		types, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		types, errors = p.typeCheckExpressionsInModule(ast.UINT_TYPE, e.Args, true)
 		result = typeOfSum(types...)
 	case *ast.Cast:
 		actual, errs := p.typeCheckExpressionInModule(nil, e.Arg, functional)
@@ -315,15 +334,15 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 	case *ast.Debug:
 		result, errors = p.typeCheckExpressionInModule(expected, e.Arg, functional)
 	case *ast.Equation:
-		_, errs1 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Lhs, true)
-		_, errs2 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Rhs, true)
+		_, errs1 := p.typeCheckExpressionInModule(ast.UINT_TYPE, e.Lhs, true)
+		_, errs2 := p.typeCheckExpressionInModule(ast.UINT_TYPE, e.Rhs, true)
 		// Done
 		result, errors = ast.BOOL_TYPE, append(errs1, errs2...)
 	case *ast.Exp:
-		_, errs1 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg, true)
-		_, errs2 := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Pow, true)
+		_, errs1 := p.typeCheckExpressionInModule(ast.UINT_TYPE, e.Arg, true)
+		_, errs2 := p.typeCheckExpressionInModule(ast.UINT_TYPE, e.Pow, true)
 		// Done
-		result, errors = ast.INT_TYPE, append(errs1, errs2...)
+		result, errors = ast.UINT_TYPE, append(errs1, errs2...)
 	case *ast.For:
 		// TODO: update environment with type of index variable.
 		result, errors = p.typeCheckExpressionInModule(nil, e.Body, functional)
@@ -341,10 +360,10 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		types, errs := p.typeCheckExpressionsInModule(nil, e.Args, functional)
 		result, errors = ast.LeastUpperBound(types...), errs
 	case *ast.Mul:
-		types, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		types, errors = p.typeCheckExpressionsInModule(ast.UINT_TYPE, e.Args, true)
 		result = typeOfProduct(types...)
 	case *ast.Normalise:
-		_, errors = p.typeCheckExpressionInModule(ast.INT_TYPE, e.Arg, true)
+		_, errors = p.typeCheckExpressionInModule(ast.UINT_TYPE, e.Arg, true)
 		// Normalise guaranteed to return either 0 or 1.
 		result = ast.NewUintType(1)
 	case *ast.Not:
@@ -354,16 +373,16 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 		result, errors = p.typeCheckReduceInModule(e)
 	case *ast.Shift:
 		res, arg_errs := p.typeCheckExpressionInModule(nil, e.Arg, functional)
-		_, shf_errs := p.typeCheckExpressionInModule(ast.INT_TYPE, e.Shift, functional)
+		_, shf_errs := p.typeCheckExpressionInModule(ast.UINT_TYPE, e.Shift, functional)
 		// combine errors
 		result, errors = res, append(arg_errs, shf_errs...)
 	case *ast.Sub:
-		types, errors = p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		types, errors = p.typeCheckExpressionsInModule(ast.UINT_TYPE, e.Args, true)
 		result = typeOfSubtraction(types...)
 	case *ast.VariableAccess:
 		result, errors = p.typeCheckVariableInModule(e)
 	case *ast.Concat:
-		ts, errors := p.typeCheckExpressionsInModule(ast.INT_TYPE, e.Args, true)
+		ts, errors := p.typeCheckExpressionsInModule(ast.UINT_TYPE, e.Args, true)
 		//
 		return typeOfConcat(ts...), errors
 	default:
@@ -383,7 +402,7 @@ func (p *typeChecker) typeCheckExpressionInModule(expected ast.Type, expr ast.Ex
 // column being accessed was originally defined as an array column.
 func (p *typeChecker) typeCheckArrayAccessInModule(expr *ast.ArrayAccess) (ast.Type, []SyntaxError) {
 	// ast.Type check index expression
-	_, errs := p.typeCheckExpressionInModule(ast.INT_TYPE, expr.Arg, true)
+	_, errs := p.typeCheckExpressionInModule(ast.UINT_TYPE, expr.Arg, true)
 	// NOTE: following cast safe because resolver already checked them.
 	if binding, ok := expr.Binding().(*ast.ColumnBinding); !ok || !expr.IsResolved() {
 		// NOTE: we don't return an error here, since this case would have already
@@ -541,7 +560,7 @@ func typeOfSum(types ...ast.Type) ast.Type {
 	var values math.Interval
 	//
 	for i, t := range types {
-		if t == ast.INT_TYPE {
+		if t == ast.UINT_TYPE {
 			return t
 		}
 		//
@@ -564,7 +583,7 @@ func typeOfSubtraction(types ...ast.Type) ast.Type {
 	var values math.Interval
 	//
 	for i, t := range types {
-		if t == ast.INT_TYPE {
+		if t == ast.UINT_TYPE {
 			return t
 		}
 		//
@@ -587,7 +606,7 @@ func typeOfProduct(types ...ast.Type) ast.Type {
 	var values math.Interval
 	//
 	for i, t := range types {
-		if t == ast.INT_TYPE {
+		if t == ast.UINT_TYPE {
 			return t
 		}
 		//
@@ -616,7 +635,7 @@ func typeOfConcat(types ...ast.Type) ast.Type {
 		// sanity check what we've got
 		if !ok || !t.HasUnderlying() {
 			// Unknown
-			return ast.INT_TYPE
+			return ast.UINT_TYPE
 		}
 		// append bitwidth
 		width += it.BitWidth()

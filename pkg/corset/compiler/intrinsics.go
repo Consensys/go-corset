@@ -91,7 +91,7 @@ func (p *IntrinsicDefinition) Signature() *ast.FunctionSignature {
 	types := make([]ast.Type, p.arity)
 	//
 	for i := 0; i < len(types); i++ {
-		types[i] = ast.INT_TYPE
+		types[i] = ast.UINT_TYPE
 	}
 	// Allow return type to be inferred.
 	return ast.NewFunctionSignature(true, types, nil, body)

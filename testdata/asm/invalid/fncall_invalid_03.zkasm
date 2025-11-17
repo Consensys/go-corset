@@ -1,0 +1,4 @@
+fn f(arg1 u16, arg2 u16) -> (res u16) {
+  res = 0
+  return
+}

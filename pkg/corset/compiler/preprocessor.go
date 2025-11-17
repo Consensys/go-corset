@@ -76,6 +76,8 @@ func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError
 	switch d := decl.(type) {
 	case *ast.DefAliases:
 		// ignore
+	case *ast.DefCall:
+		errors = p.preprocessDefCall(d)
 	case *ast.DefColumns:
 		// ignore
 	case *ast.DefComputed:
@@ -108,6 +110,31 @@ func (p *preprocessor) preprocessDeclaration(decl ast.Declaration) []SyntaxError
 	}
 	//
 	return errors
+}
+
+// preprocess a "defcall" declaration.
+//
+//nolint:staticcheck
+func (p *preprocessor) preprocessDefCall(decl *ast.DefCall) []SyntaxError {
+	var (
+		errs1, errs2 []SyntaxError
+	)
+	// preprocess return expressions
+	decl.Returns, errs1 = p.preprocessExpressionsInModule(decl.Returns)
+	// preprocess argument expressions
+	decl.Arguments, errs2 = p.preprocessExpressionsInModule(decl.Arguments)
+	//
+
+	// preprocess selector (if applicable)
+	if decl.Selector.HasValue() {
+		selector, errs3 := p.preprocessExpressionInModule(decl.Selector.Unwrap())
+		//
+		decl.Selector = util.Some(selector)
+
+		errs2 = append(errs2, errs3...)
+	}
+	// Combine errors
+	return append(errs1, errs2...)
 }
 
 // preprocess a "defconstraint" declaration.

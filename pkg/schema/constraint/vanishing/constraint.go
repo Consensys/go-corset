@@ -192,9 +192,9 @@ func (p Constraint[F, T]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	)
 	// Construct qualified name
 	if modName != "" {
-		name = fmt.Sprintf("\"%s:%s\"", modName, p.Handle)
+		name = fmt.Sprintf("%s:%s", modName, p.Handle)
 	} else {
-		name = fmt.Sprintf("\"%s\"", p.Handle)
+		name = p.Handle
 	}
 	// Handle attributes
 	if p.Domain.HasValue() {

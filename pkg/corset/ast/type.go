@@ -136,10 +136,10 @@ func (p *AnyType) String() string {
 // IntType
 // ============================================================================
 
-// INT_TYPE represents the infinite integer range.  This cannot be translated
+// UINT_TYPE represents the infinite integer range.  This cannot be translated
 // into a concrete type at the lower level, and therefore can only be used
 // internally (e.g. for type checking).
-var INT_TYPE = &IntType{math.INFINITY}
+var UINT_TYPE = &IntType{math.INFINITY}
 
 // IntType represents a set of signed integer values.
 type IntType struct {

@@ -283,6 +283,10 @@ func (p *Parser) parseDeclaration(module file.Path, s *sexp.List) (ast.Declarati
 	//
 	if s.MatchSymbols(1, "defalias") {
 		decl, errors = p.parseDefAlias(s.Elements)
+	} else if s.Len() == 4 && s.MatchSymbols(1, "defcall") {
+		decl, errors = p.parseDefCall(false, s.Elements)
+	} else if s.Len() == 5 && s.MatchSymbols(1, "defcall") {
+		decl, errors = p.parseDefCall(true, s.Elements)
 	} else if s.MatchSymbols(1, "defcolumns") {
 		decl, errors = p.parseDefColumns(module, s)
 	} else if s.Len() == 3 && s.MatchSymbols(1, "defcomputed") {
@@ -436,7 +440,7 @@ func (p *Parser) parseColumnDeclaration(context file.Path, path file.Path, compu
 		// computed columns initially have multiplier 0 in order to signal that
 		// this needs to be subsequently determined from context.
 		binding.Multiplier = 0
-		binding.DataType = ast.INT_TYPE
+		binding.DataType = ast.UINT_TYPE
 	} else if !binding.DataType.HasUnderlying() {
 		return nil, p.translator.SyntaxError(e, "invalid column type")
 	}
@@ -869,6 +873,37 @@ func (p *Parser) parseDefInterleavedSourceArray(source *sexp.Array) (ast.TypedSy
 	}
 	//
 	return nil, errors
+}
+
+func (p *Parser) parseDefCall(hasSelector bool, elements []sexp.SExp) (ast.Declaration, []SyntaxError) {
+	var (
+		errors             []SyntaxError
+		returns, retErrors = p.parseDefLookupSources("return", elements[1])
+		args, argErrors    = p.parseDefLookupSources("argument", elements[3])
+		selector           = util.None[ast.Expr]()
+	)
+	// Sanity check function name
+	if !isIdentifier(elements[2]) {
+		return nil, p.translator.SyntaxErrors(elements[2], "malformed function name")
+	}
+	// Extract function name
+	fun := elements[2].AsSymbol().Value
+	// Combine any and all errors
+	errors = append(errors, argErrors...)
+	errors = append(errors, retErrors...)
+	// Parse selector (if applicable)
+	if hasSelector {
+		sel, errs := p.translator.Translate(elements[4])
+		selector = util.Some(sel)
+		//
+		errors = append(errors, errs...)
+	}
+	// Error check
+	if len(errors) != 0 {
+		return nil, errors
+	}
+	//
+	return ast.NewDefCall(returns, fun, args, selector), nil
 }
 
 // Parse a lookup declaration
@@ -1529,7 +1564,7 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*ast.DefParameter, [
 	list := element.AsList()
 	//
 	if isIdentifier(element) {
-		return ast.NewDefParameter(element.AsSymbol().Value, ast.INT_TYPE), nil
+		return ast.NewDefParameter(element.AsSymbol().Value, ast.UINT_TYPE), nil
 	} else if list == nil || list.Len() != 2 || !isIdentifier(list.Get(0)) {
 		// Construct error message (for now)
 		err := p.translator.SyntaxError(element, "malformed parameter declaration")
@@ -1702,7 +1737,7 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 	case ":byte":
 		datatype = ast.NewUintType(8)
 	case ":int":
-		datatype = ast.INT_TYPE
+		datatype = ast.UINT_TYPE
 	case ":any":
 		datatype = ast.ANY_TYPE
 	default:

@@ -49,6 +49,11 @@ func IsFalse[F field.Element[F], T Logical[F, T]](term T) bool {
 // constraints.
 func Disjunction[F field.Element[F], T Logical[F, T]](terms ...T) T {
 	var term Logical[F, T] = &Disjunct[F, T]{terms}
+	//
+	if len(terms) == 1 {
+		return terms[0]
+	}
+	//
 	return term.(T)
 }
 

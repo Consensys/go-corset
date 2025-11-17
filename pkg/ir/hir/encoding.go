@@ -18,6 +18,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -37,6 +38,8 @@ const (
 	sortedUnfilteredTag = byte(5)
 	sortedFilteredTag   = byte(6)
 	vanishingTag        = byte(7)
+	fnCallTag           = byte(8)
+	fnCondCallTag       = byte(9)
 	// Logicals
 	conjunctTag   = byte(10)
 	disjunctTag   = byte(11)
@@ -66,20 +69,23 @@ func encode_constraint(constraint schema.Constraint[word.BigEndian]) ([]byte, er
 	switch c := constraint.(type) {
 	case Assertion:
 		return encode_assertion(c)
+	case FunctionCall:
+		return encode_fncall(c)
 	case InterleavingConstraint:
 		return encode_interleaving(c)
 	case LookupConstraint:
 		return encode_lookup(c)
 	case PermutationConstraint:
 		return encode_permutation(c)
-	case SortedConstraint:
-		return encode_sorted(c)
 	case RangeConstraint:
 		return encode_range(c)
+	case SortedConstraint:
+		return encode_sorted(c)
 	case VanishingConstraint:
 		return encode_vanishing(c)
 	default:
-		return nil, errors.New("unknown constraint")
+		name := reflect.TypeOf(constraint).String()
+		return nil, fmt.Errorf("unknown constraint: %s (%s)", name, constraint.Name())
 	}
 }
 
@@ -107,6 +113,49 @@ func encode_assertion(c Assertion) ([]byte, error) {
 	// Constraint
 	err := encode_logical[constraint.Property, term.Computation[word.BigEndian]](c.Property, &buffer)
 	// Done
+	return buffer.Bytes(), err
+}
+
+func encode_fncall(c FunctionCall) ([]byte, error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder      = gob.NewEncoder(&buffer)
+		tag        byte = fnCallTag
+		err        error
+	)
+	//
+	if c.Selector.HasValue() {
+		tag = fnCondCallTag
+	}
+	// Tag
+	if _, err := buffer.Write([]byte{tag}); err != nil {
+		return nil, err
+	}
+	// Handle
+	if err = gobEncoder.Encode(c.Handle); err != nil {
+		return nil, err
+	}
+	// Function caller
+	if err := gobEncoder.Encode(c.Caller); err != nil {
+		return nil, err
+	}
+	// Function callee
+	if err := gobEncoder.Encode(c.Callee); err != nil {
+		return nil, err
+	}
+	// Returns
+	if err = encode_nary(encode_term[LogicalTerm, Term], &buffer, c.Returns); err != nil {
+		return nil, err
+	}
+	// Arguments
+	if err = encode_nary(encode_term[LogicalTerm, Term], &buffer, c.Arguments); err != nil {
+		return nil, err
+	}
+	// Selector (Optional)
+	if c.Selector.HasValue() {
+		err = encode_logical[LogicalTerm, Term](c.Selector.Unwrap(), &buffer)
+	}
+	//
 	return buffer.Bytes(), err
 }
 
@@ -325,6 +374,8 @@ func decode_constraint(bytes []byte) (schema.Constraint[word.BigEndian], error) 
 	switch bytes[0] {
 	case assertionTag:
 		return decode_assertion(bytes[1:])
+	case fnCallTag, fnCondCallTag:
+		return decode_fncall(bytes[0] == fnCondCallTag, bytes[1:])
 	case interleavingTag:
 		return decode_interleaving(bytes[1:])
 	case lookupTag:
@@ -375,6 +426,49 @@ func decode_assertion(data []byte) (schema.Constraint[word.BigEndian], error) {
 	}
 	// Success!
 	return assertion, err
+}
+
+func decode_fncall(conditional bool, data []byte) (schema.Constraint[word.BigEndian], error) {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+		call       FunctionCall
+		err        error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&call.Handle); err != nil {
+		return call, err
+	}
+	// Caller
+	if err = gobDecoder.Decode(&call.Caller); err != nil {
+		return call, err
+	}
+	// Callee
+	if err = gobDecoder.Decode(&call.Callee); err != nil {
+		return call, err
+	}
+	// Returns
+	if call.Returns, err = decode_nary(decode_term, buffer); err != nil {
+		return call, err
+	}
+	// Arguments
+	if call.Arguments, err = decode_nary(decode_term, buffer); err != nil {
+		return call, err
+	}
+	//
+	if conditional {
+		var selector LogicalTerm
+		//
+		if selector, err = decode_logical(buffer); err != nil {
+			return call, err
+		}
+		// Wrap selector
+		call.Selector = util.Some(selector)
+	} else {
+		call.Selector = util.None[LogicalTerm]()
+	}
+	//
+	return call, nil
 }
 
 func decode_interleaving(data []byte) (schema.Constraint[word.BigEndian], error) {
