@@ -161,8 +161,13 @@ func concretizeFunctionCall[F1 Element[F1], F2 Element[F2]](fc FunctionCall[F1])
 	)
 	// Concretize optional selector
 	if fc.Selector.HasValue() {
-		//selector = util.Some(concretizeLogicalTerm[F1, F2](c.Selector.Unwrap()))
-		panic("todo")
+		var (
+			cond      = concretizeLogicalTerm[F1, F2](fc.Selector.Unwrap())
+			truth     = ir.Const64[F2, Term[F2]](1)
+			falsehood = ir.Const64[F2, Term[F2]](0)
+		)
+		// Construct conversion
+		selector = util.Some(ir.IfElse(cond, truth, falsehood))
 	}
 	// Construct source vector
 	sources[0] = lookup.NewVector(fc.Caller, selector, append(args, rets...)...)
