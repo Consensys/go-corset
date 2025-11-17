@@ -36,6 +36,8 @@ const (
 	sortedUnfilteredTag = byte(5)
 	sortedFilteredTag   = byte(6)
 	vanishingTag        = byte(7)
+	fnCallTag           = byte(8)
+	fnCondCallTag       = byte(9)
 	// Logicals
 	conjunctTag   = byte(10)
 	disjunctTag   = byte(11)
@@ -65,6 +67,8 @@ func encode_constraint[F field.Element[F]](constraint schema.Constraint[F]) ([]b
 	switch c := constraint.(type) {
 	case Assertion[F]:
 		return encode_assertion(c)
+	case FunctionCall[F]:
+		return encode_fncall(c)
 	case InterleavingConstraint[F]:
 		return encode_interleaving(c)
 	case LookupConstraint[F]:
@@ -106,6 +110,49 @@ func encode_assertion[F field.Element[F]](c Assertion[F]) ([]byte, error) {
 	// Constraint
 	err := encode_logical(c.Property, &buffer)
 	// Done
+	return buffer.Bytes(), err
+}
+
+func encode_fncall[F field.Element[F]](c FunctionCall[F]) ([]byte, error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder      = gob.NewEncoder(&buffer)
+		tag        byte = fnCallTag
+		err        error
+	)
+	//
+	if c.Selector.HasValue() {
+		tag = fnCondCallTag
+	}
+	// Tag
+	if _, err := buffer.Write([]byte{tag}); err != nil {
+		return nil, err
+	}
+	// Handle
+	if err = gobEncoder.Encode(c.Handle); err != nil {
+		return nil, err
+	}
+	// Function caller
+	if err := gobEncoder.Encode(c.Caller); err != nil {
+		return nil, err
+	}
+	// Function callee
+	if err := gobEncoder.Encode(c.Callee); err != nil {
+		return nil, err
+	}
+	// Returns
+	if err = encode_nary(encode_term[F], &buffer, c.Returns); err != nil {
+		return nil, err
+	}
+	// Arguments
+	if err = encode_nary(encode_term[F], &buffer, c.Arguments); err != nil {
+		return nil, err
+	}
+	// Selector (Optional)
+	if c.Selector.HasValue() {
+		err = encode_logical[F](c.Selector.Unwrap(), &buffer)
+	}
+	//
 	return buffer.Bytes(), err
 }
 
@@ -324,6 +371,8 @@ func decode_constraint[F field.Element[F]](bytes []byte) (schema.Constraint[F], 
 	switch bytes[0] {
 	case assertionTag:
 		return decode_assertion[F](bytes[1:])
+	case fnCallTag, fnCondCallTag:
+		return decode_fncall[F](bytes[0] == fnCondCallTag, bytes[1:])
 	case interleavingTag:
 		return decode_interleaving[F](bytes[1:])
 	case lookupTag:
@@ -366,6 +415,49 @@ func decode_assertion[F field.Element[F]](data []byte) (schema.Constraint[F], er
 	assertion.Property, err = decode_logical[F](buffer)
 	// Success!
 	return assertion, err
+}
+
+func decode_fncall[F field.Element[F]](conditional bool, data []byte) (schema.Constraint[F], error) {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+		call       FunctionCall[F]
+		err        error
+	)
+	// Handle
+	if err = gobDecoder.Decode(&call.Handle); err != nil {
+		return call, err
+	}
+	// Caller
+	if err = gobDecoder.Decode(&call.Caller); err != nil {
+		return call, err
+	}
+	// Callee
+	if err = gobDecoder.Decode(&call.Callee); err != nil {
+		return call, err
+	}
+	// Returns
+	if call.Returns, err = decode_nary(decode_term[F], buffer); err != nil {
+		return call, err
+	}
+	// Arguments
+	if call.Arguments, err = decode_nary(decode_term[F], buffer); err != nil {
+		return call, err
+	}
+	//
+	if conditional {
+		var selector LogicalTerm[F]
+		//
+		if selector, err = decode_logical[F](buffer); err != nil {
+			return call, err
+		}
+		// Wrap selector
+		call.Selector = util.Some(selector)
+	} else {
+		call.Selector = util.None[LogicalTerm[F]]()
+	}
+	//
+	return call, nil
 }
 
 func decode_interleaving[F field.Element[F]](data []byte) (schema.Constraint[F], error) {

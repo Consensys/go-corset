@@ -13,6 +13,9 @@
 package mir
 
 import (
+	"fmt"
+	"reflect"
+
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -151,6 +154,8 @@ func (p Constraint[F]) Subdivide(mapping schema.LimbsMap) Constraint[F] {
 	switch c := p.constraint.(type) {
 	case Assertion[F]:
 		constraint = subdivideAssertion(c, mapping)
+	case FunctionCall[F]:
+		constraint = subdivideFunctionCall(c, mapping)
 	case InterleavingConstraint[F]:
 		constraint = subdivideInterleaving(c, mapping)
 	case LookupConstraint[F]:
@@ -165,7 +170,7 @@ func (p Constraint[F]) Subdivide(mapping schema.LimbsMap) Constraint[F] {
 		modmap := mapping.Module(c.Context)
 		constraint = subdivideVanishing(c, modmap)
 	default:
-		panic("unreachable")
+		panic(fmt.Sprintf("unknown constraint: %s", reflect.TypeOf(c).String()))
 	}
 	//
 	return Constraint[F]{constraint}
