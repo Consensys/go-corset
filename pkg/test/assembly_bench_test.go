@@ -45,6 +45,11 @@ func Test_AsmBench_Mul(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/mul", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_AsmBench_Oob(t *testing.T) {
+	// FIXME: KOALABEAR_16 requires splitting for division
+	util.CheckWithFields(t, false, "asm/bench/oob", util.ASM_MAX_PADDING, field.BLS12_377)
+}
+
 func Test_AsmBench_Shf(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/shf", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
