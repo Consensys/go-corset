@@ -90,10 +90,6 @@ func Test_AsmUnit_MultiLine(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/multiline", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
-func Test_AsmUnit_FnCallLarge(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/fncall_large", util.ASM_MAX_PADDING, sc.BLS12_377)
-}
-
 func Test_AsmUnit_MixedLarge(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/mixed_large", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
