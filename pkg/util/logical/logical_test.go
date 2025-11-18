@@ -125,9 +125,32 @@ func Test_Prop_58(t *testing.T) {
 	testEquivalent(t, "x==y ∨ x==y", "x==y")
 }
 
-// func Test_Prop_59(t *testing.T) {
-// 	testEquivalent(t, "x==y ∨ x≠y", "⊤")
-// }
+func Test_Prop_59(t *testing.T) {
+	testEquivalent(t, "x==y ∨ x≠y", "⊤")
+}
+func Test_Prop_60(t *testing.T) {
+	testEquivalent(t, "x≠0 ∨ x==0 ∨ y==0", "y==0")
+}
+
+// Combine Disjunctions and Conjunctions
+
+func Test_Prop_80(t *testing.T) {
+	testEquivalent(t, "x≠0 ∨ (x==0 ∧ x≠y)", "x≠0 ∨ x≠y")
+}
+
+func Test_Prop_81(t *testing.T) {
+	testEquivalent(t, "(x≠0 ∧ y≠0) ∨ x==0 ∨ y==0", "⊤")
+}
+
+func Test_Prop_82(t *testing.T) {
+	testEquivalent(t, "x==0 ∨ (x==0 ∧ y≠0)", "x==0 ∨ y≠0")
+}
+func Test_Prop_83(t *testing.T) {
+	testEquivalent(t, "(x==0 ∧ y==0) ∨ (x==0 ∧ y==0 ∧ z==0)", "(x==0 ∧ y==0) ∨ z==0")
+}
+func Test_Prop_84(t *testing.T) {
+	testEquivalent(t, "(x==0 ∧ y==0) ∨ (x==0 ∧ y==0)", "x==0 ∧ y==0")
+}
 
 // ============================================================================
 // Framework
