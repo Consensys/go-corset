@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -116,6 +117,8 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		term := concretizeLogicalTerm[F1, F2](c.Property)
 		//
 		return NewAssertion(c.Handle, c.Context, c.Domain, term)
+	case FunctionCall[F1]:
+		return concretizeFunctionCall[F1, F2](c)
 	case InterleavingConstraint[F1]:
 		target := concretizeTerm[F1, F2](c.Target)
 		sources := concretizeTerms[F1, F2](c.Sources)
@@ -144,6 +147,42 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 	default:
 		panic("unreachable")
 	}
+}
+
+func concretizeFunctionCall[F1 Element[F1], F2 Element[F2]](fc FunctionCall[F1]) Constraint[F2] {
+	var (
+		nargs    = len(fc.Arguments)
+		nrets    = len(fc.Returns)
+		selector util.Option[Term[F2]]
+		rets     = concretizeTerms[F1, F2](fc.Returns)
+		args     = concretizeTerms[F1, F2](fc.Arguments)
+		sources  = make([]lookup.Vector[F2, Term[F2]], 1)
+		targets  = make([]lookup.Vector[F2, Term[F2]], 1)
+	)
+	// Concretize optional selector
+	if fc.Selector.HasValue() {
+		var (
+			cond      = concretizeLogicalTerm[F1, F2](fc.Selector.Unwrap())
+			truth     = ir.Const64[F2, Term[F2]](1)
+			falsehood = ir.Const64[F2, Term[F2]](0)
+		)
+		// Construct conversion
+		selector = util.Some(ir.IfElse(cond, truth, falsehood))
+	}
+	// Construct source vector
+	sources[0] = lookup.NewVector(fc.Caller, selector, append(args, rets...)...)
+	// Construct target vector
+	targetTerms := make([]Term[F2], nargs+nrets)
+	//
+	for i := range nargs + nrets {
+		var rid = sc.NewRegisterId(uint(i))
+		//
+		targetTerms[i] = ir.NewRegisterAccess[F2, Term[F2]](rid, 0)
+	}
+	// Done
+	targets[0] = lookup.NewVector(fc.Callee, util.None[Term[F2]](), targetTerms...)
+	//
+	return NewLookupConstraint(fc.Handle, targets, sources)
 }
 
 func concretizeLookupVectors[F1 Element[F1], F2 Element[F2]](vecs []LookupVector[F1]) []LookupVector[F2] {

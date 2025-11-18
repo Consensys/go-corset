@@ -26,6 +26,12 @@ func subdivideAssertion[F field.Element[F]](c Assertion[F], _ schema.LimbsMap) A
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
+func subdivideFunctionCall[F field.Element[F]](c FunctionCall[F], _ schema.LimbsMap) FunctionCall[F] {
+	// TODO: implement this
+	return c
+}
+
+// Subdivide implementation for the FieldAgnostic interface.
 func subdivideInterleaving[F field.Element[F]](c InterleavingConstraint[F], _ schema.LimbsMap,
 ) InterleavingConstraint[F] {
 	// TODO: implement this
