@@ -38,9 +38,11 @@ const OOB_INST_BLS_MAP_FP2_TO_G2                = 0xFF11
 ;; set of checks.
 pub fn oob(INST=0x56 u8, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DATA_5 u128, DATA_6 u128, DATA_7=0x1 u128, DATA_8 u128, DATA_9 u128) {
    var tmp1, tmp2 u128
+   var c, b u1
    ;;
    if INST == OOB_INST_JUMP goto oob_jump
    if INST == OOB_INST_JUMPI goto oob_jumpi
+   if INST == OOB_INST_RDC goto oob_rdc
    fail
 
    ;; ==========================================================================
@@ -67,7 +69,7 @@ oob_jump:
    ;; DATA_5         = code_size
    ;; DATA_7         = jump_guaranteed_exception
    ;; DATA_8         = jump_must_be_attempted
-   tmp1, tmp2 = check_jump_target(DATA_1, DATA_2, DATA_5)
+   tmp1, tmp2 = jump_target_check(DATA_1, DATA_2, DATA_5)
    ;;
    if tmp1 != DATA_7 goto exit_f
    if tmp2 != DATA_8 goto exit_f
@@ -77,14 +79,28 @@ oob_jump:
    ;; ==========================================================================
    ;; RETURN DATA COPY (RDC)
    ;; ==========================================================================
-
+   ;; For RDC must: (a) establish that neither the offset nor size (as
+   ;; read off the stack) are grossly out of bounds (i.e. ≥ 2128 );
+   ;; (b) check (offset + size) <= rds and that rdcx==0 (if it holds)
+   ;; or that rdcx==1 (otherwise).
+   ;;
+   ;; DATA_1::DATA_2 = offset
+   ;; DATA_3::DATA_4 = size
+   ;; DATA_5         = return_data_size (rds)
+   ;; DATA_7         = return_data_copy_exception (rdcx)
+oob_rdc:
+   tmp1 = memory_bounds_check(DATA_1, DATA_2, DATA_3, DATA_4, DATA_5)
+   ;;
+   if DATA_7 != tmp1 goto exit_f
+   ;; success
+   return
 exit_f:
    fail
 }
 
 ;; Check whether or not a jump target is within bounds pc_hi::pc_lo <
 ;; code_size.
-fn check_jump_target(pc_hi u128, pc_lo u128, code_size u128) -> (jmp_ex=0x1 u1, jmp_mba u1) {
+fn jump_target_check(pc_hi u128, pc_lo u128, code_size u128) -> (jmp_ex=0x1 u1, jmp_mba u1) {
   var b u1
   var tmp u128
   ;; high word must be 0
@@ -102,4 +118,29 @@ exit_f:
   jmp_ex = 1
   jmp_mba = 0
   return
+}
+
+;; Check whether (offset+size) <= memsize, returning 0 (if it holds)
+;; or 1 (to signal an exception)
+fn memory_bounds_check(offset_hi u128, offset_lo u128, size_hi u128, size_lo u128, memsize u128) -> (memx u1) {
+   var sum, tmp u128
+   var c, b u1
+   ;; Check offset < 2^128
+   if offset_hi != 0 goto exit_1
+   ;; Check size < 2^128
+   if size_hi != 0 goto exit_1
+   ;; Compute offset + size
+   c,sum = offset_lo + size_lo
+   ;; Check (offset+size) <= memsize (high word)
+   if c != 0 goto exit_1
+   ;; Check (offset+size) <= memsize (low word)
+   b, tmp = memsize - sum
+   ;; check for exception
+   memx = b == 0 ? 0 : 1
+   ;; success
+   return
+exit_1:
+   ;; memory exception
+   memx = 1
+   return
 }
