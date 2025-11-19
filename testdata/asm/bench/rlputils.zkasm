@@ -1,0 +1,45 @@
+const RLP_UTILS_INST_INTEGER = 1
+const RLP_UTILS_INST_BYTE_STRING_PREFIX = 2
+const RLP_UTILS_INST_BYTES32 = 4
+const RLP_UTILS_INST_DATA_PRICING = 8
+
+fn rlputils(inst u8, data12 u256, data3 u1) -> (data4 u1, data5 u1, data6 u128, data7 u128, data8 u8)
+;; PRE: inst==1 ==> (data12 != 0 <-> data3 == 1)
+{
+  var tmp u256
+  var data1, data2 u128
+  ;; break combined data lines
+  data1, data2 = data12
+  ;;
+  if inst == RLP_UTILS_INST_INTEGER goto inst_integer
+  if inst == RLP_UTILS_INST_BYTE_STRING_PREFIX goto inst_prefix
+  if inst == RLP_UTILS_INST_BYTES32 goto inst_bytes32
+  if inst == RLP_UTILS_INST_DATA_PRICING goto inst_pricing
+  fail
+inst_integer:
+  var isIntHiZero, isIntLoZero, isIntNotZero u1
+  var b u1
+  ;;
+  isIntHiZero = data1 == 0 ? 1 : 0
+  isIntLoZero = data2 == 0 ? 1 : 0
+  isIntNotZero = 1 - (isIntHiZero * isIntLoZero)
+  ;; assign integer_hi_is_nonzero
+  data4 = data1 != 0 ? 1 : 0
+  ;; sanity check precondition
+  if data3 != isIntNotZero goto failed_pre
+  ;; compare integer >= 128
+  b, tmp = 127 - data12
+  ;; assign rlp_prefix_required
+  data5 = b * isIntNotZero
+  ;;
+  data6 = 0
+  data7 = 0
+  data8 = 0
+  return
+  ;;
+inst_prefix:
+inst_bytes32:
+inst_pricing:
+failed_pre:
+  fail
+}
