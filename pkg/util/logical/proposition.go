@@ -13,6 +13,7 @@
 package logical
 
 import (
+	"math"
 	"slices"
 	"strings"
 
@@ -150,7 +151,7 @@ func (p *Proposition[I, A]) Or(other Proposition[I, A]) Proposition[I, A] {
 	disjuncts.InsertSorted(&p.conjuncts)
 	disjuncts.InsertSorted(&other.conjuncts)
 	//
-	return Proposition[I, A]{disjuncts}
+	return simplify(Proposition[I, A]{disjuncts})
 }
 
 // Negate returns the logical negation of this proposition.
@@ -193,11 +194,59 @@ func (p *Proposition[I, A]) String(mapping func(I) string) string {
 	return builder.String()
 }
 
+func simplify[I any, A Atom[I, A]](p Proposition[I, A]) Proposition[I, A] {
+	var n = uint(len(p.conjuncts))
+	//
+	for i := uint(0); i < n; i++ {
+		for j := i + 1; j < n; j++ {
+			if eliminated := unitPropagation(p, i, j); eliminated {
+				return Truth[I, A](true)
+			}
+		}
+	}
+	// Resort the set
+	slices.SortFunc(p.conjuncts, func(a, b Conjunction[I, A]) int {
+		return a.Cmp(b)
+	})
+	//
+	return p
+}
+
+func unitPropagation[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) bool {
+	var (
+		in = len(p.conjuncts[i].atoms)
+		jn = len(p.conjuncts[j].atoms)
+	)
+	//
+	if in == 1 && jn == 1 {
+		var (
+			ith = p.conjuncts[i].atoms[0]
+			jth = p.conjuncts[j].atoms[0]
+		)
+		// Check for P || ~P
+		return ith.Cmp(jth.Negate()) == 0
+	} else if (in != 1 && jn != 1) || in == 0 || jn == 0 {
+		return false
+	} else if in > jn {
+		i, j = j, i
+	}
+	// ASSERT: len(p.conjuncts[i].atoms) == 1
+	var (
+		ith = p.conjuncts[i].atoms[0].Negate()
+		jth = p.conjuncts[j]
+	)
+	// Check whether anything to do
+	if kth, ok := jth.Remove(ith); ok {
+		p.conjuncts[j] = kth
+	}
+	//
+	return false
+}
 func negateConjunct[I any, A Atom[I, A]](c Conjunction[I, A]) Proposition[I, A] {
 	var br Proposition[I, A]
 	//
 	for i, a := range c.atoms {
-		ith := NewProposition[I](a.Negate())
+		ith := NewProposition(a.Negate())
 		//
 		if i == 0 {
 			br = ith
@@ -244,6 +293,18 @@ func (p Conjunction[I, A]) Atoms() []A {
 // Cmp implementation for Comparable interface
 func (p Conjunction[I, A]) Cmp(o Conjunction[I, A]) int {
 	return array.Compare(p.atoms, o.atoms)
+}
+
+// Remove an atom from this conjunction (if it is contained within), or simply
+// return this conjunction.
+func (p Conjunction[I, A]) Remove(atom A) (Conjunction[I, A], bool) {
+	if i := p.atoms.Find(atom); i != math.MaxUint {
+		natoms := array.RemoveAt(p.atoms, i)
+		// Yes removed.
+		return Conjunction[I, A]{natoms}, true
+	}
+	// Nothing doing
+	return p, false
 }
 
 func (p Conjunction[I, A]) String(braces bool, mapping func(I) string) string {

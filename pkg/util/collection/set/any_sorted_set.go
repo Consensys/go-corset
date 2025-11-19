@@ -130,6 +130,26 @@ func (p *AnySortedSet[T]) InsertSorted(q *AnySortedSet[T]) {
 	*p = ndata
 }
 
+// Remove an element from this sorted set.
+//
+//nolint:revive
+func (p *AnySortedSet[T]) Remove(element T) bool {
+	data := *p
+	// Find index where element either does occur, or should occur.
+	i := sort.Search(len(data), func(i int) bool {
+		// element <= data[i]
+		return element.Cmp(data[i]) <= 0
+	})
+	// Check whether item existed or not.
+	if i < len(data) && data[i].Cmp(element) == 0 {
+		// yes, therefore can remove
+		*p = array.RemoveAt(data, uint(i))
+		return true
+	}
+	// No, nothing removed
+	return false
+}
+
 // Iter returns an iterator over the elements of this sorted set.
 //
 //nolint:revive
