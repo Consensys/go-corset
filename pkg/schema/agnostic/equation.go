@@ -101,11 +101,11 @@ func (p *Equation) String(mapping register.Map) string {
 	//
 	builder.WriteString("[")
 	// Write left-hand side
-	builder.WriteString(Poly2String(p.LeftHandSide, mapping))
+	builder.WriteString(DynamicPoly2String(p.LeftHandSide, mapping))
 	//
 	builder.WriteString(" == ")
 	// write right-hand side
-	builder.WriteString(Poly2String(p.RightHandSide, mapping))
+	builder.WriteString(DynamicPoly2String(p.RightHandSide, mapping))
 	//
 	builder.WriteString(fmt.Sprintf("]^%s", width))
 	//
@@ -359,8 +359,8 @@ func balancePolynomial(poly DynamicPolynomial) (pos, neg DynamicPolynomial) {
 	return pos, neg
 }
 
-// Poly2String provides a convenient helper function for debugging polynomials.
-func Poly2String(p DynamicPolynomial, env register.Map) string {
+// DynamicPoly2String provides a convenient helper function for debugging polynomials.
+func DynamicPoly2String(p DynamicPolynomial, env register.Map) string {
 	return poly.String(p, func(r register.AccessId) string {
 		var (
 			name  = env.Register(r.Id()).Name
