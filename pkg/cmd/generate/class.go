@@ -130,14 +130,6 @@ func generateClassContents[F any](className string, super string, mod corset.Sou
 		}
 	}
 	//
-	if mod.Name == "" {
-		ninputs := getMaxRegisterIndex(schema)
-		// Write out constructor function.
-		constructor := strings.ReplaceAll(javaTraceOpen, "{class}", className)
-		constructor = strings.ReplaceAll(constructor, "{ninputs}", fmt.Sprintf("%d", ninputs))
-		builder.WriteIndentedString(constructor)
-	}
-	//
 	generateJavaClassFooter(builder)
 }
 
@@ -172,11 +164,11 @@ func generateJavaModuleHeaders[F any](mod corset.SourceModule, schema sc.AnySche
 		reg := schema.Register(col.Register)
 		// Check whether this is part of our module
 		if reg.IsInputOutput() {
-			byteWidth := fmt.Sprintf("%d", byteWidth(reg.Width))
+			bitWidth := fmt.Sprintf("%d", reg.Width)
 			name := fmt.Sprintf("%s.%s", mod.Name, reg.Name)
 			regStr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
 			i1Builder.WriteIndentedString(
-				"headers.add(new ColumnHeader(\"", name, "\",", regStr, ",", byteWidth, ",length));\n")
+				"headers.add(new ColumnHeader(\"", name, "\",", regStr, ",", bitWidth, ",length));\n")
 			//
 			count++
 		}
@@ -279,7 +271,7 @@ func generateJavaModuleRegisterFields[F any](mod corset.SourceModule, schema sc.
 			// Determine suitable name for field
 			fieldName := toRegisterName(col.Register, reg.Name)
 			//
-			builder.WriteIndentedString("private MappedByteBuffer ", fieldName, ";\n")
+			builder.WriteIndentedString("private Column ", fieldName, ";\n")
 			// increase count
 			count++
 		}
@@ -337,7 +329,7 @@ func generateJavaModuleMetadata(metadata typed.Map, builder indentBuilder) {
 		builder.WriteIndentedString("}\n\n")
 	}
 
-	builder.WriteIndentedString("public void addMetadata(String key, Object value) { metadata.put(key,value); }\n")
+	builder.WriteIndentedString("public Map<String,Object> getMetaData() { return metadata; }\n")
 }
 
 func generateJavaModuleConstructor(classname string, mod corset.SourceModule, builder indentBuilder) {
@@ -365,7 +357,7 @@ func generateJavaModuleOpen[F any](mod corset.SourceModule, schema sc.AnySchema[
 	//
 	innerBuilder := builder.Indent()
 	//
-	builder.WriteIndentedString("private void open(MappedByteBuffer[] registers) {\n")
+	builder.WriteIndentedString("public void open(Column[] registers) {\n")
 	innerBuilder.WriteIndentedString("// initialise register(s)\n")
 	// Write register initialisers
 	for _, col := range mod.Registers(schema.Width()) {
@@ -443,13 +435,11 @@ func generateJavaModuleColumnSetter[F any](className string, methodName string, 
 	//
 	switch {
 	case bitwidth == 1:
-		i1Builder.WriteIndentedString(fieldName, ".put((byte) (val ? 1 : 0));\n")
-	case bitwidth <= 8:
-		i1Builder.WriteIndentedString(fieldName, ".put((byte) val);\n")
+		i1Builder.WriteIndentedString(fieldName, ".write(val);\n")
 	case bitwidth <= 63:
-		generateJavaModuleLongPutter(col.Name, fieldName, bitwidth, i1Builder)
+		i1Builder.WriteIndentedString(fieldName, ".write(val);\n")
 	default:
-		generateJavaModuleBytesPutter(col.Name, fieldName, bitwidth, i1Builder)
+		i1Builder.WriteIndentedString(fieldName, ".write(val.trimLeadingZeros().toArray());\n")
 	}
 	//
 	i1Builder.WriteIndentedString("\n")
@@ -468,41 +458,6 @@ func generateJavaModuleLegacyColumnSetter(className string, methodName string, b
 	builder.WriteIndentedString("public ", className, " ", methodName, "(final UnsignedByte val) {\n")
 	i1Builder.WriteIndentedString("return ", methodName, "(val.toByte());\n")
 	builder.WriteIndentedString("}\n\n")
-}
-
-func generateJavaModuleLongPutter(columnName, fieldName string, bitwidth uint, builder indentBuilder) {
-	n := byteWidth(bitwidth)
-	i1Builder := builder.Indent()
-	builder.WriteIndentedString("if(val < 0 || val >= ", maxValueStr(bitwidth), "L) {\n")
-	i1Builder.WriteIndentedString(
-		"throw new IllegalArgumentException(\"", columnName+" has invalid value (\" + val + \")\");\n")
-	builder.WriteIndentedString("}\n")
-	//
-	for i := int(n) - 1; i >= 0; i-- {
-		shift := (i * 8)
-		if shift == 0 {
-			builder.WriteIndentedString(fieldName, ".put((byte) val);\n")
-		} else {
-			builder.WriteIndentedString(fieldName, ".put((byte) (val >> ", fmt.Sprintf("%d", shift), "));\n")
-		}
-	}
-}
-
-func generateJavaModuleBytesPutter(columnName, fieldName string, bitwidth uint, builder indentBuilder) {
-	i1Builder := builder.Indent()
-	n := byteWidth(bitwidth)
-	//
-	builder.WriteIndentedString("// Trim array to size\n")
-	builder.WriteIndentedString("Bytes bs = val.trimLeadingZeros();\n")
-	builder.WriteIndentedString("// Sanity check against expected width\n")
-	builder.WriteIndentedString(fmt.Sprintf("if(bs.bitLength() > %d) {\n", bitwidth))
-	i1Builder.WriteIndentedString(
-		fmt.Sprintf("throw new IllegalArgumentException(\"%s has invalid width (\"+bs.bitLength()+\"bits)\");\n", columnName))
-	builder.WriteIndentedString("}\n")
-	builder.WriteIndentedString("// Write padding (if necessary)\n")
-	builder.WriteIndentedString(fmt.Sprintf("for(int i=bs.size(); i<%d; i++) { %s.put((byte) 0); }\n", n, fieldName))
-	builder.WriteIndentedString("// Write bytes\n")
-	builder.WriteIndentedString(fmt.Sprintf("for(int i=0; i<bs.size(); i++) { %s.put(bs.get(i)); }\n", fieldName))
 }
 
 func generateJavaModuleValidateRow[F any](className string, mod corset.SourceModule, schema sc.AnySchema[F],
@@ -546,10 +501,18 @@ func generateJavaModuleFillAndValidateRow[F any](className string, mod corset.So
 		if reg.IsInputOutput() {
 			name := toRegisterName(col.Register, reg.Name)
 			regstr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
-			byteWidth := fmt.Sprintf("%d", byteWidth(reg.Width))
 			// Yes, include register
 			i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
-			i2Builder.WriteIndentedString(name, ".position(", name, ".position() + ", byteWidth, ");\n")
+			//
+			switch {
+			case reg.Width == 1:
+				i2Builder.WriteIndentedString(name, ".write(false);\n")
+			case reg.Width <= 63:
+				i2Builder.WriteIndentedString(name, ".write(0L);\n")
+			default:
+				i2Builder.WriteIndentedString(name, ".write(new byte[0]);\n")
+			}
+			//
 			i1Builder.WriteIndentedString("}\n")
 		}
 	}

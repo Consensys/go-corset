@@ -15,22 +15,11 @@ package generate
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"strings"
 	"unicode"
 
-	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
-
-// Get a string representing the bound of all values in a given bitwidth.  For
-// example, for bitwidth 8 we get "256", etc.
-func maxValueStr(bitwidth uint) string {
-	val := big.NewInt(2)
-	val.Exp(val, big.NewInt(int64(bitwidth)), nil)
-	//
-	return val.String()
-}
 
 // Get a suitable string representing a Java type which safely contains all
 // values of the given bitwidth.
@@ -54,18 +43,6 @@ func normaliseBitwidth(bitwidth uint) uint {
 	default:
 		return math.MaxUint
 	}
-}
-
-// Determine total number of registers, including those for computed columns, in
-// this schema.
-func getMaxRegisterIndex[F any](schema sc.AnySchema[F]) uint {
-	mx := uint(0)
-	// Write register initialisers
-	for mid := range schema.Width() {
-		mx = max(mx, schema.Module(mid).Width())
-	}
-	//
-	return mx * schema.Width()
 }
 
 func toRegisterName(register register.Ref, name string) string {
@@ -154,17 +131,6 @@ func splitCaseChange(word string) []string {
 	words = append(words, string(runes[start:]))
 	//
 	return words
-}
-
-// Determine number of bytes the given bitwidth represents.
-func byteWidth(bitwidth uint) uint {
-	n := bitwidth / 8
-	// roung up bitwidth if necessary
-	if bitwidth%8 != 0 {
-		return n + 1
-	}
-	//
-	return n
 }
 
 // A string builder which supports indentation.
