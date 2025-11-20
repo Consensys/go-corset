@@ -127,9 +127,9 @@ func (p *Assign) Split(mapping register.LimbsMap, env agnostic.RegisterAllocator
 		// map lhs registers into corresponding limbs
 		rhs = SplitPolynomial(p.Source, mapping)
 		// construct initial assignment
-		assignment = agnostic.NewAssignment(lhs, rhs)
+		assignment = agnostic.NewAssignment2(lhs, rhs)
 		// split into smaller assignments as needed
-		assignments = assignment.Split(mapping.Field().BandWidth, env)
+		assignments = assignment.Split(mapping.Field(), env)
 		// codes to be filled out
 		codes = make([]Code, len(assignments))
 	)
