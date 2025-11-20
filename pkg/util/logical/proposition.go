@@ -195,24 +195,57 @@ func (p *Proposition[I, A]) String(mapping func(I) string) string {
 }
 
 func simplify[I any, A Atom[I, A]](p Proposition[I, A]) Proposition[I, A] {
-	var n = uint(len(p.conjuncts))
+	var (
+		n       = uint(len(p.conjuncts))
+		changed = true
+	)
 	//
-	for i := uint(0); i < n; i++ {
-		for j := i + 1; j < n; j++ {
-			if eliminated := unitPropagation(p, i, j); eliminated {
-				return Truth[I, A](true)
+	for changed {
+		changed = false
+		// Outmost loop iterates unit terms, whilst innermost loop.
+		for i := uint(0); i < n; i++ {
+			for j := i + 1; j < n; j++ {
+				if c, tautology := simplifyConjuncts(p, i, j); tautology {
+					return Truth[I, A](true)
+				} else {
+					changed = changed || c
+				}
 			}
 		}
 	}
-	// Resort the set
-	slices.SortFunc(p.conjuncts, func(a, b Conjunction[I, A]) int {
-		return a.Cmp(b)
-	})
+	// Resort the set, as it may be out of order after simplification has
+	// completed.
+	p.conjuncts = *set.RawAnySortedSet(p.conjuncts...)
 	//
 	return p
 }
 
-func unitPropagation[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) bool {
+func simplifyConjuncts[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) (bool, bool) {
+	var (
+		changed, tautology = unitPropagation(p, i, j)
+	)
+	//
+	if !tautology {
+		var (
+			ith    = p.conjuncts[i]
+			jth    = p.conjuncts[j]
+			ithjth = ith.Implies(jth)
+			jthith = jth.Implies(ith)
+		)
+		// NOTE: its possible that ith == jth here and, in such case, we'd
+		// expect ithjth and jthith.
+		switch {
+		case ithjth && !jthith:
+			p.conjuncts[j] = ith
+		case !ithjth && jthith:
+			p.conjuncts[i] = jth
+		}
+	}
+	//
+	return changed, tautology
+}
+
+func unitPropagation[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) (bool, bool) {
 	var (
 		in = len(p.conjuncts[i].atoms)
 		jn = len(p.conjuncts[j].atoms)
@@ -224,9 +257,9 @@ func unitPropagation[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) bool {
 			jth = p.conjuncts[j].atoms[0]
 		)
 		// Check for P || ~P
-		return ith.Cmp(jth.Negate()) == 0
+		return false, ith.Cmp(jth.Negate()) == 0
 	} else if (in != 1 && jn != 1) || in == 0 || jn == 0 {
-		return false
+		return false, false
 	} else if in > jn {
 		i, j = j, i
 	}
@@ -238,10 +271,12 @@ func unitPropagation[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) bool {
 	// Check whether anything to do
 	if kth, ok := jth.Remove(ith); ok {
 		p.conjuncts[j] = kth
+		return true, false
 	}
 	//
-	return false
+	return false, false
 }
+
 func negateConjunct[I any, A Atom[I, A]](c Conjunction[I, A]) Proposition[I, A] {
 	var br Proposition[I, A]
 	//
@@ -305,6 +340,18 @@ func (p Conjunction[I, A]) Remove(atom A) (Conjunction[I, A], bool) {
 	}
 	// Nothing doing
 	return p, false
+}
+
+// Implies checks whether this conjunction implies another.  For example, A
+// implies (A B), whilst (A B) implies (A B C), etc.
+func (p Conjunction[I, A]) Implies(other Conjunction[I, A]) bool {
+	for _, a := range p.atoms {
+		if !other.atoms.Contains(a) {
+			return false
+		}
+	}
+	//
+	return true
 }
 
 func (p Conjunction[I, A]) String(braces bool, mapping func(I) string) string {
