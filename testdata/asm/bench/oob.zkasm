@@ -43,6 +43,7 @@ pub fn oob(INST=0x56 u8, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DAT
    if INST == OOB_INST_JUMP goto oob_jump
    if INST == OOB_INST_JUMPI goto oob_jumpi
    if INST == OOB_INST_RDC goto oob_rdc
+   if INST == OOB_INST_CDL goto oob_cdl
    fail
 
    ;; ==========================================================================
@@ -94,6 +95,23 @@ oob_rdc:
    if DATA_7 != tmp1 goto exit_f
    ;; success
    return
+
+   ;; ==========================================================================
+   ;; CALL DATA LOAD (CDL)
+   ;; ==========================================================================
+   ;; For CDL must: (a) check offset < cds and that cdloob == 0 (if it
+   ;; holds) or cdloob==1 (otherwise).
+   ;;
+   ;; DATA_1::DATA_2 = offset
+   ;; DATA_5         = call_data_size (cds)
+   ;; DATA_7         = call_data_load_oob (cdloob)
+oob_cdl:
+   tmp1 = memory_bounds_check(DATA_1, DATA_2, 0, 1, DATA_5)
+   ;;
+   if DATA_7 != tmp1 goto exit_f
+   ;; success
+   return
+
 exit_f:
    fail
 }
