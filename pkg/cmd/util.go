@@ -174,7 +174,7 @@ func ReadTraceFile(filename string) lt.TraceFile {
 		tracefile lt.TraceFile
 	)
 	// Read data file
-	data, err := os.ReadFile(filename)
+	filename, data, err := file.ReadAndUncompress(filename)
 	// Check success
 	if err == nil {
 		// Check file extension
@@ -220,7 +220,7 @@ func ReadTraceFile(filename string) lt.TraceFile {
 func ReadBatchedTraceFile(filename string) []lt.TraceFile {
 	var (
 		stats  = util.NewPerfStats()
-		lines  = file.ReadInputFile(filename)
+		lines  = file.ReadInputFileAsLines(filename)
 		traces = make([]lt.TraceFile, 0)
 	)
 	// Read constraints line by line
