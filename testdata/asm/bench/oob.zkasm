@@ -1,3 +1,5 @@
+include "evm.zkasm"
+
 const OOB_INST_JUMP                             = 0x56
 const OOB_INST_JUMPI                            = 0x57
 const OOB_INST_RDC                              = 0x3E
@@ -44,6 +46,9 @@ pub fn oob(INST=0x56 u8, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DAT
    if INST == OOB_INST_JUMPI goto oob_jumpi
    if INST == OOB_INST_RDC goto oob_rdc
    if INST == OOB_INST_CDL goto oob_cdl
+   if INST == OOB_INST_SSTORE goto oob_sstore
+   if INST == OOB_INST_DEPLOYMENT goto oob_deployment
+   if INST == OOB_INST_XCALL goto oob_xcall
    fail
 
    ;; ==========================================================================
@@ -90,7 +95,7 @@ oob_jump:
    ;; DATA_5         = return_data_size (rds)
    ;; DATA_7         = return_data_copy_exception (rdcx)
 oob_rdc:
-   tmp1 = memory_bounds_check(DATA_1, DATA_2, DATA_3, DATA_4, DATA_5)
+   tmp1 = out_of_bounds_check(DATA_1, DATA_2, DATA_3, DATA_4, DATA_5)
    ;;
    if DATA_7 != tmp1 goto exit_f
    ;; success
@@ -106,12 +111,58 @@ oob_rdc:
    ;; DATA_5         = call_data_size (cds)
    ;; DATA_7         = call_data_load_oob (cdloob)
 oob_cdl:
-   tmp1 = memory_bounds_check(DATA_1, DATA_2, 0, 1, DATA_5)
+   tmp1 = out_of_bounds_check(DATA_1, DATA_2, 0, 1, DATA_5)
    ;;
    if DATA_7 != tmp1 goto exit_f
    ;; success
    return
 
+   ;; ==========================================================================
+   ;; SSTORE
+   ;; ==========================================================================
+   ;; For SSTORE must: check G_callstipend < gas_actual and that
+   ;; sstorex==0 (if it holds) or sstorex==1 (otherwise)
+   ;;
+   ;; DATA_5         = gas_actual
+   ;; DATA_7         = sstore_exception (sstorex)
+oob_sstore:
+   tmp1 = out_of_bounds_check(0, G_CALLSTIPEND, 0, 1, DATA_5)
+   ;;
+   if DATA_7 != tmp1 goto exit_f
+   ;; success
+   return
+
+   ;; ==========================================================================
+   ;; DEPLOYMENT
+   ;; ==========================================================================
+   ;; For DEPLOYMENT must: (a) check size <= MAX_CODE_SIZE and that maxcodex == 0 (if it
+   ;; holds) or maxcodex==1 (otherwise).
+   ;;
+   ;; DATA_1::DATA_2 = size
+   ;; DATA_7         = maxcodex
+oob_deployment:
+   tmp1 = out_of_bounds_check(DATA_1, DATA_2, 0, 0, MAX_CODE_SIZE)
+   ;;
+   if DATA_7 != tmp1 goto exit_f
+   ;; success
+   return
+
+   ;; ==========================================================================
+   ;; EXCEPTION CALL (XCALL)
+   ;; ==========================================================================
+   ;; For XCALL must check: check if value != 0 then value_isz==0 else
+   ;; value_isz==1.  Furthermore, that value_isnz == (1 - value_isz)
+   ;;
+   ;; DATA_1::DATA_2 = value
+   ;; DATA_7         = value_isnz
+   ;; DATA_8         = value_isz
+oob_xcall:
+   tmp1, tmp2 = zero_check(DATA_1, DATA_2)
+   ;;
+   if DATA_7 != tmp1 goto exit_f
+   if DATA_8 != tmp2 goto exit_f
+   ;; success
+   return
 exit_f:
    fail
 }
@@ -138,9 +189,9 @@ exit_f:
   return
 }
 
-;; Check whether (offset+size) <= memsize, returning 0 (if it holds)
-;; or 1 (to signal an exception)
-fn memory_bounds_check(offset_hi u128, offset_lo u128, size_hi u128, size_lo u128, memsize u128) -> (memx u1) {
+;; Check whether (offset+size) <= max_size, returning 0 (if it holds) or 1
+;; (to signal an exception)
+fn out_of_bounds_check(offset_hi u128, offset_lo u128, size_hi u128, size_lo u128, max_size u128) -> (memx u1) {
    var sum, tmp u128
    var c, b u1
    ;; Check offset < 2^128
@@ -149,10 +200,10 @@ fn memory_bounds_check(offset_hi u128, offset_lo u128, size_hi u128, size_lo u12
    if size_hi != 0 goto exit_1
    ;; Compute offset + size
    c,sum = offset_lo + size_lo
-   ;; Check (offset+size) <= memsize (high word)
+   ;; Check (offset+size) <= max_size (high word)
    if c != 0 goto exit_1
-   ;; Check (offset+size) <= memsize (low word)
-   b, tmp = memsize - sum
+   ;; Check (offset+size) <= max_size (low word)
+   b, tmp = max_size - sum
    ;; check for exception
    memx = b == 0 ? 0 : 1
    ;; success
@@ -161,4 +212,17 @@ exit_1:
    ;; memory exception
    memx = 1
    return
+}
+
+;; Check whether or not a given value is zero (or not).
+fn zero_check(val_hi u128, val_lo u128) -> (is_nonzero u1, is_zero=1 u1) {
+  if val_hi != 0 goto exit_nz
+  if val_lo != 0 goto exit_nz
+  is_nonzero = 0
+  is_zero = 1
+  return
+exit_nz:
+  is_nonzero = 1
+  is_zero = 0
+  return
 }
