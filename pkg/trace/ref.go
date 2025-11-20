@@ -159,6 +159,10 @@ func (p ColumnId) AccessOf(bitwidth uint) ColumnAccessId {
 	return ColumnAccessId{p, bitwidth, bitwidth, 0}
 }
 
+func (p ColumnId) String() string {
+	return fmt.Sprintf("%d", p.index)
+}
+
 // ============================================================================
 // ColumnAccessId
 // ============================================================================

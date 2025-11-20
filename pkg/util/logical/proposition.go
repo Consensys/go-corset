@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
@@ -27,14 +26,12 @@ type Atom[I any, A any] interface {
 	array.Comparable[A]
 	// Return the logical negation of this atom
 	Negate() A
-	// Check whether two atoms form a contradiction.  For example,  "x=0"
-	// contracts "x≠0" and, likewise, "x=1".
-	Contradicts(o A) bool
 	// Check whether this atom is equivalent to logical truth or falsehood.
 	Is(bool) bool
-	// Check whether this atom subsumes (i.e. logically implies) another.  For
-	// example, "x=0" subsumes "x≠1".
-	Subsumes(A) bool
+	// CloseOver this term and another, producing a potentially updated version
+	// of this term.  For example, closing over "x=y" and "y=0" might given
+	// "x=0", etc.
+	CloseOver(o A) A
 	// String returns a human-readable representation
 	String(func(I) string) string
 }
@@ -380,40 +377,40 @@ func (p Conjunction[I, A]) String(braces bool, mapping func(I) string) string {
 
 // Attempt to remove subsumed conditions.  Consider "x≠0 ∧ x=1 ∧ x≠y" for
 // example.  In this case, the condition "x≠0" is subsumed by "x=1" and, hence,
-// can be removed.
+// can be removed.  This returns false if proposition is equivalent to logical
+// false.
 func (p *Conjunction[I, A]) simplify() bool {
 	var (
-		subsumed bit.Set
-		count    int
+		done    = false
+		changed = false
 	)
-	// This is an O(n^2) operation, but we just assume the number of path
-	// conditions (i.e. n) is small.
-	for i, ci := range p.atoms {
-		for j, cj := range p.atoms {
-			if i != j && ci.Subsumes(cj) {
-				subsumed.Insert(uint(j))
-
-				count++
-			} else if ci.Contradicts(cj) {
-				return false
+	//
+	for !done {
+		done = true
+		// This is an O(n^2) operation, but we just assume the number of
+		// conjunctions (i.e. n) is small.
+		for i, ci := range p.atoms {
+			for _, cj := range p.atoms {
+				cij := ci.CloseOver(cj)
+				//
+				if cij.Is(false) {
+					return false
+				} else if ci.Cmp(cij) != 0 {
+					p.atoms[i] = cij
+					changed = true
+					done = false
+				}
 			}
 		}
 	}
-	// Check whether anything to remove
-	if count > 0 {
-		var (
-			nconjuncts = make([]A, len(p.atoms)-count)
-			index      = 0
-		)
-		//
-		for i, c := range p.atoms {
-			if !subsumed.Contains(uint(i)) {
-				nconjuncts[index] = c
-				index++
-			}
-		}
-		//
-		p.atoms = nconjuncts
+	//
+	if changed {
+		// Remove any T values
+		p.atoms = array.RemoveMatching(p.atoms, func(a A) bool {
+			return a.Is(true)
+		})
+		// Resort as things may have gotten disturbed
+		p.atoms = *set.RawAnySortedSet(p.atoms...)
 	}
 	//
 	return true

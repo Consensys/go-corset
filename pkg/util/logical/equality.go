@@ -20,9 +20,16 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
+// Variable defines some required characteristics of any variable identifier
+// suitable for use within an equality.
+type Variable[I any] interface {
+	fmt.Stringer
+	array.Comparable[I]
+}
+
 // Equality represents a fundamental atom which is either an Equality (=) or a
 // non-Equality (≠) between a variable and either a variable or a constant.
-type Equality[I array.Comparable[I]] struct {
+type Equality[I Variable[I]] struct {
 	// Sign indicates whether this is an Equality (==) or a non-Equality (!=).
 	Sign bool
 	// Left variable
@@ -32,7 +39,7 @@ type Equality[I array.Comparable[I]] struct {
 }
 
 // Equals returns an equality over two variables (i.e. l = r)
-func Equals[I array.Comparable[I]](l I, r I) Equality[I] {
+func Equals[I Variable[I]](l I, r I) Equality[I] {
 	// Ensure lowest variable always on the left-hand side.
 	if l.Cmp(r) > 0 {
 		l, r = r, l
@@ -42,12 +49,12 @@ func Equals[I array.Comparable[I]](l I, r I) Equality[I] {
 }
 
 // EqualsConst returns an equality over a variable and a constant
-func EqualsConst[I array.Comparable[I]](l I, r big.Int) Equality[I] {
+func EqualsConst[I Variable[I]](l I, r big.Int) Equality[I] {
 	return Equality[I]{true, l, util.Union2[I, big.Int](r)}
 }
 
 // NotEquals returns a non-Equality over two variables (i.e. l ≠ r)
-func NotEquals[I array.Comparable[I]](l I, r I) Equality[I] {
+func NotEquals[I Variable[I]](l I, r I) Equality[I] {
 	// Ensure lowest variable always on the left-hand side.
 	if l.Cmp(r) > 0 {
 		l, r = r, l
@@ -57,8 +64,77 @@ func NotEquals[I array.Comparable[I]](l I, r I) Equality[I] {
 }
 
 // NotEqualsConst returns an equality over a variable and a constant
-func NotEqualsConst[I array.Comparable[I]](l I, r big.Int) Equality[I] {
+func NotEqualsConst[I Variable[I]](l I, r big.Int) Equality[I] {
 	return Equality[I]{false, l, util.Union2[I, big.Int](r)}
+}
+
+// CloseOver implementation for Atom interface
+func (p Equality[I]) CloseOver(o Equality[I]) Equality[I] {
+	if p.Cmp(o) == 0 {
+		// Do nothing when p == o
+	} else if p.Left.Cmp(o.Left) == 0 && o.Sign {
+		if p.Sign {
+			// x == e1 && x == e2 ==> e1 == e2
+			return equate(p.Right, o.Right, p.Left)
+		}
+		// x != e1 && x == e2 ==> e1 != e2
+		return unequate(p.Right, o.Right, p.Left)
+	} else if p.Right.HasSecond() || !o.Sign {
+		// x == c && y == e
+		// x == e && y != e
+		return p
+	} else if right := p.Right.First(); right.Cmp(o.Left) == 0 {
+		// x == y && y == e => x == e
+		return Equality[I]{p.Sign, p.Left, o.Right}
+	}
+	//
+	return p
+}
+
+func equate[I Variable[I]](l util.Union[I, big.Int], r util.Union[I, big.Int], v I) Equality[I] {
+	switch {
+	case l.HasFirst() && r.HasFirst():
+		return Equals(l.First(), r.First())
+	case l.HasFirst() && r.HasSecond():
+		return EqualsConst(l.First(), r.Second())
+	case l.HasSecond() && r.HasFirst():
+		return EqualsConst(r.First(), l.Second())
+	default:
+		var (
+			lc = l.Second()
+			rc = r.Second()
+		)
+		//
+		if lc.Cmp(&rc) == 0 {
+			// true
+			return Equals(v, v)
+		}
+		// false
+		return NotEquals(v, v)
+	}
+}
+
+func unequate[I Variable[I]](l util.Union[I, big.Int], r util.Union[I, big.Int], v I) Equality[I] {
+	switch {
+	case l.HasFirst() && r.HasFirst():
+		return NotEquals(l.First(), r.First())
+	case l.HasFirst() && r.HasSecond():
+		return NotEqualsConst(l.First(), r.Second())
+	case l.HasSecond() && r.HasFirst():
+		return NotEqualsConst(r.First(), l.Second())
+	default:
+		var (
+			lc = l.Second()
+			rc = r.Second()
+		)
+		//
+		if lc.Cmp(&rc) != 0 {
+			// true
+			return Equals(v, v)
+		}
+		// false
+		return NotEquals(v, v)
+	}
 }
 
 // Cmp implementation for Comparable interface
@@ -78,31 +154,6 @@ func (p Equality[I]) Cmp(o Equality[I]) int {
 	return cmpRhs(p.Right, o.Right)
 }
 
-// Contradicts determines whether two equalities contradict each other.  There
-// are only a few ways this can happen.
-func (p Equality[I]) Contradicts(o Equality[I]) bool {
-	var (
-		pEqConst = p.Sign && p.Right.HasSecond()
-		oEqConst = o.Sign && o.Right.HasSecond()
-	)
-	//
-	if p.Cmp(o) == 0 {
-		// p && p ==> T
-		return false
-	} else if p.Cmp(o.Negate()) == 0 {
-		// p && !p ==> _|_
-		return true
-	} else if pEqConst && oEqConst {
-		// x=c1 && x=c2 -> _|_
-		pRight := p.Right.Second()
-		oRight := o.Right.Second()
-
-		return p.Left.Cmp(o.Left) == 0 && pRight.Cmp(&oRight) != 0
-	}
-	//
-	return false
-}
-
 // Is implementation of Atom interface
 func (p Equality[I]) Is(truth bool) bool {
 	// x == x ==> truth
@@ -115,30 +166,19 @@ func (p Equality[I]) Negate() Equality[I] {
 	return Equality[I]{!p.Sign, p.Left, p.Right}
 }
 
-// Subsumes checks whether this Equality subsumes the other
-func (p Equality[I]) Subsumes(o Equality[I]) bool {
-	if p.Cmp(o) == 0 {
-		return true
-	} else if !p.Sign || o.Sign {
-		// (i) x≠? does not subsume anything
-		// (ii) nothing subsumes x=?
-		return false
-	} else if p.Left.Cmp(o.Left) == 0 && p.Right.HasSecond() && o.Right.HasSecond() {
-		// e.g. x=1 subsumes x≠2
-		return true
+func (p Equality[I]) String(mapping func(I) string) string {
+	var l, r string
+	//
+	if mapping != nil {
+		l = mapping(p.Left)
+	} else {
+		l = p.Left.String()
 	}
 	//
-	return false
-}
-
-func (p Equality[I]) String(mapping func(I) string) string {
-	var (
-		l = mapping(p.Left)
-		r string
-	)
-	//
-	if p.Right.HasFirst() {
+	if p.Right.HasFirst() && mapping != nil {
 		r = mapping(p.Right.First())
+	} else if p.Right.HasFirst() {
+		r = p.Right.First().String()
 	} else {
 		bi := p.Right.Second()
 		r = bi.String()
