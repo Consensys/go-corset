@@ -43,9 +43,21 @@ func (lhs Order[T]) Cmp(rhs Order[T]) int {
 // AnySortedSet is an array of unique sorted values (i.e. no duplicates).
 type AnySortedSet[T Comparable[T]] []T
 
-// NewAnySortedSet returns an empty sorted set.
+// NewAnySortedSet creates a sorted set from a given array by first cloning that
+// array, and then sorting it appropriately, etc.  This means the given array
+// will not be mutated by this function, or any subsequent calls on the
+// resulting set.
 func NewAnySortedSet[T Comparable[T]](items ...T) *AnySortedSet[T] {
 	var nitems AnySortedSet[T] = slices.Clone(items)
+	//
+	return RawAnySortedSet[T](nitems...)
+}
+
+// RawAnySortedSet creates a sort set from a given array without first cloning
+// it.  That means the array may well be mutated by this function and/or
+// subsequent calls to the resulting set.
+func RawAnySortedSet[T Comparable[T]](items ...T) *AnySortedSet[T] {
+	var nitems AnySortedSet[T] = items
 	// Sort incoming data
 	slices.SortFunc(nitems, func(a, b T) int {
 		return a.Cmp(b)
@@ -128,6 +140,26 @@ func (p *AnySortedSet[T]) InsertSorted(q *AnySortedSet[T]) {
 	anyMergeSorted(ndata, left, right)
 	// Finally copy over new data
 	*p = ndata
+}
+
+// Remove an element from this sorted set.
+//
+//nolint:revive
+func (p *AnySortedSet[T]) Remove(element T) bool {
+	data := *p
+	// Find index where element either does occur, or should occur.
+	i := sort.Search(len(data), func(i int) bool {
+		// element <= data[i]
+		return element.Cmp(data[i]) <= 0
+	})
+	// Check whether item existed or not.
+	if i < len(data) && data[i].Cmp(element) == 0 {
+		// yes, therefore can remove
+		*p = array.RemoveAt(data, uint(i))
+		return true
+	}
+	// No, nothing removed
+	return false
 }
 
 // Iter returns an iterator over the elements of this sorted set.

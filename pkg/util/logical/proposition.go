@@ -13,11 +13,11 @@
 package logical
 
 import (
+	"math"
 	"slices"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
@@ -26,14 +26,12 @@ type Atom[I any, A any] interface {
 	array.Comparable[A]
 	// Return the logical negation of this atom
 	Negate() A
-	// Check whether two atoms form a contradiction.  For example,  "x=0"
-	// contracts "x≠0" and, likewise, "x=1".
-	Contradicts(o A) bool
 	// Check whether this atom is equivalent to logical truth or falsehood.
 	Is(bool) bool
-	// Check whether this atom subsumes (i.e. logically implies) another.  For
-	// example, "x=0" subsumes "x≠1".
-	Subsumes(A) bool
+	// CloseOver this term and another, producing a potentially updated version
+	// of this term.  For example, closing over "x=y" and "y=0" might given
+	// "x=0", etc.
+	CloseOver(o A) A
 	// String returns a human-readable representation
 	String(func(I) string) string
 }
@@ -150,7 +148,7 @@ func (p *Proposition[I, A]) Or(other Proposition[I, A]) Proposition[I, A] {
 	disjuncts.InsertSorted(&p.conjuncts)
 	disjuncts.InsertSorted(&other.conjuncts)
 	//
-	return Proposition[I, A]{disjuncts}
+	return simplify(Proposition[I, A]{disjuncts})
 }
 
 // Negate returns the logical negation of this proposition.
@@ -193,11 +191,94 @@ func (p *Proposition[I, A]) String(mapping func(I) string) string {
 	return builder.String()
 }
 
+func simplify[I any, A Atom[I, A]](p Proposition[I, A]) Proposition[I, A] {
+	var (
+		n       = uint(len(p.conjuncts))
+		changed = true
+	)
+	//
+	for changed {
+		changed = false
+		// Outmost loop iterates unit terms, whilst innermost loop.
+		for i := uint(0); i < n; i++ {
+			for j := i + 1; j < n; j++ {
+				if c, tautology := simplifyConjuncts(p, i, j); tautology {
+					return Truth[I, A](true)
+				} else {
+					changed = changed || c
+				}
+			}
+		}
+	}
+	// Resort the set, as it may be out of order after simplification has
+	// completed.
+	p.conjuncts = *set.RawAnySortedSet(p.conjuncts...)
+	//
+	return p
+}
+
+func simplifyConjuncts[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) (bool, bool) {
+	var (
+		changed, tautology = unitPropagation(p, i, j)
+	)
+	//
+	if !tautology {
+		var (
+			ith    = p.conjuncts[i]
+			jth    = p.conjuncts[j]
+			ithjth = ith.Implies(jth)
+			jthith = jth.Implies(ith)
+		)
+		// NOTE: its possible that ith == jth here and, in such case, we'd
+		// expect ithjth and jthith.
+		switch {
+		case ithjth && !jthith:
+			p.conjuncts[j] = ith
+		case !ithjth && jthith:
+			p.conjuncts[i] = jth
+		}
+	}
+	//
+	return changed, tautology
+}
+
+func unitPropagation[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) (bool, bool) {
+	var (
+		in = len(p.conjuncts[i].atoms)
+		jn = len(p.conjuncts[j].atoms)
+	)
+	//
+	if in == 1 && jn == 1 {
+		var (
+			ith = p.conjuncts[i].atoms[0]
+			jth = p.conjuncts[j].atoms[0]
+		)
+		// Check for P || ~P
+		return false, ith.Cmp(jth.Negate()) == 0
+	} else if (in != 1 && jn != 1) || in == 0 || jn == 0 {
+		return false, false
+	} else if in > jn {
+		i, j = j, i
+	}
+	// ASSERT: len(p.conjuncts[i].atoms) == 1
+	var (
+		ith = p.conjuncts[i].atoms[0].Negate()
+		jth = p.conjuncts[j]
+	)
+	// Check whether anything to do
+	if kth, ok := jth.Remove(ith); ok {
+		p.conjuncts[j] = kth
+		return true, false
+	}
+	//
+	return false, false
+}
+
 func negateConjunct[I any, A Atom[I, A]](c Conjunction[I, A]) Proposition[I, A] {
 	var br Proposition[I, A]
 	//
 	for i, a := range c.atoms {
-		ith := NewProposition[I](a.Negate())
+		ith := NewProposition(a.Negate())
 		//
 		if i == 0 {
 			br = ith
@@ -246,6 +327,30 @@ func (p Conjunction[I, A]) Cmp(o Conjunction[I, A]) int {
 	return array.Compare(p.atoms, o.atoms)
 }
 
+// Remove an atom from this conjunction (if it is contained within), or simply
+// return this conjunction.
+func (p Conjunction[I, A]) Remove(atom A) (Conjunction[I, A], bool) {
+	if i := p.atoms.Find(atom); i != math.MaxUint {
+		natoms := array.RemoveAt(p.atoms, i)
+		// Yes removed.
+		return Conjunction[I, A]{natoms}, true
+	}
+	// Nothing doing
+	return p, false
+}
+
+// Implies checks whether this conjunction implies another.  For example, A
+// implies (A B), whilst (A B) implies (A B C), etc.
+func (p Conjunction[I, A]) Implies(other Conjunction[I, A]) bool {
+	for _, a := range p.atoms {
+		if !other.atoms.Contains(a) {
+			return false
+		}
+	}
+	//
+	return true
+}
+
 func (p Conjunction[I, A]) String(braces bool, mapping func(I) string) string {
 	var builder strings.Builder
 	//
@@ -272,40 +377,40 @@ func (p Conjunction[I, A]) String(braces bool, mapping func(I) string) string {
 
 // Attempt to remove subsumed conditions.  Consider "x≠0 ∧ x=1 ∧ x≠y" for
 // example.  In this case, the condition "x≠0" is subsumed by "x=1" and, hence,
-// can be removed.
+// can be removed.  This returns false if proposition is equivalent to logical
+// false.
 func (p *Conjunction[I, A]) simplify() bool {
 	var (
-		subsumed bit.Set
-		count    int
+		done    = false
+		changed = false
 	)
-	// This is an O(n^2) operation, but we just assume the number of path
-	// conditions (i.e. n) is small.
-	for i, ci := range p.atoms {
-		for j, cj := range p.atoms {
-			if i != j && ci.Subsumes(cj) {
-				subsumed.Insert(uint(j))
-
-				count++
-			} else if ci.Contradicts(cj) {
-				return false
+	//
+	for !done {
+		done = true
+		// This is an O(n^2) operation, but we just assume the number of
+		// conjunctions (i.e. n) is small.
+		for i, ci := range p.atoms {
+			for _, cj := range p.atoms {
+				cij := ci.CloseOver(cj)
+				//
+				if cij.Is(false) {
+					return false
+				} else if ci.Cmp(cij) != 0 {
+					p.atoms[i] = cij
+					changed = true
+					done = false
+				}
 			}
 		}
 	}
-	// Check whether anything to remove
-	if count > 0 {
-		var (
-			nconjuncts = make([]A, len(p.atoms)-count)
-			index      = 0
-		)
-		//
-		for i, c := range p.atoms {
-			if !subsumed.Contains(uint(i)) {
-				nconjuncts[index] = c
-				index++
-			}
-		}
-		//
-		p.atoms = nconjuncts
+	//
+	if changed {
+		// Remove any T values
+		p.atoms = array.RemoveMatching(p.atoms, func(a A) bool {
+			return a.Is(true)
+		})
+		// Resort as things may have gotten disturbed
+		p.atoms = *set.RawAnySortedSet(p.atoms...)
 	}
 	//
 	return true

@@ -87,6 +87,30 @@ func Test_Prop_24(t *testing.T) {
 	testEquivalent(t, "x==y ∧ x!=z", "x==y ∧ x!=z")
 }
 
+func Test_Prop_25(t *testing.T) {
+	testEquivalent(t, "x==0 ∧ y==x", "x==0 ∧ y==0")
+}
+
+func Test_Prop_26(t *testing.T) {
+	testEquivalent(t, "x==0 ∧ y!=x", "x==0 ∧ y!=0")
+}
+
+func Test_Prop_27(t *testing.T) {
+	testEquivalent(t, "x==0 ∧ y==x ∧ y==1", "⊥")
+}
+
+func Test_Prop_28(t *testing.T) {
+	testEquivalent(t, "x==0 ∧ y!=x ∧ y==0", "⊥")
+}
+
+func Test_Prop_29(t *testing.T) {
+	testEquivalent(t, "x==y ∧ y==z", "x==z ∧ y==z")
+}
+
+func Test_Prop_30(t *testing.T) {
+	testEquivalent(t, "x==z ∧ y==x ∧ y!=z", "⊥")
+}
+
 // Disjunctions
 
 func Test_Prop_50(t *testing.T) {
@@ -125,20 +149,55 @@ func Test_Prop_58(t *testing.T) {
 	testEquivalent(t, "x==y ∨ x==y", "x==y")
 }
 
-// func Test_Prop_59(t *testing.T) {
-// 	testEquivalent(t, "x==y ∨ x≠y", "⊤")
+func Test_Prop_59(t *testing.T) {
+	testEquivalent(t, "x==y ∨ x≠y", "⊤")
+}
+func Test_Prop_60(t *testing.T) {
+	testEquivalent(t, "x≠0 ∨ x==0 ∨ y==0", "⊤")
+}
+
+// Combine Disjunctions and Conjunctions
+
+// Missing rule which infers x==0 throuh x≠y
+// func Test_Prop_80(t *testing.T) {
+// 	testEquivalent(t, "x≠0 ∨ (x==0 ∧ x≠y)", "x≠0 ∨ x≠y")
 // }
+
+func Test_Prop_81(t *testing.T) {
+	testEquivalent(t, "(x≠0 ∧ y≠0) ∨ x==0 ∨ y==0", "⊤")
+}
+
+func Test_Prop_82(t *testing.T) {
+	testEquivalent(t, "x==0", "x==0 ∨ (x==0 ∧ y≠0)", "x==0 ∨ (x==0 ∧ y≠0) ∨ (x==0 ∧ x==0 ∧ y≠0)")
+}
+func Test_Prop_83(t *testing.T) {
+	testEquivalent(t, "(x==0 ∧ y==0) ∨ (x==0 ∧ y==0 ∧ z==0)", "(x==0 ∧ y==0)")
+}
+func Test_Prop_84(t *testing.T) {
+	testEquivalent(t, "(x==0 ∧ y==0) ∨ (x==0 ∧ y==0)", "x==0 ∧ y==0")
+}
 
 // ============================================================================
 // Framework
 // ============================================================================
 
-func testEquivalent(t *testing.T, left, right string) {
-	lhs := Parse(t, left)
-	rhs := Parse(t, right)
-	//
-	if !lhs.Equals(rhs) {
-		t.Errorf("not equivalent: %s=>%s but %s=>%s", left, lhs.String(id), right, rhs.String(id))
+func testEquivalent(t *testing.T, terms ...string) {
+	var (
+		ts = make([]Proposition[Var, Equality[Var]], len(terms))
+	)
+	// Parse them
+	for i, term := range terms {
+		ts[i] = Parse(t, term)
+	}
+	// Check them
+	for i := 1; i < len(ts); i++ {
+		var (
+			lhs = ts[i-1]
+			rhs = ts[i]
+		)
+		if !lhs.Equals(rhs) {
+			t.Errorf("not equivalent: %s=>%s but %s=>%s", terms[i-1], lhs.String(id), terms[i], rhs.String(id))
+		}
 	}
 }
 
@@ -173,7 +232,7 @@ func (p Var) Cmp(o Var) int {
 	return cmp.Compare(p.name, o.name)
 }
 
-func (p Var) String(func(string) string) string {
+func (p Var) String() string {
 	return p.name
 }
 
