@@ -106,6 +106,7 @@ func generateInterfaceContents(className string, mod corset.SourceModule, builde
 	//
 	if mod.Name == "" {
 		builder.WriteString(javaColumnHeader)
+		builder.WriteString(javaColumn)
 		builder.WriteString(javaAddMetadataSignature)
 		builder.WriteString(javaOpenSignature)
 	}
