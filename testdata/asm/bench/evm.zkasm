@@ -180,3 +180,6 @@ const G_WARMACCESS = 100
 ;; Misc
 ;; =============================================================================
 const MAX_CODE_SIZE = 24576
+const MAX_INIT_CODE_SIZE = 49152
+;; 2^64 - 1
+const EIP2681_MAX_NONCE=18446744073709551615
