@@ -595,7 +595,8 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 	case *expr.Const:
 		rhs = e.Constant
 		label = e.Label
-		// case *expr.RegAccess:
+	case *expr.RegAccess:
+		panic(fmt.Sprintf("ternary operator does not support register on the rhs"))
 	}
 	// expect question mark
 	if _, errs = p.expect(QMARK); len(errs) > 0 {
