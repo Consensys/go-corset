@@ -573,7 +573,9 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 	var (
 		errs        []source.SyntaxError
 		lhs         io.RegisterId
+		rhsExpr     macro.Expr
 		rhs, tb, fb big.Int
+		label       string
 		cond        uint8
 	)
 	// Parse left hand side
@@ -585,8 +587,15 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhs, errs = p.parseNumber(env); len(errs) > 0 {
+	if rhsExpr, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
+	}
+	// Dispatch on rhs expression form
+	switch e := rhsExpr.(type) {
+	case *expr.Const:
+		rhs = e.Constant
+		label = e.Label
+		// case *expr.RegAccess:
 	}
 	// expect question mark
 	if _, errs = p.expect(QMARK); len(errs) > 0 {
@@ -610,6 +619,7 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		Cond:    cond,
 		Left:    lhs,
 		Right:   rhs,
+		Label:   label,
 		Then:    tb,
 		Else:    fb,
 	}, nil
@@ -733,6 +743,28 @@ func (p *Parser) parseNumber(env *Environment) (big.Int, []source.SyntaxError) {
 	//
 	val, errs = p.number(lookahead)
 	//
+	return val, errs
+}
+
+// parse number or variable
+func (p *Parser) parseNumberOrVariable(env *Environment) (big.Int, []source.SyntaxError) {
+	var (
+		lookahead = p.lookahead()
+		val       big.Int
+		errs      []source.SyntaxError
+		lhs       io.RegisterId
+	)
+	// Expecting number or variable
+	switch lookahead.Kind {
+	case 10:
+		val, errs = p.parseNumber(env)
+	case 20:
+		lhs, errs = p.parseVariable(env)
+		fmt.Sprintf("%s", lhs)
+	default:
+		errs = p.syntaxErrors(lookahead, "unexpected token")
+	}
+
 	return val, errs
 }
 

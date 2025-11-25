@@ -1,0 +1,6 @@
+const TWO_HUNDRED = 200
+
+fn ternary_test(value u128) -> (result u1) {
+    result = value == TWO_HUNDRED ? 1 : 0
+    return
+}

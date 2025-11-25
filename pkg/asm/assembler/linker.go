@@ -212,6 +212,17 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 			//
 			insn.Constant = deats.Left
 		}
+	case *macro.IfThenElse:
+		if insn.Label != "" {
+			deats, ok := p.constmap[module.NewName(insn.Label, 1)]
+			//
+			if !ok {
+				msg := fmt.Sprintf("unknown register or constant \"%s\"", insn.Label)
+				return p.srcmap.SyntaxError(insn, msg)
+			}
+			//
+			insn.Right = deats.Left
+		}
 	default:
 		// continue
 	}
