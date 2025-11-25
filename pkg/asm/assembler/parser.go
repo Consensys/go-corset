@@ -746,28 +746,6 @@ func (p *Parser) parseNumber(env *Environment) (big.Int, []source.SyntaxError) {
 	return val, errs
 }
 
-// parse number or variable
-func (p *Parser) parseNumberOrVariable(env *Environment) (big.Int, []source.SyntaxError) {
-	var (
-		lookahead = p.lookahead()
-		val       big.Int
-		errs      []source.SyntaxError
-		lhs       io.RegisterId
-	)
-	// Expecting number or variable
-	switch lookahead.Kind {
-	case 10:
-		val, errs = p.parseNumber(env)
-	case 20:
-		lhs, errs = p.parseVariable(env)
-		fmt.Sprintf("%s", lhs)
-	default:
-		errs = p.syntaxErrors(lookahead, "unexpected token")
-	}
-
-	return val, errs
-}
-
 // Parse sequence of one or more expressions separated by a comma.
 func (p *Parser) parseExprList(env *Environment) ([]macro.Expr, []source.SyntaxError) {
 	var (
