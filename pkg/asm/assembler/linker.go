@@ -262,7 +262,9 @@ func (p *Linker) linkExprs(es []macro.Expr) *source.SyntaxError {
 
 func (p *Linker) getLabelValue(l string) (big.Int, string) {
 	var deats util.Pair[big.Int, uint]
+	//
 	var ok bool
+	//
 	if l != "" {
 		deats, ok = p.constmap[module.NewName(l, 1)]
 		//
@@ -271,6 +273,7 @@ func (p *Linker) getLabelValue(l string) (big.Int, string) {
 			return big.Int{}, msg
 		}
 	}
+	//
 	return deats.Left, ""
 }
 
