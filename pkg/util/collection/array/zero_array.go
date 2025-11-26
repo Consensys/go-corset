@@ -23,73 +23,70 @@ import (
 // Implementation
 // =================================================================================
 
-// ZeroArray implements an array of single bit words simply using an underlying
-// array of packed bytes.  That is, where eight bits are packed into a single
-// byte.
-type ZeroArray[T word.Word[T]] struct {
+// ConstantArray implements an array of a constant value.
+type ConstantArray[T word.Word[T]] struct {
 	// Actual height of column
 	height uint
+	value  T
 }
 
-// NewZeroArray constructs a new word array with a given capacity.
-func NewZeroArray[T word.Word[T]](height uint) *ZeroArray[T] {
-	return &ZeroArray[T]{height}
+// NewConstantArray constructs a new word array with a given capacity.
+func NewConstantArray[T word.Word[T]](height uint, value T) *ConstantArray[T] {
+	return &ConstantArray[T]{height, value}
 }
 
 // Append new word on this array
-func (p *ZeroArray[T]) Append(word T) {
+func (p *ConstantArray[T]) Append(word T) {
 	p.Pad(0, 1, word)
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
-func (p *ZeroArray[T]) Clone() MutArray[T] {
-	return &ZeroArray[T]{p.height}
+func (p *ConstantArray[T]) Clone() MutArray[T] {
+	return &ConstantArray[T]{p.height, p.value}
 }
 
 // Len returns the number of elements in this word array.
-func (p *ZeroArray[T]) Len() uint {
+func (p *ConstantArray[T]) Len() uint {
 	return p.height
 }
 
 // BitWidth returns the width (in bits) of elements in this array.
-func (p *ZeroArray[T]) BitWidth() uint {
+func (p *ConstantArray[T]) BitWidth() uint {
 	return 0
 }
 
 // Build implementation for the array.Builder interface.  This simply means that
 // a static array is its own builder.
-func (p *ZeroArray[T]) Build() Array[T] {
+func (p *ConstantArray[T]) Build() Array[T] {
 	return p
 }
 
 // Get returns the field element at the given index in this array.
-func (p *ZeroArray[T]) Get(index uint) T {
-	var b T
-	// Default is zero
-	return b
+func (p *ConstantArray[T]) Get(index uint) T {
+	return p.value
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *ZeroArray[T]) Set(index uint, word T) {
+func (p *ConstantArray[T]) Set(index uint, word T) {
 	// do nothing
 }
 
 // Pad implementation for MutArray interface.
-func (p *ZeroArray[T]) Pad(n uint, m uint, padding T) {
+func (p *ConstantArray[T]) Pad(n uint, m uint, padding T) {
 	p.height += n + m
 }
 
 // Slice out a subregion of this array.
-func (p *ZeroArray[T]) Slice(start uint, end uint) Array[T] {
+func (p *ConstantArray[T]) Slice(start uint, end uint) Array[T] {
 	var (
 		height = end - start
 	)
 	// Done
-	return &ZeroArray[T]{height}
+	return &ConstantArray[T]{height, p.value}
 }
 
-func (p *ZeroArray[T]) String() string {
+func (p *ConstantArray[T]) String() string {
 	var sb strings.Builder
 
 	sb.WriteString("[")

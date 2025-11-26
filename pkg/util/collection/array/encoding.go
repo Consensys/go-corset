@@ -19,8 +19,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// ENCODING_ZERO is for arrays which hold constant values.
-const ENCODING_ZERO = 0
+// ENCODING_CONSTANT is for arrays which hold constant values.
+const ENCODING_CONSTANT = 0
 
 // ENCODING_STATIC is for arrays which hold their values explicitly.
 const ENCODING_STATIC = 1
@@ -64,12 +64,19 @@ func (p *Encoding) Set(opcode uint8, operand uint16) {
 // Constant Arrays
 // ============================================================================
 
-func decode_zero[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
-	var len = binary.BigEndian.Uint32(encoding.Bytes)
-	return NewZeroArray[T](uint(len))
+func decode_constant[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
+	var (
+		value    T
+		len      = binary.BigEndian.Uint32(encoding.Bytes)
+		constant = encoding.Operand()
+	)
+	//
+	value = value.SetUint64(uint64(constant))
+	//
+	return NewConstantArray[T](uint(len), value)
 }
 
-func encode_zero[T word.DynamicWord[T]](array *ZeroArray[T]) []byte {
+func encode_constant[T word.DynamicWord[T]](array *ConstantArray[T]) []byte {
 	var bytes [4]byte
 	//
 	binary.BigEndian.PutUint32(bytes[:], uint32(array.Len()))
