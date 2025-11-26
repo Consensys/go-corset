@@ -398,7 +398,7 @@ func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Vector[F
 				started = true
 				current = slices.Clone(row)
 				//
-				data.Set(i, one)
+				data = data.Set(i, one)
 			}
 		}
 	}
@@ -439,9 +439,9 @@ func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Vector
 				started = true
 				current = slices.Clone(row)
 				//
-				data.Set(i, zero)
+				data = data.Set(i, zero)
 			} else {
-				data.Set(i, one)
+				data = data.Set(i, one)
 			}
 		}
 	}
@@ -482,7 +482,7 @@ func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Vector[F
 				started = true
 				current = slices.Clone(row)
 				//
-				data.Set(i-1, one)
+				data = data.Set(i-1, one)
 			}
 		}
 	}
