@@ -27,12 +27,15 @@ import (
 type ConstantArray[T word.Word[T]] struct {
 	// Actual height of column
 	height uint
-	value  T
+	// Bitwidth of column
+	bitwidth uint
+	// Constant value in play
+	value T
 }
 
 // NewConstantArray constructs a new word array with a given capacity.
-func NewConstantArray[T word.Word[T]](height uint, value T) *ConstantArray[T] {
-	return &ConstantArray[T]{height, value}
+func NewConstantArray[T word.Word[T]](height uint, bitwidth uint, value T) *ConstantArray[T] {
+	return &ConstantArray[T]{height, bitwidth, value}
 }
 
 // Append new word on this array
@@ -42,7 +45,7 @@ func (p *ConstantArray[T]) Append(word T) {
 
 // Clone makes clones of this array producing an otherwise identical copy.
 func (p *ConstantArray[T]) Clone() MutArray[T] {
-	return &ConstantArray[T]{p.height, p.value}
+	return &ConstantArray[T]{p.height, p.bitwidth, p.value}
 }
 
 // Len returns the number of elements in this word array.
@@ -52,7 +55,7 @@ func (p *ConstantArray[T]) Len() uint {
 
 // BitWidth returns the width (in bits) of elements in this array.
 func (p *ConstantArray[T]) BitWidth() uint {
-	return 0
+	return p.bitwidth
 }
 
 // Build implementation for the array.Builder interface.  This simply means that
@@ -69,7 +72,6 @@ func (p *ConstantArray[T]) Get(index uint) T {
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
 func (p *ConstantArray[T]) Set(index uint, word T) {
-	// do nothing
 }
 
 // Pad implementation for MutArray interface.
@@ -83,7 +85,7 @@ func (p *ConstantArray[T]) Slice(start uint, end uint) Array[T] {
 		height = end - start
 	)
 	// Done
-	return &ConstantArray[T]{height, p.value}
+	return &ConstantArray[T]{height, p.bitwidth, p.value}
 }
 
 func (p *ConstantArray[T]) String() string {
