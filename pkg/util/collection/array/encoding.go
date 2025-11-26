@@ -46,18 +46,15 @@ func (p *Encoding) OpCode() uint8 {
 }
 
 // Operand returns the instruction operand for this encoding.
-func (p *Encoding) Operand() uint16 {
-	return uint16(p.Encoding)
+func (p *Encoding) Operand() uint32 {
+	// Operand is actually 24bits
+	return p.Encoding & 0xFF_FFFF
 }
 
 // Set sets the instruction opcode for this encoding.
-func (p *Encoding) Set(opcode uint8, operand uint16) {
-	// Clear existing opcode
-	p.Encoding = p.Encoding & 0xFF_FFFF
-	// Set new opcode
-	p.Encoding = p.Encoding | (uint32(opcode) << 24)
-	// Set new operand
-	p.Encoding = p.Encoding | uint32(operand)
+func (p *Encoding) Set(opcode uint8, operand uint32) {
+	// Set new opcode & operand
+	p.Encoding = (uint32(opcode) << 24) | (operand & 0xFF_FFFF)
 }
 
 // ============================================================================
@@ -69,11 +66,18 @@ func decode_constant[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
 		value    T
 		len      = binary.BigEndian.Uint32(encoding.Bytes)
 		constant = encoding.Operand()
+		tmp      = constant
+		bitwidth uint
 	)
+	// Determine bitwidth of constant
+	for tmp > 0 {
+		tmp >>= 1
+		bitwidth++
+	}
 	//
 	value = value.SetUint64(uint64(constant))
 	//
-	return NewConstantArray[T](uint(len), value)
+	return NewConstantArray(uint(len), bitwidth, value)
 }
 
 func encode_constant[T word.DynamicWord[T]](array *ConstantArray[T]) []byte {
