@@ -225,6 +225,7 @@ func readWordColumnData(header legacyHeader, bytes []byte) array.MutArray[word.B
 		arr    = array.NewSmallArray[uint16, word.BigEndian](header.length, header.width*8)
 		offset = uint(0)
 		mx     uint16
+		zero   word.BigEndian
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
@@ -242,7 +243,7 @@ func readWordColumnData(header legacyHeader, bytes []byte) array.MutArray[word.B
 	//
 	switch {
 	case mx == 0:
-		return array.NewZeroArray[word.BigEndian](header.length)
+		return array.NewConstantArray[word.BigEndian](header.length, zero)
 	case mx < 256:
 		return readByteColumnData(header.length, bytes, 1, 2)
 	}
