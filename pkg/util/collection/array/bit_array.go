@@ -84,7 +84,7 @@ func (p *BitArray[T]) Get(index uint) T {
 }
 
 // Pad implementation for MutArray interface.
-func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
+func (p *BitArray[T]) Pad(n uint, m uint, padding T) MutArray[T] {
 	// Front padding
 	if n > 0 {
 		p.insertBits(n, padding)
@@ -93,6 +93,8 @@ func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
 	if m > 0 {
 		p.appendBits(m, padding)
 	}
+	//
+	return p
 }
 
 // Set sets the field element at the given index in this array, overwriting the
