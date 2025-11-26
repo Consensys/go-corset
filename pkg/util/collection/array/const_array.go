@@ -39,12 +39,8 @@ func NewConstantArray[T word.Word[T]](height uint, bitwidth uint, value T) *Cons
 }
 
 // Append new word on this array
-func (p *ConstantArray[T]) Append(word T) {
-	if !word.Equals(p.value) {
-		panic("unsupported operation")
-	}
-	//
-	p.Pad(0, 1, word)
+func (p *ConstantArray[T]) Append(word T) MutArray[T] {
+	return p.Pad(0, 1, word)
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
@@ -75,15 +71,21 @@ func (p *ConstantArray[T]) Get(index uint) T {
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *ConstantArray[T]) Set(index uint, word T) {
+func (p *ConstantArray[T]) Set(index uint, word T) MutArray[T] {
 	if !word.Equals(p.value) {
+		// NOTE: this can be implemented by changing the representation to
+		// something which can be mutated.
 		panic("unsupported operation")
 	}
+	//
+	return p
 }
 
 // Pad implementation for MutArray interface.
 func (p *ConstantArray[T]) Pad(n uint, m uint, padding T) MutArray[T] {
 	if !padding.Equals(p.value) {
+		// NOTE: this can be implemented by changing the representation to
+		// something which can be mutated.
 		panic("unsupported operation")
 	}
 	//

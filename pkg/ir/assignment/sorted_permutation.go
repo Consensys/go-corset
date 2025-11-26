@@ -199,7 +199,7 @@ func sortedPermutationNativeFunction[F field.Element[F]](sources []array.Array[F
 		target := builder.NewArray(n, source.BitWidth())
 		//
 		for j, index := range indices {
-			target.Set(uint(j), source.Get(index))
+			target = target.Set(uint(j), source.Get(index))
 		}
 		//
 		targets[i] = target

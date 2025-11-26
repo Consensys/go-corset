@@ -496,7 +496,7 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 				// record have seen item
 				seen.Insert(ith)
 				// append and record
-				arr.Append(ith)
+				arr = arr.Append(ith)
 			}
 		}
 	}
@@ -507,7 +507,7 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 			// record have seen item
 			seen.Insert(ith)
 			// append and record
-			arr.Append(ith)
+			arr = arr.Append(ith)
 		}
 	}
 	// Done
@@ -525,8 +525,8 @@ func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.
 	for i := range vArr.Len() {
 		ith := vArr.Get(i)
 		lo, hi := decompose(loWidth, ith)
-		vLoArr.Set(i, lo)
-		vHiArr.Set(i, hi)
+		vLoArr = vLoArr.Set(i, lo)
+		vHiArr = vHiArr.Set(i, hi)
 	}
 	//
 	return []array.MutArray[F]{vArr, vLoArr, vHiArr}
@@ -669,7 +669,7 @@ func byteDecompositionNativeFunction[F field.Element[F]](n uint, sources []array
 	for i := range height {
 		ith := decomposeIntoBytes(source.Get(i), n)
 		for j := uint(0); j < n; j++ {
-			targets[j].Set(i, ith[j])
+			targets[j] = targets[j].Set(i, ith[j])
 		}
 	}
 	//

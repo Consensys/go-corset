@@ -190,7 +190,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder 
 			//
 			val = val.SetBytes(st.Load(rid).Bytes())
 			//
-			cols[i].Set(uint(row), val)
+			cols[i] = cols[i].Set(uint(row), val)
 		}
 	}
 	// Set control registers for multi-line functions
@@ -220,12 +220,12 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 	for row, st := range states {
 		npc := field.Uint64[F](uint64(st.Pc() + 1))
 		// NOTE: +1 because PC==0 reserved for padding.
-		cols[pc].Set(uint(row), npc)
+		cols[pc] = cols[pc].Set(uint(row), npc)
 		// Check whether this is a terminating state, or not.
 		if st.IsTerminal() {
-			cols[ret].Set(uint(row), one)
+			cols[ret] = cols[ret].Set(uint(row), one)
 		} else {
-			cols[ret].Set(uint(row), zero)
+			cols[ret] = cols[ret].Set(uint(row), zero)
 		}
 	}
 }

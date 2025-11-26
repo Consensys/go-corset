@@ -130,7 +130,7 @@ func newArrayFromBigInts(bitwidth uint, data []big.Int, pool ArrayBuilder) array
 	//
 	for i := range n {
 		ithBytes := data[i].Bytes()
-		arr.Set(i, word.NewBigEndian(ithBytes))
+		arr = arr.Set(i, word.NewBigEndian(ithBytes))
 	}
 	//
 	return arr

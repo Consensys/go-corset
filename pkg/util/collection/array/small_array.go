@@ -37,8 +37,10 @@ func NewSmallArray[K uint8 | uint16 | uint32 | uint64, T word.Word[T]](height ui
 }
 
 // Append new word on this array
-func (p *SmallArray[K, T]) Append(word T) {
+func (p *SmallArray[K, T]) Append(word T) MutArray[T] {
 	p.Pad(0, 1, word)
+	//
+	return p
 }
 
 // Len returns the number of elements in this word array.
@@ -71,8 +73,9 @@ func (p *SmallArray[K, T]) Get(index uint) T {
 
 // Set the word at the given index in this array, overwriting the
 // original value.
-func (p *SmallArray[K, T]) Set(index uint, word T) {
+func (p *SmallArray[K, T]) Set(index uint, word T) MutArray[T] {
 	p.data[index] = K(word.Uint64())
+	return p
 }
 
 // SetRaw sets a raw value at the given index in this array, overwriting the

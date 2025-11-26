@@ -73,12 +73,13 @@ func (e elementArray) Slice(u uint, u2 uint) array.Array[koalabear.Element] {
 	return e[u:u2]
 }
 
-func (e elementArray) Append(t koalabear.Element) {
+func (e elementArray) Append(t koalabear.Element) array.MutArray[koalabear.Element] {
 	panic("not implemented")
 }
 
-func (e elementArray) Set(u uint, t koalabear.Element) {
+func (e elementArray) Set(u uint, t koalabear.Element) array.MutArray[koalabear.Element] {
 	e[u] = t
+	return e
 }
 
 func (e elementArray) Pad(u uint, u2 uint, t koalabear.Element) array.MutArray[koalabear.Element] {

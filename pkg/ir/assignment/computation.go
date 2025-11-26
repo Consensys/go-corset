@@ -227,7 +227,7 @@ func interleaveNativeFunction[F field.Element[F]](sources []array.Array[F], buil
 		//
 		for j := range height {
 			row := (j * multiplier) + i
-			target.Set(row, src.Get(j))
+			target = target.Set(row, src.Get(j))
 		}
 	}
 	// Done
@@ -257,7 +257,7 @@ func filterNativeFunction[F field.Element[F]](sources []array.Array[F], builder 
 		// Check whether selctor non-zero
 		if !selector.IsZero() {
 			ithValue := srcCol.Get(i)
-			data.Set(i, ithValue)
+			data = data.Set(i, ithValue)
 		}
 	}
 	// Done
@@ -319,7 +319,7 @@ func mapIfNativeFunction[F field.Element[F]](sources []array.Array[F], builder a
 				panic(fmt.Sprintf("target key (%v) missing from source map (row %d)", ith_row, i))
 			} else {
 				// Assign target value
-				targetValue.Set(i, val)
+				targetValue = targetValue.Set(i, val)
 			}
 		}
 	}
@@ -372,7 +372,7 @@ func fwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 				started = true
 				current = row
 				//
-				data.Set(i, one)
+				data = data.Set(i, one)
 			}
 		}
 	}
@@ -413,9 +413,9 @@ func fwdUnchangedWithinNativeFunction[F field.Element[F]](sources []array.Array[
 				started = true
 				current = row
 				//
-				data.Set(i, zero)
+				data = data.Set(i, zero)
 			} else {
-				data.Set(i, one)
+				data = data.Set(i, one)
 			}
 		}
 	}
@@ -456,7 +456,7 @@ func bwdChangesWithinNativeFunction[F field.Element[F]](sources []array.Array[F]
 				started = true
 				current = row
 				//
-				data.Set(i-1, one)
+				data = data.Set(i-1, one)
 			}
 		}
 	}
@@ -489,7 +489,7 @@ func fwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], b
 				current = sourceCol.Get(i)
 			}
 			//
-			data.Set(i, current)
+			data = data.Set(i, current)
 		}
 	}
 	// Done
@@ -521,7 +521,7 @@ func bwdFillWithinNativeFunction[F field.Element[F]](sources []array.Array[F], b
 				current = sourceCol.Get(i - 1)
 			}
 			//
-			data.Set(i-1, current)
+			data = data.Set(i-1, current)
 		}
 	}
 	// Done
