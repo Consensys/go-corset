@@ -75,6 +75,7 @@ const javaColumn string = `
     */
    public interface Column {
       public void write(boolean value);
+      public void write(byte value);
       public void write(long value);
       public void write(byte[] value);
    }
