@@ -242,7 +242,7 @@ func readWordColumnData(header legacyHeader, bytes []byte) array.MutArray[word.B
 	//
 	switch {
 	case mx == 0:
-		return array.NewConstantArray[word.BigEndian](header.length, zero)
+		return array.NewConstantArray[word.BigEndian](header.length, 0, zero)
 	case mx < 256:
 		return readByteColumnData(header.length, bytes, 1, 2)
 	}
