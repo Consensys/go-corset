@@ -573,7 +573,9 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 	var (
 		errs        []source.SyntaxError
 		lhs         io.RegisterId
+		rhsExpr     macro.Expr
 		rhs, tb, fb big.Int
+		label       string
 		cond        uint8
 	)
 	// Parse left hand side
@@ -585,8 +587,18 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhs, errs = p.parseNumber(env); len(errs) > 0 {
+	if rhsExpr, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
+	}
+	// Dispatch on rhs expression form
+	switch e := rhsExpr.(type) {
+	case *expr.Const:
+		rhs = e.Constant
+		label = e.Label
+	case *expr.RegAccess:
+		// We can invoke (p.index - 1) as we are in the case of a ternary operator
+		// Checks are already performed to have a lhs
+		return nil, p.syntaxErrors(p.tokens[p.index-1], "ternary operator does not support register on the rhs")
 	}
 	// expect question mark
 	if _, errs = p.expect(QMARK); len(errs) > 0 {
@@ -610,6 +622,7 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		Cond:    cond,
 		Left:    lhs,
 		Right:   rhs,
+		Label:   label,
 		Then:    tb,
 		Else:    fb,
 	}, nil

@@ -31,6 +31,8 @@ type IfThenElse struct {
 	Left io.RegisterId
 	// Right-hand side
 	Right big.Int
+	// Constant label
+	Label string
 	// Then/Else branches
 	Then, Else big.Int
 }

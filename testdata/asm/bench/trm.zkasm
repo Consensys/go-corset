@@ -1,5 +1,5 @@
 const MAX_PRC_CONTIGUOUS_ADDRESS = 0x11
-;; const P256_VERIFY_ADDRESS = 0x100
+const P256_VERIFY_ADDRESS = 0x100
 
 ;; The address trimming module does two things: (i) reduce 256bit
 ;; addresses into u160 addresses (i.e. modulo 2^160); (b) identify
@@ -38,7 +38,7 @@ fn trm(RAW_ADDRESS u256) -> (ADDRESS_HI u32, IS_PRECOMPILE u1) {
   IS_PRECOMPILE=1
   return
 check_p256_verify:
-   IS_PRECOMPILE = low == 0x100 ? 1 : 0
+   IS_PRECOMPILE = low == P256_VERIFY_ADDRESS ? 1 : 0
    return
 exit_0:
   ;; no, not precompile

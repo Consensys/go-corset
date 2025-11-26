@@ -203,14 +203,21 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 		return p.linkExprs(insn.Sources)
 	case *macro.IfGoto:
 		if insn.Label != "" {
-			deats, ok := p.constmap[module.NewName(insn.Label, 1)]
-			//
-			if !ok {
-				msg := fmt.Sprintf("unknown register or constant \"%s\"", insn.Label)
-				return p.srcmap.SyntaxError(insn, msg)
+			value, errmsg := p.getLabelValue(insn.Label)
+			if errmsg != "" {
+				return p.srcmap.SyntaxError(insn, errmsg)
+			} else {
+				insn.Constant = value
 			}
-			//
-			insn.Constant = deats.Left
+		}
+	case *macro.IfThenElse:
+		if insn.Label != "" {
+			value, errmsg := p.getLabelValue(insn.Label)
+			if errmsg != "" {
+				return p.srcmap.SyntaxError(insn, errmsg)
+			} else {
+				insn.Right = value
+			}
 		}
 	default:
 		// continue
@@ -255,6 +262,21 @@ func (p *Linker) linkExprs(es []macro.Expr) *source.SyntaxError {
 	}
 	//
 	return nil
+}
+
+func (p *Linker) getLabelValue(l string) (big.Int, string) {
+	var deats util.Pair[big.Int, uint]
+	//
+	var ok bool
+	//
+	deats, ok = p.constmap[module.NewName(l, 1)]
+	//
+	if !ok {
+		msg := fmt.Sprintf("unknown register or constant \"%s\"", l)
+		return big.Int{}, msg
+	}
+	//
+	return deats.Left, ""
 }
 
 // Get the local bus declared for the given function, either by allocating a new
