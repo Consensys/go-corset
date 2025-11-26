@@ -82,7 +82,7 @@ func (p *StaticArray[T]) Slice(start uint, end uint) Array[T] {
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *StaticArray[T]) Pad(n uint, m uint, padding T) {
+func (p *StaticArray[T]) Pad(n uint, m uint, padding T) MutArray[T] {
 	var (
 		// Determine new length
 		l = n + m + p.Len()
@@ -100,6 +100,8 @@ func (p *StaticArray[T]) Pad(n uint, m uint, padding T) {
 	for i := l - m; i < l; i++ {
 		p.Set(i, padding)
 	}
+	//
+	return p
 }
 
 func (p *StaticArray[T]) String() string {

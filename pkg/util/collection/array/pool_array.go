@@ -77,7 +77,7 @@ func (p *PoolArray[K, T, P]) Get(index uint) T {
 }
 
 // Pad implementation for MutArray interface.
-func (p *PoolArray[K, T, P]) Pad(n uint, m uint, padding T) {
+func (p *PoolArray[K, T, P]) Pad(n uint, m uint, padding T) MutArray[T] {
 	var (
 		// Determine new length
 		l = n + m + p.Len()
@@ -95,6 +95,8 @@ func (p *PoolArray[K, T, P]) Pad(n uint, m uint, padding T) {
 	for i := l - m; i < l; i++ {
 		p.Set(i, padding)
 	}
+	//
+	return p
 }
 
 // Set sets the field element at the given index in this array, overwriting the

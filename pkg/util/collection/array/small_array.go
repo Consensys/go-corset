@@ -90,7 +90,7 @@ func (p *SmallArray[K, T]) Slice(start uint, end uint) Array[T] {
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *SmallArray[K, T]) Pad(n uint, m uint, padding T) {
+func (p *SmallArray[K, T]) Pad(n uint, m uint, padding T) MutArray[T] {
 	var (
 		// Determine new length
 		l = n + m + p.Len()
@@ -110,6 +110,8 @@ func (p *SmallArray[K, T]) Pad(n uint, m uint, padding T) {
 	for i := l - m; i < l; i++ {
 		p.data[i] = val
 	}
+	//
+	return p
 }
 
 func (p *SmallArray[K, T]) String() string {
