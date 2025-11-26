@@ -51,9 +51,11 @@ type staticArrayBuilder[T word.Word[T]] struct {
 
 // NewArray constructs a new word array with a given capacity.
 func (p *staticArrayBuilder[T]) NewArray(height uint, bitwidth uint) MutArray[T] {
+	var zero T
+	//
 	switch {
 	case bitwidth == 0:
-		return NewZeroArray[T](height)
+		return NewConstantArray(height, zero)
 	case bitwidth == 1:
 		arr := NewBitArray[T](height)
 		return &arr
@@ -87,9 +89,11 @@ type DynamicBuilder[T word.DynamicWord[T], P pool.Pool[uint32, T]] struct {
 
 // NewArray constructs a new word array with a given capacity.
 func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] {
+	var zero T
+	//
 	switch {
 	case bitwidth == 0:
-		return NewZeroArray[T](height)
+		return NewConstantArray(height, zero)
 	case bitwidth == 1:
 		arr := NewBitArray[T](height)
 		return &arr
@@ -111,8 +115,8 @@ func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] 
 // when the encoding was made.
 func (p *DynamicBuilder[T, P]) Decode(encoding Encoding) MutArray[T] {
 	switch encoding.OpCode() {
-	case ENCODING_ZERO:
-		return decode_zero[T](encoding)
+	case ENCODING_CONSTANT:
+		return decode_constant[T](encoding)
 	case ENCODING_STATIC:
 		return decode_static[T](encoding)
 	case ENCODING_POOL:
@@ -131,8 +135,8 @@ func (p *DynamicBuilder[T, P]) Encode(array Array[T]) Encoding {
 	//
 	switch {
 	case bitwidth == 0:
-		encoding.Bytes = encode_zero(array.(*ZeroArray[T]))
-		encoding.Set(ENCODING_ZERO, bitwidth)
+		encoding.Bytes = encode_constant(array.(*ConstantArray[T]))
+		encoding.Set(ENCODING_CONSTANT, bitwidth)
 	case bitwidth == 1:
 		encoding.Bytes = encode_bits(array.(*BitArray[T]))
 		encoding.Set(ENCODING_STATIC, bitwidth)
