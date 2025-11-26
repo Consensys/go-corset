@@ -364,7 +364,7 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 				// record have seen item
 				seen.Insert(ith)
 				// append and record
-				arr.Append(ith)
+				arr = arr.Append(ith)
 			}
 		}
 	}
@@ -375,7 +375,7 @@ func combineSources[F field.Element[F]](bitwidth uint, sources []array.Array[F],
 			// record have seen item
 			seen.Insert(ith)
 			// append and record
-			arr.Append(ith)
+			arr = arr.Append(ith)
 		}
 	}
 	// Done
@@ -393,8 +393,8 @@ func computeDecomposition[F field.Element[F]](loWidth, hiWidth uint, vArr array.
 	for i := range vArr.Len() {
 		ith := vArr.Get(i)
 		lo, hi := decompose(loWidth, ith)
-		vLoArr.Set(i, lo)
-		vHiArr.Set(i, hi)
+		vLoArr = vLoArr.Set(i, lo)
+		vHiArr = vHiArr.Set(i, hi)
 	}
 	//
 	return []array.MutArray[F]{vArr, vLoArr, vHiArr}

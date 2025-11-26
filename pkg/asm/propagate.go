@@ -363,7 +363,7 @@ func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.
 			w   word.BigEndian
 		)
 		//
-		arr.Set(uint(i), w.SetBytes(ith.Bytes()))
+		arr = arr.Set(uint(i), w.SetBytes(ith.Bytes()))
 	}
 	//
 	return arr
