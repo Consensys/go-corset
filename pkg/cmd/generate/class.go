@@ -436,6 +436,8 @@ func generateJavaModuleColumnSetter[F any](className string, methodName string, 
 	switch {
 	case bitwidth == 1:
 		i1Builder.WriteIndentedString(fieldName, ".write(val);\n")
+	case bitwidth <= 8:
+		i1Builder.WriteIndentedString(fieldName, ".write((byte) val);\n")
 	case bitwidth <= 63:
 		i1Builder.WriteIndentedString(fieldName, ".write(val);\n")
 	default:
