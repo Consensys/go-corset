@@ -114,16 +114,7 @@ func (p *DynamicBuilder[T, P]) NewArray(height uint, bitwidth uint) MutArray[T] 
 // Decode reconstructs an array from an array encoding, given the pool as it was
 // when the encoding was made.
 func (p *DynamicBuilder[T, P]) Decode(encoding Encoding) MutArray[T] {
-	switch encoding.OpCode() {
-	case ENCODING_CONSTANT:
-		return decode_constant[T](encoding)
-	case ENCODING_STATIC:
-		return decode_static[T](encoding)
-	case ENCODING_POOL:
-		return decode_pool(encoding, *p)
-	default:
-		panic(fmt.Sprintf("unsupported encoding (%d)", encoding.OpCode()))
-	}
+	return Decode(encoding, p.heap)
 }
 
 // Encode a given array as a sequence of bytes suitable for serialisation.
@@ -136,30 +127,30 @@ func (p *DynamicBuilder[T, P]) Encode(array Array[T]) Encoding {
 	switch {
 	case bitwidth == 0:
 		encoding.Bytes = encode_constant(array.(*ConstantArray[T]))
-		encoding.Set(ENCODING_CONSTANT, 0)
+		encoding.Set(ENCODING_STATIC_CONSTANT, 0)
 	case bitwidth == 1:
 		encoding.Bytes = encode_bits(array.(*BitArray[T]))
-		encoding.Set(ENCODING_STATIC, bitwidth)
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
 	case bitwidth <= 8:
 		encoding.Bytes = encode_small8(array.(*SmallArray[uint8, T]))
-		encoding.Set(ENCODING_STATIC, bitwidth)
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
 	case bitwidth <= 16:
 		encoding.Bytes = encode_small16(array.(*SmallArray[uint16, T]))
-		encoding.Set(ENCODING_STATIC, bitwidth)
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
 	case bitwidth <= 32:
 		encoding.Bytes = encode_small32(array.(*SmallArray[uint32, T]))
-		encoding.Set(ENCODING_STATIC, bitwidth)
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
 	default:
 		switch t := array.(type) {
 		// POOL ARRAYS
 		case *PoolArray[uint32, T, P]:
 			encoding.Bytes = encode_pool(t)
-			encoding.Set(ENCODING_POOL, uint32(t.BitWidth()))
+			encoding.Set(ENCODING_POOL32_DENSE, uint32(t.BitWidth()))
 		case *PoolArray[uint32, T, *pool.SharedHeap[T]]:
 			// FIXME: this use case is only support for legacy reasons whilst the
 			// existing legacy trace file format exists.
 			encoding.Bytes = encode_pool(t)
-			encoding.Set(ENCODING_POOL, uint32(t.bitwidth))
+			encoding.Set(ENCODING_POOL32_DENSE, uint32(t.bitwidth))
 		default:
 			panic(fmt.Sprintf("unknown array type: %s", reflect.TypeOf(t).String()))
 		}
