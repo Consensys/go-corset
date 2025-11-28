@@ -232,7 +232,7 @@ func lexSortNativeFunction[F field.Element[F]](sources []array.Array[F], signs [
 	for i := uint(1); i < nrows; i++ {
 		set := false
 		// Initialise delta to zero
-		targets[0].Set(i, zero)
+		targets[0] = targets[0].Set(i, zero)
 		// Decide which row is the winner (if any)
 		for j := 0; j < nbits; j++ {
 			prev := sources[j].Get(i - 1)
@@ -241,7 +241,7 @@ func lexSortNativeFunction[F field.Element[F]](sources []array.Array[F], signs [
 			if !set && prev.Cmp(curr) != 0 {
 				var diff F
 
-				targets[j+1].Set(i, one)
+				targets[j+1] = targets[j+1].Set(i, one)
 				// Compute curr - prev
 				if !signs[j] {
 					// Swap
@@ -258,11 +258,11 @@ func lexSortNativeFunction[F field.Element[F]](sources []array.Array[F], signs [
 					diff = curr.Sub(prev)
 				}
 				//
-				targets[0].Set(i, diff)
+				targets[0] = targets[0].Set(i, diff)
 				//
 				set = true
 			} else {
-				targets[j+1].Set(i, zero)
+				targets[j+1] = targets[j+1].Set(i, zero)
 			}
 		}
 	}

@@ -119,7 +119,7 @@ func lowerRawColumn[F field.Element[F]](column lt.Column[word.BigEndian], builde
 			// Initial word from big endian bytes.
 			val = val.SetBytes(data.Get(i).Bytes())
 			//
-			ndata.Set(i, val)
+			ndata = ndata.Set(i, val)
 		}
 	}
 	//

@@ -14,19 +14,99 @@ package array
 
 import (
 	"encoding/binary"
+	"fmt"
+	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// ENCODING_ZERO is for arrays which hold constant values.
-const ENCODING_ZERO = 0
+// ENCODING_STATIC_CONSTANT is for arrays which hold constant values.
+const ENCODING_STATIC_CONSTANT = 0
 
-// ENCODING_STATIC is for arrays which hold their values explicitly.
-const ENCODING_STATIC = 1
+// ENCODING_STATIC_DENSE is for arrays which hold their values explicitly.
+const ENCODING_STATIC_DENSE = 1
 
-// ENCODING_POOL is for arrays whose values are indexes into a pool.
-const ENCODING_POOL = 2
+// ENCODING_STATIC_SPARSE8 is for arrays which hold their values explicitly, and
+// are stored in a sparse representation (assuming u8 block lengths).
+const ENCODING_STATIC_SPARSE8 = 2
+
+// ENCODING_STATIC_SPARSE16 is for arrays which hold their values explicitly, and
+// are stored in a sparse representation (assuming u16 block lengths).
+const ENCODING_STATIC_SPARSE16 = 3
+
+// ENCODING_STATIC_SPARSE24 is currently not supported.
+const ENCODING_STATIC_SPARSE24 = 4
+
+// ENCODING_STATIC_SPARSE32 is for arrays which hold their values explicitly, and
+// are stored in a sparse representation (assuming u32 block lengths).
+const ENCODING_STATIC_SPARSE32 = 5
+
+// ENCODING_POOL_CONSTANT is for arrays holding a constant index into a pool.
+const ENCODING_POOL_CONSTANT = 6
+
+// ENCODING_POOL1_DENSE is for arrays holding u1 indictes into a pool.
+const ENCODING_POOL1_DENSE = 7
+
+// ENCODING_POOL2_DENSE is for arrays holding u2 indictes into a pool.
+const ENCODING_POOL2_DENSE = 8
+
+// ENCODING_POOL4_DENSE is for arrays holding u4 indictes into a pool.
+const ENCODING_POOL4_DENSE = 9
+
+// ENCODING_POOL8_DENSE is for arrays holding u8 indictes into a pool.
+const ENCODING_POOL8_DENSE = 10
+
+// ENCODING_POOL16_DENSE is for arrays holding u16 indictes into a pool.
+const ENCODING_POOL16_DENSE = 11
+
+// ENCODING_POOL32_DENSE is for arrays holding u32 indictes into a pool.
+const ENCODING_POOL32_DENSE = 12
+
+// ENCODING_POOL8_SPARSE8 is for arrays holding u8 indictes into a pool, and are
+// stored in a sparse representation (assuming u8 block lengths).
+const ENCODING_POOL8_SPARSE8 = 13
+
+// ENCODING_POOL8_SPARSE16 is for arrays holding u8 indictes into a pool, and are
+// stored in a sparse representation (assuming u16 block lengths).
+const ENCODING_POOL8_SPARSE16 = 14
+
+// ENCODING_POOL8_SPARSE24 is currently not supported.
+const ENCODING_POOL8_SPARSE24 = 15
+
+// ENCODING_POOL8_SPARSE32 is for arrays holding u8 indictes into a pool, and are
+// stored in a sparse representation (assuming u8 block lengths).
+const ENCODING_POOL8_SPARSE32 = 16
+
+// ENCODING_POOL16_SPARSE8 is for arrays holding u16 indictes into a pool, and are
+// stored in a sparse representation (assuming u8 block lengths).
+const ENCODING_POOL16_SPARSE8 = 17
+
+// ENCODING_POOL16_SPARSE16 is for arrays holding u16 indictes into a pool, and are
+// stored in a sparse representation (assuming u16 block lengths).
+const ENCODING_POOL16_SPARSE16 = 18
+
+// ENCODING_POOL16_SPARSE24 is currently not supported.
+const ENCODING_POOL16_SPARSE24 = 19
+
+// ENCODING_POOL16_SPARSE32 is for arrays holding u16 indictes into a pool, and are
+// stored in a sparse representation (assuming u32 block lengths).
+const ENCODING_POOL16_SPARSE32 = 20
+
+// ENCODING_POOL32_SPARSE8 is for arrays holding u32 indictes into a pool, and are
+// stored in a sparse representation (assuming u8 block lengths).
+const ENCODING_POOL32_SPARSE8 = 21
+
+// ENCODING_POOL32_SPARSE16 is for arrays holding u32 indictes into a pool, and are
+// stored in a sparse representation (assuming u16 block lengths).
+const ENCODING_POOL32_SPARSE16 = 22
+
+// ENCODING_POOL32_SPARSE24 is currently not supported.
+const ENCODING_POOL32_SPARSE24 = 23
+
+// ENCODING_POOL32_SPARSE32 is for arrays holding u32 indictes into a pool, and are
+// stored in a sparse representation (assuming u32 block lengths).
+const ENCODING_POOL32_SPARSE32 = 24
 
 // Pool provides a convenient alias
 type Pool[T any] = pool.Pool[uint32, T]
@@ -46,30 +126,64 @@ func (p *Encoding) OpCode() uint8 {
 }
 
 // Operand returns the instruction operand for this encoding.
-func (p *Encoding) Operand() uint16 {
-	return uint16(p.Encoding)
+func (p *Encoding) Operand() uint32 {
+	// Operand is actually 24bits
+	return p.Encoding & 0xFF_FFFF
 }
 
 // Set sets the instruction opcode for this encoding.
-func (p *Encoding) Set(opcode uint8, operand uint16) {
-	// Clear existing opcode
-	p.Encoding = p.Encoding & 0xFF_FFFF
-	// Set new opcode
-	p.Encoding = p.Encoding | (uint32(opcode) << 24)
-	// Set new operand
-	p.Encoding = p.Encoding | uint32(operand)
+func (p *Encoding) Set(opcode uint8, operand uint32) {
+	// Set new opcode & operand
+	p.Encoding = (uint32(opcode) << 24) | (operand & 0xFF_FFFF)
+}
+
+// Encode a given array as a sequence of bytes suitable for serialisation.
+func Encode[T word.DynamicWord[T], P Pool[T]](array Array[T]) Encoding {
+	var (
+		encoding Encoding
+		bitwidth = uint32(array.BitWidth())
+	)
+	//
+	switch {
+	case bitwidth == 0:
+		encoding.Bytes = encode_constant(array.(*ConstantArray[T]))
+		encoding.Set(ENCODING_STATIC_CONSTANT, 0)
+	case bitwidth == 1:
+		encoding.Bytes = encode_bits(array.(*BitArray[T]))
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
+	case bitwidth <= 8:
+		encoding.Bytes = encode_small8(array.(*SmallArray[uint8, T]))
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
+	case bitwidth <= 16:
+		encoding.Bytes = encode_small16(array.(*SmallArray[uint16, T]))
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
+	case bitwidth <= 32:
+		encoding.Bytes = encode_small32(array.(*SmallArray[uint32, T]))
+		encoding.Set(ENCODING_STATIC_DENSE, bitwidth)
+	default:
+		switch t := array.(type) {
+		// POOL ARRAYS
+		case *PoolArray[uint32, T, P]:
+			encoding.Bytes = encode_pool(t)
+			encoding.Set(ENCODING_POOL32_DENSE, uint32(t.BitWidth()))
+		case *PoolArray[uint32, T, *pool.SharedHeap[T]]:
+			// FIXME: this use case is only support for legacy reasons whilst the
+			// existing legacy trace file format exists.
+			encoding.Bytes = encode_pool(t)
+			encoding.Set(ENCODING_POOL32_DENSE, uint32(t.bitwidth))
+		default:
+			panic(fmt.Sprintf("unknown array type: %s", reflect.TypeOf(t).String()))
+		}
+	}
+	//
+	return encoding
 }
 
 // ============================================================================
 // Constant Arrays
 // ============================================================================
 
-func decode_zero[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
-	var len = binary.BigEndian.Uint32(encoding.Bytes)
-	return NewZeroArray[T](uint(len))
-}
-
-func encode_zero[T word.DynamicWord[T]](array *ZeroArray[T]) []byte {
+func encode_constant[T word.DynamicWord[T]](array *ConstantArray[T]) []byte {
 	var bytes [4]byte
 	//
 	binary.BigEndian.PutUint32(bytes[:], uint32(array.Len()))
@@ -81,36 +195,6 @@ func encode_zero[T word.DynamicWord[T]](array *ZeroArray[T]) []byte {
 // Static Arrays
 // ============================================================================
 
-func decode_static[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
-	var bitwidth = encoding.Operand()
-	//
-	switch {
-	case bitwidth == 1:
-		return decode_bits[T](encoding.Bytes)
-	case bitwidth <= 8:
-		return decode_small8[T](encoding)
-	case bitwidth <= 16:
-		return decode_small16[T](encoding)
-	case bitwidth <= 32:
-		return decode_small32[T](encoding)
-	default:
-		panic("unsupported static array")
-	}
-}
-
-func decode_bits[T word.DynamicWord[T]](bytes []byte) MutArray[T] {
-	var (
-		n      = uint(len(bytes) - 1)
-		unused = uint(bytes[n])
-		arr    BitArray[T]
-	)
-	//
-	arr.data = bytes[:n]
-	arr.height = uint(len(arr.data)*8) - unused
-	//
-	return &arr
-}
-
 func encode_bits[T word.DynamicWord[T]](array *BitArray[T]) []byte {
 	var (
 		unused = (len(array.data) * 8) - int(array.height)
@@ -119,40 +203,8 @@ func encode_bits[T word.DynamicWord[T]](array *BitArray[T]) []byte {
 	return append(array.data, uint8(unused))
 }
 
-// Decode an array of bytes into a given array.
-func decode_small8[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
-	var arr SmallArray[uint8, T]
-	//
-	arr.data = encoding.Bytes
-	arr.bitwidth = uint(encoding.Operand())
-	//
-	return &arr
-}
-
 func encode_small8[T word.DynamicWord[T]](array *SmallArray[uint8, T]) []byte {
 	return array.data
-}
-
-func decode_small16[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
-	var (
-		arr SmallArray[uint16, T]
-		n   = uint(len(encoding.Bytes) / 2)
-	)
-	//
-	arr.data = make([]uint16, n)
-	arr.bitwidth = uint(encoding.Operand())
-	//
-	for i := range n {
-		var (
-			offset = i * 2
-			b1     = uint16(encoding.Bytes[offset])
-			b0     = uint16(encoding.Bytes[offset+1])
-		)
-		// Assign ith element
-		arr.data[i] = (b1 << 8) | b0
-	}
-	//
-	return &arr
 }
 
 func encode_small16[T word.DynamicWord[T]](array *SmallArray[uint16, T]) []byte {
@@ -169,30 +221,6 @@ func encode_small16[T word.DynamicWord[T]](array *SmallArray[uint16, T]) []byte 
 	}
 	//
 	return bytes
-}
-
-func decode_small32[T word.DynamicWord[T]](encoding Encoding) MutArray[T] {
-	var (
-		arr SmallArray[uint32, T]
-		n   = uint(len(encoding.Bytes) / 4)
-	)
-	//
-	arr.data = make([]uint32, n)
-	arr.bitwidth = uint(encoding.Operand())
-	//
-	for i := range n {
-		var (
-			offset = i * 4
-			b3     = uint32(encoding.Bytes[offset])
-			b2     = uint32(encoding.Bytes[offset+1])
-			b1     = uint32(encoding.Bytes[offset+2])
-			b0     = uint32(encoding.Bytes[offset+3])
-		)
-		// Assign ith element
-		arr.data[i] = (b3 << 24) | (b2 << 16) | (b1 << 8) | b0
-	}
-	//
-	return &arr
 }
 
 // Encode returns the byte encoding of this array.
@@ -217,31 +245,6 @@ func encode_small32[T word.DynamicWord[T]](array *SmallArray[uint32, T]) []byte 
 // ============================================================================
 // Pool Array
 // ============================================================================
-
-func decode_pool[T word.DynamicWord[T], P Pool[T]](encoding Encoding, builder DynamicBuilder[T, P]) MutArray[T] {
-	var (
-		arr PoolArray[uint32, T, P]
-		n   = uint(len(encoding.Bytes) / 4)
-	)
-	//
-	arr.index = make([]uint32, n)
-	arr.bitwidth = uint(encoding.Operand())
-	arr.pool = builder.heap
-	//
-	for i := range n {
-		var (
-			offset = i * 4
-			b3     = uint32(encoding.Bytes[offset])
-			b2     = uint32(encoding.Bytes[offset+1])
-			b1     = uint32(encoding.Bytes[offset+2])
-			b0     = uint32(encoding.Bytes[offset+3])
-		)
-		// Assign ith element
-		arr.index[i] = (b3 << 24) + (b2 << 16) + (b1 << 8) + b0
-	}
-	//
-	return &arr
-}
 
 // Encode returns the byte encoding of this array.
 func encode_pool[T word.DynamicWord[T], P Pool[T]](array *PoolArray[uint32, T, P]) []byte {

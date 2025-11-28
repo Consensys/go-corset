@@ -203,7 +203,7 @@ func fwdComputation[F field.Element[F]](data array.MutArray[F], expr ir.Evaluabl
 			return err
 		}
 		//
-		data.Set(i, val)
+		data = data.Set(i, val)
 	}
 	//
 	return nil
@@ -219,7 +219,7 @@ func bwdComputation[F field.Element[F]](data array.MutArray[F], expr ir.Evaluabl
 			return err
 		}
 		//
-		data.Set(i-1, val)
+		data = data.Set(i-1, val)
 	}
 	//
 	return nil

@@ -217,7 +217,7 @@ func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []arr
 		// Convert back to big endian
 		array.ReverseInPlace(buf[:m])
 		// Done
-		arrays[i].Set(row, field.FromBigEndianBytes[F](buf[:m]))
+		arrays[i] = arrays[i].Set(row, field.FromBigEndianBytes[F](buf[:m]))
 	}
 }
 
