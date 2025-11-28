@@ -37,8 +37,8 @@ func NewStaticArray[T word.Word[T]](height uint, bitwidth uint) *StaticArray[T] 
 }
 
 // Append new word on this array
-func (p *StaticArray[T]) Append(word T) {
-	p.Pad(0, 1, word)
+func (p *StaticArray[T]) Append(word T) MutArray[T] {
+	return p.Pad(0, 1, word)
 }
 
 // Len returns the number of elements in this word array.
@@ -59,8 +59,9 @@ func (p *StaticArray[T]) Get(index uint) T {
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *StaticArray[T]) Set(index uint, word T) {
+func (p *StaticArray[T]) Set(index uint, word T) MutArray[T] {
 	p.data[index] = word
+	return p
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
@@ -82,7 +83,7 @@ func (p *StaticArray[T]) Slice(start uint, end uint) Array[T] {
 
 // Pad prepend array with n copies and append with m copies of the given padding
 // value.
-func (p *StaticArray[T]) Pad(n uint, m uint, padding T) {
+func (p *StaticArray[T]) Pad(n uint, m uint, padding T) MutArray[T] {
 	var (
 		// Determine new length
 		l = n + m + p.Len()
@@ -100,6 +101,8 @@ func (p *StaticArray[T]) Pad(n uint, m uint, padding T) {
 	for i := l - m; i < l; i++ {
 		p.Set(i, padding)
 	}
+	//
+	return p
 }
 
 func (p *StaticArray[T]) String() string {

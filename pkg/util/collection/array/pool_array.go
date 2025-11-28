@@ -40,7 +40,7 @@ func NewPoolArray[K uint8 | uint16 | uint32, T word.Word[T], P pool.Pool[K, T]](
 }
 
 // Append adds a new element to the end of this array
-func (p *PoolArray[K, T, P]) Append(element T) {
+func (p *PoolArray[K, T, P]) Append(element T) MutArray[T] {
 	var (
 		zero K
 		n    = uint(len(p.index))
@@ -48,7 +48,7 @@ func (p *PoolArray[K, T, P]) Append(element T) {
 	// Add new element
 	p.index = append(p.index, zero)
 	// Set value of that element
-	p.Set(n, element)
+	return p.Set(n, element)
 }
 
 // Clone makes clones of this array producing an otherwise identical copy.
@@ -77,7 +77,7 @@ func (p *PoolArray[K, T, P]) Get(index uint) T {
 }
 
 // Pad implementation for MutArray interface.
-func (p *PoolArray[K, T, P]) Pad(n uint, m uint, padding T) {
+func (p *PoolArray[K, T, P]) Pad(n uint, m uint, padding T) MutArray[T] {
 	var (
 		// Determine new length
 		l = n + m + p.Len()
@@ -95,13 +95,17 @@ func (p *PoolArray[K, T, P]) Pad(n uint, m uint, padding T) {
 	for i := l - m; i < l; i++ {
 		p.Set(i, padding)
 	}
+	//
+	return p
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *PoolArray[K, T, P]) Set(index uint, word T) {
+func (p *PoolArray[K, T, P]) Set(index uint, word T) MutArray[T] {
 	//
 	p.index[index] = p.pool.Put(word)
+	//
+	return p
 }
 
 // Slice out a subregion of this array.

@@ -210,7 +210,7 @@ func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []arr
 	if ok {
 		//
 		for i := range widths {
-			arrays[i].Set(row, elements[i])
+			arrays[i] = arrays[i].Set(row, elements[i])
 		}
 	}
 
