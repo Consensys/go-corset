@@ -214,9 +214,9 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 		}
 		// Assign trace builder with limb map
 		stack.traceBuilder = p.traceBuilder.WithRegisterMapping(mapping)
+		// Assign binfile used to build the stack
+		stack.binfile = util.Some(binfile)
 	}
-	// Assign binfile used to build the stack
-	stack.binfile = p.binfile
 	//
 	return stack
 }

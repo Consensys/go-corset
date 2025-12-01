@@ -84,25 +84,25 @@ func Propagate[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[
 		errors []error
 		n      = uint(len(p.program.Functions()))
 		//
-		executor = io.NewExecutor(p.program)
-		modules  []lt.Module[word.BigEndian]
+		executor  = io.NewExecutor(p.program)
+		trModules []lt.Module[word.BigEndian]
 		// Clone heap in trace file, since will mutate this.
 		heap = trace.Heap()
 	)
 	// Clone heap
 	heap = heap.Clone()
 	// Perform trace alignment
-	modules, errors = ir.AlignTrace(p.Modules().Collect(), trace.RawModules(), true)
+	trModules, errors = ir.AlignTrace(p.Modules().Collect(), trace.RawModules(), true)
 	// Sanity check for errors
 	if len(errors) > 0 {
 		return lt.TraceFile{}, errors
 	}
 	// Write seed instances
-	errors = writeInstances(p, n, modules, executor)
+	errors = writeInstances(p, n, trModules, executor)
 	// Read out generated instances
-	modules = readInstances(&heap, p.program, executor)
+	modules := readInstances(&heap, p.program, executor)
 	// Append external modules (which are unaffected by propagation).
-	modules = append(modules, modules[n:]...)
+	modules = append(modules, trModules[n:]...)
 	// Done
 	return lt.NewTraceFile(trace.Header().MetaData, heap, modules), errors
 }
