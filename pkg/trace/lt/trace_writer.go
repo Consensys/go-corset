@@ -86,7 +86,7 @@ func splitRawColumns(rawModules []Module[word.BigEndian], builder WordArrayBuild
 		var ithEncodings = make([]array.Encoding, len(ith.Columns))
 		//
 		for j, jth := range ith.Columns {
-			ithEncodings[j] = builder.Encode(jth.Data)
+			ithEncodings[j] = builder.Encode(jth.data)
 		}
 		//
 		encodings[i] = ithEncodings
@@ -114,7 +114,7 @@ func toHeaderBytes(modules []Module[word.BigEndian], encodings [][]array.Encodin
 func writeModuleHeader(buf io.Writer, module Module[word.BigEndian], encodings []array.Encoding) (err error) {
 	var height = uint32(module.Height())
 	// Write module name
-	if err = writeName(buf, module.Name.String()); err != nil {
+	if err = writeName(buf, module.Name().String()); err != nil {
 		return err
 	}
 	// Write module height
@@ -137,11 +137,11 @@ func writeModuleHeader(buf io.Writer, module Module[word.BigEndian], encodings [
 
 func writeColumnHeader(buf io.Writer, column Column[word.BigEndian], encoding array.Encoding) (err error) {
 	var (
-		bitwidth uint16 = uint16(column.Data.BitWidth())
+		bitwidth uint16 = uint16(column.data.BitWidth())
 		len      uint32 = uint32(len(encoding.Bytes))
 	)
 	// Write column name
-	if err = writeName(buf, column.Name); err != nil {
+	if err = writeName(buf, column.name); err != nil {
 		return err
 	}
 	// Write column data length

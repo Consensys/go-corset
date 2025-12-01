@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package cmd
+package util
 
 import (
 	"fmt"
@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -70,7 +71,7 @@ type SchemaStacker[F field.Element[F]] struct {
 	// Layers identifies which layers are included in the stack.
 	layers bit.Set
 	// Binfile represents the top of this stack.
-	binfile binfile.BinaryFile
+	binfile util.Option[binfile.BinaryFile]
 }
 
 // NewSchemaStack constructs a new, but empty stack of schemas.
@@ -91,7 +92,7 @@ func (p SchemaStacker[F]) WithAssemblyConfig(config asm.LoweringConfig) SchemaSt
 func (p SchemaStacker[F]) WithBinaryFile(binf binfile.BinaryFile) SchemaStacker[F] {
 	var stacker = p
 	//
-	stacker.binfile = binf
+	stacker.binfile = util.Some(binf)
 	//
 	return stacker
 }
@@ -138,9 +139,15 @@ func (p SchemaStacker[F]) WithTraceBuilder(builder ir.TraceBuilder[F]) SchemaSta
 	return p
 }
 
+// HasBinaryFile determines whether or not a binary file is available
+func (p SchemaStacker[F]) HasBinaryFile() bool {
+	return p.binfile.HasValue()
+}
+
 // BinaryFile returns the binary file representing the top of this stack.
 func (p SchemaStacker[F]) BinaryFile() *binfile.BinaryFile {
-	return &p.binfile
+	bf := p.binfile.Unwrap()
+	return &bf
 }
 
 // Field returns the field configuration used within this schema stack.
@@ -150,7 +157,9 @@ func (p SchemaStacker[F]) Field() field.Config {
 
 // Read reads one or more constraints files into this stack.
 func (p SchemaStacker[F]) Read(filenames ...string) SchemaStacker[F] {
-	p.binfile = readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	bf := readConstraintFiles(p.corsetConfig, p.asmConfig, filenames)
+	p.binfile = util.Some(bf)
+	//
 	return p
 }
 
@@ -164,45 +173,48 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 	var (
 		asmProgram asm.MacroHirProgram
 		hirProgram asm.MicroHirProgram
-		mirSchema  mir.Schema[F]
 		airSchema  air.Schema[F]
 		stack      SchemaStack[F]
 	)
-	// Apply any user-specified values for externalised constants.
-	applyExternOverrides(p.externs, &p.binfile)
-	// Read out the mixed macro schema
-	asmProgram = p.BinaryFile().Schema
-	// Lower to mixed micro schema
-	hirProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
-	// Apply register splitting for field agnosticity
-	mirSchema, mapping := asm.Concretize[F](p.asmConfig.Field, hirProgram)
-	// Record mapping
-	stack.mapping = mapping
-	// Include (Macro) Assembly Layer (if requested)
-	if p.layers.Contains(MACRO_ASM_LAYER) {
-		stack.abstractSchemas = append(stack.abstractSchemas, &asmProgram)
-		stack.names = append(stack.names, "ASM")
+	//
+	if p.binfile.HasValue() {
+		binfile := p.binfile.Unwrap()
+		// Apply any user-specified values for externalised constants.
+		applyExternOverrides(p.externs, &binfile)
+		// Read out the mixed macro schema
+		asmProgram = binfile.Schema
+		// Lower to mixed micro schema
+		hirProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
+		// Apply register splitting for field agnosticity
+		mirSchema, mapping := asm.Concretize[F](p.asmConfig.Field, hirProgram)
+		// Record mapping
+		stack.mapping = mapping
+		// Include (Macro) Assembly Layer (if requested)
+		if p.layers.Contains(MACRO_ASM_LAYER) {
+			stack.abstractSchemas = append(stack.abstractSchemas, &asmProgram)
+			stack.names = append(stack.names, "ASM")
+		}
+		// Include (Micro) Assembly Layer (if requested)
+		if p.layers.Contains(MICRO_ASM_LAYER) {
+			stack.abstractSchemas = append(stack.abstractSchemas, &hirProgram)
+			stack.names = append(stack.names, "UASM")
+		}
+		// Include Mid-level IR layer (if requested)
+		if p.layers.Contains(MIR_LAYER) {
+			stack.concreteSchemas = append(stack.concreteSchemas, mirSchema)
+			stack.names = append(stack.names, "MIR")
+		}
+		// Include Arithmetic-level IR layer (if requested)
+		if p.layers.Contains(AIR_LAYER) {
+			// Lower to AIR
+			airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
+			//
+			stack.concreteSchemas = append(stack.concreteSchemas, schema.Any(airSchema))
+			stack.names = append(stack.names, "AIR")
+		}
+		// Assign trace builder with limb map
+		stack.traceBuilder = p.traceBuilder.WithRegisterMapping(mapping)
 	}
-	// Include (Micro) Assembly Layer (if requested)
-	if p.layers.Contains(MICRO_ASM_LAYER) {
-		stack.abstractSchemas = append(stack.abstractSchemas, &hirProgram)
-		stack.names = append(stack.names, "UASM")
-	}
-	// Include Mid-level IR layer (if requested)
-	if p.layers.Contains(MIR_LAYER) {
-		stack.concreteSchemas = append(stack.concreteSchemas, mirSchema)
-		stack.names = append(stack.names, "MIR")
-	}
-	// Include Arithmetic-level IR layer (if requested)
-	if p.layers.Contains(AIR_LAYER) {
-		// Lower to AIR
-		airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
-		//
-		stack.concreteSchemas = append(stack.concreteSchemas, schema.Any(airSchema))
-		stack.names = append(stack.names, "AIR")
-	}
-	// Assign trace builder with limb map
-	stack.traceBuilder = p.traceBuilder.WithRegisterMapping(mapping)
 	// Assign binfile used to build the stack
 	stack.binfile = p.binfile
 	//

@@ -76,16 +76,13 @@ func FromBytes(data []byte) (WordHeap, []Module[word.BigEndian], error) {
 			// Decode array data
 			data := builder.Decode(encoding)
 			// Include it
-			columns[j] = Column[word.BigEndian]{
-				Name: jth.name,
-				Data: data,
-			}
+			columns[j] = Column[word.BigEndian]{jth.name, data}
 			// Move read offset
 			offset += uint(jth.length)
 		}
 		//
 		modules[i] = Module[word.BigEndian]{
-			Name:    trace.ParseModuleName(ith.name),
+			name:    trace.ParseModuleName(ith.name),
 			Columns: columns,
 		}
 	}

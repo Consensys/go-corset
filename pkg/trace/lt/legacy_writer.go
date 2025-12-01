@@ -55,8 +55,8 @@ func WriteBytes(modules []Module[word.BigEndian], buf io.Writer) error {
 	// Write header information
 	for _, ith := range modules {
 		for _, jth := range ith.Columns {
-			data := jth.Data
-			name := trace.QualifiedColumnName(ith.Name, jth.Name)
+			data := jth.data
+			name := trace.QualifiedColumnName(ith.Name(), jth.name)
 			// Write name length
 			nameBytes := []byte(name)
 			nameLen := uint16(len(nameBytes))
@@ -87,7 +87,7 @@ func WriteBytes(modules []Module[word.BigEndian], buf io.Writer) error {
 	// Write column data information
 	for _, ith := range modules {
 		for _, jth := range ith.Columns {
-			if err := writeArrayBytes(buf, jth.Data, jth.Data.BitWidth()); err != nil {
+			if err := writeArrayBytes(buf, jth.data, jth.data.BitWidth()); err != nil {
 				return err
 			}
 		}

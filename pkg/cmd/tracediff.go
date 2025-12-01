@@ -50,8 +50,8 @@ func runTraceDiffCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	tracefile1 := ReadTraceFile(filename1)
 	tracefile2 := ReadTraceFile(filename2)
 	// Extract column names
-	t1names, t1cols := extractColumnNames(tracefile1.Modules)
-	t2names, t2cols := extractColumnNames(tracefile2.Modules)
+	t1names, t1cols := extractColumnNames(tracefile1.RawModules())
+	t2names, t2cols := extractColumnNames(tracefile2.RawModules())
 	// Sanity check
 	if !slices.Equal(t1names, t2names) {
 		var common set.SortedSet[string]
@@ -80,12 +80,9 @@ func extractColumnNames(modules []lt.Module[word.BigEndian]) (set.SortedSet[stri
 	//
 	for _, ith := range modules {
 		for _, jth := range ith.Columns {
-			name := fmt.Sprintf("%s.%s", ith.Name, jth.Name)
+			name := fmt.Sprintf("%s.%s", ith.Name(), jth.Name())
 			names.Insert(name)
-			columns = append(columns, RawColumn{
-				Name: name,
-				Data: jth.Data,
-			})
+			columns = append(columns, lt.NewColumn(name, jth.MutData()))
 		}
 	}
 	//
@@ -106,7 +103,7 @@ func filterCommonColumns(columns []RawColumn, common set.SortedSet[string],
 	var ncolumns []RawColumn
 	//
 	for _, c := range columns {
-		if common.Contains(c.Name) {
+		if common.Contains(c.Name()) {
 			ncolumns = append(ncolumns, c)
 		}
 	}
@@ -138,9 +135,9 @@ func parallelDiff(columns1 []RawColumn, columns2 []RawColumn) []error {
 
 func diffColumns(index int, columns1 []RawColumn, columns2 []RawColumn) []error {
 	errors := make([]error, 0)
-	name := columns1[index].Name
-	data1 := columns1[index].Data
-	data2 := findColumn(name, columns2).Data
+	name := columns1[index].Name()
+	data1 := columns1[index].Data()
+	data2 := findColumn(name, columns2).Data()
 	// Sanity check
 	if data2 == nil {
 		return errors
@@ -212,7 +209,7 @@ func summarise(data array.Array[word.BigEndian]) hash.Map[word.BigEndian, uint] 
 
 func findColumn(name string, columns []RawColumn) *RawColumn {
 	for _, c := range columns {
-		if c.Name == name {
+		if c.Name() == name {
 			return &c
 		}
 	}

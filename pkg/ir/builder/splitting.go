@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -47,41 +48,46 @@ func TraceSplitting[F field.Element[F]](parallel bool, tf lt.TraceFile, mapping 
 	return builder, modules, err
 }
 
-func sequentialTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping module.LimbsMap) (array.Builder[F],
+func sequentialTraceSplitting[F field.Element[F]](ltf lt.TraceFile, mapping module.LimbsMap) (array.Builder[F],
 	[]lt.Module[F], []error) {
 	//
 	var (
-		modules = make([]lt.Module[F], len(tf.Modules))
+		modules = make([]lt.Module[F], ltf.Width())
 		// Allocate fresh array builder
 		builder = array.NewStaticBuilder[F]()
 		errors  []error
 	)
 	//
-	for i, ith := range tf.Modules {
+	for i := range ltf.Width() {
 		var (
+			ith     = ltf.Module(i)
 			columns []lt.Column[F] // Access mapping for enclosing module
-			modmap  = mapping.ModuleOf(ith.Name)
+			modmap  = mapping.ModuleOf(ith.Name())
 		)
 		//
-		for _, jth := range ith.Columns {
-			split, errs := splitRawColumn(jth, builder, modmap)
+		for j := range ith.Width() {
+			var (
+				jth         = ith.Column(j)
+				split, errs = splitRawColumn(jth, builder, modmap)
+			)
+			//
 			columns = append(columns, split...)
 			errors = append(errors, errs...)
 		}
 		//
-		modules[i] = lt.Module[F]{Name: ith.Name, Columns: columns}
+		modules[i] = lt.NewModule(ith.Name(), columns)
 	}
 	//
 	return builder, modules, errors
 }
 
-func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping module.LimbsMap) (array.Builder[F],
+func parallelTraceSplitting[F field.Element[F]](ltf lt.TraceFile, mapping module.LimbsMap) (array.Builder[F],
 	[]lt.Module[F], []error) {
 	//
 	var (
-		ncols = lt.NumberOfColumns(tf.Modules)
+		ncols = lt.NumberOfColumns(ltf.RawModules())
 		//
-		splits = make([][][]lt.Column[F], len(tf.Modules))
+		splits = make([][][]lt.Column[F], ltf.Width())
 		// Allocate fresh array builder
 		builder = array.NewStaticBuilder[F]()
 		// Construct a communication channel split columns.
@@ -90,15 +96,19 @@ func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping module.
 		errors []error
 	)
 	// Split column concurrently
-	for i, ith := range tf.Modules {
-		// Access mapping for enclosing module
-		modmap := mapping.ModuleOf(ith.Name)
+	for i := range ltf.Width() {
+		var (
+			ith = ltf.Module(i)
+			// Access mapping for enclosing module
+			modmap = mapping.ModuleOf(ith.Name())
+		)
 		// Initiali split array
-		splits[i] = make([][]lt.Column[F], len(ith.Columns))
+		splits[i] = make([][]lt.Column[F], ith.Width())
 		//
-		for j, jth := range ith.Columns {
+		for j := range ith.Width() {
+			var jth = ith.Column(j)
 			// Start go-routine for this column
-			go func(mid, cid int, column lt.Column[word.BigEndian], mapping module.LimbsMap) {
+			go func(mid, cid uint, column tr.Column[word.BigEndian], mapping module.LimbsMap) {
 				// Send outcome back
 				data, errors := splitRawColumn(column, builder, modmap)
 				c <- splitResult[F]{mid, cid, data, errors}
@@ -114,7 +124,7 @@ func parallelTraceSplitting[F field.Element[F]](tf lt.TraceFile, mapping module.
 		errors = append(errors, res.errors...)
 	}
 	// Flatten split
-	return builder, flatten(tf, splits), errors
+	return builder, flatten(ltf, splits), errors
 }
 
 func flatten[W any](tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.Module[W] {
@@ -131,20 +141,20 @@ func flatten[W any](tf lt.TraceFile, splits [][][]lt.Column[W]) []lt.Module[W] {
 			index++
 		}
 		//
-		modules[i] = lt.Module[W]{Name: tf.Modules[i].Name, Columns: columns}
+		modules[i] = lt.NewModule(tf.Module(uint(i)).Name(), columns)
 	}
 	//
 	return modules
 }
 
 // SplitRawColumn splits a given raw column using the given register mapping.
-func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder array.Builder[F],
+func splitRawColumn[F field.Element[F]](col tr.Column[word.BigEndian], builder array.Builder[F],
 	modmap register.LimbsMap) ([]lt.Column[F], []error) {
 	//
 	var (
 		height uint
 		//
-		reg, regExists = modmap.HasRegister(col.Name)
+		reg, regExists = modmap.HasRegister(col.Name())
 		// Determine register id for this column (we can assume it exists)
 		limbIds = modmap.LimbIds(reg)
 		// Determine limbs of this register
@@ -153,7 +163,7 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 	// Check whether register is known
 	if !regExists {
 		// Unknown register --- this is an error
-		return nil, []error{fmt.Errorf("unknown register \"%s\"", col.Name)}
+		return nil, []error{fmt.Errorf("unknown register \"%s\"", col.Name())}
 	} else if len(limbIds) == 1 {
 		// No, this register was not split into any limbs.  Therefore, no need
 		// to split the column into any limbs.
@@ -168,10 +178,10 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 	)
 	// Check whether data present or not.  Observe computed columns will have
 	// nil here (i.e. since their values have not yet been computed).
-	if col.Data != nil {
+	if col.Data() != nil {
 		// Calculate register height.  Observe that computed registers will have nil
 		// for their data at this point since they haven't been computed yet.
-		height = col.Data.Len()
+		height = col.Data().Len()
 		// Yes, must split into two or more limbs of given widths.
 		limbWidths := register.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 		//
@@ -181,19 +191,17 @@ func splitRawColumn[F field.Element[F]](col lt.Column[word.BigEndian], builder a
 		// Deconstruct all data
 		for i := range height {
 			// Extract ith data
-			ith := col.Data.Get(i)
+			ith := col.Data().Get(i)
 			// Assign split components
 			if !setSplitWord(ith, i, arrays, limbWidths) {
-				err := fmt.Errorf("row %d of column %s is out-of-bounds (%s)", i, col.Name, ith.String())
+				err := fmt.Errorf("row %d of column %s is out-of-bounds (%s)", i, col.Name(), ith.String())
 				return nil, []error{err}
 			}
 		}
 	}
 	// Construct final columns
 	for i, limb := range limbs {
-		columns[i] = lt.Column[F]{
-			Name: limb.Name,
-			Data: arrays[i]}
+		columns[i] = lt.NewColumn[F](limb.Name, arrays[i])
 	}
 	// Done
 	return columns, nil
@@ -219,8 +227,8 @@ func setSplitWord[F field.Element[F]](val word.BigEndian, row uint, arrays []arr
 
 // SplitResult is returned by worker threads during parallel trace splitting.
 type splitResult[W any] struct {
-	module int
-	column int
+	module uint
+	column uint
 	data   []lt.Column[W]
 	errors []error
 }

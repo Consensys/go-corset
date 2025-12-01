@@ -60,15 +60,15 @@ func alignModules[F any, M register.Map](schema []M, mods []lt.Module[F], expand
 	// Initialise module mapping
 	for i := range width {
 		ith := schema[i].Name()
-		nmods[i].Name = ith
+		nmods[i] = lt.NewModule[F](ith, nil)
 		modmap[ith] = i
 	}
 	// Rearrange layout
 	for _, m := range mods {
-		if index, ok := modmap[m.Name]; ok {
+		if index, ok := modmap[m.Name()]; ok {
 			nmods[index] = m
 		} else if expanding {
-			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", m.Name))
+			errs = append(errs, fmt.Errorf("unknown module '%s' in trace", m.Name()))
 		}
 	}
 	//
@@ -95,29 +95,32 @@ func alignColumns[F any](mapping register.Map, columns []lt.Column[F], expanding
 	// Initialise column map
 	for i := range width {
 		ith := mapping.Register(register.NewId(i))
-		ncols[i].Name = ith.Name
+		ncols[i] = lt.NewColumn[F](ith.Name, nil)
 		colmap[ith.Name] = i
 	}
 	// Assign data for each column given
 	for _, col := range columns {
-		// Determine enclosiong module height
-		cid, ok := colmap[col.Name]
+		var (
+			data = col.Data()
+			// Determine enclosiong module height
+			cid, ok = colmap[col.Name()]
+		)
 		// More sanity checks
 		if !ok {
-			errs = append(errs, fmt.Errorf("unknown column '%s' in trace", tr.QualifiedColumnName(mapping.Name(), col.Name)))
+			errs = append(errs, fmt.Errorf("unknown column '%s' in trace", tr.QualifiedColumnName(mapping.Name(), col.Name())))
 		} else if ok := seen[cid]; ok {
-			errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", tr.QualifiedColumnName(mapping.Name(), col.Name)))
+			errs = append(errs, fmt.Errorf("duplicate column '%s' in trace", tr.QualifiedColumnName(mapping.Name(), col.Name())))
 		} else {
 			seen[cid] = true
 			ncols[cid] = col
 			// Update height
-			if isEmpty && col.Data != nil {
-				height = col.Data.Len()
+			if isEmpty && data != nil {
+				height = data.Len()
 				isEmpty = false
-			} else if col.Data != nil && col.Data.Len() != height {
-				name := tr.QualifiedColumnName(mapping.Name(), col.Name)
+			} else if data != nil && data.Len() != height {
+				name := tr.QualifiedColumnName(mapping.Name(), col.Name())
 				errs = append(errs,
-					fmt.Errorf("inconsistent height for column '%s' in trace (was %d vs %d)", name, col.Data.Len(), height))
+					fmt.Errorf("inconsistent height for column '%s' in trace (was %d vs %d)", name, data.Len(), height))
 			}
 		}
 	}
@@ -128,10 +131,10 @@ func alignColumns[F any](mapping register.Map, columns []lt.Column[F], expanding
 			col = ncols[i]
 		)
 		//
-		if reg.IsInputOutput() && col.Data == nil && !isEmpty {
+		if reg.IsInputOutput() && col.Data() == nil && !isEmpty {
 			name := tr.QualifiedColumnName(mapping.Name(), reg.Name)
 			errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", name))
-		} else if !expanding && col.Data == nil {
+		} else if !expanding && col.Data() == nil {
 			name := tr.QualifiedColumnName(mapping.Name(), reg.Name)
 			errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", name))
 		}

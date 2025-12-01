@@ -53,7 +53,7 @@ func groupLegacyColumns(columns []Column[word.BigEndian]) []Module[word.BigEndia
 	)
 	// Process each column one by one
 	for _, column := range columns {
-		mod, col := splitQualifiedColumnName(column.Name)
+		mod, col := splitQualifiedColumnName(column.name)
 		// Check whether module already allocated
 		index, ok := modmap[mod]
 		//
@@ -63,7 +63,7 @@ func groupLegacyColumns(columns []Column[word.BigEndian]) []Module[word.BigEndia
 			modmap[mod] = index
 		}
 		// Update column name
-		column.Name = col
+		column.name = col
 		// Group it
 		modules[index].Columns = append(modules[index].Columns, column)
 	}
@@ -121,7 +121,7 @@ func readLegacyBytes(data []byte) (WordHeap, []Column[word.BigEndian], error) {
 		// Split qualified column name
 		name := headers[res.Left].name
 		// Construct appropriate slice
-		columns[res.Left] = Column[word.BigEndian]{Name: name, Data: res.Right}
+		columns[res.Left] = Column[word.BigEndian]{name, res.Right}
 	}
 	// Done
 	return *heap.Localise(), columns, nil

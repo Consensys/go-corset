@@ -41,9 +41,9 @@ func ToJsonString(modules []lt.Module[word.BigEndian]) string {
 			//
 			builder.WriteString("\"")
 			// Construct qualified column name
-			name := trace.QualifiedColumnName(ith.Name, jth.Name)
+			name := trace.QualifiedColumnName(ith.Name(), jth.Name())
 			// Apply bitwidth restrictions (if applicable)
-			if bitwidth := jth.Data.BitWidth(); bitwidth < 256 {
+			if bitwidth := jth.Data().BitWidth(); bitwidth < 256 {
 				// For now, always assume unsigned int.
 				name = fmt.Sprintf("%s@u%d", name, bitwidth)
 			}
@@ -52,7 +52,7 @@ func ToJsonString(modules []lt.Module[word.BigEndian]) string {
 			//
 			builder.WriteString("\": [")
 
-			data := jth.Data
+			data := jth.Data()
 
 			for j := range data.Len() {
 				if j != 0 {

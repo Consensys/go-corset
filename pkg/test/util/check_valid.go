@@ -241,7 +241,7 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 					// runs (e.g. for the io.Executor).
 					stack := stacker.Build()
 					//
-					if tf.Modules != nil {
+					if tf.RawModules() != nil {
 						// Construct trace identifier
 						id := traceId{stack.RegisterMapping().Field().Name, ir, test,
 							cfg.expected, cfg.expand, cfg.validate, opt, parallel, i + 1, padding}

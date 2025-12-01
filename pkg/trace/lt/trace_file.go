@@ -15,9 +15,12 @@ package lt
 import (
 	"bytes"
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/trace"
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -49,37 +52,28 @@ const LT_MINOR_VERSION uint16 = 0
 // helps us identify actual binary files from corrupted files.
 var ZKTRACER [8]byte = [8]byte{'z', 'k', 't', 'r', 'a', 'c', 'e', 'r'}
 
+// NumberOfColumns determines the total number of columns in a given array of
+// modules.
+func NumberOfColumns[F any](modules []Module[F]) uint {
+	var count = uint(0)
+	//
+	for _, ith := range modules {
+		for range ith.Columns {
+			count++
+		}
+	}
+	//
+	return count
+}
+
 // TraceFile is a programatic represresentation of an underlying trace file.
 type TraceFile struct {
 	// Header for the binary file
-	Header Header
+	header Header
 	// Word pool
-	Heap WordHeap
+	heap WordHeap
 	// Column data
-	Modules []Module[word.BigEndian]
-}
-
-// Module groups together columns from the same module.
-type Module[F any] struct {
-	Name    trace.ModuleName
-	Columns []Column[F]
-}
-
-// Height returns the height of this module in the trace.
-func (p *Module[F]) Height() uint {
-	if len(p.Columns) == 0 || p.Columns[0].Data == nil {
-		return 0
-	}
-	//
-	return p.Columns[0].Data.Len()
-}
-
-// Column captures the raw data for a given column.
-type Column[F any] struct {
-	// Name of the column
-	Name string
-	// Data held in the column
-	Data array.MutArray[F]
+	modules []Module[word.BigEndian]
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
@@ -92,32 +86,69 @@ func NewTraceFile(metadata []byte, pool WordHeap, modules []Module[word.BigEndia
 	}
 }
 
+// Builder implementation for trace.Trace interface.
+func (p *TraceFile) Builder() array.Builder[word.BigEndian] {
+	panic("unsupported operation")
+}
+
+// Column implementation for trace.Trace interface.
+func (p *TraceFile) Column(ref tr.ColumnRef) tr.Column[word.BigEndian] {
+	return p.modules[ref.Module()].Column(ref.Column().Unwrap())
+}
+
+// HasModule implementation for trace interface.
+func (p *TraceFile) HasModule(name tr.ModuleName) (uint, bool) {
+	// Linea scan through list of modules
+	for mid, mod := range p.modules {
+		if mod.name == name {
+			return uint(mid), true
+		}
+	}
+	//
+	return math.MaxUint, false
+}
+
+// Header returns the trace file header
+func (p *TraceFile) Header() Header {
+	return p.header
+}
+
+// Heap returns the trace file heap
+func (p *TraceFile) Heap() WordHeap {
+	return p.heap
+}
+
+// RawModules provides direct access to the underlying modules
+func (p *TraceFile) RawModules() []Module[word.BigEndian] {
+	return p.modules
+}
+
 // Clone a trace file producing an unaliased copy
 func (p *TraceFile) Clone() TraceFile {
-	var modules = make([]Module[word.BigEndian], len(p.Modules))
+	var modules = make([]Module[word.BigEndian], len(p.modules))
 	//
-	for i, mod := range p.Modules {
+	for i, mod := range p.modules {
 		var columns = make([]Column[word.BigEndian], len(mod.Columns))
 		//
 		for j, col := range mod.Columns {
-			var data = col.Data
+			var data = col.data
 			// Clone data (if it exists)
 			if data != nil {
-				data = col.Data.Clone()
+				data = data.Clone()
 			}
 			// Clone colunm data
 			columns[j] = Column[word.BigEndian]{
-				col.Name,
+				col.name,
 				data,
 			}
 		}
 		//
-		modules[i] = Module[word.BigEndian]{mod.Name, columns}
+		modules[i] = Module[word.BigEndian]{mod.Name(), columns}
 	}
 	//
 	return TraceFile{
-		p.Header,
-		p.Heap.Clone(),
+		p.header,
+		p.heap.Clone(),
 		modules,
 	}
 }
@@ -145,7 +176,7 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 		err         error
 	)
 	// Bytes header
-	headerBytes, err := p.Header.MarshalBinary()
+	headerBytes, err := p.header.MarshalBinary()
 	// Error check
 	if err != nil {
 		return nil, err
@@ -153,13 +184,13 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	// Encode header
 	buffer.Write(headerBytes)
 	// Write column data
-	switch p.Header.MajorVersion {
+	switch p.header.MajorVersion {
 	case 1:
-		columnBytes, err = ToBytesLegacy(p.Modules)
+		columnBytes, err = ToBytesLegacy(p.modules)
 	case 2:
-		columnBytes, err = ToBytes(p.Heap, p.Modules)
+		columnBytes, err = ToBytes(p.heap, p.modules)
 	default:
-		err = fmt.Errorf("unknown lt major file format %d", p.Header.MajorVersion)
+		err = fmt.Errorf("unknown lt major file format %d", p.header.MajorVersion)
 	}
 	// Error check
 	if err != nil {
@@ -171,6 +202,16 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	return buffer.Bytes(), nil
 }
 
+// Module implementation for trace.Trace interface
+func (p *TraceFile) Module(mid tr.ModuleId) tr.Module[word.BigEndian] {
+	return &p.modules[mid]
+}
+
+// Modules implementation for trace.Trace interface
+func (p *TraceFile) Modules() iter.Iterator[tr.Module[word.BigEndian]] {
+	panic("unsupported operation")
+}
+
 // UnmarshalBinary initialises this TraceFile from a given set of data bytes.
 // This should match exactly the encoding above.
 func (p *TraceFile) UnmarshalBinary(data []byte) error {
@@ -178,20 +219,20 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	//
 	buffer := bytes.NewBuffer(data)
 	// Read header
-	if err = p.Header.UnmarshalBinary(buffer); err != nil {
+	if err = p.header.UnmarshalBinary(buffer); err != nil {
 		return err
-	} else if !p.Header.IsCompatible() {
+	} else if !p.header.IsCompatible() {
 		return fmt.Errorf("incompatible binary file was v%d.%d, but expected v%d.%d)",
-			p.Header.MajorVersion, p.Header.MinorVersion, LT_MAJOR_VERSION, LT_MINOR_VERSION)
+			p.header.MajorVersion, p.header.MinorVersion, LT_MAJOR_VERSION, LT_MINOR_VERSION)
 	}
 	//
-	switch p.Header.MajorVersion {
+	switch p.header.MajorVersion {
 	case 1:
 		// Legacy Format
-		p.Heap, p.Modules, err = FromBytesLegacy(buffer.Bytes())
+		p.heap, p.modules, err = FromBytesLegacy(buffer.Bytes())
 	case 2:
 		// New format
-		p.Heap, p.Modules, err = FromBytes(buffer.Bytes())
+		p.heap, p.modules, err = FromBytes(buffer.Bytes())
 	default:
 		panic("unreachable")
 	}
@@ -199,16 +240,85 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	return err
 }
 
-// NumberOfColumns determines the total number of columns in a given array of
-// modules.
-func NumberOfColumns[F any](modules []Module[F]) uint {
-	var count = uint(0)
-	//
-	for _, ith := range modules {
-		for range ith.Columns {
-			count++
-		}
+// Width implementation for trace.Trace interface
+func (p *TraceFile) Width() uint {
+	return uint(len(p.modules))
+}
+
+// Module groups together columns from the same module.
+type Module[F any] struct {
+	name    trace.ModuleName
+	Columns []Column[F]
+}
+
+// NewModule constructs a new trace module with a given name and column set.
+func NewModule[F any](name trace.ModuleName, columns []Column[F]) Module[F] {
+	return Module[F]{name, columns}
+}
+
+// Name implementation for trace.Module interface
+func (p *Module[F]) Name() trace.ModuleName {
+	return p.name
+}
+
+// Column implementation for trace.Module interface
+func (p *Module[F]) Column(id uint) trace.Column[F] {
+	return &p.Columns[id]
+}
+
+// ColumnOf implementation for trace.Module interface
+func (p *Module[F]) ColumnOf(name string) trace.Column[F] {
+	panic("unsupported operation")
+}
+
+// Width implementation for trace.Module interface
+func (p *Module[F]) Width() uint {
+	return uint(len(p.Columns))
+}
+
+// Height returns the height of this module in the trace.
+func (p *Module[F]) Height() uint {
+	if len(p.Columns) == 0 || p.Columns[0].Data() == nil {
+		return 0
 	}
 	//
-	return count
+	return p.Columns[0].data.Len()
+}
+
+// Column captures the raw data for a given column.
+type Column[F any] struct {
+	// Name of the column
+	name string
+	// Data held in the column
+	data array.MutArray[F]
+}
+
+// NewColumn constructs a new column
+func NewColumn[F any](name string, data array.MutArray[F]) Column[F] {
+	return Column[F]{name, data}
+}
+
+// Name implementation for trace.Column interface
+func (p *Column[F]) Name() string {
+	return p.name
+}
+
+// Data implementation for trace.Column interface
+func (p *Column[F]) Data() array.Array[F] {
+	return p.data
+}
+
+// MutData provides access to real data
+func (p *Column[F]) MutData() array.MutArray[F] {
+	return p.data
+}
+
+// Get implementation for trace.Column interface
+func (p *Column[F]) Get(row int) F {
+	return p.data.Get(uint(row))
+}
+
+// Padding implementation for trace.Column interface
+func (p *Column[F]) Padding() F {
+	panic("unsupported operation")
 }
