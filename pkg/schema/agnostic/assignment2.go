@@ -17,8 +17,8 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -119,140 +119,145 @@ func (p *Assignment2) Split(field field.Config, env RegisterAllocator) (eqs []As
 // chunked, to determine which variable(s) to subdivide and by how much.
 func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []Assignment2 {
 	var (
-		lhs [][]register.Id
+		// Record initial number of registers
+		n = uint(len(mapping.Registers()))
+		//
+		divisions = initialiseVariableDivisions(n)
 		// Determine the bitwidth of each chunk
-		rhs []StaticPolynomial
+		rhsChunks []RhsChunk
 		// Equations being constructed
 		assignments []Assignment2
-		// Current chunk width
-		chunkWidth = field.BandWidth
+		//
+		lhsChunks = determineLhsChunks(p.LeftHandSide, field.RegisterWidth, mapping)
 	)
 	// Attempt to divide polynomials into chunks.  If this fails, iterative
 	// decrease chunk width until something fits.
 	for {
 		var (
-			rhsChunked  bool
-			chunkWidths []uint
-			// FIXME: split non-linea terms
-			right = p.RightHandSide
+			overflows bit.Set
+			// Right-hand side
+			right = splitDividedVariables(divisions, p.RightHandSide, mapping)
 		)
-		// Calculate actual chunk widths based on current chunk width.
-		chunkWidths, lhs = determineChunkBitwidths(p.LeftHandSide, chunkWidth, mapping)
+		// Attempt to chunk right-hand side
+		rhsChunks, overflows = determineRhsChunks(right, lhsChunks, field, mapping)
 		//
-		rhs, rhsChunked = chunkAssignedPolynomial(right, chunkWidths, field, mapping)
-		//
-		if rhsChunked {
+		if overflows.Count() == 0 {
 			// Successful chunking, therefore include any constraints necessary
 			// for splitting of non-linear terms and construct final equations.
 			break
 		}
-		//
-		panic("todo: split non-linea terms")
+		// Update divisions based on identified overflows
+		updateVariableDivisions(divisions, overflows)
+		// Reset any allocated carry registers as we are starting over
+		mapping.Reset(n)
 	}
 	// Reconstruct equations
-	for i := range len(lhs) {
-		if len(lhs[i]) > 0 || rhs[i].Len() > 0 {
-			assignments = append(assignments, NewAssignment2(lhs[i], rhs[i]))
-		}
+	for i := range len(lhsChunks) {
+		l := lhsChunks[i]
+		r := rhsChunks[i]
+		//
+		assignments = append(assignments, NewAssignment2(l.contents, r.contents))
 	}
 	// Done
 	return assignments
 }
 
-func determineChunkBitwidths(regs []register.Id, chunkWidth uint, mapping register.Map) ([]uint, [][]register.Id) {
-	var (
-		chunks      [][]register.Id
-		chunkWidths []uint
-	)
+func initialiseVariableDivisions(n uint) []uint {
+	var divisions = make([]uint, n)
 	//
-	for len(regs) != 0 {
-		var (
-			width uint
-			chunk []register.Id
-		)
-		// Determine next chunkd
-		width, chunk, regs = getNextChunk(regs, chunkWidth, mapping)
-		chunks = append(chunks, chunk)
-		chunkWidths = append(chunkWidths, width)
+	for i := range divisions {
+		divisions[i] = 1
 	}
 	//
-	return chunkWidths, chunks
+	return divisions
 }
 
-func getNextChunk(regs []register.Id, chunkWidth uint, mapping register.Map) (uint, []register.Id, []register.Id) {
+func updateVariableDivisions(divisions []uint, vars bit.Set) {
+	//
+	for i := range divisions {
+		if vars.Contains(uint(i)) {
+			divisions[i] *= 2
+		}
+	}
+}
+
+func splitDividedVariables(divisions []uint, p StaticPolynomial, mapping RegisterAllocator) StaticPolynomial {
+	panic("todo")
+}
+
+func determineLhsChunks(regs []register.Id, chunkWidth uint, mapping register.Map) []LhsChunk {
+	var chunks []Chunk[[]register.Id]
+	//
+	for len(regs) != 0 {
+		var chunk Chunk[[]register.Id]
+		// Determine next chunkd
+		chunk, regs = getNextLhsChunk(regs, chunkWidth, mapping)
+		chunks = append(chunks, chunk)
+	}
+	//
+	return chunks
+}
+
+func getNextLhsChunk(regs []register.Id, chunkWidth uint, mapping register.Map) (LhsChunk, []register.Id) {
 	var bitwidth uint
 	//
 	for i, r := range regs {
 		reg := mapping.Register(r)
 		//
 		if bitwidth+reg.Width > chunkWidth {
-			return bitwidth, regs[:i], regs[i:]
+			return LhsChunk{bitwidth, regs[:i]}, regs[i:]
 		}
 		//
 		bitwidth += reg.Width
 	}
 	//
-	return bitwidth, regs, nil
+	return LhsChunk{bitwidth, regs}, nil
 }
 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
 // determined by the chunk widths.  This inserts carry lines as needed to ensure
 // correctness.
-func chunkAssignedPolynomial(p StaticPolynomial, chunkWidths []uint, field field.Config,
-	mapping RegisterAllocator) ([]StaticPolynomial, bool) {
+func determineRhsChunks(p StaticPolynomial, lhsChunks []LhsChunk, field field.Config,
+	mapping RegisterAllocator) ([]RhsChunk, bit.Set) {
 	//
 	var (
 		env    = StaticEnvironment(mapping)
-		chunks []StaticPolynomial
+		chunks []RhsChunk
+		vars   bit.Set
 	)
 	// Subdivide polynomial into chunks
-	for _, chunkWidth := range chunkWidths {
+	for _, ith := range lhsChunks {
+		// TODO: carry lines
 		var remainder StaticPolynomial
-		//
-		fmt.Printf("CHUNK WIDTH %d\n", chunkWidth)
-		// Chunk the polynomials
-		p, remainder = p.Shr(chunkWidth)
-		// Include remainder as chunk
-		chunks = append(chunks, remainder)
-	}
-	// Add carry lines as necessary
-	for i := 0; i < len(chunks); i++ {
-		var (
-			carry, borrow StaticPolynomial
-			ithWidth, _   = WidthOfPolynomial(chunks[i], env)
-			chunkWidth    = chunkWidths[i]
-		)
-		//
-		fmt.Printf("CHUNK[%d]=%s\n", i, StaticPoly2String(chunks[i], mapping))
-		// Calculate overflow from ith chunk (if any)
-		if ithWidth > field.BandWidth {
-			fmt.Printf("Failed chunking %d > %d\n", ithWidth, field.BandWidth)
-			// This arises when a given term of the polynomial being chunked
-			// cannot be safely evaluated within the given bandwidth (i.e.
-			// cannot be evaluated without overflow).  To resolve this
-			// situation, we need to further subdivide one or more registers to
-			// reduce the maximum bandwidth required for any particular term.
-			return []StaticPolynomial{chunks[i]}, false
-		} else if (i+1) != len(chunks) && ithWidth > chunkWidth {
-			var (
-				// Determine width of carry register
-				carryWidth = ithWidth - chunkWidth
-				// Allocate carry register
-				carryReg = mapping.Allocate("c", carryWidth)
-				// Calculate amount to shift carry
-				chunkShift = util_math.Pow2(chunkWidth)
-			)
-			// FIXME: missing carry assignment
-
-			// Subtract carry from this chunk
-			chunks[i] = chunks[i].Sub(borrow.Set(poly.NewMonomial(*chunkShift, carryReg)))
-			// Add carry to next chunk
-			chunks[i+1] = chunks[i+1].Add(carry.Set(poly.NewMonomial(one, carryReg)))
+		// Chunk the polynomial
+		p, remainder = p.Shr(ith.bitwidth)
+		// Determine chunk width
+		chunkWidth, _ := WidthOfPolynomial(remainder, env)
+		// Check whether chunk fits
+		if chunkWidth > field.BandWidth {
+			// No, it does not.
+			panic("got here")
 		}
+		//
+		chunks = append(chunks, RhsChunk{chunkWidth, remainder})
 	}
 	//
-	return chunks, true
+	return chunks, vars
 }
+
+// Chunk represents a "chunk information bits".
+type Chunk[T any] struct {
+	bitwidth uint
+	contents T
+}
+
+// LhsChunk captures the chunk type used for the Left-Hand Side (LHS) of an
+// assignment.
+type LhsChunk = Chunk[[]register.Id]
+
+// RhsChunk captures the chunk type used for the Right-Hand Side (RHS) of an
+// assignment.
+type RhsChunk = Chunk[StaticPolynomial]
 
 // StaticPoly2String provides a convenient helper function for debugging polynomials.
 func StaticPoly2String(p StaticPolynomial, env register.Map) string {
