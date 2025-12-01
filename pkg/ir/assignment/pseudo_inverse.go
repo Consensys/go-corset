@@ -73,7 +73,7 @@ func (e *PseudoInverse[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F]
 	// an attacker might do).
 	data := tr.Builder().NewArray(height, math.MaxUint)
 	// Expand the trace
-	err = invert(data, e.Expr, trModule, scModule)
+	data, err = invert(data, e.Expr, trModule, scModule)
 	// Sanity check
 	if err != nil {
 		return nil, err
@@ -166,20 +166,20 @@ func invert[F field.Element[F]](
 	expr term.Evaluable[F],
 	trMod trace.Module[F],
 	scMod schema.Module[F],
-) error {
+) (array.MutArray[F], error) {
 	// Forwards computation
 	for i := range data.Len() {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
 		// error check
 		if err != nil {
-			return err
+			return data, err
 		}
 		//
-		data.Set(i, val)
+		data = data.Set(i, val)
 	}
 
-	field.BatchInvert(data)
+	data = field.BatchInvert(data)
 
 	//
-	return nil
+	return data, nil
 }

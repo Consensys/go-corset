@@ -110,13 +110,10 @@ func fromBytesInternal(rawData map[string]map[string][]big.Int) (WordHeap, []lt.
 			// Construct data array
 			data := newArrayFromBigInts(bitwidth, rawInts, builder)
 			// Construct column
-			columns = append(columns, lt.Column[word.BigEndian]{Name: col, Data: data})
+			columns = append(columns, lt.NewColumn[word.BigEndian](col, data))
 		}
 		//
-		modules = append(modules, lt.Module[word.BigEndian]{
-			Name:    trace.ParseModuleName(mod),
-			Columns: columns,
-		})
+		modules = append(modules, lt.NewModule[word.BigEndian](trace.ParseModuleName(mod), columns))
 	}
 	//
 	return *heap, modules, nil
@@ -131,7 +128,7 @@ func newArrayFromBigInts(bitwidth uint, data []big.Int, pool ArrayBuilder) array
 	//
 	for i := range n {
 		ithBytes := data[i].Bytes()
-		arr.Set(i, word.NewBigEndian(ithBytes))
+		arr = arr.Set(i, word.NewBigEndian(ithBytes))
 	}
 	//
 	return arr

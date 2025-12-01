@@ -13,6 +13,7 @@
 package builder
 
 import (
+	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -32,9 +33,9 @@ func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (array.Bu
 	)
 	//
 	if parallel {
-		builder, cols = parallelLowering[F](tf.Modules)
+		builder, cols = parallelLowering[F](tf)
 	} else {
-		builder, cols = sequentialLowering[F](tf.Modules)
+		builder, cols = sequentialLowering[F](tf)
 	}
 	//
 	stats.Log("Trace lowering")
@@ -42,44 +43,48 @@ func TraceLowering[F field.Element[F]](parallel bool, tf lt.TraceFile) (array.Bu
 	return builder, cols
 }
 
-func sequentialLowering[F field.Element[F]](modules []lt.Module[word.BigEndian]) (array.Builder[F], []lt.Module[F]) {
+func sequentialLowering[F field.Element[F]](ltf lt.TraceFile) (array.Builder[F], []lt.Module[F]) {
 	var (
-		loweredModules = make([]lt.Module[F], len(modules))
+		loweredModules = make([]lt.Module[F], ltf.Width())
 		builder        = array.NewStaticBuilder[F]()
 	)
 	//
-	for i, m := range modules {
-		loweredColumns := make([]lt.Column[F], len(m.Columns))
+	for i := range ltf.Width() {
+		var (
+			m              = ltf.Module(i)
+			loweredColumns = make([]lt.Column[F], m.Width())
+		)
 
-		for j, c := range m.Columns {
-			loweredColumns[j] = lowerRawColumn(c, builder)
+		for j := range m.Width() {
+			loweredColumns[j] = lowerRawColumn(m.Column(j), builder)
 		}
 		//
-		loweredModules[i] = lt.Module[F]{Name: m.Name, Columns: loweredColumns}
+		loweredModules[i] = lt.NewModule[F](m.Name(), loweredColumns)
 	}
 	//
 	return builder, loweredModules
 }
 
-func parallelLowering[F field.Element[F]](modules []lt.Module[word.BigEndian]) (array.Builder[F], []lt.Module[F]) {
+func parallelLowering[F field.Element[F]](ltf lt.TraceFile) (array.Builder[F], []lt.Module[F]) {
 	//
 	var (
-		ncols = lt.NumberOfColumns(modules)
+		ncols = lt.NumberOfColumns(ltf.RawModules())
 		//
-		loweredModules []lt.Module[F] = make([]lt.Module[F], len(modules))
+		loweredModules []lt.Module[F] = make([]lt.Module[F], ltf.Width())
 		// Construct new pool
 		builder = array.NewStaticBuilder[F]()
 		// Construct a communication channel split columns.
 		c = make(chan result[F], ncols)
 	)
 	// Split column concurrently
-	for i, ith := range modules {
+	for i := range ltf.Width() {
+		var ith = ltf.Module(i)
 		// Construct enough blank columns
-		loweredModules[i].Columns = make([]lt.Column[F], len(ith.Columns))
-		loweredModules[i].Name = ith.Name
+		loweredModules[i] = lt.NewModule(ith.Name(), make([]lt.Column[F], ith.Width()))
 		// Dispatch go-routines to fill them
-		for j, jth := range ith.Columns {
-			go func(mid int, cid int, column lt.Column[word.BigEndian]) {
+		for j := range ith.Width() {
+			var jth = ith.Column(j)
+			go func(mid uint, cid uint, column tr.Column[word.BigEndian]) {
 				// Send outcome back
 				c <- result[F]{mid, cid, lowerRawColumn(column, builder)}
 			}(i, j, jth)
@@ -97,15 +102,15 @@ func parallelLowering[F field.Element[F]](modules []lt.Module[word.BigEndian]) (
 }
 
 type result[F any] struct {
-	module int
-	column int
+	module uint
+	column uint
 	data   lt.Column[F]
 }
 
 // lowerRawColumn lowers a given raw column into a given field implementation.
-func lowerRawColumn[F field.Element[F]](column lt.Column[word.BigEndian], builder array.Builder[F]) lt.Column[F] {
+func lowerRawColumn[F field.Element[F]](column tr.Column[word.BigEndian], builder array.Builder[F]) lt.Column[F] {
 	var (
-		data  = column.Data
+		data  = column.Data()
 		ndata array.MutArray[F]
 	)
 	// Observe that computed registers will have nil for their data at this
@@ -119,12 +124,9 @@ func lowerRawColumn[F field.Element[F]](column lt.Column[word.BigEndian], builde
 			// Initial word from big endian bytes.
 			val = val.SetBytes(data.Get(i).Bytes())
 			//
-			ndata.Set(i, val)
+			ndata = ndata.Set(i, val)
 		}
 	}
 	//
-	return lt.Column[F]{
-		Name: column.Name,
-		Data: ndata,
-	}
+	return lt.NewColumn(column.Name(), ndata)
 }

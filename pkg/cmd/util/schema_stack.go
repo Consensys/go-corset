@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package cmd
+package util
 
 import (
 	"fmt"
@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -30,7 +31,7 @@ import (
 // Representation, etc.
 type SchemaStack[F field.Element[F]] struct {
 	// Binfile represents the top of this stack.
-	binfile binfile.BinaryFile
+	binfile util.Option[binfile.BinaryFile]
 	// The various (abstract) layers which are refined from the binfile.
 	abstractSchemas []schema.AnySchema[word.BigEndian]
 	// The various (concrete) layers which are refined from the abstract layers.
@@ -51,7 +52,8 @@ func (p *SchemaStack[F]) AbstractSchemas() []schema.AnySchema[word.BigEndian] {
 
 // BinaryFile returns the binary file representing the top of this stack.
 func (p *SchemaStack[F]) BinaryFile() *binfile.BinaryFile {
-	return &p.binfile
+	bf := p.binfile.Unwrap()
+	return &bf
 }
 
 // ConcreteSchemas returns the stack of concrete schemas according to the selected

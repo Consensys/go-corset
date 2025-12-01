@@ -53,8 +53,9 @@ func (p *BitArray[T]) Len() uint {
 }
 
 // Append new word on this array
-func (p *BitArray[T]) Append(word T) {
+func (p *BitArray[T]) Append(word T) MutArray[T] {
 	p.Pad(0, 1, word)
+	return p
 }
 
 // BitWidth returns the width (in bits) of elements in this array.
@@ -84,7 +85,7 @@ func (p *BitArray[T]) Get(index uint) T {
 }
 
 // Pad implementation for MutArray interface.
-func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
+func (p *BitArray[T]) Pad(n uint, m uint, padding T) MutArray[T] {
 	// Front padding
 	if n > 0 {
 		p.insertBits(n, padding)
@@ -93,15 +94,19 @@ func (p *BitArray[T]) Pad(n uint, m uint, padding T) {
 	if m > 0 {
 		p.appendBits(m, padding)
 	}
+	//
+	return p
 }
 
 // Set sets the field element at the given index in this array, overwriting the
 // original value.
-func (p *BitArray[T]) Set(index uint, word T) {
+func (p *BitArray[T]) Set(index uint, word T) MutArray[T] {
 	// if byte length is 0, the word represents 0.  otherwise, it must be 1.
 	var val = !word.IsZero()
 	//
 	bit.Write(val, p.data, index)
+	//
+	return p
 }
 
 // SetRaw sets a raw bit at the given index in this array, overwriting the

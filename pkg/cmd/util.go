@@ -119,7 +119,7 @@ func writeBatchedTracesFile(filename string, traces ...lt.TraceFile) {
 	}
 	// Always write JSON in batched mode
 	for _, trace := range traces {
-		js := json.ToJsonString(trace.Modules)
+		js := json.ToJsonString(trace.RawModules())
 		buf.WriteString(js)
 		buf.WriteString("\n")
 	}
@@ -142,7 +142,7 @@ func writeTraceFile(filename string, tracefile lt.TraceFile) {
 	//
 	switch ext {
 	case ".json":
-		js := json.ToJsonString(tracefile.Modules)
+		js := json.ToJsonString(tracefile.RawModules())
 		//
 		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
 			return

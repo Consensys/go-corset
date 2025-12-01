@@ -248,7 +248,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 		)
 		//
 		if i < len(rawModule.Columns) {
-			data = rawModule.Columns[i].Data
+			data = rawModule.Columns[i].MutData()
 		}
 		// Set padding for this column
 		padding = padding.SetBytes(reg.Padding.Bytes())

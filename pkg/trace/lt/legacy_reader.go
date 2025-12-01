@@ -53,7 +53,7 @@ func groupLegacyColumns(columns []Column[word.BigEndian]) []Module[word.BigEndia
 	)
 	// Process each column one by one
 	for _, column := range columns {
-		mod, col := splitQualifiedColumnName(column.Name)
+		mod, col := splitQualifiedColumnName(column.name)
 		// Check whether module already allocated
 		index, ok := modmap[mod]
 		//
@@ -63,7 +63,7 @@ func groupLegacyColumns(columns []Column[word.BigEndian]) []Module[word.BigEndia
 			modmap[mod] = index
 		}
 		// Update column name
-		column.Name = col
+		column.name = col
 		// Group it
 		modules[index].Columns = append(modules[index].Columns, column)
 	}
@@ -121,7 +121,7 @@ func readLegacyBytes(data []byte) (WordHeap, []Column[word.BigEndian], error) {
 		// Split qualified column name
 		name := headers[res.Left].name
 		// Construct appropriate slice
-		columns[res.Left] = Column[word.BigEndian]{Name: name, Data: res.Right}
+		columns[res.Left] = Column[word.BigEndian]{name, res.Right}
 	}
 	// Done
 	return *heap.Localise(), columns, nil
@@ -225,6 +225,7 @@ func readWordColumnData(header legacyHeader, bytes []byte) array.MutArray[word.B
 		arr    = array.NewSmallArray[uint16, word.BigEndian](header.length, header.width*8)
 		offset = uint(0)
 		mx     uint16
+		zero   word.BigEndian
 	)
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
@@ -242,7 +243,7 @@ func readWordColumnData(header legacyHeader, bytes []byte) array.MutArray[word.B
 	//
 	switch {
 	case mx == 0:
-		return array.NewZeroArray[word.BigEndian](header.length)
+		return array.NewConstantArray[word.BigEndian](header.length, 0, zero)
 	case mx < 256:
 		return readByteColumnData(header.length, bytes, 1, 2)
 	}
@@ -280,7 +281,7 @@ func readQWordColumnData(header legacyHeader, bytes []byte, builder ArrayBuilder
 	// Assign elements
 	for i := uint(0); i < header.length; i++ {
 		// Construct ith element
-		arr.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
+		arr = arr.Set(i, word.NewBigEndian(bytes[offset:offset+8]))
 		// Move offset to next element
 		offset += 8
 	}
@@ -300,7 +301,7 @@ func readArbitraryColumnData(header legacyHeader, bytes []byte, builder ArrayBui
 		// Calculate position of next element
 		next := offset + header.width
 		// Construct ith element
-		arr.Set(i, word.NewBigEndian(bytes[offset:next]))
+		arr = arr.Set(i, word.NewBigEndian(bytes[offset:next]))
 		// Move offset to next element
 		offset = next
 	}

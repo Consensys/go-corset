@@ -53,7 +53,7 @@ func PropagateAll[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgr
 		// in a trace batch.  Whilst it is kind of awkward, we want to preserve
 		// the empty traces as this helps error reporting with respect to line
 		// numbers.
-		if trace.Modules != nil {
+		if trace.RawModules() != nil {
 			ntraces[i], errs = Propagate(p, trace, expanding)
 			errors = append(errors, errs...)
 		}
@@ -84,24 +84,27 @@ func Propagate[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[
 		errors []error
 		n      = uint(len(p.program.Functions()))
 		//
-		executor = io.NewExecutor(p.program)
+		executor  = io.NewExecutor(p.program)
+		trModules []lt.Module[word.BigEndian]
 		// Clone heap in trace file, since will mutate this.
-		heap = trace.Heap.Clone()
+		heap = trace.Heap()
 	)
+	// Clone heap
+	heap = heap.Clone()
 	// Perform trace alignment
-	trace.Modules, errors = ir.AlignTrace(p.Modules().Collect(), trace.Modules, true)
+	trModules, errors = ir.AlignTrace(p.Modules().Collect(), trace.RawModules(), true)
 	// Sanity check for errors
 	if len(errors) > 0 {
 		return lt.TraceFile{}, errors
 	}
 	// Write seed instances
-	errors = writeInstances(p, n, trace.Modules, executor)
+	errors = writeInstances(p, n, trModules, executor)
 	// Read out generated instances
 	modules := readInstances(&heap, p.program, executor)
 	// Append external modules (which are unaffected by propagation).
-	modules = append(modules, trace.Modules[n:]...)
+	modules = append(modules, trModules[n:]...)
 	// Done
-	return lt.NewTraceFile(trace.Header.MetaData, heap, modules), errors
+	return lt.NewTraceFile(trace.Header().MetaData, heap, modules), errors
 }
 
 // WriteInstances writes all of the instances defined in the given trace columns
@@ -180,7 +183,7 @@ func writeExternCall[T io.Instruction[T]](call hir.FunctionCall, p io.Program[T]
 	executor *io.Executor[T]) []error {
 	//
 	var (
-		trMod   = &ltModuleAdaptor{mod}
+		trMod   = &mod
 		height  = mod.Height()
 		fn      = p.Function(call.Callee)
 		inputs  = make([]big.Int, fn.NumInputs())
@@ -253,7 +256,7 @@ func extractFunctionColumns(row uint, mod RawModule, inputs, outputs []big.Int) 
 			input big.Int
 		)
 		// Assign value
-		input.SetBytes(col.Data.Get(row).Bytes())
+		input.SetBytes(col.Data().Get(row).Bytes())
 		//
 		inputs[i] = input
 	}
@@ -264,7 +267,7 @@ func extractFunctionColumns(row uint, mod RawModule, inputs, outputs []big.Int) 
 			output big.Int
 		)
 		// Assign value
-		output.SetBytes(col.Data.Get(row).Bytes())
+		output.SetBytes(col.Data().Get(row).Bytes())
 		//
 		outputs[i] = output
 	}
@@ -338,16 +341,10 @@ func readFunctionInstances[T io.Instruction[T]](fn io.Function[T], instances []i
 	for i := range columns {
 		data := readFunctionInputOutputs(uint(i), registers, instances, builder)
 		//
-		columns[i] = lt.Column[word.BigEndian]{
-			Name: registers[i].Name,
-			Data: data,
-		}
+		columns[i] = lt.NewColumn[word.BigEndian](registers[i].Name, data)
 	}
 	//
-	return lt.Module[word.BigEndian]{
-		Name:    fn.Name(),
-		Columns: columns,
-	}
+	return lt.NewModule[word.BigEndian](fn.Name(), columns)
 }
 
 func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.FunctionInstance,
@@ -363,7 +360,7 @@ func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.
 			w   word.BigEndian
 		)
 		//
-		arr.Set(uint(i), w.SetBytes(ith.Bytes()))
+		arr = arr.Set(uint(i), w.SetBytes(ith.Bytes()))
 	}
 	//
 	return arr
@@ -381,51 +378,4 @@ func toArgumentString(args []big.Int) string {
 	}
 	//
 	return builder.String()
-}
-
-// The purpose of the lt adaptor is to make an lt.TraceFile look like a Trace.
-// In general, this is not safe.  However, we use this once we already know that
-// the trace has been aligned.  Also, it is only used in a specific context.
-type ltModuleAdaptor struct {
-	module lt.Module[word.BigEndian]
-}
-
-func (p *ltModuleAdaptor) Name() trace.ModuleName {
-	return p.module.Name
-}
-
-func (p *ltModuleAdaptor) Width() uint {
-	return uint(len(p.module.Columns))
-}
-
-func (p *ltModuleAdaptor) Height() uint {
-	return p.module.Height()
-}
-
-func (p *ltModuleAdaptor) Column(cid uint) trace.Column[word.BigEndian] {
-	return &ltColumnAdaptor{p.module.Columns[cid]}
-}
-
-func (p *ltModuleAdaptor) ColumnOf(col string) trace.Column[word.BigEndian] {
-	panic("unsupported operation")
-}
-
-type ltColumnAdaptor struct {
-	column lt.Column[word.BigEndian]
-}
-
-func (p *ltColumnAdaptor) Name() string {
-	return p.column.Name
-}
-
-func (p *ltColumnAdaptor) Get(row int) word.BigEndian {
-	return p.column.Data.Get(uint(row))
-}
-
-func (p *ltColumnAdaptor) Data() array.Array[word.BigEndian] {
-	return p.column.Data
-}
-
-func (p *ltColumnAdaptor) Padding() word.BigEndian {
-	panic("unsupported operation")
 }

@@ -22,7 +22,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
-	cmd "github.com/consensys/go-corset/pkg/cmd/util"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
@@ -69,7 +69,6 @@ var traceCmds = []FieldAgnosticCmd{
 func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	var (
 		ltTraces []lt.TraceFile
-		traces   []tr.Trace[F]
 		cfg      TraceConfig
 		err      error
 	)
@@ -79,13 +78,13 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Parse trace
 	batched := GetFlag(cmd, "batched")
-	columns := GetFlag(cmd, "columns")
 	metadata := GetFlag(cmd, "metadata")
-	modules := GetFlag(cmd, "modules")
-	print := GetFlag(cmd, "print")
 	output := GetString(cmd, "out")
-	stats := GetFlag(cmd, "stats")
 	//
+	cfg.columns = GetFlag(cmd, "columns")
+	cfg.modules = GetFlag(cmd, "modules")
+	cfg.trace = GetFlag(cmd, "print")
+	cfg.stats = GetFlag(cmd, "stats")
 	cfg.includes = GetStringArray(cmd, "include")
 	cfg.maxCellWidth = GetUint(cmd, "max-width")
 	cfg.limbs = GetFlag(cmd, "limbs")
@@ -104,8 +103,11 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	stacker := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
 	stack := stacker.Build()
 	builder := stack.TraceBuilder().WithPadding(padding)
-	// Extract debug information (if available)
-	cfg.sourceMap, _ = binfile.GetAttribute[*corset.SourceMap](stacker.BinaryFile())
+	//
+	if stacker.HasBinaryFile() {
+		// Extract debug information (if available)
+		cfg.sourceMap, _ = binfile.GetAttribute[*corset.SourceMap](stacker.BinaryFile())
+	}
 	// Extract register mapping (for limbs)
 	cfg.mapping = stack.RegisterMapping()
 	// Parse trace file(s)
@@ -117,46 +119,26 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		ltTraces = []lt.TraceFile{ReadTraceFile(args[0])}
 		// Print meta-data (if requested)
 		if metadata {
-			printTraceFileHeader(&ltTraces[0].Header)
+			printTraceFileHeader(ltTraces[0].Header())
 		}
 	}
 	//
 	if builder.Expanding() && !stack.HasUniqueSchema() {
 		fmt.Println("must specify one of --asm/uasm/mir/air")
 		os.Exit(2)
-	} else if !builder.Expanding() {
-		fmt.Println("non-expanding trace command currently unsupported")
-		os.Exit(2)
-	}
-	// Expand all the traces
-	for _, cols := range ltTraces {
-		traces = append(traces, expandLtTrace(cols, stack, builder))
-	}
-	// Now manipulate traces
-	for i := range ltTraces {
-		// Construct trace window
-		window := view.NewBuilder[F](cfg.mapping).
-			WithCellWidth(cfg.maxCellWidth).
-			WithSourceMap(*cfg.sourceMap).
-			WithLimbs(cfg.limbs).
-			Build(traces[i])
-		// Construct & apply trace filter
-		window = window.Filter(constructTraceFilter(cfg, traces[i]))
-		// Print column summaries (if requested)
-		if columns {
-			listColumns(cfg, window)
+	} else if builder.Expanding() {
+		// Expand all the traces
+		for _, ltf := range ltTraces {
+			ith := expandLtTrace(ltf, stack, builder)
+			printTraceInfo(cfg, ith)
 		}
-		// Print module summaries (if requested)
-		if modules {
-			listModules(cfg, window)
-		}
-		// Print trace summary (if requested)
-		if stats {
-			summaryStats(window)
-		}
-		// Print full trace (if requested)
-		if print {
-			printTrace(cfg, window)
+	} else {
+		// Use raw trace
+		for _, ltf := range ltTraces {
+			// Configure dummy mapping
+			cfg.mapping = cmd_util.BigWordMapping(ltf)
+			// Print what we have
+			printTraceInfo(cfg, &ltf)
 		}
 	}
 	// Write out results (if requested)
@@ -216,6 +198,14 @@ type TraceConfig struct {
 	endRow   uint
 	// Column filter for trace view
 	filter *regexp.Regexp
+	// show columns
+	columns bool
+	// show module summaries
+	modules bool
+	// show full trace
+	trace bool
+	// show summary stats
+	stats bool
 }
 
 func constructTraceFilter[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]) view.TraceFilter {
@@ -232,7 +222,7 @@ func constructTraceFilter[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]
 // RawColumn provides a convenient alias
 type RawColumn = lt.Column[word.BigEndian]
 
-func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F], bldr ir.TraceBuilder[F],
+func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaStack[F], bldr ir.TraceBuilder[F],
 ) tr.Trace[F] {
 	//
 	var (
@@ -265,7 +255,7 @@ func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd.SchemaStack[F]
 	return tr
 }
 
-func printTraceFileHeader(header *lt.Header) {
+func printTraceFileHeader(header lt.Header) {
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
 	// Attempt to parse metadata
 	metadata, err := header.GetMetaData()
@@ -277,6 +267,37 @@ func printTraceFileHeader(header *lt.Header) {
 		fmt.Println("Metadata:")
 		//
 		printTypedMetadata(1, metadata)
+	}
+}
+
+func printTraceInfo[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]) {
+	// Construct trace window
+	view := view.NewBuilder[F](cfg.mapping).
+		WithCellWidth(cfg.maxCellWidth).
+		WithLimbs(cfg.limbs)
+	// Add source map (if applicable)
+	if cfg.sourceMap != nil {
+		view = view.WithSourceMap(*cfg.sourceMap)
+	}
+	// Construct viewing window
+	window := view.Build(trace)
+	// Construct & apply trace filter
+	window = window.Filter(constructTraceFilter(cfg, trace))
+	// Print column summaries (if requested)
+	if cfg.columns {
+		listColumns(cfg, window)
+	}
+	// Print module summaries (if requested)
+	if cfg.modules {
+		listModules(cfg, window)
+	}
+	// Print trace summary (if requested)
+	if cfg.stats {
+		summaryStats(window)
+	}
+	// Print full trace (if requested)
+	if cfg.trace {
+		printTrace(cfg, window)
 	}
 }
 
