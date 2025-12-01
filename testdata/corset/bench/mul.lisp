@@ -278,34 +278,34 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defconstraint trivial-regime ()
-  (if-eq OLI 1
+  (if (== OLI 1)
          ;; since OLI != 0 we have STAMP != 0
          ;; thus INST ∈ {MUL, EXP}
-         (begin (if-not-zero (- INST EVM_INST_EXP)
+         (begin (if (!= INST EVM_INST_EXP)
                              ;; i.e. INST == MUL
-                             (begin (if-eq TINYE 1
+                             (begin (if (== TINYE 1)
                                            ;; i.e. ARG_2 = ARG_2_LO ∈ {0, 1}
                                            (begin (eq! RES_HI (* ARG_2_LO ARG_1_HI))
                                                   (eq! RES_LO (* ARG_2_LO ARG_1_LO))))
-                                    (if-eq TINYB 1
+                                    (if (== TINYB 1)
                                            ;; i.e. ARG_1 = ARG_1_LO ∈ {0, 1}
                                            (begin (eq! RES_HI (* ARG_1_LO ARG_2_HI))
                                                   (eq! RES_LO (* ARG_1_LO ARG_2_LO))))))
-                (if-not-zero (- INST EVM_INST_MUL)
-                             ;; i.e. INST == EXP
-                             (begin (if-eq-else TINYE 1
-                                                ;; TINYE == 1 <=> ARG_2 = ARG_2_LO ∈ {0, 1}
-                                                (begin (if-not-zero (- ARG_2_LO 1)
-                                                                    ;; Thus ARG_2_LO != 1 <=> ARG_2_LO == 0
-                                                                    (begin (vanishes! RES_HI)
-                                                                           (eq! RES_LO 1)))
-                                                       (if-not-zero ARG_2_LO
-                                                                    ;; Thus ARG_2_LO != 0 <=> ARG_2_LO == 1
-                                                                    (begin (eq! RES_HI ARG_1_HI)
-                                                                           (eq! RES_LO ARG_1_LO))))
-                                                ;; TINYE == 0 but OLI == 1 thus TINYB == 1
-                                                (begin (eq! RES_HI ARG_1_HI)
-                                                       (eq! RES_LO ARG_1_LO))))))))
+                (if (!= INST EVM_INST_MUL)
+                    ;; i.e. INST == EXP
+                    (begin (if (== TINYE 1)
+                               ;; TINYE == 1 <=> ARG_2 = ARG_2_LO ∈ {0, 1}
+                               (begin (if (!= ARG_2_LO 1)
+                                          ;; Thus ARG_2_LO != 1 <=> ARG_2_LO == 0
+                                          (begin (== 0 RES_HI)
+                                                 (== RES_LO 1)))
+                                      (if (!= ARG_2_LO 0)
+                                          ;; Thus ARG_2_LO != 0 <=> ARG_2_LO == 1
+                                          (begin (== RES_HI ARG_1_HI)
+                                                 (== RES_LO ARG_1_LO))))
+                               ;; TINYE == 0 but OLI == 1 thus TINYB == 1
+                               (begin (== RES_HI ARG_1_HI)
+                                      (== RES_LO ARG_1_LO))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;;                   ;;
