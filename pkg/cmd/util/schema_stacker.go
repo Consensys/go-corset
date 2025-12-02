@@ -44,14 +44,17 @@ const (
 	// MICRO_ASM_LAYER represents the micro assembly layer which is typically
 	// vectorised and field specific.
 	MICRO_ASM_LAYER = 1
+	// NANO_ASM_LAYER represents the micro assembly layer after register
+	// splitting.
+	NANO_ASM_LAYER = 2
 	// MIR_LAYER represents Mid-level Intermediate Representation (MIR) which is
 	// a true collection of constraints and assignments.  However, it retains a
 	// more high-level perspective.
-	MIR_LAYER = 2
+	MIR_LAYER = 3
 	// AIR_LAYER represents the Arithmetic Intermediate Representation (AIR)
 	// which is the bottom layer in the system, and is the representation passed
 	// to the prover.
-	AIR_LAYER = 3
+	AIR_LAYER = 4
 )
 
 // SchemaStacker is an abstraction for building a schema stacks.  It allows us
@@ -171,10 +174,10 @@ func (p SchemaStacker[F]) TraceBuilder() ir.TraceBuilder[F] {
 // Build a fresh SchemaStack from this stacker.
 func (p SchemaStacker[F]) Build() SchemaStack[F] {
 	var (
-		asmProgram asm.MacroHirProgram
-		hirProgram asm.MicroHirProgram
-		airSchema  air.Schema[F]
-		stack      SchemaStack[F]
+		asmProgram  asm.MacroHirProgram
+		uasmProgram asm.MicroHirProgram
+		airSchema   air.Schema[F]
+		stack       SchemaStack[F]
 	)
 	//
 	if p.binfile.HasValue() {
@@ -184,9 +187,11 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 		// Read out the mixed macro schema
 		asmProgram = binfile.Schema
 		// Lower to mixed micro schema
-		hirProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
+		uasmProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
 		// Apply register splitting for field agnosticity
-		mirSchema, mapping := asm.Concretize[F](p.asmConfig.Field, hirProgram)
+		nasmProgram, mapping := asm.Concretize[F](p.asmConfig.Field, uasmProgram)
+		// Compile
+		mirSchema := asm.Compile(nasmProgram)
 		// Record mapping
 		stack.mapping = mapping
 		// Include (Macro) Assembly Layer (if requested)
@@ -196,8 +201,13 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 		}
 		// Include (Micro) Assembly Layer (if requested)
 		if p.layers.Contains(MICRO_ASM_LAYER) {
-			stack.abstractSchemas = append(stack.abstractSchemas, &hirProgram)
+			stack.abstractSchemas = append(stack.abstractSchemas, &uasmProgram)
 			stack.names = append(stack.names, "UASM")
+		}
+		// Include (Micro) Assembly Layer (if requested)
+		if p.layers.Contains(NANO_ASM_LAYER) {
+			stack.concreteSchemas = append(stack.concreteSchemas, &nasmProgram)
+			stack.names = append(stack.names, "NASM")
 		}
 		// Include Mid-level IR layer (if requested)
 		if p.layers.Contains(MIR_LAYER) {
