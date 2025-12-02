@@ -14,11 +14,14 @@ package agnostic
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -122,13 +125,12 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 		// Record initial number of registers
 		n = uint(len(mapping.Registers()))
 		//
-		divisions = initialiseVariableDivisions(n)
+		splitter = NewRegisterSplitter(n)
 		// Determine the bitwidth of each chunk
 		rhsChunks []RhsChunk
-		// Equations being constructed
-		assignments []Assignment2
+		lhsChunks []LhsChunk
 		//
-		lhsChunks = determineLhsChunks(p.LeftHandSide, field.RegisterWidth, mapping)
+		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field.RegisterWidth, mapping)
 	)
 	// Attempt to divide polynomials into chunks.  If this fails, iterative
 	// decrease chunk width until something fits.
@@ -136,10 +138,10 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 		var (
 			overflows bit.Set
 			// Right-hand side
-			right = splitDividedVariables(divisions, p.RightHandSide, mapping)
+			right = splitter.Apply(p.RightHandSide, mapping)
 		)
 		// Attempt to chunk right-hand side
-		rhsChunks, overflows = determineRhsChunks(right, lhsChunks, field, mapping)
+		lhsChunks, rhsChunks, overflows = determineRhsChunks(right, initLhsChunks, field, mapping)
 		//
 		if overflows.Count() == 0 {
 			// Successful chunking, therefore include any constraints necessary
@@ -147,10 +149,13 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 			break
 		}
 		// Update divisions based on identified overflows
-		updateVariableDivisions(divisions, overflows)
+		splitter.Subdivide(overflows)
 		// Reset any allocated carry registers as we are starting over
 		mapping.Reset(n)
+		splitter.Reset()
 	}
+	// Initialise with splits
+	assignments := splitter.assignments
 	// Reconstruct equations
 	for i := range len(lhsChunks) {
 		l := lhsChunks[i]
@@ -162,30 +167,7 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 	return assignments
 }
 
-func initialiseVariableDivisions(n uint) []uint {
-	var divisions = make([]uint, n)
-	//
-	for i := range divisions {
-		divisions[i] = 1
-	}
-	//
-	return divisions
-}
-
-func updateVariableDivisions(divisions []uint, vars bit.Set) {
-	//
-	for i := range divisions {
-		if vars.Contains(uint(i)) {
-			divisions[i] *= 2
-		}
-	}
-}
-
-func splitDividedVariables(divisions []uint, p StaticPolynomial, mapping RegisterAllocator) StaticPolynomial {
-	panic("todo")
-}
-
-func determineLhsChunks(regs []register.Id, chunkWidth uint, mapping register.Map) []LhsChunk {
+func initialiseLhsChunks(regs []register.Id, chunkWidth uint, mapping register.Map) []LhsChunk {
 	var chunks []Chunk[[]register.Id]
 	//
 	for len(regs) != 0 {
@@ -217,18 +199,21 @@ func getNextLhsChunk(regs []register.Id, chunkWidth uint, mapping register.Map) 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
 // determined by the chunk widths.  This inserts carry lines as needed to ensure
 // correctness.
-func determineRhsChunks(p StaticPolynomial, lhsChunks []LhsChunk, field field.Config,
-	mapping RegisterAllocator) ([]RhsChunk, bit.Set) {
+func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Config,
+	mapping RegisterAllocator) ([]LhsChunk, []RhsChunk, bit.Set) {
 	//
 	var (
-		env    = StaticEnvironment(mapping)
-		chunks []RhsChunk
-		vars   bit.Set
+		env       = StaticEnvironment(mapping)
+		rhsChunks []RhsChunk
+		lhsChunks []LhsChunk
+		vars      bit.Set
 	)
 	// Subdivide polynomial into chunks
-	for _, ith := range lhsChunks {
-		// TODO: carry lines
-		var remainder StaticPolynomial
+	for i, ith := range chunks {
+		var (
+			remainder StaticPolynomial
+			lhsChunk  LhsChunk
+		)
 		// Chunk the polynomial
 		p, remainder = p.Shr(ith.bitwidth)
 		// Determine chunk width
@@ -236,13 +221,28 @@ func determineRhsChunks(p StaticPolynomial, lhsChunks []LhsChunk, field field.Co
 		// Check whether chunk fits
 		if chunkWidth > field.BandWidth {
 			// No, it does not.
-			panic("got here")
+			vars.Union(RegisterReadSet(remainder))
+		} else if i+1 != len(lhsChunks) && chunkWidth > ith.bitwidth {
+			// Overflow case.
+			var carry StaticPolynomial
+			// Determine width of carry register
+			overflow := chunkWidth - ith.bitwidth
+			// Allocate new register to get an Id
+			carryRegId := mapping.Allocate("c", overflow)
+			// Propage carry forward
+			p = p.Add(carry.Set(poly.NewMonomial(one, carryRegId)))
+			// include carry in lhs
+			lhsChunk = LhsChunk{ith.bitwidth, array.Prepend(carryRegId, ith.contents)}
+		} else {
+			// lhs chunk unchanged
+			lhsChunk = ith
 		}
 		//
-		chunks = append(chunks, RhsChunk{chunkWidth, remainder})
+		rhsChunks = append(rhsChunks, RhsChunk{chunkWidth, remainder})
+		lhsChunks = append(lhsChunks, lhsChunk)
 	}
 	//
-	return chunks, vars
+	return lhsChunks, rhsChunks, vars
 }
 
 // Chunk represents a "chunk information bits".
@@ -264,4 +264,107 @@ func StaticPoly2String(p StaticPolynomial, env register.Map) string {
 	return poly.String(p, func(r register.Id) string {
 		return env.Register(r.Id()).Name
 	})
+}
+
+// RegisterSplitter is used to manage the mechanism of splitting variables into
+// limbs in order to improve the precision of a chunk.
+type RegisterSplitter struct {
+	divisions   []uint
+	assignments []Assignment2
+}
+
+// NewRegisterSplitter constructs a new splitter for a given number of variables.
+func NewRegisterSplitter(n uint) RegisterSplitter {
+	var divisions = make([]uint, n)
+	//
+	for i := range divisions {
+		divisions[i] = 1
+	}
+	//
+	return RegisterSplitter{divisions, nil}
+}
+
+// Subdivide takes all registers in the given set and further subdivides them.
+// For example, if they were previously being divided in 2, then they will now
+// be divided in 4, etc.
+func (p *RegisterSplitter) Subdivide(vars bit.Set) {
+	//
+	for i := range p.divisions {
+		if vars.Contains(uint(i)) {
+			p.divisions[i] *= 2
+		}
+	}
+}
+
+// Reset assignments create for the current splitting.
+func (p *RegisterSplitter) Reset() {
+	p.assignments = nil
+}
+
+// Apply the current subdivisions to a given polynomial.  Specifically, this
+// splits all registers into their limbs and subsitutes them into the
+// polynomial.  As a by-product this also records the assignments needed for the
+// mapping from registers to their limbs.
+func (p *RegisterSplitter) Apply(poly StaticPolynomial, mapping RegisterAllocator) StaticPolynomial {
+	var cache = make(map[register.Id]StaticPolynomial)
+	//
+	for i, div := range p.divisions {
+		var (
+			rid = register.NewId(uint(i))
+			reg = mapping.Register(rid)
+		)
+		//
+		if div != 1 && reg.Width > 1 {
+			var limbPoly = p.splitVariable(rid, div, mapping)
+			//
+			cache[rid] = limbPoly
+		}
+	}
+	//
+	return SubstitutePolynomial(poly, func(reg register.Id) StaticPolynomial {
+		if rp, ok := cache[reg]; ok {
+			return rp
+		}
+		// no substitution
+		return nil
+	})
+}
+
+func (p *RegisterSplitter) splitVariable(rid register.Id, div uint, mapping RegisterAllocator) (r StaticPolynomial) {
+	var (
+		one      big.Int = *big.NewInt(1)
+		rhs      StaticPolynomial
+		terms    []StaticMonomial
+		reg      = mapping.Register(rid)
+		maxWidth = reg.Width / div
+		bitwidth = reg.Width
+		width    uint
+	)
+	// Round up (if necessary)
+	if (maxWidth * div) < reg.Width {
+		maxWidth++
+	}
+	// Determine limb widths
+	limbWidths := register.LimbWidths(maxWidth, reg.Width)
+	// Allocate limbs
+	limbs := mapping.AllocateN(reg.Name, limbWidths)
+	// Construct limb polynomial
+	for i, limb := range limbs {
+		var (
+			c         = util_math.Pow2(width)
+			limbWidth = min(bitwidth, limbWidths[i])
+		)
+		//
+		if limbWidth > 0 {
+			terms = append(terms, poly.NewMonomial(*c, limb))
+			width += limbWidth
+		}
+		//
+		bitwidth -= limbWidth
+	}
+	// Update assignments
+	assignment := NewAssignment2(limbs, rhs.Set(poly.NewMonomial(one, rid)))
+	p.assignments = append(p.assignments, assignment)
+	//
+	return r.Set(terms...)
 }
