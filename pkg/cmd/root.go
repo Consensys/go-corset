@@ -117,6 +117,7 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 		airEnable    = GetFlag(cmd, "air")
 		asmEnable    = GetFlag(cmd, "asm")
 		uasmEnable   = GetFlag(cmd, "uasm")
+		nasmEnable   = GetFlag(cmd, "nasm")
 		optimisation = GetUint(cmd, "opt")
 		externs      = GetStringArray(cmd, "set")
 		//
@@ -156,7 +157,7 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 		os.Exit(2)
 	}
 	// If no IR was specified, set a default
-	if !airEnable && !mirEnable && !uasmEnable && !asmEnable {
+	if !airEnable && !mirEnable && !uasmEnable && !asmEnable && !nasmEnable {
 		switch mode {
 		case SCHEMA_DEFAULT_MIR:
 			mirEnable = true
@@ -184,6 +185,10 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 	//
 	if uasmEnable {
 		stacker = stacker.WithLayer(cmd_util.MICRO_ASM_LAYER)
+	}
+	//
+	if nasmEnable {
+		stacker = stacker.WithLayer(cmd_util.NANO_ASM_LAYER)
 	}
 	//
 	if mirEnable {
@@ -226,6 +231,7 @@ func init() {
 	rootCmd.PersistentFlags().Bool("asm", false, "include constraints at ASM level")
 	rootCmd.PersistentFlags().Bool("mir", false, "include constraints at MIR level")
 	rootCmd.PersistentFlags().Bool("uasm", false, "include constraints at micro ASM level")
+	rootCmd.PersistentFlags().Bool("nasm", false, "include constraints at nano ASM level")
 	// Trace expansion
 	rootCmd.PersistentFlags().Bool("raw", false, "assume input trace already expanded")
 	rootCmd.PersistentFlags().Bool("sequential", false, "perform sequential trace expansion")
