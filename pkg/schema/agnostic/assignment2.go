@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/math"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
@@ -83,9 +84,54 @@ func (p *Assignment2) Width(env register.Map) uint {
 	return max(lhs, rhs)
 }
 
-// Split an equation according to a given field bandwidth.  This creates one
-// or more equations implementing the original which operate safely within the
-// given bandwidth.
+// Split an assignment according to a given field bandwidth.  This creates one
+// or more assignments implementing the original which operate safely within the
+// given bandwidth.  For example, consider the following assignment where all
+// limbs are u8 (i.e. X'0, X'1, Y'0, and Y'1) and b is u1:
+//
+// b, X'1, X'0 = (2^8*Y'1 + Y'0) + 1
+//
+// This assignment cannot be safely evaluated within a field bandwidth of 16
+// bits (i.e. because the right-hand side could overflow).  This is determined
+// by checking the bandwidth against the computed width of the assignment
+// (which, in this case, is 17).  Since the computed width exceeds the available
+// bandwidth, the assignment needs to split as follows:
+//
+// b, X'1 = Y'1 + c
+//
+// c, X'0 = Y'0 + 1
+//
+// Here, c is an introduced u1 register for holding the "carry" (this is
+// analoguous to carry flags as commonly found in CPU architectures).  In
+// general, the algorithm can result in temporary registers of arbitrary size
+// being introduced.  For example, consider a more complex case (again, u8
+// limbs):
+//
+// X'3,X'2,X'1,X'0 = (2^8*Y'1 + Y'0) * (2^8*Z'1 + Z'0)
+//
+// Here, the right-hand side expands as follows into the appropriate polynomial
+// representation:
+//
+// X'3,X'2,X'1,X'0 = (2^16*Y'1*Z'1) + (2^8*Y'1*Z'0) + (2^8*Y'0*Z'1) + (Y'0*Z'0)
+//
+// The difficulty here is that the left- and right-hand sides are somewhat
+// "misaligned".  We can attempt to resolve this through large carry registers
+// as follows:
+//
+//	         X'3 = (Y'1*Z'1) + c1
+//
+//	c1, X'2, X'1 = (Y'1*Z'0) + (Y'0*Z'1) + c0
+//
+//	     c0, X'0 = (Y'0*Z'0)
+//
+// Here, c0 and c1 are u8 and u1 carry registers respectively.  Unfortunately,
+// this means the middle assignment has a bandwidth requirement of 17bits (which
+// still exceeds our original target of 16bits).  Of course, if our bandwidth
+// requirement was just slightly larger, then it would fit and we would be done.
+//
+// For (sub-)assignments which still exceed the bandwidth requirement (such as
+// above), we must further split them by introducing additional temporary
+// registers.
 func (p *Assignment2) Split(field field.Config, env RegisterAllocator) (eqs []Assignment2) {
 	// Check whether any splitting required
 	if p.Width(env) > field.BandWidth {
@@ -130,7 +176,7 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 		rhsChunks []RhsChunk
 		lhsChunks []LhsChunk
 		//
-		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field.RegisterWidth, mapping)
+		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field.BandWidth, mapping)
 	)
 	// Attempt to divide polynomials into chunks.  If this fails, iterative
 	// decrease chunk width until something fits.
@@ -197,8 +243,8 @@ func getNextLhsChunk(regs []register.Id, chunkWidth uint, mapping register.Map) 
 }
 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
-// determined by the chunk widths.  This inserts carry lines as needed to ensure
-// correctness.
+// determined by the chunk widths.  This inserts carry and borrow registers as
+// needed to ensure correctness of both signed and unsigned arithmetic.
 func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Config,
 	mapping RegisterAllocator) ([]LhsChunk, []RhsChunk, bit.Set) {
 	//
@@ -207,35 +253,38 @@ func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Confi
 		rhsChunks []RhsChunk
 		lhsChunks []LhsChunk
 		vars      bit.Set
+		signed    bool
 	)
 	// Subdivide polynomial into chunks
 	for i, ith := range chunks {
 		var (
+			last      = i+1 == len(chunks)
 			remainder StaticPolynomial
 			lhsChunk  LhsChunk
 		)
 		// Chunk the polynomial
 		p, remainder = p.Shr(ith.bitwidth)
 		// Determine chunk width
-		chunkWidth, _ := WidthOfPolynomial(remainder, env)
+		chunkWidth, s := RawWidthOfPolynomial(remainder, env)
+		// Determine width of overflow
+		overflow := chunkWidth - ith.bitwidth
+		// Check whether signed arithmetic begins
+		signed = signed || s
 		// Check whether chunk fits
 		if chunkWidth > field.BandWidth {
 			// No, it does not.
 			vars.Union(RegisterReadSet(remainder))
-		} else if i+1 != len(lhsChunks) && chunkWidth > ith.bitwidth {
+		} else if !last && chunkWidth > ith.bitwidth {
 			// Overflow case.
-			var carry StaticPolynomial
-			// Determine width of carry register
-			overflow := chunkWidth - ith.bitwidth
-			// Allocate new register to get an Id
-			carryRegId := mapping.Allocate("c", overflow)
-			// Propage carry forward
-			p = p.Add(carry.Set(poly.NewMonomial(one, carryRegId)))
-			// include carry in lhs
-			lhsChunk = LhsChunk{ith.bitwidth, array.Append(ith.contents, carryRegId)}
+			p, lhsChunk = propagateCarry(ith, overflow, p, mapping)
 		} else {
 			// lhs chunk unchanged
 			lhsChunk = ith
+		}
+		// Manage signed arithmetic
+		if signed && !last {
+			// Overflow case.
+			p, lhsChunk = propagateBorrow(ith, overflow, p, mapping)
 		}
 		//
 		rhsChunks = append(rhsChunks, RhsChunk{chunkWidth, remainder})
@@ -245,7 +294,86 @@ func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Confi
 	return lhsChunks, rhsChunks, vars
 }
 
-// Chunk represents a "chunk information bits".
+// Propagate a given number of overflow bits from the current chunk into the
+// polynomial being carried forward into the next chunk.  For example, consider
+// these two chunks (viewed as instructions):
+//
+// var x'0, x'1, y'0, y'1 u8
+// var c u2
+//
+//    x'0 = 3 * y'0
+// c, x'1 = y'1
+//
+// Looking at the first statement, we have the following alignment of bits:
+//
+//         9 8 7 6 5 4 3 2 1 0
+//            +-+-+-+-+-+-+-+-+
+// x'0        | | | | | | | | |
+//        +-+-+-+-+-+-+-+-+-+-+
+// 3*y'0: | | | | | | | | | | |
+//        +-+-+-+-+-+-+-+-+-+-+
+//
+// We can see the right-hand side has an overflow of 2 bits.  Thus, we need to
+// allocate a "carry register" of the given size and then propagate this into
+// the next chunk (i.e. instruction).  That gives the following:
+//
+// var x'0, x'1, y'0, y'1 u8
+// var c, c$2 u2
+//
+// c$2, x'0 = 3 * y'0
+//   c, x'1 = y'1 + c$2
+//
+// Here, c$2 is the carry register allocated to balance the first assignment,
+// and this then must be propagated into the second instruction.
+
+func propagateCarry(chunk LhsChunk, overflow uint, carry StaticPolynomial,
+	mapping RegisterAllocator) (StaticPolynomial, LhsChunk) {
+	// Overflow case.
+	var tmp StaticPolynomial
+	// Allocate new register to get an Id
+	carryRegId := mapping.Allocate("c", overflow)
+	// Propage carry forward
+	carry = carry.Add(tmp.Set(poly.NewMonomial(one, carryRegId)))
+	// include carry in lhs
+	return carry, LhsChunk{chunk.bitwidth, array.Append(chunk.contents, carryRegId)}
+}
+
+// Propagate a borrow bit from the current chunk into the polynomial being
+// carried forward into the next chunk.  For example, consider these two chunks
+// (viewed as instructions):
+//
+// var x'0, x'1, y'0, y'1 u8
+// var b u1
+//
+//    x'0 = y'0 - 1
+// b, x'1 = y'1
+//
+// In this case, we have 9bits of information from the right-hand side of the
+// first instruction flowing into only 8bits on the left-hand side.  To make
+// this work, we must introduce a specific "sign bit" to propagate the borrow
+// originating in the first instruction into the second, like so:
+//
+// var x'0, x'1, y'0, y'1 u8
+// var b, b$2 u1
+//
+// b$2, x'0 = y'0 - 1
+//   b, x'1 = y'1 - b$2
+//
+// Here, b$2 is the allocated sign bit to account for the potential underflow in
+// the first instruction.
+
+func propagateBorrow(chunk LhsChunk, overflow uint, carry StaticPolynomial,
+	mapping RegisterAllocator) (StaticPolynomial, LhsChunk) {
+	var borrow StaticPolynomial
+	// Allocate new register to get an Id
+	signBit := mapping.Allocate("b", 1)
+	// Put sign bit after carry (i.e. overflow)
+	carry = carry.Add(borrow.Set(poly.NewMonomial(*math.NegPow2(overflow), signBit)))
+	// include sign in lhs
+	return carry, LhsChunk{chunk.bitwidth, array.Append(chunk.contents, signBit)}
+}
+
+// Chunk represents a "chunk of information bits".
 type Chunk[T any] struct {
 	bitwidth uint
 	contents T
