@@ -256,39 +256,35 @@ func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Confi
 		signed    bool
 	)
 	// Subdivide polynomial into chunks
-	for i, ith := range chunks {
+	for i, chunk := range chunks {
 		var (
 			last      = i+1 == len(chunks)
 			remainder StaticPolynomial
-			lhsChunk  LhsChunk
 		)
 		// Chunk the polynomial
-		p, remainder = p.Shr(ith.bitwidth)
+		p, remainder = p.Shr(chunk.bitwidth)
 		// Determine chunk width
 		chunkWidth, s := RawWidthOfPolynomial(remainder, env)
 		// Determine width of overflow
-		overflow := chunkWidth - ith.bitwidth
+		overflow := chunkWidth - chunk.bitwidth
 		// Check whether signed arithmetic begins
 		signed = signed || s
 		// Check whether chunk fits
 		if chunkWidth > field.BandWidth {
 			// No, it does not.
 			vars.Union(RegisterReadSet(remainder))
-		} else if !last && chunkWidth > ith.bitwidth {
+		} else if !last && chunkWidth > chunk.bitwidth {
 			// Overflow case.
-			p, lhsChunk = propagateCarry(ith, overflow, p, mapping)
-		} else {
-			// lhs chunk unchanged
-			lhsChunk = ith
+			p, chunk = propagateCarry(chunk, overflow, p, mapping)
 		}
 		// Manage signed arithmetic
 		if signed && !last {
 			// Overflow case.
-			p, lhsChunk = propagateBorrow(ith, overflow, p, mapping)
+			p, chunk = propagateBorrow(chunk, overflow, p, mapping)
 		}
 		//
 		rhsChunks = append(rhsChunks, RhsChunk{chunkWidth, remainder})
-		lhsChunks = append(lhsChunks, lhsChunk)
+		lhsChunks = append(lhsChunks, chunk)
 	}
 	//
 	return lhsChunks, rhsChunks, vars
