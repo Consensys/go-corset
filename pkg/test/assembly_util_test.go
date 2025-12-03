@@ -66,7 +66,7 @@ func Test_AsmUtil_Signextend(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/signextend", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
-// Note: field.KOALABEAR_16 is omitted as it's causing an issue with register splitting for the ternary operator
 func Test_AsmUtil_Ternary(t *testing.T) {
+	// #1334
 	util.CheckWithFields(t, false, "asm/util/ternary", util.ASM_MAX_PADDING, field.BLS12_377)
 }
