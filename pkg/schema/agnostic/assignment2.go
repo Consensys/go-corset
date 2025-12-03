@@ -177,7 +177,7 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 		rhsChunks []RhsChunk
 		lhsChunks []LhsChunk
 		//
-		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field.RegisterWidth, mapping)
+		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field, mapping)
 	)
 	//
 	for {
@@ -218,8 +218,11 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 	return assignments
 }
 
-func initialiseLhsChunks(regs []register.Id, chunkWidth uint, mapping register.Map) []LhsChunk {
-	var chunks []Chunk[[]register.Id]
+func initialiseLhsChunks(regs []register.Id, field field.Config, mapping register.Map) []LhsChunk {
+	var (
+		chunks     []Chunk[[]register.Id]
+		chunkWidth = determineInitialChunkWidth(field)
+	)
 	//
 	for len(regs) != 0 {
 		var chunk Chunk[[]register.Id]
@@ -229,6 +232,19 @@ func initialiseLhsChunks(regs []register.Id, chunkWidth uint, mapping register.M
 	}
 	//
 	return chunks
+}
+
+// Determining the chunkwidth to use for initialising the left-hand side is
+// somewhat subtle, and can impact both the performance of the algorithm and the
+// overall chance of success.  In particular, it is useful to have at least one
+// additional bit over the field's register bitwidth to account for sign bits.
+// The chosen solution here is a heuristic which aims to ensure: (i) there is at
+// least one additional bit of information; (ii) there are unused bits in the
+// given bandwidth (e.g. as needed for carries, etc).
+func determineInitialChunkWidth(field field.Config) uint {
+	var delta = max(1, (field.BandWidth-field.RegisterWidth)/4)
+	//
+	return field.RegisterWidth + delta
 }
 
 func getNextLhsChunk(regs []register.Id, chunkWidth uint, mapping register.Map) (LhsChunk, []register.Id) {
