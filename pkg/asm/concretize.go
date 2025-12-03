@@ -77,38 +77,44 @@ type UniformSchema[F field.Element[F]] = sc.UniformSchema[F, mir.Module[F]]
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
 func Concretize[F Element[F]](cfg field.Config, hp MicroHirProgram,
-) (UniformSchema[F], module.LimbsMap) {
+) (MicroMirProgram[F], module.LimbsMap) {
 	var (
+		fns = hp.program.Functions()
 		// Lower HIR program first.  This is necessary to ensure any registers
 		// added during this process are included in the subsequent limbs map.
-		p = lowerHirProgram(hp)
+		p = NewMixedProgram(hp.program, hir.LowerToMir(fns, hp.externs)...)
 		// Construct a limbs map which determines the mapping of all registers
 		// into their limbs.
 		mapping = module.NewLimbsMap[F](cfg, p.Modules().Collect()...)
-		n       = len(p.Functions())
+	)
+	// Split registers in assembly functions
+	asmProgram := subdivideProgram(mapping, p.program)
+	// Concretize legacy components
+	mirModules := mir.Concretize[word.BigEndian, F](mapping, fns, p.Externs())
+	// Done
+	return NewMixedProgram(asmProgram, mirModules...), mapping
+}
+
+// Compile a mixed micro program into a uniform MIR schema.
+func Compile[F Element[F]](p MicroMirProgram[F]) UniformSchema[F] {
+	var (
+		// Construct a limbs map which determines the mapping of all registers
+		// into their limbs.
+		n = len(p.Functions())
 		// Construct compiler
 		comp    = compiler.NewCompiler[F, register.Id, compiler.MirExpr[F], compiler.MirModule[F]]()
 		modules = make([]mir.Module[F], p.Width())
 	)
-	// Split registers in assembly functions
-	splitProgram := subdivideProgram(mapping, p.program)
 	// Compile subdivided assembly components into MIR
-	comp.Compile(splitProgram)
+	comp.Compile(p.program)
 	// Copy over compiled components
 	for i, m := range comp.Modules() {
 		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
 	}
 	// Concretize legacy components
-	copy(modules[n:], mir.Concretize[word.BigEndian, F](mapping, modules[:n], p.Externs()))
+	copy(modules[n:], p.Externs())
 	// Done
-	return schema.NewUniformSchema(modules), mapping
-}
-
-// Lower an HIR program into an MIR program.
-func lowerHirProgram(hp MicroHirProgram) MicroMirProgram[word.BigEndian] {
-	var fns = hp.program.Functions()
-	//
-	return NewMixedProgram(hp.program, hir.LowerToMir(fns, hp.externs)...)
+	return schema.NewUniformSchema(modules)
 }
 
 // Subdivide a given program.  In principle, this should be located within
