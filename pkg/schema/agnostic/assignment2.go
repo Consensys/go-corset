@@ -168,6 +168,7 @@ func (p *Assignment2) Split(field field.Config, env RegisterAllocator) (eqs []As
 // chunked, to determine which variable(s) to subdivide and by how much.
 func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []Assignment2 {
 	var (
+		iteration = 0
 		// Record initial number of registers
 		n = uint(len(mapping.Registers()))
 		//
@@ -176,10 +177,9 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 		rhsChunks []RhsChunk
 		lhsChunks []LhsChunk
 		//
-		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field.BandWidth, mapping)
+		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field.RegisterWidth, mapping)
 	)
-	// Attempt to divide polynomials into chunks.  If this fails, iterative
-	// decrease chunk width until something fits.
+	//
 	for {
 		var (
 			overflows bit.Set
@@ -193,12 +193,17 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 			// Successful chunking, therefore include any constraints necessary
 			// for splitting of non-linear terms and construct final equations.
 			break
+		} else if iteration >= 16 {
+			debugChunks(lhsChunks, rhsChunks, mapping)
+			panic("malformed assignment")
 		}
 		// Update divisions based on identified overflows
 		splitter.Subdivide(overflows)
 		// Reset any allocated carry registers as we are starting over
 		mapping.Reset(n)
 		splitter.Reset()
+		// Start next iteration
+		iteration++
 	}
 	// Initialise with splits
 	assignments := splitter.assignments
@@ -491,4 +496,66 @@ func (p *RegisterSplitter) splitVariable(rid register.Id, div uint, mapping Regi
 	p.assignments = append(p.assignments, assignment)
 	//
 	return r.Set(terms...)
+}
+
+func (p *RegisterSplitter) String(mapping register.Map) string {
+	var (
+		builder strings.Builder
+		first   = true
+	)
+	//
+	builder.WriteString("[")
+	//
+	for i, div := range p.divisions {
+		rid := register.NewId(uint(i))
+		//
+		if div > 1 {
+			if !first {
+				builder.WriteString(", ")
+			}
+			//
+			name := mapping.Register(rid).Name
+			builder.WriteString(fmt.Sprintf("%s/%d", name, div))
+			//
+			first = false
+		}
+	}
+	//
+	builder.WriteString("]")
+	//
+	return builder.String()
+}
+
+// useful for debugging the splitting algorithm.
+//
+// nolint
+func debugChunks(lhs []LhsChunk, rhs []RhsChunk, mapping register.Map) {
+	//
+	for i := len(lhs); i > 0; i-- {
+		ith := lhs[i-1]
+		fmt.Printf("[u%d ", ith.bitwidth)
+
+		for j := len(ith.contents); j > 0; j-- {
+			rid := ith.contents[j-1]
+			if j < len(ith.contents) {
+				fmt.Printf(", ")
+			}
+
+			fmt.Print(mapping.Register(rid).Name)
+		}
+		//
+		fmt.Print("]")
+	}
+	//
+	fmt.Print(" := ")
+	//
+	for _, ith := range rhs {
+		fmt.Printf("[u%d ", ith.bitwidth)
+		//
+		fmt.Print(StaticPoly2String(ith.contents, mapping))
+		//
+		fmt.Print("]")
+	}
+	//
+	fmt.Println()
 }
