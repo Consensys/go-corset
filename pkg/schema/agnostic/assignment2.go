@@ -232,7 +232,7 @@ func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Confi
 			// Propage carry forward
 			p = p.Add(carry.Set(poly.NewMonomial(one, carryRegId)))
 			// include carry in lhs
-			lhsChunk = LhsChunk{ith.bitwidth, array.Prepend(carryRegId, ith.contents)}
+			lhsChunk = LhsChunk{ith.bitwidth, array.Append(ith.contents, carryRegId)}
 		} else {
 			// lhs chunk unchanged
 			lhsChunk = ith
