@@ -30,9 +30,9 @@ func Test_AsmUtil_BitShr(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/bit_shr", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
-// func Test_AsmUtil_BitShl(t *testing.T) {
-// 	util.CheckWithFields(t, false, "asm/util/bit_shl", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
-// }
+func Test_AsmUtil_BitShl(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/bit_shl", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
 
 func Test_AsmUtil_FillBytes(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/fill_bytes", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
@@ -64,9 +64,4 @@ func Test_AsmUtil_SetByte(t *testing.T) {
 
 func Test_AsmUtil_Signextend(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/signextend", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
-}
-
-func Test_AsmUtil_Ternary(t *testing.T) {
-	// #1334
-	util.CheckWithFields(t, false, "asm/util/ternary", util.ASM_MAX_PADDING, field.BLS12_377)
 }

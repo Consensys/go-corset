@@ -168,6 +168,7 @@ func (p *Assignment2) Split(field field.Config, env RegisterAllocator) (eqs []As
 // chunked, to determine which variable(s) to subdivide and by how much.
 func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []Assignment2 {
 	var (
+		last      StaticPolynomial
 		iteration = 0
 		// Record initial number of registers
 		n = uint(len(mapping.Registers()))
@@ -193,9 +194,14 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 			// Successful chunking, therefore include any constraints necessary
 			// for splitting of non-linear terms and construct final equations.
 			break
-		} else if iteration >= 16 {
+		} else if iteration > 1 && right.Equal(last) {
+			// If we get here, then splitting made no improvement on the
+			// previous iteration and we are stuck.  The idea is that this
+			// should be unreachable, but it remains as a fall-back to prevent
+			// the potential for an infinite loop.
 			debugChunks(lhsChunks, rhsChunks, mapping)
-			panic("malformed assignment")
+			fmt.Printf("Divisions: %s\n", splitter.String(mapping))
+			panic(fmt.Sprintf("malformed assignment (after %d iterations)", iteration))
 		}
 		// Update divisions based on identified overflows
 		splitter.Subdivide(overflows)
@@ -203,6 +209,7 @@ func (p *Assignment2) chunkUp(field field.Config, mapping RegisterAllocator) []A
 		mapping.Reset(n)
 		splitter.Reset()
 		// Start next iteration
+		last = right
 		iteration++
 	}
 	// Initialise with splits
@@ -242,7 +249,8 @@ func initialiseLhsChunks(regs []register.Id, field field.Config, mapping registe
 // least one additional bit of information; (ii) there are unused bits in the
 // given bandwidth (e.g. as needed for carries, etc).
 func determineInitialChunkWidth(field field.Config) uint {
-	var delta = max(1, (field.BandWidth-field.RegisterWidth)/4)
+	//var delta = max(1, (field.BandWidth-field.RegisterWidth)/4)
+	var delta = uint(1)
 	//
 	return field.RegisterWidth + delta
 }
@@ -416,34 +424,65 @@ func StaticPoly2String(p StaticPolynomial, env register.Map) string {
 type RegisterSplitter struct {
 	divisions   []uint
 	assignments []Assignment2
+	parents     map[register.Id]register.Id
 }
 
 // NewRegisterSplitter constructs a new splitter for a given number of variables.
 func NewRegisterSplitter(n uint) RegisterSplitter {
-	var divisions = make([]uint, n)
+	var (
+		divisions = make([]uint, n)
+		parents   = make(map[register.Id]register.Id)
+	)
 	//
 	for i := range divisions {
 		divisions[i] = 1
 	}
 	//
-	return RegisterSplitter{divisions, nil}
+	return RegisterSplitter{divisions, nil, parents}
+}
+
+// ParentOf gets the original source variable from which this variable was
+// derived (if it was indeed derived).  For example, if a register X is split
+// into limbs X'1 and X'0, then the parent of the two limbs is X.  In the case
+// that a register was not derived through splitting, then it is its own parent.
+func (p *RegisterSplitter) ParentOf(v register.Id) register.Id {
+	if parent, ok := p.parents[v]; ok {
+		return parent
+	}
+	//
+	return v
 }
 
 // Subdivide takes all registers in the given set and further subdivides them.
 // For example, if they were previously being divided in 2, then they will now
 // be divided in 4, etc.
-func (p *RegisterSplitter) Subdivide(vars bit.Set) {
-	//
+func (p *RegisterSplitter) Subdivide(vars bit.Set) bool {
+	var (
+		changed = false
+		parents bit.Set
+	)
+	// Normalise variables
+	for iter := vars.Iter(); iter.HasNext(); {
+		rid := register.NewId(iter.Next())
+		parents.Insert(p.ParentOf(rid).Unwrap())
+	}
+	// Update division
 	for i := range p.divisions {
-		if vars.Contains(uint(i)) {
+		if parents.Contains(uint(i)) {
 			p.divisions[i] *= 2
+			changed = true
 		}
 	}
+	//
+	return changed
 }
 
-// Reset assignments create for the current splitting.
+// Reset assignments created for the current splitting, and the ledger of
+// parents.
 func (p *RegisterSplitter) Reset() {
 	p.assignments = nil
+	// Reset parent of relationship
+	p.parents = make(map[register.Id]register.Id)
 }
 
 // Apply the current subdivisions to a given polynomial.  Specifically, this
@@ -492,7 +531,7 @@ func (p *RegisterSplitter) splitVariable(rid register.Id, div uint, mapping Regi
 	// Determine limb widths
 	limbWidths := register.LimbWidths(maxWidth, reg.Width)
 	// Allocate limbs
-	limbs := mapping.AllocateN(reg.Name, limbWidths)
+	limbs := p.alloc(rid, limbWidths, mapping)
 	// Construct limb polynomial
 	for i, limb := range limbs {
 		var (
@@ -542,6 +581,21 @@ func (p *RegisterSplitter) String(mapping register.Map) string {
 	return builder.String()
 }
 
+// Allocate the limbs for a parent variable which is being split.  This records
+// the fact that those limbs were derived from this parent.
+func (p *RegisterSplitter) alloc(parent register.Id, limbWidths []uint, mapping RegisterAllocator) []register.Id {
+	var (
+		reg   = mapping.Register(parent)
+		limbs = mapping.AllocateN(reg.Name, limbWidths)
+	)
+	// Record parent of each limbs
+	for _, limb := range limbs {
+		p.parents[limb] = parent
+	}
+	// Done
+	return limbs
+}
+
 // useful for debugging the splitting algorithm.
 //
 // nolint
@@ -565,7 +619,8 @@ func debugChunks(lhs []LhsChunk, rhs []RhsChunk, mapping register.Map) {
 	//
 	fmt.Print(" := ")
 	//
-	for _, ith := range rhs {
+	for i := len(rhs); i > 0; i-- {
+		ith := rhs[i-1]
 		fmt.Printf("[u%d ", ith.bitwidth)
 		//
 		fmt.Print(StaticPoly2String(ith.contents, mapping))

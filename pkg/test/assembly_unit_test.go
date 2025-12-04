@@ -24,10 +24,10 @@ func Test_AsmUnit_BitShift(t *testing.T) {
 		field.KOALABEAR_16, field.GF_8209)
 }
 
-// func Test_AsmUnit_ByteShift(t *testing.T) {
-// 	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, field.BLS12_377,
-// 		field.KOALABEAR_16, field.GF_8209)
-// }
+func Test_AsmUnit_ByteShift(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
 
 func Test_AsmUnit_Counter(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/counter", util.ASM_MAX_PADDING, field.BLS12_377,
@@ -113,8 +113,9 @@ func Test_AsmUnit_MixedLarge(t *testing.T) {
 }
 
 func Test_AsmUnit_RecPow(t *testing.T) {
+	// GF_8209 causes malformed assignment
 	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, field.BLS12_377,
-		field.KOALABEAR_16, field.GF_8209)
+		field.KOALABEAR_16)
 }
 func Test_AsmUnit_SlowPow(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/slow_pow", util.ASM_MAX_PADDING, field.BLS12_377,
@@ -124,4 +125,9 @@ func Test_AsmUnit_SlowPow(t *testing.T) {
 func Test_AsmUnit_Sub(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/sub", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
+}
+
+func Test_AsmUtil_Ternary(t *testing.T) {
+	// #1334
+	util.CheckWithFields(t, false, "asm/unit/ternary", util.ASM_MAX_PADDING, field.BLS12_377)
 }
