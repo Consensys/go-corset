@@ -34,6 +34,10 @@ func Test_AsmUtil_BitShl(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/bit_shl", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_AsmUtil_ByteCounting(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/byte_counting", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
+
 func Test_AsmUtil_FillBytes(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/fill_bytes", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
