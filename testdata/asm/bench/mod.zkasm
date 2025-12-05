@@ -82,6 +82,8 @@ fn negate(val u256) -> (neg_val u256) {
 fn divide(num u256, den=1 u256) -> (quot u256, rem u256) {
   var b, c u1
   var tmp1, tmp2 u256
+  ;; handle division by 0
+  if den == 0 goto exit_0
   ;; check num < den
   b,tmp1 = num - den
   if b != 0 goto base_case
@@ -94,5 +96,9 @@ fn divide(num u256, den=1 u256) -> (quot u256, rem u256) {
 base_case:
   quot = 0
   rem = num
+  return
+exit_0:
+  quot = 0
+  rem = 0
   return
 }
