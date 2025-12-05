@@ -24,11 +24,10 @@ func Test_AsmBench_Add(t *testing.T) {
 }
 
 func Test_AsmBench_Euc(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/euc", util.ASM_MAX_PADDING, field.BLS12_377)
+	util.CheckWithFields(t, false, "asm/bench/euc", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 func Test_AsmBench_Exp(t *testing.T) {
-	//#1226
-	util.CheckWithFields(t, false, "asm/bench/exp", util.ASM_MAX_PADDING, field.BLS12_377)
+	util.CheckWithFields(t, false, "asm/bench/exp", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmBench_Gas(t *testing.T) {
@@ -36,8 +35,7 @@ func Test_AsmBench_Gas(t *testing.T) {
 }
 
 func Test_AsmBench_Shf(t *testing.T) {
-	//#1226
-	util.CheckWithFields(t, false, "asm/bench/shf", util.ASM_MAX_PADDING, field.BLS12_377)
+	util.CheckWithFields(t, false, "asm/bench/shf", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmBench_Stp(t *testing.T) {

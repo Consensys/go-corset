@@ -95,6 +95,19 @@ func ArrayEnvironment(registers []register.Register) Environment[register.Id] {
 // the result.
 func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Environment[T],
 ) (bitwidth uint, signed bool) {
+	bitwidth, signed = RawWidthOfPolynomial(source, env)
+	// Adjust to include the sign bit for signed values.
+	if signed {
+		bitwidth++
+	}
+	//
+	return bitwidth, signed
+}
+
+// RawWidthOfPolynomial is essentially the same as WidthOfPolynomial, but does
+// not adjust the returned width to include a sign bit.
+func RawWidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Environment[T],
+) (bitwidth uint, signed bool) {
 	//
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, env)
@@ -108,9 +121,9 @@ func WidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Enviro
 		// an extra value.  For example, with signed 8bit values the range is
 		// -128 upto 127.
 		lowerBits := uint(lower.Add(&lower, &one).BitLen())
-		// Yes, we have negative values.  This mandates the need for an
-		// additional signbit.
-		return max(lowerBits+1, upperBits+1), true
+		// Yes, we have negative value but we don't adjust to include a sign bit
+		// (in this case).
+		return max(lowerBits, upperBits), true
 	}
 	// No sign bit required.
 	return upperBits, false
@@ -229,6 +242,20 @@ func RegistersRead[T RegisterIdentifier[T]](p Polynomial[T]) []register.Id {
 	}
 	//
 	return read
+}
+
+// RegisterReadSet returns the set of registers read by this instruction.
+func RegisterReadSet[T RegisterIdentifier[T]](p Polynomial[T]) bit.Set {
+	var regs bit.Set
+	//
+	for i := range p.Len() {
+		for _, ident := range p.Term(i).Vars() {
+			rid := ident.Id()
+			regs.Insert(rid.Unwrap())
+		}
+	}
+	//
+	return regs
 }
 
 // SubstitutePolynomial replaces all occurrences of a given variable with a set

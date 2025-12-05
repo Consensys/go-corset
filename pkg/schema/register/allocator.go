@@ -40,6 +40,10 @@ type Allocator[T any] interface {
 	// This is presumed to be a computed register, and automatically assigned a
 	// unique name.  No assignment is included for the allocated register
 	Allocate(prefix string, width uint) Id
+	// Allocate n registers of the given width within the target module.
+	// This is presumed to be a computed register, and automatically assigned a
+	// unique name.  No assignment is included for the allocated register
+	AllocateN(prefix string, widths []uint) []Id
 	// Allocate a fresh register of the given width within the target module
 	// *with* an assignment. This is declared as computed register, and
 	// automatically assigned a unique name.
@@ -98,6 +102,19 @@ func (p *registerAllocator[T]) Allocate(prefix string, width uint) Id {
 	p.assignments = append(p.assignments, registerAssignment[T]{})
 	//
 	return NewId(index)
+}
+
+// AllocateWithN implementation for the RegisterAllocator interface
+func (p *registerAllocator[T]) AllocateN(prefix string, widths []uint) []Id {
+	var (
+		ids = make([]Id, len(widths))
+	)
+	// First, allocate all registers
+	for i, w := range widths {
+		ids[i] = p.Allocate(prefix, w)
+	}
+	// Done
+	return ids
 }
 
 // AllocateWith implementation for the RegisterAllocator interface
