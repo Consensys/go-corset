@@ -1,0 +1,21 @@
+;; Bitwise Rotate Right (ROR) for 64bit words.  The rotate right
+;; function is similar to a shift but, instead of dropping the least
+;; significant bit, it is cycled around into the most significant bit
+;; position.  For example:
+;;
+;;  63 62      02 01 00
+;; +---+---+ ... ---+---+---+
+;; | X | Y |      C | B | A |
+;; +---+---+ ... ---+---+---+
+;;
+;; Where X,Y,B,C,A are individual bit values.  Then, rotating right by
+;; 1 bit gives:
+;;
+;;  63 62      02 01 00
+;; +---+---+ ... ---+---+---+
+;; | A | X |      D | C | B |
+;; +---+---+ ... ---+---+---+
+;;
+fn bit_ror64(word u64, n u6) -> (res u64) {
+  fail
+}
