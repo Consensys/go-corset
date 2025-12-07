@@ -23,6 +23,10 @@ func Test_AsmBench_Add(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/add", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_AsmBench_Bin(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/bench/bin", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
+
 func Test_AsmBench_Euc(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/euc", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
@@ -32,6 +36,9 @@ func Test_AsmBench_Exp(t *testing.T) {
 
 func Test_AsmBench_Gas(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/gas", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_AsmBench_Mul(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/bench/mul", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmBench_Shf(t *testing.T) {
@@ -45,10 +52,6 @@ func Test_AsmBench_Stp(t *testing.T) {
 func Test_AsmBench_Trm(t *testing.T) {
 	//#1319
 	util.CheckWithFields(t, false, "asm/bench/trm", util.ASM_MAX_PADDING, field.BLS12_377)
-}
-
-func Test_AsmBench_Bin(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/bench/bin", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmBench_Wcp(t *testing.T) {
