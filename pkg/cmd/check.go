@@ -297,7 +297,7 @@ func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], ma
 		reportRelevantCells(cells, trace, mapping, cfg)
 	} else if f, ok := failure.(*constraint.InternalFailure[F]); ok {
 		cells := f.RequiredCells(trace)
-		fmt.Printf("%s in %s:\n", f.Error, f.Handle)
+		fmt.Printf("%s:\n", f.Message())
 		reportRelevantCells(cells, trace, mapping, cfg)
 	}
 }

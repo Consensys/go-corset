@@ -171,13 +171,7 @@ func (p Constraint[F, E]) accepts(i int, tr trace.Trace[F], sc schema.AnySchema[
 		kth, err := expr.EvalAt(k, trModule, scModule)
 		// Perform the range check
 		if err != nil {
-			return coverage, &constraint.InternalFailure[F]{
-				Handle:  p.Handle,
-				Context: p.Context,
-				Row:     uint(k),
-				Term:    expr,
-				Error:   err.Error(),
-			}
+			return coverage, constraint.NewInternalFailure[F](p.Handle, p.Context, uint(k), expr, err.Error())
 		} else if kth.Cmp(bound) >= 0 {
 			// Evaluation failure
 			return coverage, &Failure[F]{handle, p.Context, expr, bitwidth, uint(k)}

@@ -197,7 +197,7 @@ func (p Assertion[F]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.
 		// Check whether property holds (or was undefined)
 		if ok, id, err := p.Property.TestAt(int(k), trModule, scModule); err != nil {
 			// Evaluation failure
-			return coverage, &InternalFailure[F]{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
+			return coverage, NewInternalFailure[F](p.Handle, p.Context, k, nil, err.Error())
 		} else if !ok {
 			return coverage, &AssertionFailure[F]{p.Handle, p.Context, p.Property, k}
 		} else {
