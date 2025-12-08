@@ -1,0 +1,17 @@
+;; Rotate right a u256 word
+
+include "bit_xoan.zkasm"
+
+fn bit_ror(word u256) -> (res u256) {
+      var lsw u255
+      var msw u1
+      var msw_u256 u256
+      var shifted_word u256
+      ;; isolate bit and shift
+      msw, lsw = word
+      msw_u256 = msw
+      shifted_word = lsw * 2
+      ;; apply or to the limbs
+      res = bit_xoan_u256(1, shifted_word, msw_u256)
+      return
+}
