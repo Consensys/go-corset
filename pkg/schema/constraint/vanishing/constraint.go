@@ -166,12 +166,7 @@ func HoldsLocally[F field.Element[F], T term.Testable[F]](k uint, handle string,
 	ok, id, err := term.TestAt(int(k), trMod, scMod)
 	// Check for errors
 	if err != nil {
-		return &constraint.InternalFailure[F]{
-			Handle:  handle,
-			Context: ctx,
-			Row:     k,
-			Term:    term,
-			Error:   err.Error()}, id
+		return constraint.NewInternalFailure[F](handle, ctx, k, term, err.Error()), id
 	} else if !ok {
 		// Evaluation failure
 		return &Failure[F]{handle, term, ctx, k}, id

@@ -101,21 +101,11 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 		s, s_err := p.Sources[row%n].EvalAt(row/n, srcTrMod, srcScMod)
 		// Checks
 		if t_err != nil {
-			return coverage, &constraint.InternalFailure[F]{
-				Handle:  p.Handle,
-				Context: p.TargetContext,
-				Row:     uint(row),
-				Term:    p.Target,
-				Error:   t_err.Error(),
-			}
+			return coverage, constraint.NewInternalFailure[F](p.Handle, p.TargetContext, uint(row),
+				p.Target, t_err.Error())
 		} else if s_err != nil {
-			return coverage, &constraint.InternalFailure[F]{
-				Handle:  p.Handle,
-				Context: p.SourceContext,
-				Row:     uint(row / n),
-				Term:    p.Sources[row%n],
-				Error:   s_err.Error(),
-			}
+			return coverage, constraint.NewInternalFailure[F](p.Handle, p.SourceContext, uint(row/n),
+				p.Sources[row%n], s_err.Error())
 		} else if t.Cmp(s) != 0 {
 			// Evaluation failure
 			return coverage, &Failure[F]{
