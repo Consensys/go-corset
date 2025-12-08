@@ -10,7 +10,7 @@ fn bit_shr64(word u64, n u6) -> (res u64) {
   b,m = n
   ;;
   if b!=0 goto apply
-  res = bit_shr64_u5((word,m)
+  res = bit_shr64_u5(word,m)
   return
 apply:
   msw, lsw = word
