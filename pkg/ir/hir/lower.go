@@ -250,13 +250,27 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 ) lookup.Vector[word.BigEndian, *mirRegisterAccess] {
 	var (
 		module   = p.mirSchema.Module(vec.Module)
-		terms    = p.expandTerms(module, vec.Terms...)
+		terms    = make([]*mirRegisterAccess, len(vec.Terms))
 		selector util.Option[*mirRegisterAccess]
 	)
 	//
 	if vec.HasSelector() {
 		sel := p.expandTerm(vec.Selector.Unwrap(), module)
 		selector = util.Some(sel)
+	}
+	//
+	for i, e := range vec.Terms {
+		// Check for unsafe operation (e.g. case)
+		var (
+			unsafe = selector.HasValue() && term.IsUnsafeExpr[word.BigEndian, LogicalTerm, Term](e)
+			expr   = e
+		)
+		//
+		if unsafe {
+			expr = term.Product(vec.Selector.Unwrap(), expr)
+		}
+		//
+		terms[i] = p.expandTerm(expr, module)
 	}
 	//
 	return lookup.NewVector(vec.Module, selector, terms...)

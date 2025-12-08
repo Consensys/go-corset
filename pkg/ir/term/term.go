@@ -282,3 +282,113 @@ func SubdivideLogicals[F field.Element[F], S Logical[F, S], T Expr[F, T]](cs []S
 	//
 	return computations
 }
+
+// ============================================================================
+// IsUnsafe
+// ============================================================================
+
+// IsUnsafeExpr determines whether or not a given expression contains an unsafe
+// operation (i.e. a runtime case).  Specifically, something which could fail at
+// runtime.
+func IsUnsafeExpr[F field.Element[F], S Logical[F, S], T Expr[F, T]](c T) bool {
+	var f Expr[F, T] = any(c).(Expr[F, T])
+	//
+	switch t := f.(type) {
+	case *Add[F, T]:
+		return isUnsafeExprs[F, S](t.Args)
+	case *Cast[F, T]:
+		return true
+	case *Constant[F, T]:
+		return false
+	case *Exp[F, T]:
+		return IsUnsafeExpr[F, S](t.Arg)
+	case *IfZero[F, S, T]:
+		condition := IsUnsafeLogical[F, S, T](t.Condition)
+		trueBranch := IsUnsafeExpr[F, S](t.TrueBranch)
+		falseBranch := IsUnsafeExpr[F, S](t.FalseBranch)
+		// Done
+		return condition || trueBranch || falseBranch
+	case *LabelledConst[F, T]:
+		return false
+	case *Mul[F, T]:
+		return isUnsafeExprs[F, S](t.Args)
+	case *Norm[F, T]:
+		return IsUnsafeExpr[F, S](t.Arg)
+	case *RegisterAccess[F, T]:
+		return t.bitwidth != t.maskwidth
+	case *Sub[F, T]:
+		return isUnsafeExprs[F, S](t.Args)
+	case *VectorAccess[F, T]:
+		for _, v := range t.Vars {
+			if v.bitwidth != v.maskwidth {
+				return true
+			}
+		}
+		//
+		return false
+	default:
+		panic(fmt.Sprintf("unknown computation encountered: %s", c.Lisp(false, nil).String(false)))
+	}
+}
+
+func isUnsafeExprs[F field.Element[F], S Logical[F, S], T Expr[F, T]](exprs []T) bool {
+	for _, v := range exprs {
+		if IsUnsafeExpr[F, S, T](v) {
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// IsUnsafeLogical determines whether or not a given logical expression contains
+// an unsafe operation (i.e. a runtime case).  Specifically, something which
+// could fail at runtime.
+func IsUnsafeLogical[F field.Element[F], S Logical[F, S], T Expr[F, T]](c S) bool {
+	var f Logical[F, S] = any(c).(Logical[F, S])
+	//
+	switch t := f.(type) {
+	case *Conjunct[F, S]:
+		return isUnsafeLogicals[F, S, T](t.Args)
+	case *Disjunct[F, S]:
+		return isUnsafeLogicals[F, S, T](t.Args)
+	case *Equal[F, S, T]:
+		lhs := IsUnsafeExpr[F, S, T](t.Lhs.(T))
+		rhs := IsUnsafeExpr[F, S, T](t.Rhs.(T))
+
+		return lhs || rhs
+	case *Ite[F, S]:
+		var condition, trueBranch, falseBranch bool
+
+		condition = IsUnsafeLogical[F, S, T](t.Condition)
+		//
+		if t.TrueBranch != nil {
+			trueBranch = IsUnsafeLogical[F, S, T](t.TrueBranch.(S))
+		}
+		//
+		if t.FalseBranch != nil {
+			falseBranch = IsUnsafeLogical[F, S, T](t.FalseBranch.(S))
+		}
+		//
+		return condition || trueBranch || falseBranch
+	case *Negate[F, S]:
+		return IsUnsafeLogical[F, S, T](t.Arg)
+	case *NotEqual[F, S, T]:
+		lhs := IsUnsafeExpr[F, S, T](t.Lhs.(T))
+		rhs := IsUnsafeExpr[F, S, T](t.Rhs.(T))
+
+		return lhs || rhs
+	default:
+		panic(fmt.Sprintf("unknown computation encountered: %s", c.Lisp(false, nil).String(false)))
+	}
+}
+
+func isUnsafeLogicals[F field.Element[F], S Logical[F, S], T Expr[F, T]](exprs []S) bool {
+	for _, v := range exprs {
+		if IsUnsafeLogical[F, S, T](v) {
+			return true
+		}
+	}
+	//
+	return false
+}
