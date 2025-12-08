@@ -26,7 +26,7 @@ import (
 // Disabling if/else translation does, in a small number of cases, lead to
 // marginally worse constraints.  So, eventually some kind of compromise would
 // be optimal.  One solution would be to do more optimisation at the MIR level.
-var enable_ifelse_translation = true
+var enable_ifelse_translation = false
 
 func (p *StateTranslator[F, T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
 	// Traverse consecutive skips to determine the branch table.
