@@ -287,7 +287,7 @@ func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 		// error check
 		if err != nil {
 			e := fmt.Sprintf("%s for %s", err.Error(), expr.Lisp(false, scMod).String(true))
-			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i, expr, e)
+			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i-1, expr, e)
 		}
 		// Write data across limbs
 		if !write(i-1, val, data, widths) {
