@@ -821,11 +821,16 @@ func Test_Valid_Lookup_26(t *testing.T) {
 	util.CheckCorset(t, false, "corset/valid/lookup_26", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 func Test_Valid_Lookup_27(t *testing.T) {
-	// FIXME: KOALABEAR_16, GF_8209 [#1258]
 	util.CheckCorset(t, false, "corset/valid/lookup_27", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 func Test_Valid_Lookup_28(t *testing.T) {
 	util.CheckCorset(t, false, "corset/valid/lookup_28", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
+func Test_Valid_Lookup_29(t *testing.T) {
+	util.CheckCorset(t, false, "corset/valid/lookup_29", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
+func Test_Valid_Lookup_30(t *testing.T) {
+	util.CheckCorset(t, false, "corset/valid/lookup_30", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
 // ===================================================================
