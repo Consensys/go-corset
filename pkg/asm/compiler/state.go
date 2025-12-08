@@ -264,8 +264,6 @@ func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code)
 		return False[T, E]()
 	case *micro.InOut:
 		return p.translateInOut(cc, codes)
-	case *micro.Ite:
-		return p.translateIte(cc, codes)
 	case *micro.Jmp:
 		return p.translateJmp(cc, codes)
 	case *micro.Ret:
