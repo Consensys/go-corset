@@ -13,13 +13,14 @@
 package macro
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/math"
 )
 
 // IfThenElse represents a ternary operation.
@@ -34,7 +35,7 @@ type IfThenElse struct {
 	// Constant label
 	Label string
 	// Then/Else branches
-	Then, Else big.Int
+	Then, Else Expr
 }
 
 // Execute this instruction with the given local and global state.  The next
@@ -59,9 +60,9 @@ func (p *IfThenElse) Execute(state io.State) uint {
 	}
 	//
 	if taken {
-		value = p.Then
+		value = p.Then.Eval(state.Internal())
 	} else {
-		value = p.Else
+		value = p.Else.Eval(state.Internal())
 	}
 	// Write value
 	state.StoreAcross(value, p.Targets...)
@@ -71,21 +72,49 @@ func (p *IfThenElse) Execute(state io.State) uint {
 
 // Lower this instruction into a exactly one more micro instruction.
 func (p *IfThenElse) Lower(pc uint) micro.Instruction {
-	code := &micro.Ite{
-		Targets: p.Targets,
-		Cond:    p.Cond,
-		Left:    p.Left,
-		Right:   p.Right,
-		Then:    p.Then,
-		Else:    p.Else,
+	var (
+		codes      []micro.Code
+		rhs        = register.UnusedId()
+		thenBranch = p.Then.Polynomial()
+		elseBranch = p.Else.Polynomial()
+	)
+	//
+	switch p.Cond {
+	case EQ:
+		codes = []micro.Code{
+			&micro.Skip{Left: p.Left, Right: rhs, Constant: p.Right, Skip: 2},
+			// Then branch
+			&micro.Assign{Targets: p.Targets, Source: thenBranch},
+			&micro.Jmp{Target: pc + 1},
+			// Else branch
+			&micro.Assign{Targets: p.Targets, Source: elseBranch},
+			&micro.Jmp{Target: pc + 1},
+		}
+	case NEQ:
+		codes = []micro.Code{
+			&micro.Skip{Left: p.Left, Right: rhs, Constant: p.Right, Skip: 2},
+			// Then branch
+			&micro.Assign{Targets: p.Targets, Source: elseBranch},
+			&micro.Jmp{Target: pc + 1},
+			// Else branch
+			&micro.Assign{Targets: p.Targets, Source: thenBranch},
+			&micro.Jmp{Target: pc + 1},
+		}
+	default:
+		panic("unreachable")
 	}
 	//
-	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+	return micro.Instruction{Codes: codes}
 }
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *IfThenElse) RegistersRead() []io.RegisterId {
-	return []io.RegisterId{p.Left}
+	var regs = []io.RegisterId{p.Left}
+	//
+	regs = append(regs, expr.RegistersRead(p.Then)...)
+	regs = append(regs, expr.RegistersRead(p.Else)...)
+	//
+	return regs
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
@@ -99,8 +128,8 @@ func (p *IfThenElse) String(fn register.Map) string {
 		targets = io.RegistersToString(p.Targets, regs)
 		left    = regs[p.Left.Unwrap()].Name
 		right   = p.Right.String()
-		tb      = p.Then.String()
-		fb      = p.Else.String()
+		tb      = p.Then.String(fn)
+		fb      = p.Else.String(fn)
 		op      string
 	)
 	//
@@ -119,28 +148,20 @@ func (p *IfThenElse) String(fn register.Map) string {
 // Validate checks whether or not this instruction is correctly balanced.
 func (p *IfThenElse) Validate(fieldWidth uint, fn register.Map) error {
 	var (
-		regs     = fn.Registers()
-		lhs_bits = sumTargetBits(p.Targets, regs)
-		rhs_bits = sumThenElseBits(p.Then, p.Else)
+		regs                  = fn.Registers()
+		lhs_bits              = sumTargetBits(p.Targets, regs)
+		then_bits, thenSigned = expr.BitWidth(p.Then, fn)
+		else_bits, elseSigned = expr.BitWidth(p.Else, fn)
+		rhs_bits              = max(then_bits, else_bits)
 	)
 	// check
 	if lhs_bits < rhs_bits {
 		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
 	} else if rhs_bits > fieldWidth {
 		return fmt.Errorf("field overflow (u%d into u%d field)", rhs_bits, fieldWidth)
+	} else if thenSigned || elseSigned {
+		return errors.New("signed exprtession not supported here")
 	}
 	//
 	return io.CheckTargetRegisters(p.Targets, regs)
-}
-
-func sumThenElseBits(tb, fb big.Int) uint {
-	var (
-		tRange = math.NewInterval(tb, tb)
-		fRange = math.NewInterval(fb, fb)
-		values = tRange.Union(fRange)
-	)
-	// Observe, values cannot be negative by construction.
-	bitwidth, _ := values.BitWidth()
-	//
-	return bitwidth
 }
