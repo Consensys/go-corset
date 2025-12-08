@@ -288,13 +288,7 @@ func (p *State[F, E]) insertFilteredVector(k int, vec Vector[F, E], trMod trace.
 		)
 		//
 		if err != nil {
-			return &constraint.InternalFailure[F]{
-				Handle:  p.handle,
-				Context: vec.Module,
-				Row:     uint(k),
-				Term:    vec.Selector.Unwrap(),
-				Error:   err.Error(),
-			}
+			return constraint.NewInternalFailure[F](p.handle, vec.Module, uint(k), vec.Selector.Unwrap(), err.Error())
 		}
 		// Selected when non-zero
 		selected = !ith.IsZero()
@@ -336,13 +330,7 @@ func (p *State[F, E]) checkFilteredSourceVector(k int, vec Vector[F, E], trModul
 		)
 		//
 		if err != nil {
-			return &constraint.InternalFailure[F]{
-				Handle:  p.handle,
-				Context: vec.Module,
-				Row:     uint(k),
-				Term:    vec.Selector.Unwrap(),
-				Error:   err.Error(),
-			}
+			return constraint.NewInternalFailure[F](p.handle, vec.Module, uint(k), vec.Selector.Unwrap(), err.Error())
 		}
 		// Selected when non-zero
 		selected = !ith.IsZero()
@@ -383,13 +371,7 @@ func (p *State[F, E]) evalExprsArray(k int, vec Vector[F, E], trModule trace.Mod
 		p.buffer[i], err = vec.Ith(i).EvalAt(k, trModule, scModule)
 		// error check
 		if err != nil {
-			return &constraint.InternalFailure[F]{
-				Handle:  p.handle,
-				Context: vec.Module,
-				Row:     uint(k),
-				Term:    vec.Ith(i),
-				Error:   err.Error(),
-			}
+			return constraint.NewInternalFailure[F](p.handle, vec.Module, uint(k), vec.Ith(i), err.Error())
 		}
 	}
 	// Done

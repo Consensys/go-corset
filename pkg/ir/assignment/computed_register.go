@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -102,20 +103,20 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 	// Expand the trace
 	if !p.IsRecursive() {
 		// Non-recursive computation
-		err = fwdComputation(height, wrapper.data, bitwidths, p.Expr, trModule, scModule)
+		err = fwdComputation(height, wrapper.data, bitwidths, p.Expr, trModule, scModule, p.Module)
 	} else if p.Direction {
 		// Forwards recursive computation
-		err = fwdComputation(height, wrapper.data, bitwidths, p.Expr, &wrapper, scModule)
+		err = fwdComputation(height, wrapper.data, bitwidths, p.Expr, &wrapper, scModule, p.Module)
 	} else {
 		// Backwards recursive computation
-		err = bwdComputation(height, wrapper.data, bitwidths, p.Expr, &wrapper, scModule)
+		err = bwdComputation(height, wrapper.data, bitwidths, p.Expr, &wrapper, scModule, p.Module)
 	}
 	// Sanity check
 	if err != nil {
 		return nil, err
 	}
 	// Done
-	return concretizeColumns[F](wrapper.data, tr), err
+	return concretizeColumns(wrapper.data, tr), err
 }
 
 func concretizeColumns[F field.Element[F]](data [][]word.BigEndian, tr trace.Trace[F]) []array.MutArray[F] {
@@ -216,8 +217,15 @@ func (p *ComputedRegister[F]) RegistersWritten() []register.Ref {
 
 // Substitute any matchined labelled constants within this assignment
 func (p *ComputedRegister[F]) Substitute(mapping map[string]F) {
-	//p.Expr.Substitute(mapping)
-	panic("todo")
+	var tmp any = mapping
+	// NOTE: this is the only scenario under which this method can be called.
+	w, ok := tmp.(map[string]word.BigEndian)
+	// sanity check
+	if !ok {
+		panic("unreachable")
+	}
+	//
+	p.Expr.Substitute(w)
 }
 
 // Lisp converts this constraint into an S-Expression.
@@ -251,13 +259,14 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 }
 
 func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr term.Evaluable[word.BigEndian],
-	trMod trace.Module[word.BigEndian], scMod register.Map) error {
+	trMod trace.Module[word.BigEndian], scMod register.Map, ctx schema.ModuleId) error {
 	// Forwards computation
 	for i := range height {
 		val, err := expr.EvalAt(int(i), trMod, scMod)
 		// error check
 		if err != nil {
-			return err
+			e := fmt.Sprintf("%s for %s", err.Error(), expr.Lisp(false, scMod).String(true))
+			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i, expr, e)
 		}
 		// Write data across limbs
 		if !write(i, val, data, widths) {
@@ -271,13 +280,14 @@ func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 }
 
 func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr term.Evaluable[word.BigEndian],
-	trMod trace.Module[word.BigEndian], scMod register.Map) error {
+	trMod trace.Module[word.BigEndian], scMod register.Map, ctx schema.ModuleId) error {
 	// Backwards computation
 	for i := height; i > 0; i-- {
 		val, err := expr.EvalAt(int(i-1), trMod, scMod)
 		// error check
 		if err != nil {
-			return err
+			e := fmt.Sprintf("%s for %s", err.Error(), expr.Lisp(false, scMod).String(true))
+			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i, expr, e)
 		}
 		// Write data across limbs
 		if !write(i-1, val, data, widths) {

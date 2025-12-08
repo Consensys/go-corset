@@ -50,9 +50,8 @@ func Test_AsmUnit_Dec251(t *testing.T) {
 }
 
 func Test_AsmUnit_Diamond(t *testing.T) {
-	// #1334
 	util.CheckWithFields(t, false, "asm/unit/diamond", util.ASM_MAX_PADDING, field.BLS12_377,
-		field.KOALABEAR_16)
+		field.KOALABEAR_16, field.GF_8209)
 }
 
 func Test_AsmUnit_ParseNonDecimal(t *testing.T) {
@@ -128,6 +127,6 @@ func Test_AsmUnit_Sub(t *testing.T) {
 }
 
 func Test_AsmUtil_Ternary(t *testing.T) {
-	// #1334
-	util.CheckWithFields(t, false, "asm/unit/ternary", util.ASM_MAX_PADDING, field.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/ternary", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
 }

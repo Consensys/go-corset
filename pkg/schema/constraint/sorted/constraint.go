@@ -125,19 +125,14 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 				val, err := selector.EvalAt(int(k), trModule, scModule)
 				// Check whether active (or not)
 				if err != nil {
-					return coverage, &constraint.InternalFailure[F]{
-						Handle:  p.Handle,
-						Context: p.Context,
-						Row:     k,
-						Term:    selector,
-						Error:   err.Error()}
+					return coverage, constraint.NewInternalFailure[F](p.Handle, p.Context, k, selector, err.Error())
 				} else if val.IsZero() {
 					continue
 				}
 			}
 			// Check sorting between rows k-1 and k
 			if ok, err := sorted(k-1, k, deltaBound, p.Sources, p.Signs, p.Strict, trModule, scModule, lhs, rhs); err != nil {
-				return coverage, &constraint.InternalFailure[F]{Handle: p.Handle, Context: p.Context, Row: k, Error: err.Error()}
+				return coverage, constraint.NewInternalFailure[F](p.Handle, p.Context, k, nil, err.Error())
 			} else if !ok {
 				return coverage, &Failure{fmt.Sprintf("sorted constraint \"%s\" failed (rows %d ~ %d)", p.Handle, k-1, k)}
 			}

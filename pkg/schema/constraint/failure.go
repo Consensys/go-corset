@@ -13,6 +13,8 @@
 package constraint
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -23,26 +25,38 @@ import (
 // as arising from evaluation of a given expression.
 type InternalFailure[F any] struct {
 	// Handle of the failing constraint
-	Handle string
+	handle string
 	// Module in which constraint failed.
-	Context schema.ModuleId
+	context schema.ModuleId
 	// Row on which the constraint failed
-	Row uint
+	row uint
 	// Cells involved (if any)
-	Term term.Contextual
+	term term.Contextual
 	// Error message
-	Error string
+	error string
+}
+
+// NewInternalFailure constructs a new internal failure object.
+func NewInternalFailure[F any](handle string, ctx schema.ModuleId, row uint, term term.Contextual,
+	err string) *InternalFailure[F] {
+	//
+	return &InternalFailure[F]{handle, ctx, row, term, err}
+}
+
+// Error provides a suitable error message
+func (p *InternalFailure[F]) Error() string {
+	return p.Message()
 }
 
 // Message provides a suitable error message
 func (p *InternalFailure[F]) Message() string {
-	return p.Error
+	return fmt.Sprintf("%s (row %d) - %s", p.handle, p.row, p.error)
 }
 
 // RequiredCells identifies the cells required to evaluate the failing constraint at the failing row.
 func (p *InternalFailure[F]) RequiredCells(tr trace.Trace[F]) *set.AnySortedSet[trace.CellRef] {
-	if p.Term != nil {
-		return p.Term.RequiredCells(int(p.Row), p.Context)
+	if p.term != nil {
+		return p.term.RequiredCells(int(p.row), p.context)
 	}
 	// Empty set
 	return set.NewAnySortedSet[trace.CellRef]()

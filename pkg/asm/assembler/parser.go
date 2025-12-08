@@ -571,12 +571,12 @@ func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Inst
 
 func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
-		errs        []source.SyntaxError
-		lhs         io.RegisterId
-		rhsExpr     macro.Expr
-		rhs, tb, fb big.Int
-		label       string
-		cond        uint8
+		errs            []source.SyntaxError
+		lhs             io.RegisterId
+		rhsExpr, tb, fb macro.Expr
+		rhs             big.Int
+		label           string
+		cond            uint8
 	)
 	// Parse left hand side
 	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
@@ -605,7 +605,7 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		return nil, errs
 	}
 	// true branch
-	if tb, errs = p.parseNumber(env); len(errs) > 0 {
+	if tb, errs = p.parseExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// expect column
@@ -613,7 +613,7 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		return nil, errs
 	}
 	// false branch
-	if fb, errs = p.parseNumber(env); len(errs) > 0 {
+	if fb, errs = p.parseExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -731,22 +731,6 @@ func (p *Parser) parseAtomicExpr(env *Environment) (macro.Expr, []source.SyntaxE
 	p.srcmap.Put(expr, p.spanOf(start, p.index-1))
 	//
 	return expr, errs
-}
-
-func (p *Parser) parseNumber(env *Environment) (big.Int, []source.SyntaxError) {
-	var (
-		lookahead = p.lookahead()
-		val       big.Int
-		errs      []source.SyntaxError
-	)
-	// Expecting number
-	if _, errs = p.expect(NUMBER); len(errs) > 0 {
-		return val, errs
-	}
-	//
-	val, errs = p.number(lookahead)
-	//
-	return val, errs
 }
 
 // Parse sequence of one or more expressions separated by a comma.
