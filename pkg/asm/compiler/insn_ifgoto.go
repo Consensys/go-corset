@@ -18,6 +18,16 @@ import (
 	"github.com/consensys/go-corset/pkg/util/logical"
 )
 
+// NOTE: Use of if-else constructs is disabled because it leads to suboptimal
+// (in many cases extremely suboptimal) constraints being generated.
+// Specifically, because the MIR level does not simplify negated expresssions at
+// all well.
+//
+// Disabling if/else translation does, in a small number of cases, lead to
+// marginally worse constraints.  So, eventually some kind of compromise would
+// be optimal.  One solution would be to do more optimisation at the MIR level.
+var enable_ifelse_translation = true
+
 func (p *StateTranslator[F, T, E, M]) translateSkip(cc uint, codes []micro.Code) E {
 	// Traverse consecutive skips to determine the branch table.
 	var branches = p.traverseSkips(cc, codes)
@@ -40,7 +50,7 @@ func (p *StateTranslator[F, T, E, M]) translateBranchTable(tbl BranchTable[T, E]
 			expr       E
 		)
 		// Attempt to translate as if/else
-		if falseTarget, ok := tbl.FindTarget(branch.Negate()); ok && falseTarget > trueTarget {
+		if falseTarget, ok := tbl.FindTarget(branch.Negate()); ok && falseTarget > trueTarget && enable_ifelse_translation {
 			var (
 				falseClone = p.Clone()
 				falseBody  = falseClone.translateCode(falseTarget, codes)
