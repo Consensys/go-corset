@@ -101,10 +101,10 @@ apply:
 }
 
 fn bit_sar256_u2(word u256, n u2) -> (res u256) {
-  var b u1
-  var m u1
-  var msw u256
+  var msw u253
   var lsw u2
+  var m u1
+  var sign, b u1
   ;; decompoise shift
   b,m = n
   ;;
@@ -112,33 +112,22 @@ fn bit_sar256_u2(word u256, n u2) -> (res u256) {
   res = bit_sar256_u1(word,m)
   return
 apply:
-  ;; >>> START: workaround #1176
-  var hi u125
-  var lo u126
-  var mid u2
-  var sign u1
-  sign, hi, mid, lo, lsw = word
-  msw = (sign*0b111*2^253) + (hi*2^128) + (mid*2^126) + lo
-  ;; <<< END
-  res = bit_sar256_u1(msw,m)
+  sign, msw, lsw = word
+  res = bit_sar256_u1((sign*0b111*2^253)+msw, m)
   return
 }
 
 fn bit_sar256_u1(word u256, n u1) -> (res u256) {
+  var msw u254
   var lsw u1
+  var m u1
+  var sign, b u1
   ;;
   if n!=0 goto apply
   res = word
   return
 apply:
-  ;; >>> START: workaround #1176
-  var hi u247
-  var lo u7
-  var sign, b u1
-  ;;
-  sign, hi, lo, b = word
-  ;;
-  res = (sign*0b11*2^254) + (hi * 2^7) + lo
-  ;; <<< END
+  sign, msw, lsw = word
+  res = (sign*0b11*2^254)+msw
   return
 }
