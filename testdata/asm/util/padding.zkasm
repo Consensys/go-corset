@@ -27,7 +27,6 @@ fn rpad_128_120(input u128) -> (res u120) {
   return
   exit_fail: 
   fail
-  return
 }
 
 ;; right pad u120
