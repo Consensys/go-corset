@@ -59,6 +59,7 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 
 	stats := GetFlag(cmd, "stats")
+	modules := GetFlag(cmd, "modules")
 	attrs := GetFlag(cmd, "attributes")
 	metadata := GetFlag(cmd, "metadata")
 	constants := GetFlag(cmd, "constants")
@@ -83,12 +84,16 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	if stats {
 		debug.PrintStats(stack)
 	}
+	// Print module stats (if requested)
+	if modules {
+		debug.PrintModuleStats(stack, 32, 1)
+	}
 	// Print embedded attributes (if requested
 	if attrs {
 		printAttributes(stack.BinaryFile())
 	}
 	//
-	if !stats && !attrs {
+	if !stats && !modules && !attrs {
 		debug.PrintSchemas(stack, textWidth)
 	}
 }
@@ -99,6 +104,7 @@ func init() {
 	debugCmd.Flags().Bool("constants", false, "Print information about externalised constants")
 	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
+	debugCmd.Flags().BoolP("modules", "m", false, "show module stats")
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
 }
