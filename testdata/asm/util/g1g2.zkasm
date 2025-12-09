@@ -16,12 +16,12 @@ fn g1(vA_input u64, vB_input u64, vC_input u64, vD_input u64, x u64) -> (vA u64,
     ;; set vA
     a0, a1, vA = vA_input + vB_input + x
     ;; set vD
-    vD_xor_vA = bit_xoan_u64(0, vD_input, vA)
+    vD_xor_vA = bit_xoan_u64(BIT_XOR, vD_input, vA)
     vD = bit_ror64(vD_xor_vA, 32)
     ;; set vC
     c0, vC = vC_input + vD
     ;; set vB
-    vB_xor_vC = bit_xoan_u64(0, vB_input, vC)
+    vB_xor_vC = bit_xoan_u64(BIT_XOR, vB_input, vC)
     vB = bit_ror64(vB_xor_vC, 24)
     return
 }
@@ -32,12 +32,12 @@ fn g2(vA_input u64, vB_input u64, vC_input u64, vD_input u64, y u64) -> (vA u64,
     ;; set vA
     a0, a1, vA = vA_input + vB_input + y
     ;; set vD
-    vD_xor_vA = bit_xoan_u64(0, vD_input, vA)
+    vD_xor_vA = bit_xoan_u64(BIT_XOR, vD_input, vA)
     vD = bit_ror64(vD_xor_vA, 16)
     ;; set vC
     c0, vC = vC_input + vD
     ;; set vB
-    vB_xor_vC = bit_xoan_u64(0, vB_input, vC)
+    vB_xor_vC = bit_xoan_u64(BIT_XOR, vB_input, vC)
     vB = bit_ror64(vB_xor_vC, 63)
     return
 }
