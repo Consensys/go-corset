@@ -58,13 +58,6 @@ const CORSET_MAX_PADDING uint = 7
 // in separate runners.
 var FIELD_REGEX *regexp.Regexp
 
-// Check that all traces which we expect to be accepted are accepted by a given
-// set of constraints, and all traces that we expect to be rejected are
-// rejected.  A default field is used for these tests (BLS12_377)
-func Check(t *testing.T, stdlib bool, test string) {
-	CheckWithFields(t, stdlib, test, CORSET_MAX_PADDING, field.BLS12_377)
-}
-
 // CheckCorset checks that all traces which we expect to be accepted are
 // accepted by a given set of constraints, and all traces that we expect to be
 // rejected are rejected.  All fields provided are tested against, and also all
