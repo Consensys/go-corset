@@ -146,6 +146,12 @@ bytestring_short_input:
    DATA_6 = rpad_128(rlp_prefix_tmp)
    return
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; This instruction does only a range check of DATA1, DATA2, a uint256
+;; Input: 
+;; DATA_1 = limb high
+;; DATA_2 = limb low
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 eword:
    ;; Input: DATA_1:DATA_2
    ;; proof that DATA_1:DATA_2 is a u256 is automatic
