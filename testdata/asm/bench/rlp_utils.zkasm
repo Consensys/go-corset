@@ -1,9 +1,9 @@
 ;; RLP_UTILS module
 
 include "evm.zkasm"
-include "../util/log256.zkasm"
 include "../util/padding.zkasm"
 include "../util/byte_counting.zkasm"
+include "../util/byte_size.zkasm"
 
 ;; The interface with RLP* modules is as follow
 ;; TODO, insert interface
@@ -59,12 +59,12 @@ integer:
    return
 
 integer_one_limb_non_zero:
-   if DATA_3 != 1 goto exit_fail ;; sanity check that integer == 1
+   if DATA_3 != 1 goto exit_fail ;; sanity check that integer_is_non_zero == 1
    if data_2_lt_128 != 0 goto integer_very_low
 
    ;; case 128 <= integer <= 2 ^128
    if DATA_5 != 1 goto exit_fail ;; sanity check that rlp_prefix_required = true
-   DATA_8 = log256_u128(DATA_2)
+   DATA_8 = byte_size(DATA_2)
    var c1 u1
    c1, DATA_6 = (RLP_PREFIX_INT_SHORT + DATA_8) * TWO_FIVE_SIX_POWER_FIFTEEN
    DATA_7 = rpad_128(DATA_2)
@@ -80,7 +80,7 @@ integer_very_low:
 integer_two_limbs: 
    if DATA_4 == 0 goto exit_fail ;; sanity check that integer_hi != 0
    if DATA_5 != 1 goto exit_fail ;; sanity check that rlp_prefix_required = true
-   DATA_8 = log256_u128(DATA_1)
+   DATA_8 = byte_size(DATA_1)
    var c2 u1
    c2, DATA_6 = (RLP_PREFIX_INT_SHORT + 16 + DATA_8) * TWO_FIVE_SIX_POWER_FIFTEEN
    DATA_7 = rpad_128(DATA_1)
@@ -129,8 +129,8 @@ bytestring_prefix_required:
    goto bytestring_long_input
 
 bytestring_long_input:
-   var size u4
-   size = log256_u128(DATA_1)
+   var size u6
+   size = byte_size(DATA_1)
    DATA_8 = size + 1
    rlp_prefix_tmp = rpad_128(RLP_PREFIX_INT_LONG + (DATA_3 * RLP_FROM_INT_TO_LIST) + size)
    var rlp_prefix_suffix u120

@@ -73,3 +73,7 @@ func Test_AsmUtil_Signextend(t *testing.T) {
 func Test_AsmUtil_Padding(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/padding", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
+
+func Test_AsmUtil_ByteSize(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/byte_size", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
