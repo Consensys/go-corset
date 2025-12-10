@@ -23,9 +23,14 @@ func Test_AsmUtil_Byte(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/byte", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_AsmUtil_BitRor64(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/bit_ror64", util.ASM_MAX_PADDING, field.BLS12_377)
+}
+
 func Test_AsmUtil_BitSar(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/bit_sar", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
+
 func Test_AsmUtil_BitShr(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/bit_shr", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
