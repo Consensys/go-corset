@@ -33,4 +33,6 @@ jobs:
           go-version: '>=1.24'
       - run: make ${{ matrix.test }}
         env:
+          GOMAXPROCS: 8
+          GOMEMLIMIT: 16GiB
           GOCORSET_FIELD: ${{ matrix.field }}

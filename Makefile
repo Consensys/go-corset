@@ -29,11 +29,11 @@ asm-racer:
 
 asm-bench:
 	@echo ">>> Running Assembly Benchmark Tests..."
-	go test --timeout 0 -run "Test_AsmBench" ./...
+	go test -p 1 --timeout 0 -run "Test_AsmBench" ./...
 
 asm-util:
 	@echo ">>> Running Assembly Util Tests..."
-	go test --timeout 0 -run "Test_AsmUtil" ./...
+	go test -p 1 --timeout 0 -run "Test_AsmUtil" ./...
 
 asm-unit:
 	@echo ">>> Running Assembly Unit Tests..."
@@ -49,7 +49,7 @@ corset-racer:
 
 corset-bench:
 	@echo ">>> Running Corset Benchmark Tests..."
-	go test --timeout 0 -run "Test_Bench" ./...
+	go test -p 1 --timeout 0 -run "Test_Bench" ./...
 
 unit-test:
 	@echo ">>> Running Unit Tests..."
