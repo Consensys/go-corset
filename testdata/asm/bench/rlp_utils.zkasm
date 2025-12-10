@@ -168,15 +168,19 @@ eword:
 ;; DATA_8 = first_byte
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 data_pricing:
-    if DATA_2 != 0 goto exit_fail ;;RLP_TXN can't provide a DATA_PRICING inst of size 0 
-   var remaining u120
-   DATA_8, remaining = DATA_1
+   ;; 0 < DATA_2 <= 16
+   if DATA_2 != 0 goto exit_fail
    var zero123 u123
    var data2_trm u5
    zero123, data2_trm = DATA_2
+   if zero123 != 0 goto exit_fail
+
+   var remaining u120
+   DATA_8, remaining = DATA_1
+
    DATA_7 = counts_nz_128(DATA_1, data2_trm)
    var b u1
    b, DATA_6 = DATA_2 - DATA_7
-   if b != 0 goto exit_fail ;; sanity check, not sure it's needed ...
+   if b != 0 goto exit_fail ;; sanity check that z + nz = nBytes
    return
 }
