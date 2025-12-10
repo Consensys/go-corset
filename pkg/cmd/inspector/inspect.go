@@ -19,6 +19,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/cmd/view"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/util/termio/widget"
 )
@@ -51,8 +53,10 @@ type Inspector struct {
 	term *termio.Terminal
 	// Module states
 	modules []ModuleState
+	// true means show all modules
+	visibility bool
 	// Widgets
-	tabs      *widget.Tabs
+	tabs      *widget.Tabs[uint]
 	table     *widget.Table
 	cmdBar    *widget.TextLine
 	statusBar *widget.TextLine
@@ -81,7 +85,8 @@ type Mode interface {
 // NewInspector constructs a new inspector on given terminal.
 func NewInspector(term *termio.Terminal, trace view.TraceView) *Inspector {
 	var (
-		states = make([]ModuleState, 0)
+		states     = make([]ModuleState, 0)
+		numVisible = 0
 	)
 	// Sort into alpabetical order
 	ntrace := trace.Sort(func(l, r schema.ModuleId) int {
@@ -94,9 +99,12 @@ func NewInspector(term *termio.Terminal, trace view.TraceView) *Inspector {
 	})
 	// Filter out non-public modules
 	ntrace = ntrace.Filter(view.NewTraceFilter(func(mid schema.ModuleId) view.ModuleFilter {
-		_, height := trace.Module(mid).Data().Dimensions()
-		//
-		if height > 0 && trace.Module(mid).Data().IsPublic() {
+		ith := trace.Module(mid)
+		if ith.Data().Name().Name != "" {
+			if ith.Data().IsPublic() {
+				numVisible++
+			}
+			//
 			return view.DefaultModuleFilter()
 		}
 		//
@@ -104,16 +112,22 @@ func NewInspector(term *termio.Terminal, trace view.TraceView) *Inspector {
 	}))
 	//
 	for i := range ntrace.Width() {
-		states = append(states, newModuleState(ntrace.Module(i), true))
+		states = append(states, newModuleState(ntrace.Module(i)))
 	}
 	// Sort states
 	//
-	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, states)
+	tabs, table, cmdbar, statusbar := initInspectorWidgets(term, states, numVisible == 0)
 	//
-	inspector := &Inspector{0, 0, term, states, tabs, table, cmdbar, statusbar, 0, nil}
+	inspector := &Inspector{0, 0, term, states, numVisible == 0, tabs, table, cmdbar, statusbar, 0, nil}
 	table.SetSource(inspector)
 	// Put the inspector into default mode.
 	inspector.EnterMode(&NavigationMode{})
+	//
+	if numVisible == 0 {
+		inspector.statusClk = 10
+		inspector.statusBar.AddLeft(
+			termio.NewColouredText("no public modules found; showing private modules.", termio.TERM_RED))
+	}
 	//
 	return inspector
 }
@@ -159,9 +173,13 @@ func (p *Inspector) Close() error {
 
 // CurrentModule returns the currently selected module
 func (p *Inspector) CurrentModule() *ModuleState {
-	module := p.tabs.Selected()
+	if p.tabs.HasSelected() {
+		mid := p.tabs.Selected()
+		//
+		return &p.modules[mid]
+	}
 	//
-	return &p.modules[module]
+	return &ModuleState{view: &emptyModuleView{}}
 }
 
 // EnterMode pushes a new mode onto the mode stack.
@@ -194,13 +212,6 @@ func (p *Inspector) SetStatus(msg termio.FormattedText) {
 	p.statusBar.Clear()
 	p.statusBar.AddLeft(msg)
 	p.statusClk = 5
-}
-
-// Access currently selected view
-func (p *Inspector) currentView() *ModuleState {
-	module := p.tabs.Selected()
-	// Action change
-	return &p.modules[module]
 }
 
 // change cell width in current module
@@ -276,7 +287,7 @@ func (p *Inspector) toggleColumnFilter() bool {
 
 func (p *Inspector) nextScanResult(forwards bool) {
 	var (
-		current = p.currentView()
+		current = p.CurrentModule()
 		msg     termio.FormattedText
 		col, _  = p.CurrentModule().view.Offset()
 	)
@@ -299,25 +310,29 @@ func (p *Inspector) matchQuery(query *Query) termio.FormattedText {
 	return p.CurrentModule().matchQuery(col, true, query)
 }
 
+func (p *Inspector) toggleModuleVisibility() {
+	p.visibility = !p.visibility
+	p.tabs = initInspectorTabs(p.visibility, p.modules)
+	p.term.Set(0, p.tabs)
+}
+
 // ==================================================================
 // TableSource
 // ==================================================================
 
 // Dimensions implementation for the TableSource interface
 func (p *Inspector) Dimensions() (uint, uint) {
-	module := p.tabs.Selected()
-	state := p.modules[module]
+	module := p.CurrentModule()
 	//
-	return state.view.Dimensions()
+	return module.view.Dimensions()
 }
 
 // ColumnWidth gets the width of a given column in the main table of the
 // inspector.  Note that columns here are table columns, not trace columns.
 func (p *Inspector) ColumnWidth(col uint) uint {
-	module := p.tabs.Selected()
-	state := p.modules[module]
+	module := p.CurrentModule()
 	//
-	return state.view.ColumnWidth(col)
+	return module.view.ColumnWidth(col)
 }
 
 // CellAt returns the contents of a given cell in the main table of the
@@ -325,8 +340,7 @@ func (p *Inspector) ColumnWidth(col uint) uint {
 func (p *Inspector) CellAt(col, row uint) termio.FormattedText {
 	// Determine currently selected module
 	var (
-		module        = p.tabs.Selected()
-		state         = &p.modules[module]
+		state         = p.CurrentModule()
 		width, height = state.view.Dimensions()
 	)
 	//
@@ -378,10 +392,10 @@ func (p *Inspector) Start() []error {
 // Helpers
 // ==================================================================
 
-func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *widget.Tabs,
+func initInspectorWidgets(term *termio.Terminal, states []ModuleState, showAllModules bool) (tabs *widget.Tabs[uint],
 	table *widget.Table, cmdbar *widget.TextLine, statusbar *widget.TextLine) {
 	//
-	tabs = initInspectorTabs(states)
+	tabs = initInspectorTabs(showAllModules, states)
 	table = widget.NewTable(nil)
 	cmdbar = widget.NewText()
 	statusbar = widget.NewText()
@@ -396,12 +410,65 @@ func initInspectorWidgets(term *termio.Terminal, states []ModuleState) (tabs *wi
 	return tabs, table, cmdbar, statusbar
 }
 
-func initInspectorTabs(states []ModuleState) *widget.Tabs {
-	var titles []string
+func initInspectorTabs(showAllModules bool, states []ModuleState) *widget.Tabs[uint] {
+	var tabs []util.Pair[string, module.Id]
 
-	for _, state := range states {
-		titles = append(titles, state.view.Data().Name().String())
+	for i, state := range states {
+		if state.public || showAllModules {
+			name := state.view.Data().Name().String()
+			tabs = append(tabs, util.NewPair(name, uint(i)))
+		}
 	}
 	//
-	return widget.NewTabs(titles...)
+	return widget.NewTabs(tabs...)
+}
+
+// Empty ModuleView is required for the unusual case that there are no modules
+// currently visible.  This can arise if there are no public modules at all.
+type emptyModuleView struct {
+}
+
+// Config implementation for ModuleView interface.
+func (p *emptyModuleView) Config() view.ModuleConfig {
+	panic("unsupported operation")
+}
+
+// Data implementation for ModuleView interface.
+func (p *emptyModuleView) Data() view.ModuleData {
+	panic("unsupported operation")
+}
+
+// Filter implementation for ModuleView interface.
+func (p *emptyModuleView) Filter(view.ModuleFilter) view.ModuleView {
+	return p
+}
+
+// Offset implementation for ModuleView interface.
+func (p *emptyModuleView) Offset() (uint, uint) {
+	return 0, 0
+}
+
+// Goto implementation for ModuleView interface.
+func (p *emptyModuleView) Goto(uint, uint) {
+
+}
+
+// Window implementation for ModuleView interface.
+func (p *emptyModuleView) Window() view.Window {
+	panic("unsupported operation")
+}
+
+// ColumnWidth implementation for TableSource interface.
+func (p *emptyModuleView) ColumnWidth(col uint) uint {
+	return 0
+}
+
+// Dimensions implementation for TableSource interface.
+func (p *emptyModuleView) Dimensions() (uint, uint) {
+	return 0, 0
+}
+
+// CellAt implementation for TableSource interface.
+func (p *emptyModuleView) CellAt(col, row uint) termio.FormattedText {
+	return termio.NewText("")
 }

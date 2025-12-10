@@ -123,6 +123,11 @@ func (t *Terminal) Add(w Widget) {
 	t.widgets = append(t.widgets, w)
 }
 
+// Set the widget at a specific position, overwriting what was there before.
+func (t *Terminal) Set(i uint, w Widget) {
+	t.widgets[i] = w
+}
+
 // Lock on writing
 var renderLock sync.Mutex
 
