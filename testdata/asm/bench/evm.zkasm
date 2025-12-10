@@ -175,10 +175,18 @@ const G_EXPBYTE = 50
 const G_NEWACCOUNT = 25000
 const G_TXCREATE = 32000
 const G_WARMACCESS = 100
-;;
+;; precompiles
 const G_ECDSA = 3000
 const G_BNADD = 150
 const G_BNMUL = 6000
+const G_POINT_EVALUATION = 50000
+const G_BLS_G1_ADD = 375
+const G_BLS_G2_ADD = 600
+const G_BLS_MAP_FP_TO_G1 = 5500
+const G_BLS_MAP_FP2_TO_G2 = 23800
+const G_BLS_PAIRING_CHECK = 37700
+const G_BLS_PAIRING_CHECK_PAIR = 32600
+const G_P256_VERIFY = 6900
 
 ;; =============================================================================
 ;; Misc

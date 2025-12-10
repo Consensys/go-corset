@@ -90,7 +90,6 @@ fn oob_prc_type12(inst=0xFF01 u16, callee_gas u128, cds u32, r_c u128) -> (hub_s
   ;; cds validity
   cds_valid = oob_cds_valid(inst,cds)
   if cds_valid == 0 goto exit_f
-  ;;
   ;; calculate gas_cost
   gas_cost = oob_gas_cost(inst, cds)
   ;; check gas_cost <= callee_gas
@@ -110,20 +109,54 @@ exit_f:
 }
 
 ;; Perform call_data_size (cds) validity checking as needed for the
-;; given instruction.  Observe that only a few instructions have
+;; instruction.  Observe that only a few instructions have
 ;; validity checks (e.g. for example, the ECPAIRING precompile
 ;; requires that cds%192==0.
 fn oob_cds_valid(INST=0xFF01 u16, call_data_size u32) -> (cds_valid=1 u1) {
-  if INST == OOB_INST_ECPAIRING goto ecpairing
+  if INST == OOB_INST_ECPAIRING goto cds_mod192
+  if INST == OOB_INST_BLAKE_CDS goto cds_213
+  if INST == OOB_INST_POINT_EVALUATION goto cds_192
+  if INST == OOB_INST_BLS_G1_ADD goto cds_256
+  if INST == OOB_INST_BLS_G2_ADD goto cds_512
+  if INST == OOB_INST_BLS_MAP_FP_TO_G1 goto cds_64
+  if INST == OOB_INST_BLS_MAP_FP2_TO_G2 goto cds_160
+  if INST == OOB_INST_BLS_G1_MSM goto cds_mod160
+  if INST == OOB_INST_BLS_G2_MSM goto cds_mod288
+  if INST == OOB_INST_BLS_PAIRING_CHECK goto cds_mod384
   ;; default case
   goto exit_s
-ecpairing:
+cds_64:
+  if call_data_size == 64 goto exit_s
+  goto exit_f
+cds_160:
+  if call_data_size == 160 goto exit_s
+  goto exit_f
+cds_192:
+  if call_data_size == 192 goto exit_s
+  goto exit_f
+cds_213:
+  if call_data_size == 213 goto exit_s
+  goto exit_f
+cds_256:
+  if call_data_size == 256 goto exit_s
+  goto exit_f
+cds_512:
+  if call_data_size == 512 goto exit_s
+  goto exit_f
+cds_mod160:
+  fail
+cds_mod192:
   var quot, rem u32
   ;; compute cds%192
   quot,rem = div192(call_data_size)
   ;;
   if rem==0 goto exit_s
-  cds_valid=0
+  goto exit_f
+cds_mod288:
+cds_mod384:
+  fail
+exit_f:
+  cds_valid = 0
   return
 exit_s:
   cds_valid = 1
@@ -134,7 +167,7 @@ exit_s:
 fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
   var d u126
   var r u32
-  var c u5
+  var c u14
   ;;
   if INST == OOB_INST_ECRECOVER goto ecrecover
   if INST == OOB_INST_SHA2 goto sha2
@@ -145,6 +178,14 @@ fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
   if INST == OOB_INST_ECPAIRING goto ecpairing
   if INST == OOB_INST_BLAKE_CDS goto blake
   if INST == OOB_INST_MODEXP_PRICING goto modexp
+  if INST == OOB_INST_POINT_EVALUATION goto pointeval
+  if INST == OOB_INST_BLS_G1_ADD goto bls_g1add
+  if INST == OOB_INST_BLS_G2_ADD goto bls_g2add
+  if INST == OOB_INST_BLS_MAP_FP_TO_G1 goto bls_mapfpg1
+  if INST == OOB_INST_BLS_MAP_FP2_TO_G2 goto bls_mapfp2g2
+  if INST == OOB_INST_BLS_G1_MSM goto bls_g1msm
+  if INST == OOB_INST_BLS_G2_MSM goto bls_g2msm
+  if INST == OOB_INST_BLS_PAIRING_CHECK goto bls_pairing
   fail
 ecrecover:
   gas_cost = G_ECDSA
@@ -168,16 +209,55 @@ ecmul:
   gas_cost = G_BNMUL
   return
 ecpairing:
-  d,r = div192(call_data_size * 34000)
-  gas_cost = d + 45000
+  d,r = div192(call_data_size)
+  c,gas_cost = (d * 34000) + 45000
   return
 blake:
 modexp:
   fail
+pointeval:
+  gas_cost = G_POINT_EVALUATION
+  return
+bls_g1add:
+  gas_cost = G_BLS_G1_ADD
+  return
+bls_g2add:
+  gas_cost = G_BLS_G2_ADD
+  return
+bls_mapfpg1:
+  gas_cost = G_BLS_MAP_FP_TO_G1
+  return
+bls_mapfp2g2:
+  gas_cost = G_BLS_MAP_FP2_TO_G2
+  return
+bls_g1msm:
+bls_g2msm:
+bls_pairing:
+  fail
 }
 
-fn div192(val u32) -> (quotient u32, remainder u32) {
-  fail
+;; poor mans division operator (to be deprecated)
+fn div192(val u32) -> (quotient u32, remainder u8) {
+  var k, acc, rem, tmp u32
+  var tmp2 u24
+  var b1, b2, c1, c2 u1
+  ;;
+  acc = 0
+  k = 0
+  ;;
+loop:
+  ;; invariant acc <= val
+  b1, rem = val - acc
+  b2, tmp = 191 - rem
+  if b2 == 0 goto exit
+  ;;
+  c1, acc = acc + 192
+  c2, k = k + 1
+  goto loop
+exit:
+  quotient = k
+  tmp2, remainder = rem
+  return
 }
 
 ;; compute ⌈x / y⌉ for y==8 or y==32
