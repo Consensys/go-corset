@@ -50,32 +50,20 @@ fn oob_prc(INST=0xFF01 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, 
   var success, extract_cd, empty_cd, rc_nz, return_gas u128
   var cds u32
   var tmp u96
-  ;; type 1 checks
-  if INST == OOB_INST_ECRECOVER goto oob_type1
-  if INST == OOB_INST_SHA2 goto oob_type1
-  if INST == OOB_INST_RIPEMD goto oob_type1
-  if INST == OOB_INST_IDENTITY goto oob_type1
-  if INST == OOB_INST_ECADD goto oob_type1
-  if INST == OOB_INST_ECMUL goto oob_type1
-  ;; type 2 checks
-  if INST == OOB_INST_ECPAIRING goto oob_type2
-  if INST == OOB_INST_POINT_EVALUATION goto oob_type2
-  if INST == OOB_INST_BLS_G1_ADD goto oob_type2
-  if INST == OOB_INST_BLS_G1_MSM goto oob_type2
-  if INST == OOB_INST_BLS_G2_ADD goto oob_type2
-  if INST == OOB_INST_BLS_G2_MSM goto oob_type2
-  if INST == OOB_INST_BLS_PAIRING_CHECK goto oob_type2
-  if INST == OOB_INST_BLS_MAP_FP_TO_G1 goto oob_type2
-  if INST == OOB_INST_BLS_MAP_FP2_TO_G2 goto oob_type2
-  ;;
+  var inst_hi, inst_lo u8
+  ;; split instruction
+  inst_hi, inst_lo = INST
+  ;; type 1 & 2 checks
+  if inst_hi == 0xFF goto oob_type12
+  ;; others
   fail
 
-oob_type1:
+oob_type12:
   ;; cast call_data_size
   tmp,cds = DATA_2
   if tmp != 0 goto exit_f
   ;;
-  success,return_gas,extract_cd, empty_cd, rc_nz = oob_prc_type1(INST, DATA_1, cds, DATA_3)
+  success,return_gas,extract_cd, empty_cd, rc_nz = oob_prc_type12(INST, DATA_1, cds, DATA_3)
   ;; check predictions
   if success != DATA_4 goto exit_f
   if return_gas != DATA_5 goto exit_f
@@ -84,7 +72,7 @@ oob_type1:
   if rc_nz != DATA_8 goto exit_f
   ;; passed
   goto exit_s
-oob_type2:
+
 exit_s:
   dummy = 1
   return
@@ -92,12 +80,17 @@ exit_f:
   fail
 }
 
-;; perform required calculations for type 1 precompiles.
-fn oob_prc_type1(inst=0xFF01 u16, callee_gas u128, cds u32, r_c u128) -> (hub_success u1, return_gas u128, extract_call_data u1, empty_call_data u1, rc_nz u1) {
+;; Perform required calculations for type 1 & 2 precompiles.
+fn oob_prc_type12(inst=0xFF01 u16, callee_gas u128, cds u32, r_c u128) -> (hub_success u1, return_gas u128, extract_call_data u1, empty_call_data u1, rc_nz u1) {
   var delta, gas_cost u128
+  var cds_valid u1
   var b u1
   ;; calculate r@c != 0
   rc_nz = r_c != 0 ? 1 : 0
+  ;; cds validity
+  cds_valid = oob_cds_valid(inst,cds)
+  if cds_valid == 0 goto exit_f
+  ;;
   ;; calculate gas_cost
   gas_cost = oob_gas_cost(inst, cds)
   ;; check gas_cost <= callee_gas
@@ -116,9 +109,31 @@ exit_f:
   return
 }
 
-;; compute the gas cost for a given precompile
+;; Perform call_data_size (cds) validity checking as needed for the
+;; given instruction.  Observe that only a few instructions have
+;; validity checks (e.g. for example, the ECPAIRING precompile
+;; requires that cds%192==0.
+fn oob_cds_valid(INST=0xFF01 u16, call_data_size u32) -> (cds_valid=1 u1) {
+  if INST == OOB_INST_ECPAIRING goto ecpairing
+  ;; default case
+  goto exit_s
+ecpairing:
+  var quot, rem u32
+  ;; compute cds%192
+  quot,rem = div192(call_data_size)
+  ;;
+  if rem==0 goto exit_s
+  cds_valid=0
+  return
+exit_s:
+  cds_valid = 1
+  return
+}
+
+;; Compute the gas cost for a given precompile
 fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
   var d u126
+  var r u32
   var c u5
   ;;
   if INST == OOB_INST_ECRECOVER goto ecrecover
@@ -153,7 +168,7 @@ ecmul:
   gas_cost = G_BNMUL
   return
 ecpairing:
-  d = costSnarkV(call_data_size * 177, call_data_size)
+  d,r = div192(call_data_size * 34000)
   gas_cost = d + 45000
   return
 blake:
@@ -161,24 +176,8 @@ modexp:
   fail
 }
 
-;; this is really a hack to work around the fact that we don't yet
-;; have a division instruction.
-fn costSnarkV(x u40, cds u32) -> (res u41)
-;; pre: x*192 <= cds * 34000
-{
-   var xp1, tmp u48
-   var b u1
-   ;;
-   xp1 = (x+1) * 192
-   ;;
-   b, tmp = (34000*cds) - xp1
-   ;;
-   if b == 0 goto inc
-   res = x
-   return
-inc:
-   res = x + 1
-   return
+fn div192(val u32) -> (quotient u32, remainder u32) {
+  fail
 }
 
 ;; compute ⌈x / y⌉ for y==8 or y==32
