@@ -1,0 +1,165 @@
+include "evm.zkasm"
+
+;; type 1
+const OOB_INST_ECRECOVER                        = 0xFF01 ;; 65281
+const OOB_INST_SHA2                             = 0xFF02 ;; 65282
+const OOB_INST_RIPEMD                           = 0xFF03 ;; 65283
+const OOB_INST_IDENTITY                         = 0xFF04 ;; 65284
+const OOB_INST_ECADD                            = 0xFF06 ;; 65286
+const OOB_INST_ECMUL                            = 0xFF07 ;; 65287
+;; type 2
+const OOB_INST_ECPAIRING                        = 0xFF08 ;; 65288
+const OOB_INST_POINT_EVALUATION                 = 0xFF0A ;; 65290
+const OOB_INST_BLS_G1_ADD                       = 0xFF0B ;; 65291
+const OOB_INST_BLS_G1_MSM                       = 0xFF0C ;; 65292
+const OOB_INST_BLS_G2_ADD                       = 0xFF0D ;; 65293
+const OOB_INST_BLS_G2_MSM                       = 0xFF0E ;; 65294
+const OOB_INST_BLS_PAIRING_CHECK                = 0xFF0F ;; 65295
+const OOB_INST_BLS_MAP_FP_TO_G1                 = 0xFF10 ;; 65296
+const OOB_INST_BLS_MAP_FP2_TO_G2                = 0xFF11 ;; 65297
+;; other
+const OOB_INST_BLAKE_CDS                        = 0xFA09 ;; 64009
+const OOB_INST_BLAKE_PARAMS                     = 0xFB09 ;; 64265
+const OOB_INST_MODEXP_CDS                       = 0xFA05 ;; 64005
+const OOB_INST_MODEXP_XBS                       = 0xFB05 ;; 64261
+const OOB_INST_MODEXP_LEAD                      = 0xFC05 ;; 64517
+const OOB_INST_MODEXP_PRICING                   = 0xFD05 ;; 64773
+const OOB_INST_MODEXP_EXTRACT                   = 0xFE05 ;; 65029
+
+;; The Out-Of-Bounds Precompiles (OOBPRC) module performs various "out
+;; of bounds" and related checks for the various precompile calls.  A
+;; key aspect of what this function does is dispatch based on the
+;; instruction to the relevant set of checks.
+;;
+;; -------------------------------------------------------------------
+;; ECRECOVER / SHA2 / RIPEMD / IDENT / ECADD / ECMUL (type 1)
+;; -------------------------------------------------------------------
+;; DATA_1 = callee_gas
+;; DATA_2 = call_data_size (cds)
+;; DATA_3 = return_at_capacity (r@c)
+;; DATA_4 = hub_success
+;; DATA_5 = return_gas
+;; DATA_6 = extract_call_data
+;; DATA_7 = empty_call_data
+;; DATA_8 = r@c_non_zero
+;;
+;; -------------------------------------------------------------------
+;; ECPAIRING / POINTEVAL / BLS_XXX (type 2)
+;; -------------------------------------------------------------------
+fn oob_prc(INST=0xFF01 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DATA_5 u128, DATA_6 u128, DATA_7 u128, DATA_8 u128, DATA_9 u128, DATA_10 u128) -> (dummy u1) {
+  var success, extract_cd, empty_cd, rc_nz, return_gas u128
+  ;; type 1 checks
+  if INST == OOB_INST_ECRECOVER goto oob_type1
+  if INST == OOB_INST_SHA2 goto oob_type1
+  if INST == OOB_INST_RIPEMD goto oob_type1
+  if INST == OOB_INST_IDENTITY goto oob_type1
+  if INST == OOB_INST_ECADD goto oob_type1
+  if INST == OOB_INST_ECMUL goto oob_type1
+  ;; type 2 checks
+  if INST == OOB_INST_ECPAIRING goto oob_type2
+  if INST == OOB_INST_POINT_EVALUATION goto oob_type2
+  if INST == OOB_INST_BLS_G1_ADD goto oob_type2
+  if INST == OOB_INST_BLS_G1_MSM goto oob_type2
+  if INST == OOB_INST_BLS_G2_ADD goto oob_type2
+  if INST == OOB_INST_BLS_G2_MSM goto oob_type2
+  if INST == OOB_INST_BLS_PAIRING_CHECK goto oob_type2
+  if INST == OOB_INST_BLS_MAP_FP_TO_G1 goto oob_type2
+  if INST == OOB_INST_BLS_MAP_FP2_TO_G2 goto oob_type2
+  ;;
+  fail
+
+oob_type1:
+  success,return_gas,extract_cd, empty_cd, rc_nz = oob_prc_type1(INST, DATA_1, DATA_2, DATA_3)
+  ;; check predictions
+  if success != DATA_4 goto exit_f
+  if return_gas != DATA_5 goto exit_f
+  if extract_cd != DATA_6 goto exit_f
+  if empty_cd != DATA_7 goto exit_f
+  if rc_nz != DATA_8 goto exit_f
+  ;; passed
+  goto exit_s
+oob_type2:
+exit_s:
+  dummy = 1
+  return
+exit_f:
+  fail
+}
+
+;; perform required calculations for type 1 precompiles.
+fn oob_prc_type1(inst u16, callee_gas u128, cds u128, r_c u128) -> (hub_success u1, return_gas u128, extract_call_data u1, empty_call_data u1, rc_nz u1) {
+  var delta, gas_cost u128
+  var b u1
+  ;; calculate r@c != 0
+  rc_nz = r_c != 0 ? 1 : 0
+  ;; calculate gas_cost
+  gas_cost = oob_gas_cost(inst, cds)
+  ;; check gas_cost <= callee_gas
+  b, delta = callee_gas - gas_cost
+  if b != 0 goto exit_f
+  hub_success = 1
+  return_gas = delta
+  extract_call_data = cds != 0 ? 1 : 0
+  empty_call_data = 1 - extract_call_data
+  return
+exit_f:
+  hub_success = 0
+  return_gas = 0
+  extract_call_data = 0
+  empty_call_data = 0
+  return
+}
+
+;; compute the gas cost for a given precompile
+fn oob_gas_cost(INST=0xFF01 u16, call_data_size u128) -> (gas_cost u128) {
+  var d u125
+  var c u4
+  ;;
+  if INST == OOB_INST_ECRECOVER goto ecrecover
+  if INST == OOB_INST_SHA2 goto sha2
+  if INST == OOB_INST_RIPEMD goto ripemd
+  if INST == OOB_INST_IDENTITY goto identity
+  if INST == OOB_INST_ECADD goto ecadd
+  if INST == OOB_INST_ECMUL goto ecmul
+  if INST == OOB_INST_ECPAIRING goto ecpairing
+  if INST == OOB_INST_BLAKE_CDS goto blake
+  if INST == OOB_INST_MODEXP_PRICING goto modexp
+  fail
+ecrecover:
+  gas_cost = G_ECDSA
+  return
+sha2:
+  d = ceil_div(call_data_size,32)
+  c,gas_cost = 60 + (12 * d)
+  return
+ripemd:
+  d = ceil_div(call_data_size,32)
+  c,gas_cost = 600 + (120 * d)
+  return
+identity:
+  d = ceil_div(call_data_size,32)
+  gas_cost = 15 + (3 * d)
+  return
+ecadd:
+ecmul:
+ecpairing:
+blake:
+modexp:
+  fail
+}
+
+;; compute ⌈x / y⌉ for y==8 or y==32
+fn ceil_div(x u128, y u6) -> (res u125) {
+  var tmp8 u8
+  var tmp32 u32
+  ;; check which type
+  if y == 8 goto div8
+  if y == 32 goto div32
+  fail
+div8:
+  res,tmp8 = x
+  return
+div32:
+  res,tmp32 = x
+  return
+}
