@@ -326,6 +326,7 @@ var TESTFILE_EXTENSIONS []Config = []Config{
 	{"accepts", true, true, true, "", allOptLevels},
 	{"accepts.bz2", true, true, true, "", allOptLevels},
 	{"auto.accepts", true, true, true, "", allOptLevels},
+	{"auto.accepts.bz2", true, true, true, "", allOptLevels},
 	{"expanded.accepts", true, false, false, "BLS12_377", allOptLevels},
 	{"expanded.O1.accepts", true, false, false, "BLS12_377", defaultOptLevel},
 	// should all fail
