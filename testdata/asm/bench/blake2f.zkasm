@@ -29,7 +29,8 @@ fn F(r u64, h0_input u64, h1_input u64, h2_input u64, h3_input u64, h4_input u64
       ;; loop variables and initialization
       var i u64
       var i_mod_10 u4
-      var c0, c1, b u1
+      var tmp_res u4
+      var c0 u1
       i = 0
       i_mod_10 = 0
 
@@ -55,7 +56,8 @@ loop:
 
       ;; increment index i and wrap i_mod_10
       c0, i = i + 1
-      c1, i_mod_10 = i_mod_10 == 9 ? 0 : i_mod_10 + 1
+      c0, tmp_res = i_mod_10 + 1
+      i_mod_10 = tmp_res == 10 ? 0 : tmp_res
       goto loop
 xor_two_halves:
       h0 = xor_on_xor(v0, v8, h0_input)
@@ -122,7 +124,7 @@ sigma_1:
     ms12 = m12
     ms13 = m2
     ms14 = m7
-    ms15 = m13
+    ms15 = m3
     return
 sigma_2:
     ms0 = m11
