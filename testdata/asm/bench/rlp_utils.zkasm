@@ -46,7 +46,7 @@ exit_trivial:
 ;; DATA_8 = leading_limb_byte_size
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 integer:
-   if DATA_1 != 0 goto integer_two_limbs goto integer_two_limbs
+   if DATA_1 != 0 goto integer_two_limbs
    if DATA_4 != 0 goto exit_fail ;; sanity check that integer_hi != 0
 
    if DATA_2 != 0 goto integer_one_limb_non_zero
@@ -65,7 +65,8 @@ integer_one_limb_non_zero:
    ;; case 128 <= integer <= 2 ^128
    if DATA_5 != 1 goto exit_fail ;; sanity check that rlp_prefix_required = true
    DATA_8 = log256_u128(DATA_2)
-   DATA_6 = (RLP_PREFIX_INT_SHORT + DATA_8) * TWO_FIVE_SIX_POWER_SIXTEEN
+   var c1 u1
+   c1, DATA_6 = (RLP_PREFIX_INT_SHORT + DATA_8) * TWO_FIVE_SIX_POWER_SIXTEEN
    DATA_7 = rpad_128(DATA_2)
    return
 
@@ -80,7 +81,8 @@ integer_two_limbs:
    if DATA_4 == 0 goto exit_fail ;; sanity check that integer_hi != 0
    if DATA_5 != 1 goto exit_fail ;; sanity check that rlp_prefix_required = true
    DATA_8 = log256_u128(DATA_1)
-   DATA_6 = (RLP_PREFIX_INT_SHORT + 16 + DATA_8) * TWO_FIVE_SIX_POWER_SIXTEEN
+   var c2 u1
+   c2, DATA_6 = (RLP_PREFIX_INT_SHORT + 16 + DATA_8) * TWO_FIVE_SIX_POWER_SIXTEEN
    DATA_7 = rpad_128(DATA_1)
    return
 
@@ -163,7 +165,10 @@ data_pricing:
     if DATA_2 != 0 goto exit_fail ;;RLP_TXN can't provide a DATA_PRICING inst of size 0 
    var remaining u120
    DATA_8, remaining = DATA_1
-   DATA_7 = counts_nz_128(DATA_1, DATA_2)
+   var zero123 u123
+   var data2_trm u5
+   zero123, data2_trm = DATA_2
+   DATA_7 = counts_nz_128(DATA_1, data2_trm)
    var b u1
    b, DATA_6 = DATA_2 - DATA_7
    if b != 0 goto exit_fail ;; sanity check, not sure it's needed ...
