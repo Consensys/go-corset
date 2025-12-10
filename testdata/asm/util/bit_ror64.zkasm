@@ -13,11 +13,8 @@ fn bit_ror64(word u64, n u6) -> (res u64) {
       res = bit_ror64_u5(word,m)
       return
 apply:
-      var c0 u1
-      var recomposed u64
       msw, lsw = word
-      c0, recomposed = (2^32*lsw) + msw
-      res = bit_ror64_u5(recomposed,m)
+      res = bit_ror64_u5((2^32*lsw) + msw,m)
       return
 unchanged:
       res = word
@@ -36,11 +33,8 @@ fn bit_ror64_u5(word u64, n u5) -> (res u64) {
       res = bit_ror64_u4(word,m)
       return
 apply:
-      var c0 u1
-      var recomposed u64
       msw, lsw = word
-      c0, recomposed = (2^48*lsw) + msw
-      res = bit_ror64_u4(recomposed,m)
+      res = bit_ror64_u4((2^48*lsw) + msw,m)
       return
 }
 
@@ -56,11 +50,8 @@ fn bit_ror64_u4(word u64, n u4) -> (res u64) {
       res = bit_ror64_u3(word,m)
       return
 apply:
-      var c0 u1
-      var recomposed u64
       msw, lsw = word
-      c0, recomposed = (2^56*lsw) + msw
-      res = bit_ror64_u3(recomposed,m)
+      res = bit_ror64_u3((2^56*lsw) + msw,m)
       return
 }
 
@@ -76,11 +67,8 @@ fn bit_ror64_u3(word u64, n u3) -> (res u64) {
       res = bit_ror64_u2(word,m)
       return
 apply:
-      var c0 u1
-      var recomposed u64
       msw, lsw = word
-      c0, recomposed = (2^60*lsw) + msw
-      res = bit_ror64_u2(recomposed,m)
+      res = bit_ror64_u2((2^60*lsw) + msw,m)
       return
 }
 
@@ -96,23 +84,19 @@ fn bit_ror64_u2(word u64, n u2) -> (res u64) {
       res = bit_ror64_u1(word,m)
       return
 apply:
-      var c0 u1
-      var recomposed u64
       msw, lsw = word
-      c0, recomposed = (2^62*lsw) + msw
-      res = bit_ror64_u1(recomposed,m)
+      res = bit_ror64_u1((2^62*lsw) + msw,m)
       return
 }
 
 fn bit_ror64_u1(word u64, n u1) -> (res u64) {
       var lsw u1
-      var c0 u1
       if n!=0 goto apply
       res = word
       return
 apply:
       var hi u63
       hi, lsw = word
-      c0, res = (lsw * 2^63) + hi
+      res = (lsw * 2^63) + hi
       return
 }
