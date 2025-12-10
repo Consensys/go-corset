@@ -169,11 +169,15 @@ eword:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 data_pricing:
    ;; 0 < DATA_2 <= 16
-   if DATA_2 != 0 goto exit_fail
    var zero123 u123
    var data2_trm u5
    zero123, data2_trm = DATA_2
    if zero123 != 0 goto exit_fail
+   if data2_trm == 0 goto exit_fail
+   var b4 u1
+   var tmp_u5 u5
+   b4, tmp_u5 = 16 - data2_trm
+   if b4 != 0 goto exit_fail
 
    var remaining u120
    DATA_8, remaining = DATA_1
