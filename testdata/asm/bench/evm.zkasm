@@ -175,7 +175,10 @@ const G_EXPBYTE = 50
 const G_NEWACCOUNT = 25000
 const G_TXCREATE = 32000
 const G_WARMACCESS = 100
+;;
 const G_ECDSA = 3000
+const G_BNADD = 150
+const G_BNMUL = 6000
 
 ;; =============================================================================
 ;; Misc

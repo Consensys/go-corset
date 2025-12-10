@@ -46,8 +46,10 @@ const OOB_INST_MODEXP_EXTRACT                   = 0xFE05 ;; 65029
 ;; -------------------------------------------------------------------
 ;; ECPAIRING / POINTEVAL / BLS_XXX (type 2)
 ;; -------------------------------------------------------------------
-fn oob_prc(INST=0xFF01 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DATA_5 u128, DATA_6 u128, DATA_7 u128, DATA_8 u128, DATA_9 u128, DATA_10 u128) -> (dummy u1) {
+fn oob_prc(INST=0xFF01 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DATA_5 u128, DATA_6 u128, DATA_7 u128, DATA_8 u128, DATA_9 u128, DATA_10 u128) -> (dummy=1 u1) {
   var success, extract_cd, empty_cd, rc_nz, return_gas u128
+  var cds u32
+  var tmp u96
   ;; type 1 checks
   if INST == OOB_INST_ECRECOVER goto oob_type1
   if INST == OOB_INST_SHA2 goto oob_type1
@@ -69,7 +71,11 @@ fn oob_prc(INST=0xFF01 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, 
   fail
 
 oob_type1:
-  success,return_gas,extract_cd, empty_cd, rc_nz = oob_prc_type1(INST, DATA_1, DATA_2, DATA_3)
+  ;; cast call_data_size
+  tmp,cds = DATA_2
+  if tmp != 0 goto exit_f
+  ;;
+  success,return_gas,extract_cd, empty_cd, rc_nz = oob_prc_type1(INST, DATA_1, cds, DATA_3)
   ;; check predictions
   if success != DATA_4 goto exit_f
   if return_gas != DATA_5 goto exit_f
@@ -87,7 +93,7 @@ exit_f:
 }
 
 ;; perform required calculations for type 1 precompiles.
-fn oob_prc_type1(inst u16, callee_gas u128, cds u128, r_c u128) -> (hub_success u1, return_gas u128, extract_call_data u1, empty_call_data u1, rc_nz u1) {
+fn oob_prc_type1(inst=0xFF01 u16, callee_gas u128, cds u32, r_c u128) -> (hub_success u1, return_gas u128, extract_call_data u1, empty_call_data u1, rc_nz u1) {
   var delta, gas_cost u128
   var b u1
   ;; calculate r@c != 0
@@ -111,9 +117,9 @@ exit_f:
 }
 
 ;; compute the gas cost for a given precompile
-fn oob_gas_cost(INST=0xFF01 u16, call_data_size u128) -> (gas_cost u128) {
-  var d u125
-  var c u4
+fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
+  var d u126
+  var c u5
   ;;
   if INST == OOB_INST_ECRECOVER goto ecrecover
   if INST == OOB_INST_SHA2 goto sha2
@@ -141,25 +147,62 @@ identity:
   gas_cost = 15 + (3 * d)
   return
 ecadd:
+  gas_cost = G_BNADD
+  return
 ecmul:
+  gas_cost = G_BNMUL
+  return
 ecpairing:
+  d = costSnarkV(call_data_size * 177, call_data_size)
+  gas_cost = d + 45000
+  return
 blake:
 modexp:
   fail
 }
 
+;; this is really a hack to work around the fact that we don't yet
+;; have a division instruction.
+fn costSnarkV(x u40, cds u32) -> (res u41)
+;; pre: x*192 <= cds * 34000
+{
+   var xp1, tmp u48
+   var b u1
+   ;;
+   xp1 = (x+1) * 192
+   ;;
+   b, tmp = (34000*cds) - xp1
+   ;;
+   if b == 0 goto inc
+   res = x
+   return
+inc:
+   res = x + 1
+   return
+}
+
 ;; compute ⌈x / y⌉ for y==8 or y==32
-fn ceil_div(x u128, y u6) -> (res u125) {
-  var tmp8 u8
-  var tmp32 u32
+fn ceil_div(x u32, y=32 u6) -> (res u30) {
+  var hi u29
+  var lo8 u3
+  var lo32 u5
   ;; check which type
   if y == 8 goto div8
   if y == 32 goto div32
   fail
 div8:
-  res,tmp8 = x
-  return
+  hi,lo8 = x
+  ;; apply ceil
+  if lo8 != 0 goto round_up
+  goto exact
 div32:
-  res,tmp32 = x
+  hi,lo32 = x
+  ;; apply ceil
+  if lo32 != 0 goto round_up
+exact:
+  res = hi
+  return
+round_up:
+  res = hi + 1
   return
 }
