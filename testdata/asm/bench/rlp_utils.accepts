@@ -1,0 +1,13 @@
+;; BYTES32 INST: test 0:0, 0xff..:0, 0:0xffff.., 0xfffff:0xffffff
+{ "rlputils": { "INST": [4], "DATA_1": [0], "DATA_2": [0], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [4], "DATA_1": [0], "DATA_2": [340282366920938463463374607431768211455], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [4], "DATA_1": [340282366920938463463374607431768211455], "DATA_2": [0], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [4], "DATA_1": [340282366920938463463374607431768211455], "DATA_2": [340282366920938463463374607431768211455], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+
+;; DATA_PRICING INST
+{ "rlputils": { "INST": [8], "DATA_1": [0], "DATA_2": [16], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [8], "DATA_1": [0], "DATA_2": [16], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [8], "DATA_1": [0], "DATA_2": [16], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [8], "DATA_1": [0], "DATA_2": [16], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [8], "DATA_1": [0], "DATA_2": [16], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+{ "rlputils": { "INST": [8], "DATA_1": [0], "DATA_2": [16], "DATA_3": [0], "DATA_4": [0], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
