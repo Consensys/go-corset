@@ -66,7 +66,7 @@ integer_one_limb_non_zero:
    if DATA_5 != 1 goto exit_fail ;; sanity check that rlp_prefix_required = true
    DATA_8 = log256_u128(DATA_2)
    var c1 u1
-   c1, DATA_6 = (RLP_PREFIX_INT_SHORT + DATA_8) * TWO_FIVE_SIX_POWER_SIXTEEN
+   c1, DATA_6 = (RLP_PREFIX_INT_SHORT + DATA_8) * TWO_FIVE_SIX_POWER_FIFTEEN
    DATA_7 = rpad_128(DATA_2)
    return
 
@@ -82,7 +82,7 @@ integer_two_limbs:
    if DATA_5 != 1 goto exit_fail ;; sanity check that rlp_prefix_required = true
    DATA_8 = log256_u128(DATA_1)
    var c2 u1
-   c2, DATA_6 = (RLP_PREFIX_INT_SHORT + 16 + DATA_8) * TWO_FIVE_SIX_POWER_SIXTEEN
+   c2, DATA_6 = (RLP_PREFIX_INT_SHORT + 16 + DATA_8) * TWO_FIVE_SIX_POWER_FIFTEEN
    DATA_7 = rpad_128(DATA_1)
    return
 
@@ -105,7 +105,7 @@ bytestring:
    if DATA_4 ==0 goto bytestring_non_empty_case
    if DATA_1 !=0 goto exit_fail
    ;; empty case:
-   DATA_6 = (128 + (DATA_3 * RLP_FROM_INT_TO_LIST)) * TWO_FIVE_SIX_POWER_SIXTEEN
+   DATA_6 = (128 + (DATA_3 * RLP_FROM_INT_TO_LIST)) * TWO_FIVE_SIX_POWER_FIFTEEN
    DATA_7 = 0
    DATA_8 = 1
    return
