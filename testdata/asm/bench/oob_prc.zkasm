@@ -113,13 +113,16 @@ exit_f:
 ;; validity checks (e.g. for example, the ECPAIRING precompile
 ;; requires that cds%192==0.
 fn oob_cds_valid(INST=0xFF01 u16, call_data_size u32) -> (cds_valid=1 u1) {
+  var quot, rem u32
+  var divisor u16
+  ;;
   if INST == OOB_INST_ECPAIRING goto cds_mod192
   if INST == OOB_INST_BLAKE_CDS goto cds_213
   if INST == OOB_INST_POINT_EVALUATION goto cds_192
   if INST == OOB_INST_BLS_G1_ADD goto cds_256
   if INST == OOB_INST_BLS_G2_ADD goto cds_512
   if INST == OOB_INST_BLS_MAP_FP_TO_G1 goto cds_64
-  if INST == OOB_INST_BLS_MAP_FP2_TO_G2 goto cds_160
+  if INST == OOB_INST_BLS_MAP_FP2_TO_G2 goto cds_128
   if INST == OOB_INST_BLS_G1_MSM goto cds_mod160
   if INST == OOB_INST_BLS_G2_MSM goto cds_mod288
   if INST == OOB_INST_BLS_PAIRING_CHECK goto cds_mod384
@@ -128,8 +131,8 @@ fn oob_cds_valid(INST=0xFF01 u16, call_data_size u32) -> (cds_valid=1 u1) {
 cds_64:
   if call_data_size == 64 goto exit_s
   goto exit_f
-cds_160:
-  if call_data_size == 160 goto exit_s
+cds_128:
+  if call_data_size == 128 goto exit_s
   goto exit_f
 cds_192:
   if call_data_size == 192 goto exit_s
@@ -146,15 +149,23 @@ cds_512:
 cds_mod160:
   fail
 cds_mod192:
-  var quot, rem u32
-  ;; compute cds%192
-  quot,rem = div192(call_data_size)
-  ;;
+  ;; check cds%192==0
+  divisor = 192
+  goto cds_mod
+cds_mod288:
+  ;; check cds%288==0
+  divisor = 288
+  goto cds_mod
+cds_mod384:
+  ;; check cds%384==0
+  divisor = 384
+  goto cds_mod
+cds_mod:
+  ;; compute cds%288
+  quot,rem = div(call_data_size, divisor)
+  ;; check cds%288==0
   if rem==0 goto exit_s
   goto exit_f
-cds_mod288:
-cds_mod384:
-  fail
 exit_f:
   cds_valid = 0
   return
@@ -166,8 +177,8 @@ exit_s:
 ;; Compute the gas cost for a given precompile
 fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
   var d u126
-  var r u32
-  var c u14
+  var k,r,c u32
+  var discount u16
   ;;
   if INST == OOB_INST_ECRECOVER goto ecrecover
   if INST == OOB_INST_SHA2 goto sha2
@@ -209,7 +220,7 @@ ecmul:
   gas_cost = G_BNMUL
   return
 ecpairing:
-  d,r = div192(call_data_size)
+  d,r = div(call_data_size, 192)
   c,gas_cost = (d * 34000) + 45000
   return
 blake:
@@ -231,13 +242,29 @@ bls_mapfp2g2:
   gas_cost = G_BLS_MAP_FP2_TO_G2
   return
 bls_g1msm:
+  k,r = div(call_data_size, 160)
+  discount = g1_discount(k)
+  gas_cost,c = div(k * G_BLS_G1_MSM_MULTIPLICATION_COST * discount, 1000)
+  return
 bls_g2msm:
+  k,r = div(call_data_size, 288)
+  discount = g2_discount(k)
+  gas_cost,c = div(k * G_BLS_G2_MSM_MULTIPLICATION_COST * discount, 1000)
+  return
 bls_pairing:
   fail
 }
 
+fn g1_discount(k u126) -> (discount u16) {
+  fail
+}
+
+fn g2_discount(k u126) -> (discount u16) {
+  fail
+}
+
 ;; poor mans division operator (to be deprecated)
-fn div192(val u32) -> (quotient u32, remainder u8) {
+fn div(val u32, divisor u16) -> (quotient u32, remainder u8) {
   var k, acc, rem, tmp u32
   var tmp2 u24
   var b1, b2, c1, c2 u1
@@ -248,10 +275,10 @@ fn div192(val u32) -> (quotient u32, remainder u8) {
 loop:
   ;; invariant acc <= val
   b1, rem = val - acc
-  b2, tmp = 191 - rem
+  b2, tmp = divisor - 1 - rem
   if b2 == 0 goto exit
   ;;
-  c1, acc = acc + 192
+  c1, acc = acc + divisor
   c2, k = k + 1
   goto loop
 exit:
