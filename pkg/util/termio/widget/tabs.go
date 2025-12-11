@@ -13,39 +13,50 @@
 package widget
 
 import (
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/termio"
 )
 
 // Tabs is a simple widget which shows a bunch of titles in a bar, and
 // highlights a selected one.
-type Tabs struct {
-	tabs     []string
+type Tabs[T any] struct {
+	tabs     []util.Pair[string, T]
 	selected uint
 	offset   uint
 }
 
 // NewTabs constructs a new tabs widget with the given titles.
-func NewTabs(tabs ...string) *Tabs {
-	return &Tabs{tabs, 0, 0}
+func NewTabs[T any](tabs ...util.Pair[string, T]) *Tabs[T] {
+	return &Tabs[T]{tabs, 0, 0}
+}
+
+// HasSelected determines whether or not there is anything which could be
+// selected.
+func (p *Tabs[T]) HasSelected() bool {
+	return len(p.tabs) > 0
 }
 
 // Selected returns the currently selected tab.
-func (p *Tabs) Selected() uint {
-	return p.selected
+func (p *Tabs[T]) Selected() T {
+	return p.tabs[p.selected].Right
 }
 
 // Select sets the given selected tab.  If the index is greater than the
 // available tabs, then it automatically "wraps around".
-func (p *Tabs) Select(tab int) {
-	if tab < 0 {
-		tab += len(p.tabs)
+func (p *Tabs[T]) Select(shift int) {
+	if p.HasSelected() {
+		var tab = int(p.selected) + shift
+		//
+		if tab < 0 {
+			tab += len(p.tabs)
+		}
+		//
+		p.selected = uint(tab % len(p.tabs))
 	}
-	//
-	p.selected = uint(tab % len(p.tabs))
 }
 
 // Render the tabs widget to a given canvas.
-func (p *Tabs) Render(canvas termio.Canvas) {
+func (p *Tabs[T]) Render(canvas termio.Canvas) {
 	w, _ := canvas.GetDimensions()
 	//
 	p.updateOffset(w)
@@ -59,7 +70,7 @@ func (p *Tabs) Render(canvas termio.Canvas) {
 			x += 3
 		}
 		// Extract title
-		cell := termio.NewText(p.tabs[i])
+		cell := termio.NewText(p.tabs[i].Left)
 		// Check for selected
 		if i == p.selected {
 			cell.Format(termio.UnderlineAnsiEscape())
@@ -72,11 +83,11 @@ func (p *Tabs) Render(canvas termio.Canvas) {
 
 // GetHeight of this widget, where MaxUint indicates widget expands to take as
 // much as it can.
-func (p *Tabs) GetHeight() uint {
+func (p *Tabs[T]) GetHeight() uint {
 	return 1
 }
 
-func (p *Tabs) updateOffset(width uint) {
+func (p *Tabs[T]) updateOffset(width uint) {
 	if p.selected < p.offset {
 		p.offset = p.selected
 	} else {
@@ -88,7 +99,7 @@ func (p *Tabs) updateOffset(width uint) {
 	}
 }
 
-func (p *Tabs) visibleTabCount(width uint) uint {
+func (p *Tabs[T]) visibleTabCount(width uint) uint {
 	var (
 		x = uint(1)
 		n = p.offset
@@ -100,7 +111,7 @@ func (p *Tabs) visibleTabCount(width uint) uint {
 		}
 		// NOTE: this calculation is a little rough.  It doesn't consider
 		// clipping, or unicode.
-		x += uint(len(p.tabs[n]))
+		x += uint(len(p.tabs[n].Left))
 	}
 	// Account for last tab which may be partially obscured.
 	if n < uint(len(p.tabs)) && x != width && n > 0 {

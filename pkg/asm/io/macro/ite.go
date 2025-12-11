@@ -125,7 +125,7 @@ func (p *IfThenElse) RegistersWritten() []io.RegisterId {
 func (p *IfThenElse) String(fn register.Map) string {
 	var (
 		regs    = fn.Registers()
-		targets = io.RegistersToString(p.Targets, regs)
+		targets = io.RegistersReversedToString(p.Targets, regs)
 		left    = regs[p.Left.Unwrap()].Name
 		right   = p.Right.String()
 		tb      = p.Then.String(fn)

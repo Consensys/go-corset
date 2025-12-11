@@ -76,10 +76,10 @@ func (p *SourceColumnFilter) Range() (start, end uint) {
 	return 0, math.MaxUint
 }
 
-func newModuleState(view view.ModuleView, public bool) ModuleState {
+func newModuleState(view view.ModuleView) ModuleState {
 	var state ModuleState
 	//
-	state.public = public
+	state.public = view.Data().IsPublic()
 	state.view = view
 	// Include all columns initially
 	state.columnFilter.Computed = true

@@ -124,13 +124,20 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	//
 	if builder.Expanding() && !stack.HasUniqueSchema() {
-		fmt.Println("must specify one of --asm/uasm/mir/air")
+		fmt.Println("must specify one of --mir/air")
 		os.Exit(2)
 	} else if builder.Expanding() {
+		var tp_errors []error
 		// Expand all the traces
 		for _, ltf := range ltTraces {
-			ith := expandLtTrace(ltf, stack, builder)
+			ith, errs := expandLtTrace(ltf, stack, builder)
 			printTraceInfo(cfg, ith)
+
+			tp_errors = append(tp_errors, errs...)
+		}
+		// Report any propagation errors
+		for _, err := range tp_errors {
+			log.Errorln(err)
 		}
 	} else {
 		// Use raw trace
@@ -223,36 +230,34 @@ func constructTraceFilter[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]
 type RawColumn = lt.Column[word.BigEndian]
 
 func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaStack[F], bldr ir.TraceBuilder[F],
-) tr.Trace[F] {
+) (tr.Trace[F], []error) {
 	//
 	var (
-		schema = stack.BinaryFile().Schema
-		errors []error
-		tr     trace.Trace[F]
+		schema    = stack.BinaryFile().Schema
+		tb_errors []error
+		tp_errors []error
+		tr        trace.Trace[F]
 	)
 	// Apply trace propagation
 	if bldr.Expanding() {
 		perf := util.NewPerfStats()
 		//
-		tf, errors = asm.Propagate(schema, tf, true)
+		tf, tp_errors = asm.Propagate(schema, tf)
 		//
 		perf.Log("Trace propagation")
 	}
-	//
-	if len(errors) == 0 {
-		// Construct expanded trace
-		tr, errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
-	}
+	// Construct expanded trace
+	tr, tb_errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
 	// Handle errors
-	if len(errors) > 0 {
-		for _, err := range errors {
-			fmt.Println(err)
+	if len(tb_errors) > 0 {
+		for _, err := range tb_errors {
+			log.Errorln(err)
 		}
 		//
 		os.Exit(1)
 	}
 	// Now, reconstruct it!
-	return tr
+	return tr, tp_errors
 }
 
 func printTraceFileHeader(header lt.Header) {
@@ -261,7 +266,7 @@ func printTraceFileHeader(header lt.Header) {
 	metadata, err := header.GetMetaData()
 	//
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Errorln(err)
 		os.Exit(1)
 	} else if !metadata.IsEmpty() {
 		fmt.Println("Metadata:")

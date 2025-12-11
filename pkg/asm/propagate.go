@@ -40,7 +40,7 @@ type RawModule = lt.Module[word.BigEndian]
 // Batch size?
 // Recursion limit (to prevent infinite loops)
 func PropagateAll[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
-	ts []lt.TraceFile, expanding bool) ([]lt.TraceFile, []error) {
+	ts []lt.TraceFile) ([]lt.TraceFile, []error) {
 	//
 	var (
 		errors  []error
@@ -54,7 +54,7 @@ func PropagateAll[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgr
 		// the empty traces as this helps error reporting with respect to line
 		// numbers.
 		if trace.RawModules() != nil {
-			ntraces[i], errs = Propagate(p, trace, expanding)
+			ntraces[i], errs = Propagate(p, trace)
 			errors = append(errors, errs...)
 		}
 	}
@@ -78,7 +78,7 @@ func PropagateAll[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgr
 // Batch size?
 // Recursion limit (to prevent infinite loops)
 func Propagate[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
-	trace lt.TraceFile, expanding bool) (lt.TraceFile, []error) {
+	trace lt.TraceFile) (lt.TraceFile, []error) {
 	// Construct suitable executior for the given program
 	var (
 		errors []error
