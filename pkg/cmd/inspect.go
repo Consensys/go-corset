@@ -66,6 +66,8 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	if GetFlag(cmd, "verbose") {
 		log.SetLevel(log.DebugLevel)
 	}
+	//
+	validate := GetFlag(cmd, "validate")
 	// Read in constraint files
 	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
 	stack := stacker.Build()
@@ -95,10 +97,13 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	if expanding {
 		// Apply trace propagation
-		tracefile, errors = asm.Propagate(binf.Schema, tracefile, true)
+		tracefile, errors = asm.Propagate(binf.Schema, tracefile)
 	}
 	// Apply trace expansion
-	if len(errors) == 0 {
+	if len(errors) != 0 && validate {
+		fmt.Println("(use --validate=false to ignore trace propagation errors)")
+		fmt.Println()
+	} else {
 		trace, errors = stack.TraceBuilder().Build(schema, tracefile)
 	}
 	//
@@ -109,7 +114,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	// Sanity check what happened
 	if len(errors) > 0 {
 		for _, err := range errors {
-			fmt.Println(err)
+			log.Errorln(err)
 		}
 
 		os.Exit(1)
