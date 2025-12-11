@@ -130,3 +130,7 @@ func Test_AsmUtil_Ternary(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/ternary", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
 }
+func Test_AsmUtil_Ternary2(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/ternary2", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
