@@ -102,7 +102,7 @@ integer_two_limbs:
 
 bytestring:
    ;; check for empty bytestring:
-   if DATA_4 ==0 goto bytestring_non_empty_case
+   if DATA_4 != 0 goto bytestring_non_empty_case
    if DATA_1 !=0 goto exit_fail
    ;; empty case:
    DATA_6 = (128 + (DATA_3 * RLP_FROM_INT_TO_LIST)) * TWO_FIVE_SIX_POWER_FIFTEEN
