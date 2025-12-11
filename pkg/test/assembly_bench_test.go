@@ -57,3 +57,7 @@ func Test_AsmBench_Trm(t *testing.T) {
 func Test_AsmBench_Wcp(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/wcp", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
+
+func Test_AsmBench_RlpUtils(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/bench/rlp_utils", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
