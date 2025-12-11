@@ -28,6 +28,11 @@ type RegAccess struct {
 	Register io.RegisterId
 }
 
+// IsAtomic implementation for AtomicExpr interface
+func (p *RegAccess) IsAtomic() {
+
+}
+
 // Eval implementation for the Expr interface.
 func (p *RegAccess) Eval(env []big.Int) big.Int {
 	return env[p.Register.Unwrap()]

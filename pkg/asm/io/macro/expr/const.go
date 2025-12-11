@@ -30,6 +30,11 @@ type Const struct {
 	Base     uint
 }
 
+// IsAtomic implementation for AtomicExpr interface
+func (p *Const) IsAtomic() {
+
+}
+
 // Eval implementation for the Expr interface.
 func (p *Const) Eval([]big.Int) big.Int {
 	return p.Constant

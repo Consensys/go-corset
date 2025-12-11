@@ -38,10 +38,7 @@ type IfThenElse struct {
 	Then, Else Expr
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *IfThenElse) Execute(state io.State) uint {
 	var (
 		lhs   *big.Int = state.Load(p.Left)
@@ -70,7 +67,7 @@ func (p *IfThenElse) Execute(state io.State) uint {
 	return state.Pc() + 1
 }
 
-// Lower this instruction into a exactly one more micro instruction.
+// Lower implementation for Instruction interface.
 func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 	var (
 		codes      []micro.Code
@@ -107,7 +104,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 	return micro.Instruction{Codes: codes}
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *IfThenElse) RegistersRead() []io.RegisterId {
 	var regs = []io.RegisterId{p.Left}
 	//
@@ -117,7 +114,7 @@ func (p *IfThenElse) RegistersRead() []io.RegisterId {
 	return regs
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *IfThenElse) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
@@ -145,7 +142,7 @@ func (p *IfThenElse) String(fn register.Map) string {
 	return fmt.Sprintf("%s = %s%s%s ? %s : %s", targets, left, op, right, tb, fb)
 }
 
-// Validate checks whether or not this instruction is correctly balanced.
+// Validate implementation for Instruction interface.
 func (p *IfThenElse) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs                  = fn.Registers()

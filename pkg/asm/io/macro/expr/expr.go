@@ -45,6 +45,14 @@ type Expr interface {
 	ValueRange(mapping register.Map) math.Interval
 }
 
+// AtomicExpr represents either a register access or a constant access.
+type AtomicExpr interface {
+	Expr
+	// IsAtomic is simply a marker to restrict permitted expression forms to
+	// just register accesses and/or constants.
+	IsAtomic()
+}
+
 // BitWidth returns the minimum number of bits required to store any evaluation
 // of this expression.  In addition, it provides an indicator as to whether or
 // not any evaluation could result in a negative value.

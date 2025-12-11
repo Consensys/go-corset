@@ -22,6 +22,9 @@ import (
 // Expr represents an arbitrary expression used within an instruction.
 type Expr = expr.Expr
 
+// AtomicExpr represents either a register access or a constant.
+type AtomicExpr = expr.AtomicExpr
+
 // Sum constructs an expression representing the sum of one or more values.
 func Sum(exprs ...Expr) Expr {
 	if len(exprs) == 0 {
@@ -33,18 +36,18 @@ func Sum(exprs ...Expr) Expr {
 
 // Constant constructs an expression representing a constant value, along with a
 // base (which is used for pretty printing, etc).
-func Constant(constant big.Int, base uint) Expr {
+func Constant(constant big.Int, base uint) AtomicExpr {
 	return &expr.Const{Constant: constant, Base: base}
 }
 
 // ConstantAccess constructs an expression representing an access of a labelled
 // constant value.
-func ConstantAccess(constant string) Expr {
+func ConstantAccess(constant string) AtomicExpr {
 	return &expr.Const{Label: constant}
 }
 
 // RegisterAccess constructs an expression representing a register access.
-func RegisterAccess(reg io.RegisterId) Expr {
+func RegisterAccess(reg io.RegisterId) AtomicExpr {
 	return &expr.RegAccess{Register: reg}
 }
 

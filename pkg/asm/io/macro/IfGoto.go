@@ -58,10 +58,7 @@ func (p *IfGoto) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *IfGoto) Execute(state io.State) uint {
 	var (
 		lhs   *big.Int = state.Load(p.Left)
@@ -99,8 +96,7 @@ func (p *IfGoto) Execute(state io.State) uint {
 	return state.Pc() + 1
 }
 
-// Lower this (macro) instruction into a sequence of one or more micro
-// instructions.
+// Lower implementation for Instruction interface.
 func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	var codes []micro.Code
 	//
@@ -124,7 +120,7 @@ func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	return micro.Instruction{Codes: codes}
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *IfGoto) RegistersRead() []io.RegisterId {
 	if p.Right.IsUsed() {
 		return []io.RegisterId{p.Left, p.Right}
@@ -133,7 +129,7 @@ func (p *IfGoto) RegistersRead() []io.RegisterId {
 	return []io.RegisterId{p.Left}
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *IfGoto) RegistersWritten() []io.RegisterId {
 	return nil
 }
@@ -171,7 +167,7 @@ func (p *IfGoto) String(fn register.Map) string {
 	return fmt.Sprintf("if %s%s%s goto %d", l, op, r, p.Target)
 }
 
-// Validate checks whether or not this instruction is correctly balanced.
+// Validate implementation for Instruction interface.
 func (p *IfGoto) Validate(fieldWidth uint, fn register.Map) error {
 	if p.Left == p.Right {
 		switch p.Cond {

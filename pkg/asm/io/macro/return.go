@@ -25,26 +25,23 @@ type Return struct {
 	Dummy uint
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *Return) Execute(state io.State) uint {
 	return io.RETURN
 }
 
-// Lower this instruction into a exactly one more micro instruction.
+// Lower implementation for Instruction interface.
 func (p *Return) Lower(pc uint) micro.Instruction {
 	// Lowering here produces an instruction containing a single microcode.
 	return micro.NewInstruction(&micro.Ret{})
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *Return) RegistersRead() []io.RegisterId {
 	return nil
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *Return) RegistersWritten() []io.RegisterId {
 	return nil
 }
@@ -53,7 +50,7 @@ func (p *Return) String(fn register.Map) string {
 	return "return"
 }
 
-// Validate checks whether or not this instruction is correctly balanced.
+// Validate implementation for Instruction interface.
 func (p *Return) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }

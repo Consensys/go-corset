@@ -45,10 +45,7 @@ type Assign struct {
 	Source Expr
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *Assign) Execute(state io.State) uint {
 	value := p.Source.Eval(state.Internal())
 	// Write value across targets
@@ -57,7 +54,7 @@ func (p *Assign) Execute(state io.State) uint {
 	return state.Pc() + 1
 }
 
-// Lower this instruction into a exactly one more micro instruction.
+// Lower implementation for Instruction interface.
 func (p *Assign) Lower(pc uint) micro.Instruction {
 	//
 	code := &micro.Assign{
@@ -68,12 +65,12 @@ func (p *Assign) Lower(pc uint) micro.Instruction {
 	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *Assign) RegistersRead() []io.RegisterId {
 	return expr.RegistersRead(p.Source)
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *Assign) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
@@ -88,7 +85,7 @@ func (p *Assign) String(fn register.Map) string {
 	return builder.String()
 }
 
-// Validate checks whether or not this instruction is correctly balanced.
+// Validate implementation for Instruction interface.
 func (p *Assign) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs             = fn.Registers()
