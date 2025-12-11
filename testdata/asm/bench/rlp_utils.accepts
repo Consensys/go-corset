@@ -26,3 +26,15 @@
 { "rlputils": { "INST": [1], "DATA_1": [255], "DATA_2": [0], "DATA_3": [1], "DATA_4": [1], "DATA_5": [1], "DATA_6": [192738059388812801571052023740649963520], "DATA_7": [338953138925153547590470800371487866880], "DATA_8": [1] } }
 { "rlputils": { "INST": [1], "DATA_1": [256], "DATA_2": [0], "DATA_3": [1], "DATA_4": [1], "DATA_5": [1], "DATA_6": [194067287384597717443955830800930308096], "DATA_7": [1329227995784915872903807060280344576], "DATA_8": [2] } }
 { "rlputils": { "INST": [1], "DATA_1": [340282366920938463463374607431768211455], "DATA_2": [340282366920938463463374607431768211455], "DATA_3": [1], "DATA_4": [1], "DATA_5": [1], "DATA_6": [212676479325586539664609129644855132160], "DATA_7": [340282366920938463463374607431768211455], "DATA_8": [16] } }
+
+;; BYTESTRING INST
+;; all tests are "duplicated", once with DATA_3 = 0 (case not list), once for DATA_3 = 1 (case list). Only the prefix changes between the two cases.
+;; empty data:
+;; { "rlputils": { "INST": [2], "DATA_1": [0], "DATA_2": [0], "DATA_3": [0], "DATA_4": [0], "DATA_5": [1], "DATA_6": [170141183460469231731687303715884105728], "DATA_7": [0], "DATA_8": [1] } }
+;; { "rlputils": { "INST": [2], "DATA_1": [0], "DATA_2": [0], "DATA_3": [1], "DATA_4": [0], "DATA_5": [1], "DATA_6": [255211775190703847597530955573826158592], "DATA_7": [0], "DATA_8": [1] } }
+;; data is 1 byte: cases 0, 127, 128, 255
+;; { "rlputils": { "INST": [2], "DATA_1": [1], "DATA_2": [1], "DATA_3": [0], "DATA_4": [1], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+;; { "rlputils": { "INST": [2], "DATA_1": [1], "DATA_2": [1], "DATA_3": [1], "DATA_4": [1], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+;; case 127
+;; { "rlputils": { "INST": [2], "DATA_1": [1], "DATA_2": [127], "DATA_3": [0], "DATA_4": [1], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
+;; { "rlputils": { "INST": [2], "DATA_1": [1], "DATA_2": [127], "DATA_3": [1], "DATA_4": [1], "DATA_5": [0], "DATA_6": [0], "DATA_7": [0], "DATA_8": [0] } }
