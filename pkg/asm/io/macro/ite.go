@@ -29,11 +29,9 @@ type IfThenElse struct {
 	// Cond indicates the condition
 	Cond uint8
 	// Left-hand side
-	Left io.RegisterId
+	Left expr.AtomicExpr
 	// Right-hand side
-	Right big.Int
-	// Constant label
-	Label string
+	Right expr.AtomicExpr
 	// Then/Else branches
 	Then, Else Expr
 }
@@ -41,17 +39,17 @@ type IfThenElse struct {
 // Execute implementation for Instruction interface.
 func (p *IfThenElse) Execute(state io.State) uint {
 	var (
-		lhs   *big.Int = state.Load(p.Left)
-		rhs   *big.Int = &p.Right
+		lhs   = p.Left.Eval(state.Internal())
+		rhs   = p.Right.Eval(state.Internal())
 		value big.Int
 		taken bool
 	)
 	// Check whether taken or not.
 	switch p.Cond {
 	case EQ:
-		taken = lhs.Cmp(rhs) == 0
+		taken = lhs.Cmp(&rhs) == 0
 	case NEQ:
-		taken = lhs.Cmp(rhs) != 0
+		taken = lhs.Cmp(&rhs) != 0
 	default:
 		panic("unreachable")
 	}
@@ -71,15 +69,28 @@ func (p *IfThenElse) Execute(state io.State) uint {
 func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 	var (
 		codes      []micro.Code
-		rhs        = register.UnusedId()
 		thenBranch = p.Then.Polynomial()
 		elseBranch = p.Else.Polynomial()
+		lhsReg     io.RegisterId
+		rhsReg     = register.UnusedId()
+		rhsConst   big.Int
 	)
+	// normalise left / right
+	if c, ok := p.Left.(*expr.Const); ok {
+		lhsReg = p.Right.(*expr.RegAccess).Register
+		rhsConst = c.Constant
+	} else if c, ok := p.Right.(*expr.Const); ok {
+		lhsReg = p.Left.(*expr.RegAccess).Register
+		rhsConst = c.Constant
+	} else {
+		lhsReg = p.Left.(*expr.RegAccess).Register
+		rhsReg = p.Right.(*expr.RegAccess).Register
+	}
 	//
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: rhs, Constant: p.Right, Skip: 2},
+			&micro.Skip{Left: lhsReg, Right: rhsReg, Constant: rhsConst, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: thenBranch},
 			&micro.Jmp{Target: pc + 1},
@@ -89,7 +100,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: rhs, Constant: p.Right, Skip: 2},
+			&micro.Skip{Left: lhsReg, Right: rhsReg, Constant: rhsConst, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: elseBranch},
 			&micro.Jmp{Target: pc + 1},
@@ -106,12 +117,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 
 // RegistersRead implementation for Instruction interface.
 func (p *IfThenElse) RegistersRead() []io.RegisterId {
-	var regs = []io.RegisterId{p.Left}
-	//
-	regs = append(regs, expr.RegistersRead(p.Then)...)
-	regs = append(regs, expr.RegistersRead(p.Else)...)
-	//
-	return regs
+	return expr.RegistersRead(p.Left, p.Right, p.Then, p.Else)
 }
 
 // RegistersWritten implementation for Instruction interface.
@@ -123,8 +129,8 @@ func (p *IfThenElse) String(fn register.Map) string {
 	var (
 		regs    = fn.Registers()
 		targets = io.RegistersReversedToString(p.Targets, regs)
-		left    = regs[p.Left.Unwrap()].Name
-		right   = p.Right.String()
+		left    = p.Left.String(fn)
+		right   = p.Right.String(fn)
 		tb      = p.Then.String(fn)
 		fb      = p.Else.String(fn)
 		op      string

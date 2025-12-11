@@ -573,15 +573,13 @@ func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Inst
 
 func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
-		errs            []source.SyntaxError
-		lhs             io.RegisterId
-		rhsExpr, tb, fb macro.Expr
-		rhs             big.Int
-		label           string
-		cond            uint8
+		errs     []source.SyntaxError
+		tb, fb   macro.Expr
+		lhs, rhs macro.AtomicExpr
+		cond     uint8
 	)
 	// Parse left hand side
-	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
+	if lhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// save lookahead for error reporting
@@ -589,18 +587,14 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhsExpr, errs = p.parseAtomicExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
-	// Dispatch on rhs expression form
-	switch e := rhsExpr.(type) {
-	case *expr.Const:
-		rhs = e.Constant
-		label = e.Label
-	case *expr.RegAccess:
-		// We can invoke (p.index - 1) as we are in the case of a ternary operator
-		// Checks are already performed to have a lhs
-		return nil, p.syntaxErrors(p.tokens[p.index-1], "ternary operator does not support register on the rhs")
+	// sanity check
+	if _, lhsConst := lhs.(*expr.Const); lhsConst {
+		if _, rhsConst := rhs.(*expr.Const); rhsConst {
+			return nil, p.syntaxErrors(p.tokens[p.index-1], "branch always (or never) taken")
+		}
 	}
 	// expect question mark
 	if _, errs = p.expect(QMARK); len(errs) > 0 {
@@ -624,7 +618,6 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		Cond:    cond,
 		Left:    lhs,
 		Right:   rhs,
-		Label:   label,
 		Then:    tb,
 		Else:    fb,
 	}, nil
