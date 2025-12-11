@@ -105,6 +105,7 @@ bytestring:
    if DATA_4 != 0 goto bytestring_non_empty_case
    if DATA_1 !=0 goto exit_fail
    ;; empty case:
+   if DATA_5 != 1 goto exit_fail ;; there is a RLP prefix for the empty case
    DATA_6 = (128 + (DATA_3 * RLP_FROM_INT_TO_LIST)) * TWO_FIVE_SIX_POWER_FIFTEEN
    DATA_7 = 0
    DATA_8 = 1
