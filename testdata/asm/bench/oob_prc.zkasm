@@ -55,6 +55,8 @@ fn oob_prc(INST=0xFF01 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, 
   inst_hi, inst_lo = INST
   ;; type 1 & 2 checks
   if inst_hi == 0xFF goto oob_type12
+  if INST == OOB_INST_BLAKE_CDS goto oob_blake_cds
+  if INST == OOB_INST_BLAKE_PARAMS goto oob_blake_params
   ;; others
   fail
 
@@ -63,7 +65,7 @@ oob_type12:
   tmp,cds = DATA_2
   if tmp != 0 goto exit_f
   ;;
-  success,return_gas,extract_cd, empty_cd, rc_nz = oob_prc_type12(INST, DATA_1, cds, DATA_3)
+  success, return_gas, extract_cd, empty_cd, rc_nz = oob_prc_type12(INST, DATA_1, cds, DATA_3)
   ;; check predictions
   if success != DATA_4 goto exit_f
   if return_gas != DATA_5 goto exit_f
@@ -73,11 +75,58 @@ oob_type12:
   ;; passed
   goto exit_s
 
+oob_blake_cds:
+  success, return_gas, rc_nz = oob_prc_blake(INST, 0, DATA_2, DATA_3)
+  ;; check predictions
+  if success != DATA_4 goto exit_f
+  if rc_nz != DATA_8 goto exit_f
+  ;; passed
+  goto exit_s
+
+oob_blake_params:
+  success, return_gas, rc_nz = oob_prc_blake(INST, DATA_1, DATA_6, DATA_7)
+  ;; check predictions
+  if success != DATA_4 goto exit_f
+  if return_gas != DATA_5 goto exit_f
+  ;; fall thru
 exit_s:
   dummy = 1
   return
 exit_f:
   fail
+}
+
+fn oob_prc_blake(inst=0xFA09 u16, callee_gas u128, cds_rounds u128, rc_f u128) -> (success u1, return_gas u128, rc_nz u1) {
+   var delta u128
+   var b u1
+   ;;
+   if inst == OOB_INST_BLAKE_CDS goto blake_cds
+   if inst == OOB_INST_BLAKE_PARAMS goto blake_params
+   fail
+
+blake_cds:
+  ;; calculate r@c != 0
+  rc_nz = rc_f != 0 ? 1 : 0
+  ;; check cds==213
+  success = cds_rounds == 213 ? 1 : 0
+  return_gas = 0
+  return
+
+blake_params:
+  rc_nz = 0
+  ;; check gas_cost <= rounds
+  b, delta = callee_gas - cds_rounds
+  if b != 0 goto exit_f
+  if rc_f == 0 goto exit_s
+  if rc_f == 1 goto exit_s
+exit_f:
+  success = 0
+  return_gas = 0
+  return
+exit_s:
+  success = 1
+  return_gas = delta
+  return
 }
 
 ;; Perform required calculations for type 1 & 2 precompiles.
@@ -177,7 +226,7 @@ exit_s:
 ;; Compute the gas cost for a given precompile
 fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
   var d u126
-  var k,r,c u32
+  var k,r,c,tmp1,tmp2 u32
   var discount u16
   ;;
   if INST == OOB_INST_ECRECOVER goto ecrecover
@@ -187,7 +236,7 @@ fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
   if INST == OOB_INST_ECADD goto ecadd
   if INST == OOB_INST_ECMUL goto ecmul
   if INST == OOB_INST_ECPAIRING goto ecpairing
-  if INST == OOB_INST_BLAKE_CDS goto blake
+  if INST == OOB_INST_BLAKE_CDS goto blake_cds
   if INST == OOB_INST_MODEXP_PRICING goto modexp
   if INST == OOB_INST_POINT_EVALUATION goto pointeval
   if INST == OOB_INST_BLS_G1_ADD goto bls_g1add
@@ -223,7 +272,9 @@ ecpairing:
   d,r = div(call_data_size, 192)
   c,gas_cost = (d * 34000) + 45000
   return
-blake:
+blake_cds:
+  gas_cost = 0
+  return
 modexp:
   fail
 pointeval:
@@ -244,27 +295,49 @@ bls_mapfp2g2:
 bls_g1msm:
   k,r = div(call_data_size, 160)
   discount = g1_discount(k)
-  gas_cost,c = div(k * G_BLS_G1_MSM_MULTIPLICATION_COST * discount, 1000)
+  tmp1, tmp2 = k * G_BLS_G1_MSM_MULTIPLICATION_COST * discount
+  if tmp1 != 0 goto exit_f
+  gas_cost,c = div(tmp2, 1000)
   return
 bls_g2msm:
   k,r = div(call_data_size, 288)
   discount = g2_discount(k)
-  gas_cost,c = div(k * G_BLS_G2_MSM_MULTIPLICATION_COST * discount, 1000)
+  tmp1, tmp2 = k * G_BLS_G2_MSM_MULTIPLICATION_COST * discount
+  if tmp1 != 0 goto exit_f
+  gas_cost,c = div(tmp2, 1000)
   return
 bls_pairing:
+  k,r = div(call_data_size, 384)
+  c,gas_cost = (k * 32600) + 37700
+  return
+exit_f:
   fail
 }
 
-fn g1_discount(k u126) -> (discount u16) {
-  fail
+fn g1_discount(k=1 u126) -> (discount=1000 u16) {
+  ;; FIXME!
+  if k == 1 goto discount_1
+  ;; default
+  discount = G_BLS_G1_MSM_MAX_DISCOUNT
+  return
+discount_1:
+  discount = 1000
+  return
 }
 
-fn g2_discount(k u126) -> (discount u16) {
-  fail
+fn g2_discount(k=1 u126) -> (discount=1000 u16) {
+  ;; FIXME!
+  if k == 1 goto discount_1
+  ;; default
+  discount = G_BLS_G2_MSM_MAX_DISCOUNT
+  return
+discount_1:
+  discount = 1000
+  return
 }
 
 ;; poor mans division operator (to be deprecated)
-fn div(val u32, divisor u16) -> (quotient u32, remainder u8) {
+fn div(val u32, divisor=1 u16) -> (quotient u32, remainder u8) {
   var k, acc, rem, tmp u32
   var tmp2 u24
   var b1, b2, c1, c2 u1
