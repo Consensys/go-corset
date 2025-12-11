@@ -110,3 +110,7 @@ func Test_AsmUnit_RecPow(t *testing.T) {
 func Test_Asm_And(t *testing.T) {
 	util.Check(t, false, "asm/unit/and")
 }
+func Test_AsmUtil_Ternary2(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/ternary2", util.ASM_MAX_PADDING, sc.BLS12_377,
+		sc.KOALABEAR_16, sc.GF_8209)
+}

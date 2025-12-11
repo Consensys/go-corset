@@ -529,9 +529,6 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 		// ternary assignment
 		return p.parseTernaryRhs(lhs, env)
 	}
-	// Reverse items so that least significant comes first.  NOTE:
-	// eventually should be updated to retain the given order.
-	lhs = array.Reverse(lhs)
 	// Parse right-hand side
 	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
 		return nil, errs
@@ -542,6 +539,8 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
 	lhs, errs := p.parseRegisterList(env)
+	// Reverse items so that least significant comes first.
+	lhs = array.Reverse(lhs)
 	//
 	return lhs, errs
 }

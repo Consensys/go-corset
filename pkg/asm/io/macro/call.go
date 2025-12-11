@@ -54,6 +54,7 @@ func (p *Call) Bus() io.Bus {
 // function has terminated (i.e. because a return instruction was
 // encountered).
 func (p *Call) Execute(state io.State) uint {
+	n := len(p.Targets) - 1
 	// Determine read address by evaluating source expressions
 	address := expr.Eval(state.Internal(), p.Sources)
 	// Set bus address lines
@@ -62,8 +63,10 @@ func (p *Call) Execute(state io.State) uint {
 	state.In(p.IoBus)
 	// Load bus data lines
 	values := state.LoadN(p.IoBus.Data())
-	// Write back results
-	state.StoreN(p.Targets, values)
+	// Write back results (in reverse order)
+	for i, dst := range p.Targets {
+		state.Store(dst, values[n-i])
+	}
 	//
 	return state.Pc() + 1
 }
@@ -96,9 +99,13 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	//
 	// Read output lines
 	for i, output := range p.Targets {
-		var source agnostic.Polynomial
+		var (
+			source agnostic.Polynomial
+			// NOTE: targets stored in reverse order
+			j = len(p.Targets) - i - 1
+		)
 
-		source = source.Set(poly.NewMonomial(one, data[i]))
+		source = source.Set(poly.NewMonomial(one, data[j]))
 		insn := &micro.Assign{Targets: []io.RegisterId{output}, Source: source}
 		code = append(code, insn)
 	}
@@ -124,7 +131,7 @@ func (p *Call) String(fn schema.RegisterMap) string {
 		regs    = fn.Registers()
 	)
 	//
-	builder.WriteString(io.RegistersToString(p.Targets, regs))
+	builder.WriteString(io.RegistersReversedToString(p.Targets, regs))
 	builder.WriteString(fmt.Sprintf(" = %s(", p.IoBus.Name))
 	//
 	for i, e := range p.Sources {
@@ -168,11 +175,13 @@ func (p *Call) Validate(fieldWidth uint, fn schema.RegisterMap) error {
 	}
 	// Check returns
 	for i, rtn := range p.Targets {
+		// NOTE: targets stored in reverse order
+		j := len(p.Targets) - i
 		rtn_w := fn.Register(rtn).Width
-		bus_w := fn.Register(busOutputs[i]).Width
+		bus_w := fn.Register(busOutputs[j-1]).Width
 		//
 		if rtn_w < bus_w {
-			return fmt.Errorf("incorrect width for return %d (found %d expected %d)", i+1, rtn_w, bus_w)
+			return fmt.Errorf("incorrect width for return %d (found %d expected %d)", j, rtn_w, bus_w)
 		}
 	}
 	// Done
