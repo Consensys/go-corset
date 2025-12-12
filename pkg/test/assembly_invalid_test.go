@@ -80,32 +80,33 @@ func Test_AsmInvalid_Bitwidth_02(t *testing.T) {
 }
 
 // ===================================================================
-// Function calls
+// Division Tests
 // ===================================================================
 
-// func Test_Invalid_FnCall_01(t *testing.T) {
-// 	checkAsmInvalid(t, "asm/invalid/fncall_invalid_01")
-// }
+func Test_Invalid_Div_01(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_01")
+}
 
-// func Test_Invalid_FnCall_02(t *testing.T) {
-// 	checkAsmInvalid(t, "asm/invalid/fncall_invalid_02")
-// }
+func Test_Invalid_Div_02(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_02")
+}
 
-// func Test_Invalid_FnCall_03(t *testing.T) {
-// 	checkAsmInvalid(t, "asm/invalid/fncall_invalid_03")
-// }
+func Test_Invalid_Div_03(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_03")
+}
 
-// func Test_Invalid_FnCall_04(t *testing.T) {
-// 	checkAsmInvalid(t, "asm/invalid/fncall_invalid_04")
-// }
-
-// func Test_Invalid_FnCall_05(t *testing.T) {
-// 	checkAsmInvalid(t, "asm/invalid/fncall_invalid_05")
-// }
-
-// func Test_Invalid_FnCall_06(t *testing.T) {
-// 	checkAsmInvalid(t, "asm/invalid/fncall_invalid_06")
-// }
+func Test_Invalid_Div_04(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_04")
+}
+func Test_Invalid_Div_05(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_05")
+}
+func Test_Invalid_Div_06(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_06")
+}
+func Test_Invalid_Div_07(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_07")
+}
 
 // ===================================================================
 // Test Helpers

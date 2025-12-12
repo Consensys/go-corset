@@ -29,32 +29,27 @@ type IfThenElse struct {
 	// Cond indicates the condition
 	Cond uint8
 	// Left-hand side
-	Left io.RegisterId
+	Left expr.AtomicExpr
 	// Right-hand side
-	Right big.Int
-	// Constant label
-	Label string
+	Right expr.AtomicExpr
 	// Then/Else branches
 	Then, Else Expr
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *IfThenElse) Execute(state io.State) uint {
 	var (
-		lhs   *big.Int = state.Load(p.Left)
-		rhs   *big.Int = &p.Right
+		lhs   = p.Left.Eval(state.Internal())
+		rhs   = p.Right.Eval(state.Internal())
 		value big.Int
 		taken bool
 	)
 	// Check whether taken or not.
 	switch p.Cond {
 	case EQ:
-		taken = lhs.Cmp(rhs) == 0
+		taken = lhs.Cmp(&rhs) == 0
 	case NEQ:
-		taken = lhs.Cmp(rhs) != 0
+		taken = lhs.Cmp(&rhs) != 0
 	default:
 		panic("unreachable")
 	}
@@ -70,19 +65,31 @@ func (p *IfThenElse) Execute(state io.State) uint {
 	return state.Pc() + 1
 }
 
-// Lower this instruction into a exactly one more micro instruction.
+// Lower implementation for Instruction interface.
 func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 	var (
 		codes      []micro.Code
-		rhs        = register.UnusedId()
 		thenBranch = p.Then.Polynomial()
 		elseBranch = p.Else.Polynomial()
+		lhs        io.RegisterId
+		rhs        micro.Expr
 	)
+	// normalise left / right
+	if c, ok := p.Left.(*expr.Const); ok {
+		lhs = p.Right.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
+	} else if c, ok := p.Right.(*expr.Const); ok {
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
+	} else {
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewRegister(p.Right.(*expr.RegAccess).Register)
+	}
 	//
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: rhs, Constant: p.Right, Skip: 2},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: thenBranch},
 			&micro.Jmp{Target: pc + 1},
@@ -92,7 +99,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: rhs, Constant: p.Right, Skip: 2},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: elseBranch},
 			&micro.Jmp{Target: pc + 1},
@@ -107,17 +114,12 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 	return micro.Instruction{Codes: codes}
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *IfThenElse) RegistersRead() []io.RegisterId {
-	var regs = []io.RegisterId{p.Left}
-	//
-	regs = append(regs, expr.RegistersRead(p.Then)...)
-	regs = append(regs, expr.RegistersRead(p.Else)...)
-	//
-	return regs
+	return expr.RegistersRead(p.Left, p.Right, p.Then, p.Else)
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *IfThenElse) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
@@ -126,8 +128,8 @@ func (p *IfThenElse) String(fn register.Map) string {
 	var (
 		regs    = fn.Registers()
 		targets = io.RegistersReversedToString(p.Targets, regs)
-		left    = regs[p.Left.Unwrap()].Name
-		right   = p.Right.String()
+		left    = p.Left.String(fn)
+		right   = p.Right.String(fn)
 		tb      = p.Then.String(fn)
 		fb      = p.Else.String(fn)
 		op      string
@@ -145,7 +147,7 @@ func (p *IfThenElse) String(fn register.Map) string {
 	return fmt.Sprintf("%s = %s%s%s ? %s : %s", targets, left, op, right, tb, fb)
 }
 
-// Validate checks whether or not this instruction is correctly balanced.
+// Validate implementation for Instruction interface.
 func (p *IfThenElse) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		regs                  = fn.Registers()

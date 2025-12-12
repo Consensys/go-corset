@@ -270,8 +270,7 @@ func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []ui
 	nTarget := mapping[target]
 	//
 	return &Skip{Left: skip.Left,
-		Right:    skip.Right,
-		Constant: skip.Constant,
-		Skip:     nTarget - newIndex - 1,
+		Right: skip.Right,
+		Skip:  nTarget - newIndex - 1,
 	}
 }

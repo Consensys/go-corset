@@ -49,10 +49,7 @@ func (p *Call) Bus() io.Bus {
 	return p.IoBus
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *Call) Execute(state io.State) uint {
 	n := len(p.Targets) - 1
 	// Determine read address by evaluating source expressions
@@ -81,7 +78,7 @@ func (p *Call) Link(bus io.Bus) {
 	p.IoBus = bus
 }
 
-// Lower this instruction into a exactly one more micro instruction.
+// Lower implementation for Instruction interface.
 func (p *Call) Lower(pc uint) micro.Instruction {
 	var (
 		code    []micro.Code
@@ -115,12 +112,12 @@ func (p *Call) Lower(pc uint) micro.Instruction {
 	return micro.NewInstruction(code...)
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *Call) RegistersRead() []io.RegisterId {
 	return expr.RegistersRead(p.Sources...)
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *Call) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
@@ -147,7 +144,7 @@ func (p *Call) String(fn register.Map) string {
 	return builder.String()
 }
 
-// Validate checks whether or not this instruction well-formed.
+// Validate implementation for Instruction interface.
 func (p *Call) Validate(fieldWidth uint, fn register.Map) error {
 	// Check bus is assigned
 	if p.IoBus.IsUnlinked() {

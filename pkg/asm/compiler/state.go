@@ -128,6 +128,22 @@ func (p *StateTranslator[F, T, E, M]) Clone() StateTranslator[F, T, E, M] {
 	}
 }
 
+// WriteRegister constructs a suitable accessors for a register written by a
+// given microinstruction.  This activates forwarding for that register for all
+// states after this, and returns a suitable expression for the assignment.
+func (p *StateTranslator[F, T, E, M]) WriteRegister(dst io.RegisterId) E {
+	var (
+		ith = p.mapping.Registers[dst.Unwrap()]
+		lhs = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width, 0)
+	)
+	// Activate forwarding for this register
+	p.forwarded.Insert(dst.Unwrap())
+	// Mark register as having been written.
+	p.mutated.Insert(dst.Unwrap())
+	//
+	return lhs
+}
+
 // WriteRegisters constructs suitable accessors for the those registers written
 // by a given microinstruction.  This activates forwarding for those registers
 // for all states after this, and returns suitable expressions for the
@@ -260,6 +276,8 @@ func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code)
 	switch codes[cc].(type) {
 	case *micro.Assign:
 		return p.translateAssign(cc, codes)
+	case *micro.Division:
+		return p.translateDivision(cc, codes)
 	case *micro.Fail:
 		return False[T, E]()
 	case *micro.InOut:

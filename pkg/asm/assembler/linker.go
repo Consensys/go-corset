@@ -189,6 +189,8 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 	switch insn := insn.(type) {
 	case *macro.Assign:
 		return p.linkExpr(insn.Source)
+	case *macro.Division:
+		return p.linkExprs(insn.Dividend, insn.Divisor)
 	case *macro.Call:
 		// Determine global bus identifier
 		busId, ok := p.busmap[insn.Bus().Name]
@@ -200,25 +202,11 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 		// allocate & link bus
 		insn.Link(buses[busId])
 		//
-		return p.linkExprs(insn.Sources)
+		return p.linkExprs(insn.Sources...)
 	case *macro.IfGoto:
-		if insn.Label != "" {
-			value, errmsg := p.getLabelValue(insn.Label)
-			if errmsg != "" {
-				return p.srcmap.SyntaxError(insn, errmsg)
-			} else {
-				insn.Constant = value
-			}
-		}
+		return p.linkExprs(insn.Left, insn.Right)
 	case *macro.IfThenElse:
-		if insn.Label != "" {
-			value, errmsg := p.getLabelValue(insn.Label)
-			if errmsg != "" {
-				return p.srcmap.SyntaxError(insn, errmsg)
-			} else {
-				insn.Right = value
-			}
-		}
+		return p.linkExprs(insn.Left, insn.Right, insn.Then, insn.Else)
 	default:
 		// continue
 	}
@@ -229,7 +217,7 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 func (p *Linker) linkExpr(e macro.Expr) *source.SyntaxError {
 	switch e := e.(type) {
 	case *expr.Add:
-		return p.linkExprs(e.Exprs)
+		return p.linkExprs(e.Exprs...)
 	case *expr.Const:
 		if e.Label != "" {
 			deats, ok := p.constmap[module.NewName(e.Label, 1)]
@@ -242,11 +230,11 @@ func (p *Linker) linkExpr(e macro.Expr) *source.SyntaxError {
 			e.Constant = deats.Left
 		}
 	case *expr.Mul:
-		return p.linkExprs(e.Exprs)
+		return p.linkExprs(e.Exprs...)
 	case *expr.RegAccess:
 		// Nothing to do
 	case *expr.Sub:
-		return p.linkExprs(e.Exprs)
+		return p.linkExprs(e.Exprs...)
 	default:
 		panic("unreachable")
 	}
@@ -254,7 +242,7 @@ func (p *Linker) linkExpr(e macro.Expr) *source.SyntaxError {
 	return nil
 }
 
-func (p *Linker) linkExprs(es []macro.Expr) *source.SyntaxError {
+func (p *Linker) linkExprs(es ...macro.Expr) *source.SyntaxError {
 	for _, e := range es {
 		if err := p.linkExpr(e); err != nil {
 			return err
@@ -262,21 +250,6 @@ func (p *Linker) linkExprs(es []macro.Expr) *source.SyntaxError {
 	}
 	//
 	return nil
-}
-
-func (p *Linker) getLabelValue(l string) (big.Int, string) {
-	var deats util.Pair[big.Int, uint]
-	//
-	var ok bool
-	//
-	deats, ok = p.constmap[module.NewName(l, 1)]
-	//
-	if !ok {
-		msg := fmt.Sprintf("unknown register or constant \"%s\"", l)
-		return big.Int{}, msg
-	}
-	//
-	return deats.Left, ""
 }
 
 // Get the local bus declared for the given function, either by allocating a new

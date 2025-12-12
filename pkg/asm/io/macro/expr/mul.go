@@ -26,6 +26,15 @@ type Mul struct {
 	Exprs []Expr
 }
 
+// Equals implementation for the Expr interface.
+func (p *Mul) Equals(e Expr) bool {
+	if e, ok := e.(*Mul); ok {
+		return EqualsAll(p.Exprs, e.Exprs)
+	}
+	//
+	return false
+}
+
 // Eval implementation for the Expr interface.
 func (p *Mul) Eval(env []big.Int) big.Int {
 	var result big.Int

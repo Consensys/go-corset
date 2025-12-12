@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -26,6 +27,20 @@ import (
 // RegAccess represents a register access within an expresion.
 type RegAccess struct {
 	Register io.RegisterId
+}
+
+// ToMicroExpr implementation for AtomicExpr interface
+func (p *RegAccess) ToMicroExpr() micro.Expr {
+	return micro.NewRegister(p.Register)
+}
+
+// Equals implementation for the Expr interface.
+func (p *RegAccess) Equals(e Expr) bool {
+	if e, ok := e.(*RegAccess); ok {
+		return p.Register == e.Register
+	}
+	//
+	return false
 }
 
 // Eval implementation for the Expr interface.
