@@ -14,9 +14,9 @@ package macro
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 )
@@ -43,12 +43,10 @@ const (
 type IfGoto struct {
 	// Cond indicates the condition
 	Cond uint8
-	// Left and right comparisons
-	Left, Right io.RegisterId
-	// Constant value (when rhs is unused)
-	Constant big.Int
-	// Constant label
-	Label string
+	// Left-hand side
+	Left expr.AtomicExpr
+	// Right-hand side
+	Right expr.AtomicExpr
 	// Target identifies target PC
 	Target uint
 }
@@ -58,36 +56,27 @@ func (p *IfGoto) Bind(labels []uint) {
 	p.Target = labels[p.Target]
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *IfGoto) Execute(state io.State) uint {
 	var (
-		lhs   *big.Int = state.Load(p.Left)
-		rhs   *big.Int
+		lhs   = p.Left.Eval(state.Internal())
+		rhs   = p.Right.Eval(state.Internal())
 		taken bool
 	)
 	//
-	if p.Right.IsUsed() {
-		rhs = state.Load(p.Right)
-	} else {
-		rhs = &p.Constant
-	}
-	//
 	switch p.Cond {
 	case EQ:
-		taken = lhs.Cmp(rhs) == 0
+		taken = lhs.Cmp(&rhs) == 0
 	case NEQ:
-		taken = lhs.Cmp(rhs) != 0
+		taken = lhs.Cmp(&rhs) != 0
 	case LT:
-		taken = lhs.Cmp(rhs) < 0
+		taken = lhs.Cmp(&rhs) < 0
 	case LTEQ:
-		taken = lhs.Cmp(rhs) <= 0
+		taken = lhs.Cmp(&rhs) <= 0
 	case GT:
-		taken = lhs.Cmp(rhs) > 0
+		taken = lhs.Cmp(&rhs) > 0
 	case GTEQ:
-		taken = lhs.Cmp(rhs) >= 0
+		taken = lhs.Cmp(&rhs) >= 0
 	default:
 		panic("unreachable")
 	}
@@ -99,21 +88,35 @@ func (p *IfGoto) Execute(state io.State) uint {
 	return state.Pc() + 1
 }
 
-// Lower this (macro) instruction into a sequence of one or more micro
-// instructions.
+// Lower implementation for Instruction interface.
 func (p *IfGoto) Lower(pc uint) micro.Instruction {
-	var codes []micro.Code
+	var (
+		codes []micro.Code
+		lhs   io.RegisterId
+		rhs   micro.Expr
+	)
+	// normalise left / right
+	if c, ok := p.Left.(*expr.Const); ok {
+		lhs = p.Right.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
+	} else if c, ok := p.Right.(*expr.Const); ok {
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
+	} else {
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewRegister(p.Right.(*expr.RegAccess).Register)
+	}
 	//
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: p.Right, Constant: p.Constant, Skip: 1},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: p.Target},
 			&micro.Jmp{Target: pc + 1},
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: p.Left, Right: p.Right, Constant: p.Constant, Skip: 1},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: pc + 1},
 			&micro.Jmp{Target: p.Target},
 		}
@@ -124,24 +127,20 @@ func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	return micro.Instruction{Codes: codes}
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *IfGoto) RegistersRead() []io.RegisterId {
-	if p.Right.IsUsed() {
-		return []io.RegisterId{p.Left, p.Right}
-	}
-	//
-	return []io.RegisterId{p.Left}
+	return expr.RegistersRead(p.Left, p.Right)
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *IfGoto) RegistersWritten() []io.RegisterId {
 	return nil
 }
 
 func (p *IfGoto) String(fn schema.RegisterMap) string {
 	var (
-		l  = fn.Register(p.Left).Name
-		r  string
+		l  = p.Left.String(fn)
+		r  = p.Right.String(fn)
 		op string
 	)
 	//
@@ -162,18 +161,12 @@ func (p *IfGoto) String(fn schema.RegisterMap) string {
 		panic("unreachable")
 	}
 	//
-	if p.Right.IsUsed() {
-		r = fn.Register(p.Right).Name
-	} else {
-		r = p.Constant.String()
-	}
-	//
 	return fmt.Sprintf("if %s%s%s goto %d", l, op, r, p.Target)
 }
 
-// Validate checks whether or not this instruction is correctly balanced.
+// Validate implementation for Instruction interface.
 func (p *IfGoto) Validate(fieldWidth uint, fn schema.RegisterMap) error {
-	if p.Left == p.Right {
+	if p.Left.Equals(p.Right) {
 		switch p.Cond {
 		case EQ, LTEQ, GTEQ:
 			return fmt.Errorf("always taken")

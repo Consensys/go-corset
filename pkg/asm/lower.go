@@ -189,10 +189,9 @@ func retargetSkip(cc uint, npc uint, code micro.Skip, mapping []uint) micro.Code
 	target = target - npc - 1
 	//
 	return &micro.Skip{
-		Left:     code.Left,
-		Right:    code.Right,
-		Constant: code.Constant,
-		Skip:     target,
+		Left:  code.Left,
+		Right: code.Right,
+		Skip:  target,
 	}
 }
 

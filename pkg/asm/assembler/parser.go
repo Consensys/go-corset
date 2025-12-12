@@ -457,15 +457,12 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
-		rhsExpr  macro.Expr
-		lhs, rhs io.RegisterId
-		constant big.Int
-		label    string
+		lhs, rhs macro.AtomicExpr
 		target   string
 		cond     uint8
 	)
 	// Parse left hand side
-	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
+	if lhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// save lookahead for error reporting
@@ -473,17 +470,14 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhsExpr, errs = p.parseAtomicExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
-	// Dispatch on rhs expression form
-	switch e := rhsExpr.(type) {
-	case *expr.Const:
-		rhs = schema.NewUnusedRegisterId()
-		constant = e.Constant
-		label = e.Label
-	case *expr.RegAccess:
-		rhs = e.Register
+	// sanity check
+	if _, lhsConst := lhs.(*expr.Const); lhsConst {
+		if _, rhsConst := rhs.(*expr.Const); rhsConst {
+			return nil, p.syntaxErrors(p.tokens[p.index-1], "branch always (or never) taken")
+		}
 	}
 	// Parse "goto"
 	if errs = p.parseKeyword("goto"); len(errs) > 0 {
@@ -495,12 +489,10 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 	}
 	//
 	return &macro.IfGoto{
-		Cond:     cond,
-		Left:     lhs,
-		Right:    rhs,
-		Constant: constant,
-		Label:    label,
-		Target:   env.BindLabel(target),
+		Cond:   cond,
+		Left:   lhs,
+		Right:  rhs,
+		Target: env.BindLabel(target),
 	}, nil
 }
 
@@ -528,6 +520,12 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	} else if p.following(IDENTIFIER, NOT_EQUALS) {
 		// ternary assignment
 		return p.parseTernaryRhs(lhs, env)
+	} else if p.following(IDENTIFIER, DIV) {
+		// division assignment
+		return p.parseDivisionRhs(lhs, env)
+	} else if p.following(NUMBER, DIV) {
+		// division assignment
+		return p.parseDivisionRhs(lhs, env)
 	}
 	// Parse right-hand side
 	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
@@ -569,13 +567,13 @@ func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Inst
 
 func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
-		errs        []source.SyntaxError
-		lhs         io.RegisterId
-		rhs, tb, fb big.Int
-		cond        uint8
+		errs     []source.SyntaxError
+		tb, fb   big.Int
+		lhs, rhs macro.AtomicExpr
+		cond     uint8
 	)
 	// Parse left hand side
-	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
+	if lhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// save lookahead for error reporting
@@ -583,8 +581,14 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhs, errs = p.parseNumber(env); len(errs) > 0 {
+	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
+	}
+	// sanity check
+	if _, lhsConst := lhs.(*expr.Const); lhsConst {
+		if _, rhsConst := rhs.(*expr.Const); rhsConst {
+			return nil, p.syntaxErrors(p.tokens[p.index-1], "branch always (or never) taken")
+		}
 	}
 	// expect question mark
 	if _, errs = p.expect(QMARK); len(errs) > 0 {
@@ -610,6 +614,42 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		Right:   rhs,
 		Then:    tb,
 		Else:    fb,
+	}, nil
+}
+
+func (p *Parser) parseDivisionRhs(targets []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
+	var (
+		errs     []source.SyntaxError
+		lhs, rhs macro.AtomicExpr
+	)
+	//
+	if len(targets) < 2 {
+		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for remainder")
+	} else if len(targets) < 3 {
+		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for witness")
+	} else if len(targets) > 3 {
+		return nil, p.syntaxErrors(p.tokens[p.index-2], "unexpected target register")
+	}
+	// Parse left hand side
+	if lhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// expect division operator
+	if _, errs = p.expect(DIV); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse right hand side
+	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// NOTE: target registers are in reverse order due to being sorted in
+	// parseAssignmentLhs().
+	return &macro.Division{
+		Quotient:  expr.RegAccess{Register: targets[2]},
+		Remainder: expr.RegAccess{Register: targets[1]},
+		Witness:   expr.RegAccess{Register: targets[0]},
+		Dividend:  lhs,
+		Divisor:   rhs,
 	}, nil
 }
 
@@ -676,11 +716,11 @@ func (p *Parser) parseUnitExpr(env *Environment) (macro.Expr, []source.SyntaxErr
 	}
 }
 
-func (p *Parser) parseAtomicExpr(env *Environment) (macro.Expr, []source.SyntaxError) {
+func (p *Parser) parseAtomicExpr(env *Environment) (macro.AtomicExpr, []source.SyntaxError) {
 	var (
 		start     = p.index
 		lookahead = p.lookahead()
-		expr      macro.Expr
+		expr      macro.AtomicExpr
 		errs      []source.SyntaxError
 	)
 

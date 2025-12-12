@@ -46,6 +46,7 @@ type BranchInstruction interface {
 func init() {
 	gob.Register(Instruction(&Assign{}))
 	gob.Register(Instruction(&Call{}))
+	gob.Register(Instruction(&Division{}))
 	gob.Register(Instruction(&Fail{}))
 	gob.Register(Instruction(&Goto{}))
 	gob.Register(Instruction(&IfGoto{}))

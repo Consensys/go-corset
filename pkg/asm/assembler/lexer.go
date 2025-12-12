@@ -102,6 +102,9 @@ const SUB uint = 39
 // MUL signals "*"
 const MUL uint = 40
 
+// DIV signals "/"
+const DIV uint = 41
+
 // QMARK signals "?"
 const QMARK uint = 50
 
@@ -175,6 +178,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('+'), ADD),
 	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('*'), MUL),
+	lex.Rule(lex.Unit('/'), DIV),
 	lex.Rule(lex.Unit('?'), QMARK),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),

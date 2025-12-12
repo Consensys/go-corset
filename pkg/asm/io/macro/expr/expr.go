@@ -18,6 +18,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -31,6 +32,8 @@ var (
 
 // Expr represents an arbitrary expression used within an instruction.
 type Expr interface {
+	// Check whether two expressions are equivalent
+	Equals(e Expr) bool
 	// Evaluate this expression in a given environment producing a given value.
 	Eval([]big.Int) big.Int
 	// Polynomial returns this expression flatterned into a polynomial form.
@@ -43,6 +46,30 @@ type Expr interface {
 	// For terms accessing registers, this is determined by the declared width of
 	// the register.
 	ValueRange(mapping schema.RegisterMap) math.Interval
+}
+
+// AtomicExpr represents either a register access or a constant access.
+type AtomicExpr interface {
+	Expr
+	// Convert this (atomic) expression into a micro expression.
+	ToMicroExpr() micro.Expr
+}
+
+// EqualsAll determines whether all of the expressions on the left-hand side
+// match those on the right-hand side.  The number of expressions on both sides
+// must also match.
+func EqualsAll(lhs []Expr, rhs []Expr) bool {
+	if len(lhs) == len(rhs) {
+		for i := range len(lhs) {
+			if !lhs[i].Equals(rhs[i]) {
+				return false
+			}
+		}
+		//
+		return true
+	}
+	//
+	return false
 }
 
 // BitWidth returns the minimum number of bits required to store any evaluation

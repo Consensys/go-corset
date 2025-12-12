@@ -26,6 +26,15 @@ type Add struct {
 	Exprs []Expr
 }
 
+// Equals implementation for the Expr interface.
+func (p *Add) Equals(e Expr) bool {
+	if e, ok := e.(*Add); ok {
+		return EqualsAll(p.Exprs, e.Exprs)
+	}
+	//
+	return false
+}
+
 // Eval implementation for the Expr interface.
 func (p *Add) Eval(env []big.Int) big.Int {
 	var result big.Int

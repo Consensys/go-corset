@@ -17,6 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/math"
@@ -28,30 +29,27 @@ type IfThenElse struct {
 	// Cond indicates the condition
 	Cond uint8
 	// Left-hand side
-	Left io.RegisterId
+	Left expr.AtomicExpr
 	// Right-hand side
-	Right big.Int
+	Right expr.AtomicExpr
 	// Then/Else branches
 	Then, Else big.Int
 }
 
-// Execute this instruction with the given local and global state.  The next
-// program counter position is returned, or io.RETURN if the enclosing
-// function has terminated (i.e. because a return instruction was
-// encountered).
+// Execute implementation for Instruction interface.
 func (p *IfThenElse) Execute(state io.State) uint {
 	var (
-		lhs   *big.Int = state.Load(p.Left)
-		rhs   *big.Int = &p.Right
+		lhs   = p.Left.Eval(state.Internal())
+		rhs   = p.Right.Eval(state.Internal())
 		value big.Int
 		taken bool
 	)
 	// Check whether taken or not.
 	switch p.Cond {
 	case EQ:
-		taken = lhs.Cmp(rhs) == 0
+		taken = lhs.Cmp(&rhs) == 0
 	case NEQ:
-		taken = lhs.Cmp(rhs) != 0
+		taken = lhs.Cmp(&rhs) != 0
 	default:
 		panic("unreachable")
 	}
@@ -67,26 +65,60 @@ func (p *IfThenElse) Execute(state io.State) uint {
 	return state.Pc() + 1
 }
 
-// Lower this instruction into a exactly one more micro instruction.
+// Lower implementation for Instruction interface.
 func (p *IfThenElse) Lower(pc uint) micro.Instruction {
-	code := &micro.Ite{
-		Targets: p.Targets,
-		Cond:    p.Cond,
-		Left:    p.Left,
-		Right:   p.Right,
-		Then:    p.Then,
-		Else:    p.Else,
-	}
-	//
-	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+	// var (
+	// 	codes []micro.Code
+	// 	lhs   io.RegisterId
+	// 	rhs   micro.Expr
+	// )
+	// // normalise left / right
+	// if c, ok := p.Left.(*expr.Const); ok {
+	// 	lhs = p.Right.(*expr.RegAccess).Register
+	// 	rhs = micro.NewConstant(c.Constant)
+	// } else if c, ok := p.Right.(*expr.Const); ok {
+	// 	lhs = p.Left.(*expr.RegAccess).Register
+	// 	rhs = micro.NewConstant(c.Constant)
+	// } else {
+	// 	lhs = p.Left.(*expr.RegAccess).Register
+	// 	rhs = micro.NewRegister(p.Right.(*expr.RegAccess).Register)
+	// }
+	// //
+	// switch p.Cond {
+	// case EQ:
+	// 	codes = []micro.Code{
+	// 		&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
+	// 		// Then branch
+	// 		&micro.Assign{Targets: p.Targets, Source: thenBranch},
+	// 		&micro.Jmp{Target: pc + 1},
+	// 		// Else branch
+	// 		&micro.Assign{Targets: p.Targets, Source: elseBranch},
+	// 		&micro.Jmp{Target: pc + 1},
+	// 	}
+	// case NEQ:
+	// 	codes = []micro.Code{
+	// 		&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
+	// 		// Then branch
+	// 		&micro.Assign{Targets: p.Targets, Source: elseBranch},
+	// 		&micro.Jmp{Target: pc + 1},
+	// 		// Else branch
+	// 		&micro.Assign{Targets: p.Targets, Source: thenBranch},
+	// 		&micro.Jmp{Target: pc + 1},
+	// 	}
+	// default:
+	// 	panic("unreachable")
+	// }
+	// //
+	// return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
+	panic("fix ITE (by returning to original code?)")
 }
 
-// RegistersRead returns the set of registers read by this instruction.
+// RegistersRead implementation for Instruction interface.
 func (p *IfThenElse) RegistersRead() []io.RegisterId {
-	return []io.RegisterId{p.Left}
+	return expr.RegistersRead(p.Left, p.Right)
 }
 
-// RegistersWritten returns the set of registers written by this instruction.
+// RegistersWritten implementation for Instruction interface.
 func (p *IfThenElse) RegistersWritten() []io.RegisterId {
 	return p.Targets
 }
@@ -95,8 +127,8 @@ func (p *IfThenElse) String(fn schema.RegisterMap) string {
 	var (
 		regs    = fn.Registers()
 		targets = io.RegistersReversedToString(p.Targets, regs)
-		left    = regs[p.Left.Unwrap()].Name
-		right   = p.Right.String()
+		left    = p.Left.String(fn)
+		right   = p.Right.String(fn)
 		tb      = p.Then.String()
 		fb      = p.Else.String()
 		op      string
