@@ -15,7 +15,6 @@ jobs:
         test: [asm-bench,asm-racer,asm-util,asm-unit,corset-bench,corset-racer,corset-test,unit-test]
         field: [BLS12_377,KOALABEAR_16,GF_8209]
         exclude:
-          - { field: KOALABEAR_16, test: asm-bench }
           - { field: KOALABEAR_16, test: asm-racer }
           - { field: KOALABEAR_16, test: corset-racer }
           - { field: KOALABEAR_16, test: unit-test }
@@ -34,4 +33,6 @@ jobs:
           go-version: '>=1.24'
       - run: make ${{ matrix.test }}
         env:
+          GOMAXPROCS: 8
+          GOMEMLIMIT: 16GiB
           GOCORSET_FIELD: ${{ matrix.field }}
