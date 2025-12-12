@@ -518,6 +518,9 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	} else if p.following(IDENTIFIER, DIV) {
 		// division assignment
 		return p.parseDivisionRhs(lhs, env)
+	} else if p.following(NUMBER, DIV) {
+		// division assignment
+		return p.parseDivisionRhs(lhs, env)
 	}
 	// Parse right-hand side
 	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
