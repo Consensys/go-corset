@@ -18,6 +18,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -50,9 +51,8 @@ type Expr interface {
 // AtomicExpr represents either a register access or a constant access.
 type AtomicExpr interface {
 	Expr
-	// IsAtomic is simply a marker to restrict permitted expression forms to
-	// just register accesses and/or constants.
-	IsAtomic()
+	// Convert this (atomic) expression into a micro expression.
+	ToMicroExpr() micro.Expr
 }
 
 // EqualsAll determines whether all of the expressions on the left-hand side

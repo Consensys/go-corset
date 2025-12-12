@@ -35,3 +35,29 @@ func (p *StateTranslator[F, T, E, M]) translateJmp(cc uint, codes []micro.Code) 
 func (p *StateTranslator[F, T, E, M]) translateRet() E {
 	return p.Terminate()
 }
+
+// Translate this instruction into low-level constraints.
+func (p *StateTranslator[F, T, E, M]) translateDivision(cc uint, codes []micro.Code) E {
+	var (
+		code     = codes[cc].(*micro.Division)
+		quot     = p.WriteRegister(code.Quotient)
+		rem      = p.WriteRegister(code.Remainder)
+		dividend = p.translateMicroExpr(code.Dividend)
+		divisor  = p.translateMicroExpr(code.Divisor)
+	)
+	// FIXME: missing constraint to ensure remainder < divisor
+	//
+	// Construct equation by converting division into multiplication
+	eqn := quot.Multiply(divisor).Add(rem).Equals(dividend)
+	// Continue
+	return eqn.And(p.translateCode(cc+1, codes))
+}
+
+func (p *StateTranslator[F, T, E, M]) translateMicroExpr(e micro.Expr) E {
+	if e.HasSecond() {
+		var c = e.Second()
+		return BigNumber[T, E](&c)
+	}
+	//
+	return p.ReadRegister(e.First())
+}

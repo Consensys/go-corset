@@ -1,0 +1,4 @@
+fn div(x u16, y u16) -> (q u16, r u16) {
+  q, r = x / y
+  return
+}

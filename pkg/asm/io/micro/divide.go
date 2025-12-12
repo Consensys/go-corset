@@ -87,7 +87,38 @@ func (p *Division) RegistersWritten() []io.RegisterId {
 
 // Split implementation for Code interface.
 func (p *Division) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
-	panic("todo")
+	var (
+		qLimbs      = mapping.LimbIds(p.Quotient)
+		rLimbs      = mapping.LimbIds(p.Remainder)
+		qLimbWidths = register.WidthsOfLimbs(mapping, qLimbs)
+		rLimbWidths = register.WidthsOfLimbs(mapping, rLimbs)
+	)
+	// FIXME: implement this (somehow)
+	if len(qLimbs) != 1 || len(rLimbs) != 1 {
+		panic("splitting for division unsupported")
+	}
+	//
+	return []Code{&Division{
+		Quotient:  qLimbs[0],
+		Remainder: rLimbs[0],
+		Dividend:  splitExpression(qLimbWidths, p.Dividend, mapping),
+		Divisor:   splitExpression(rLimbWidths, p.Divisor, mapping),
+	}}
+}
+
+func splitExpression(widths []uint, expr Expr, mapping register.LimbsMap) Expr {
+	//
+	if expr.HasSecond() {
+		return NewConstant(expr.Second())
+	}
+	//
+	limbs := mapping.LimbIds(expr.First())
+	//
+	if len(widths) != 1 {
+		panic("splitting for division unsupported")
+	}
+
+	return NewRegister(limbs[0])
 }
 
 func (p *Division) String(fn register.Map) string {

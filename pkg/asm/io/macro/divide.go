@@ -64,7 +64,17 @@ func (p *Division) Execute(state io.State) uint {
 
 // Lower implementation for Instruction interface.
 func (p *Division) Lower(pc uint) micro.Instruction {
-	panic("todo")
+	codes := []micro.Code{
+		&micro.Division{
+			Quotient:  p.Quotient.Register,
+			Remainder: p.Remainder.Register,
+			Dividend:  p.Dividend.ToMicroExpr(),
+			Divisor:   p.Divisor.ToMicroExpr(),
+		},
+		&micro.Jmp{Target: pc + 1},
+	}
+	//
+	return micro.Instruction{Codes: codes}
 }
 
 // RegistersRead implementation for Instruction interface.
