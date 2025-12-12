@@ -23,12 +23,13 @@ import (
 )
 
 var biZERO *big.Int = big.NewInt(0)
+var biONE *big.Int = big.NewInt(1)
 
 // Division operator divides either a register (or constant) by another register
 // (or constant) producing a quotient and a remainder.
 type Division struct {
 	// Target registers
-	Quotient, Remainder io.RegisterId
+	Quotient, Remainder, Witness io.RegisterId
 	// Dividend and right comparisons
 	Dividend, Divisor Expr
 }
@@ -38,6 +39,7 @@ func (p *Division) Clone() Code {
 	return &Division{
 		Quotient:  p.Quotient,
 		Remainder: p.Remainder,
+		Witness:   p.Witness,
 		Dividend:  p.Dividend.Clone(),
 		Divisor:   p.Divisor.Clone(),
 	}
@@ -50,17 +52,21 @@ func (p *Division) MicroExecute(state io.State) (uint, uint) {
 		rhs  = p.Divisor.Eval(state)
 		quot big.Int
 		rem  big.Int
+		wit  big.Int
 	)
 	// Check for division by zero
 	if rhs.Cmp(biZERO) == 0 {
 		return 0, io.FAIL
 	}
-	// Compute quotient / remainder
+	// Compute quotient / remainder / witness
 	quot.Div(lhs, rhs)
 	rem.Mod(lhs, rhs)
+	wit.Sub(rhs, &rem)
+	wit.Sub(&wit, biONE)
 	// Write target registers
 	state.Store(p.Quotient, quot)
 	state.Store(p.Remainder, rem)
+	state.Store(p.Witness, wit)
 	// Continue to next instruction
 	return 1, 0
 }
@@ -82,7 +88,7 @@ func (p *Division) RegistersRead() []io.RegisterId {
 
 // RegistersWritten implementation for Code interface.
 func (p *Division) RegistersWritten() []io.RegisterId {
-	return []io.RegisterId{p.Quotient, p.Remainder}
+	return []io.RegisterId{p.Quotient, p.Remainder, p.Witness}
 }
 
 // Split implementation for Code interface.
@@ -90,17 +96,19 @@ func (p *Division) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator
 	var (
 		qLimbs      = mapping.LimbIds(p.Quotient)
 		rLimbs      = mapping.LimbIds(p.Remainder)
+		wLimbs      = mapping.LimbIds(p.Witness)
 		qLimbWidths = register.WidthsOfLimbs(mapping, qLimbs)
 		rLimbWidths = register.WidthsOfLimbs(mapping, rLimbs)
 	)
 	// FIXME: implement this (somehow)
-	if len(qLimbs) != 1 || len(rLimbs) != 1 {
+	if len(qLimbs) != 1 || len(rLimbs) != 1 || len(wLimbs) != 1 {
 		panic("splitting for division unsupported")
 	}
 	//
 	return []Code{&Division{
 		Quotient:  qLimbs[0],
 		Remainder: rLimbs[0],
+		Witness:   wLimbs[0],
 		Dividend:  splitExpression(qLimbWidths, p.Dividend, mapping),
 		Divisor:   splitExpression(rLimbWidths, p.Divisor, mapping),
 	}}
@@ -127,6 +135,8 @@ func (p *Division) String(fn register.Map) string {
 	builder.WriteString(fn.Register(p.Quotient).Name)
 	builder.WriteString(", ")
 	builder.WriteString(fn.Register(p.Remainder).Name)
+	builder.WriteString(", ")
+	builder.WriteString(fn.Register(p.Witness).Name)
 	builder.WriteString(" = ")
 	builder.WriteString(p.Dividend.String(fn))
 	builder.WriteString(" / ")
@@ -140,6 +150,7 @@ func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 	var (
 		qBits = fn.Register(p.Quotient).Width
 		rBits = fn.Register(p.Remainder).Width
+		wBits = fn.Register(p.Witness).Width
 		dBits = p.Dividend.Bitwidth(fn)
 		vBits = p.Divisor.Bitwidth(fn)
 	)
@@ -148,6 +159,8 @@ func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 		return fmt.Errorf("quotient bit overflow (u%d into u%d)", dBits, qBits)
 	} else if rBits < vBits {
 		return fmt.Errorf("remainder bit overflow (u%d into u%d)", vBits, rBits)
+	} else if wBits < vBits {
+		return fmt.Errorf("witness bit overflow (u%d into u%d)", vBits, wBits)
 	}
 	//
 	return nil

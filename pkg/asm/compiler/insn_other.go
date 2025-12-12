@@ -39,18 +39,20 @@ func (p *StateTranslator[F, T, E, M]) translateRet() E {
 // Translate this instruction into low-level constraints.
 func (p *StateTranslator[F, T, E, M]) translateDivision(cc uint, codes []micro.Code) E {
 	var (
+		one      = Number[T, E](1)
 		code     = codes[cc].(*micro.Division)
 		quot     = p.WriteRegister(code.Quotient)
 		rem      = p.WriteRegister(code.Remainder)
+		wit      = p.WriteRegister(code.Witness)
 		dividend = p.translateMicroExpr(code.Dividend)
 		divisor  = p.translateMicroExpr(code.Divisor)
 	)
-	// FIXME: missing constraint to ensure remainder < divisor
-	//
 	// Construct equation by converting division into multiplication
-	eqn := quot.Multiply(divisor).Add(rem).Equals(dividend)
+	eqn1 := quot.Multiply(divisor).Add(rem).Equals(dividend)
+	// Ensure remainder is less than quotient
+	eqn2 := divisor.Equals(rem.Add(wit).Add(one))
 	// Continue
-	return eqn.And(p.translateCode(cc+1, codes))
+	return eqn1.And(eqn2, p.translateCode(cc+1, codes))
 }
 
 func (p *StateTranslator[F, T, E, M]) translateMicroExpr(e micro.Expr) E {

@@ -98,6 +98,15 @@ func Test_Invalid_Div_03(t *testing.T) {
 func Test_Invalid_Div_04(t *testing.T) {
 	checkAsmInvalid(t, "asm/invalid/div_04")
 }
+func Test_Invalid_Div_05(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_05")
+}
+func Test_Invalid_Div_06(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_06")
+}
+func Test_Invalid_Div_07(t *testing.T) {
+	checkAsmInvalid(t, "asm/invalid/div_07")
+}
 
 // ===================================================================
 // Test Helpers

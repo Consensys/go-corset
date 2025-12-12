@@ -1,5 +1,6 @@
-;;error:3:3-15:quotient bit overflow (u16 into u15)
+;;error:4:3-18:quotient bit overflow (u16 into u15)
 fn div(x u16, y u16) -> (q u15, r u16) {
-  q, r = x / y
+  var w u16
+  q, r, w = x / y
   return
 }

@@ -1,5 +1,6 @@
+;;error:4:3-18:witness bit overflow (u16 into u15)
 fn div(x u16, y u16) -> (q u16, r u16) {
-  var w u16
+  var w u15
   q, r, w = x / y
   return
 }

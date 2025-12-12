@@ -615,9 +615,11 @@ func (p *Parser) parseDivisionRhs(targets []io.RegisterId, env *Environment) (ma
 		lhs, rhs macro.AtomicExpr
 	)
 	//
-	if len(targets) == 1 {
+	if len(targets) < 2 {
 		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for remainder")
-	} else if len(targets) > 2 {
+	} else if len(targets) < 3 {
+		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for witness")
+	} else if len(targets) > 3 {
 		return nil, p.syntaxErrors(p.tokens[p.index-2], "unexpected target register")
 	}
 	// Parse left hand side
@@ -635,8 +637,9 @@ func (p *Parser) parseDivisionRhs(targets []io.RegisterId, env *Environment) (ma
 	// NOTE: target registers are in reverse order due to being sorted in
 	// parseAssignmentLhs().
 	return &macro.Division{
-		Quotient:  expr.RegAccess{Register: targets[1]},
-		Remainder: expr.RegAccess{Register: targets[0]},
+		Quotient:  expr.RegAccess{Register: targets[2]},
+		Remainder: expr.RegAccess{Register: targets[1]},
+		Witness:   expr.RegAccess{Register: targets[0]},
 		Dividend:  lhs,
 		Divisor:   rhs,
 	}, nil
