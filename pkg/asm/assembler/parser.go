@@ -474,6 +474,12 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
+	// sanity check
+	if _, lhsConst := lhs.(*expr.Const); lhsConst {
+		if _, rhsConst := rhs.(*expr.Const); rhsConst {
+			return nil, p.syntaxErrors(p.tokens[p.index-1], "branch always (or never) taken")
+		}
+	}
 	// Parse "goto"
 	if errs = p.parseKeyword("goto"); len(errs) > 0 {
 		return nil, errs

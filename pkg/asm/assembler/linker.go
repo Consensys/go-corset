@@ -189,6 +189,8 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 	switch insn := insn.(type) {
 	case *macro.Assign:
 		return p.linkExpr(insn.Source)
+	case *macro.Division:
+		return p.linkExprs(insn.Dividend, insn.Divisor)
 	case *macro.Call:
 		// Determine global bus identifier
 		busId, ok := p.busmap[insn.Bus().Name]
