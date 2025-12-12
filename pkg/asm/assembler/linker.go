@@ -250,21 +250,6 @@ func (p *Linker) linkExprs(es ...macro.Expr) *source.SyntaxError {
 	return nil
 }
 
-func (p *Linker) getLabelValue(l string) (big.Int, string) {
-	var deats util.Pair[big.Int, uint]
-	//
-	var ok bool
-	//
-	deats, ok = p.constmap[module.NewName(l, 1)]
-	//
-	if !ok {
-		msg := fmt.Sprintf("unknown register or constant \"%s\"", l)
-		return big.Int{}, msg
-	}
-	//
-	return deats.Left, ""
-}
-
 // Get the local bus declared for the given function, either by allocating a new
 // bus (if was not already allocated) or returning the existing bus (if it was
 // previously allocated).  Allocating a new bus requires allocating

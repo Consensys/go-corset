@@ -75,7 +75,6 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		rhs        micro.Expr
 	)
 	// normalise left / right
-	// normalise left / right
 	if c, ok := p.Left.(*expr.Const); ok {
 		lhs = p.Right.(*expr.RegAccess).Register
 		rhs = micro.NewConstant(c.Constant)
