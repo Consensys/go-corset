@@ -49,6 +49,10 @@ func Test_AsmBench_Shf(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/shf", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_AsmBench_Mod(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/bench/mod", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
+
 func Test_AsmBench_Stp(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/bench/stp", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
