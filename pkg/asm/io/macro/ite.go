@@ -71,26 +71,26 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		codes      []micro.Code
 		thenBranch = p.Then.Polynomial()
 		elseBranch = p.Else.Polynomial()
-		lhsReg     io.RegisterId
-		rhsReg     = register.UnusedId()
-		rhsConst   big.Int
+		lhs        io.RegisterId
+		rhs        micro.Expr
 	)
 	// normalise left / right
+	// normalise left / right
 	if c, ok := p.Left.(*expr.Const); ok {
-		lhsReg = p.Right.(*expr.RegAccess).Register
-		rhsConst = c.Constant
+		lhs = p.Right.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
 	} else if c, ok := p.Right.(*expr.Const); ok {
-		lhsReg = p.Left.(*expr.RegAccess).Register
-		rhsConst = c.Constant
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
 	} else {
-		lhsReg = p.Left.(*expr.RegAccess).Register
-		rhsReg = p.Right.(*expr.RegAccess).Register
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewRegister(p.Right.(*expr.RegAccess).Register)
 	}
 	//
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhsReg, Right: rhsReg, Constant: rhsConst, Skip: 2},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: thenBranch},
 			&micro.Jmp{Target: pc + 1},
@@ -100,7 +100,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhsReg, Right: rhsReg, Constant: rhsConst, Skip: 2},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: elseBranch},
 			&micro.Jmp{Target: pc + 1},

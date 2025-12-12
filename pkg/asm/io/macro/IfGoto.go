@@ -14,7 +14,6 @@ package macro
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
@@ -92,34 +91,32 @@ func (p *IfGoto) Execute(state io.State) uint {
 // Lower implementation for Instruction interface.
 func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	var (
-		codes    []micro.Code
-		lhsReg   io.RegisterId
-		rhsReg   = register.UnusedId()
-		rhsConst big.Int
+		codes []micro.Code
+		lhs   io.RegisterId
+		rhs   micro.Expr
 	)
-	//
 	// normalise left / right
 	if c, ok := p.Left.(*expr.Const); ok {
-		lhsReg = p.Right.(*expr.RegAccess).Register
-		rhsConst = c.Constant
+		lhs = p.Right.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
 	} else if c, ok := p.Right.(*expr.Const); ok {
-		lhsReg = p.Left.(*expr.RegAccess).Register
-		rhsConst = c.Constant
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
 	} else {
-		lhsReg = p.Left.(*expr.RegAccess).Register
-		rhsReg = p.Right.(*expr.RegAccess).Register
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewRegister(p.Right.(*expr.RegAccess).Register)
 	}
 	//
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhsReg, Right: rhsReg, Constant: rhsConst, Skip: 1},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: p.Target},
 			&micro.Jmp{Target: pc + 1},
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhsReg, Right: rhsReg, Constant: rhsConst, Skip: 1},
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: pc + 1},
 			&micro.Jmp{Target: p.Target},
 		}

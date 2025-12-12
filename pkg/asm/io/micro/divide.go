@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package macro
+package micro
 
 import (
 	"fmt"
@@ -18,72 +18,84 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
-	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 var biZERO *big.Int = big.NewInt(0)
 
-// Division represents an Divisionment of the form:
-//
-// q,r = e1 / e1
-//
-// where e1/e2 is either a variable or constant.
+// Division operator divides either a register (or constant) by another register
+// (or constant) producing a quotient and a remainder.
 type Division struct {
 	// Target registers
-	Quotient  expr.RegAccess
-	Remainder expr.RegAccess
-	// Dividend expression
-	Dividend expr.AtomicExpr
-	// Divisor expression
-	Divisor expr.AtomicExpr
+	Quotient, Remainder io.RegisterId
+	// Dividend and right comparisons
+	Dividend, Divisor Expr
 }
 
-// Execute implementation for Instruction interface.
-func (p *Division) Execute(state io.State) uint {
+// Clone this micro code.
+func (p *Division) Clone() Code {
+	return &Division{
+		Quotient:  p.Quotient,
+		Remainder: p.Remainder,
+		Dividend:  p.Dividend.Clone(),
+		Divisor:   p.Divisor.Clone(),
+	}
+}
+
+// MicroExecute implementation for Code interface.
+func (p *Division) MicroExecute(state io.State) (uint, uint) {
 	var (
-		lhs  = p.Dividend.Eval(state.Internal())
-		rhs  = p.Divisor.Eval(state.Internal())
+		lhs  = p.Dividend.Eval(state)
+		rhs  = p.Divisor.Eval(state)
 		quot big.Int
 		rem  big.Int
 	)
 	// Check for division by zero
 	if rhs.Cmp(biZERO) == 0 {
-		return io.FAIL
+		return 0, io.FAIL
 	}
 	// Compute quotient / remainder
-	quot.Div(&lhs, &rhs)
-	rem.Mod(&lhs, &rhs)
+	quot.Div(lhs, rhs)
+	rem.Mod(lhs, rhs)
 	// Write target registers
-	state.Store(p.Quotient.Register, quot)
-	state.Store(p.Remainder.Register, rem)
+	state.Store(p.Quotient, quot)
+	state.Store(p.Remainder, rem)
 	// Continue to next instruction
-	return state.Pc() + 1
+	return 1, 0
 }
 
-// Lower implementation for Instruction interface.
-func (p *Division) Lower(pc uint) micro.Instruction {
+// RegistersRead implementation for Code interface.
+func (p *Division) RegistersRead() []io.RegisterId {
+	var regs []io.RegisterId
+	//
+	if p.Dividend.HasFirst() {
+		regs = append(regs, p.Dividend.First())
+	}
+	//
+	if p.Divisor.HasFirst() {
+		regs = append(regs, p.Divisor.First())
+	}
+	//
+	return regs
+}
+
+// RegistersWritten implementation for Code interface.
+func (p *Division) RegistersWritten() []io.RegisterId {
+	return []io.RegisterId{p.Quotient, p.Remainder}
+}
+
+// Split implementation for Code interface.
+func (p *Division) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
 	panic("todo")
 }
 
-// RegistersRead implementation for Instruction interface.
-func (p *Division) RegistersRead() []io.RegisterId {
-	return expr.RegistersRead(p.Dividend, p.Divisor)
-}
-
-// RegistersWritten implementation for Instruction interface.
-func (p *Division) RegistersWritten() []io.RegisterId {
-	return []io.RegisterId{p.Quotient.Register, p.Remainder.Register}
-}
-
-// String implementation for Instruction interface.
 func (p *Division) String(fn register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(p.Quotient.String(fn))
+	builder.WriteString(fn.Register(p.Quotient).Name)
 	builder.WriteString(", ")
-	builder.WriteString(p.Remainder.String(fn))
+	builder.WriteString(fn.Register(p.Remainder).Name)
 	builder.WriteString(" = ")
 	builder.WriteString(p.Dividend.String(fn))
 	builder.WriteString(" / ")
@@ -92,13 +104,13 @@ func (p *Division) String(fn register.Map) string {
 	return builder.String()
 }
 
-// Validate implementation for Instruction interface.
+// Validate implementation for Code interface.
 func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 	var (
-		qBits, _ = expr.BitWidth(&p.Quotient, fn)
-		rBits, _ = expr.BitWidth(&p.Remainder, fn)
-		dBits, _ = expr.BitWidth(p.Dividend, fn)
-		vBits, _ = expr.BitWidth(p.Divisor, fn)
+		qBits = fn.Register(p.Quotient).Width
+		rBits = fn.Register(p.Remainder).Width
+		dBits = p.Dividend.Bitwidth(fn)
+		vBits = p.Divisor.Bitwidth(fn)
 	)
 	// check
 	if qBits < dBits {
