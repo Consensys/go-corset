@@ -31,6 +31,8 @@ var (
 
 // Expr represents an arbitrary expression used within an instruction.
 type Expr interface {
+	// Check whether two expressions are equivalent
+	Equals(e Expr) bool
 	// Evaluate this expression in a given environment producing a given value.
 	Eval([]big.Int) big.Int
 	// Polynomial returns this expression flatterned into a polynomial form.
@@ -51,6 +53,23 @@ type AtomicExpr interface {
 	// IsAtomic is simply a marker to restrict permitted expression forms to
 	// just register accesses and/or constants.
 	IsAtomic()
+}
+
+// EqualsAll determines whether all of the expressions on the left-hand side
+// match those on the right-hand side.  The number of expressions on both sides
+// must also match.
+func EqualsAll(lhs []Expr, rhs []Expr) bool {
+	if len(lhs) == len(rhs) {
+		for i := range len(lhs) {
+			if !lhs[i].Equals(rhs[i]) {
+				return false
+			}
+		}
+		//
+		return true
+	}
+	//
+	return false
 }
 
 // BitWidth returns the minimum number of bits required to store any evaluation

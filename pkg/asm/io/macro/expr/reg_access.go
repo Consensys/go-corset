@@ -33,6 +33,15 @@ func (p *RegAccess) IsAtomic() {
 
 }
 
+// Equals implementation for the Expr interface.
+func (p *RegAccess) Equals(e Expr) bool {
+	if e, ok := e.(*RegAccess); ok {
+		return p.Register == e.Register
+	}
+	//
+	return false
+}
+
 // Eval implementation for the Expr interface.
 func (p *RegAccess) Eval(env []big.Int) big.Int {
 	return env[p.Register.Unwrap()]

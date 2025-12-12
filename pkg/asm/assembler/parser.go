@@ -458,15 +458,12 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
-		rhsExpr  macro.Expr
-		lhs, rhs io.RegisterId
-		constant big.Int
-		label    string
+		lhs, rhs macro.AtomicExpr
 		target   string
 		cond     uint8
 	)
 	// Parse left hand side
-	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
+	if lhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// save lookahead for error reporting
@@ -474,17 +471,8 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhsExpr, errs = p.parseAtomicExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
-	}
-	// Dispatch on rhs expression form
-	switch e := rhsExpr.(type) {
-	case *expr.Const:
-		rhs = register.UnusedId()
-		constant = e.Constant
-		label = e.Label
-	case *expr.RegAccess:
-		rhs = e.Register
 	}
 	// Parse "goto"
 	if errs = p.parseKeyword("goto"); len(errs) > 0 {
@@ -496,12 +484,10 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 	}
 	//
 	return &macro.IfGoto{
-		Cond:     cond,
-		Left:     lhs,
-		Right:    rhs,
-		Constant: constant,
-		Label:    label,
-		Target:   env.BindLabel(target),
+		Cond:   cond,
+		Left:   lhs,
+		Right:  rhs,
+		Target: env.BindLabel(target),
 	}, nil
 }
 

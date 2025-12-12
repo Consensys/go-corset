@@ -202,14 +202,7 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 		//
 		return p.linkExprs(insn.Sources...)
 	case *macro.IfGoto:
-		if insn.Label != "" {
-			value, errmsg := p.getLabelValue(insn.Label)
-			if errmsg != "" {
-				return p.srcmap.SyntaxError(insn, errmsg)
-			} else {
-				insn.Constant = value
-			}
-		}
+		return p.linkExprs(insn.Left, insn.Right)
 	case *macro.IfThenElse:
 		return p.linkExprs(insn.Left, insn.Right, insn.Then, insn.Else)
 	default:

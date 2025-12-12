@@ -35,6 +35,15 @@ func (p *Const) IsAtomic() {
 
 }
 
+// Equals implementation for the Expr interface.
+func (p *Const) Equals(e Expr) bool {
+	if e, ok := e.(*Const); ok {
+		return p.Constant.Cmp(&e.Constant) == 0
+	}
+	//
+	return false
+}
+
 // Eval implementation for the Expr interface.
 func (p *Const) Eval([]big.Int) big.Int {
 	return p.Constant
