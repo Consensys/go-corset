@@ -119,7 +119,10 @@ func Test_AsmUnit_MixedLarge(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/mixed_large", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
 }
-
+func Test_AsmUnit_NonUniformIf(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/nonuniform_if", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
 func Test_AsmUnit_RecPow(t *testing.T) {
 	// GF_8209 causes malformed assignment
 	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, field.BLS12_377,

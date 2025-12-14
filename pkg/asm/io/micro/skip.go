@@ -14,6 +14,7 @@ package micro
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
@@ -77,32 +78,12 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
 func (p *Skip) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
-	// NOTE: we can assume left and right have matching bitwidths
-	var (
-		lhsLimbs = mapping.LimbIds(p.Left)
-		ncodes   []Code
-		n        = uint(len(lhsLimbs))
-		skip     = p.Skip + n - 1
-	)
 	//
-	if p.Right.HasFirst() {
-		rhsLimbs := mapping.LimbIds(p.Right.First())
-		//
-		for i := range n {
-			ncode := &Skip{lhsLimbs[i], NewRegister(rhsLimbs[i]), skip - i}
-			ncodes = append(ncodes, ncode)
-		}
-	} else {
-		lhsLimbWidths := register.WidthsOfLimbs(mapping, lhsLimbs)
-		constantLimbs := register.SplitConstant(p.Right.Second(), lhsLimbWidths...)
-		//
-		for i := range n {
-			ncode := &Skip{lhsLimbs[i], NewConstant(constantLimbs[i]), skip - i}
-			ncodes = append(ncodes, ncode)
-		}
+	if p.Right.HasSecond() {
+		return splitRegConst(p.Left, p.Right.Second(), p.Skip, mapping)
 	}
-
-	return ncodes
+	//
+	return splitRegReg(p.Left, p.Right.First(), p.Skip, mapping)
 }
 
 func (p *Skip) String(fn register.Map) string {
@@ -121,12 +102,7 @@ func (p *Skip) Validate(fieldWidth uint, fn register.Map) error {
 		rw = p.Right.Bitwidth(fn)
 	)
 	//
-	if p.Right.HasFirst() {
-		//
-		if lw != rw {
-			return fmt.Errorf("bit mismatch (u%d vs u%d)", lw, rw)
-		}
-	} else {
+	if p.Right.HasSecond() {
 		//
 		if lw < rw {
 			return fmt.Errorf("bit overflow (u%d into u%d)", lw, rw)
@@ -134,4 +110,51 @@ func (p *Skip) Validate(fieldWidth uint, fn register.Map) error {
 	}
 	//
 	return nil
+}
+
+func splitRegConst(left register.Id, right big.Int, skip uint, mapping register.LimbsMap) []Code {
+	var (
+		lhsLimbs = mapping.LimbIds(left)
+		ncodes   []Code
+		n        = uint(len(lhsLimbs))
+	)
+	//
+	skip = skip + n - 1
+	//
+	lhsLimbWidths := register.WidthsOfLimbs(mapping, lhsLimbs)
+	constantLimbs := register.SplitConstant(right, lhsLimbWidths...)
+	//
+	for i := range n {
+		ncode := &Skip{lhsLimbs[i], NewConstant(constantLimbs[i]), skip - i}
+		ncodes = append(ncodes, ncode)
+	}
+	//
+	return ncodes
+}
+
+func splitRegReg(left, right register.Id, skip uint, mapping register.LimbsMap) []Code {
+	var (
+		lhsLimbs   = mapping.LimbIds(left)
+		rhsLimbs   = mapping.LimbIds(right)
+		ncodes     []Code
+		nLhs, nRhs = uint(len(lhsLimbs)), uint(len(rhsLimbs))
+		n          = max(nLhs, nRhs)
+	)
+	//
+	skip = skip + n - 1
+	//
+	for i := range n {
+		var ncode Code
+		if i < nLhs && i < nRhs {
+			ncode = &Skip{lhsLimbs[i], NewRegister(rhsLimbs[i]), skip - i}
+		} else if i < nLhs {
+			ncode = &Skip{lhsLimbs[i], NewConstant64(0), skip - i}
+		} else {
+			ncode = &Skip{rhsLimbs[i], NewConstant64(0), skip - i}
+		}
+		//
+		ncodes = append(ncodes, ncode)
+	}
+	//
+	return ncodes
 }
