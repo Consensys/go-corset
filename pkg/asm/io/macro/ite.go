@@ -83,7 +83,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		rhs = micro.NewConstant(c.Constant)
 	} else {
 		lhs = p.Left.(*expr.RegAccess).Register
-		rhs = micro.NewRegister(p.Right.(*expr.RegAccess).Register)
+		rhs = p.Right.(*expr.RegAccess).ToMicroExpr()
 	}
 	//
 	switch p.Cond {

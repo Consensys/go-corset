@@ -1,5 +1,8 @@
 fn div(x=16383 u16) -> (q=1 u16, r u16) {
-  var w u16
-  q, r, w = 16383 / x
+  var sum u32
+  var wit u16
+  var witsum u17
+  ;;
+  q, r, wit, sum, witsum = 16383 / x
   return
 }
