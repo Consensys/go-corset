@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Assign represents a generic assignment of the following form:
@@ -41,6 +42,8 @@ import (
 type Assign struct {
 	// Target registers for assignment
 	Targets []io.RegisterId
+	// Optional cast for unsafe assignment
+	Cast util.Option[uint]
 	// Source expresion for assignment
 	Source Expr
 }
@@ -59,6 +62,7 @@ func (p *Assign) Lower(pc uint) micro.Instruction {
 	//
 	code := &micro.Assign{
 		Targets: p.Targets,
+		Cast:    p.Cast,
 		Source:  p.Source.Polynomial(),
 	}
 	// Lowering here produces an instruction containing a single microcode.
@@ -80,6 +84,11 @@ func (p *Assign) String(fn register.Map) string {
 	//
 	builder.WriteString(io.RegistersReversedToString(p.Targets, fn.Registers()))
 	builder.WriteString(" = ")
+	//
+	if p.Cast.HasValue() {
+		builder.WriteString(fmt.Sprintf("(u%d) ", p.Cast.Unwrap()))
+	}
+	//
 	builder.WriteString(p.Source.String(fn))
 	//
 	return builder.String()
@@ -93,7 +102,9 @@ func (p *Assign) Validate(fieldWidth uint, fn register.Map) error {
 		rhs_bits, signed = expr.BitWidth(p.Source, fn)
 	)
 	// check
-	if lhs_bits < rhs_bits {
+	if p.Cast.HasValue() && p.Cast.Unwrap() != lhs_bits {
+		return fmt.Errorf("invalid cast (u%d into u%d)", p.Cast.Unwrap(), lhs_bits)
+	} else if lhs_bits < rhs_bits && p.Cast.IsEmpty() {
 		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
 	} else if rhs_bits > fieldWidth {
 		return fmt.Errorf("field overflow (u%d into u%d field)", rhs_bits, fieldWidth)
