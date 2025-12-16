@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
@@ -48,6 +49,8 @@ type Polynomial = agnostic.StaticPolynomial
 type Assign struct {
 	// Target registers for addition where the least significant come first.
 	Targets []io.RegisterId
+	// Optional cast for unsafe assignment
+	Cast util.Option[uint]
 	// Source register for addition
 	Source Polynomial
 }
@@ -57,6 +60,7 @@ func (p *Assign) Clone() Code {
 	//
 	return &Assign{
 		slices.Clone(p.Targets),
+		p.Cast,
 		p.Source.Clone(),
 	}
 }
@@ -96,6 +100,11 @@ func (p *Assign) String(fn register.Map) string {
 	//
 	builder.WriteString(io.RegistersReversedToString(p.Targets, regs))
 	builder.WriteString(" = ")
+	//
+	if p.Cast.HasValue() {
+		builder.WriteString(fmt.Sprintf("(u%d) ", p.Cast.Unwrap()))
+	}
+	//
 	builder.WriteString(poly.String(p.Source, func(rid io.RegisterId) string {
 		return regs[rid.Unwrap()].Name()
 	}))
@@ -135,7 +144,7 @@ func (p *Assign) Split(mapping register.LimbsMap, env agnostic.RegisterAllocator
 	)
 	// Convert agnostic assignments back into micro assignments
 	for i, a := range assignments {
-		codes[i] = &Assign{a.LeftHandSide, a.RightHandSide}
+		codes[i] = &Assign{a.LeftHandSide, util.None[uint](), a.RightHandSide}
 	}
 	// Done
 	return codes
@@ -151,7 +160,9 @@ func (p *Assign) Validate(fieldWidth uint, fn register.Map) error {
 		rhs_bits, _ = agnostic.WidthOfPolynomial(p.Source, agnostic.ArrayEnvironment(regs))
 	)
 	// check
-	if lhs_bits < rhs_bits {
+	if p.Cast.HasValue() && p.Cast.Unwrap() != lhs_bits {
+		return fmt.Errorf("invalid cast (u%d into u%d)", p.Cast.Unwrap(), lhs_bits)
+	} else if lhs_bits < rhs_bits && p.Cast.IsEmpty() {
 		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
 	} else if rhs_bits > fieldWidth {
 		return fmt.Errorf("field overflow (u%d into u%d field)", rhs_bits, fieldWidth)

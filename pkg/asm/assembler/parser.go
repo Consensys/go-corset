@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -507,6 +508,7 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 		lhs  []io.RegisterId
 		rhs  macro.Expr
 		errs []source.SyntaxError
+		cast util.Option[uint]
 	)
 	// parse left-hand side
 	if lhs, errs = p.parseAssignmentLhs(env); len(errs) > 0 {
@@ -527,12 +529,16 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 		// division assignment
 		return p.parseDivisionRhs(lhs, env)
 	}
+	// Parse optional cast
+	if cast, errs = p.parseCast(env); len(errs) > 0 {
+		return nil, errs
+	}
 	// Parse right-hand side
 	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
-	return &macro.Assign{Targets: lhs, Source: rhs}, nil
+	return &macro.Assign{Targets: lhs, Source: rhs, Cast: cast}, nil
 }
 
 func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source.SyntaxError) {
@@ -541,6 +547,23 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 	lhs = array.Reverse(lhs)
 	//
 	return lhs, errs
+}
+
+func (p *Parser) parseCast(env *Environment) (util.Option[uint], []source.SyntaxError) {
+	var start = p.index
+	//
+	if p.following(LBRACE, IDENTIFIER, RBRACE) {
+		p.match(LBRACE)
+
+		if v, errs := p.parseType(); len(errs) == 0 {
+			p.match(RBRACE)
+			return util.Some(v), nil
+		}
+		// failed parsing to back up
+		p.index = start
+	}
+	// No cast to parse
+	return util.None[uint](), nil
 }
 
 func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
