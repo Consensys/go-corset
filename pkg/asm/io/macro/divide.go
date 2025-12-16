@@ -154,6 +154,10 @@ func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 		wsBits, _ = expr.BitWidth(&p.WitSum, fn)
 		dBits, _  = expr.BitWidth(p.Dividend, fn)
 		vBits, _  = expr.BitWidth(p.Divisor, fn)
+		// construct sum calculation to determine absolute bitwidth requirement.
+		sumBits, _ = expr.BitWidth(sumCalc(&p.Quotient, &p.Remainder, p.Divisor), fn)
+		// construct witsum calculation to determine absolute bitwidth requirement.
+		witsumBits, _ = expr.BitWidth(witsumCalc(&p.Remainder, &p.Witness), fn)
 	)
 	// check
 	if qBits < dBits {
@@ -162,11 +166,29 @@ func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 		return fmt.Errorf("remainder bit overflow (u%d into u%d)", vBits, rBits)
 	} else if wBits < vBits {
 		return fmt.Errorf("witness bit overflow (u%d into u%d)", vBits, wBits)
-	} else if sBits < dBits+vBits {
-		return fmt.Errorf("sum bit overflow (u%d into u%d)", dBits+vBits, sBits)
-	} else if wsBits < rBits+1 {
-		return fmt.Errorf("witsum bit overflow (u%d into u%d)", rBits+1, wsBits)
+	} else if sBits < sumBits {
+		return fmt.Errorf("sum bit overflow (u%d into u%d)", sumBits, sBits)
+	} else if wsBits < witsumBits {
+		return fmt.Errorf("witsum bit overflow (u%d into u%d)", witsumBits, wsBits)
 	}
 	//
 	return nil
+}
+
+// construct the sum calculation
+func sumCalc(quot, rem, divisor expr.Expr) expr.Expr {
+	var quotDiv = []expr.Expr{quot, divisor}
+	//
+	return &expr.Add{
+		Exprs: []expr.Expr{rem,
+			&expr.Mul{Exprs: quotDiv}},
+	}
+}
+
+func witsumCalc(rem, witness expr.Expr) expr.Expr {
+	one := &expr.Const{Constant: *big.NewInt(1), Base: 10}
+	//
+	return &expr.Add{
+		Exprs: []expr.Expr{one, rem, witness},
+	}
 }
