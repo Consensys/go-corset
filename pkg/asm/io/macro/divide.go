@@ -83,11 +83,11 @@ func (p *Division) Lower(pc uint) micro.Instruction {
 
 	codes := []micro.Code{
 		&micro.Division{
-			Quotient:  p.Quotient.Register,
-			Remainder: p.Remainder.Register,
-			Witness:   p.Witness.Register,
-			Dividend:  p.Dividend.ToMicroExpr(),
-			Divisor:   p.Divisor.ToMicroExpr(),
+			Quotient:  register.NewVector(p.Quotient.Register),
+			Remainder: register.NewVector(p.Remainder.Register),
+			Witness:   register.NewVector(p.Witness.Register),
+			Dividend:  p.Dividend.ToMicroExpr().ToVec(),
+			Divisor:   p.Divisor.ToMicroExpr().ToVec(),
 		},
 		// sum := (quot * div) + rem
 		&micro.Assign{

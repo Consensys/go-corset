@@ -41,9 +41,9 @@ func (p *StateTranslator[F, T, E, M]) translateDivision(cc uint, codes []micro.C
 	var (
 		code = codes[cc].(*micro.Division)
 		// havoc registers to simulate a write by the computation.
-		_ = p.WriteRegister(code.Quotient)
-		_ = p.WriteRegister(code.Remainder)
-		_ = p.WriteRegister(code.Witness)
+		_ = p.WriteRegisters(code.Quotient.Registers())
+		_ = p.WriteRegisters(code.Remainder.Registers())
+		_ = p.WriteRegisters(code.Witness.Registers())
 	)
 	// NOTE: the division instruction is an unsafe computation which does not
 	// generate any constraints.  Rather, it follows the "compute & check"

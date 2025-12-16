@@ -39,7 +39,7 @@ func (p *Skip) Clone() Code {
 	//
 	return &Skip{
 		Left:  p.Left,
-		Right: p.Right.Clone(),
+		Right: p.Right,
 		Skip:  p.Skip,
 	}
 }

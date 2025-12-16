@@ -28,10 +28,10 @@ var biONE *big.Int = big.NewInt(1)
 // Division operator divides either a register (or constant) by another register
 // (or constant) producing a quotient and a remainder.
 type Division struct {
-	// Target registers
-	Quotient, Remainder, Witness io.RegisterId
+	// Target registers (grouped into limbs)
+	Quotient, Remainder, Witness register.Vector
 	// Dividend and right comparisons
-	Dividend, Divisor Expr
+	Dividend, Divisor VecExpr
 }
 
 // Clone this micro code.
@@ -40,8 +40,8 @@ func (p *Division) Clone() Code {
 		Quotient:  p.Quotient,
 		Remainder: p.Remainder,
 		Witness:   p.Witness,
-		Dividend:  p.Dividend.Clone(),
-		Divisor:   p.Divisor.Clone(),
+		Dividend:  p.Dividend,
+		Divisor:   p.Divisor,
 	}
 }
 
@@ -64,9 +64,9 @@ func (p *Division) MicroExecute(state io.State) (uint, uint) {
 	wit.Sub(rhs, &rem)
 	wit.Sub(&wit, biONE)
 	// Write target registers
-	state.Store(p.Quotient, quot)
-	state.Store(p.Remainder, rem)
-	state.Store(p.Witness, wit)
+	state.StoreAcross(quot, p.Quotient.Registers()...)
+	state.StoreAcross(rem, p.Remainder.Registers()...)
+	state.StoreAcross(wit, p.Witness.Registers()...)
 	// Continue to next instruction
 	return 1, 0
 }
@@ -76,11 +76,11 @@ func (p *Division) RegistersRead() []io.RegisterId {
 	var regs []io.RegisterId
 	//
 	if p.Dividend.HasFirst() {
-		regs = append(regs, p.Dividend.First())
+		regs = append(regs, p.Dividend.First().Registers()...)
 	}
 	//
 	if p.Divisor.HasFirst() {
-		regs = append(regs, p.Divisor.First())
+		regs = append(regs, p.Divisor.First().Registers()...)
 	}
 	//
 	return regs
@@ -88,55 +88,35 @@ func (p *Division) RegistersRead() []io.RegisterId {
 
 // RegistersWritten implementation for Code interface.
 func (p *Division) RegistersWritten() []io.RegisterId {
-	return []io.RegisterId{p.Quotient, p.Remainder, p.Witness}
+	var written []io.RegisterId
+	//
+	written = append(written, p.Quotient.Registers()...)
+	written = append(written, p.Remainder.Registers()...)
+	written = append(written, p.Witness.Registers()...)
+	//
+	return written
 }
 
 // Split implementation for Code interface.
 func (p *Division) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
-	var (
-		qLimbs      = mapping.LimbIds(p.Quotient)
-		rLimbs      = mapping.LimbIds(p.Remainder)
-		wLimbs      = mapping.LimbIds(p.Witness)
-		qLimbWidths = register.WidthsOfLimbs(mapping, qLimbs)
-		rLimbWidths = register.WidthsOfLimbs(mapping, rLimbs)
-	)
-	// FIXME: implement this (somehow)
-	if len(qLimbs) != 1 || len(rLimbs) != 1 || len(wLimbs) != 1 {
-		panic("splitting for division unsupported")
-	}
 	//
 	return []Code{&Division{
-		Quotient:  qLimbs[0],
-		Remainder: rLimbs[0],
-		Witness:   wLimbs[0],
-		Dividend:  splitExpression(qLimbWidths, p.Dividend, mapping),
-		Divisor:   splitExpression(rLimbWidths, p.Divisor, mapping),
+		Quotient:  p.Quotient.Split(mapping),
+		Remainder: p.Remainder.Split(mapping),
+		Witness:   p.Witness.Split(mapping),
+		Dividend:  p.Dividend.Split(mapping),
+		Divisor:   p.Divisor.Split(mapping),
 	}}
-}
-
-func splitExpression(widths []uint, expr Expr, mapping register.LimbsMap) Expr {
-	//
-	if expr.HasSecond() {
-		return NewConstant(expr.Second())
-	}
-	//
-	limbs := mapping.LimbIds(expr.First())
-	//
-	if len(widths) != 1 {
-		panic("splitting for division unsupported")
-	}
-
-	return NewRegister(limbs[0])
 }
 
 func (p *Division) String(fn register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(fn.Register(p.Quotient).Name)
+	builder.WriteString(p.Quotient.String(fn))
 	builder.WriteString(", ")
-	builder.WriteString(fn.Register(p.Remainder).Name)
+	builder.WriteString(p.Remainder.String(fn))
 	builder.WriteString(", ")
-	builder.WriteString(fn.Register(p.Witness).Name)
+	builder.WriteString(p.Witness.String(fn))
 	builder.WriteString(" = ")
 	builder.WriteString(p.Dividend.String(fn))
 	builder.WriteString(" / ")
@@ -148,9 +128,9 @@ func (p *Division) String(fn register.Map) string {
 // Validate implementation for Code interface.
 func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 	var (
-		qBits = fn.Register(p.Quotient).Width
-		rBits = fn.Register(p.Remainder).Width
-		wBits = fn.Register(p.Witness).Width
+		qBits = p.Quotient.BitWidth(fn)
+		rBits = p.Remainder.BitWidth(fn)
+		wBits = p.Witness.BitWidth(fn)
 		dBits = p.Dividend.Bitwidth(fn)
 		vBits = p.Divisor.Bitwidth(fn)
 	)
