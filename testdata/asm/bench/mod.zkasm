@@ -76,26 +76,17 @@ fn negate(val u256) -> (neg_val u256) {
   return
 }
 
-;; TEMPORARY HACK.  This cannot be used as it is seriously expensive.
-;; For now, it is being used as temporary scafolding in order to write
-;; the remainder of this module.
+;; Divide numerator by denominator, where divizion by zero is resolved
+;; as 0 / 0.
 fn divide(num u256, den=1 u256) -> (quot u256, rem u256) {
-  var b, c u1
-  var tmp1, tmp2 u256
+  var sum u512
+  var witsum u257
+  var witness u256
   ;; handle division by 0
   if den == 0 goto exit_0
-  ;; check num < den
-  b,tmp1 = num - den
-  if b != 0 goto base_case
   ;;
-  tmp2, rem = divide(tmp1, den)
-  ;; assert c == 0
-  c,quot = tmp2 + 1
+  quot, rem, witness, sum, witsum = num / den
   ;;
-  return
-base_case:
-  quot = 0
-  rem = num
   return
 exit_0:
   quot = 0
