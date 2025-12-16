@@ -60,6 +60,10 @@ func Test_AsmUnit_Diff(t *testing.T) {
 func Test_AsmUnit_Div(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/div", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
+func Test_AsmUnit_DivSeq(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/div_seq", util.ASM_MAX_PADDING, sc.BLS12_377,
+		sc.KOALABEAR_16, sc.GF_8209)
+}
 func Test_AsmUnit_Div7(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/div7", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }

@@ -99,6 +99,8 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 		written = code.RegistersWritten()
 	case *micro.Ite:
 		written = code.RegistersWritten()
+	case *micro.Division:
+		written = code.RegistersWritten()
 	case *micro.Jmp:
 		if code.Target == target {
 			// Prevent inlining multiple times.
