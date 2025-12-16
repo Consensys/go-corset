@@ -39,27 +39,15 @@ func (p *StateTranslator[F, T, E, M]) translateRet() E {
 // Translate this instruction into low-level constraints.
 func (p *StateTranslator[F, T, E, M]) translateDivision(cc uint, codes []micro.Code) E {
 	var (
-		one      = Number[T, E](1)
-		code     = codes[cc].(*micro.Division)
-		quot     = p.WriteRegister(code.Quotient)
-		rem      = p.WriteRegister(code.Remainder)
-		wit      = p.WriteRegister(code.Witness)
-		dividend = p.translateMicroExpr(code.Dividend)
-		divisor  = p.translateMicroExpr(code.Divisor)
+		code = codes[cc].(*micro.Division)
+		// havoc registers to simulate a write by the computation.
+		_ = p.WriteRegister(code.Quotient)
+		_ = p.WriteRegister(code.Remainder)
+		_ = p.WriteRegister(code.Witness)
 	)
-	// Construct equation by converting division into multiplication
-	eqn1 := quot.Multiply(divisor).Add(rem).Equals(dividend)
-	// Ensure remainder is less than quotient
-	eqn2 := divisor.Equals(rem.Add(wit).Add(one))
-	// Continue
-	return eqn1.And(eqn2, p.translateCode(cc+1, codes))
-}
-
-func (p *StateTranslator[F, T, E, M]) translateMicroExpr(e micro.Expr) E {
-	if e.HasSecond() {
-		var c = e.Second()
-		return BigNumber[T, E](&c)
-	}
-	//
-	return p.ReadRegister(e.First())
+	// NOTE: the division instruction is an unsafe computation which does not
+	// generate any constraints.  Rather, it follows the "compute & check"
+	// paradigm.  That is, constraints are generated from assertions inserted when
+	// the macro instruction is lowered into the micro form.
+	return p.translateCode(cc+1, codes)
 }

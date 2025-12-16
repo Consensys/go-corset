@@ -37,6 +37,8 @@ type Division struct {
 	Quotient  expr.RegAccess
 	Remainder expr.RegAccess
 	Witness   expr.RegAccess
+	Sum       expr.RegAccess
+	WitSum    expr.RegAccess
 	// Dividend expression
 	Dividend expr.AtomicExpr
 	// Divisor expression
@@ -71,6 +73,14 @@ func (p *Division) Execute(state io.State) uint {
 
 // Lower implementation for Instruction interface.
 func (p *Division) Lower(pc uint) micro.Instruction {
+	var one = big.NewInt(1)
+
+	// NOTE: the micro division instruction is an unsafe computation which does
+	// not generate any constraints.  Thus, our translation here must follow the
+	// "compute & check" paradigm.  That is, witness variables (wit, sum,
+	// witsum) are filled from the given assignments, whilst constraints are
+	// generated from the given assertions.
+
 	codes := []micro.Code{
 		&micro.Division{
 			Quotient:  p.Quotient.Register,
@@ -79,7 +89,24 @@ func (p *Division) Lower(pc uint) micro.Instruction {
 			Dividend:  p.Dividend.ToMicroExpr(),
 			Divisor:   p.Divisor.ToMicroExpr(),
 		},
+		// sum := (quot * div) + rem
+		&micro.Assign{
+			Targets: []io.RegisterId{p.Sum.Register},
+			Source:  p.Quotient.Polynomial().Mul(p.Divisor.Polynomial()).Add(p.Remainder.Polynomial()),
+		},
+		// witsum := rem + wit + 1
+		&micro.Assign{
+			Targets: []io.RegisterId{p.WitSum.Register},
+			Source:  p.Remainder.Polynomial().Add(p.Witness.Polynomial()).AddScalar(one),
+		},
+		// [assertion 1] if sum != dividend goto fail
+		&micro.Skip{Left: p.Sum.Register, Right: p.Dividend.ToMicroExpr(), Skip: 2},
+		// [assertion 2] if witsum != divisor goto fail
+		&micro.Skip{Left: p.WitSum.Register, Right: p.Divisor.ToMicroExpr(), Skip: 1},
+		// Branch
 		&micro.Jmp{Target: pc + 1},
+		// fail
+		&micro.Fail{},
 	}
 	//
 	return micro.Instruction{Codes: codes}
@@ -92,7 +119,8 @@ func (p *Division) RegistersRead() []io.RegisterId {
 
 // RegistersWritten implementation for Instruction interface.
 func (p *Division) RegistersWritten() []io.RegisterId {
-	return []io.RegisterId{p.Quotient.Register, p.Remainder.Register, p.Witness.Register}
+	return []io.RegisterId{p.Quotient.Register, p.Remainder.Register,
+		p.Witness.Register, p.Sum.Register, p.WitSum.Register}
 }
 
 // String implementation for Instruction interface.
@@ -104,6 +132,10 @@ func (p *Division) String(fn register.Map) string {
 	builder.WriteString(p.Remainder.String(fn))
 	builder.WriteString(", ")
 	builder.WriteString(p.Witness.String(fn))
+	builder.WriteString(", ")
+	builder.WriteString(p.Sum.String(fn))
+	builder.WriteString(", ")
+	builder.WriteString(p.WitSum.String(fn))
 	builder.WriteString(" = ")
 	builder.WriteString(p.Dividend.String(fn))
 	builder.WriteString(" / ")
@@ -115,11 +147,13 @@ func (p *Division) String(fn register.Map) string {
 // Validate implementation for Instruction interface.
 func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 	var (
-		qBits, _ = expr.BitWidth(&p.Quotient, fn)
-		rBits, _ = expr.BitWidth(&p.Remainder, fn)
-		wBits, _ = expr.BitWidth(&p.Witness, fn)
-		dBits, _ = expr.BitWidth(p.Dividend, fn)
-		vBits, _ = expr.BitWidth(p.Divisor, fn)
+		qBits, _  = expr.BitWidth(&p.Quotient, fn)
+		rBits, _  = expr.BitWidth(&p.Remainder, fn)
+		wBits, _  = expr.BitWidth(&p.Witness, fn)
+		sBits, _  = expr.BitWidth(&p.Sum, fn)
+		wsBits, _ = expr.BitWidth(&p.WitSum, fn)
+		dBits, _  = expr.BitWidth(p.Dividend, fn)
+		vBits, _  = expr.BitWidth(p.Divisor, fn)
 	)
 	// check
 	if qBits < dBits {
@@ -128,6 +162,10 @@ func (p *Division) Validate(fieldWidth uint, fn register.Map) error {
 		return fmt.Errorf("remainder bit overflow (u%d into u%d)", vBits, rBits)
 	} else if wBits < vBits {
 		return fmt.Errorf("witness bit overflow (u%d into u%d)", vBits, wBits)
+	} else if sBits < dBits+vBits {
+		return fmt.Errorf("sum bit overflow (u%d into u%d)", dBits+vBits, sBits)
+	} else if wsBits < rBits+1 {
+		return fmt.Errorf("witsum bit overflow (u%d into u%d)", rBits+1, wsBits)
 	}
 	//
 	return nil
