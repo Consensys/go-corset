@@ -162,7 +162,8 @@ exit_s:
 
 ;; Perform required gas cost calculations and checks for precompiles (except modexp)
 fn oob_prc_pricing(inst=0xFF01 u16, callee_gas u128, cds u32, r_c u128) -> (success u1, return_gas u128, extract_call_data u1, empty_call_data u1, rc_nz u1) {
-  var delta, gas_cost u128
+  var delta u128
+  var gas_cost u34
   var cds_valid u1
   var b u1
   ;; calculate r@c != 0
@@ -194,6 +195,8 @@ exit_f:
 ;; requires that cds%192==0.
 fn oob_cds_valid(INST=0xFF01 u16, call_data_size u32) -> (cds_valid=1 u1) {
   var quot, rem, wit u32
+  var witsum u33
+  var sum u64
   var divisor u16
   ;;
   if INST == OOB_INST_ECPAIRING goto cds_mod192
@@ -244,7 +247,7 @@ cds_mod384:
   goto cds_mod
 cds_mod:
   ;; compute cds%288
-  quot,rem,wit = call_data_size / divisor
+  quot,rem,wit,sum,witsum = call_data_size / divisor
   ;; check cds%288==0
   if rem==0 goto exit_s
   goto exit_f
@@ -257,9 +260,11 @@ exit_s:
 }
 
 ;; Compute the gas cost for a given precompile
-fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u128) {
-  var d u126
+fn oob_gas_cost(INST=0xFF01 u16, call_data_size u32) -> (gas_cost=3000 u34) {
+  var d u32
   var k,r,w,w2,c,tmp1,tmp2 u32
+  var s, s2 u64
+  var ws, ws2 u33
   var discount u16
   ;;
   if INST == OOB_INST_ECRECOVER goto ecrecover
@@ -302,7 +307,7 @@ ecmul:
   gas_cost = G_BNMUL
   return
 ecpairing:
-  d,r,w = call_data_size / 192
+  d,r,w,s,ws = call_data_size / 192
   c,gas_cost = (d * 34000) + 45000
   return
 blake_cds:
@@ -326,21 +331,21 @@ bls_mapfp2g2:
   gas_cost = G_BLS_MAP_FP2_TO_G2
   return
 bls_g1msm:
-  k,r,w = call_data_size / 160
+  k,r,w,s,ws = call_data_size / 160
   discount = g1_discount(k)
   tmp1, tmp2 = k * G_BLS_G1_MSM_MULTIPLICATION_COST * discount
   if tmp1 != 0 goto exit_f
-  gas_cost,c,w2 = tmp2 / 1000
+  gas_cost,c,w2,s2,ws2 = tmp2 / 1000
   return
 bls_g2msm:
-  k,r,w = call_data_size / 288
+  k,r,w,s,ws = call_data_size / 288
   discount = g2_discount(k)
   tmp1, tmp2 = k * G_BLS_G2_MSM_MULTIPLICATION_COST * discount
   if tmp1 != 0 goto exit_f
-  gas_cost,c,w2 = tmp2 / 1000
+  gas_cost,c,w2,s2,ws2 = tmp2 / 1000
   return
 bls_pairing:
-  k,r,w = call_data_size / 384
+  k,r,w,s,ws = call_data_size / 384
   c,gas_cost = (k * 32600) + 37700
   return
 exit_f:
