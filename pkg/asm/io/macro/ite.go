@@ -20,7 +20,9 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // IfThenElse represents a ternary operation.
@@ -67,50 +69,54 @@ func (p *IfThenElse) Execute(state io.State) uint {
 
 // Lower implementation for Instruction interface.
 func (p *IfThenElse) Lower(pc uint) micro.Instruction {
-	// var (
-	// 	codes []micro.Code
-	// 	lhs   io.RegisterId
-	// 	rhs   micro.Expr
-	// )
-	// // normalise left / right
-	// if c, ok := p.Left.(*expr.Const); ok {
-	// 	lhs = p.Right.(*expr.RegAccess).Register
-	// 	rhs = micro.NewConstant(c.Constant)
-	// } else if c, ok := p.Right.(*expr.Const); ok {
-	// 	lhs = p.Left.(*expr.RegAccess).Register
-	// 	rhs = micro.NewConstant(c.Constant)
-	// } else {
-	// 	lhs = p.Left.(*expr.RegAccess).Register
-	// 	rhs = micro.NewRegister(p.Right.(*expr.RegAccess).Register)
-	// }
-	// //
-	// switch p.Cond {
-	// case EQ:
-	// 	codes = []micro.Code{
-	// 		&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
-	// 		// Then branch
-	// 		&micro.Assign{Targets: p.Targets, Source: thenBranch},
-	// 		&micro.Jmp{Target: pc + 1},
-	// 		// Else branch
-	// 		&micro.Assign{Targets: p.Targets, Source: elseBranch},
-	// 		&micro.Jmp{Target: pc + 1},
-	// 	}
-	// case NEQ:
-	// 	codes = []micro.Code{
-	// 		&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
-	// 		// Then branch
-	// 		&micro.Assign{Targets: p.Targets, Source: elseBranch},
-	// 		&micro.Jmp{Target: pc + 1},
-	// 		// Else branch
-	// 		&micro.Assign{Targets: p.Targets, Source: thenBranch},
-	// 		&micro.Jmp{Target: pc + 1},
-	// 	}
-	// default:
-	// 	panic("unreachable")
-	// }
-	// //
-	// return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
-	panic("fix ITE (by returning to original code?)")
+	var (
+		codes      []micro.Code
+		thenBranch agnostic.Polynomial
+		elseBranch agnostic.Polynomial
+		lhs        io.RegisterId
+		rhs        micro.Expr
+	)
+	//
+	thenBranch.Set(poly.NewMonomial[io.RegisterId](p.Then))
+	elseBranch.Set(poly.NewMonomial[io.RegisterId](p.Else))
+	// normalise left / right
+	if c, ok := p.Left.(*expr.Const); ok {
+		lhs = p.Right.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
+	} else if c, ok := p.Right.(*expr.Const); ok {
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = micro.NewConstant(c.Constant)
+	} else {
+		lhs = p.Left.(*expr.RegAccess).Register
+		rhs = p.Right.(*expr.RegAccess).ToMicroExpr()
+	}
+	//
+	switch p.Cond {
+	case EQ:
+		codes = []micro.Code{
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
+			// Then branch
+			&micro.Assign{Targets: p.Targets, Source: thenBranch},
+			&micro.Jmp{Target: pc + 1},
+			// Else branch
+			&micro.Assign{Targets: p.Targets, Source: elseBranch},
+			&micro.Jmp{Target: pc + 1},
+		}
+	case NEQ:
+		codes = []micro.Code{
+			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
+			// Then branch
+			&micro.Assign{Targets: p.Targets, Source: elseBranch},
+			&micro.Jmp{Target: pc + 1},
+			// Else branch
+			&micro.Assign{Targets: p.Targets, Source: thenBranch},
+			&micro.Jmp{Target: pc + 1},
+		}
+	default:
+		panic("unreachable")
+	}
+	//
+	return micro.Instruction{Codes: codes}
 }
 
 // RegistersRead implementation for Instruction interface.

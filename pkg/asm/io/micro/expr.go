@@ -36,6 +36,19 @@ func NewConstant(c big.Int) Expr {
 	return Expr{util.Union2[io.RegisterId](c)}
 }
 
+// NewConstant64 constructs an expression representing a constant.
+func NewConstant64(c uint64) Expr {
+	var val big.Int
+	val.SetUint64(c)
+	//
+	return Expr{util.Union2[io.RegisterId](val)}
+}
+
+// ToVec converts this expression into a vectorizable expression.
+func (e Expr) ToVec() VecExpr {
+	return NewVecExpr(e)
+}
+
 // Bitwidth returns the minimum number of bits required to store any evaluation
 // of this expression.
 func (e Expr) Bitwidth(fn schema.RegisterMap) uint {

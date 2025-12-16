@@ -514,16 +514,10 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	if p.following(IDENTIFIER, LBRACE) {
 		// function call
 		return p.parseCallRhs(lhs, env)
-	} else if p.following(IDENTIFIER, EQUALS_EQUALS) {
+	} else if p.following(IDENTIFIER, EQUALS_EQUALS) || p.following(IDENTIFIER, NOT_EQUALS) {
 		// ternary assignment
 		return p.parseTernaryRhs(lhs, env)
-	} else if p.following(IDENTIFIER, NOT_EQUALS) {
-		// ternary assignment
-		return p.parseTernaryRhs(lhs, env)
-	} else if p.following(IDENTIFIER, DIV) {
-		// division assignment
-		return p.parseDivisionRhs(lhs, env)
-	} else if p.following(NUMBER, DIV) {
+	} else if p.following(IDENTIFIER, DIV) || p.following(NUMBER, DIV) {
 		// division assignment
 		return p.parseDivisionRhs(lhs, env)
 	}
@@ -627,7 +621,11 @@ func (p *Parser) parseDivisionRhs(targets []io.RegisterId, env *Environment) (ma
 		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for remainder")
 	} else if len(targets) < 3 {
 		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for witness")
-	} else if len(targets) > 3 {
+	} else if len(targets) < 4 {
+		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for sum")
+	} else if len(targets) < 5 {
+		return nil, p.syntaxErrors(p.tokens[p.index-2], "missing target register for witness sum")
+	} else if len(targets) > 5 {
 		return nil, p.syntaxErrors(p.tokens[p.index-2], "unexpected target register")
 	}
 	// Parse left hand side
@@ -644,10 +642,14 @@ func (p *Parser) parseDivisionRhs(targets []io.RegisterId, env *Environment) (ma
 	}
 	// NOTE: target registers are in reverse order due to being sorted in
 	// parseAssignmentLhs().
+	array.ReverseInPlace(targets)
+	//
 	return &macro.Division{
-		Quotient:  expr.RegAccess{Register: targets[2]},
+		Quotient:  expr.RegAccess{Register: targets[0]},
 		Remainder: expr.RegAccess{Register: targets[1]},
-		Witness:   expr.RegAccess{Register: targets[0]},
+		Witness:   expr.RegAccess{Register: targets[2]},
+		Sum:       expr.RegAccess{Register: targets[3]},
+		WitSum:    expr.RegAccess{Register: targets[4]},
 		Dividend:  lhs,
 		Divisor:   rhs,
 	}, nil

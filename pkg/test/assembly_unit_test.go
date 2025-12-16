@@ -58,13 +58,13 @@ func Test_AsmUnit_Diff(t *testing.T) {
 }
 
 func Test_AsmUnit_Div(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/div", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/div", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_AsmUnit_Div7(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/div7", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/div7", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_AsmUnit_Div16383(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/div16383", util.ASM_MAX_PADDING, sc.BLS12_377)
+	util.CheckWithFields(t, false, "asm/unit/div16383", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
 }
 func Test_AsmUnit_FastPow(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/fast_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
