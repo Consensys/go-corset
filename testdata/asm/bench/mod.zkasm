@@ -19,7 +19,7 @@ sdiv:
   RES, tmp = signed_divide(ARG_1, ARG_2)
   return
 smod:
-  RES, tmp = signed_divide(ARG_1, ARG_2)
+  tmp, RES = signed_divide(ARG_1, ARG_2)
   return
 }
 
@@ -29,7 +29,7 @@ fn signed_divide(num u256, den=1 u256) -> (quot u256, rem u256) {
   var abs_quot, abs_rem u256
   ;;
   abs_num, num_s = abs(num)
-  abs_den, den_s = abs(num)
+  abs_den, den_s = abs(den)
   ;; unsigned division
   abs_quot,abs_rem = divide(abs_num,abs_den)
   ;; decide if output positive or negative
