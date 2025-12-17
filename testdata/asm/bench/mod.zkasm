@@ -31,23 +31,31 @@ fn signed_divide(num u256, den=1 u256) -> (quot u256, rem u256) {
   abs_num, num_s = abs(num)
   abs_den, den_s = abs(den)
   ;; unsigned division
-  abs_quot,abs_rem = divide(abs_num,abs_den)
+  abs_quot, abs_rem = divide(abs_num,abs_den)
   ;; decide if output positive or negative
-  if num_s != den_s goto negative
-  ;; positive result
+  if num_s != den_s goto neg_quotient
+  ;; positive quotient
   quot = abs_quot
-  rem = abs_rem
-  return
+  goto remainder
   ;;
-negative:
+neg_quotient:
   ;; negative result
   quot = negate(abs_quot)
+  ;; fall thru
+remainder:
+  if num_s == 1 goto neg_remainder
+  ;; positive remainder
+  rem = abs_rem
+  return
+neg_remainder:
+  ;; negative remainder
   rem = negate(abs_rem)
   return
 }
 
 ;; Compute the absolute value of a u256 word assuming twos complement
-;; notation.
+;; notation.  This returns signed==1 if the value was negative,
+;; otherwise signed==0.
 fn abs(val u256) -> (abs_val u256, signed u1) {
   var tmp u255
   ;;
