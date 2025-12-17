@@ -47,7 +47,10 @@ func NewAssignment(lhs []register.Id, rhs StaticPolynomial) Assignment {
 }
 
 func (p *Assignment) String(env register.Map) string {
-	var builder strings.Builder
+	var (
+		builder  strings.Builder
+		width, _ = p.Width(env)
+	)
 	//
 	builder.WriteString("[")
 	//
@@ -64,7 +67,7 @@ func (p *Assignment) String(env register.Map) string {
 	builder.WriteString(" := ")
 	builder.WriteString(StaticPoly2String(p.RightHandSide, env))
 	//
-	builder.WriteString(fmt.Sprintf("]^%d", p.Width(env)))
+	builder.WriteString(fmt.Sprintf("]^%d", width))
 	//
 	return builder.String()
 }
@@ -73,15 +76,24 @@ func (p *Assignment) String(env register.Map) string {
 // assignment.  Hence, this should not exceed the field bandwidth.  The
 // calculation is fairly straightforward: it is simply the maximum width of the
 // left-hand and right-hand sides.
-func (p *Assignment) Width(env register.Map) uint {
+func (p *Assignment) Width(env register.Map) (bitwidth uint, signed bool) {
 	var (
 		// Determine lhs width
 		lhs = CombinedWidthOfRegisters(env, p.LeftHandSide...)
-		// Determine rhs width
-		rhs, _ = WidthOfPolynomial(p.RightHandSide, StaticEnvironment(env))
+		//
+		rhs uint
 	)
+	// Determine rhs width
+	rhs, signed = WidthOfPolynomial(p.RightHandSide, StaticEnvironment(env))
 	//
-	return max(lhs, rhs)
+	return max(lhs, rhs), signed
+}
+
+// Signed determines whether or not this is a signed assignment.  That is, an
+// assignment which must additionally consider negative values.
+func (p *Assignment) Signed(env register.Map) bool {
+	var _, signed = p.Width(env)
+	return signed
 }
 
 // Split an assignment according to a given field bandwidth.  This creates one
@@ -133,8 +145,9 @@ func (p *Assignment) Width(env register.Map) uint {
 // above), we must further split them by introducing additional temporary
 // registers.
 func (p *Assignment) Split(field field.Config, env RegisterAllocator) (eqs []Assignment) {
+	var width, _ = p.Width(env)
 	// Check whether any splitting required
-	if p.Width(env) > field.BandWidth {
+	if width > field.BandWidth {
 		// Yes!
 		eqs = p.chunkUp(field, env)
 	} else {
@@ -178,7 +191,7 @@ func (p *Assignment) chunkUp(field field.Config, mapping RegisterAllocator) []As
 		rhsChunks []RhsChunk
 		lhsChunks []LhsChunk
 		//
-		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field, mapping)
+		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field, p.Signed(mapping), mapping)
 	)
 	//
 	for {
@@ -225,7 +238,7 @@ func (p *Assignment) chunkUp(field field.Config, mapping RegisterAllocator) []As
 	return assignments
 }
 
-func initialiseLhsChunks(regs []register.Id, field field.Config, mapping register.Map) []LhsChunk {
+func initialiseLhsChunks(regs []register.Id, field field.Config, signed bool, mapping register.Map) []LhsChunk {
 	var (
 		chunks     []Chunk[[]register.Id]
 		chunkWidth = determineInitialChunkWidth(field)
@@ -234,7 +247,7 @@ func initialiseLhsChunks(regs []register.Id, field field.Config, mapping registe
 	for len(regs) != 0 {
 		var chunk Chunk[[]register.Id]
 		// Determine next chunkd
-		chunk, regs = getNextLhsChunk(regs, chunkWidth, mapping)
+		chunk, regs = getNextLhsChunk(regs, chunkWidth, signed, mapping)
 		chunks = append(chunks, chunk)
 	}
 	//
@@ -255,13 +268,20 @@ func determineInitialChunkWidth(field field.Config) uint {
 	return field.RegisterWidth + delta
 }
 
-func getNextLhsChunk(regs []register.Id, chunkWidth uint, mapping register.Map) (LhsChunk, []register.Id) {
+func getNextLhsChunk(regs []register.Id, chunkWidth uint, signed bool, mapping register.Map) (LhsChunk, []register.Id) {
 	var bitwidth uint
 	//
 	for i, r := range regs {
-		reg := mapping.Register(r)
+		var (
+			reg  = mapping.Register(r)
+			last = i+1 == len(regs)
+			// Determine scenarios under which we will include the sign bit no
+			// matter what.  This is necessary to prevent some odd situations,
+			// such as where a chunk contains only the sign bit.
+			includeSignBit = last && (reg.Width == 1) && signed
+		)
 		//
-		if bitwidth+reg.Width > chunkWidth {
+		if (bitwidth+reg.Width > chunkWidth) && !includeSignBit {
 			return LhsChunk{bitwidth, regs[:i]}, regs[i:]
 		}
 		//
