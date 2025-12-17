@@ -54,14 +54,15 @@ fn oob_prc(INST=0xFF01 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, 
 ;; == 0; (c) extract_call_data <==> (success && cds != 0); (d)
 ;; r@c_nonzero <==> r@c != 0.
 ;;
-;;           DATA_1 = callee_gas
-;;           DATA_2 = call_data_size (cds)
-;; [binary?] DATA_3 = return_at_capacity (r@c)
-;; [binary]  DATA_4 = success
-;;           DATA_5 = return_gas
-;; [binary]  DATA_6 = extract_call_data [binary]
-;; [binary]  DATA_7 = empty_call_data [binary]
-;; [binary]  DATA_8 = r@c_non_zero
+;; [in]           DATA_1 = callee_gas
+;; [in]           DATA_2 = call_data_size (cds)
+;; [in,binary?]   DATA_3 = return_at_capacity (r@c)
+;; --
+;; [out,binary]   DATA_4 = success
+;; [out]          DATA_5 = return_gas
+;; [out,binary]   DATA_6 = extract_call_data [binary]
+;; [out,binary]   DATA_7 = empty_call_data [binary]
+;; [out,binary]   DATA_8 = r@c_non_zero
 ;;
 ;; NOTE: the call_data_size for type 1 instructions is always valid;
 ;; for type 2 instructions, there are restrictions depending on the
@@ -87,10 +88,11 @@ oob_type12:
 ;; Check: (a) success <==> (cds == 213); (b) r@c_nonzero <==>
 ;; r@c != 0.
 ;;
-;;           DATA_2 = call_data_size (cds)
-;; [binary?] DATA_3 = return_at_capacity (r@c)
-;; [binary]  DATA_4 = success
-;; [binary]  DATA_8 = r@c_non_zero
+;; [in]          DATA_2 = call_data_size (cds)
+;; [in,binary?]  DATA_3 = return_at_capacity (r@c)
+;; --
+;; [out,binary]  DATA_4 = success
+;; [out,binary]  DATA_8 = r@c_non_zero
 ;;
 ;; NOTES: see EIP-152.
 oob_blake_cds:
@@ -106,11 +108,12 @@ oob_blake_cds:
 ;; Check: (a) success <==> (r <= callee_gas && f is u1); (b) if
 ;; success then return_gas == callee_gas - r else return_gas == 0.
 ;;
-;;           DATA_1 = callee_gas
-;; [binary]  DATA_4 = success
-;;           DATA_5 = return_gas
-;;           DATA_6 = rounds (r)
-;;           DATA_7 = indicator flag (f)
+;; [in]          DATA_1 = callee_gas
+;; [in]          DATA_6 = rounds (r)
+;; [in]          DATA_7 = indicator flag (f)
+;; --
+;; [out,binary]  DATA_4 = success
+;; [out]         DATA_5 = return_gas
 ;;
 ;; NOTES: see EIP-152.  The gas_cost for BLAKE is the number of
 ;; rounds.

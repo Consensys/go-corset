@@ -41,30 +41,33 @@ pub fn oob(INST=0x56 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DA
 ;; -------------------------------------------------------------------
 ;; JUMPI
 ;; -------------------------------------------------------------------
-;;  DATA_1::DATA_2 = pc_new
-;;  DATA_3::DATA_4 = jump_condition
-;;          DATA_5 = code_size
-;; [binary] DATA_6 = jump_not_attempted
-;; [binary] DATA_7 = jump_guaranteed_exception
-;; [binary] DATA_8 = jump_must_be_attempted
+;; [in]    DATA_1::DATA_2 = pc_new
+;; [in]    DATA_3::DATA_4 = jump_condition
+;; [in]            DATA_5 = code_size
+;; --
+;; [out,binary]    DATA_6 = jump_not_attempted
+;; [out,binary]    DATA_7 = jump_guaranteed_exception
+;; [out,binary]    DATA_8 = jump_must_be_attempted
 ;;
 oob_jumpi:
    if DATA_3 != 0 goto oob_jumpi_attempted
    if DATA_4 != 0 goto oob_jumpi_attempted
    ;; condition==0 ==> jump not attempted
    if DATA_6 != 1 goto exit_f
-   return
+   ;; continue with JUMP checks
+   goto oob_jump
 oob_jumpi_attempted:
    if DATA_6 != 0 goto exit_f
-   ;; fall thru
+   ;; fall thru to JUMP checks
 
 ;; -------------------------------------------------------------------
 ;; JUMP
 ;; -------------------------------------------------------------------
-;;  DATA_1::DATA_2 = pc_new
-;;          DATA_5 = code_size
-;; [binary] DATA_7 = jump_guaranteed_exception
-;; [binary] DATA_8 = jump_must_be_attempted
+;; [in]   DATA_1::DATA_2 = pc_new
+;; [in]           DATA_5 = code_size
+;; --
+;; [out,binary]   DATA_7 = jump_guaranteed_exception
+;; [out,binary]   DATA_8 = jump_must_be_attempted
 ;;
 oob_jump:
    jox, njox = jump_target_check(DATA_1, DATA_2, DATA_5)
@@ -81,10 +84,11 @@ oob_jump:
 ;; (b) check (offset + size) <= rds and that rdcx==0 (if it holds)
 ;; or that rdcx==1 (otherwise).
 ;;
-;;  DATA_1::DATA_2 = offset
-;;  DATA_3::DATA_4 = size
-;;          DATA_5 = return_data_size (rds)
-;; [binary] DATA_7 = return_data_copy_exception (rdcx)
+;; [in]   DATA_1::DATA_2 = offset
+;; [in]   DATA_3::DATA_4 = size
+;; [in]           DATA_5 = return_data_size (rds)
+;; --
+;; [out,binary]   DATA_7 = return_data_copy_exception (rdcx)
 ;;
 oob_rdc:
    oobx = out_of_bounds_check(DATA_1, DATA_2, DATA_3, DATA_4, DATA_5)
@@ -99,9 +103,10 @@ oob_rdc:
 ;; For CDL must: (a) check offset < cds and that cdloob == 0 (if it
 ;; holds) or cdloob==1 (otherwise).
 ;;
-;;  DATA_1::DATA_2 = offset
-;;          DATA_5 = call_data_size (cds)
-;; [binary] DATA_7 = call_data_load_oob (cdloob)
+;; [in]   DATA_1::DATA_2 = offset
+;; [in]           DATA_5 = call_data_size (cds)
+;; --
+;; [out,binary]   DATA_7 = call_data_load_oob (cdloob)
 ;;
 oob_cdl:
    oobx = out_of_bounds_check(DATA_1, DATA_2, 0, 1, DATA_5)
@@ -116,8 +121,9 @@ oob_cdl:
 ;; For SSTORE must: check G_callstipend < gas_actual and that
 ;; sstorex==0 (if it holds) or sstorex==1 (otherwise)
 ;;
-;;          DATA_5         = gas_actual
-;; [binary] DATA_7         = sstore_exception (sstorex)
+;; [in]           DATA_5 = gas_actual
+;; --
+;; [out,binary]   DATA_7 = sstore_exception (sstorex)
 ;;
 oob_sstore:
    oobx = out_of_bounds_check(0, G_CALLSTIPEND, 0, 1, DATA_5)
@@ -132,8 +138,9 @@ oob_sstore:
 ;; For DEPLOYMENT must: (a) check size <= MAX_CODE_SIZE and that
 ;; maxcodex == 0 (if it holds) or maxcodex==1 (otherwise).
 ;;
-;;          DATA_1::DATA_2 = size
-;; [binary] DATA_7         = maxcodex
+;; [in]           DATA_1::DATA_2 = size
+;; --
+;; [out,binary]   DATA_7         = maxcodex
 ;;
 oob_deployment:
    oobx = out_of_bounds_check(DATA_1, DATA_2, 0, 0, MAX_CODE_SIZE)
@@ -148,9 +155,10 @@ oob_deployment:
 ;; For XCALL must check: check if value != 0 then value_isz==0 else
 ;; value_isz==1.  Furthermore, that value_isnz == (1 - value_isz)
 ;;
-;;  DATA_1::DATA_2 = value
-;; [binary] DATA_7 = value_isnz
-;; [binary] DATA_8 = value_isz
+;; [in]   DATA_1::DATA_2 = value
+;; --
+;; [out,binary]   DATA_7 = value_isnz
+;; [out,binary]   DATA_8 = value_isz
 ;;
 oob_xcall:
    nz, z = zero_check(DATA_1, DATA_2)
@@ -168,11 +176,12 @@ oob_xcall:
 ;; either of the aborting conditions hold then abort_condition==1 else
 ;; abort_condition==0.
 ;;
-;;  DATA_1::DATA_2 = value
-;;          DATA_3 = balance
-;;          DATA_6 = call_stack_depth
-;; [binary] DATA_7 = value_isnz
-;; [binary] DATA_8 = aborting_condition
+;; [in]   DATA_1::DATA_2 = value
+;; [in]           DATA_3 = balance
+;; [in]           DATA_6 = call_stack_depth
+;; --
+;; [out,binary]   DATA_7 = value_isnz
+;; [out,binary]   DATA_8 = aborting_condition
 ;;
 oob_call:
    nz, z = zero_check(DATA_1, DATA_2)
@@ -192,7 +201,7 @@ oob_call:
 ;; -------------------------------------------------------------------
 ;; For XCALL must enforce: init_code_size > MAX_INIT_CODE_SIZE.
 ;;
-;; DATA_1::DATA_2 = init_code_size
+;; [in] DATA_1::DATA_2 = init_code_size
 ;;
 oob_xcreate:
    oobx = out_of_bounds_check(DATA_1, DATA_2, 0, 0, MAX_INIT_CODE_SIZE)
@@ -213,15 +222,16 @@ oob_xcreate:
 ;; if failing then abort_condition==0 && fail_condition==1 else
 ;; fail_condition==0.
 ;;
-;;  DATA_1::DATA_2  = value
-;;          DATA_3  = balance
-;;          DATA_4  = createe_nonce
-;;          DATA_5  = createe_has_code
-;;          DATA_6  = call_stack_depth
-;; [binary] DATA_7  = aborting_condition
-;; [binary] DATA_8  = failing_condition
-;;          DATA_9  = creater_nonce
-;;          DATA_10 = init_code_size
+;; [in]   DATA_1::DATA_2  = value
+;; [in]           DATA_3  = balance
+;; [in]           DATA_4  = createe_nonce
+;; [in]           DATA_5  = createe_has_code
+;; [in]           DATA_6  = call_stack_depth
+;; [in]           DATA_9  = creater_nonce
+;; [in]           DATA_10 = init_code_size
+;; --
+;; [out,binary]   DATA_7  = aborting_condition
+;; [out,binary]   DATA_8  = failing_condition
 ;;
 oob_create:
    ;; (a) init_code_size <= NAX_INIT_CODE_SIZE

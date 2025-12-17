@@ -30,10 +30,11 @@ fn oob_modexp(INST=0xFA05 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u12
 ;; Check: (a) extract_bbs <==> 0 < cds; (b) extract_ebs <==> 32 < cds;
 ;; (c) extract_mbs == 64 < cds.
 ;;
-;;          DATA_2 = call_data_size (cds)
-;; [binary] DATA_3 = extract_bbs
-;; [binary] DATA_4 = extract_ebs
-;; [binary] DATA_5 = extract_mbs
+;; [in]           DATA_2 = call_data_size (cds)
+;; --
+;; [out,binary]   DATA_3 = extract_bbs
+;; [out,binary]   DATA_4 = extract_ebs
+;; [out,binary]   DATA_5 = extract_mbs
 ;;
 modexp_cds:
   var cds0, cds32, cds64 u1
@@ -65,14 +66,15 @@ modexp_cds:
 ;; xbs_norm == xbs_lo if xbs_within_bounds else xbs_norm == 0
 ;; (likewise for ybs_norm).
 ;;
-;;          DATA_1 = xbs_hi
-;;          DATA_2 = xbs_lo
-;;          DATA_3 = ybs_lo
-;; [binary] DATA_4 = do_compute_max
-;;          DATA_7 = max (if do_compute_max)
-;; [binary] DATA_8 = xbs_non_zero (if do_compute_max)
-;; [binary] DATA_9 = xbs_within_bounds
-;; [binary] DATA_10 = xbs_out_of_bounds
+;; [in]           DATA_1 = xbs_hi
+;; [in]           DATA_2 = xbs_lo
+;; [in]           DATA_3 = ybs_lo
+;; [in,binary]    DATA_4 = do_compute_max
+;; --
+;; [out]          DATA_7 = max (if do_compute_max)
+;; [out,binary]   DATA_8 = xbs_non_zero (if do_compute_max)
+;; [out.binary]   DATA_9 = xbs_within_bounds
+;; [out,binary]   DATA_10 = xbs_out_of_bounds
 ;;
 modexp_xbs:
   var xbsInBounds, xbsOutOfBounds, xbsNonZero u1
@@ -108,13 +110,14 @@ modexp_xbs:
 ;; min(32,ebs_lo); if (ebs_lo >= 32) then (ebs_sub_32 == ebs_lo - 32)
 ;; else (ebs_sub_32 == 0).
 ;;
-;;          DATA_1 = bbs_lo
-;;          DATA_2 = call_data_size (cds)
-;;          DATA_3 = ebs_lo
-;; [binary] DATA_4 = load_lead [binary]
-;;          DATA_6 = lead_calldata_bytes (lcb)
-;;          DATA_7 = lead_exponent_bytes (leb)
-;;          DATA_8 = ebs_sub_32
+;; [in]           DATA_1 = bbs_lo
+;; [in]           DATA_2 = call_data_size (cds)
+;; [in]           DATA_3 = ebs_lo
+;; --
+;; [out,binary]   DATA_4 = load_lead [binary]
+;; [out]          DATA_6 = lead_calldata_bytes (lcb)
+;; [out]          DATA_7 = lead_exponent_bytes (leb)
+;; [out]          DATA_8 = ebs_sub_32
 ;;
 modexp_lead:
   var lead u1
@@ -142,13 +145,14 @@ modexp_lead:
 ;; NOTE: the major challenge with this case lies in determining the
 ;; gas_cost for a modexp call.
 ;;
-;;          DATA_1 = callee_gas
-;;          DATA_3 = return_at_capacity (r@c)
-;; [binary] DATA_4 = success
-;;          DATA_5 = return_gas
-;;          DATA_6 = exponent_log
-;;          DATA_7 = max_mbs_bbs
-;; [binary] DATA_8 = r@c_non_zero
+;; [in]           DATA_1 = callee_gas
+;; [in]           DATA_3 = return_at_capacity (r@c)
+;; [in]           DATA_6 = exponent_log
+;; [in]           DATA_7 = max_mbs_bbs
+;; --
+;; [out,binary]   DATA_4 = success
+;; [out]          DATA_5 = return_gas
+;; [out,binary]   DATA_8 = r@c_non_zero
 ;;
 modexp_pricing:
   var return_gas u128
@@ -172,13 +176,14 @@ modexp_pricing:
 ;; -------------------------------------------------------------------
 ;; MODEXP_EXTRACT
 ;; -------------------------------------------------------------------
-;;          DATA_2 = call_data_size (cds)
-;;          DATA_3 = bbs_lo
-;;          DATA_4 = ebs_lo
-;;          DATA_5 = mbs_lo
-;; [binary] DATA_6 = base_extraction
-;; [binary] DATA_7 = exponent_extraction
-;; [binary] DATA_8 = modulus_extraction
+;; [in]           DATA_2 = call_data_size (cds)
+;; [in]           DATA_3 = bbs_lo
+;; [in]           DATA_4 = ebs_lo
+;; [in]           DATA_5 = mbs_lo
+;; --
+;; [out,binary]   DATA_6 = base_extraction
+;; [out,binary]   DATA_7 = exponent_extraction
+;; [out,binary]   DATA_8 = modulus_extraction
 ;;
 modexp_extract:
   var base, exponent, modulus u1
