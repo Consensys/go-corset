@@ -2,7 +2,7 @@ include "evm.zkasm"
 include "../util/max2.zkasm"
 ;; other
 const OOB_INST_MODEXP_CDS                       = 0xFA05 ;; 64005
-const OOB_INST_MODEXP_XBS                       = 0xFB05 ;; 64261
+const OOB_INST_MODEXP_XBS-_                       = 0xFB05 ;; 64261
 const OOB_INST_MODEXP_LEAD                      = 0xFC05 ;; 64517
 const OOB_INST_MODEXP_PRICING                   = 0xFD05 ;; 64773
 const OOB_INST_MODEXP_EXTRACT                   = 0xFE05 ;; 65029
@@ -32,7 +32,8 @@ fn oob_modexp(INST=0xFA05 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u12
 ;;
 ;;          DATA_2 = call_data_size (cds)
 ;; [binary] DATA_3 = extract_bbs
-;; [binary] DATA_4 = extract_mbs
+;; [binary] DATA_4 = extract_ebs
+;; [binary] DATA_5 = extract_mbs
 ;;
 modexp_cds:
   var cds0, cds32, cds64 u1
@@ -55,11 +56,14 @@ modexp_cds:
 ;; -------------------------------------------------------------------
 ;; MODEXP_XBS
 ;; -------------------------------------------------------------------
+
 ;; Check: (a) xbs_within_bounds <==> (xbs_hi == 0 and xbs_lo <= 1024);
 ;; (b) xbs_out_of_bounds == 1 - xbs_within_bounds); (c) if
 ;; do_compute_max and xbs_out_of_bounds then max==0, otherwise if
-;; do_compute_max then max=max(xbs_lo, ybs_lo); (c) if do_compute_max
-;; then xbs_non_zero <==> (xbs_hi != 0 or xbs_lo != 0).
+;; do_compute_max then max=max(xbs_norm, ybs_norm); (d) if
+;; do_compute_max then xbs_non_zero <==> xbs_norm != 0.  Here,
+;; xbs_norm == xbs_lo if xbs_within_bounds else xbs_norm == 0
+;; (likewise for ybs_norm).
 ;;
 ;;          DATA_1 = xbs_hi
 ;;          DATA_2 = xbs_lo
@@ -274,7 +278,8 @@ fn oob_modexp_gas_cost(lE u16, max_lB_lM u16) -> (gas_cost=500 u64) {
 }
 
 ;; Function "f" originally from the yellow paper and updated in
-;; EIP-7883.  This computes computes max(16,2*(⌈max_len / 8⌉)²).
+;; EIP-7883.  This computes returns 16 when max_len <= 32 or returns
+;; 2*(⌈max_len / 8⌉)²) otherwise.
 fn oob_modexp_f(max_len u16) -> (res=16 u28) {
   var b u1
   var tmp u16
