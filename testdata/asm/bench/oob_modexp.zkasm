@@ -122,6 +122,7 @@ modexp_lead:
   var ebsSub32 u128
   ;; cast call_data_size
   tmp,cds = DATA_2
+  if tmp != 0 goto exit_f
   ;; do calculations
   lead, lcb, leb, ebsSub32 = oob_modexp_lead(cds,DATA_1,DATA_3)
   ;; do checks
@@ -187,6 +188,11 @@ modexp_extract:
   tmp112a, bbs = DATA_3
   tmp112b, ebs = DATA_4
   tmp112c, mbs = DATA_5
+  ;; sanity check
+  if tmp != 0 goto exit_f
+  if tmp112a != 0 goto exit_f
+  if tmp112b != 0 goto exit_f
+  if tmp112c != 0 goto exit_f
   ;;
   base, exponent, modulus = oob_modexp_extract(cds, bbs, ebs, mbs)
   ;; sanity checks
