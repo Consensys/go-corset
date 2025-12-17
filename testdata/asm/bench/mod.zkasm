@@ -1,6 +1,29 @@
 include "evm.zkasm"
 include "../util/bit_xoan.zkasm"
 
+;; Under 256bit two's complement arithmetic, -1 is (2^256 - 1)
+const I256_MINUS_ONE = 115792089237316195423570985008687907853269984665640564039457584007913129639935
+;; Under 256bit two's complement arithmetic, -2^255 is 2^255
+const I256_MINUS_TWOe255 = 57896044618658097711785492504343953926634992332820282019728792003956564819968
+
+;; The modular arithmetic module (MOD) deals with four
+;; division-related arithmetic instructions of the EVM.  For any call
+;; to mod, the "inst" argument indicates which of these instructions
+;; is being computed:
+;;
+;;  DIV      ARG_1  /  ARG_2                               0x04
+;;  MOD      ARG_1  %  ARG_2                               0x06
+;; SDIV*   (|ARG_1| / |ARG_2|) * sign(ARG_1) * sign(ARG2)  0x05
+;; SMOD    (|ARG_1| * |ARG_2|) * sign(ARG_1)               0x07
+;;
+;; NOTES: the division "/" and remainder "%" operators used above both
+;; return zero when the divisor is zero.  The absolute function "|X|"
+;; returns the absolute value of X (i.e. |-1| == 1, |1| == 1, etc).
+;; The sign(X) function returns 1 for positively signed values, and -1
+;; for negatively signed values (i.e. when the most significant bit is
+;; 1).  Finally, a special case is noted for SDIV (indicated by * above)
+;; where SDIV(-2^255,-1)=-2^255.
+;;
 fn mod(INST=0x4 u8, ARG_1 u256, ARG_2=1 u256) -> (RES u256) {
   var tmp u256
   ;;
