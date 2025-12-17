@@ -109,13 +109,20 @@ type RegisterAllocator interface {
 	// This is presumed to be a computed register, and automatically assigned a
 	// unique name.
 	AllocateCarry(prefix string, width uint) RegisterId
+	// Allocate n registers of the given width within the target module.
+	// This is presumed to be a computed register, and automatically assigned a
+	// unique name.  No assignment is included for the allocated register
+	AllocateCarryN(prefix string, widths []uint) []RegisterId
+	// Reset back to a given number of registers.  This is essentially for
+	// "undoing" allocations in algorithms that perform speculative allocation.
+	Reset(uint)
 }
 
 // ============================================================================
 
 type registerAllocator struct {
-	mapping RegisterLimbsMap
-	limbs   []Register
+	mapping   RegisterLimbsMap
+	registers []Register
 }
 
 // NewAllocator converts a mapping into a full allocator simply by wrapping the
@@ -129,16 +136,29 @@ func NewAllocator(mapping RegisterLimbsMap) RegisterAllocator {
 func (p *registerAllocator) AllocateCarry(prefix string, width uint) RegisterId {
 	var (
 		// Determine index for new register
-		index = uint(len(p.limbs))
+		index = uint(len(p.registers))
 		// Determine unique name for new register
 		name = fmt.Sprintf("%s$%d", prefix, index)
 		// Default padding (for now)
 		zero big.Int
 	)
 	// Allocate a new computed register.
-	p.limbs = append(p.limbs, NewComputedRegister(name, width, zero))
+	p.registers = append(p.registers, NewComputedRegister(name, width, zero))
 	//
 	return NewRegisterId(index)
+}
+
+// AllocateWithN implementation for the RegisterAllocator interface
+func (p *registerAllocator) AllocateCarryN(prefix string, widths []uint) []RegisterId {
+	var (
+		ids = make([]RegisterId, len(widths))
+	)
+	// First, allocate all registers
+	for i, w := range widths {
+		ids[i] = p.AllocateCarry(prefix, w)
+	}
+	// Done
+	return ids
 }
 
 // BandWidth implementation for RegisterMapping interface
@@ -153,12 +173,12 @@ func (p *registerAllocator) LimbIds(reg RegisterId) []LimbId {
 
 // Limb implementation for the RegisterMapping interface
 func (p *registerAllocator) Limb(reg LimbId) Limb {
-	return p.limbs[reg.Unwrap()]
+	return p.registers[reg.Unwrap()]
 }
 
 // Limbs implementation for the RegisterMapping interface
 func (p *registerAllocator) Limbs() []Limb {
-	return p.limbs
+	return p.registers
 }
 
 // LimbsMap implementation for the RegisterMapping interface
@@ -184,4 +204,13 @@ func (p *registerAllocator) Register(rid RegisterId) Register {
 // Registers implementation for RegisterMap interface.
 func (p *registerAllocator) Registers() []Register {
 	return p.mapping.Registers()
+}
+
+// Reset implementation for RegisterAllocator interface.
+func (p *registerAllocator) Reset(n uint) {
+	if n < uint(len(p.mapping.Registers())) {
+		panic("cannot reset pre-existing registers")
+	}
+	// Reset registers
+	p.registers = p.registers[:n]
 }

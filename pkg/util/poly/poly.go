@@ -48,6 +48,26 @@ type Polynomial[S comparable, T Term[S, T], P any] interface {
 	// Multiply this polynomial by another polynomial, such that this polynomial
 	// is updated in place.
 	Mul(P) P
+
+	// For a given bitwidth n, divide a polynomial by 2^n produces a quotient and
+	// remainder.  For example, dividing 256*x1+x0 by 2^8 gives x1 remainder x0.
+	// This algorithm is somehow akin to "shifting" a polynomial downwards.  For
+	// example, consider our example again:
+	//
+	//	 15             8 7               0
+	//	+----------------+-----------------+
+	//	|     2^8*x1     |        x0       |
+	//	+----------------+-----------------+
+	//
+	// Then, shifting this down by 8bits gives:
+	//
+	//	                  7               0
+	//	                 +-----------------+
+	//	>>>>>>>>>>>>>>>> |        x1       |
+	//	                 +-----------------+
+	//
+	// And we are left with a remainder as well.
+	Shr(n uint) (quot P, rem P)
 }
 
 // Eval evaluates a given polynomial with a given environment (i.e. mapping of variables to values)

@@ -203,3 +203,27 @@ func (p *ArrayPoly[S]) SubTerm(other Monomial[S]) {
 		p.terms.Insert(other.Neg())
 	}
 }
+
+// Shr performs a "shift right" operation on this polynomial.
+func (p *ArrayPoly[S]) Shr(n uint) (*ArrayPoly[S], *ArrayPoly[S]) {
+	var (
+		quotients  []Monomial[S]
+		remainders []Monomial[S]
+	)
+	//
+	for i := range p.Len() {
+		var ith = p.Term(i)
+		// Divide coefficient by bitwidth using shifts for efficiency.
+		quot, rem := ith.Shr(n)
+		//
+		if !quot.IsZero() {
+			quotients = append(quotients, quot)
+		}
+		//
+		if !rem.IsZero() {
+			remainders = append(remainders, rem)
+		}
+	}
+	//
+	return &ArrayPoly[S]{quotients}, &ArrayPoly[S]{remainders}
+}

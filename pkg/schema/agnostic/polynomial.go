@@ -16,6 +16,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema"
+	sc "github.com/consensys/go-corset/pkg/schema"
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/poly"
 )
@@ -124,6 +126,19 @@ func LimbPolynomial(limbs []schema.RegisterId, env schema.RegisterLimbsMap) Poly
 // widths of the negative and positive components, before combining them to give
 // the result.
 func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint, signed bool) {
+	bitwidth, signed = RawWidthOfPolynomial(source, regs)
+	// Adjust to include the sign bit for signed values.
+	if signed {
+		bitwidth++
+	}
+	//
+	return bitwidth, signed
+}
+
+// RawWidthOfPolynomial is essentially the same as WidthOfPolynomial, but does
+// not adjust the returned width to include a sign bit.
+func RawWidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint, signed bool) {
+	//
 	var (
 		intRange  = IntegerRangeOfPolynomial(source, regs)
 		lower     = intRange.MinIntValue()
@@ -136,9 +151,9 @@ func WidthOfPolynomial(source Polynomial, regs []schema.Register) (bitwidth uint
 		// an extra value.  For example, with signed 8bit values the range is
 		// -128 upto 127.
 		lowerBits := uint(lower.Add(&lower, &one).BitLen())
-		// Yes, we have negative values.  This mandates the need for an
-		// additional signbit.
-		return max(lowerBits+1, upperBits+1), true
+		// Yes, we have negative value but we don't adjust to include a sign bit
+		// (in this case).
+		return max(lowerBits, upperBits), true
 	}
 	// No sign bit required.
 	return upperBits, false
@@ -213,4 +228,57 @@ func IntegerRangeOfRegister(rid schema.RegisterId, regs []schema.Register) math.
 	val.Exp(val, big.NewInt(int64(width)), nil)
 	// Subtract one since the interval is inclusive.
 	return math.NewInterval(zero, *val.Sub(val, &one))
+}
+
+// RegisterReadSet returns the set of registers read by this instruction.
+func RegisterReadSet(p Polynomial) bit.Set {
+	var regs bit.Set
+	//
+	for i := range p.Len() {
+		for _, rid := range p.Term(i).Vars() {
+			regs.Insert(rid.Unwrap())
+		}
+	}
+	//
+	return regs
+}
+
+// SubstitutePolynomial replaces all occurrences of a given variable with a set
+// of (zero or more) variables (e.g. typically used for substituting limbs).
+func SubstitutePolynomial(p Polynomial, mapping func(sc.RegisterId) Polynomial) (r Polynomial) {
+	//
+	for i := range p.Len() {
+		ith := SubstituteMonomial(p.Term(i), mapping)
+		//
+		if i == 0 {
+			r = ith
+		} else {
+			r = r.Add(ith)
+		}
+	}
+	// Done
+	return r
+}
+
+// SubstituteMonomial replaces all occurrences of a given variable with a set of
+// (zero or more) variables (e.g. typically used for substituting limbs).
+func SubstituteMonomial(t Monomial, mapping func(sc.RegisterId) Polynomial) Polynomial {
+	var (
+		r Polynomial
+	)
+	// Initialise
+	r = r.Set(poly.NewMonomial[sc.RegisterId](t.Coefficient()))
+	// Initially, attempt to avoid substitution altgoether.  This ensures we
+	// only allocate memory when an actual subistition happens.
+	for _, v := range t.Vars() {
+		tmp := mapping(v)
+		// Sanity check what happened
+		if tmp == nil {
+			tmp = tmp.Set(poly.NewMonomial(one, v))
+		}
+		//
+		r = r.Mul(tmp)
+	}
+	// No substitution required
+	return r
 }

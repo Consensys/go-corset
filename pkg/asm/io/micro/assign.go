@@ -139,7 +139,7 @@ func (p *Assign) Split(env schema.RegisterAllocator) []Code {
 		// construct initial assignment
 		assignment = agnostic.NewAssignment(lhs, rhs)
 		// split into smaller assignments as needed
-		assignments = assignment.Split(env.Field().FieldBandWidth, env)
+		assignments = assignment.Split(env.Field(), env)
 		// codes to be filled out
 		codes = make([]Code, len(assignments))
 	)
