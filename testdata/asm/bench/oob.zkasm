@@ -211,7 +211,7 @@ oob_xcreate:
 ;;
 ;; NOTES: If aborting then abort_condition==1 else abort_condition==0;
 ;; if failing then abort_condition==0 && fail_condition==1 else
-;; fail_condition==1.
+;; fail_condition==0.
 ;;
 ;;  DATA_1::DATA_2  = value
 ;;          DATA_3  = balance
@@ -242,6 +242,8 @@ oob_create:
    if DATA_4!=0 goto oob_create_failure
    ;; check (f) createe has empty bytecode
    if DATA_5!=0 goto oob_create_failure
+   ;; check no failure claimed
+   if DATA_8 != 0 goto exit_f
    ;; success
    return
 oob_create_abort:

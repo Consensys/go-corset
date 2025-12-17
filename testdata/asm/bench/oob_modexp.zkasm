@@ -2,7 +2,7 @@ include "evm.zkasm"
 include "../util/max2.zkasm"
 ;; other
 const OOB_INST_MODEXP_CDS                       = 0xFA05 ;; 64005
-const OOB_INST_MODEXP_XBS-_                       = 0xFB05 ;; 64261
+const OOB_INST_MODEXP_XBS                       = 0xFB05 ;; 64261
 const OOB_INST_MODEXP_LEAD                      = 0xFC05 ;; 64517
 const OOB_INST_MODEXP_PRICING                   = 0xFD05 ;; 64773
 const OOB_INST_MODEXP_EXTRACT                   = 0xFE05 ;; 65029
