@@ -693,10 +693,6 @@ func (t *translator) isIrregularLookup(srcWidth, tgtWidth uint) bool {
 		n             = min(len(srcLimbWidths), len(tgtLimbWidths))
 	)
 	//
-	fmt.Printf("CHECKING u%d (%d limbs) vs u%d (%d limbs)\n", srcWidth, len(srcLimbWidths), tgtWidth, len(tgtLimbWidths))
-	fmt.Printf("%v\n", srcLimbWidths)
-	fmt.Printf("%v\n", tgtLimbWidths)
-	//
 	for i := range n {
 		var (
 			srcLast = i+1 == len(srcLimbWidths)
