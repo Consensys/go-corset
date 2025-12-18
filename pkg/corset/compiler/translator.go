@@ -54,10 +54,11 @@ func TranslateCircuit(
 	env Environment,
 	srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit,
-	extern asm.MacroProgram) (asm.MacroHirProgram, []SyntaxError) {
+	extern asm.MacroProgram,
+	config field.Config) (asm.MacroHirProgram, []SyntaxError) {
 	//
 	builder := ir.NewSchemaBuilder[word.BigEndian, hir.Constraint, hir.Term](extern.Functions()...)
-	t := translator{env, srcmap, builder}
+	t := translator{env, srcmap, builder, config}
 	// Allocate all modules into schema
 	t.translateModules(circuit)
 	// Translate everything else
@@ -82,6 +83,8 @@ type translator struct {
 	srcmap *source.Maps[ast.Node]
 	// Represents the schema being constructed by this translator.
 	schema SchemaBuilder
+	// Field configuration is needed to check for irregular lookups
+	config field.Config
 }
 
 func (t *translator) translateModules(circuit *ast.Circuit) {
@@ -537,6 +540,11 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 			context = ctx
 		}
 	}
+	// Sanity check this is not an irregular lookup (since these are not
+	// currently supported) and, if so, provide a useful error message.
+	if len(errors) == 0 {
+		errors = t.checkForIrregularLookup(targets, sources)
+	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
 		module := t.moduleOf(context)
@@ -628,6 +636,83 @@ func (t *translator) checkLookupVector(vector lookup.Vector[word.BigEndian, hir.
 	}
 	// Done
 	return errors
+}
+
+// An irregular lookup is an awkward scenario where a source/target pairing does
+// not align properly.  This scenario is not currently supported and, hence, a
+// suitable error message must be returned.  For example, support a pairing of
+// u160 (source) into u256 (target) with a maximum register size of u160.  Then,
+// the source will decompose into a single u160 limb, whilst the target will
+// decompose into a two u128 limbs.
+func (t *translator) checkForIrregularLookup(targets []lookup.Vector[word.BigEndian, hir.Term],
+	sources []lookup.Vector[word.BigEndian, hir.Term]) []SyntaxError {
+	var (
+		n         = len(sources[0].Terms)
+		srcWidths = t.determineLookupBitwidths(sources)
+		tgtWidths = t.determineLookupBitwidths(targets)
+		errors    []SyntaxError
+	)
+	//
+	for _, ith := range srcWidths {
+		for _, jth := range tgtWidths {
+			for k := range n {
+				if t.isIrregularLookup(ith[k], jth[k]) {
+					panic("matched one")
+				}
+			}
+		}
+	}
+	//
+	return errors
+}
+
+func (t *translator) determineLookupBitwidths(terms []lookup.Vector[word.BigEndian, hir.Term]) [][]uint {
+	var (
+		bitwidths = make([][]uint, len(terms))
+	)
+	//
+	for i := range terms {
+		ith := make([]uint, len(terms[i].Terms))
+		for j, jth := range terms[i].Terms {
+			// Determine value range of ith term
+			valrange := jth.ValueRange()
+			// Determine bitwidth for that range
+			ith[j], _ = valrange.BitWidth()
+		}
+		//
+		bitwidths[i] = ith
+	}
+	//
+	return bitwidths
+}
+
+func (t *translator) isIrregularLookup(srcWidth, tgtWidth uint) bool {
+	var (
+		srcLimbWidths = register.LimbWidths(t.config.RegisterWidth, srcWidth)
+		tgtLimbWidths = register.LimbWidths(t.config.RegisterWidth, tgtWidth)
+		n             = min(len(srcLimbWidths), len(tgtLimbWidths))
+	)
+	//
+	fmt.Printf("CHECKING u%d (%d limbs) vs u%d (%d limbs)\n", srcWidth, len(srcLimbWidths), tgtWidth, len(tgtLimbWidths))
+	fmt.Printf("%v\n", srcLimbWidths)
+	fmt.Printf("%v\n", tgtLimbWidths)
+	//
+	for i := range n {
+		var (
+			srcLast = i+1 == len(srcLimbWidths)
+			tgtLast = i+1 == len(tgtLimbWidths)
+		)
+		//
+		fmt.Printf("u%d into u%d (%t %t)\n", srcLimbWidths[i], tgtLimbWidths[i], srcLast, tgtLast)
+		// Check limbs
+		if srcLimbWidths[i] > tgtLimbWidths[i] && !tgtLast {
+			return true
+		} else if tgtLimbWidths[i] > srcLimbWidths[i] && !srcLast {
+			return true
+		}
+	}
+	//
+	return false
 }
 
 // Translate a "definrange" declaration.
