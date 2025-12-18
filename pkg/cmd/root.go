@@ -147,6 +147,7 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 	corsetConfig.Debug = GetFlag(cmd, "debug")
 	corsetConfig.Legacy = GetFlag(cmd, "legacy")
 	corsetConfig.EnforceTypes = GetFlag(cmd, "enforce-types")
+	corsetConfig.Field = *fieldConfig
 	// Assembly lowering config
 	asmConfig.Vectorize = GetFlag(cmd, "vectorize")
 	asmConfig.Field = *fieldConfig

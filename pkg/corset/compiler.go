@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -50,6 +51,9 @@ type CompilationConfig struct {
 	Legacy bool
 	// Enforce all types by default
 	EnforceTypes bool
+	// Target field configuration.  This is only used to assist in reporting
+	// errors which are specific to the given field configuration.
+	Field field.Config
 }
 
 // CompileSourceFiles compiles one or more source files into a schema.  This
@@ -75,7 +79,7 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []source.File, extern
 		comp.SetAllocator(compiler.ImprovedAllocator)
 	}
 	//
-	return comp.Compile()
+	return comp.Compile(config.Field)
 }
 
 // CompileSourceFile compiles exactly one source file into a schema.  This is
@@ -133,7 +137,7 @@ func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Co
 // ways if the given modules are malformed in some way.  For example, if some
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
-func (p *Compiler) Compile() (asm.MacroHirProgram, SourceMap, []SyntaxError) {
+func (p *Compiler) Compile(config field.Config) (asm.MacroHirProgram, SourceMap, []SyntaxError) {
 	var (
 		scope  *compiler.ModuleScope
 		errors []SyntaxError
@@ -153,7 +157,7 @@ func (p *Compiler) Compile() (asm.MacroHirProgram, SourceMap, []SyntaxError) {
 	// Convert global scope into an environment by allocating all columns.
 	environment := compiler.NewGlobalEnvironment(scope, p.allocator)
 	// Translate everything and add it to the schema.
-	asmProgram, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.asmProgram)
+	asmProgram, errs := compiler.TranslateCircuit(environment, p.srcmap, &p.circuit, p.asmProgram, config)
 	// Sanity check for errors
 	if len(errs) > 0 {
 		return asm.MacroHirProgram{}, SourceMap{}, errs
