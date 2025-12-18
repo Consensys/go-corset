@@ -62,7 +62,9 @@ func Test_AsmUtil_Log2(t *testing.T) {
 func Test_AsmUtil_Log256(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/log256", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
-
+func Test_AsmUtil_Max2(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/util/max2", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+}
 func Test_AsmUtil_Max3(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/util/max3", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }

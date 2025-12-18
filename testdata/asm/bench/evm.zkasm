@@ -175,6 +175,24 @@ const G_EXPBYTE = 50
 const G_NEWACCOUNT = 25000
 const G_TXCREATE = 32000
 const G_WARMACCESS = 100
+;; precompiles
+const G_ECDSA = 3000
+const G_BNADD = 150
+const G_BNMUL = 6000
+const G_POINT_EVALUATION = 50000
+const G_BLS_G1_ADD = 375
+const G_BLS_G2_ADD = 600
+const G_BLS_G1_MSM_MAX_DISCOUNT = 519
+const G_BLS_G2_MSM_MAX_DISCOUNT = 524
+const G_BLS_G1_MSM_MULTIPLICATION_COST = 12000
+const G_BLS_G2_MSM_MULTIPLICATION_COST = 22500
+const G_BLS_MAP_FP_TO_G1 = 5500
+const G_BLS_MAP_FP2_TO_G2 = 23800
+const G_BLS_PAIRING_CHECK = 37700
+const G_BLS_PAIRING_CHECK_PAIR = 32600
+const G_P256_VERIFY = 6900
+const G_QUADDIVISOR = 3
+const G_MODEXP_MIN = 500
 
 ;; =============================================================================
 ;; RLP*
@@ -189,4 +207,13 @@ const RLP_PREFIX_LIST_SHORT                     = 0xC0     ;; RLP prefix of a sh
 const RLP_PREFIX_LIST_LONG                      = 0xF7     ;; RLP prefix of a long list     (≥ 56 bytes), defined in the EYP = 247
 const RLP_PREFIX_FROM_LONG_TO_SHORT             = 0x37     ;; diff between short and long prefix = 55
 const RLP_FROM_INT_TO_LIST                      = 0x40     ;; diff between int and list prefix = 64
-const TWO_FIVE_SIX_POWER_FIFTEEN                = 0x01000000000000000000000000000000 ;; 
+const TWO_FIVE_SIX_POWER_FIFTEEN                = 0x01000000000000000000000000000000 ;;
+
+;; =============================================================================
+;; Misc
+;; =============================================================================
+const MAX_CODE_SIZE = 24576
+const MAX_INIT_CODE_SIZE = 49152
+;; 2^64 - 1
+const EIP2681_MAX_NONCE=18446744073709551615
+const EIP_7823_MODEXP_UPPER_BYTE_SIZE_BOUND=1024
