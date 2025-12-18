@@ -50,16 +50,17 @@ pub fn oob(INST=0x56 u16, DATA_1 u128, DATA_2 u128, DATA_3 u128, DATA_4 u128, DA
 ;; [out,binary]    DATA_8 = jump_must_be_attempted
 ;;
 oob_jumpi:
+   ;; check whether condition == 0
    if DATA_3 != 0 goto oob_jumpi_attempted
    if DATA_4 != 0 goto oob_jumpi_attempted
-   ;; condition==0 ==> jump not attempted
+   ;; yes, so jump not attempted
    if DATA_6 != 1 goto exit_f
-   ;; continue with JUMP checks
-   goto oob_jump
+   if DATA_7 != 0 goto exit_f
+   if DATA_8 != 0 goto exit_f
+   ;; success
+   return
 oob_jumpi_attempted:
    if DATA_6 != 0 goto exit_f
-   ;; fall thru to JUMP checks
-
 ;; -------------------------------------------------------------------
 ;; JUMP
 ;; -------------------------------------------------------------------
