@@ -543,7 +543,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	// Sanity check this is not an irregular lookup (since these are not
 	// currently supported) and, if so, provide a useful error message.
 	if len(errors) == 0 {
-		errors = t.checkForIrregularLookup(targets, sources)
+		errors = t.checkForIrregularLookup(targets, sources, decl.Targets, decl.Sources)
 	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
@@ -645,7 +645,7 @@ func (t *translator) checkLookupVector(vector lookup.Vector[word.BigEndian, hir.
 // the source will decompose into a single u160 limb, whilst the target will
 // decompose into a two u128 limbs.
 func (t *translator) checkForIrregularLookup(targets []lookup.Vector[word.BigEndian, hir.Term],
-	sources []lookup.Vector[word.BigEndian, hir.Term]) []SyntaxError {
+	sources []lookup.Vector[word.BigEndian, hir.Term], tgtTerms [][]ast.Expr, srcTerms [][]ast.Expr) []SyntaxError {
 	var (
 		n         = len(sources[0].Terms)
 		srcWidths = t.determineLookupBitwidths(sources)
@@ -653,11 +653,17 @@ func (t *translator) checkForIrregularLookup(targets []lookup.Vector[word.BigEnd
 		errors    []SyntaxError
 	)
 	//
-	for _, ith := range srcWidths {
-		for _, jth := range tgtWidths {
+	for i, ith := range srcWidths {
+		for j, jth := range tgtWidths {
 			for k := range n {
-				if t.isIrregularLookup(ith[k], jth[k]) {
-					panic("matched one")
+				// Check for error
+				switch t.isIrregularLookup(ith[k], jth[k]) {
+				case -1:
+					// source failure
+					errors = append(errors, *t.srcmap.SyntaxError(srcTerms[i][k], "irregular lookup detected"))
+				case 1:
+					// target failure
+					errors = append(errors, *t.srcmap.SyntaxError(tgtTerms[j][k], "irregular lookup detected"))
 				}
 			}
 		}
@@ -686,7 +692,7 @@ func (t *translator) determineLookupBitwidths(terms []lookup.Vector[word.BigEndi
 	return bitwidths
 }
 
-func (t *translator) isIrregularLookup(srcWidth, tgtWidth uint) bool {
+func (t *translator) isIrregularLookup(srcWidth, tgtWidth uint) int {
 	var (
 		srcLimbWidths = register.LimbWidths(t.config.RegisterWidth, srcWidth)
 		tgtLimbWidths = register.LimbWidths(t.config.RegisterWidth, tgtWidth)
@@ -698,17 +704,15 @@ func (t *translator) isIrregularLookup(srcWidth, tgtWidth uint) bool {
 			srcLast = i+1 == len(srcLimbWidths)
 			tgtLast = i+1 == len(tgtLimbWidths)
 		)
-		//
-		fmt.Printf("u%d into u%d (%t %t)\n", srcLimbWidths[i], tgtLimbWidths[i], srcLast, tgtLast)
 		// Check limbs
 		if srcLimbWidths[i] > tgtLimbWidths[i] && !tgtLast {
-			return true
+			return -1
 		} else if tgtLimbWidths[i] > srcLimbWidths[i] && !srcLast {
-			return true
+			return 1
 		}
 	}
 	//
-	return false
+	return 0
 }
 
 // Translate a "definrange" declaration.
