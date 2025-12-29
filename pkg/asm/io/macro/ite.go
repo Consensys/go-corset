@@ -17,12 +17,9 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
-	"github.com/consensys/go-corset/pkg/asm/io/macro/expr"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/math"
-	"github.com/consensys/go-corset/pkg/util/poly"
 )
 
 // IfThenElse represents a ternary operation.
@@ -31,9 +28,9 @@ type IfThenElse struct {
 	// Cond indicates the condition
 	Cond uint8
 	// Left-hand side
-	Left expr.AtomicExpr
+	Left io.RegisterId
 	// Right-hand side
-	Right expr.AtomicExpr
+	Right big.Int
 	// Then/Else branches
 	Then, Else big.Int
 }
@@ -41,17 +38,17 @@ type IfThenElse struct {
 // Execute implementation for Instruction interface.
 func (p *IfThenElse) Execute(state io.State) uint {
 	var (
-		lhs   = p.Left.Eval(state.Internal())
-		rhs   = p.Right.Eval(state.Internal())
+		lhs   *big.Int = state.Load(p.Left)
+		rhs   *big.Int = &p.Right
 		value big.Int
 		taken bool
 	)
 	// Check whether taken or not.
 	switch p.Cond {
 	case EQ:
-		taken = lhs.Cmp(&rhs) == 0
+		taken = lhs.Cmp(rhs) == 0
 	case NEQ:
-		taken = lhs.Cmp(&rhs) != 0
+		taken = lhs.Cmp(rhs) != 0
 	default:
 		panic("unreachable")
 	}
@@ -69,59 +66,21 @@ func (p *IfThenElse) Execute(state io.State) uint {
 
 // Lower implementation for Instruction interface.
 func (p *IfThenElse) Lower(pc uint) micro.Instruction {
-	var (
-		codes      []micro.Code
-		thenBranch agnostic.Polynomial
-		elseBranch agnostic.Polynomial
-		lhs        io.RegisterId
-		rhs        micro.Expr
-	)
-	//
-	thenBranch.Set(poly.NewMonomial[io.RegisterId](p.Then))
-	elseBranch.Set(poly.NewMonomial[io.RegisterId](p.Else))
-	// normalise left / right
-	if c, ok := p.Left.(*expr.Const); ok {
-		lhs = p.Right.(*expr.RegAccess).Register
-		rhs = micro.NewConstant(c.Constant)
-	} else if c, ok := p.Right.(*expr.Const); ok {
-		lhs = p.Left.(*expr.RegAccess).Register
-		rhs = micro.NewConstant(c.Constant)
-	} else {
-		lhs = p.Left.(*expr.RegAccess).Register
-		rhs = p.Right.(*expr.RegAccess).ToMicroExpr()
+	code := &micro.Ite{
+		Targets: p.Targets,
+		Cond:    p.Cond,
+		Left:    p.Left,
+		Right:   p.Right,
+		Then:    p.Then,
+		Else:    p.Else,
 	}
 	//
-	switch p.Cond {
-	case EQ:
-		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
-			// Then branch
-			&micro.Assign{Targets: p.Targets, Source: thenBranch},
-			&micro.Jmp{Target: pc + 1},
-			// Else branch
-			&micro.Assign{Targets: p.Targets, Source: elseBranch},
-			&micro.Jmp{Target: pc + 1},
-		}
-	case NEQ:
-		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
-			// Then branch
-			&micro.Assign{Targets: p.Targets, Source: elseBranch},
-			&micro.Jmp{Target: pc + 1},
-			// Else branch
-			&micro.Assign{Targets: p.Targets, Source: thenBranch},
-			&micro.Jmp{Target: pc + 1},
-		}
-	default:
-		panic("unreachable")
-	}
-	//
-	return micro.Instruction{Codes: codes}
+	return micro.NewInstruction(code, &micro.Jmp{Target: pc + 1})
 }
 
 // RegistersRead implementation for Instruction interface.
 func (p *IfThenElse) RegistersRead() []io.RegisterId {
-	return expr.RegistersRead(p.Left, p.Right)
+	return []io.RegisterId{p.Left}
 }
 
 // RegistersWritten implementation for Instruction interface.
@@ -133,8 +92,8 @@ func (p *IfThenElse) String(fn schema.RegisterMap) string {
 	var (
 		regs    = fn.Registers()
 		targets = io.RegistersReversedToString(p.Targets, regs)
-		left    = p.Left.String(fn)
-		right   = p.Right.String(fn)
+		left    = regs[p.Left.Unwrap()].Name
+		right   = p.Right.String()
 		tb      = p.Then.String()
 		fb      = p.Else.String()
 		op      string

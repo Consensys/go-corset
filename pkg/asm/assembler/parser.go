@@ -561,13 +561,13 @@ func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Inst
 
 func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {
 	var (
-		errs     []source.SyntaxError
-		tb, fb   big.Int
-		lhs, rhs macro.AtomicExpr
-		cond     uint8
+		errs        []source.SyntaxError
+		lhs         io.RegisterId
+		rhs, tb, fb big.Int
+		cond        uint8
 	)
 	// Parse left hand side
-	if lhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
+	if lhs, errs = p.parseVariable(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// save lookahead for error reporting
@@ -575,14 +575,8 @@ func (p *Parser) parseTernaryRhs(targets []io.RegisterId, env *Environment) (mac
 		return nil, errs
 	}
 	// Parse right hand side
-	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseNumber(env); len(errs) > 0 {
 		return nil, errs
-	}
-	// sanity check
-	if _, lhsConst := lhs.(*expr.Const); lhsConst {
-		if _, rhsConst := rhs.(*expr.Const); rhsConst {
-			return nil, p.syntaxErrors(p.tokens[p.index-1], "branch always (or never) taken")
-		}
 	}
 	// expect question mark
 	if _, errs = p.expect(QMARK); len(errs) > 0 {

@@ -204,8 +204,6 @@ func (p *Linker) linkInstruction(insn macro.Instruction, buses map[uint]io.Bus) 
 		return p.linkExprs(insn.Sources...)
 	case *macro.IfGoto:
 		return p.linkExprs(insn.Left, insn.Right)
-	case *macro.IfThenElse:
-		return p.linkExprs(insn.Left, insn.Right)
 	default:
 		// continue
 	}
