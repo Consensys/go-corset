@@ -30,6 +30,10 @@ type ArrayPoly[S util.Comparable[S]] struct {
 
 // Len returns the number of terms in this polynomial.
 func (p *ArrayPoly[S]) Len() uint {
+	if p == nil {
+		return 0
+	}
+	//
 	return uint(len(p.terms))
 }
 

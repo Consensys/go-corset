@@ -98,7 +98,7 @@ func (p *Division) RegistersWritten() []io.RegisterId {
 }
 
 // Split implementation for Code interface.
-func (p *Division) Split(mapping schema.RegisterAllocator) []Code {
+func (p *Division) Split(mapping schema.RegisterLimbsMap, _ schema.RegisterAllocator) []Code {
 	//
 	return []Code{&Division{
 		Quotient:  p.Quotient.Split(mapping),

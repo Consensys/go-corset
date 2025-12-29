@@ -77,7 +77,7 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Skip) Split(mapping schema.RegisterAllocator) []Code {
+func (p *Skip) Split(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code {
 	//
 	if p.Right.HasSecond() {
 		return splitRegConst(p.Left, p.Right.Second(), p.Skip, mapping)
