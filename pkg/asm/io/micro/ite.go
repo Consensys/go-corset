@@ -88,14 +88,14 @@ func (p *Ite) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Ite) Split(env schema.RegisterAllocator) []Code {
+func (p *Ite) Split(mapping schema.RegisterLimbsMap, _ schema.RegisterAllocator) []Code {
 	// Split targets
-	targets := agnostic.ApplyMapping(env, p.Targets...)
+	targets := agnostic.ApplyMapping(mapping, p.Targets...)
 	// Split left-hand register
-	left := agnostic.ApplyMapping(env, p.Left)
+	left := agnostic.ApplyMapping(mapping, p.Left)
 	// Sanity check for nwo
 	if len(left) != 1 {
-		panic(fmt.Sprintf("if-then-else cannot split register \"%s\"", env.Register(p.Left).Name))
+		panic(fmt.Sprintf("if-then-else cannot split register \"%s\"", mapping.Register(p.Left).Name))
 	}
 	// Construct split instruction
 	code := &Ite{targets, p.Cond, left[0], p.Right, p.Then, p.Else}

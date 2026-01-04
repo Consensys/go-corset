@@ -60,3 +60,19 @@ func (p *StateTranslator[F, T, E, M]) translateJmp(cc uint, codes []micro.Code) 
 func (p *StateTranslator[F, T, E, M]) translateRet() E {
 	return p.Terminate()
 }
+
+// Translate this instruction into low-level constraints.
+func (p *StateTranslator[F, T, E, M]) translateDivision(cc uint, codes []micro.Code) E {
+	var (
+		code = codes[cc].(*micro.Division)
+		// havoc registers to simulate a write by the computation.
+		_ = p.WriteRegisters(code.Quotient.Registers())
+		_ = p.WriteRegisters(code.Remainder.Registers())
+		_ = p.WriteRegisters(code.Witness.Registers())
+	)
+	// NOTE: the division instruction is an unsafe computation which does not
+	// generate any constraints.  Rather, it follows the "compute & check"
+	// paradigm.  That is, constraints are generated from assertions inserted when
+	// the macro instruction is lowered into the micro form.
+	return p.translateCode(cc+1, codes)
+}

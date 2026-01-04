@@ -49,7 +49,7 @@ func (p *Jmp) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Jmp) Split(env schema.RegisterAllocator) []Code {
+func (p *Jmp) Split(_ schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code {
 	return []Code{p}
 }
 

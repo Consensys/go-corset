@@ -26,6 +26,15 @@ type Sub struct {
 	Exprs []Expr
 }
 
+// Equals implementation for the Expr interface.
+func (p *Sub) Equals(e Expr) bool {
+	if e, ok := e.(*Sub); ok {
+		return EqualsAll(p.Exprs, e.Exprs)
+	}
+	//
+	return false
+}
+
 // Eval implementation for the Expr interface.
 func (p *Sub) Eval(env []big.Int) big.Int {
 	var result big.Int

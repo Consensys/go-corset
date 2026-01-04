@@ -99,6 +99,8 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 		written = code.RegistersWritten()
 	case *micro.Ite:
 		written = code.RegistersWritten()
+	case *micro.Division:
+		written = code.RegistersWritten()
 	case *micro.Jmp:
 		if code.Target == target {
 			// Prevent inlining multiple times.
@@ -189,10 +191,9 @@ func retargetSkip(cc uint, npc uint, code micro.Skip, mapping []uint) micro.Code
 	target = target - npc - 1
 	//
 	return &micro.Skip{
-		Left:     code.Left,
-		Right:    code.Right,
-		Constant: code.Constant,
-		Skip:     target,
+		Left:  code.Left,
+		Right: code.Right,
+		Skip:  target,
 	}
 }
 

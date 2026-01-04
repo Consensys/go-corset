@@ -27,24 +27,20 @@ import (
 // is indiciated when the right register is marked as UNUSED.
 type Skip struct {
 	// Left and right comparisons
-	Left, Right io.RegisterId
+	Left io.RegisterId
 	//
-	Constant big.Int
+	Right Expr
 	// Skip
 	Skip uint
 }
 
 // Clone this micro code.
 func (p *Skip) Clone() Code {
-	var constant big.Int
-	//
-	constant.Set(&p.Constant)
 	//
 	return &Skip{
-		Left:     p.Left,
-		Right:    p.Right,
-		Constant: constant,
-		Skip:     p.Skip,
+		Left:  p.Left,
+		Right: p.Right,
+		Skip:  p.Skip,
 	}
 }
 
@@ -55,14 +51,8 @@ func (p *Skip) Clone() Code {
 func (p *Skip) MicroExecute(state io.State) (uint, uint) {
 	var (
 		lhs = state.Load(p.Left)
-		rhs *big.Int
+		rhs = p.Right.Eval(state)
 	)
-	//
-	if p.Right.IsUsed() {
-		rhs = state.Load(p.Right)
-	} else {
-		rhs = &p.Constant
-	}
 	//
 	if lhs.Cmp(rhs) != 0 {
 		return 1 + p.Skip, 0
@@ -73,8 +63,8 @@ func (p *Skip) MicroExecute(state io.State) (uint, uint) {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *Skip) RegistersRead() []io.RegisterId {
-	if p.Right.IsUsed() {
-		return []io.RegisterId{p.Left, p.Right}
+	if p.Right.HasFirst() {
+		return []io.RegisterId{p.Left, p.Right.First()}
 	}
 	//
 	return []io.RegisterId{p.Left}
@@ -87,64 +77,84 @@ func (p *Skip) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Skip) Split(env schema.RegisterAllocator) []Code {
-	// NOTE: we can assume left and right have matching bitwidths
-	var (
-		lhsLimbs = env.LimbIds(p.Left)
-		ncodes   []Code
-		n        = uint(len(lhsLimbs))
-		skip     = p.Skip + n - 1
-	)
+func (p *Skip) Split(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code {
 	//
-	if p.Right.IsUsed() {
-		rhsLimbs := env.LimbIds(p.Right)
-		//
-		for i := range n {
-			ncode := &Skip{lhsLimbs[i], rhsLimbs[i], p.Constant, skip - i}
-			ncodes = append(ncodes, ncode)
-		}
-	} else {
-		lhsLimbWidths := agnostic.WidthsOfLimbs(env, lhsLimbs)
-		constantLimbs := agnostic.SplitConstant(p.Constant, lhsLimbWidths...)
-		//
-		for i := range n {
-			ncode := &Skip{lhsLimbs[i], schema.NewUnusedRegisterId(), constantLimbs[i], skip - i}
-			ncodes = append(ncodes, ncode)
-		}
+	if p.Right.HasSecond() {
+		return splitRegConst(p.Left, p.Right.Second(), p.Skip, mapping)
 	}
-
-	return ncodes
+	//
+	return splitRegReg(p.Left, p.Right.First(), p.Skip, mapping)
 }
 
 func (p *Skip) String(fn schema.RegisterMap) string {
 	var (
 		l = fn.Register(p.Left).Name
+		r = p.Right.String(fn)
 	)
 	//
-	if p.Right.IsUsed() {
-		return fmt.Sprintf("skip %s!=%s %d", l, fn.Register(p.Right).Name, p.Skip)
-	}
-	//
-	return fmt.Sprintf("skip %s!=%s %d", l, p.Constant.String(), p.Skip)
+	return fmt.Sprintf("skip %s!=%s %d", l, r, p.Skip)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
 func (p *Skip) Validate(fieldWidth uint, fn schema.RegisterMap) error {
-	var lw = fn.Register(p.Left).Width
+	var (
+		lw = fn.Register(p.Left).Width
+		rw = p.Right.Bitwidth(fn)
+	)
 	//
-	if p.Right.IsUsed() {
-		rw := fn.Register(p.Right).Width
+	if p.Right.HasSecond() {
 		//
-		if lw != rw {
-			return fmt.Errorf("bit mismatch (u%d vs u%d)", lw, rw)
-		}
-	} else {
-		cw := uint(p.Constant.BitLen())
-		//
-		if lw < cw {
-			return fmt.Errorf("bit overflow (u%d into u%d)", lw, cw)
+		if lw < rw {
+			return fmt.Errorf("bit overflow (u%d into u%d)", lw, rw)
 		}
 	}
 	//
 	return nil
+}
+
+func splitRegConst(left io.RegisterId, right big.Int, skip uint, mapping schema.RegisterLimbsMap) []Code {
+	var (
+		lhsLimbs = mapping.LimbIds(left)
+		ncodes   []Code
+		n        = uint(len(lhsLimbs))
+	)
+	//
+	skip = skip + n - 1
+	//
+	lhsLimbWidths := agnostic.WidthsOfLimbs(mapping, lhsLimbs)
+	constantLimbs := agnostic.SplitConstant(right, lhsLimbWidths...)
+	//
+	for i := range n {
+		ncode := &Skip{lhsLimbs[i], NewConstant(constantLimbs[i]), skip - i}
+		ncodes = append(ncodes, ncode)
+	}
+	//
+	return ncodes
+}
+
+func splitRegReg(left, right io.RegisterId, skip uint, mapping schema.RegisterLimbsMap) []Code {
+	var (
+		lhsLimbs   = mapping.LimbIds(left)
+		rhsLimbs   = mapping.LimbIds(right)
+		ncodes     []Code
+		nLhs, nRhs = uint(len(lhsLimbs)), uint(len(rhsLimbs))
+		n          = max(nLhs, nRhs)
+	)
+	//
+	skip = skip + n - 1
+	//
+	for i := range n {
+		var ncode Code
+		if i < nLhs && i < nRhs {
+			ncode = &Skip{lhsLimbs[i], NewRegister(rhsLimbs[i]), skip - i}
+		} else if i < nLhs {
+			ncode = &Skip{lhsLimbs[i], NewConstant64(0), skip - i}
+		} else {
+			ncode = &Skip{rhsLimbs[i], NewConstant64(0), skip - i}
+		}
+		//
+		ncodes = append(ncodes, ncode)
+	}
+	//
+	return ncodes
 }

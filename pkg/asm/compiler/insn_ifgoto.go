@@ -109,18 +109,18 @@ func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code)
 func extend(tail BranchCondition, sign bool, code *micro.Skip) BranchCondition {
 	var (
 		head      BranchEquality
-		rightUsed = code.Right.IsUsed()
+		rightUsed = code.Right.HasFirst()
 	)
 	//
 	switch {
 	case sign && rightUsed:
-		head = logical.Equals(code.Left, code.Right)
+		head = logical.Equals(code.Left, code.Right.First())
 	case sign && !rightUsed:
-		head = logical.EqualsConst(code.Left, code.Constant)
+		head = logical.EqualsConst(code.Left, code.Right.Second())
 	case !sign && rightUsed:
-		head = logical.NotEquals(code.Left, code.Right)
+		head = logical.NotEquals(code.Left, code.Right.First())
 	case !sign && !rightUsed:
-		head = logical.NotEqualsConst(code.Left, code.Constant)
+		head = logical.NotEqualsConst(code.Left, code.Right.Second())
 	}
 	// NOTE: the reason this method is needed is because we have no implicit
 	// rerpesentation of logical truth or falsehood.  This means an empty path

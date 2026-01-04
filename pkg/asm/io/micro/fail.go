@@ -49,7 +49,7 @@ func (p *Fail) RegistersWritten() []io.RegisterId {
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Fail) Split(env schema.RegisterAllocator) []Code {
+func (p *Fail) Split(_ schema.RegisterLimbsMap, _ schema.RegisterAllocator) []Code {
 	return []Code{p}
 }
 

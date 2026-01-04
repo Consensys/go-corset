@@ -57,6 +57,19 @@ func Test_AsmUnit_Diff(t *testing.T) {
 		sc.GF_8209, sc.GF_251)
 }
 
+func Test_AsmUnit_Div(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/div", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+}
+func Test_AsmUnit_DivSeq(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/div_seq", util.ASM_MAX_PADDING, sc.BLS12_377,
+		sc.KOALABEAR_16, sc.GF_8209)
+}
+func Test_AsmUnit_Div7(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/div7", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+}
+func Test_AsmUnit_Div16383(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/div16383", util.ASM_MAX_PADDING, sc.BLS12_377, sc.KOALABEAR_16)
+}
 func Test_AsmUnit_FastPow(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/fast_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
@@ -94,6 +107,11 @@ func Test_AsmUnit_MixedLarge(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/mixed_large", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
 
+func Test_AsmUnit_RecPow(t *testing.T) {
+	// GF_8209 causes malformed assignment
+	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, sc.BLS12_377,
+		sc.KOALABEAR_16)
+}
 func Test_AsmUnit_SlowPow(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/slow_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
 }
@@ -103,10 +121,10 @@ func Test_AsmUnit_Sub(t *testing.T) {
 		sc.GF_251)
 }
 
-func Test_AsmUnit_RecPow(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/rec_pow", util.ASM_MAX_PADDING, sc.BLS12_377)
-}
-
-func Test_Asm_And(t *testing.T) {
+func Test_AsmUnit_And(t *testing.T) {
 	util.Check(t, false, "asm/unit/and")
+}
+func Test_AsmUnit_Ternary2(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/ternary2", util.ASM_MAX_PADDING, sc.BLS12_377,
+		sc.KOALABEAR_16)
 }

@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -28,6 +29,20 @@ type Const struct {
 	Label    string
 	Constant big.Int
 	Base     uint
+}
+
+// ToMicroExpr implementation for AtomicExpr interface
+func (p *Const) ToMicroExpr() micro.Expr {
+	return micro.NewConstant(p.Constant)
+}
+
+// Equals implementation for the Expr interface.
+func (p *Const) Equals(e Expr) bool {
+	if e, ok := e.(*Const); ok {
+		return p.Constant.Cmp(&e.Constant) == 0
+	}
+	//
+	return false
 }
 
 // Eval implementation for the Expr interface.

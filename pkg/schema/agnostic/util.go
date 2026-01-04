@@ -18,6 +18,21 @@ import (
 	sc "github.com/consensys/go-corset/pkg/schema"
 )
 
+// CombinedWidthOfRegisters returns the combined bitwidth of all limbs.  For example,
+// suppose we have three limbs: x:u8, y:u8, z:u11.  Then the combined width is
+// 8+8+11=27.
+func CombinedWidthOfRegisters(mapping sc.RegisterMap, registers ...sc.LimbId) uint {
+	var (
+		width uint
+	)
+	//
+	for _, rid := range registers {
+		width += mapping.Register(rid).Width
+	}
+	//
+	return width
+}
+
 // ApplyMapping applies a given mapping to a set of registers producing a
 // corresponding set of limbs.  In essence, each register is convert to its
 // limbs in turn, and these are all appended together in order of ococurence.

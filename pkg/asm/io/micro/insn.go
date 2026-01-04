@@ -44,7 +44,7 @@ type Code interface {
 	String(schema.RegisterMap) string
 	// Split this micro code using registers of arbirary width into one or more
 	// micro codes using registers of a fixed maximum width.
-	Split(env schema.RegisterAllocator) []Code
+	Split(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) []Code
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.  The maximum bit capacity of the underlying field is
@@ -165,26 +165,26 @@ func (p Instruction) RegistersWritten() []io.RegisterId {
 // challenge for this method is the correct handling of skip instructions.
 // Specifically, the targets for a skip change as the number of instructions
 // increase.
-func (p Instruction) SplitRegisters(env schema.RegisterAllocator) Instruction {
+func (p Instruction) SplitRegisters(mapping schema.RegisterLimbsMap, env schema.RegisterAllocator) Instruction {
 	var (
 		ncodes  []Code
 		packets [][]Code = make([][]Code, len(p.Codes))
-		mapping []uint   = make([]uint, len(p.Codes))
+		targets []uint   = make([]uint, len(p.Codes))
 		index   uint
 	)
 	// Split micro-codes whilst retaining original indices.
 	for i, code := range p.Codes {
-		packets[i] = code.Split(env)
+		packets[i] = code.Split(mapping, env)
 	}
 	// Construct mapping
-	for i := range mapping {
-		mapping[i] = index
+	for i := range targets {
+		targets[i] = index
 		index += uint(len(packets[i]))
 	}
 	// Finalise skip targets
 	for i, packet := range packets {
 		for j, c := range packet {
-			c = retargetInsn(uint(i), uint(j), uint(len(packet)), c, mapping)
+			c = retargetInsn(uint(i), uint(j), uint(len(packet)), c, targets)
 			ncodes = append(ncodes, c)
 		}
 	}
@@ -269,8 +269,7 @@ func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []ui
 	nTarget := mapping[target]
 	//
 	return &Skip{Left: skip.Left,
-		Right:    skip.Right,
-		Constant: skip.Constant,
-		Skip:     nTarget - newIndex - 1,
+		Right: skip.Right,
+		Skip:  nTarget - newIndex - 1,
 	}
 }

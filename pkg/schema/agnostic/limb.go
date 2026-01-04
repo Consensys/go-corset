@@ -39,21 +39,19 @@ func NumberOfLimbs(maxRegisterWidth uint, registerWidth uint) uint {
 // limbs.  Assuming n > 1, then n-1 of these will have the same "common" width.
 // The remaining limb is referred to as the residue, and may have a different
 // width (usually smaller, but this is not a requirement).
-func CommonLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
+func commonLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
 	var (
 		// Determine how many limbs required
 		n = NumberOfLimbs(maxRegisterWidth, registerWidth)
 		// Determine average limb width
-		width = registerWidth / n
-		//
-		acc = uint(1)
+		avgWidth = uint(1)
 	)
 	// Now, round up our average limb width to the nearest power of two.  This
 	// is because we "prefer" widths to be powers of two.
-	for ; acc < width; acc = acc * 2 {
+	for ; (avgWidth*n) < registerWidth && (avgWidth*2 <= maxRegisterWidth); avgWidth = avgWidth * 2 {
 	}
 	//
-	return acc
+	return avgWidth
 }
 
 // WidthsOfLimbs returns the limb bitwidths corresponding to a given set of
@@ -92,31 +90,21 @@ func CombinedWidthOfLimbs(mapping sc.RegisterLimbsMap, limbs ...sc.LimbId) uint 
 // bits than the maximum allowed.
 func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 	var (
-		nlimbs = NumberOfLimbs(maxWidth, r.Width)
-		limbs  = make([]sc.Register, nlimbs)
-		width  = r.Width
+		nlimbs     = NumberOfLimbs(maxWidth, r.Width)
+		limbs      = make([]sc.Register, nlimbs)
+		limbWidths = LimbWidths(maxWidth, r.Width)
 		// Split padding value
-		padding = SplitConstant(r.Padding, LimbWidths(maxWidth, r.Width)...)
+		padding = SplitConstant(r.Padding, limbWidths...)
 	)
 	// Special case when register doesn't require splitting.  This is useful
 	// because we want to retain the original register name exactly.
-	if nlimbs == 1 {
+	if nlimbs <= 1 {
 		return []sc.Register{r}
 	}
 	//
-	maxWidth = CommonLimbWidth(maxWidth, width)
-	//
 	for i := range nlimbs {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
-		ith_width := min(maxWidth, width)
-		limbs[i] = sc.Register{
-			Name:    ith_name,
-			Kind:    r.Kind,
-			Width:   ith_width,
-			Padding: padding[i],
-		}
-		//
-		width -= maxWidth
+		limbs[i] = sc.NewRegister(r.Kind, ith_name, limbWidths[i], padding[i])
 	}
 	//
 	return limbs
@@ -125,15 +113,35 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 // LimbWidths determines the limb widths for any register of the given size.
 func LimbWidths(maxWidth, regWidth uint) []uint {
 	var (
-		nlimbs     = NumberOfLimbs(maxWidth, regWidth)
-		limbWidths = make([]uint, nlimbs)
+		nlimbs       = NumberOfLimbs(maxWidth, regWidth)
+		limbWidths   = make([]uint, nlimbs)
+		bitsLeft     = regWidth
+		accLimbWidth uint
 	)
 	//
-	maxWidth = CommonLimbWidth(maxWidth, regWidth)
+	commonWidth := commonLimbWidth(maxWidth, regWidth)
 	//
 	for i := range nlimbs {
-		limbWidths[i] = min(maxWidth, regWidth)
-		regWidth -= maxWidth
+		if i+1 != nlimbs {
+			// internal limbs get common width
+			limbWidths[i] = min(commonWidth, bitsLeft)
+		} else {
+			// last limb gets remaining bits
+			limbWidths[i] = bitsLeft
+		}
+		//
+		accLimbWidth += limbWidths[i]
+		bitsLeft -= limbWidths[i]
+		// Sanity check requirements met
+		if limbWidths[i] > maxWidth {
+			panic(fmt.Sprintf(
+				"internal failure (limb width u%d exceeds maximum register width u%d)", limbWidths[i], maxWidth))
+		}
+	}
+	// Sanity check
+	if accLimbWidth != regWidth {
+		panic(fmt.Sprintf(
+			"internal failure (register width u%d does not match combined limb widths u%d)", regWidth, accLimbWidth))
 	}
 	//
 	return limbWidths

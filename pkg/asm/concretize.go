@@ -125,20 +125,21 @@ func subdivideProgram(mapping schema.LimbsMap, p MicroProgram) MicroProgram {
 // SplitRegisters method (which we want to avoid right now).
 func subdivideFunction(mapping sc.LimbsMap, fn MicroFunction) MicroFunction {
 	var (
+		modmap = mapping.ModuleOf(fn.Name())
 		// Construct suitable splitting environment
-		env = sc.NewAllocator(mapping.ModuleOf(fn.Name()))
+		env = sc.NewAllocator(modmap.LimbsMap())
 		// Updated instruction sequence
 		ninsns []micro.Instruction
 		nbuses []io.Bus = make([]io.Bus, len(fn.Buses()))
 	)
 	// Split instructions
 	for _, insn := range fn.Code() {
-		ninsns = append(ninsns, insn.SplitRegisters(env))
+		ninsns = append(ninsns, insn.SplitRegisters(modmap, env))
 	}
 	// Split buses
 	for i, bus := range fn.Buses() {
-		nbuses[i] = bus.Split(env)
+		nbuses[i] = bus.Split(modmap)
 	}
 	// Done
-	return io.NewFunction(fn.Name(), fn.IsPublic(), env.Limbs(), nbuses, ninsns)
+	return io.NewFunction(fn.Name(), fn.IsPublic(), env.Registers(), nbuses, ninsns)
 }
