@@ -760,22 +760,6 @@ func (p *Parser) parseAtomicExpr(env *Environment) (macro.AtomicExpr, []source.S
 	return expr, errs
 }
 
-func (p *Parser) parseNumber(env *Environment) (big.Int, []source.SyntaxError) {
-	var (
-		lookahead = p.lookahead()
-		val       big.Int
-		errs      []source.SyntaxError
-	)
-	// Expecting number
-	if _, errs = p.expect(NUMBER); len(errs) > 0 {
-		return val, errs
-	}
-	//
-	val, errs = p.number(lookahead)
-	//
-	return val, errs
-}
-
 // Parse sequence of one or more expressions separated by a comma.
 func (p *Parser) parseExprList(env *Environment) ([]macro.Expr, []source.SyntaxError) {
 	var (
