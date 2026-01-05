@@ -59,7 +59,7 @@ func summariseModule[F any](mod schema.Module[F], summarisers []ModuleSummariser
 		row = make([]termio.FormattedText, len(summarisers)+1)
 	)
 	//
-	row[0] = termio.NewText(mod.Name().String())
+	row[0] = termio.NewText(mod.Name())
 	//
 	for i, s := range summarisers {
 		summary := fmt.Sprintf("%d", s.summary(mod))
