@@ -173,18 +173,25 @@ fn oob_prc_pricing(inst=0xFF01 u16, callee_gas u128, cds u32, r_c u128) -> (succ
   var b u1
   ;; calculate r@c != 0
   rc_nz = r_c != 0 ? 1 : 0
-  ;; cds validity
-  cds_valid = oob_cds_valid(inst,cds)
-  if cds_valid == 0 goto exit_f
   ;; calculate gas_cost
   gas_cost = oob_gas_cost(inst, cds)
   ;; check gas_cost <= callee_gas
   b, delta = callee_gas - gas_cost
   if b != 0 goto exit_f
+  ;; cds validity
+  cds_valid = oob_cds_valid(inst,cds)
+  if inst == OOB_INST_P256_VERIFY goto p256verify
+  if cds_valid == 0 goto exit_f
   success = 1
   return_gas = delta
   extract_call_data = cds != 0 ? 1 : 0
   empty_call_data = inst == OOB_INST_P256_VERIFY ? 0 : 1 - extract_call_data
+  return
+p256verify:
+  success = 1
+  return_gas = delta
+  extract_call_data = cds == 160 ? 1 : 0
+  empty_call_data = 0
   return
 exit_f:
   success = 0
@@ -211,9 +218,9 @@ fn oob_cds_valid(INST=0xFF01 u16, call_data_size u32) -> (cds_valid=1 u1) {
   if INST == OOB_INST_BLS_G2_ADD goto cds_512
   if INST == OOB_INST_BLS_MAP_FP_TO_G1 goto cds_64
   if INST == OOB_INST_BLS_MAP_FP2_TO_G2 goto cds_128
-  if INST == OOB_INST_BLS_G1_MSM goto cds_mod160
-  if INST == OOB_INST_BLS_G2_MSM goto cds_mod288
-  if INST == OOB_INST_BLS_PAIRING_CHECK goto cds_mod384
+  if INST == OOB_INST_BLS_G1_MSM goto cds_mod160nz
+  if INST == OOB_INST_BLS_G2_MSM goto cds_mod288nz
+  if INST == OOB_INST_BLS_PAIRING_CHECK goto cds_mod384nz
   ;; default case
   goto exit_s
 cds_64:
@@ -234,26 +241,29 @@ cds_256:
 cds_512:
   if call_data_size == 512 goto exit_s
   goto exit_f
-cds_mod160:
-  ;; check cds%160==0
+cds_mod160nz:
+  ;; check cds%160==0 ∧ cds!=0
   divisor = 160
-  goto cds_mod
+  goto cds_mod_nz
 cds_mod192:
   ;; check cds%192==0
   divisor = 192
   goto cds_mod
-cds_mod288:
-  ;; check cds%288==0
+cds_mod288nz:
+  ;; check cds%288==0 ∧ cds!=0
   divisor = 288
-  goto cds_mod
-cds_mod384:
-  ;; check cds%384==0
+  goto cds_mod_nz
+cds_mod384nz:
+  ;; check cds%384==0 ∧ cds!=0
   divisor = 384
-  goto cds_mod
+  goto cds_mod_nz
+cds_mod_nz:
+  ;; ensure cds != 0
+  if call_data_size == 0 goto exit_f
 cds_mod:
-  ;; compute cds%288
+  ;; compute cds%n
   quot,rem,wit,sum,witsum = call_data_size / divisor
-  ;; check cds%288==0
+  ;; check cds%n==0
   if rem==0 goto exit_s
   goto exit_f
 exit_f:
