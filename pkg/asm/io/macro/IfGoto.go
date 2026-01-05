@@ -174,6 +174,12 @@ func (p *IfGoto) Validate(fieldWidth uint, fn register.Map) error {
 			return fmt.Errorf("never taken")
 		}
 	}
+	// sanity check
+	if _, lhsConst := p.Left.(*expr.Const); lhsConst {
+		if _, rhsConst := p.Right.(*expr.Const); rhsConst {
+			return fmt.Errorf("branch always (or never) taken")
+		}
+	}
 	//
 	return nil
 }
