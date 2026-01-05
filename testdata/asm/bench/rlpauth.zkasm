@@ -1,8 +1,8 @@
 ;; https://eips.ethereum.org/EIPS/eip-7702
 
 ;; TODO: do we have an shared notation for constants, function arguments...?
-;; TODO: here we can directly have secp256k1n_divided_by_two
-const SECP256K1N = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+;; const SECP256K1N = 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f
+const SECP256K1N_DIVIDED_BY_TWO = 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffff7ffffe17
 const MAGIC = 0x05
 
 fn rlpauth(chain_id u256, nonce u64, address u160, y_parity u8, r u256, s u256) -> (authority u160, error u1)
@@ -20,13 +20,10 @@ fn rlpauth(chain_id u256, nonce u64, address u160, y_parity u8, r u256, s u256) 
         fail
     ;; step_2 is implicitly succeseful due to nonce being declared as u64
     step_3:
-        ;; Divide SECP256K1N by 2
-        var secp256k1n_divided_by_two u256
+        ;; Check that s <= SECP256K1N_DIVIDED_BY_TWO
         var b u1
-        secp256k1n_divided_by_two, b = SECP256K1N
-        ;; Check that s <= SECP256K1N / 2
         var tmp u256
-        b, tmp = s - secp256k1n_divided_by_two
+        b, tmp = s - SECP256K1N_DIVIDED_BY_TWO
         if b == 1 goto failure
         ;;
         var rlp_res u256
