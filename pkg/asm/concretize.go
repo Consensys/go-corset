@@ -109,7 +109,7 @@ func Compile[F Element[F]](p MicroMirProgram[F]) UniformSchema[F] {
 	comp.Compile(p.program)
 	// Copy over compiled components
 	for i, m := range comp.Modules() {
-		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
+		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](m.Module)
 	}
 	// Concretize legacy components
 	copy(modules[n:], p.Externs())

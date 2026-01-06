@@ -35,7 +35,7 @@ type ModuleBuilder[F field.Element[F]] = ir.ModuleBuilder[F, mir.Constraint[F], 
 
 // MirModule provides a wrapper around a corset-level module declaration.
 type MirModule[F field.Element[F]] struct {
-	Module *ModuleBuilder[F]
+	Module ModuleBuilder[F]
 }
 
 // Initialise this module

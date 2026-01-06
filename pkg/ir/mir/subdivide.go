@@ -145,12 +145,14 @@ func (p *Subdivider[F]) FlushAllocator(mid module.Id, alloc agnostic.RegisterAll
 }
 
 // ZeroRegister returns a register in the given module whose value is always
-// the given constant. This function is responsible for enforcing this (e.g. by
-// adding constraints as necessary).  Furthermore, it will attempt to reuse
-// existing constant registers where possible.
+// the constant zero.
 func (p *Subdivider[F]) ZeroRegister(mid module.Id) register.Id {
 	var module = p.modules.Module(mid)
-	//
+	// Check whether zero register exists aleady
+	if rid, ok := module.HasRegister("0"); ok {
+		return rid
+	}
+	// If not, create a new one.
 	return module.NewRegister(register.NewZero())
 }
 

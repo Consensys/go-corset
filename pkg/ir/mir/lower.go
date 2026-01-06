@@ -128,7 +128,7 @@ func (p *AirLowering[F]) LowerModule(index uint) {
 }
 
 // Lower a constraint to the AIR level.
-func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule air.ModuleBuilder[F]) {
 	// Check what kind of constraint we have
 	switch v := c.constraint.(type) {
 	case Assertion[F]:
@@ -153,7 +153,7 @@ func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule *air.Mo
 }
 
 // Lowering an assertion is straightforward since its not a true constraint.
-func (p *AirLowering[F]) lowerAssertionToAir(v Assertion[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerAssertionToAir(v Assertion[F], airModule air.ModuleBuilder[F]) {
 	airModule.AddConstraint(air.NewAssertion[F](v.Handle, v.Context, v.Domain, v.Property))
 }
 
@@ -161,7 +161,7 @@ func (p *AirLowering[F]) lowerAssertionToAir(v Assertion[F], airModule *air.Modu
 // straightforward and simply relies on lowering the expression being
 // constrained.  This may result in the generation of computed columns, e.g. to
 // hold inverses, etc.
-func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F], airModule air.ModuleBuilder[F]) {
 	//
 	var (
 		terms = p.lowerAndSimplifyLogicalTo(v.Constraint, airModule)
@@ -178,7 +178,7 @@ func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F],
 
 // Lower a permutation constraint to the AIR level.  This is trivial because
 // permutation constraints do not currently support complex forms.
-func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint[F], airModule air.ModuleBuilder[F]) {
 	airModule.AddConstraint(
 		air.NewPermutationConstraint[F](v.Handle, v.Context, v.Targets, v.Sources),
 	)
@@ -190,7 +190,7 @@ func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModule air.ModuleBuilder[F]) {
 	// Extract target expression
 	for i, e := range v.Sources {
 		// Apply bitwidth gadget
@@ -210,7 +210,7 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 // column to hold the value of that expression, along with appropriate
 // constraints to enforce the expected value.
 func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstraint[F],
-	airModule *air.ModuleBuilder[F]) {
+	airModule air.ModuleBuilder[F]) {
 	var (
 		n = len(c.Target.Vars)
 	)
@@ -247,7 +247,7 @@ func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstrai
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func (p *AirLowering[F]) lowerLookupConstraintToAir(c LookupConstraint[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerLookupConstraintToAir(c LookupConstraint[F], airModule air.ModuleBuilder[F]) {
 	var (
 		sources = make([]lookup.Vector[F, *air.ColumnAccess[F]], len(c.Sources))
 		targets = make([]lookup.Vector[F, *air.ColumnAccess[F]], len(c.Targets))
@@ -282,7 +282,7 @@ func (p *AirLowering[F]) expandLookupVectorToAir(vector LookupVector[F],
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
-func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule *air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule air.ModuleBuilder[F]) {
 	var (
 		sources = make([]register.Id, len(c.Sources))
 	)
@@ -324,14 +324,14 @@ func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*a
 }
 
 func (p *AirLowering[F]) lowerAndSimplifyLogicalTo(term LogicalTerm[F],
-	airModule *air.ModuleBuilder[F]) []air.Term[F] {
+	airModule air.ModuleBuilder[F]) []air.Term[F] {
 	// Apply all reasonable simplifications
 	term = term.Simplify(false)
 	// Lower properly
 	return simplify(p.lowerLogicalTo(true, term, airModule))
 }
 
-func (p *AirLowering[F]) lowerLogicalTo(sign bool, e LogicalTerm[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerLogicalTo(sign bool, e LogicalTerm[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
 	//
 	switch e := e.(type) {
 	case *Conjunct[F]:
@@ -352,7 +352,7 @@ func (p *AirLowering[F]) lowerLogicalTo(sign bool, e LogicalTerm[F], airModule *
 	}
 }
 
-func (p *AirLowering[F]) lowerLogicalsTo(sign bool, airModule *air.ModuleBuilder[F], terms ...LogicalTerm[F],
+func (p *AirLowering[F]) lowerLogicalsTo(sign bool, airModule air.ModuleBuilder[F], terms ...LogicalTerm[F],
 ) [][]air.Term[F] {
 	//
 	nexprs := make([][]air.Term[F], len(terms))
@@ -364,7 +364,7 @@ func (p *AirLowering[F]) lowerLogicalsTo(sign bool, airModule *air.ModuleBuilder
 	return nexprs
 }
 
-func (p *AirLowering[F]) lowerConjunctionTo(sign bool, e *Conjunct[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerConjunctionTo(sign bool, e *Conjunct[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
 	var terms = p.lowerLogicalsTo(sign, airModule, e.Args...)
 	//
 	if sign {
@@ -374,7 +374,7 @@ func (p *AirLowering[F]) lowerConjunctionTo(sign bool, e *Conjunct[F], airModule
 	return disjunction(terms...)
 }
 
-func (p *AirLowering[F]) lowerDisjunctionTo(sign bool, e *Disjunct[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerDisjunctionTo(sign bool, e *Disjunct[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
 	var terms = p.lowerLogicalsTo(sign, airModule, e.Args...)
 	//
 	if sign {
@@ -385,7 +385,7 @@ func (p *AirLowering[F]) lowerDisjunctionTo(sign bool, e *Disjunct[F], airModule
 	return conjunction(terms...)
 }
 
-func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F], airModule *air.ModuleBuilder[F],
+func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F], airModule air.ModuleBuilder[F],
 ) []air.Term[F] {
 	//
 	var (
@@ -405,7 +405,7 @@ func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F],
 	return []air.Term[F]{term.Subtract(one, norm_eq)}
 }
 
-func (p *AirLowering[F]) lowerIteTo(sign bool, e *Ite[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerIteTo(sign bool, e *Ite[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
 	if sign {
 		return p.lowerPositiveIteTo(e, airModule)
 	}
@@ -413,7 +413,7 @@ func (p *AirLowering[F]) lowerIteTo(sign bool, e *Ite[F], airModule *air.ModuleB
 	return p.lowerNegativeIteTo(e, airModule)
 }
 
-func (p *AirLowering[F]) lowerPositiveIteTo(e *Ite[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerPositiveIteTo(e *Ite[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
 	var (
 		terms []air.Term[F]
 	)
@@ -452,7 +452,7 @@ func (p *AirLowering[F]) lowerPositiveIteTo(e *Ite[F], airModule *air.ModuleBuil
 //
 //	=> !(!A||B) || !(A||C)
 //	=> (A&&!B) || (!A&&!C)
-func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
 	// NOTE: using extractNormalisedCondition could be useful here.
 	var (
 		terms [][]air.Term[F]
@@ -475,7 +475,7 @@ func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule *air.ModuleBuil
 
 // Inner form is used for recursive calls and does not repeat the constant
 // propagation phase.
-func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
+func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule air.ModuleBuilder[F]) air.Term[F] {
 	//
 	switch e := e.(type) {
 	case *Add[F]:
@@ -500,7 +500,7 @@ func (p *AirLowering[F]) lowerTermTo(e Term[F], airModule *air.ModuleBuilder[F])
 }
 
 // Lower a set of zero or more MIR expressions.
-func (p *AirLowering[F]) lowerTerms(exprs []Term[F], airModule *air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) lowerTerms(exprs []Term[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
 	nexprs := make([]air.Term[F], len(exprs))
 
 	for i := range len(exprs) {
@@ -510,7 +510,7 @@ func (p *AirLowering[F]) lowerTerms(exprs []Term[F], airModule *air.ModuleBuilde
 	return nexprs
 }
 
-func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
+func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule air.ModuleBuilder[F]) air.Term[F] {
 	var (
 		terms []air.Term[F] = make([]air.Term[F], len(e.Vars))
 		shift               = uint(0)
@@ -543,7 +543,7 @@ func shiftTerm[F field.Element[F]](expr air.Term[F], width uint) air.Term[F] {
 	return term.Product(term.Const[F, air.Term[F]](n), expr)
 }
 
-func (p *AirLowering[F]) normalise(arg air.Term[F], airModule *air.ModuleBuilder[F]) air.Term[F] {
+func (p *AirLowering[F]) normalise(arg air.Term[F], airModule air.ModuleBuilder[F]) air.Term[F] {
 	bounds := arg.ValueRange()
 	// Check whether normalisation actually required.  For example, if the
 	// argument is just a binary column then a normalisation is not actually

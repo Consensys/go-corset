@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -43,7 +42,7 @@ func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constr
 	var modules = make([]M, len(p.modules))
 	//
 	for i, m := range p.modules {
-		modules[i] = BuildModule[F, C, T, M](*m)
+		modules[i] = BuildModule[F, C, T, M](m)
 	}
 	//
 	return modules
@@ -55,10 +54,10 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], 
 	//
 	var module M
 	// Build it
-	module = module.Init(m.name, m.padding, m.public, m.synthetic)
-	module.AddRegisters(m.registers...)
-	module.AddAssignments(m.assignments...)
-	module.AddConstraints(m.constraints...)
+	module = module.Init(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
+	module.AddRegisters(m.Registers()...)
+	module.AddAssignments(m.Assignments()...)
+	module.AddConstraints(m.Constraints()...)
 	// Done
 	return module
 }
@@ -74,7 +73,7 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 	// packaged and, hence, we must avoid breaking thein linkage.
 	externs []register.Map
 	// Modules being constructed
-	modules []*ModuleBuilder[F, C, T]
+	modules []ModuleBuilder[F, C, T]
 }
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
@@ -132,7 +131,7 @@ func (p *SchemaBuilder[F, C, T]) HasModule(name module.Name) (uint, bool) {
 }
 
 // Module returns the builder for the given module based on its index.
-func (p *SchemaBuilder[F, C, T]) Module(mid uint) *ModuleBuilder[F, C, T] {
+func (p *SchemaBuilder[F, C, T]) Module(mid uint) ModuleBuilder[F, C, T] {
 	var n uint = uint(len(p.externs))
 	// Sanity check
 	if mid < n {
@@ -143,7 +142,7 @@ func (p *SchemaBuilder[F, C, T]) Module(mid uint) *ModuleBuilder[F, C, T] {
 }
 
 // ModuleOf returns the builder for the given module based on its name.
-func (p *SchemaBuilder[F, C, T]) ModuleOf(name module.Name) *ModuleBuilder[F, C, T] {
+func (p *SchemaBuilder[F, C, T]) ModuleOf(name module.Name) ModuleBuilder[F, C, T] {
 	id, ok := p.modmap[name]
 	//
 	if ok {
@@ -151,209 +150,4 @@ func (p *SchemaBuilder[F, C, T]) ModuleOf(name module.Name) *ModuleBuilder[F, C,
 	}
 	//
 	return nil
-}
-
-// ModuleBuilder provides a mechanism to ease the construction of modules for
-// use in schemas.  For example, it maintains a mapping from register names to
-// their relevant indices.  It also provides a mechanism for constructing a
-// register access based on the register name, etc.
-type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
-	extern bool
-	// Name of the module being constructed
-	name module.Name
-	// Id of this module
-	moduleId schema.ModuleId
-	// Indicates whether padding supported for this module
-	padding bool
-	// Indicates whether externally visible
-	public bool
-	// Indicates whether this is a synthetic module or not
-	synthetic bool
-	// Maps register names (including aliases) to the register number.
-	regmap map[string]uint
-	// Registers declared for this module
-	registers []register.Register
-	// Constraints for this module
-	constraints []C
-	// Assignments for computed registers
-	assignments []schema.Assignment[F]
-}
-
-// NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name module.Name,
-	mid schema.ModuleId, padding, public, synthetic bool) *ModuleBuilder[F, C, T] {
-	//
-	regmap := make(map[string]uint, 0)
-	return &ModuleBuilder[F, C, T]{false, name, mid, padding, public, synthetic, regmap, nil, nil, nil}
-}
-
-// NewExternModuleBuilder constructs a new builder suitable for external
-// modules.  These are just used for linking purposes.
-func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](mid schema.ModuleId,
-	module register.Map) *ModuleBuilder[F, C, T] {
-	//
-	regmap := make(map[string]uint, 0)
-	// Initialise register map
-	for i, r := range module.Registers() {
-		regmap[r.Name] = uint(i)
-	}
-	// Done
-	return &ModuleBuilder[F, C, T]{true, module.Name(), mid, false, false, false, regmap, module.Registers(), nil, nil}
-}
-
-// AddAssignment adds a new assignment to this module.  Assignments are
-// responsible for computing the values of computed columns.
-func (p *ModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F]) {
-	if p.extern {
-		panic("cannot add assignment to external module")
-	}
-	//
-	p.assignments = append(p.assignments, assignment)
-}
-
-// AddConstraint adds a new constraint to this module.
-func (p *ModuleBuilder[F, C, T]) AddConstraint(constraint C) {
-	if p.extern {
-		panic("cannot add constraint to external module")
-	}
-	//
-	p.constraints = append(p.constraints, constraint)
-}
-
-// Assignments returns an iterator over the assignments of this schema.
-// These are the computations used to assign values to all computed columns
-// in this module.
-func (p *ModuleBuilder[F, C, T]) Assignments() iter.Iterator[schema.Assignment[F]] {
-	return iter.NewArrayIterator(p.assignments)
-}
-
-// Consistent applies a number of internal consistency checks.  Whilst not
-// strictly necessary, these can highlight otherwise hidden problems as an aid
-// to debugging.
-func (p *ModuleBuilder[F, C, T]) Consistent(fieldWidth uint, schema schema.AnySchema[F]) []error {
-	var errors []error
-	// Check constraints
-	for _, c := range p.constraints {
-		errors = append(errors, c.Consistent(schema)...)
-	}
-	// Check assignments
-	for _, a := range p.assignments {
-		errors = append(errors, a.Consistent(schema)...)
-	}
-	// Done
-	return errors
-}
-
-// Constraints provides access to those constraints associated with this
-// module.
-func (p *ModuleBuilder[F, C, T]) Constraints() iter.Iterator[schema.Constraint[F]] {
-	i := iter.NewArrayIterator(p.constraints)
-	return iter.NewCastIterator[C, schema.Constraint[F]](i)
-}
-
-// Id returns the module index of this module.
-func (p *ModuleBuilder[F, C, T]) Id() uint {
-	return p.moduleId
-}
-
-// AllowPadding determines the minimum amount of padding requested at the
-// beginning of the module.  This is necessary because legacy modules expect an
-// initial padding row.
-func (p *ModuleBuilder[F, C, T]) AllowPadding() bool {
-	return p.padding
-}
-
-// IsExtern determines whether or not this is an external module or not.
-func (p *ModuleBuilder[F, C, T]) IsExtern() bool {
-	return p.extern
-}
-
-// IsPublic determines whether or not this module is externally visible.
-func (p *ModuleBuilder[F, C, T]) IsPublic() bool {
-	return p.public
-}
-
-// IsSynthetic modules are generated during compilation, rather than being
-// provided by the user.
-func (p *ModuleBuilder[F, C, T]) IsSynthetic() bool {
-	return p.synthetic
-}
-
-// Substitute any matchined labelled constants within this module
-func (p *ModuleBuilder[F, C, T]) Substitute(mapping map[string]F) {
-	for _, c := range p.constraints {
-		c.Substitute(mapping)
-	}
-}
-
-// Width returns the number of registers in this module.
-func (p *ModuleBuilder[F, C, T]) Width() uint {
-	return uint(len(p.registers))
-}
-
-// HasRegister checks whether a register of the given name exists already and,
-// if so, returns its index.
-func (p *ModuleBuilder[F, C, T]) HasRegister(name string) (register.Id, bool) {
-	// Lookup register associated with this name
-	rid, ok := p.regmap[name]
-	//
-	return register.NewId(rid), ok
-}
-
-// Name returns the name of the module being constructed.
-func (p *ModuleBuilder[F, C, T]) Name() module.Name {
-	return p.name
-}
-
-// NewRegister declares a new register within the module being built.  This will
-// panic if a register of the same name already exists.
-func (p *ModuleBuilder[F, C, T]) NewRegister(reg register.Register) register.Id {
-	// Determine identifier
-	id := uint(len(p.registers))
-	// Sanity check
-	if _, ok := p.regmap[reg.Name]; ok {
-		panic(fmt.Sprintf("register \"%s\" already declared", reg.Name))
-	} else if p.extern {
-		panic("cannot add register to external module")
-	}
-	//
-	p.registers = append(p.registers, reg)
-	p.regmap[reg.Name] = id
-	//
-	return register.NewId(id)
-}
-
-// NewRegisters declares zero or more new registers within the module being
-// built.  This will panic if a register of the same name already exists.
-func (p *ModuleBuilder[F, C, T]) NewRegisters(registers ...register.Register) {
-	for _, r := range registers {
-		p.NewRegister(r)
-	}
-}
-
-// Register returns the register details given an appropriate register
-// identifier.
-func (p *ModuleBuilder[F, C, T]) Register(rid register.Id) register.Register {
-	return p.registers[rid.Unwrap()]
-}
-
-// Registers returns the set of declared registers in the module being
-// constructed.
-func (p *ModuleBuilder[F, C, T]) Registers() []register.Register {
-	return p.registers
-}
-
-// RegisterAccessOf returns a register accessor for the register with the given name.
-func (p *ModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int) *term.RegisterAccess[F, T] {
-	// Lookup register associated with this name
-	var (
-		rid = register.NewId(p.regmap[name])
-		reg = p.Register(rid)
-	)
-	//
-	return term.RawRegisterAccess[F, T](rid, reg.Width, shift)
-}
-
-func (p *ModuleBuilder[F, C, T]) String() string {
-	return register.MapToString(p)
 }
