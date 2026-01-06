@@ -113,19 +113,24 @@ func Test_AsmUnit_Max(t *testing.T) {
 		field.KOALABEAR_16, field.GF_8209)
 }
 
-func Test_AsmUnit_MixedSmall(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/mixed_small", util.ASM_MAX_PADDING, field.BLS12_377,
+func Test_AsmUnit_MixedLookup_01(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/mixed_lookup_01", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
 }
+func Test_AsmUnit_MixedLookup_02(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/mixed_lookup_02", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
+
+//	func Test_AsmUnit_MixedLookup_03(t *testing.T) {
+//		util.CheckWithFields(t, false, "asm/unit/mixed_lookup_03", util.ASM_MAX_PADDING, field.BLS12_377,
+//			field.KOALABEAR_16, field.GF_8209)
+//	}
 func Test_AsmUnit_MultiLine(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/multiline", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
 }
 
-func Test_AsmUnit_MixedLarge(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/unit/mixed_large", util.ASM_MAX_PADDING, field.BLS12_377,
-		field.KOALABEAR_16, field.GF_8209)
-}
 func Test_AsmUnit_NonUniformIf(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/nonuniform_if", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)

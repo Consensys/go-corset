@@ -14,7 +14,6 @@ package mir
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -145,50 +144,14 @@ func (p *Subdivider[F]) FlushAllocator(mid module.Id, alloc agnostic.RegisterAll
 	}
 }
 
-// ConstantRegister returns a register in the given module whose value is always
+// ZeroRegister returns a register in the given module whose value is always
 // the given constant. This function is responsible for enforcing this (e.g. by
 // adding constraints as necessary).  Furthermore, it will attempt to reuse
 // existing constant registers where possible.
-func (p *Subdivider[F]) ConstantRegister(mid module.Id, constant F) register.Id {
-	var (
-		module      = p.modules.Module(mid)
-		name        = constant.String()
-		padding     big.Int
-		maxBitwidth = p.mapping.Field().RegisterWidth
-	)
-	// attempt to lookup existing register
-	if rid, ok := module.HasRegister(name); ok {
-		return rid
-	}
-	// Initialise padding value
-	padding.SetBytes(constant.Bytes())
-	// Determine appropriate bitwidth
-	bitwidth := uint(padding.BitLen())
-	// Sanity check
-	if maxBitwidth < bitwidth {
-		panic(fmt.Sprintf("constant register exceeds maximum bitwidth (u%d v u%d)", bitwidth, maxBitwidth))
-	}
+func (p *Subdivider[F]) ZeroRegister(mid module.Id) register.Id {
+	var module = p.modules.Module(mid)
 	//
-	var (
-		// no existing register, therefore create one.
-		rid = module.NewRegister(register.NewComputed(name, bitwidth, padding))
-		// Construct word version of cosntant
-		wordVal = field.FromBigEndianBytes[word.BigEndian](constant.Bytes())
-	)
-	// Construct computation
-	computation := term.NewComputation[word.BigEndian, LogicalTerm[word.BigEndian]](
-		term.Const[word.BigEndian, Term[word.BigEndian]](wordVal))
-	// Add assignment for filling said computed column
-	module.AddAssignment(
-		assignment.NewComputedRegister[F](computation, true, module.Id(), rid))
-	// add constraint
-	module.AddConstraint(
-		NewVanishingConstraint(name, mid, util.None[int](), term.Equals[F, LogicalTerm[F]](
-			term.NewRegisterAccess[F, Term[F]](rid, bitwidth, 0),
-			term.Const[F, Term[F]](constant),
-		)))
-	//
-	return rid
+	return module.NewRegister(register.NewZero())
 }
 
 // ============================================================================

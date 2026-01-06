@@ -113,6 +113,8 @@ func Compile[F Element[F]](p MicroMirProgram[F]) UniformSchema[F] {
 	}
 	// Concretize legacy components
 	copy(modules[n:], p.Externs())
+	// compile constant registers.
+	mir.InitialiseConstantRegisters(modules)
 	// Done
 	return schema.NewUniformSchema(modules)
 }

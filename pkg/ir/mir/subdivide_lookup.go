@@ -19,7 +19,6 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
@@ -172,8 +171,6 @@ func (p *Subdivider[F]) padLookupLimb(i uint, vec *VectorAccess[F], geometry loo
 		m = len(vec.Vars) - 1
 		// Append available terms
 		nterms = vec.Vars
-		// Construct zero
-		zero = field.Zero[F]()
 	)
 	// Sanity check
 	for i, t := range vec.Vars {
@@ -189,7 +186,7 @@ func (p *Subdivider[F]) padLookupLimb(i uint, vec *VectorAccess[F], geometry loo
 	//nolint
 	for m := n - len(vec.Vars); m > 0; m-- {
 		// Get access to a constant zero register
-		zero := p.ConstantRegister(mid, zero)
+		zero := p.ZeroRegister(mid)
 		// Pad out the vector
 		nterms = append(nterms, term.RawRegisterAccess[F, Term[F]](zero, 0, 0))
 	}
