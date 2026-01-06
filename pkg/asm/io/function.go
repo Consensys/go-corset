@@ -182,7 +182,7 @@ func (p *Function[T]) AllocateRegister(kind register.Type, name string, width ui
 		index = uint(len(p.registers))
 	)
 	// Sanity check
-	if kind != register.COMPUTED_REGISTER {
+	if kind == register.INPUT_REGISTER || kind == register.OUTPUT_REGISTER {
 		panic("cannot allocate input / output register")
 	}
 	//
@@ -210,6 +210,19 @@ func (p *Function[T]) Validate(fieldWidth uint) []error {
 
 func (p *Function[T]) String() string {
 	return register.MapToString(p)
+}
+
+// ZeroRegister implementation for register.ZeroMap interface
+func (p *Function[T]) ZeroRegister() RegisterId {
+	if rid, ok := p.HasRegister("0"); ok {
+		return rid
+	}
+	// Allocate zero register
+	var rid = uint(len(p.registers))
+	//
+	p.registers = append(p.registers, register.NewZero())
+	//
+	return register.NewId(rid)
 }
 
 // ============================================================================

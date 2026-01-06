@@ -54,6 +54,10 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 	// NewRegisters declares zero or more new registers within the module being
 	// built.  This will panic if a register of the same name already exists.
 	NewRegisters(registers ...register.Register)
+	// ZeroRegister returns an ID for the "zero register".  That is, a register
+	// which is always zero.  If no such register exists already, one is
+	// created.
+	ZeroRegister() register.Id
 }
 
 // ============================================================================
@@ -89,62 +93,57 @@ type internalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Ex
 	assignments []schema.Assignment[F]
 }
 
-// AddAssignment adds a new assignment to this module.  Assignments are
-// responsible for computing the values of computed columns.
+// AddAssignment implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F]) {
 	p.assignments = append(p.assignments, assignment)
 }
 
-// AddConstraint adds a new constraint to this module.
+// AddConstraint implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) AddConstraint(constraint C) {
 	p.constraints = append(p.constraints, constraint)
 }
 
-// Assignments
+// Assignments implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) Assignments() []schema.Assignment[F] {
 	return p.assignments
 }
 
-// Constraints
+// Constraints implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) Constraints() []C {
 	return p.constraints
 }
 
-// Id returns the module index of this module.
+// Id implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) Id() uint {
 	return p.moduleId
 }
 
-// AllowPadding determines the minimum amount of padding requested at the
-// beginning of the module.  This is necessary because legacy modules expect an
-// initial padding row.
+// AllowPadding implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) AllowPadding() bool {
 	return p.padding
 }
 
-// IsExtern determines whether or not this is an external module or not.
+// IsExtern implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) IsExtern() bool {
 	return false
 }
 
-// IsPublic determines whether or not this module is externally visible.
+// IsPublic implementation for schema.ModuleView interface.
 func (p *internalModuleBuilder[F, C, T]) IsPublic() bool {
 	return p.public
 }
 
-// IsSynthetic modules are generated during compilation, rather than being
-// provided by the user.
+// IsSynthetic implementation for schema.ModuleView interface.
 func (p *internalModuleBuilder[F, C, T]) IsSynthetic() bool {
 	return p.synthetic
 }
 
-// Width returns the number of registers in this module.
+// Width implementation for schema.ModuleView interface.
 func (p *internalModuleBuilder[F, C, T]) Width() uint {
 	return uint(len(p.registers))
 }
 
-// HasRegister checks whether a register of the given name exists already and,
-// if so, returns its index.
+// HasRegister implementation for register.Map interface.
 func (p *internalModuleBuilder[F, C, T]) HasRegister(name string) (register.Id, bool) {
 	// Lookup register associated with this name
 	rid, ok := p.regmap[name]
@@ -152,13 +151,12 @@ func (p *internalModuleBuilder[F, C, T]) HasRegister(name string) (register.Id, 
 	return register.NewId(rid), ok
 }
 
-// Name returns the name of the module being constructed.
+// Name implementation for register.Map interface.
 func (p *internalModuleBuilder[F, C, T]) Name() module.Name {
 	return p.name
 }
 
-// NewRegister declares a new register within the module being built.  This will
-// panic if a register of the same name already exists.
+// NewRegister implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) NewRegister(reg register.Register) register.Id {
 	// Determine identifier
 	id := uint(len(p.registers))
@@ -173,27 +171,24 @@ func (p *internalModuleBuilder[F, C, T]) NewRegister(reg register.Register) regi
 	return register.NewId(id)
 }
 
-// NewRegisters declares zero or more new registers within the module being
-// built.  This will panic if a register of the same name already exists.
+// NewRegisters implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) NewRegisters(registers ...register.Register) {
 	for _, r := range registers {
 		p.NewRegister(r)
 	}
 }
 
-// Register returns the register details given an appropriate register
-// identifier.
+// Register implementation for register.Map interface.
 func (p *internalModuleBuilder[F, C, T]) Register(rid register.Id) register.Register {
 	return p.registers[rid.Unwrap()]
 }
 
-// Registers returns the set of declared registers in the module being
-// constructed.
+// Registers implementation for register.Map interface.
 func (p *internalModuleBuilder[F, C, T]) Registers() []register.Register {
 	return p.registers
 }
 
-// RegisterAccessOf returns a register accessor for the register with the given name.
+// RegisterAccessOf implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int) *term.RegisterAccess[F, T] {
 	// Lookup register associated with this name
 	var (
@@ -208,6 +203,16 @@ func (p *internalModuleBuilder[F, C, T]) String() string {
 	return register.MapToString(p)
 }
 
+// ZeroRegister implementation for ModuleBuilder interface.
+func (p *internalModuleBuilder[F, C, T]) ZeroRegister() register.Id {
+	// Check whether zero register exists aleady
+	if rid, ok := p.HasRegister("0"); ok {
+		return rid
+	}
+	// If not, create a new one.
+	return p.NewRegister(register.NewZero())
+}
+
 // ============================================================================
 // External Module Builder
 // ============================================================================
@@ -215,7 +220,7 @@ func (p *internalModuleBuilder[F, C, T]) String() string {
 // NewExternModuleBuilder constructs a new builder suitable for external
 // modules.  These are just used for linking purposes.
 func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](mid schema.ModuleId,
-	module register.Map) ModuleBuilder[F, C, T] {
+	module register.ZeroMap) ModuleBuilder[F, C, T] {
 	return &externalModuleBuilder[F, C, T]{mid, module}
 }
 
@@ -226,91 +231,96 @@ type externalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Ex
 	// Id of this module
 	moduleId schema.ModuleId
 	// External source
-	module register.Map
+	module register.ZeroMap
 }
 
-// AddAssignment implementation for ModuleBuilder interface
+// AddAssignment implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F]) {
 	panic("cannot add assignment to external module")
 }
 
-// AddConstraint implementation for ModuleBuilder interface
+// AddConstraint implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) AddConstraint(constraint C) {
 	panic("cannot add constraint to external module")
 }
 
-// Assignments implementation for ModuleBuilder interface
+// Assignments implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) Assignments() []schema.Assignment[F] {
 	return nil
 }
 
-// Constraints implementation for ModuleBuilder interface
+// Constraints implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) Constraints() []C {
 	return nil
 }
 
-// Id returns the module index of this module.
+// Id implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) Id() uint {
 	return p.moduleId
 }
 
-// AllowPadding
+// AllowPadding implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) AllowPadding() bool {
 	return false
 }
 
-// IsExtern
+// IsExtern implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) IsExtern() bool {
 	return true
 }
 
-// IsPublic
+// IsPublic implementation for schema.ModuleView interface.
 func (p *externalModuleBuilder[F, C, T]) IsPublic() bool {
 	return false
 }
 
-// IsSynthetic
+// IsSynthetic implementation for schema.ModuleView interface.
 func (p *externalModuleBuilder[F, C, T]) IsSynthetic() bool {
 	return false
 }
 
-// Width
+// Width implementation for schema.ModuleView interface.
 func (p *externalModuleBuilder[F, C, T]) Width() uint {
 	return uint(len(p.module.Registers()))
 }
 
-// HasRegister
+// HasRegister implementation for register.Map interface.
 func (p *externalModuleBuilder[F, C, T]) HasRegister(name string) (register.Id, bool) {
 	return p.module.HasRegister(name)
 }
 
-// Name
+// Name implementation for register.Map interface.
 func (p *externalModuleBuilder[F, C, T]) Name() module.Name {
 	return p.module.Name()
 }
 
-// NewRegister
+// NewRegister implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) NewRegister(reg register.Register) register.Id {
 	panic("cannot add register to external module")
 }
 
-// NewRegisters
+// NewRegisters implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) NewRegisters(registers ...register.Register) {
 	for _, r := range registers {
 		p.NewRegister(r)
 	}
 }
 
-// Register
+// Register implementation for register.Map interface.
 func (p *externalModuleBuilder[F, C, T]) Register(rid register.Id) register.Register {
 	return p.module.Register(rid)
 }
 
-// Registers
+// Registers implementation for register.Map interface.
 func (p *externalModuleBuilder[F, C, T]) Registers() []register.Register {
 	return p.module.Registers()
 }
 
 func (p *externalModuleBuilder[F, C, T]) String() string {
 	return register.MapToString(p)
+}
+
+// ZeroRegister implementation for ModuleBuilder interface.
+func (p *externalModuleBuilder[F, C, T]) ZeroRegister() register.Id {
+	return p.module.ZeroRegister()
 }

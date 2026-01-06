@@ -202,6 +202,19 @@ func (p *Table[F, C]) String() string {
 	return register.MapToString(p)
 }
 
+// ZeroRegister implementation for register.ZeroMap interface
+func (p *Table[F, C]) ZeroRegister() register.Id {
+	if rid, ok := p.HasRegister("0"); ok {
+		return rid
+	}
+	// Allocate zero register
+	var rid = uint(len(p.registers))
+	//
+	p.registers = append(p.registers, register.NewZero())
+	//
+	return register.NewId(rid)
+}
+
 // ============================================================================
 // Mutators
 // ============================================================================

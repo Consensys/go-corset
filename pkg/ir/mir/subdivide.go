@@ -57,7 +57,9 @@ import (
 //
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
-func Subdivide[F field.Element[F], E register.Map](mapping module.LimbsMap, externs []E, mods []Module[F]) []Module[F] {
+func Subdivide[F field.Element[F], E register.ZeroMap](mapping module.LimbsMap, externs []E,
+	mods []Module[F]) []Module[F] {
+	//
 	var (
 		builder = ir.NewSchemaBuilder[F, Constraint[F], Term[F]](externs...)
 	)
@@ -148,12 +150,8 @@ func (p *Subdivider[F]) FlushAllocator(mid module.Id, alloc agnostic.RegisterAll
 // the constant zero.
 func (p *Subdivider[F]) ZeroRegister(mid module.Id) register.Id {
 	var module = p.modules.Module(mid)
-	// Check whether zero register exists aleady
-	if rid, ok := module.HasRegister("0"); ok {
-		return rid
-	}
-	// If not, create a new one.
-	return module.NewRegister(register.NewZero())
+	// Access zero register for given module
+	return module.ZeroRegister()
 }
 
 // ============================================================================
