@@ -27,7 +27,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -63,8 +62,6 @@ type (
 	// ModuleBuilder is used for building various AIR modules.
 	ModuleBuilder[F field.Element[F]] = ir.ModuleBuilder[F, Constraint[F], Term[F]]
 )
-
-var _ schema.Module[bls12_377.Element] = &ModuleBuilder[bls12_377.Element]{}
 
 // Following types capture permitted constraint forms at the AIR level.
 type (

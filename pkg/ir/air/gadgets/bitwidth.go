@@ -162,7 +162,7 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 	// Add column to assignment so its proof is included
 	typeModule := p.schema.Module(mid)
 	//
-	decomposition := typeModule.Assignments().Next().(*typeDecomposition[F])
+	decomposition := typeModule.Assignments()[0].(*typeDecomposition[F])
 	decomposition.AddSource(ref)
 }
 
