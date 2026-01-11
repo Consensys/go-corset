@@ -1,0 +1,60 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package mir
+
+import (
+	"github.com/consensys/go-corset/pkg/ir/assignment"
+	"github.com/consensys/go-corset/pkg/ir/term"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
+)
+
+// InitialiseConstantRegisters initialises any constant registers declared
+// within the given set of MIR modules.  At this time, the only form of a
+// constant register is the so-called "zero register" (i.e. the register which
+// is always zero).  At the moment, these are implemented manually using
+// constraints and assignments to fill them.  Eventually, this approach should
+// be deprecated in favour of direct prover support.
+func InitialiseConstantRegisters[F Element[F]](modules []Module[F]) {
+	// Consider each module in turn
+	for m, mod := range modules {
+		var mid = module.Id(m)
+		// Consider each register in turn
+		for r, reg := range mod.Registers() {
+			var rid = register.NewId(uint(r))
+			if reg.IsZero() {
+				initialiseConstantRegister(rid, mid, mod)
+			}
+		}
+	}
+}
+
+// Lower a constant register (currently only zero is supported).
+func initialiseConstantRegister[F field.Element[F]](rid register.Id, mid module.Id, module Module[F]) {
+	var zero = field.Zero[word.BigEndian]()
+	// Construct computation
+	computation := term.NewComputation[word.BigEndian, LogicalTerm[word.BigEndian]](
+		term.Const[word.BigEndian, Term[word.BigEndian]](zero))
+	// Add assignment for filling said computed column
+	module.AddAssignments(
+		assignment.NewComputedRegister[F](computation, true, mid, rid))
+	// add constraint
+	module.AddConstraints(
+		NewVanishingConstraint("0", mid, util.None[int](),
+			term.Equals[F, LogicalTerm[F], Term[F]](
+				term.NewRegisterAccess[F, Term[F]](rid, 0, 0),
+				term.Const64[F, Term[F]](0))))
+}

@@ -43,6 +43,9 @@ type ModuleView interface {
 // for a given set of registers.
 type Module[F any] interface {
 	ModuleView
+	// AllowPadding determines whether the given module allows an initial
+	// padding row, or not.
+	AllowPadding() bool
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
@@ -54,8 +57,6 @@ type Module[F any] interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(fieldWidth uint, schema AnySchema[F]) []error
-	// AllowPadding determines the amount of initial padding a module expects.
-	AllowPadding() bool
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
 }
@@ -199,6 +200,19 @@ func (p *Table[F, C]) Width() uint {
 
 func (p *Table[F, C]) String() string {
 	return register.MapToString(p)
+}
+
+// ZeroRegister implementation for register.ZeroMap interface
+func (p *Table[F, C]) ZeroRegister() register.Id {
+	if rid, ok := p.HasRegister("0"); ok {
+		return rid
+	}
+	// Allocate zero register
+	var rid = uint(len(p.registers))
+	//
+	p.registers = append(p.registers, register.NewZero())
+	//
+	return register.NewId(rid)
 }
 
 // ============================================================================

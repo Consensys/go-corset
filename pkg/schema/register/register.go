@@ -59,6 +59,12 @@ func NewComputed(name string, bitwidth uint, padding big.Int) Register {
 	return Register{COMPUTED_REGISTER, name, bitwidth, padding}
 }
 
+// NewZero constructs a new "zero register".  That is a register which always
+// holds the constant value zero.
+func NewZero() Register {
+	return Register{ZERO_REGISTER, "0", 0, *big.NewInt(0)}
+}
+
 // Bound returns the first value which cannot be represented by the given
 // bitwidth.  For example, the bound of an 8bit register is 256.
 func (p *Register) Bound() *big.Int {
@@ -85,9 +91,16 @@ func (p *Register) IsOutput() bool {
 	return p.Kind == OUTPUT_REGISTER
 }
 
-// IsComputed determines whether or not this is a computed register
+// IsComputed determines whether or not this is a computed register.  Observer
+// that "zero" registers are included in this, since they are neither input nor
+// output registers.
 func (p *Register) IsComputed() bool {
-	return p.Kind == COMPUTED_REGISTER
+	return p.Kind == COMPUTED_REGISTER || p.Kind == ZERO_REGISTER
+}
+
+// IsZero determines whether or not this is a constant "zero" register
+func (p *Register) IsZero() bool {
+	return p.Kind == ZERO_REGISTER
 }
 
 // MaxValue returns the largest value expressible in this register (i.e. Bound() -

@@ -88,11 +88,11 @@ func Concretize[F Element[F]](cfg field.Config, hp MicroHirProgram,
 		mapping = module.NewLimbsMap[F](cfg, p.Modules().Collect()...)
 	)
 	// Split registers in assembly functions
-	asmProgram := subdivideProgram(mapping, p.program)
+	ap := subdivideProgram(mapping, p.program)
 	// Concretize legacy components
-	mirModules := mir.Concretize[word.BigEndian, F](mapping, fns, p.Externs())
+	mirModules := mir.Concretize[word.BigEndian, F](mapping, ap.Functions(), p.Externs())
 	// Done
-	return NewMixedProgram(asmProgram, mirModules...), mapping
+	return NewMixedProgram(ap, mirModules...), mapping
 }
 
 // Compile a mixed micro program into a uniform MIR schema.
@@ -109,10 +109,12 @@ func Compile[F Element[F]](p MicroMirProgram[F]) UniformSchema[F] {
 	comp.Compile(p.program)
 	// Copy over compiled components
 	for i, m := range comp.Modules() {
-		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](*m.Module)
+		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](m.Module)
 	}
 	// Concretize legacy components
 	copy(modules[n:], p.Externs())
+	// compile constant registers.
+	mir.InitialiseConstantRegisters(modules)
 	// Done
 	return schema.NewUniformSchema(modules)
 }

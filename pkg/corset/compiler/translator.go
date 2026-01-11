@@ -168,7 +168,7 @@ func (t *translator) translateModuleRegisters(corsetRegisters []uint) {
 //
 // Any other cases are considered to be erroneous register allocations, and will
 // lead to a panic.
-func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) {
+func (t *translator) translateTypeConstraints(reg Register, mod ModuleBuilder) {
 	required := false
 	// Check for provability
 	for _, col := range reg.Sources {
@@ -193,7 +193,7 @@ func (t *translator) translateTypeConstraints(reg Register, mod *ModuleBuilder) 
 		// Add appropriate type constraint
 		constraint := hir.NewRangeConstraint(reg.Name(),
 			mod.Id(),
-			mod.RegisterAccessOf(reg.Name(), 0),
+			RegisterAccessOf(mod, reg.Name(), 0),
 			reg.Bitwidth)
 		//
 		mod.AddConstraint(constraint)
@@ -323,7 +323,7 @@ func (t *translator) translateDefCall(decl *ast.DefCall) []SyntaxError {
 	return errors
 }
 
-func (t *translator) checkArgsReturns(decl *ast.DefCall, rets, args []hir.Term, callee *ModuleBuilder) []SyntaxError {
+func (t *translator) checkArgsReturns(decl *ast.DefCall, rets, args []hir.Term, callee ModuleBuilder) []SyntaxError {
 	var (
 		errors []SyntaxError
 		nRets  = uint(len(rets))
@@ -507,7 +507,7 @@ func (t *translator) translateDefConstraint(decl *ast.DefConstraint) []SyntaxErr
 // a defconstraint may not be part of a perspective and, hence, would have no
 // selector.
 func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
-	module *ModuleBuilder) (hir.Term, []SyntaxError) {
+	module ModuleBuilder) (hir.Term, []SyntaxError) {
 	//
 	if perspective != nil {
 		return t.translateExpression(perspective.InnerBinding().Selector, module, 0)
@@ -893,7 +893,7 @@ func (t *translator) translateDefSorted(decl *ast.DefSorted) []SyntaxError {
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateUnitExpressions(exprs []ast.Expr, module *ModuleBuilder,
+func (t *translator) translateUnitExpressions(exprs []ast.Expr, module ModuleBuilder,
 	shift int) ([]hir.Term, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -913,7 +913,7 @@ func (t *translator) translateUnitExpressions(exprs []ast.Expr, module *ModuleBu
 }
 
 // Translate a sequence of zero or more expressions enclosed in a given module.
-func (t *translator) translateExpressions(module *ModuleBuilder, shift int,
+func (t *translator) translateExpressions(module ModuleBuilder, shift int,
 	exprs ...ast.Expr) ([]hir.Term, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -938,7 +938,7 @@ func (t *translator) translateExpressions(module *ModuleBuilder, shift int,
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateOptionalExpression(expr ast.Expr, module *ModuleBuilder,
+func (t *translator) translateOptionalExpression(expr ast.Expr, module ModuleBuilder,
 	shift int) (hir.Term, []SyntaxError) {
 	//
 	if expr != nil {
@@ -951,7 +951,7 @@ func (t *translator) translateOptionalExpression(expr ast.Expr, module *ModuleBu
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
-func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
+func (t *translator) translateExpression(expr ast.Expr, module ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ast.ArrayAccess:
 		// Lookup underlying register info
@@ -1014,7 +1014,7 @@ func (t *translator) translateExpression(expr ast.Expr, module *ModuleBuilder, s
 	}
 }
 
-func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
+func (t *translator) translateConcat(expr *ast.Concat, mod ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
 	var (
 		limbs  []*hir.RegisterAccess = make([]*hir.RegisterAccess, len(expr.Args))
 		errors []SyntaxError
@@ -1037,7 +1037,7 @@ func (t *translator) translateConcat(expr *ast.Concat, mod *ModuleBuilder, shift
 	return term.NewVectorAccess(limbs), errors
 }
 
-func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
+func (t *translator) translateExp(expr *ast.Exp, module ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
 	arg, errs := t.translateExpression(expr.Arg, module, shift)
 	pow := expr.Pow.AsConstant()
 	// Identity constant for pow
@@ -1054,7 +1054,7 @@ func (t *translator) translateExp(expr *ast.Exp, module *ModuleBuilder, shift in
 	return nil, errs
 }
 
-func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
+func (t *translator) translateIf(expr *ast.If, module ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
 	// Translate condition as a logical
 	cond, condErrs := t.translateLogical(expr.Condition, module, shift)
 	// Translate optional true / false branches
@@ -1073,7 +1073,7 @@ func (t *translator) translateIf(expr *ast.If, module *ModuleBuilder, shift int)
 	return term.IfElse(cond, args[0], args[1]), nil
 }
 
-func (t *translator) translateShift(expr *ast.Shift, mod *ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
+func (t *translator) translateShift(expr *ast.Shift, mod ModuleBuilder, shift int) (hir.Term, []SyntaxError) {
 	constant := expr.Shift.AsConstant()
 	// Determine the shift constant
 	if constant == nil {
@@ -1104,7 +1104,7 @@ func (t *translator) translateVariableAccess(expr *ast.VariableAccess, shift int
 }
 
 // Translate a sequence of zero or more logical expressions enclosed in a given module.
-func (t *translator) translateLogicals(module *ModuleBuilder, shift int,
+func (t *translator) translateLogicals(module ModuleBuilder, shift int,
 	exprs ...ast.Expr) ([]hir.LogicalTerm, []SyntaxError) {
 	//
 	errors := []SyntaxError{}
@@ -1123,7 +1123,7 @@ func (t *translator) translateLogicals(module *ModuleBuilder, shift int,
 // Translate an optional expression in a given context.  That is an expression
 // which maybe nil (i.e. doesn't exist).  In such case, nil is returned (i.e.
 // without any errors).
-func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuilder,
+func (t *translator) translateOptionalLogical(expr ast.Expr, module ModuleBuilder,
 	shift int) (hir.LogicalTerm, []SyntaxError) {
 	//
 	if expr != nil {
@@ -1136,7 +1136,7 @@ func (t *translator) translateOptionalLogical(expr ast.Expr, module *ModuleBuild
 // Translate an expression situated in a given context.  The context is
 // necessary to resolve unqualified names (e.g. for register access, function
 // invocations, etc).
-func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift int) (hir.LogicalTerm, []SyntaxError) {
+func (t *translator) translateLogical(expr ast.Expr, mod ModuleBuilder, shift int) (hir.LogicalTerm, []SyntaxError) {
 	switch e := expr.(type) {
 	case *ast.Cast:
 		if e.Type != ast.BOOL_TYPE {
@@ -1195,7 +1195,7 @@ func (t *translator) translateLogical(expr ast.Expr, mod *ModuleBuilder, shift i
 	}
 }
 
-func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int) (hir.LogicalTerm, []SyntaxError) {
+func (t *translator) translateIte(expr *ast.If, module ModuleBuilder, shift int) (hir.LogicalTerm, []SyntaxError) {
 	// Translate condition as a logical
 	cond, errs := t.translateLogical(expr.Condition, module, shift)
 	// Translate optional true / false branches
@@ -1217,7 +1217,7 @@ func (t *translator) translateIte(expr *ast.If, module *ModuleBuilder, shift int
 	return term.IfThenElse(cond, truebranch, falsebranch), nil
 }
 
-func (t *translator) translateLogicalShift(expr *ast.Shift, mod *ModuleBuilder,
+func (t *translator) translateLogicalShift(expr *ast.Shift, mod ModuleBuilder,
 	shift int) (hir.LogicalTerm, []SyntaxError) {
 	//
 	constant := expr.Shift.AsConstant()
@@ -1290,7 +1290,7 @@ func (t *translator) registerOfArrayAccess(expr *ast.ArrayAccess, shift int) (*h
 }
 
 // Determine the appropriate name for a given module based on a module context.
-func (t *translator) moduleOf(context ast.Context) *ModuleBuilder {
+func (t *translator) moduleOf(context ast.Context) ModuleBuilder {
 	if context.IsVoid() {
 		// NOTE: the intuition behind the choice to return nil here is allow for
 		// situations where there is no context (e.g. constant expressions,
@@ -1311,7 +1311,7 @@ func (t *translator) registerOf(path *file.Path, shift int) *hir.RegisterAccess 
 	// Lookup corresponding module builder
 	module := t.moduleOf(reg.Context)
 	//
-	return module.RegisterAccessOf(reg.Name(), shift)
+	return RegisterAccessOf(module, reg.Name(), shift)
 }
 
 // Map columns to appropriate module register identifiers.
@@ -1345,6 +1345,17 @@ func (t *translator) registerRefsOf(path *file.Path) register.Refs {
 	panic("unreachable")
 }
 
+// RegisterAccessOf returns a register accessor for the register with the given name.
+func RegisterAccessOf(module register.Map, name string, shift int) *hir.RegisterAccess {
+	// Lookup register associated with this name
+	var (
+		rid, _ = module.HasRegister(name)
+		reg    = module.Register(rid)
+	)
+	//
+	return term.RawRegisterAccess[word.BigEndian, hir.Term](rid, reg.Width, shift)
+}
+
 func toRegisterRefs(context schema.ModuleId, ids []register.Id) []register.Ref {
 	var refs = make([]register.Ref, len(ids))
 	//
@@ -1355,7 +1366,7 @@ func toRegisterRefs(context schema.ModuleId, ids []register.Id) []register.Ref {
 	return refs
 }
 
-func determineMaxBitwidth(module *ModuleBuilder, sources []hir.Term) uint {
+func determineMaxBitwidth(module ModuleBuilder, sources []hir.Term) uint {
 	// Sanity check bitwidth
 	bitwidth := uint(0)
 	//

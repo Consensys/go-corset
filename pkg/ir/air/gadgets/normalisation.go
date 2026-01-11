@@ -33,7 +33,7 @@ import (
 // That is, an expression which is 0 when e is 0, and 1 when e is non-zero.
 // This is done by introducing a computed column to hold the (pseudo)
 // multiplicative inverse of e.
-func Normalise[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) air.Term[F] {
+func Normalise[F field.Element[F]](e air.Term[F], module air.ModuleBuilder[F]) air.Term[F] {
 	// Construct pseudo multiplicative inverse of e.
 	ie := applyPseudoInverseGadget(e, module)
 	// Return e * e⁻¹.
@@ -45,7 +45,7 @@ func Normalise[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) 
 // directly using arithmetic constraints, it is done by adding a new computed
 // column which holds the multiplicative inverse.  Constraints are also added to
 // ensure it really holds the inverted value.
-func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.ModuleBuilder[F]) air.Term[F] {
+func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module air.ModuleBuilder[F]) air.Term[F] {
 	var (
 		// Construct inverse computation
 		ie = &pseudoInverse[F]{Expr: e}
@@ -54,7 +54,7 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module *air.Mod
 		// Look up column
 		index, ok = module.HasRegister(name)
 		// Default padding (for now)
-		padding = ir.PaddingFor(ie, module)
+		padding = ir.PaddingFor[F](ie, module)
 		// Indicate column has "field element width".
 		bitwidth uint = math.MaxUint
 	)

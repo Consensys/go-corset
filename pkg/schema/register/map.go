@@ -35,6 +35,17 @@ type Map interface {
 	Registers() []Register
 }
 
+// ZeroMap is a register map which additionally provides guaranteed access to a
+// zero register.
+type ZeroMap interface {
+	Map
+	// ZeroRegister returns the ID of the "zero register".  This is a special
+	// register which is always zero.  If such a register does not already
+	// exist, then one is created.  This ensures zero registers are only
+	// included when they are actually needed.
+	ZeroRegister() Id
+}
+
 // MapToString provides a default method for converting a register map
 // into a simple string representation.
 func MapToString(p Map) string {
