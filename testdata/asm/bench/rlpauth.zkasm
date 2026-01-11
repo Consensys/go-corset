@@ -3,7 +3,6 @@
 ;; TODO: look at rlpauth spec, prepare arguments and execute a lookup to the hub
 ;;       macro: data coming from rlptxn module
 ;;       xtern: data extracted from the hub
-
 ;; TODO: the most important part is the interface for communicating with the HUB
 
 ;; TODO: do we have an shared notation for constants, function arguments...?
@@ -14,7 +13,7 @@ const MAGIC = 0x05
 ;; TODO: add sender (TXN_FROM_ADDRESS) as an argument of the function, and compare it later with authority to compute SENDER_IS_AUTHORITY
 ;;       it can be obtained either from RLPTXN or from the HUB, which internally gets it from TXNDATA (TBD). Lookup to the HUB is probably the best solution
 fn rlpauth(chain_id u256, nonce u256, address u160, y_parity u8, r u256, s u256) -> (authority u160, error u1)
-{   
+{
     ;; The following checks are enforced by the types above:
     ;; assert auth.chain_id < 2**256
     ;; assert auth.nonce < 2**64
@@ -22,7 +21,7 @@ fn rlpauth(chain_id u256, nonce u256, address u160, y_parity u8, r u256, s u256)
     ;; assert auth.y_parity < 2**8
     ;; assert auth.r < 2**256
     ;; assert auth.s < 2**256
-    step_1: 
+    step_1:
         ;; Verify that chain_id is 0 or the ID of the current chain
         if chain_id == 0 goto step_2
         if chain_id == 1 goto step_2 ;; TODO: current chain_id should be obtained via a lookup to blockdata
@@ -47,32 +46,29 @@ fn rlpauth(chain_id u256, nonce u256, address u160, y_parity u8, r u256, s u256)
         var msg u256
         msg = keccak(keccak_input)
         authority = ecrecover(msg, y_parity, r, s)
-    step_4:
-        ;; TODO: this happens in the HUB, so it can be removed from here
-        ;; Add authority to accessed_addresses, as defined in EIP-2929. Does it have any effect here?
+        ;; step_4: happens in the HUB
+        ;; Add authority to accessed_addresses, as defined in EIP-2929.
     step_5:
         ;; TODO: I get the information for this step via a lookup to the HUB, it is a single bit representing
         ;; if we are in one of the two cases below
         ;; code_of_authority_is_empty_or_delegated
         ;; if authority is emtpy goto step_6
         ;; if authority is already delegated goto step_6
-        ;; fail  
+        ;; fail
     step_6:
         ;; TODO: a lookup is obtained by a combination of legacy lisp and zkasm. Ask Francois
         ;; TODO: authority.nonce is coming from the hub
         ;; NOTE: the sender.nonce will be incremented after the authority list in Linea; if sender == authority (SENDER_IS_AUTHORITY) one must verify authority.nonce + 1 == nonce (TBC)
         ;; if authority.nonce == nonce goto step_7
         ;; fail
-    step_7:
-        ;; TODO: this happens in the HUB, so it can be removed from here
-        ;; Add PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST gas to the global refund counter if authority is not empty. Does it have any effect here?
+    ;; step_7: happens in the HUB
+        ;; Add PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST gas to the global refund counter if authority is not empty.
     step_8:
         ;; TODO: compute the hash of 0xef0100 || address (send this to the prover, along with the expected code_hash, so as the prover proves it is correct)
         ;; if address == 0x0000000000000000000000000000000000000000 goto "authority.code_hash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
         ;; authority.code = (0xef0100 * 2^160) + address
         ;; TODO: look at Into HUB lookup and compute all the required values
-    step_9:
-        ;; TODO: this happens in the HUB, so it can be removed from here
+    ;; step_9: happens in the HUB
         ;; authority.nonce = authority.nonce + 1
     exit:
         ;; dummy values
