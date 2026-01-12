@@ -417,9 +417,16 @@ func (p *MirLowering) expandLogicalTerm(le LogicalTerm, module mirModuleBuilder)
 func (p *MirLowering) expandTerm(e Term, module mirModuleBuilder) *mir.RegisterAccess[word.BigEndian] {
 	// Check whether this really requires expansion (or not).
 	if ca, ok := e.(*RegisterAccess); ok {
-		// No, expansion not required
+		// Expansion not required
 		return term.RawRegisterAccess[word.BigEndian, mirTerm](ca.Register(),
 			ca.BitWidth(), ca.RelativeShift()).Mask(ca.MaskWidth())
+	} else if c, ok := term.IsConstant64(e); ok && (c == 0 || c == 1) {
+		var (
+			ca            = module.ConstRegister(uint8(c))
+			bitwidth uint = uint(c)
+		)
+		// Expansion not required
+		return term.RawRegisterAccess[word.BigEndian, mirTerm](ca, bitwidth, 0)
 	}
 	// Yes, expansion is really necessary
 	var (

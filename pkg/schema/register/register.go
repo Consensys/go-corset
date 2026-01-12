@@ -68,6 +68,8 @@ func NewConst(value uint8) Register {
 	switch value {
 	case 0:
 		return Register{ZERO_REGISTER, name, 0, *big.NewInt(0)}
+	case 1:
+		return Register{ONE_REGISTER, name, 1, *big.NewInt(1)}
 	default:
 		panic(fmt.Sprintf("unsupported constant register (%d)", value))
 	}
