@@ -288,7 +288,7 @@ func SubdivideLogicals[F field.Element[F], S Logical[F, S], T Expr[F, T]](cs []S
 // ============================================================================
 
 // IsUnsafeExpr determines whether or not a given expression contains an unsafe
-// operation (i.e. a runtime case).  Specifically, something which could fail at
+// operation (i.e. a runtime cast).  Specifically, something which could fail at
 // runtime.
 func IsUnsafeExpr[F field.Element[F], S Logical[F, S], T Expr[F, T]](c T) bool {
 	var f Expr[F, T] = any(c).(Expr[F, T])

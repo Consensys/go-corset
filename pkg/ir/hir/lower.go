@@ -260,7 +260,7 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 	}
 	//
 	for i, e := range vec.Terms {
-		// Check for unsafe operation (e.g. case)
+		// Check for unsafe operation (e.g. cast)
 		var (
 			unsafe = selector.HasValue() && term.IsUnsafeExpr[word.BigEndian, LogicalTerm, Term](e)
 			expr   = e
@@ -416,10 +416,9 @@ func (p *MirLowering) expandLogicalTerm(le LogicalTerm, module mirModuleBuilder)
 // expression.
 func (p *MirLowering) expandTerm(e Term, module mirModuleBuilder) *mir.RegisterAccess[word.BigEndian] {
 	// Check whether this really requires expansion (or not).
-	if ca, ok := e.(*RegisterAccess); ok {
-		// Expansion not required
-		return term.RawRegisterAccess[word.BigEndian, mirTerm](ca.Register(),
-			ca.BitWidth(), ca.RelativeShift()).Mask(ca.MaskWidth())
+	if rid, width, shift, mask, ok := isRegisterAccess(e); ok {
+		// No, expansion not required
+		return term.RawRegisterAccess[word.BigEndian, mirTerm](rid, width, shift).Mask(mask)
 	} else if c, ok := term.IsConstant64(e); ok && (c == 0 || c == 1) {
 		var (
 			ca            = module.ConstRegister(uint8(c))
@@ -462,6 +461,26 @@ func (p *MirLowering) expandTerm(e Term, module mirModuleBuilder) *mir.RegisterA
 	}
 	// FIXME: eventually we just want to return the index
 	return term.RawRegisterAccess[word.BigEndian, mirTerm](index, bitwidth, 0)
+}
+
+// Determine whether this is a direct register access, or not.
+func isRegisterAccess(term Term) (rid register.Id, width uint, shift int, mask uint, ok bool) {
+	switch t := term.(type) {
+	case *RegisterAccess:
+		return t.Register(), t.BitWidth(), t.RelativeShift(), t.MaskWidth(), true
+	case *Cast:
+		if r, w, s, m, ok := isRegisterAccess(t.Arg); ok {
+			// sanity check cast makes sense
+			if m < t.BitWidth {
+				// TODO: provide a proper error message
+				panic("cast out-of-bounds")
+			}
+			//
+			return r, w, s, t.BitWidth, true
+		}
+	}
+	//
+	return register.UnusedId(), 0, 0, 0, false
 }
 
 // Lower a given HIR expression into one or more "conditional" MIR expressions.
