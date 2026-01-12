@@ -164,8 +164,8 @@ func generateJavaModuleHeaders[F any](mod corset.SourceModule, schema sc.AnySche
 		reg := schema.Register(col.Register)
 		// Check whether this is part of our module
 		if reg.IsInputOutput() {
-			bitWidth := fmt.Sprintf("%d", reg.Width)
-			name := fmt.Sprintf("%s.%s", mod.Name, reg.Name)
+			bitWidth := fmt.Sprintf("%d", reg.Width())
+			name := fmt.Sprintf("%s.%s", mod.Name, reg.Name())
 			regStr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
 			i1Builder.WriteIndentedString(
 				"headers.add(new ColumnHeader(\"", name, "\",", regStr, ",", bitWidth, ",length));\n")
@@ -269,7 +269,7 @@ func generateJavaModuleRegisterFields[F any](mod corset.SourceModule, schema sc.
 				builder.WriteIndentedString(fmt.Sprintf("// Registers from %s\n", mod.Name))
 			}
 			// Determine suitable name for field
-			fieldName := toRegisterName(col.Register, reg.Name)
+			fieldName := toRegisterName(col.Register, reg.Name())
 			//
 			builder.WriteIndentedString("private Column ", fieldName, ";\n")
 			// increase count
@@ -365,7 +365,7 @@ func generateJavaModuleOpen[F any](mod corset.SourceModule, schema sc.AnySchema[
 		// Check whether this is part of our module
 		if reg.IsInputOutput() {
 			// Yes, it is.
-			fieldName := toRegisterName(col.Register, reg.Name)
+			fieldName := toRegisterName(col.Register, reg.Name())
 			registerStr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
 			innerBuilder.WriteIndentedString("this.", fieldName, " = registers[", registerStr, "];\n")
 		}
@@ -419,7 +419,7 @@ func generateJavaModuleColumnSetter[F any](className string, methodName string, 
 	//
 	methodName = toCamelCase(methodName)
 	bitwidth := col.Bitwidth
-	fieldName := toRegisterName(col.Register, schema.Register(col.Register).Name)
+	fieldName := toRegisterName(col.Register, schema.Register(col.Register).Name())
 	//
 	indexStr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
 	typeStr := getJavaType(bitwidth)
@@ -474,7 +474,7 @@ func generateJavaModuleValidateRow[F any](className string, mod corset.SourceMod
 		reg := schema.Register(col.Register)
 		// Check whether this is part of our module
 		if reg.IsInputOutput() {
-			name := fmt.Sprintf("%s.%s", mod.Name, reg.Name)
+			name := fmt.Sprintf("%s.%s", mod.Name, reg.Name())
 			regstr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
 			// Yes, include register
 			i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
@@ -501,15 +501,15 @@ func generateJavaModuleFillAndValidateRow[F any](className string, mod corset.So
 		reg := schema.Register(col.Register)
 		// Check whether this is part of our module
 		if reg.IsInputOutput() {
-			name := toRegisterName(col.Register, reg.Name)
+			name := toRegisterName(col.Register, reg.Name())
 			regstr := fmt.Sprintf("%d", col.Register.Index(schema.Width()))
 			// Yes, include register
 			i1Builder.WriteIndentedString("if(!filled.get(", regstr, ")) {\n")
 			//
 			switch {
-			case reg.Width == 1:
+			case reg.Width() == 1:
 				i2Builder.WriteIndentedString(name, ".write(false);\n")
-			case reg.Width <= 63:
+			case reg.Width() <= 63:
 				i2Builder.WriteIndentedString(name, ".write(0L);\n")
 			default:
 				i2Builder.WriteIndentedString(name, ".write(new byte[0]);\n")

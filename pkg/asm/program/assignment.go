@@ -178,7 +178,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder 
 	)
 	// Initialise register columns
 	for i, r := range p.registers {
-		cols[i] = builder.NewArray(nrows, r.Width)
+		cols[i] = builder.NewArray(nrows, r.Width())
 	}
 	// Initialise control columns (if applicable)
 	// transcribe values
@@ -290,7 +290,7 @@ func checkConsistentOutputs(state io.State, outputs []big.Int) {
 				// Following should be unreachable unless there is a bug
 				// somewhere (e.g. when translating from ASM to UASM).
 				panic(fmt.Sprintf("computed output for register \"%s\" does not match expected output (0x%s vs 0x%s)",
-					reg.Name, actual.Text(16), expected.Text(16)))
+					reg.Name(), actual.Text(16), expected.Text(16)))
 			}
 			//
 			index++

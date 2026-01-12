@@ -161,12 +161,12 @@ func (p *internalModuleBuilder[F, C, T]) NewRegister(reg register.Register) regi
 	// Determine identifier
 	id := uint(len(p.registers))
 	// Sanity check
-	if _, ok := p.regmap[reg.Name]; ok {
-		panic(fmt.Sprintf("register \"%s\" already declared", reg.Name))
+	if _, ok := p.regmap[reg.Name()]; ok {
+		panic(fmt.Sprintf("register \"%s\" already declared", reg.Name()))
 	}
 	//
 	p.registers = append(p.registers, reg)
-	p.regmap[reg.Name] = id
+	p.regmap[reg.Name()] = id
 	//
 	return register.NewId(id)
 }
@@ -196,7 +196,7 @@ func (p *internalModuleBuilder[F, C, T]) RegisterAccessOf(name string, shift int
 		reg = p.Register(rid)
 	)
 	//
-	return term.RawRegisterAccess[F, T](rid, reg.Width, shift)
+	return term.RawRegisterAccess[F, T](rid, reg.Width(), shift)
 }
 
 func (p *internalModuleBuilder[F, C, T]) String() string {

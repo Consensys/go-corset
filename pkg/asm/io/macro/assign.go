@@ -112,7 +112,7 @@ func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	sum := uint(0)
 	//
 	for _, target := range targets {
-		sum += regs[target.Unwrap()].Width
+		sum += regs[target.Unwrap()].Width()
 	}
 	//
 	return sum
@@ -126,7 +126,7 @@ func checkSignBit(targets []io.RegisterId, regs []io.Register) error {
 		return errors.New("malformed assignment")
 	}
 	// Determine width of sign bit
-	signBitWidth := regs[targets[n].Unwrap()].Width
+	signBitWidth := regs[targets[n].Unwrap()].Width()
 	// Check it is a single bit
 	if signBitWidth == 1 {
 		return nil

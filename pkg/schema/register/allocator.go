@@ -180,7 +180,7 @@ func (p *registerAllocator[T]) Name() trace.ModuleName {
 // HasRegister implementation for RegisterMap interface.
 func (p *registerAllocator[T]) HasRegister(name string) (Id, bool) {
 	for i, reg := range p.registers {
-		if reg.Name == name {
+		if reg.Name() == name {
 			return NewId(uint(i)), true
 		}
 	}

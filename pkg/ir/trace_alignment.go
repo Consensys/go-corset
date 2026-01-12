@@ -95,8 +95,8 @@ func alignColumns[F any](mapping register.Map, columns []lt.Column[F], expanding
 	// Initialise column map
 	for i := range width {
 		ith := mapping.Register(register.NewId(i))
-		ncols[i] = lt.NewColumn[F](ith.Name, nil)
-		colmap[ith.Name] = i
+		ncols[i] = lt.NewColumn[F](ith.Name(), nil)
+		colmap[ith.Name()] = i
 	}
 	// Assign data for each column given
 	for _, col := range columns {
@@ -132,10 +132,10 @@ func alignColumns[F any](mapping register.Map, columns []lt.Column[F], expanding
 		)
 		//
 		if reg.IsInputOutput() && col.Data() == nil && !isEmpty {
-			name := tr.QualifiedColumnName(mapping.Name(), reg.Name)
+			name := tr.QualifiedColumnName(mapping.Name(), reg.Name())
 			errs = append(errs, fmt.Errorf("missing input/output column '%s' from trace", name))
 		} else if !expanding && col.Data() == nil {
-			name := tr.QualifiedColumnName(mapping.Name(), reg.Name)
+			name := tr.QualifiedColumnName(mapping.Name(), reg.Name())
 			errs = append(errs, fmt.Errorf("missing computed column '%s' from expanded trace", name))
 		}
 	}

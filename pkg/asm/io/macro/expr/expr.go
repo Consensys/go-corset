@@ -142,7 +142,7 @@ func String(e Expr, mapping register.Map) string {
 		exprs = e.Exprs
 		operator = "*"
 	case *RegAccess:
-		return mapping.Register(e.Register).Name
+		return mapping.Register(e.Register).Name()
 	case *Sub:
 		exprs = e.Exprs
 		operator = "-"

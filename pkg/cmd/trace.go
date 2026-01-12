@@ -387,7 +387,7 @@ func listColumns(cfg TraceConfig, window view.TraceView) {
 		for _, reg := range activeRegisters(mod) {
 			// Launch summarisers
 			go func(index uint, reg register.Id) {
-				name := mapping.Register(reg).Name
+				name := mapping.Register(reg).Name()
 				// Apply summarisers to column
 				row := summariseColumn(data.Name(), name, data.DataOf(mapping.LimbIds(reg)), summarisers)
 				// Package result

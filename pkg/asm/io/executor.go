@@ -53,7 +53,7 @@ func (p *Executor[T]) Instance(bus uint) FunctionInstance {
 			reg = fn.Register(register.NewId(i))
 		)
 		// Initialise input from padding value
-		inputs[i] = *ith.Set(&reg.Padding)
+		inputs[i] = *ith.Set(reg.Padding())
 	}
 	// Compute function instance
 	return p.functions[bus].Call(inputs, p)

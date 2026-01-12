@@ -171,7 +171,7 @@ func (p *RegisterAccess[F, T]) Lisp(global bool, mapping register.Map) sexp.SExp
 	if mapping != nil && global {
 		name = mapping.Register(p.register).QualifiedName(mapping)
 	} else if mapping != nil {
-		name = mapping.Register(p.register).Name
+		name = mapping.Register(p.register).Name()
 	} else {
 		name = fmt.Sprintf("#%d", p.register)
 	}

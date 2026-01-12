@@ -13,6 +13,9 @@
 package register
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 )
@@ -26,13 +29,13 @@ import (
 // similar, but not identical, concepts.
 type Register struct {
 	// Kind of register (input / output)
-	Kind Type
+	kind Type
 	// Given name of this register.
-	Name string
+	name string
 	// Width (in bits) of this register
-	Width uint
-	// Determines what value will be used to padd this register.
-	Padding big.Int
+	width uint
+	// Determines what value will be used to pad this register.
+	padding big.Int
 }
 
 // New constructs a new register of a given kind (i.e. input, output or
@@ -80,7 +83,7 @@ func NewConst(value uint8) Register {
 func (p *Register) Bound() *big.Int {
 	var (
 		bound = big.NewInt(2)
-		width = big.NewInt(int64(p.Width))
+		width = big.NewInt(int64(p.width))
 	)
 	// Compute 2^n
 	return bound.Exp(bound, width, nil)
@@ -88,7 +91,7 @@ func (p *Register) Bound() *big.Int {
 
 // IsInput determines whether or not this is an input register
 func (p *Register) IsInput() bool {
-	return p.Kind == INPUT_REGISTER
+	return p.kind == INPUT_REGISTER
 }
 
 // IsInputOutput determines whether or not this is an input or output register
@@ -98,24 +101,24 @@ func (p *Register) IsInputOutput() bool {
 
 // IsOutput determines whether or not this is an output register
 func (p *Register) IsOutput() bool {
-	return p.Kind == OUTPUT_REGISTER
+	return p.kind == OUTPUT_REGISTER
 }
 
 // IsComputed determines whether or not this is a computed register.  Observer
 // that "zero" registers are included in this, since they are neither input nor
 // output registers.
 func (p *Register) IsComputed() bool {
-	return p.Kind == COMPUTED_REGISTER || p.IsConst()
+	return p.kind == COMPUTED_REGISTER || p.IsConst()
 }
 
 // IsConst determines whether or not this is a constant "zero" or "one" register
 func (p *Register) IsConst() bool {
-	return p.Kind == ZERO_REGISTER || p.Kind == ONE_REGISTER
+	return p.kind == ZERO_REGISTER || p.kind == ONE_REGISTER
 }
 
 // ConstValue determines the constant value for a given constant register.
 func (p *Register) ConstValue() uint8 {
-	switch p.Kind {
+	switch p.kind {
 	case ZERO_REGISTER:
 		return 0
 	case ONE_REGISTER:
@@ -134,10 +137,20 @@ func (p *Register) MaxValue() *big.Int {
 	return max
 }
 
+// Kind returns the type of this register
+func (p Register) Kind() Type {
+	return p.kind
+}
+
+// Name returns the (unqualified) name of this register
+func (p Register) Name() string {
+	return p.name
+}
+
 // QualifiedName returns the fully qualified name of this register
 func (p Register) QualifiedName(mod Map) string {
 	var (
-		name    = p.Name
+		name    = p.name
 		modName = mod.Name().String()
 	)
 	//
@@ -148,8 +161,134 @@ func (p Register) QualifiedName(mod Map) string {
 	return name
 }
 
+// Padding determines what value will be used to padd this register.
+func (p *Register) Padding() *big.Int {
+	return &p.padding
+}
+
+// SetPadding updates the padding value to use for this register.
+func (p *Register) SetPadding(padding *big.Int) {
+	switch p.kind {
+	case ZERO_REGISTER, ONE_REGISTER:
+		if padding.IsUint64() && padding.Uint64() == uint64(p.ConstValue()) {
+			return
+		}
+		// Sanity Check
+		panic(fmt.Sprintf(
+			"cannot overide padding of constant register (%s vs %d)", padding.String(), p.ConstValue()))
+	}
+	//
+	p.padding.Set(padding)
+}
+
 func (p Register) String() string {
-	return fmt.Sprintf("%s:u%d:0x%s", p.Name, p.Width, p.Padding.Text(16))
+	return fmt.Sprintf("%s:u%d:0x%s", p.name, p.width, p.padding.Text(16))
+}
+
+// Width determines the bitwidth of this register.
+func (p Register) Width() uint {
+	return p.width
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// MarshalBinary converts a register into binary data
+func (p *Register) MarshalBinary() (data []byte, err error) {
+	var (
+		buffer = bytes.NewBuffer(data)
+	)
+	// Register kind
+	if err := binary.Write(buffer, binary.BigEndian, p.kind); err != nil {
+		return nil, err
+	}
+	// Register bitwidth
+	if err := binary.Write(buffer, binary.BigEndian, uint16(p.width)); err != nil {
+		return nil, err
+	}
+	// Write register name
+	if err := writeByteArray(buffer, []byte(p.name)); err != nil {
+		return nil, err
+	}
+	// Read register padding
+	if err := writeByteArray(buffer, p.padding.Bytes()); err != nil {
+		return nil, err
+	}
+	// Success
+	return buffer.Bytes(), nil
+}
+
+// UnmarshalBinary unmarshals a register
+func (p *Register) UnmarshalBinary(data []byte) error {
+	var (
+		buffer        = bytes.NewBuffer(data)
+		kind          uint8
+		width         uint16
+		name, padding []byte
+		err           error
+	)
+	// Register kind
+	if err := binary.Read(buffer, binary.BigEndian, &kind); err != nil {
+		return err
+	}
+	// Register bitwidth
+	if err := binary.Read(buffer, binary.BigEndian, &width); err != nil {
+		return err
+	}
+	// Read register name
+	if name, err = readByteArray(buffer); err != nil {
+		return err
+	}
+	// Read register padding
+	if padding, err = readByteArray(buffer); err != nil {
+		return err
+	}
+	//
+	p.kind = Type{kind}
+	p.width = uint(width)
+	p.name = string(name)
+	p.padding.SetBytes(padding)
+	// Success!
+	return nil
+}
+
+func readByteArray(buf *bytes.Buffer) ([]byte, error) {
+	var (
+		len  uint8
+		data []byte
+	)
+	//
+	// Register name length
+	if err := binary.Read(buf, binary.BigEndian, &len); err != nil {
+		return nil, err
+	}
+
+	data = make([]byte, len)
+	//
+	if n, err := buf.Read(data); err != nil {
+		return nil, err
+	} else if n != int(len) {
+		return nil, errors.New("malformed register encoding")
+	}
+	//
+	return data, nil
+}
+
+func writeByteArray(buf *bytes.Buffer, data []byte) error {
+	var len uint8 = uint8(len(data))
+	// Data length
+	if err := binary.Write(buf, binary.BigEndian, len); err != nil {
+		return err
+	}
+	// Data itself
+	if n, err := buf.Write(data); err != nil {
+		return err
+	} else if n != int(len) {
+		return errors.New("malformed register encoding")
+	}
+	// Success
+	return nil
 }
 
 // ============================================================================
@@ -172,7 +311,7 @@ func WidthOfRegisters(regs []Register, rids []Id) uint {
 	)
 	//
 	for _, rid := range rids {
-		width += regs[rid.Unwrap()].Width
+		width += regs[rid.Unwrap()].Width()
 	}
 	//
 	return width

@@ -173,7 +173,7 @@ func (p *MirLowering) lowerFunctionCall(v FunctionCall, module mirModuleBuilder)
 	for i := range nargs + nrets {
 		var (
 			rid      = register.NewId(uint(i))
-			bitwidth = calleeModule.Register(rid).Width
+			bitwidth = calleeModule.Register(rid).Width()
 		)
 		//
 		targetTerms[i] = term.RawRegisterAccess[word.BigEndian, mirTerm](rid, bitwidth, 0)
@@ -501,12 +501,12 @@ func (p *MirLowering) lowerTerm(e Term, mirModule mirModuleBuilder) IfTerm {
 				reg = mirModule.Register(r.Register())
 			)
 			// Sanity check cast makes sense
-			if reg.Width < e.BitWidth {
+			if reg.Width() < e.BitWidth {
 				// TODO: provide a proper error message
 				panic("cast out-of-bounds")
 			}
 			// Construct access for the given register
-			t := term.RawRegisterAccess[word.BigEndian, mirTerm](r.Register(), reg.Width, r.RelativeShift())
+			t := term.RawRegisterAccess[word.BigEndian, mirTerm](r.Register(), reg.Width(), r.RelativeShift())
 			// Implement cast by masking register
 			return UnconditionalTerm(t.Mask(e.BitWidth))
 		}

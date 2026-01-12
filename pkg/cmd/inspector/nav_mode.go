@@ -159,7 +159,7 @@ func (p *NavigationMode) scanInputMode(parent *Inspector) Mode {
 	)
 	// Identify available columns
 	for _, c := range data.Mapping().Registers() {
-		columns.Insert(c.Name)
+		columns.Insert(c.Name())
 	}
 	//
 	for _, c := range data.SourceColumns() {

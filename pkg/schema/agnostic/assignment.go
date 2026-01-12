@@ -61,7 +61,7 @@ func (p *Assignment) String(env register.Map) string {
 
 		i = i - 1
 
-		builder.WriteString(env.Register(p.LeftHandSide[i]).Name)
+		builder.WriteString(env.Register(p.LeftHandSide[i]).Name())
 	}
 	//
 	builder.WriteString(" := ")
@@ -278,14 +278,14 @@ func getNextLhsChunk(regs []register.Id, chunkWidth uint, signed bool, mapping r
 			// Determine scenarios under which we will include the sign bit no
 			// matter what.  This is necessary to prevent some odd situations,
 			// such as where a chunk contains only the sign bit.
-			includeSignBit = last && (reg.Width == 1) && signed
+			includeSignBit = last && (reg.Width() == 1) && signed
 		)
 		//
-		if (bitwidth+reg.Width > chunkWidth) && !includeSignBit {
+		if (bitwidth+reg.Width() > chunkWidth) && !includeSignBit {
 			return LhsChunk{bitwidth, regs[:i]}, regs[i:]
 		}
 		//
-		bitwidth += reg.Width
+		bitwidth += reg.Width()
 	}
 	//
 	return LhsChunk{bitwidth, regs}, nil
@@ -435,7 +435,7 @@ type RhsChunk = Chunk[StaticPolynomial]
 // StaticPoly2String provides a convenient helper function for debugging polynomials.
 func StaticPoly2String(p StaticPolynomial, env register.Map) string {
 	return poly.String(p, func(r register.Id) string {
-		return env.Register(r.Id()).Name
+		return env.Register(r.Id()).Name()
 	})
 }
 
@@ -518,7 +518,7 @@ func (p *RegisterSplitter) Apply(poly StaticPolynomial, mapping RegisterAllocato
 			reg = mapping.Register(rid)
 		)
 		//
-		if div != 1 && reg.Width > 1 {
+		if div != 1 && reg.Width() > 1 {
 			var limbPoly = p.splitVariable(rid, div, mapping)
 			//
 			cache[rid] = limbPoly
@@ -540,16 +540,16 @@ func (p *RegisterSplitter) splitVariable(rid register.Id, div uint, mapping Regi
 		rhs      StaticPolynomial
 		terms    []StaticMonomial
 		reg      = mapping.Register(rid)
-		maxWidth = reg.Width / div
-		bitwidth = reg.Width
+		maxWidth = reg.Width() / div
+		bitwidth = reg.Width()
 		width    uint
 	)
 	// Round up (if necessary)
-	if (maxWidth * div) < reg.Width {
+	if (maxWidth * div) < reg.Width() {
 		maxWidth++
 	}
 	// Determine limb widths
-	limbWidths := register.LimbWidths(maxWidth, reg.Width)
+	limbWidths := register.LimbWidths(maxWidth, reg.Width())
 	// Allocate limbs
 	limbs := p.alloc(rid, limbWidths, mapping)
 	// Construct limb polynomial
@@ -589,7 +589,7 @@ func (p *RegisterSplitter) String(mapping register.Map) string {
 				builder.WriteString(", ")
 			}
 			//
-			name := mapping.Register(rid).Name
+			name := mapping.Register(rid).Name()
 			builder.WriteString(fmt.Sprintf("%s/%d", name, div))
 			//
 			first = false
@@ -606,7 +606,7 @@ func (p *RegisterSplitter) String(mapping register.Map) string {
 func (p *RegisterSplitter) alloc(parent register.Id, limbWidths []uint, mapping RegisterAllocator) []register.Id {
 	var (
 		reg   = mapping.Register(parent)
-		limbs = mapping.AllocateN(reg.Name, limbWidths)
+		limbs = mapping.AllocateN(reg.Name(), limbWidths)
 	)
 	// Record parent of each limbs
 	for _, limb := range limbs {
@@ -631,7 +631,7 @@ func debugChunks(lhs []LhsChunk, rhs []RhsChunk, mapping register.Map) {
 				fmt.Printf(", ")
 			}
 
-			fmt.Print(mapping.Register(rid).Name)
+			fmt.Print(mapping.Register(rid).Name())
 		}
 		//
 		fmt.Print("]")

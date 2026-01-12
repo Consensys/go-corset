@@ -368,7 +368,7 @@ func (p *Subdivider[F]) subdivideSorted(c SortedConstraint[F]) SortedConstraint[
 		for j := len(split); j > 0; j-- {
 			var (
 				jth       = split[j-1]
-				limbWidth = modmap.Limb(jth.Register()).Width
+				limbWidth = modmap.Limb(jth.Register()).Width()
 			)
 			//
 			sources = append(sources, jth)
@@ -498,7 +498,7 @@ func subdivideRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], map
 	for i, limbId := range limbs {
 		var (
 			limb      = mapping.Limb(limbId)
-			limbWidth = min(bitwidth, limb.Width)
+			limbWidth = min(bitwidth, limb.Width())
 		)
 		// NOTE: following ensures at least one limb is always added for any
 		// register.  This is necessary to ensure we never completely eliminate
@@ -507,7 +507,7 @@ func subdivideRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], map
 		// registers whose value constant).
 		if limbWidth > 0 || i == 0 {
 			// Construct register access
-			ith := term.RawRegisterAccess[F, Term[F]](limbId, limb.Width, expr.RelativeShift())
+			ith := term.RawRegisterAccess[F, Term[F]](limbId, limb.Width(), expr.RelativeShift())
 			// Mask off any unrequired bits
 			terms = append(terms, ith.Mask(limbWidth))
 		}

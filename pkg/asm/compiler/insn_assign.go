@@ -110,7 +110,7 @@ func hasSignBit(targets []register.Id, regs []register.Register) bool {
 		return false
 	}
 	// Look for single sign bit
-	return regs[targets[n].Unwrap()].Width == 1
+	return regs[targets[n].Unwrap()].Width() == 1
 }
 
 // useful for debugging
@@ -123,13 +123,13 @@ func assignToString(registers []register.Register, lhs []register.Id, rhs agnost
 		if i != 0 {
 			builder.WriteString(",")
 		}
-		builder.WriteString(registers[ith.Unwrap()].Name)
+		builder.WriteString(registers[ith.Unwrap()].Name())
 	}
 	//
 	builder.WriteString(" := ")
 	//
 	builder.WriteString(poly.String(rhs, func(id register.Id) string {
-		return registers[id.Unwrap()].Name
+		return registers[id.Unwrap()].Name()
 	}))
 	//
 	return builder.String()

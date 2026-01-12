@@ -305,11 +305,11 @@ func extractFunctionPadding(registers []register.Register, inputs, outputs []big
 	var numInputs = len(inputs)
 	//
 	for i := range len(inputs) {
-		inputs[i] = registers[i].Padding
+		inputs[i] = *registers[i].Padding()
 	}
 
 	for i := range len(outputs) {
-		outputs[i] = registers[i+numInputs].Padding
+		outputs[i] = *registers[i+numInputs].Padding()
 	}
 }
 
@@ -341,7 +341,7 @@ func readFunctionInstances[T io.Instruction[T]](fn io.Function[T], instances []i
 	for i := range columns {
 		data := readFunctionInputOutputs(uint(i), registers, instances, builder)
 		//
-		columns[i] = lt.NewColumn[word.BigEndian](registers[i].Name, data)
+		columns[i] = lt.NewColumn[word.BigEndian](registers[i].Name(), data)
 	}
 	//
 	return lt.NewModule[word.BigEndian](fn.Name(), columns)
@@ -351,7 +351,7 @@ func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.
 	builder array.Builder[word.BigEndian]) array.MutArray[word.BigEndian] {
 	var (
 		height = uint(len(instances))
-		arr    = builder.NewArray(height, registers[arg].Width)
+		arr    = builder.NewArray(height, registers[arg].Width())
 	)
 	//
 	for i, instance := range instances {

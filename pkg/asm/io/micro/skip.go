@@ -88,7 +88,7 @@ func (p *Skip) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []
 
 func (p *Skip) String(fn register.Map) string {
 	var (
-		l = fn.Register(p.Left).Name
+		l = fn.Register(p.Left).Name()
 		r = p.Right.String(fn)
 	)
 	//
@@ -98,7 +98,7 @@ func (p *Skip) String(fn register.Map) string {
 // Validate checks whether or not this instruction is correctly balanced.
 func (p *Skip) Validate(fieldWidth uint, fn register.Map) error {
 	var (
-		lw = fn.Register(p.Left).Width
+		lw = fn.Register(p.Left).Width()
 		rw = p.Right.Bitwidth(fn)
 	)
 	//

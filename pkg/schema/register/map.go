@@ -62,7 +62,7 @@ func MapToString(p Map) string {
 			builder.WriteString(",")
 		}
 		//
-		builder.WriteString(r.Name)
+		builder.WriteString(r.Name())
 	}
 	//
 	builder.WriteString("}")

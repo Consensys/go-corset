@@ -169,11 +169,11 @@ func extractSourceMapData(name module.Name, limbs bool, srcmap map[string]corset
 	}
 	// Add any registers not already seen
 	for i, reg := range mapping.Registers() {
-		if _, ok := seen[reg.Name]; !ok {
+		if _, ok := seen[reg.Name()]; !ok {
 			rid := register.NewId(uint(i))
 			//
 			columns = append(columns, SourceColumn{
-				Name:     reg.Name,
+				Name:     reg.Name(),
 				Display:  0,
 				Computed: reg.IsComputed(),
 				Selector: util.None[string](),
@@ -205,7 +205,7 @@ func extractSourceColumns(path file.Path, multiplier uint, selector util.Option[
 					limb := mapping.Limb(lid)
 					//
 					srcColumns = append(srcColumns, SourceColumn{
-						Name:     limb.Name,
+						Name:     limb.Name(),
 						Display:  col.Display,
 						Computed: col.Computed,
 						Selector: selector,

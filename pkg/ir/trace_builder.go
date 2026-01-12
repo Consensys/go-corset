@@ -251,9 +251,9 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 			data = rawModule.Columns[i].MutData()
 		}
 		// Set padding for this column
-		padding = padding.SetBytes(reg.Padding.Bytes())
+		padding = padding.SetBytes(reg.Padding().Bytes())
 		//
-		traceColumns[i] = trace.NewArrayColumn(reg.Name, data, padding)
+		traceColumns[i] = trace.NewArrayColumn(reg.Name(), data, padding)
 	}
 	//
 	return trace.NewArrayModule(mod.Name(), traceColumns)

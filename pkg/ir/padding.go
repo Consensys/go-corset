@@ -60,9 +60,9 @@ func (p *traceModule[F]) Column(index uint) trace.Column[F] {
 		padding F
 	)
 	// Convert bigint to field element
-	padding = padding.SetBytes(ith.Padding.Bytes())
+	padding = padding.SetBytes(ith.Padding().Bytes())
 	//
-	return &traceColumn[F]{ith.Name, padding}
+	return &traceColumn[F]{ith.Name(), padding}
 }
 
 // ColumnOf implementation for trace.Module interface

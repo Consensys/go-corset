@@ -268,7 +268,7 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
 		if width > field.BandWidth {
 			for _, v := range term.Vars() {
 				// Check whether register is above threshold or not.
-				if mapping.Register(v.Id()).Width > regWidth {
+				if mapping.Register(v.Id()).Width() > regWidth {
 					// Yes, so mark it for splitting.
 					vars.Insert(v.Unwrap())
 				}
@@ -363,7 +363,7 @@ func balancePolynomial(poly DynamicPolynomial) (pos, neg DynamicPolynomial) {
 func DynamicPoly2String(p DynamicPolynomial, env register.Map) string {
 	return poly.String(p, func(r register.AccessId) string {
 		var (
-			name  = env.Register(r.Id()).Name
+			name  = env.Register(r.Id()).Name()
 			shift = r.RelativeShift()
 		)
 		//

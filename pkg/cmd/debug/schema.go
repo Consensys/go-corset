@@ -132,17 +132,17 @@ func printRegisters[F any](module schema.Module[F], prefix string, filter func(r
 		//
 		for _, r := range module.Registers() {
 			if filter(r) {
-				if r.Width != math.MaxUint {
-					regT = fmt.Sprintf("u%d", r.Width)
+				if r.Width() != math.MaxUint {
+					regT = fmt.Sprintf("u%d", r.Width())
 				} else {
 					regT = "𝔽"
 				}
 				// construct name string whilst applying quotes when necessary.
-				name := sexp.NewSymbol(r.Name).String(true)
+				name := sexp.NewSymbol(r.Name()).String(true)
 				//
 				fmt.Printf("   (%s %s", name, regT)
 				// Print padding
-				fmt.Printf(" 0x%s)\n", r.Padding.Text(16))
+				fmt.Printf(" 0x%s)\n", r.Padding().Text(16))
 			}
 		}
 		//
@@ -207,7 +207,7 @@ func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 				first = false
 			}
 			//
-			fmt.Printf("%s u%d", r.Name, r.Width)
+			fmt.Printf("%s u%d", r.Name(), r.Width())
 		}
 	}
 	//
@@ -223,7 +223,7 @@ func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 				first = false
 			}
 			//
-			fmt.Printf("%s u%d", r.Name, r.Width)
+			fmt.Printf("%s u%d", r.Name(), r.Width())
 		}
 	}
 	//
@@ -233,7 +233,7 @@ func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 func printAssemblyRegisters[T io.Instruction[T]](f io.Function[T]) {
 	for _, r := range f.Registers() {
 		if !r.IsInput() && !r.IsOutput() {
-			fmt.Printf("\tvar %s u%d\n", r.Name, r.Width)
+			fmt.Printf("\tvar %s u%d\n", r.Name(), r.Width())
 		}
 	}
 }

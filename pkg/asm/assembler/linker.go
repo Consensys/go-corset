@@ -282,14 +282,14 @@ func allocateIoRegisters(busName module.Name, registers []io.Register, fn *Macro
 		var regName string
 		// Determine suitable register name
 		if reg.IsInput() {
-			regName = fmt.Sprintf("%s>%s[%s]", fn.Name().String(), busName.String(), reg.Name)
+			regName = fmt.Sprintf("%s>%s[%s]", fn.Name().String(), busName.String(), reg.Name())
 		} else if reg.IsOutput() {
-			regName = fmt.Sprintf("%s<%s[%s]", fn.Name().String(), busName.String(), reg.Name)
+			regName = fmt.Sprintf("%s<%s[%s]", fn.Name().String(), busName.String(), reg.Name())
 		} else {
 			panic("unreachable")
 		}
 		// Allocate register
-		lines = append(lines, fn.AllocateRegister(register.COMPUTED_REGISTER, regName, reg.Width, reg.Padding))
+		lines = append(lines, fn.AllocateRegister(register.COMPUTED_REGISTER, regName, reg.Width(), *reg.Padding()))
 	}
 	//
 	return lines

@@ -129,7 +129,7 @@ func (p *Table[F, C]) Consistent(fieldWidth uint, schema AnySchema[F]) []error {
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 	for i := range p.Width() {
-		if p.registers[i].Name == name {
+		if p.registers[i].Name() == name {
 			return register.NewId(i), true
 		}
 	}

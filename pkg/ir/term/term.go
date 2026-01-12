@@ -205,12 +205,12 @@ func subdivideRegAccesses[F field.Element[F], S Logical[F, S], T Expr[F, T]](map
 		for _, limbId := range mapping.LimbIds(v.Register()) {
 			var (
 				limb = mapping.Limb(limbId)
-				mask = min(limb.Width, bitwidth)
+				mask = min(limb.Width(), bitwidth)
 			)
 			//
 			if mask > 0 {
 				// Construct access for given limb
-				ith := RawRegisterAccess[F, T](limbId, limb.Width, v.RelativeShift())
+				ith := RawRegisterAccess[F, T](limbId, limb.Width(), v.RelativeShift())
 				// Mask access to eliminate any unused bits
 				nterms = append(nterms, ith.Mask(mask))
 			}

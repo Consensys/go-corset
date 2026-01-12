@@ -41,7 +41,7 @@ func (p Vector) BitWidth(fn Map) uint {
 	var bitwidth uint
 	//
 	for _, r := range p.regs {
-		bitwidth += fn.Register(r).Width
+		bitwidth += fn.Register(r).Width()
 	}
 	//
 	return bitwidth
@@ -73,7 +73,7 @@ func (p Vector) String(fn Map) string {
 			builder.WriteString("::")
 		}
 		//
-		builder.WriteString(fn.Register(ith).Name)
+		builder.WriteString(fn.Register(ith).Name())
 	}
 	//
 	return builder.String()

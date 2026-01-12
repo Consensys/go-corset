@@ -134,7 +134,7 @@ func (p *StateTranslator[F, T, E, M]) Clone() StateTranslator[F, T, E, M] {
 func (p *StateTranslator[F, T, E, M]) WriteRegister(dst io.RegisterId) E {
 	var (
 		ith = p.mapping.Registers[dst.Unwrap()]
-		lhs = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width, 0)
+		lhs = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width(), 0)
 	)
 	// Activate forwarding for this register
 	p.forwarded.Insert(dst.Unwrap())
@@ -154,7 +154,7 @@ func (p *StateTranslator[F, T, E, M]) WriteRegisters(targets []io.RegisterId) []
 	for i, dst := range targets {
 		var ith = p.mapping.Registers[dst.Unwrap()]
 
-		lhs[i] = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width, 0)
+		lhs[i] = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width(), 0)
 		// Activate forwarding for this register
 		p.forwarded.Insert(dst.Unwrap())
 		// Mark register as having been written.
@@ -175,13 +175,13 @@ func (p *StateTranslator[F, T, E, M]) WriteAndShiftRegisters(targets []io.Regist
 	for i, dst := range targets {
 		var ith = p.mapping.Registers[dst.Unwrap()]
 		//
-		lhs[i] = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width, 0)
+		lhs[i] = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width(), 0)
 		//
 		if i != 0 {
 			lhs[i] = BigNumber[T, E](offset).Multiply(lhs[i])
 		}
 		// left shift offset by given register width.
-		offset.Lsh(offset, p.mapping.Registers[dst.Unwrap()].Width)
+		offset.Lsh(offset, p.mapping.Registers[dst.Unwrap()].Width())
 		// Activate forwarding for this register
 		p.forwarded.Insert(dst.Unwrap())
 		// Mark register as having been written.
@@ -201,13 +201,13 @@ func (p *StateTranslator[F, T, E, M]) ReadRegister(regId io.RegisterId) E {
 	//
 	if reg.IsInput() {
 		// Inputs don't need to refer back
-		return Variable[T, E](colId, reg.Width, 0)
+		return Variable[T, E](colId, reg.Width(), 0)
 	} else if p.forwarded.Contains(regId.Unwrap()) {
 		// Forwarded
-		return Variable[T, E](colId, reg.Width, 0)
+		return Variable[T, E](colId, reg.Width(), 0)
 	}
 	// Not forwarded
-	return Variable[T, E](colId, reg.Width, -1)
+	return Variable[T, E](colId, reg.Width(), -1)
 }
 
 // ReadRegisters constructs appropriate column accesses for a given set of
@@ -230,8 +230,8 @@ func (p *StateTranslator[F, T, E, M]) WithLocalConstancies(condition E) E {
 			rid := p.mapping.Columns[i]
 			//
 			if p.IsLocalConstancy(uint(i)) {
-				r_i := Variable[T, E](rid, reg.Width, 0)
-				r_im1 := Variable[T, E](rid, reg.Width, -1)
+				r_i := Variable[T, E](rid, reg.Width(), 0)
+				r_im1 := Variable[T, E](rid, reg.Width(), -1)
 				constancy := r_i.Equals(r_im1)
 				//
 				condition = condition.And(constancy)
@@ -260,8 +260,8 @@ func (p *StateTranslator[F, T, E, M]) WithGlobalConstancies(condition E) E {
 			rid := p.mapping.Columns[i]
 			//
 			if !reg.IsInput() && p.constants.Contains(uint(i)) {
-				r_i := Variable[T, E](rid, reg.Width, 0)
-				r_im1 := Variable[T, E](rid, reg.Width, -1)
+				r_i := Variable[T, E](rid, reg.Width(), 0)
+				r_im1 := Variable[T, E](rid, reg.Width(), -1)
 				constancy := r_i.Equals(r_im1)
 				//
 				condition = condition.And(constancy)

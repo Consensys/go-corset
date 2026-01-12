@@ -360,10 +360,10 @@ func (t *translator) checkArgsReturns(decl *ast.DefCall, rets, args []hir.Term, 
 		// Sanity check bitwidth
 		if i < nArgs {
 			// subtype
-			errors = append(errors, t.checkSubSuptype(true, args[i], ith.Width, decl.Arguments[i])...)
+			errors = append(errors, t.checkSubSuptype(true, args[i], ith.Width(), decl.Arguments[i])...)
 		} else {
 			// supertype
-			errors = append(errors, t.checkSubSuptype(false, rets[i-nArgs], ith.Width, decl.Returns[i-nArgs])...)
+			errors = append(errors, t.checkSubSuptype(false, rets[i-nArgs], ith.Width(), decl.Returns[i-nArgs])...)
 		}
 	}
 	//
@@ -407,8 +407,10 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 	if len(errors) != 0 {
 		return errors
 	}
+	// Calculate padding value
+	targetPadding := ir.PaddingFor(computation, module)
 	// Calculate and update padding value
-	module.Registers()[targetId.Unwrap()].Padding = ir.PaddingFor(computation, module)
+	module.Registers()[targetId.Unwrap()].SetPadding(&targetPadding)
 	// Add assignment
 	module.AddAssignment(assignment.NewComputedRegister[word.BigEndian](
 		term.NewComputation[word.BigEndian, hir.LogicalTerm](computation), direction,
@@ -1379,7 +1381,7 @@ func RegisterAccessOf(module register.Map, name string, shift int) *hir.Register
 		reg    = module.Register(rid)
 	)
 	//
-	return term.RawRegisterAccess[word.BigEndian, hir.Term](rid, reg.Width, shift)
+	return term.RawRegisterAccess[word.BigEndian, hir.Term](rid, reg.Width(), shift)
 }
 
 func toRegisterRefs(context schema.ModuleId, ids []register.Id) []register.Ref {
@@ -1402,8 +1404,8 @@ func determineMaxBitwidth(module ModuleBuilder, sources []hir.Term) uint {
 		case *term.RegisterAccess[word.BigEndian, hir.Term]:
 			reg := module.Register(e.Register())
 			//
-			if reg.Width > bitwidth {
-				bitwidth = reg.Width
+			if reg.Width() > bitwidth {
+				bitwidth = reg.Width()
 			}
 		default:
 			// For now, we only supports simple column accesses.

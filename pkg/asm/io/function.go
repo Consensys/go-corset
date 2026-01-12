@@ -75,7 +75,7 @@ func NewFunction[T Instruction[T]](name module.Name, public bool, registers []Re
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
 	)
 	// Check registers sorted as: inputs, outputs then internal.
-	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind }) {
+	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind() }) {
 		panic("function registers ordered incorrectly")
 	} else if name.Multiplier != 1 {
 		panic("functions only support multiplers of 1")
@@ -126,7 +126,7 @@ func (p *Function[T]) IsAtomic() bool {
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
 	for i, r := range p.registers {
-		if r.Name == name {
+		if r.Name() == name {
 			return register.NewId(uint(i)), true
 		}
 	}
