@@ -56,8 +56,8 @@ func NewExternSymbolDefinition(path file.Path, reg register.Register) *ExternSym
 	return &ExternSymbolDefinition{
 		binding: ast.ColumnBinding{
 			ColumnContext: path,
-			Path:          *path.Extend(reg.Name),
-			DataType:      ast.NewUintType(reg.Width),
+			Path:          *path.Extend(reg.Name()),
+			DataType:      ast.NewUintType(reg.Width()),
 			MustProve:     true,
 			Multiplier:    1,
 			Kind:          kind,

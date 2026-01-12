@@ -360,10 +360,10 @@ func (t *translator) checkArgsReturns(decl *ast.DefCall, rets, args []hir.Term, 
 		// Sanity check bitwidth
 		if i < nArgs {
 			// subtype
-			errors = append(errors, t.checkSubSuptype(true, args[i], ith.Width, decl.Arguments[i])...)
+			errors = append(errors, t.checkSubSuptype(true, args[i], ith.Width(), decl.Arguments[i])...)
 		} else {
 			// supertype
-			errors = append(errors, t.checkSubSuptype(false, rets[i-nArgs], ith.Width, decl.Returns[i-nArgs])...)
+			errors = append(errors, t.checkSubSuptype(false, rets[i-nArgs], ith.Width(), decl.Returns[i-nArgs])...)
 		}
 	}
 	//
@@ -407,8 +407,10 @@ func (t *translator) translateDefComputedColumn(d *ast.DefComputedColumn, path f
 	if len(errors) != 0 {
 		return errors
 	}
+	// Calculate padding value
+	targetPadding := ir.PaddingFor(computation, module)
 	// Calculate and update padding value
-	module.Registers()[targetId.Unwrap()].Padding = ir.PaddingFor(computation, module)
+	module.Registers()[targetId.Unwrap()].SetPadding(&targetPadding)
 	// Add assignment
 	module.AddAssignment(assignment.NewComputedRegister[word.BigEndian](
 		term.NewComputation[word.BigEndian, hir.LogicalTerm](computation), direction,
@@ -519,16 +521,20 @@ func (t *translator) translateSelectorInModule(perspective *ast.PerspectiveName,
 // Translate a "deflookup" declaration.
 func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	var (
-		errors  []SyntaxError
-		context ast.Context
-		sources []lookup.Vector[word.BigEndian, hir.Term]
-		targets []lookup.Vector[word.BigEndian, hir.Term]
+		errors                 []SyntaxError
+		srcContext, tgtContext ast.Context
+		sources                []lookup.Vector[word.BigEndian, hir.Term]
+		targets                []lookup.Vector[word.BigEndian, hir.Term]
 	)
 	// Translate sources
 	for i, ith := range decl.Targets {
-		ith_targets, _, errs := t.translateDefLookupSources(decl.TargetSelectors[i], ith)
+		ith_targets, ctx, errs := t.translateDefLookupSources(decl.TargetSelectors[i], ith)
 		targets = append(targets, ith_targets)
 		errors = append(errors, errs...)
+		//
+		if i == 0 {
+			tgtContext = ctx
+		}
 	}
 	// Translate targets
 	for i, ith := range decl.Sources {
@@ -537,7 +543,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 		errors = append(errors, errs...)
 		//
 		if i == 0 {
-			context = ctx
+			srcContext = ctx
 		}
 	}
 	// Sanity check this is not an irregular lookup (since these are not
@@ -547,7 +553,12 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
-		module := t.moduleOf(context)
+		// Default to adding constraint to source module
+		var module = t.moduleOf(srcContext)
+		// However, if external add to target module instead.
+		if module.IsExtern() {
+			module = t.moduleOf(tgtContext)
+		}
 		// Add translated constraint
 		module.AddConstraint(hir.NewLookupConstraint(decl.Handle, targets, sources))
 	}
@@ -596,13 +607,13 @@ func (t *translator) translateDefLookupSources(selector ast.Expr,
 	if len(errors) == 0 {
 		// NOTE: don't check vector if other errors, since we could have nil
 		// entries in the vector, etc.
-		errors = append(errors, t.checkLookupVector(vector, selector, sources)...)
+		errors = append(errors, t.checkLookupVector(module.IsExtern(), vector, selector, sources)...)
 	}
 	//
 	return vector, context, errors
 }
 
-func (t *translator) checkLookupVector(vector lookup.Vector[word.BigEndian, hir.Term], selector ast.Expr,
+func (t *translator) checkLookupVector(extern bool, vector lookup.Vector[word.BigEndian, hir.Term], selector ast.Expr,
 	terms []ast.Expr) []SyntaxError {
 	//
 	var (
@@ -610,6 +621,10 @@ func (t *translator) checkLookupVector(vector lookup.Vector[word.BigEndian, hir.
 	)
 	// Look for any negative terms
 	for i, ith := range vector.Terms {
+		if extern && !isConstantRegister(ith) {
+			errors = append(errors, *t.srcmap.SyntaxError(terms[i],
+				"arbitrary term not permitted here (i.e. only 0, 1, or register for external module)"))
+		}
 		// Determine value range of ith term
 		valrange := ith.ValueRange()
 		// Determine bitwidth for that range
@@ -636,6 +651,19 @@ func (t *translator) checkLookupVector(vector lookup.Vector[word.BigEndian, hir.
 	}
 	// Done
 	return errors
+}
+
+func isConstantRegister(term hir.Term) bool {
+	switch t := term.(type) {
+	case *hir.Constant:
+		val := t.Value.AsBigInt()
+		// Check whether valid constant
+		return val.IsUint64() && (val.Uint64() == 0 || val.Uint64() == 1)
+	case *hir.RegisterAccess:
+		return true
+	}
+	//
+	return false
 }
 
 // An irregular lookup is an awkward scenario where a source/target pairing does
@@ -1353,7 +1381,7 @@ func RegisterAccessOf(module register.Map, name string, shift int) *hir.Register
 		reg    = module.Register(rid)
 	)
 	//
-	return term.RawRegisterAccess[word.BigEndian, hir.Term](rid, reg.Width, shift)
+	return term.RawRegisterAccess[word.BigEndian, hir.Term](rid, reg.Width(), shift)
 }
 
 func toRegisterRefs(context schema.ModuleId, ids []register.Id) []register.Ref {
@@ -1376,8 +1404,8 @@ func determineMaxBitwidth(module ModuleBuilder, sources []hir.Term) uint {
 		case *term.RegisterAccess[word.BigEndian, hir.Term]:
 			reg := module.Register(e.Register())
 			//
-			if reg.Width > bitwidth {
-				bitwidth = reg.Width
+			if reg.Width() > bitwidth {
+				bitwidth = reg.Width()
 			}
 		default:
 			// For now, we only supports simple column accesses.

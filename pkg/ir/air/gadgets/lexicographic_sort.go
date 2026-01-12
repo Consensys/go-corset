@@ -196,8 +196,8 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 			ith_col = module.Register(p.columns[i])
 			pterms  = make([]air.Term[F], i+1)
 			qterms  = make([]air.Term[F], i)
-			c_i     = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width, 0)
-			c_pi    = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width, -1)
+			c_i     = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width(), 0)
+			c_pi    = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width(), -1)
 		)
 
 		terms[i] = term.NewRegisterAccess[F, air.Term[F]](ith_id, 1, 0)
@@ -261,7 +261,7 @@ func constructLexicographicDeltaConstraint[F field.Element[F]](deltaIndex regist
 		// Construct delta terms
 		terms      = make([]air.Term[F], ncols)
 		deltaWidth = mapping.Register(deltaIndex).Width
-		Dk         = term.NewRegisterAccess[F, air.Term[F]](deltaIndex, deltaWidth, 0)
+		Dk         = term.NewRegisterAccess[F, air.Term[F]](deltaIndex, deltaWidth(), 0)
 	)
 	//
 	for i := uint(0); i < ncols; i++ {
@@ -273,9 +273,9 @@ func constructLexicographicDeltaConstraint[F field.Element[F]](deltaIndex regist
 		// Ith bit column (at row k)
 		Bk := term.NewRegisterAccess[F, air.Term[F]](ith_bit, 1, 0)
 		// Ith column (at row k)
-		Xk := term.NewRegisterAccess[F, air.Term[F]](columns[i], ith_col.Width, 0)
+		Xk := term.NewRegisterAccess[F, air.Term[F]](columns[i], ith_col.Width(), 0)
 		// Ith column (at row k-1)
-		Xkm1 := term.NewRegisterAccess[F, air.Term[F]](columns[i], ith_col.Width, -1)
+		Xkm1 := term.NewRegisterAccess[F, air.Term[F]](columns[i], ith_col.Width(), -1)
 		if signs[i] {
 			Xdiff = term.Subtract(Xk, Xkm1)
 		} else {

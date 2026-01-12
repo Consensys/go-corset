@@ -194,7 +194,7 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction) {
 	bus.columns = make([]T, len(fn.Registers()))
 	//
 	for i, reg := range fn.Registers() {
-		bus.columns[i] = module.NewColumn(reg.Kind, reg.Name, reg.Width, reg.Padding)
+		bus.columns[i] = module.NewColumn(reg.Kind(), reg.Name(), reg.Width(), *reg.Padding())
 	}
 	//
 	if !bus.atomic {
@@ -269,9 +269,9 @@ func (p *Compiler[F, T, E, M]) addInputConstancies(pc T, busId uint, fn MicroFun
 	// Constancies not required in padding region or for first instruction.
 	for i, r := range fn.Registers() {
 		if r.IsInput() {
-			name := fmt.Sprintf("const_%s", r.Name)
-			reg_i := Variable[T, E](bus.columns[i], r.Width, 0)
-			reg_im1 := Variable[T, E](bus.columns[i], r.Width, -1)
+			name := fmt.Sprintf("const_%s", r.Name())
+			reg_i := Variable[T, E](bus.columns[i], r.Width(), 0)
+			reg_im1 := Variable[T, E](bus.columns[i], r.Width(), -1)
 			//
 			module.NewConstraint(name, util.None[int](),
 				If(pc_i.NotEquals(zero), If(pc_i.NotEquals(one), reg_im1.Equals(reg_i))))

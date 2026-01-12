@@ -186,7 +186,7 @@ func splitRawColumn[F field.Element[F]](col tr.Column[word.BigEndian], builder a
 		limbWidths := register.WidthsOfLimbs(modmap, modmap.LimbIds(reg))
 		//
 		for i, limb := range limbs {
-			arrays[i] = builder.NewArray(height, limb.Width)
+			arrays[i] = builder.NewArray(height, limb.Width())
 		}
 		// Deconstruct all data
 		for i := range height {
@@ -201,7 +201,7 @@ func splitRawColumn[F field.Element[F]](col tr.Column[word.BigEndian], builder a
 	}
 	// Construct final columns
 	for i, limb := range limbs {
-		columns[i] = lt.NewColumn[F](limb.Name, arrays[i])
+		columns[i] = lt.NewColumn[F](limb.Name(), arrays[i])
 	}
 	// Done
 	return columns, nil

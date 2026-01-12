@@ -15,6 +15,7 @@ package io
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -74,7 +75,7 @@ func NewFunction[T Instruction[T]](name module.Name, public bool, registers []Re
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
 	)
 	// Check registers sorted as: inputs, outputs then internal.
-	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind }) {
+	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind() }) {
 		panic("function registers ordered incorrectly")
 	} else if name.Multiplier != 1 {
 		panic("functions only support multiplers of 1")
@@ -125,7 +126,7 @@ func (p *Function[T]) IsAtomic() bool {
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
 	for i, r := range p.registers {
-		if r.Name == name {
+		if r.Name() == name {
 			return register.NewId(uint(i)), true
 		}
 	}
@@ -212,17 +213,20 @@ func (p *Function[T]) String() string {
 	return register.MapToString(p)
 }
 
-// ZeroRegister implementation for register.ZeroMap interface
-func (p *Function[T]) ZeroRegister() RegisterId {
-	if rid, ok := p.HasRegister("0"); ok {
+// ConstRegister implementation for register.ConstMap interface
+func (p *Function[T]) ConstRegister(constant uint8) RegisterId {
+	var (
+		name  = fmt.Sprintf("%d", constant)
+		nregs = uint(len(p.registers))
+	)
+	// Check whether register already exists
+	if rid, ok := p.HasRegister(name); ok {
 		return rid
 	}
-	// Allocate zero register
-	var rid = uint(len(p.registers))
+	// Allocate constant register
+	p.registers = append(p.registers, register.NewConst(constant))
 	//
-	p.registers = append(p.registers, register.NewZero())
-	//
-	return register.NewId(rid)
+	return register.NewId(nregs)
 }
 
 // ============================================================================

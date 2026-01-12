@@ -167,7 +167,7 @@ func checkState[F field.Element[F]](row int, state io.State, mid sc.ModuleId, tr
 		// Sanity check they match
 		if biVal.Cmp(stVal) != 0 {
 			msg := fmt.Sprintf("invalid register state (%s holds 0x%s, expected 0x%s)",
-				state.Registers()[i].Name, biVal.Text(16), stVal.Text(16))
+				state.Registers()[i].Name(), biVal.Text(16), stVal.Text(16))
 			//
 			return &ConstraintFailure[F]{mid, uint(row), msg}
 		}

@@ -62,7 +62,7 @@ func (p dummyModule) Name() trace.ModuleName {
 
 func (p dummyModule) HasRegister(name string) (register.Id, bool) {
 	for i, ith := range p.registers {
-		if name == ith.Name {
+		if name == ith.Name() {
 			return register.NewId(uint(i)), true
 		}
 	}

@@ -93,7 +93,7 @@ func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]
 	// Compute maximum bitwidth of all source columns, as this determines the
 	// width required for the delta column.
 	for i := 0; i < nbits; i++ {
-		bitwidth = max(bitwidth, schema.Register(p.sources[i]).Width)
+		bitwidth = max(bitwidth, schema.Register(p.sources[i]).Width())
 	}
 	// Read input columns
 	inputs := ReadRegistersRef(trace, p.sources...)
@@ -117,13 +117,13 @@ func (p *LexicographicSort[F]) Consistent(schema sc.AnySchema[F]) []error {
 		// i+1 because first target is selector
 		target := schema.Register(p.targets[i+1])
 		// Sanit checkout
-		if source.Width != target.Width {
+		if source.Width() != target.Width() {
 			errors = append(errors,
 				fmt.Errorf("lexicographic sort has inconsistent type for column %s (was u%d, expected u%d)",
-					source.Name, target.Width, source.Width))
+					source.Name(), target.Width(), source.Width()))
 		}
 		//
-		bitwidth = max(bitwidth, source.Width)
+		bitwidth = max(bitwidth, source.Width())
 	}
 	// sanity check bitwidth
 	if bitwidth != p.bitwidth {

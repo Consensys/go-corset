@@ -102,7 +102,7 @@ func (p MirModule[F]) NewLookup(name string, from []register.Id, target MirModul
 	} else {
 		var (
 			enReg = target.Module.Register(enable.Unwrap())
-			en    = term.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), enReg.Width, 0)
+			en    = term.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), enReg.Width(), 0)
 		)
 		//
 		targetVectors = append(targetVectors, lookup.FilteredVector(target.Module.Id(), en, targets...))
@@ -272,7 +272,7 @@ func wrapMirRegisterAccesses[F field.Element[F]](mapping register.Map, regs ...r
 	for i, rid := range regs {
 		var reg = mapping.Register(rid)
 		//
-		vars[i] = term.RawRegisterAccess[F, mir.Term[F]](rid, reg.Width, 0)
+		vars[i] = term.RawRegisterAccess[F, mir.Term[F]](rid, reg.Width(), 0)
 	}
 	//
 	return vars

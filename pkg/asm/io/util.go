@@ -27,12 +27,12 @@ func CheckTargetRegisters(targets []RegisterId, regs []Register) error {
 	for i, id := range targets {
 		//
 		if regs[targets[i].Unwrap()].IsInput() {
-			return fmt.Errorf("cannot write input %s", regs[id.Unwrap()].Name)
+			return fmt.Errorf("cannot write input %s", regs[id.Unwrap()].Name())
 		}
 		//
 		for j := i + 1; j < len(targets); j++ {
 			if targets[i] == targets[j] {
-				return fmt.Errorf("conflicting write to %s", regs[id.Unwrap()].Name)
+				return fmt.Errorf("conflicting write to %s", regs[id.Unwrap()].Name())
 			}
 		}
 	}
@@ -53,7 +53,7 @@ func RegistersToString(rids []RegisterId, regs []Register) string {
 		}
 		//
 		if i < len(regs) {
-			builder.WriteString(regs[rid.Unwrap()].Name)
+			builder.WriteString(regs[rid.Unwrap()].Name())
 		} else {
 			builder.WriteString(fmt.Sprintf("?%d", rid))
 		}

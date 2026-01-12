@@ -164,7 +164,7 @@ func applyInstructionFlow(microinsn macro.Instruction, state bit.Set, fn MacroFu
 	// Ensure every register read has been defined.
 	for _, r := range microinsn.RegistersRead() {
 		if state.Contains(r.Unwrap()) {
-			msg := fmt.Sprintf("register %s possibly undefined", fn.Register(r).Name)
+			msg := fmt.Sprintf("register %s possibly undefined", fn.Register(r).Name())
 			errors = append(errors, *srcmaps.SyntaxError(microinsn, msg))
 			// mark as defined to avoid follow on errors
 			state.Remove(r.Unwrap())
@@ -187,7 +187,7 @@ func checkOutputsAssigned(insn macro.Instruction, state bit.Set, fn MacroFunctio
 	//
 	for i, r := range fn.Registers() {
 		if r.IsOutput() && state.Contains(uint(i)) {
-			msg := fmt.Sprintf("output %s possibly undefined", r.Name)
+			msg := fmt.Sprintf("output %s possibly undefined", r.Name())
 			errors = append(errors, *srcmaps.SyntaxError(insn, msg))
 		}
 	}

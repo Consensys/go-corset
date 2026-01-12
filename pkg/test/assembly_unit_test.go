@@ -127,6 +127,11 @@ func Test_AsmUnit_MixedLookup_03(t *testing.T) {
 		field.KOALABEAR_16, field.GF_8209)
 }
 
+func Test_AsmUnit_MixedLookup_04(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/mixed_lookup_04", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
+
 func Test_AsmUnit_MultiLine(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/multiline", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)

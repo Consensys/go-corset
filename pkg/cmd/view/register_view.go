@@ -38,7 +38,7 @@ func (p *registerView[F]) BitWidth() uint {
 	var bitwidth uint
 	//
 	for _, lid := range p.limbs {
-		bitwidth += p.mapping.Limb(lid).Width
+		bitwidth += p.mapping.Limb(lid).Width()
 	}
 	//
 	return bitwidth
@@ -62,7 +62,7 @@ func (p *registerView[F]) Get(row uint) big.Int {
 		// Shift and add
 		value.Add(&value, val.Mul(&val, math.Pow2(bits)))
 		//
-		bits += limb.Width
+		bits += limb.Width()
 	}
 	//
 	return value

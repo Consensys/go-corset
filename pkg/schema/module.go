@@ -15,6 +15,7 @@ package schema
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -128,7 +129,7 @@ func (p *Table[F, C]) Consistent(fieldWidth uint, schema AnySchema[F]) []error {
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 	for i := range p.Width() {
-		if p.registers[i].Name == name {
+		if p.registers[i].Name() == name {
 			return register.NewId(i), true
 		}
 	}
@@ -202,17 +203,20 @@ func (p *Table[F, C]) String() string {
 	return register.MapToString(p)
 }
 
-// ZeroRegister implementation for register.ZeroMap interface
-func (p *Table[F, C]) ZeroRegister() register.Id {
-	if rid, ok := p.HasRegister("0"); ok {
+// ConstRegister implementation for register.ConstMap interface
+func (p *Table[F, C]) ConstRegister(constant uint8) register.Id {
+	var (
+		name  = fmt.Sprintf("%d", constant)
+		nregs = uint(len(p.registers))
+	)
+	// Check whether register already exists
+	if rid, ok := p.HasRegister(name); ok {
 		return rid
 	}
-	// Allocate zero register
-	var rid = uint(len(p.registers))
+	// Allocate constant register
+	p.registers = append(p.registers, register.NewConst(constant))
 	//
-	p.registers = append(p.registers, register.NewZero())
-	//
-	return register.NewId(rid)
+	return register.NewId(nregs)
 }
 
 // ============================================================================

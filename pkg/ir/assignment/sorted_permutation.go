@@ -87,9 +87,9 @@ func (p *SortedPermutation[F]) Consistent(schema sc.AnySchema[F]) []error {
 		source := schema.Register(p.Sources[i])
 		target := schema.Register(p.Targets[i])
 		// Sanit checkout
-		if source.Width != target.Width {
+		if source.Width() != target.Width() {
 			err := fmt.Errorf("sorted permutation has inconsistent type for column %s => %s (was u%d, expected u%d)",
-				source.Name, target.Name, target.Width, source.Width)
+				source.Name(), target.Name(), target.Width(), source.Width())
 			errors = append(errors, err)
 		}
 	}
@@ -133,7 +133,7 @@ func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	for _, t := range p.Targets {
 		ith := schema.Module(t.Module()).Register(t.Column())
 		name := sexp.NewSymbol(ith.QualifiedName(schema.Module(t.Module())))
-		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
+		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width()))
 		def := sexp.NewList([]sexp.SExp{name, datatype})
 		targets.Append(def)
 	}

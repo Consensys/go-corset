@@ -240,7 +240,7 @@ func validateWrites(cc uint, writes bit.Set, codes []Code, fn register.Map) erro
 		for _, dst := range code.RegistersWritten() {
 			if writes.Contains(dst.Unwrap()) {
 				// Extract register name
-				name := fn.Register(dst).Name
+				name := fn.Register(dst).Name()
 				//
 				return fmt.Errorf("conflicting write on register %s in %s", name, code.String(fn))
 			}

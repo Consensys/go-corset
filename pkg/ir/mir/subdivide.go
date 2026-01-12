@@ -57,7 +57,7 @@ import (
 //
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
-func Subdivide[F field.Element[F], E register.ZeroMap](mapping module.LimbsMap, externs []E,
+func Subdivide[F field.Element[F], E register.ConstMap](mapping module.LimbsMap, externs []E,
 	mods []Module[F]) []Module[F] {
 	//
 	var (
@@ -151,7 +151,7 @@ func (p *Subdivider[F]) FlushAllocator(mid module.Id, alloc agnostic.RegisterAll
 func (p *Subdivider[F]) ZeroRegister(mid module.Id) register.Id {
 	var module = p.modules.Module(mid)
 	// Access zero register for given module
-	return module.ZeroRegister()
+	return module.ConstRegister(0)
 }
 
 // ============================================================================
@@ -368,7 +368,7 @@ func (p *Subdivider[F]) subdivideSorted(c SortedConstraint[F]) SortedConstraint[
 		for j := len(split); j > 0; j-- {
 			var (
 				jth       = split[j-1]
-				limbWidth = modmap.Limb(jth.Register()).Width
+				limbWidth = modmap.Limb(jth.Register()).Width()
 			)
 			//
 			sources = append(sources, jth)
@@ -498,7 +498,7 @@ func subdivideRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], map
 	for i, limbId := range limbs {
 		var (
 			limb      = mapping.Limb(limbId)
-			limbWidth = min(bitwidth, limb.Width)
+			limbWidth = min(bitwidth, limb.Width())
 		)
 		// NOTE: following ensures at least one limb is always added for any
 		// register.  This is necessary to ensure we never completely eliminate
@@ -507,7 +507,7 @@ func subdivideRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], map
 		// registers whose value constant).
 		if limbWidth > 0 || i == 0 {
 			// Construct register access
-			ith := term.RawRegisterAccess[F, Term[F]](limbId, limb.Width, expr.RelativeShift())
+			ith := term.RawRegisterAccess[F, Term[F]](limbId, limb.Width(), expr.RelativeShift())
 			// Mask off any unrequired bits
 			terms = append(terms, ith.Mask(limbWidth))
 		}

@@ -28,6 +28,18 @@ var (
 	biONE  big.Int = *big.NewInt(1)
 )
 
+// IsConstant64 checks whether a given term is a 64bit constant (or not) and, if
+// so, what constant it is.
+func IsConstant64[F field.Element[F], T Expr[F, T]](term T) (constant uint64, ok bool) {
+	var t Expr[F, T] = term
+	//
+	if t, ok := t.(*Constant[F, T]); ok && len(t.Value.Bytes()) <= 8 {
+		return t.Value.Uint64(), true
+	}
+	//
+	return 0, false
+}
+
 // Check whether a given term corresponds with the constant zero.
 func isZero[F field.Element[F], T Expr[F, T]](term T) bool {
 	var t Expr[F, T] = term

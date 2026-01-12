@@ -208,7 +208,7 @@ func columnWidthSummariser[F field.Element[F]](lowWidth uint, highWidth uint) sc
 				m := i.Next()
 				for c := uint(0); c < m.Width(); c++ {
 					ith := m.Register(register.NewId(c))
-					ithWidth := ith.Width
+					ithWidth := ith.Width()
 					if ithWidth >= lowWidth && ithWidth <= highWidth {
 						count++
 					}

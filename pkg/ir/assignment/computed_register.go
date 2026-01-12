@@ -98,7 +98,7 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 	for i, target := range p.Targets {
 		wrapper.data[i] = make([]word.BigEndian, height)
 		// Record bitwidth information
-		bitwidths[i] = scModule.Register(target).Width
+		bitwidths[i] = scModule.Register(target).Width()
 	}
 	// Expand the trace
 	if !p.IsRecursive() {
@@ -242,8 +242,8 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 			datatype = "𝔽"
 			ith      = module.Register(t)
 		)
-		if ith.Width != math.MaxUint {
-			datatype = fmt.Sprintf("u%d", ith.Width)
+		if ith.Width() != math.MaxUint {
+			datatype = fmt.Sprintf("u%d", ith.Width())
 		}
 
 		targets[i] = sexp.NewList([]sexp.SExp{

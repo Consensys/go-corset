@@ -523,7 +523,7 @@ func (p *AirLowering[F]) lowerVectorAccess(e *VectorAccess[F], airModule air.Mod
 			ith   *air.ColumnAccess[F]
 		)
 		// Ensure limbwidth normalised
-		ith = term.RawRegisterAccess[F, air.Term[F]](v.Register(), limb.Width, v.RelativeShift()).Mask(width)
+		ith = term.RawRegisterAccess[F, air.Term[F]](v.Register(), limb.Width(), v.RelativeShift()).Mask(width)
 		// Apply shift
 		terms[i] = term.Product(shiftTerm(ith, shift))
 		//

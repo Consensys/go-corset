@@ -15,6 +15,8 @@ package agnosticity
 import (
 	"fmt"
 	"math/big"
+
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
 // Alias for big integer representation of 0.
@@ -44,7 +46,7 @@ func MaxNumberOfLimbs(maxWidth uint, regs []Register, targets []RegisterId) uint
 	var n = uint(0)
 	//
 	for _, target := range targets {
-		regWidth := regs[target.Unwrap()].Width
+		regWidth := regs[target.Unwrap()].Width()
 		n = max(n, NumberOfLimbs(maxWidth, regWidth))
 	}
 	//
@@ -58,17 +60,18 @@ func MaxNumberOfLimbs(maxWidth uint, regs []Register, targets []RegisterId) uint
 // bits than the maximum allowed.
 func SplitRegister(maxWidth uint, r Register) []Register {
 	var (
-		nlimbs = NumberOfLimbs(maxWidth, r.Width)
-		limbs  = make([]Register, nlimbs)
-		width  = r.Width
+		nlimbs  = NumberOfLimbs(maxWidth, r.Width())
+		limbs   = make([]Register, nlimbs)
+		width   = r.Width()
+		padding = SplitConstant(nlimbs, maxWidth, *r.Padding())
 	)
 	//
 	maxWidth = determineLimbWidth(nlimbs, width)
 	//
 	for i := uint(0); i < nlimbs; i++ {
-		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
+		ith_name := fmt.Sprintf("%s'%d", r.Name(), i)
 		ith_width := min(maxWidth, width)
-		limbs[i] = Register{Name: ith_name, Kind: r.Kind, Width: ith_width}
+		limbs[i] = register.New(r.Kind(), ith_name, ith_width, padding[i])
 		width -= maxWidth
 	}
 	//
@@ -79,19 +82,19 @@ func SplitRegister(maxWidth uint, r Register) []Register {
 // across the determined target registers.
 func SplitRegisterValue(maxWidth uint, reg Register, value big.Int, regmap map[string]big.Int) map[string]big.Int {
 	var (
-		nlimbs = NumberOfLimbs(maxWidth, reg.Width)
+		nlimbs = NumberOfLimbs(maxWidth, reg.Width())
 	)
 	//
 	if nlimbs == 1 {
 		// no splitting required
-		regmap[reg.Name] = value
+		regmap[reg.Name()] = value
 	} else {
 		// splitting required
 		regs := SplitRegister(maxWidth, reg)
 		values := SplitConstant(uint(len(regs)), maxWidth, value)
 		//
 		for i, limb := range regs {
-			regmap[limb.Name] = values[i]
+			regmap[limb.Name()] = values[i]
 		}
 	}
 	//

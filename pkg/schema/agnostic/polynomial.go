@@ -68,14 +68,14 @@ func DynamicEnvironment() Environment[register.AccessId] {
 // StaticEnvironment constructs an environment from a register map.
 func StaticEnvironment(mapping register.Map) Environment[register.Id] {
 	return func(rid register.Id) uint {
-		return mapping.Register(rid.Id()).Width
+		return mapping.Register(rid.Id()).Width()
 	}
 }
 
 // ArrayEnvironment constructs an environment from a register array.
 func ArrayEnvironment(registers []register.Register) Environment[register.Id] {
 	return func(rid register.Id) uint {
-		return registers[rid.Id().Unwrap()].Width
+		return registers[rid.Id().Unwrap()].Width()
 	}
 }
 

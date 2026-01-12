@@ -74,7 +74,7 @@ func (p *RegAccess) String(mapping register.Map) string {
 func (p *RegAccess) ValueRange(mapping register.Map) math.Interval {
 	var (
 		bound    = big.NewInt(2)
-		bitwidth = mapping.Register(p.Register).Width
+		bitwidth = mapping.Register(p.Register).Width()
 	)
 	// compute 2^bitwidth
 	bound.Exp(bound, big.NewInt(int64(bitwidth)), nil)

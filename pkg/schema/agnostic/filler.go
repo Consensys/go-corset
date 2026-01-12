@@ -71,7 +71,7 @@ func (p *PolyFil) EvalAt(k int, tr trace.Module[word.BigEndian], sc register.Map
 // Lisp implementation for Lispifiable interface.
 func (p *PolyFil) Lisp(global bool, mapping register.Map) sexp.SExp {
 	body := poly.Lisp(p.poly, func(id register.AccessId) string {
-		var name = mapping.Register(id.Id()).Name
+		var name = mapping.Register(id.Id()).Name()
 		//
 		if id.RelativeShift() == 0 {
 			return name

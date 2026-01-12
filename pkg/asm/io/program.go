@@ -69,7 +69,7 @@ func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
 			// Load ith register value
 			val.Set(state.Load(rid))
 			// Update padding value
-			registers[i].Padding = val
+			registers[i].SetPadding(&val)
 		}
 	}
 }
@@ -82,10 +82,10 @@ func initialState(registers []Register, buses []Bus, iomap Map) State {
 	)
 	// Initialise arguments
 	for i, reg := range registers {
-		if reg.IsInput() {
+		if reg.IsInput() || reg.IsConst() {
 			var ith big.Int
 			// Clone big int.
-			ith.SetBytes(reg.Padding.Bytes())
+			ith.SetBytes(reg.Padding().Bytes())
 			// Assign to ith register
 			state[i] = ith
 			index = index + 1
@@ -95,11 +95,11 @@ func initialState(registers []Register, buses []Bus, iomap Map) State {
 	for _, bus := range buses {
 		// Initialise address lines from padding
 		for _, rid := range bus.Address() {
-			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+			state[rid.Unwrap()] = *registers[rid.Unwrap()].Padding()
 		}
 		// Initialise data lines from padding
 		for _, rid := range bus.Data() {
-			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+			state[rid.Unwrap()] = *registers[rid.Unwrap()].Padding()
 		}
 	}
 	//

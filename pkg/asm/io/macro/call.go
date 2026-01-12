@@ -162,7 +162,7 @@ func (p *Call) Validate(fieldWidth uint, fn register.Map) error {
 	// Check arguments
 	for i, src := range p.Sources {
 		src_w, signed := expr.BitWidth(src, fn)
-		bus_w := fn.Register(busInputs[i]).Width
+		bus_w := fn.Register(busInputs[i]).Width()
 		//
 		if src_w > bus_w {
 			return fmt.Errorf("incorrect width for argument %d (found %d expected %d)", i+1, src_w, bus_w)
@@ -174,8 +174,8 @@ func (p *Call) Validate(fieldWidth uint, fn register.Map) error {
 	for i, rtn := range p.Targets {
 		// NOTE: targets stored in reverse order
 		j := len(p.Targets) - i
-		rtn_w := fn.Register(rtn).Width
-		bus_w := fn.Register(busOutputs[j-1]).Width
+		rtn_w := fn.Register(rtn).Width()
+		bus_w := fn.Register(busOutputs[j-1]).Width()
 		//
 		if rtn_w < bus_w {
 			return fmt.Errorf("incorrect width for return %d (found %d expected %d)", j, rtn_w, bus_w)

@@ -37,7 +37,7 @@ type mirVectorAccess = mir.VectorAccess[word.BigEndian]
 // LowerToMir lowers (or refines) an HIR schema into an MIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToMir[E register.ZeroMap](externs []E, modules []Module) []mir.Module[word.BigEndian] {
+func LowerToMir[E register.ConstMap](externs []E, modules []Module) []mir.Module[word.BigEndian] {
 	var lowering = NewMirLowering(externs, modules)
 	//
 	return lowering.Lower()
@@ -55,7 +55,7 @@ type MirLowering struct {
 }
 
 // NewMirLowering constructs an initial state for lowering a given MIR schema.
-func NewMirLowering[E register.ZeroMap](externs []E, modules []Module) MirLowering {
+func NewMirLowering[E register.ConstMap](externs []E, modules []Module) MirLowering {
 	var (
 		mirSchema = ir.NewSchemaBuilder[word.BigEndian, mir.Constraint[word.BigEndian], mirTerm](externs...)
 	)
@@ -173,7 +173,7 @@ func (p *MirLowering) lowerFunctionCall(v FunctionCall, module mirModuleBuilder)
 	for i := range nargs + nrets {
 		var (
 			rid      = register.NewId(uint(i))
-			bitwidth = calleeModule.Register(rid).Width
+			bitwidth = calleeModule.Register(rid).Width()
 		)
 		//
 		targetTerms[i] = term.RawRegisterAccess[word.BigEndian, mirTerm](rid, bitwidth, 0)
@@ -417,9 +417,16 @@ func (p *MirLowering) expandLogicalTerm(le LogicalTerm, module mirModuleBuilder)
 func (p *MirLowering) expandTerm(e Term, module mirModuleBuilder) *mir.RegisterAccess[word.BigEndian] {
 	// Check whether this really requires expansion (or not).
 	if ca, ok := e.(*RegisterAccess); ok {
-		// No, expansion not required
+		// Expansion not required
 		return term.RawRegisterAccess[word.BigEndian, mirTerm](ca.Register(),
 			ca.BitWidth(), ca.RelativeShift()).Mask(ca.MaskWidth())
+	} else if c, ok := term.IsConstant64(e); ok && (c == 0 || c == 1) {
+		var (
+			ca            = module.ConstRegister(uint8(c))
+			bitwidth uint = uint(c)
+		)
+		// Expansion not required
+		return term.RawRegisterAccess[word.BigEndian, mirTerm](ca, bitwidth, 0)
 	}
 	// Yes, expansion is really necessary
 	var (
@@ -494,12 +501,12 @@ func (p *MirLowering) lowerTerm(e Term, mirModule mirModuleBuilder) IfTerm {
 				reg = mirModule.Register(r.Register())
 			)
 			// Sanity check cast makes sense
-			if reg.Width < e.BitWidth {
+			if reg.Width() < e.BitWidth {
 				// TODO: provide a proper error message
 				panic("cast out-of-bounds")
 			}
 			// Construct access for the given register
-			t := term.RawRegisterAccess[word.BigEndian, mirTerm](r.Register(), reg.Width, r.RelativeShift())
+			t := term.RawRegisterAccess[word.BigEndian, mirTerm](r.Register(), reg.Width(), r.RelativeShift())
 			// Implement cast by masking register
 			return UnconditionalTerm(t.Mask(e.BitWidth))
 		}
