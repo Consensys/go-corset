@@ -154,7 +154,7 @@ func extractSourceMapData(name module.Name, limbs bool, srcmap map[string]corset
 	var (
 		public  = true
 		columns []SourceColumn
-		seen    = make(map[string]bool)
+		seen    = make(map[uint]bool)
 	)
 	//
 	if m, ok := srcmap[name.Name]; ok {
@@ -164,12 +164,12 @@ func extractSourceMapData(name module.Name, limbs bool, srcmap map[string]corset
 			name.Multiplier, m.Selector, limbs, m.Columns, m.Submodules, mapping)
 		// Mark all as seen
 		for _, c := range columns {
-			seen[c.Name] = true
+			seen[c.Register.Unwrap()] = true
 		}
 	}
 	// Add any registers not already seen
 	for i, reg := range mapping.Registers() {
-		if _, ok := seen[reg.Name()]; !ok {
+		if _, ok := seen[uint(i)]; !ok {
 			rid := register.NewId(uint(i))
 			//
 			columns = append(columns, SourceColumn{
