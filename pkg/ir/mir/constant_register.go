@@ -58,6 +58,6 @@ func initialiseConstantRegister[F field.Element[F]](rid register.Id, mid module.
 	module.AddConstraints(
 		NewVanishingConstraint(val.String(), mid, util.None[int](),
 			term.Equals[F, LogicalTerm[F], Term[F]](
-				term.NewRegisterAccess[F, Term[F]](rid, 0, 0),
-				term.Const64[F, Term[F]](0))))
+				term.NewRegisterAccess[F, Term[F]](rid, reg.Width, 0),
+				term.Const64[F, Term[F]](uint64(reg.ConstValue())))))
 }

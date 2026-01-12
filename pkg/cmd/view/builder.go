@@ -154,16 +154,22 @@ func extractSourceMapData(name module.Name, limbs bool, srcmap map[string]corset
 	var (
 		public  = true
 		columns []SourceColumn
+		seen    = make(map[string]bool)
 	)
 	//
 	if m, ok := srcmap[name.Name]; ok {
 		public = m.Public
+		// Extract column info
 		columns = extractSourceColumns(file.NewAbsolutePath(""),
 			name.Multiplier, m.Selector, limbs, m.Columns, m.Submodules, mapping)
-	} else {
-		// No source mapping information is available for this module, hence
-		// fall back onto a default using the given limbs mapping.
-		for i, reg := range mapping.Registers() {
+		// Mark all as seen
+		for _, c := range columns {
+			seen[c.Name] = true
+		}
+	}
+	// Add any registers not already seen
+	for i, reg := range mapping.Registers() {
+		if _, ok := seen[reg.Name]; !ok {
 			rid := register.NewId(uint(i))
 			//
 			columns = append(columns, SourceColumn{
