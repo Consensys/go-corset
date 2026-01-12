@@ -59,10 +59,18 @@ func NewComputed(name string, bitwidth uint, padding big.Int) Register {
 	return Register{COMPUTED_REGISTER, name, bitwidth, padding}
 }
 
-// NewZero constructs a new "zero register".  That is a register which always
-// holds the constant value zero.
-func NewZero() Register {
-	return Register{ZERO_REGISTER, "0", 0, *big.NewInt(0)}
+// NewConst constructs a new "constant register".  That is a register which
+// always holds a constant value.  Currently, only constants 0 or 1 are
+// supported.
+func NewConst(value uint8) Register {
+	var name = fmt.Sprintf("%d", value)
+	//
+	switch value {
+	case 0:
+		return Register{ZERO_REGISTER, name, 0, *big.NewInt(0)}
+	default:
+		panic(fmt.Sprintf("unsupported constant register (%d)", value))
+	}
 }
 
 // Bound returns the first value which cannot be represented by the given
@@ -95,12 +103,24 @@ func (p *Register) IsOutput() bool {
 // that "zero" registers are included in this, since they are neither input nor
 // output registers.
 func (p *Register) IsComputed() bool {
-	return p.Kind == COMPUTED_REGISTER || p.Kind == ZERO_REGISTER
+	return p.Kind == COMPUTED_REGISTER || p.IsConst()
 }
 
-// IsZero determines whether or not this is a constant "zero" register
-func (p *Register) IsZero() bool {
-	return p.Kind == ZERO_REGISTER
+// IsConst determines whether or not this is a constant "zero" or "one" register
+func (p *Register) IsConst() bool {
+	return p.Kind == ZERO_REGISTER || p.Kind == ONE_REGISTER
+}
+
+// ConstValue determines the constant value for a given constant register.
+func (p *Register) ConstValue() uint8 {
+	switch p.Kind {
+	case ZERO_REGISTER:
+		return 0
+	case ONE_REGISTER:
+		return 1
+	default:
+		panic("register not constant")
+	}
 }
 
 // MaxValue returns the largest value expressible in this register (i.e. Bound() -

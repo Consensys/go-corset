@@ -15,6 +15,7 @@ package io
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -212,17 +213,20 @@ func (p *Function[T]) String() string {
 	return register.MapToString(p)
 }
 
-// ZeroRegister implementation for register.ZeroMap interface
-func (p *Function[T]) ZeroRegister() RegisterId {
-	if rid, ok := p.HasRegister("0"); ok {
+// ConstRegister implementation for register.ConstMap interface
+func (p *Function[T]) ConstRegister(constant uint8) RegisterId {
+	var (
+		name  = fmt.Sprintf("%d", constant)
+		nregs = uint(len(p.registers))
+	)
+	// Check whether register already exists
+	if rid, ok := p.HasRegister(name); ok {
 		return rid
 	}
-	// Allocate zero register
-	var rid = uint(len(p.registers))
+	// Allocate constant register
+	p.registers = append(p.registers, register.NewConst(constant))
 	//
-	p.registers = append(p.registers, register.NewZero())
-	//
-	return register.NewId(rid)
+	return register.NewId(nregs)
 }
 
 // ============================================================================

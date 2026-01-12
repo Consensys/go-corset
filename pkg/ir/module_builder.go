@@ -57,7 +57,7 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 	// ZeroRegister returns an ID for the "zero register".  That is, a register
 	// which is always zero.  If no such register exists already, one is
 	// created.
-	ZeroRegister() register.Id
+	ConstRegister(constant uint8) register.Id
 }
 
 // ============================================================================
@@ -204,13 +204,14 @@ func (p *internalModuleBuilder[F, C, T]) String() string {
 }
 
 // ZeroRegister implementation for ModuleBuilder interface.
-func (p *internalModuleBuilder[F, C, T]) ZeroRegister() register.Id {
-	// Check whether zero register exists aleady
-	if rid, ok := p.HasRegister("0"); ok {
+func (p *internalModuleBuilder[F, C, T]) ConstRegister(constant uint8) register.Id {
+	var name = fmt.Sprintf("%d", constant)
+	// Check whether register already exists
+	if rid, ok := p.HasRegister(name); ok {
 		return rid
 	}
 	// If not, create a new one.
-	return p.NewRegister(register.NewZero())
+	return p.NewRegister(register.NewConst(constant))
 }
 
 // ============================================================================
@@ -220,7 +221,7 @@ func (p *internalModuleBuilder[F, C, T]) ZeroRegister() register.Id {
 // NewExternModuleBuilder constructs a new builder suitable for external
 // modules.  These are just used for linking purposes.
 func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](mid schema.ModuleId,
-	module register.ZeroMap) ModuleBuilder[F, C, T] {
+	module register.ConstMap) ModuleBuilder[F, C, T] {
 	return &externalModuleBuilder[F, C, T]{mid, module}
 }
 
@@ -231,7 +232,7 @@ type externalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Ex
 	// Id of this module
 	moduleId schema.ModuleId
 	// External source
-	module register.ZeroMap
+	module register.ConstMap
 }
 
 // AddAssignment implementation for ModuleBuilder interface.
@@ -321,6 +322,6 @@ func (p *externalModuleBuilder[F, C, T]) String() string {
 }
 
 // ZeroRegister implementation for ModuleBuilder interface.
-func (p *externalModuleBuilder[F, C, T]) ZeroRegister() register.Id {
-	return p.module.ZeroRegister()
+func (p *externalModuleBuilder[F, C, T]) ConstRegister(constant uint8) register.Id {
+	return p.module.ConstRegister(constant)
 }

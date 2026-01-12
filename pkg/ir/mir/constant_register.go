@@ -35,7 +35,7 @@ func InitialiseConstantRegisters[F Element[F]](modules []Module[F]) {
 		// Consider each register in turn
 		for r, reg := range mod.Registers() {
 			var rid = register.NewId(uint(r))
-			if reg.IsZero() {
+			if reg.IsConst() {
 				initialiseConstantRegister(rid, mid, mod)
 			}
 		}
@@ -44,16 +44,19 @@ func InitialiseConstantRegisters[F Element[F]](modules []Module[F]) {
 
 // Lower a constant register (currently only zero is supported).
 func initialiseConstantRegister[F field.Element[F]](rid register.Id, mid module.Id, module Module[F]) {
-	var zero = field.Zero[word.BigEndian]()
+	var (
+		reg = module.Register(rid)
+		val = field.Uint64[word.BigEndian](uint64(reg.ConstValue()))
+	)
 	// Construct computation
 	computation := term.NewComputation[word.BigEndian, LogicalTerm[word.BigEndian]](
-		term.Const[word.BigEndian, Term[word.BigEndian]](zero))
+		term.Const[word.BigEndian, Term[word.BigEndian]](val))
 	// Add assignment for filling said computed column
 	module.AddAssignments(
 		assignment.NewComputedRegister[F](computation, true, mid, rid))
 	// add constraint
 	module.AddConstraints(
-		NewVanishingConstraint("0", mid, util.None[int](),
+		NewVanishingConstraint(val.String(), mid, util.None[int](),
 			term.Equals[F, LogicalTerm[F], Term[F]](
 				term.NewRegisterAccess[F, Term[F]](rid, 0, 0),
 				term.Const64[F, Term[F]](0))))

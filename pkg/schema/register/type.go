@@ -42,6 +42,8 @@ var (
 	COMPUTED_REGISTER = Type{uint8(2)}
 	// ZERO_REGISTER signals a register whose value is always 0.
 	ZERO_REGISTER = Type{uint8(3)}
+	// ONE_REGISTER signals a register whose value is always 1.
+	ONE_REGISTER = Type{uint8(4)}
 )
 
 // ============================================================================

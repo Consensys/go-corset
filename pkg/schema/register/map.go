@@ -35,15 +35,17 @@ type Map interface {
 	Registers() []Register
 }
 
-// ZeroMap is a register map which additionally provides guaranteed access to a
-// zero register.
-type ZeroMap interface {
+// ConstMap is a register map which additionally provides guaranteed access to
+// a constant (binary) register.  That is, a register which is always either "0"
+// or always either "1".
+type ConstMap interface {
 	Map
-	// ZeroRegister returns the ID of the "zero register".  This is a special
-	// register which is always zero.  If such a register does not already
-	// exist, then one is created.  This ensures zero registers are only
-	// included when they are actually needed.
-	ZeroRegister() Id
+	// ConstRegister returns the ID of a constant register which is either
+	// always zero or always one (no other constants are supported at this
+	// time).   If such a register does not already exist, then one is created.
+	// This ensures constant registers are only included when they are actually
+	// needed.
+	ConstRegister(constant uint8) Id
 }
 
 // MapToString provides a default method for converting a register map
