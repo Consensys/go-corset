@@ -78,6 +78,10 @@ func Assemble(files ...source.File) (
 		srcmaps    source.Maps[any]
 		visited    map[string]bool = make(map[string]bool)
 	)
+	// Initialise visited map with all top-level files
+	for _, sf := range files {
+		visited[sf.Filename()] = true
+	}
 	// Parse each file in turn.
 	for len(files) > 0 {
 		var (
