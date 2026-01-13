@@ -115,20 +115,20 @@ func (p *Equation) String(mapping register.Map) string {
 // Split an equation according to a given field bandwidth.  This creates one
 // or more equations implementing the original which operate safely within the
 // given bandwidth.
-func (p *Equation) Split(field field.Config, env RegisterAllocator) (eqs []Equation) {
+func (p *Equation) Split(field field.Config, env RegisterAllocator) (targets, context []Equation) {
 	var (
 		bp = p.Balance()
 	)
 	// Check whether any splitting required
 	if bp.Width(env) > field.BandWidth {
 		// Yes!
-		eqs = bp.chunkUp(field, env)
+		targets, context = bp.chunkUp(field, env)
 	} else {
 		// Nope
-		eqs = []Equation{*p}
+		targets = []Equation{*p}
 	}
 	//
-	return eqs
+	return targets, context
 }
 
 // Cap all terms within a polynomial to ensure they can be safely evaluated
@@ -152,14 +152,12 @@ func (p *Equation) Split(field field.Config, env RegisterAllocator) (eqs []Equat
 //
 // The real challenge with this algorithm is, for a polynomial which cannot be
 // chunked, to determine which variable(s) to subdivide and by how much.
-func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) []Equation {
+func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) (targets, context []Equation) {
 	var (
 		// Record initial number of registers
 		n = uint(len(mapping.Registers()))
 		// Determine the bitwidth of each chunk
 		lhs, rhs []DynamicPolynomial
-		// Equations being constructed
-		equations []Equation
 		// Current chunk width
 		chunkWidth = field.RegisterWidth
 	)
@@ -181,8 +179,7 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) []Equa
 		if lhsChunked && rhsChunked {
 			// Successful chunking, therefore include any constraints necessary
 			// for splitting of non-linear terms and construct final equations.
-			equations = append(equations, leftEqs...)
-			equations = append(equations, rightEqs...)
+			context = append(leftEqs, rightEqs...)
 			//
 			break
 		}
@@ -191,14 +188,14 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) []Equa
 		// Reset any allocations made as we are starting over
 		mapping.Reset(n)
 	}
-	// Reconstruct equations
+	// Reconstruct target equations
 	for i := range len(lhs) {
 		if lhs[i].Len() > 0 || rhs[i].Len() > 0 {
-			equations = append(equations, NewEquation(lhs[i], rhs[i]))
+			targets = append(targets, NewEquation(lhs[i], rhs[i]))
 		}
 	}
 	// Done
-	return equations
+	return targets, context
 }
 
 // Determine the width of individual chunks used to split the equation.  In

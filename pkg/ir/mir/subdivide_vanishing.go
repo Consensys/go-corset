@@ -35,11 +35,11 @@ func (p *Subdivider[F]) subdivideVanishing(vc VanishingConstraint[F]) VanishingC
 		// Extract allocator
 		alloc = p.FreshAllocator(vc.Context)
 		// Split all registers occurring in the logical term.
-		c = splitLogicalTerm(vc.Constraint, modmap, alloc)
+		targets, context = splitLogicalTerm(vc.Constraint, modmap, alloc)
 		// Determine size of original tree
 		n = sizeOfTree(vc.Constraint, modmap)
 		// Determine size of split tree
-		m = sizeOfTree(c, alloc)
+		m = sizeOfTree(targets, alloc) + sizeOfTree(context, alloc)
 		//
 		multiplier = float64(m) / float64(n)
 	)
@@ -51,27 +51,30 @@ func (p *Subdivider[F]) subdivideVanishing(vc VanishingConstraint[F]) VanishingC
 	// Flush allocator
 	p.FlushAllocator(vc.Context, alloc)
 	//
-	return vanishing.NewConstraint(vc.Handle, vc.Context, vc.Domain, c)
+	return vanishing.NewConstraint(vc.Handle, vc.Context, vc.Domain, term.Conjunction(context, targets).Simplify(false))
 }
 
 func splitLogicalTerm[F field.Element[F]](expr LogicalTerm[F], mapping register.LimbsMap,
-	env agnostic.RegisterAllocator) LogicalTerm[F] {
+	env agnostic.RegisterAllocator) (target LogicalTerm[F], context LogicalTerm[F]) {
 	//
 	switch t := expr.(type) {
 	case *Conjunct[F]:
-		return term.Conjunction(splitLogicalTerms(t.Args, mapping, env)...)
+		targets, context := splitLogicalTerms(t.Args, mapping, env)
+		return term.Conjunction(targets...), context
 	case *Disjunct[F]:
-		return term.Disjunction(splitLogicalTerms(t.Args, mapping, env)...)
+		targets, context := splitLogicalTerms(t.Args, mapping, env)
+		return term.Disjunction(targets...), context
 	case *Equal[F]:
 		return splitEquality(true, t.Lhs, t.Rhs, mapping, env)
 	case *Ite[F]:
-		condition := splitLogicalTerm(t.Condition, mapping, env)
-		trueBranch := splitOptionalLogicalTerm(t.TrueBranch, mapping, env)
-		falseBranch := splitOptionalLogicalTerm(t.FalseBranch, mapping, env)
+		condition, ctx1 := splitLogicalTerm(t.Condition, mapping, env)
+		trueBranch, ctx2 := splitOptionalLogicalTerm(t.TrueBranch, mapping, env)
+		falseBranch, ctx3 := splitOptionalLogicalTerm(t.FalseBranch, mapping, env)
 		//
-		return term.IfThenElse(condition, trueBranch, falseBranch)
+		return term.IfThenElse(condition, trueBranch, falseBranch), term.Conjunction(ctx1, ctx2, ctx3)
 	case *Negate[F]:
-		return term.Negation(splitLogicalTerm(t.Arg, mapping, env))
+		target, context = splitLogicalTerm(t.Arg, mapping, env)
+		return term.Negation(target), context
 	case *NotEqual[F]:
 		return splitEquality(false, t.Lhs, t.Rhs, mapping, env)
 	default:
@@ -79,30 +82,33 @@ func splitLogicalTerm[F field.Element[F]](expr LogicalTerm[F], mapping register.
 	}
 }
 
-func splitOptionalLogicalTerm[F field.Element[F]](term LogicalTerm[F],
-	mapping register.LimbsMap, env agnostic.RegisterAllocator) LogicalTerm[F] {
+func splitOptionalLogicalTerm[F field.Element[F]](expr LogicalTerm[F],
+	mapping register.LimbsMap, env agnostic.RegisterAllocator) (target LogicalTerm[F], context LogicalTerm[F]) {
 	//
-	if term == nil {
-		return nil
+	if expr == nil {
+		return nil, term.True[F, LogicalTerm[F]]()
 	}
 	//
-	return splitLogicalTerm(term, mapping, env)
+	return splitLogicalTerm(expr, mapping, env)
 }
 
 func splitLogicalTerms[F field.Element[F]](terms []LogicalTerm[F],
-	mapping register.LimbsMap, env agnostic.RegisterAllocator) []LogicalTerm[F] {
+	mapping register.LimbsMap, env agnostic.RegisterAllocator) (targets []LogicalTerm[F], context LogicalTerm[F]) {
 	//
-	var nterms = make([]LogicalTerm[F], len(terms))
+	var (
+		nterms = make([]LogicalTerm[F], len(terms))
+		nctx   = make([]LogicalTerm[F], len(terms))
+	)
 	//
 	for i := range len(terms) {
-		nterms[i] = splitLogicalTerm(terms[i], mapping, env)
+		nterms[i], nctx[i] = splitLogicalTerm(terms[i], mapping, env)
 	}
 	//
-	return nterms
+	return nterms, term.Conjunction(nctx...)
 }
 
 func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping register.LimbsMap,
-	env agnostic.RegisterAllocator) LogicalTerm[F] {
+	env agnostic.RegisterAllocator) (target LogicalTerm[F], context LogicalTerm[F]) {
 	//
 	var (
 		// Split terms accordingl to mapping, and translate into polynomials
@@ -111,28 +117,39 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], mapping regi
 		// Construct equality for spltting
 		equation = agnostic.NewEquation(left, right)
 		// Split the equation
-		splitEquations = equation.Split(mapping.Field(), env)
+		tgtEqns, ctxEqns = equation.Split(mapping.Field(), env)
 		// Prepare resulting conjunct / disjunct
-		terms = make([]LogicalTerm[F], len(splitEquations))
+		tgtTerms = make([]LogicalTerm[F], len(tgtEqns))
+		ctxTerms = make([]LogicalTerm[F], len(ctxEqns))
 	)
-	//
-	for i, eq := range splitEquations {
+	// Translate target equations
+	for i, eq := range tgtEqns {
 		// reconstruct original term
 		l := polynomialToTerm[F](eq.LeftHandSide)
 		r := polynomialToTerm[F](eq.RightHandSide)
 		//
 		if sign {
-			terms[i] = term.Equals[F, LogicalTerm[F]](l, r)
+			tgtTerms[i] = term.Equals[F, LogicalTerm[F]](l, r)
 		} else {
-			terms[i] = term.NotEquals[F, LogicalTerm[F]](l, r)
+			tgtTerms[i] = term.NotEquals[F, LogicalTerm[F]](l, r)
 		}
 	}
+	// Translate contextual equations
+	for i, eq := range ctxEqns {
+		// reconstruct original term
+		l := polynomialToTerm[F](eq.LeftHandSide)
+		r := polynomialToTerm[F](eq.RightHandSide)
+		//
+		ctxTerms[i] = term.Equals[F, LogicalTerm[F]](l, r)
+	}
+	// construct contextual constraints
+	context = term.Conjunction(ctxTerms...)
 	// Done (for now)
 	if sign {
-		return term.Conjunction(terms...)
+		return term.Conjunction(tgtTerms...), context
 	}
 	//
-	return term.Disjunction(terms...)
+	return term.Disjunction(tgtTerms...), context
 }
 
 func sizeOfTree[F field.Element[F]](term LogicalTerm[F], mapping register.Map) uint {
