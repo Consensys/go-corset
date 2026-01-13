@@ -30,7 +30,7 @@ import (
 
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
-type Assignment[F field.Element[F], T io.Instruction[T]] struct {
+type Assignment[F field.Element[F], T io.Instruction] struct {
 	id         sc.ModuleId
 	name       module.Name
 	registers  []io.Register
@@ -43,7 +43,7 @@ type Assignment[F field.Element[F], T io.Instruction[T]] struct {
 
 // NewAssignment constructs a new assignment capable of trace filling for a
 // given function.
-func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn io.Function[T], iomap io.Map,
+func NewAssignment[F field.Element[F], T io.Instruction](id sc.ModuleId, fn io.Function[T], iomap io.Map,
 ) *Assignment[F, T] {
 	//
 	return &Assignment[F, T]{

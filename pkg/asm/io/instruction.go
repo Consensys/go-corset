@@ -16,7 +16,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
@@ -46,7 +45,7 @@ type Map interface {
 }
 
 // Instruction provides an abstract notion of an executable "machine instruction".
-type Instruction[T any] interface {
+type Instruction interface {
 	// Execute this instruction with the given local and global state.  The next
 	// program counter position is returned, or io.RETURN if the enclosing
 	// function has terminated (i.e. because a return instruction was
@@ -65,14 +64,6 @@ type Instruction[T any] interface {
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
 	String(fn register.Map) string
-}
-
-// SplittableInstruction is an instruction which supports register splitting for
-// the purposes of ensuring field agnosticity.
-type SplittableInstruction[T any] interface {
-	Instruction[T]
-
-	SplitRegisters(agnostic.RegisterAllocator) T
 }
 
 // InOutInstruction is simply a kind of instruction which performs some kind of I/O

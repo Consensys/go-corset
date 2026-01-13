@@ -183,7 +183,7 @@ func isEmptyModule[F any](module schema.Module[F]) bool {
 // Assembly Function
 // ==================================================================
 
-func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblyFunction[T io.Instruction](f io.Function[T]) {
 	printAssemblySignature(f)
 	printAssemblyRegisters(f)
 	//
@@ -194,7 +194,7 @@ func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
 	fmt.Println("}")
 }
 
-func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblySignature[T io.Instruction](f io.Function[T]) {
 	first := true
 	//
 	fmt.Printf("fn %s(", f.Name())
@@ -230,7 +230,7 @@ func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 	fmt.Println(") {")
 }
 
-func printAssemblyRegisters[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblyRegisters[T io.Instruction](f io.Function[T]) {
 	for _, r := range f.Registers() {
 		if !r.IsInput() && !r.IsOutput() {
 			fmt.Printf("\tvar %s u%d\n", r.Name(), r.Width())

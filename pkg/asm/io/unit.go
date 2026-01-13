@@ -17,7 +17,7 @@ import "github.com/consensys/go-corset/pkg/schema/register"
 // Unit defines a distinct entity within the system, such as a function, or a
 // read-only memory or a static reference table.  Units contain registers, some
 // of which may be marked as inputs/outputs and others as internal, etc.
-type Unit[T Instruction[T]] interface {
+type Unit[T Instruction] interface {
 	register.Map
 
 	// IsPublic determines whether or not this is an "externally visible" unit

@@ -58,7 +58,7 @@ func ValidateMicro(fieldWidth uint, functions []*MicroFunction) {
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func validateInstructions[T io.Instruction[T]](fieldWidth uint, fn io.Function[T],
+func validateInstructions[T io.Instruction](fieldWidth uint, fn io.Function[T],
 	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError

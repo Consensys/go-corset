@@ -24,12 +24,12 @@ import (
 // Executor provides a mechanism for executing a program efficiently and
 // generating a suitable top-level trace.  Executor implements the io.Map
 // interface.
-type Executor[T Instruction[T]] struct {
+type Executor[T Instruction] struct {
 	functions []*FunctionTrace[T]
 }
 
 // NewExecutor constructs a new executor.
-func NewExecutor[T Instruction[T]](program Program[T]) *Executor[T] {
+func NewExecutor[T Instruction](program Program[T]) *Executor[T] {
 	// Initialise executor traces
 	traces := make([]*FunctionTrace[T], len(program.Functions()))
 	//
@@ -93,7 +93,7 @@ func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
 // FunctionTrace captures all instances for a given function, and provides a
 // (thread-safe) API for calling to compute its output for a given set of
 // inputs.
-type FunctionTrace[T Instruction[T]] struct {
+type FunctionTrace[T Instruction] struct {
 	// Function whose instances are captured here
 	fn *Function[T]
 	// Cached instances of the given function
@@ -103,7 +103,7 @@ type FunctionTrace[T Instruction[T]] struct {
 }
 
 // NewFunctionTrace constructs an empty trace for a given function.
-func NewFunctionTrace[T Instruction[T]](fn *Function[T]) *FunctionTrace[T] {
+func NewFunctionTrace[T Instruction](fn *Function[T]) *FunctionTrace[T] {
 	instances := set.NewAnySortedSet[FunctionInstance]()
 	//
 	return &FunctionTrace[T]{

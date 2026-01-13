@@ -23,12 +23,12 @@ import (
 // Program encapsulates one of more functions together, such that one may call
 // another, etc.  Furthermore, it provides an interface between assembly
 // components and the notion of a Schema.
-type Program[T Instruction[T]] struct {
+type Program[T Instruction] struct {
 	functions []*Function[T]
 }
 
 // NewProgram constructs a new program using a given level of instruction.
-func NewProgram[T Instruction[T]](components []*Function[T]) Program[T] {
+func NewProgram[T Instruction](components []*Function[T]) Program[T] {
 	//
 	fns := make([]*Function[T], len(components))
 	copy(fns, components)
@@ -49,7 +49,7 @@ func (p *Program[T]) Functions() []*Function[T] {
 // InferPadding attempts to infer suitable padding values for a function, based
 // on those padding values provided for its inputs (which default to 0).  In
 // essence, this constructs a witness for the function in question.
-func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
+func InferPadding[T Instruction](fn Function[T], executor *Executor[T]) {
 	//
 	if fn.IsAtomic() {
 		// Only infer padding for one-line functions.

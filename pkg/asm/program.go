@@ -29,14 +29,14 @@ import (
 
 // MixedProgram represents the composition of an assembly program along with
 // zero or more legacy (i.e. external) modules.
-type MixedProgram[F field.Element[F], T io.Instruction[T], M schema.Module[F]] struct {
+type MixedProgram[F field.Element[F], T io.Instruction, M schema.Module[F]] struct {
 	program io.Program[T]
 	// External module declarations.
 	externs []M
 }
 
 // NewMixedProgram constructs a new program using a given level of instruction.
-func NewMixedProgram[F field.Element[F], T io.Instruction[T], M schema.Module[F]](program io.Program[T], externs ...M,
+func NewMixedProgram[F field.Element[F], T io.Instruction, M schema.Module[F]](program io.Program[T], externs ...M,
 ) MixedProgram[F, T, M] {
 	return MixedProgram[F, T, M]{program, externs}
 }
