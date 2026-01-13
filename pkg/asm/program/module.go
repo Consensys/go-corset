@@ -26,16 +26,16 @@ import (
 // schema.Module.
 type Module[F field.Element[F], T io.Instruction] struct {
 	id       sc.ModuleId
-	function io.Function[T]
+	function io.Component[T]
 }
 
 // NewModule constructs a new wrapper around a given io.Function instance.
-func NewModule[F field.Element[F], T io.Instruction](id sc.ModuleId, function io.Function[T]) *Module[F, T] {
+func NewModule[F field.Element[F], T io.Instruction](id sc.ModuleId, function io.Component[T]) *Module[F, T] {
 	return &Module[F, T]{id, function}
 }
 
 // Function returns the underlying function being wrapped.
-func (p *Module[F, T]) Function() io.Function[T] {
+func (p *Module[F, T]) Function() io.Component[T] {
 	return p.function
 }
 

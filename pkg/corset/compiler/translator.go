@@ -57,7 +57,7 @@ func TranslateCircuit(
 	extern asm.MacroProgram,
 	config field.Config) (asm.MacroHirProgram, []SyntaxError) {
 	//
-	builder := ir.NewSchemaBuilder[word.BigEndian, hir.Constraint, hir.Term](extern.Functions()...)
+	builder := ir.NewSchemaBuilder[word.BigEndian, hir.Constraint, hir.Term](extern.Components()...)
 	t := translator{env, srcmap, builder, config}
 	// Allocate all modules into schema
 	t.translateModules(circuit)

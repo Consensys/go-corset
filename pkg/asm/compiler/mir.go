@@ -39,10 +39,15 @@ type MirModule[F field.Element[F]] struct {
 }
 
 // Initialise this module
-func (p MirModule[F]) Initialise(mid uint, fn MicroFunction, iomap io.Map) MirModule[F] {
+func (p MirModule[F]) Initialise(mid uint, fn MicroComponent, iomap io.Map) MirModule[F] {
 	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid, false, fn.IsPublic(), false)
-	// Add corresponding assignment for this function.
-	builder.AddAssignment(program.NewAssignment[F](mid, fn, iomap))
+	switch fn := fn.(type) {
+	case *MicroFunction:
+		// Add corresponding assignment for this function.
+		builder.AddAssignment(program.NewAssignment[F](mid, *fn, iomap))
+	default:
+		panic("unknown component encountered")
+	}
 	//
 	p.Module = builder
 	//

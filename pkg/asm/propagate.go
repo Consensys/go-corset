@@ -82,7 +82,7 @@ func Propagate[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[wor
 	// Construct suitable executior for the given program
 	var (
 		errors []error
-		n      = uint(len(p.program.Functions()))
+		n      = uint(len(p.program.Components()))
 		//
 		executor  = io.NewExecutor(p.program)
 		trModules []lt.Module[word.BigEndian]
@@ -137,7 +137,7 @@ func writeFunctionInstances[T io.Instruction](fid uint, p io.Program[T], mod Raw
 	//
 	var (
 		height  = mod.Height()
-		fn      = p.Function(fid)
+		fn      = p.Component(fid)
 		inputs  = make([]big.Int, fn.NumInputs())
 		outputs = make([]big.Int, fn.NumOutputs())
 		errors  []error
@@ -185,7 +185,7 @@ func writeExternCall[T io.Instruction](call hir.FunctionCall, p io.Program[T], m
 	var (
 		trMod   = &mod
 		height  = mod.Height()
-		fn      = p.Function(call.Callee)
+		fn      = p.Component(call.Callee)
 		inputs  = make([]big.Int, fn.NumInputs())
 		outputs = make([]big.Int, fn.NumOutputs())
 		errors  []error
@@ -318,20 +318,20 @@ func extractFunctionPadding(registers []register.Register, inputs, outputs []big
 func readInstances[T io.Instruction](heap *lt.WordHeap, p io.Program[T], executor *io.Executor[T],
 ) []lt.Module[word.BigEndian] {
 	var (
-		modules = make([]lt.Module[word.BigEndian], len(p.Functions()))
+		modules = make([]lt.Module[word.BigEndian], len(p.Components()))
 		builder = array.NewDynamicBuilder(heap)
 	)
 	//
-	for i := range p.Functions() {
-		fn := p.Function(uint(i))
+	for i := range p.Components() {
+		fn := p.Component(uint(i))
 		instances := executor.Instances(uint(i))
-		modules[i] = readFunctionInstances(fn, instances, &builder)
+		modules[i] = readFunctionInstances[T](fn, instances, &builder)
 	}
 	//
 	return modules
 }
 
-func readFunctionInstances[T io.Instruction](fn io.Function[T], instances []io.FunctionInstance,
+func readFunctionInstances[T io.Instruction](fn io.Component[T], instances []io.ComponentInstance,
 	builder array.Builder[word.BigEndian]) lt.Module[word.BigEndian] {
 	var (
 		registers = fn.Registers()
@@ -347,7 +347,7 @@ func readFunctionInstances[T io.Instruction](fn io.Function[T], instances []io.F
 	return lt.NewModule[word.BigEndian](fn.Name(), columns)
 }
 
-func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.FunctionInstance,
+func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.ComponentInstance,
 	builder array.Builder[word.BigEndian]) array.MutArray[word.BigEndian] {
 	var (
 		height = uint(len(instances))

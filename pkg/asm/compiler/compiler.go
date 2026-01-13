@@ -34,6 +34,12 @@ type MicroFunction = io.Function[micro.Instruction]
 // MicroProgram is a program made up from micro- (and external) functions.
 type MicroProgram = io.Program[micro.Instruction]
 
+// MicroComponent is a component whose instructions (if applicable) are
+// themselves micro instructions.  A micro function represents the lowest
+// representation of a function, where each instruction is made up of
+// microcodes.
+type MicroComponent = io.Component[micro.Instruction]
+
 // FunctionMapping provides information regarding the mapping of a
 // assembly-level component (e.g. a function) to the corresponding columns in
 // the underlying constraint system.
@@ -135,18 +141,27 @@ func (p *Compiler[F, T, E, M]) Modules() []M {
 
 // Compile a given set of micro functions
 func (p *Compiler[F, T, E, M]) Compile(program MicroProgram) {
-	var fns = program.Functions()
+	var fns = program.Components()
 	//
 	p.modules = make([]M, len(fns))
 	p.buses = make([]FunctionMapping[T], len(fns))
 	p.executor = *io.NewExecutor(program)
 	// Initialise buses
 	for i, f := range fns {
-		p.initModule(uint(i), *f)
+		p.initModule(uint(i), f)
 	}
 	// Compiler functions
 	for _, fn := range fns {
-		p.compileFunction(*fn)
+		p.compileComponent(fn)
+	}
+}
+
+func (p *Compiler[F, T, E, M]) compileComponent(unit MicroComponent) {
+	switch unit := unit.(type) {
+	case *MicroFunction:
+		p.compileFunction(*unit)
+	default:
+		panic("unknown component")
 	}
 }
 
@@ -175,14 +190,12 @@ func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction) {
 
 // Create columns in the respective module for all registers associated with a
 // given Bus component (e.g. function).
-func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction) {
+func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroComponent) {
 	var (
 		module M
 		bus    FunctionMapping[T]
 		// padding defaults to zero
 		padding big.Int
-		// determine suitable width of PC register
-		pcWidth = bit.Width(uint(1 + len(fn.Code())))
 	)
 	// Initialise module correctly
 	module = module.Initialise(busId, fn, &p.executor)
@@ -197,17 +210,28 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroFunction) {
 		bus.columns[i] = module.NewColumn(reg.Kind(), reg.Name(), reg.Width(), *reg.Padding())
 	}
 	//
-	if !bus.atomic {
-		// Create program counter
-		bus.columns = append(bus.columns,
-			module.NewColumn(register.COMPUTED_REGISTER, io.PC_NAME, pcWidth, padding))
-		// Create return line
-		bus.columns = append(bus.columns,
-			module.NewColumn(register.COMPUTED_REGISTER, io.RET_NAME, 1, padding))
-		// Record widths for reference
-		bus.pcWidth = pcWidth
-		bus.retWidth = 1
+	switch fn := fn.(type) {
+	case *MicroFunction:
+		var (
+			// determine suitable width of PC register
+			pcWidth = bit.Width(uint(1 + len(fn.Code())))
+		)
+		//
+		if !bus.atomic {
+			// Create program counter
+			bus.columns = append(bus.columns,
+				module.NewColumn(register.COMPUTED_REGISTER, io.PC_NAME, pcWidth, padding))
+			// Create return line
+			bus.columns = append(bus.columns,
+				module.NewColumn(register.COMPUTED_REGISTER, io.RET_NAME, 1, padding))
+			// Record widths for reference
+			bus.pcWidth = pcWidth
+			bus.retWidth = 1
+		}
+	default:
+		panic("unknown component")
 	}
+
 	//
 	p.buses[busId] = bus
 	p.busMap[bus.name] = busId

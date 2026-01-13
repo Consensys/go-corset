@@ -31,6 +31,17 @@ import (
 // Register describes a single register within a function.
 type Register = io.Register
 
+// MacroComponent is a component whose instructions (if applicable) are
+// themselves macro instructions. A macro unit must be compiled down into a
+// micro unit before we can generate constraints.
+type MacroComponent = io.Component[macro.Instruction]
+
+// MicroComponent is a component whose instructions (if applicable) are
+// themselves micro instructions.  A micro function represents the lowest
+// representation of a function, where each instruction is made up of
+// microcodes.
+type MicroComponent = io.Component[micro.Instruction]
+
 // MacroFunction is a function whose instructions are themselves macro
 // instructions.  A macro function must be compiled down into a micro function
 // before we can generate constraints.
@@ -74,7 +85,7 @@ func Assemble(files ...source.File) (
 	var (
 		items      []assembler.AssemblyItem
 		errors     []source.SyntaxError
-		components []*MacroFunction
+		components []MacroComponent
 		srcmaps    source.Maps[any]
 		visited    map[string]bool = make(map[string]bool)
 	)
@@ -156,10 +167,10 @@ func LowerMixedMacroProgram(vectorize bool, program MacroHirProgram) MicroHirPro
 }
 
 func lowerMacroProgram(vectorize bool, p MacroProgram) MicroProgram {
-	functions := make([]*MicroFunction, len(p.Functions()))
+	functions := make([]MicroComponent, len(p.Components()))
 	//
-	for i, f := range p.Functions() {
-		nf := lowerFunction(vectorize, *f)
+	for i, f := range p.Components() {
+		nf := lowerComponent(vectorize, f)
 		functions[i] = &nf
 	}
 	// Validate generated program.  Whilst not strictly necessary, it is useful
