@@ -59,7 +59,7 @@ fn OR_on_OR(arg_1 u64, arg_2 u64, arg_3 u64, arg_4 u64, arg_5 u64, arg_6 u64, ar
     mid_res_4 = bit_xoan_u64(BIT_OR, mid_res_3, arg_5)
     mid_res_5 = bit_xoan_u64(BIT_OR, mid_res_4, arg_6)
     mid_res_6 = bit_xoan_u64(BIT_OR, mid_res_5, arg_7)
-    res = bit_xoan_u64(BIT_XOR, mid_res_6, arg_8)
+    res = bit_xoan_u64(BIT_OR, mid_res_6, arg_8)
     return
 }
 
