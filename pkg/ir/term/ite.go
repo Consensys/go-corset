@@ -92,7 +92,21 @@ func (p *Ite[F, T]) Bounds() util.Bounds {
 
 // Negate implementation for LogicalTerm interface
 func (p *Ite[F, S]) Negate() S {
-	return IfThenElse(p.Condition, p.TrueBranch.Negate(), p.FalseBranch.Negate())
+	var trueBranch, falseBranch S
+	// Negate true branch
+	if p.TrueBranch != nil {
+		trueBranch = p.TrueBranch.Negate()
+	} else {
+		trueBranch = False[F, S]()
+	}
+	// Negate false branch
+	if p.FalseBranch != nil {
+		falseBranch = p.FalseBranch.Negate()
+	} else {
+		falseBranch = False[F, S]()
+	}
+	//
+	return IfThenElse(p.Condition, trueBranch, falseBranch)
 }
 
 // TestAt implementation for Testable interface.
