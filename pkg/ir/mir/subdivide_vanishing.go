@@ -149,7 +149,7 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], path Logical
 		ctxTerms[i] = term.Equals[F, LogicalTerm[F]](l, r)
 	}
 	// construct contextual constraints
-	context = term.Conjunction(ctxTerms...)
+	context = term.IfThenElse(path, term.Conjunction(ctxTerms...), nil)
 	// Done (for now)
 	if sign {
 		return term.Conjunction(tgtTerms...), context
