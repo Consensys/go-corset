@@ -435,6 +435,10 @@ func Test_Valid_If_21(t *testing.T) {
 	util.CheckCorset(t, false, "corset/valid/if_21", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
 
+func Test_Valid_If_22(t *testing.T) {
+	util.CheckCorset(t, false, "corset/valid/if_22", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
+
 // ===================================================================
 // Guards
 // ===================================================================
