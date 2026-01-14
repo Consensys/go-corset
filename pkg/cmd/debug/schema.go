@@ -18,6 +18,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -56,9 +58,9 @@ func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 		//
 		switch ith := ith.(type) {
 		case *asm.MacroModule[F]:
-			printAssemblyFunction(ith.Function())
+			printAssemblyFunctionalUnit[macro.Instruction](ith.Function())
 		case *asm.MicroModule[F]:
-			printAssemblyFunction(ith.Function())
+			printAssemblyFunctionalUnit[micro.Instruction](ith.Function())
 		default:
 			printModule(ith, schema, width)
 		}
@@ -183,18 +185,23 @@ func isEmptyModule[F any](module schema.Module[F]) bool {
 // Assembly Function
 // ==================================================================
 
-func printAssemblyFunction[T io.Instruction[T]](f io.Function[T]) {
-	printAssemblySignature(f)
-	printAssemblyRegisters(f)
+func printAssemblyFunctionalUnit[T io.Instruction](f io.Component[T]) {
+	printAssemblySignature[T](f)
+	printAssemblyRegisters[T](f)
 	//
-	for pc, insn := range f.Code() {
-		fmt.Printf("[%d]\t%s\n", pc, insn.String(&f))
+	switch f := f.(type) {
+	case *io.Function[T]:
+		for pc, insn := range f.Code() {
+			fmt.Printf("[%d]\t%s\n", pc, insn.String(f))
+		}
+	default:
+		panic("unknown component")
 	}
 	//
 	fmt.Println("}")
 }
 
-func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblySignature[T io.Instruction](f io.Component[T]) {
 	first := true
 	//
 	fmt.Printf("fn %s(", f.Name())
@@ -230,7 +237,7 @@ func printAssemblySignature[T io.Instruction[T]](f io.Function[T]) {
 	fmt.Println(") {")
 }
 
-func printAssemblyRegisters[T io.Instruction[T]](f io.Function[T]) {
+func printAssemblyRegisters[T io.Instruction](f io.Component[T]) {
 	for _, r := range f.Registers() {
 		if !r.IsInput() && !r.IsOutput() {
 			fmt.Printf("\tvar %s u%d\n", r.Name(), r.Width())

@@ -36,6 +36,15 @@ type LoweringConfig struct {
 	Vectorize bool
 }
 
+func lowerComponent(vectorize bool, f MacroComponent) MicroFunction {
+	switch f := f.(type) {
+	case *MacroFunction:
+		return lowerFunction(vectorize, *f)
+	default:
+		panic("unknown component")
+	}
+}
+
 func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.

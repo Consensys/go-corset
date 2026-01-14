@@ -39,7 +39,7 @@ type RawModule = lt.Module[word.BigEndian]
 // Validation?
 // Batch size?
 // Recursion limit (to prevent infinite loops)
-func PropagateAll[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
+func PropagateAll[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
 	ts []lt.TraceFile) ([]lt.TraceFile, []error) {
 	//
 	var (
@@ -77,12 +77,12 @@ func PropagateAll[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgr
 // Validation?
 // Batch size?
 // Recursion limit (to prevent infinite loops)
-func Propagate[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
+func Propagate[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
 	trace lt.TraceFile) (lt.TraceFile, []error) {
 	// Construct suitable executior for the given program
 	var (
 		errors []error
-		n      = uint(len(p.program.Functions()))
+		n      = uint(len(p.program.Components()))
 		//
 		executor  = io.NewExecutor(p.program)
 		trModules []lt.Module[word.BigEndian]
@@ -110,7 +110,7 @@ func Propagate[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[
 // WriteInstances writes all of the instances defined in the given trace columns
 // into the executor which, in turn, forces it to execute the relevant
 // functions, and functions they call, etc.
-func writeInstances[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M], n uint,
+func writeInstances[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M], n uint,
 	trace []lt.Module[word.BigEndian], executor *io.Executor[T]) []error {
 	//
 	var errors []error
@@ -132,12 +132,12 @@ func writeInstances[T io.Instruction[T], M sc.Module[word.BigEndian]](p MixedPro
 	return errors
 }
 
-func writeFunctionInstances[T io.Instruction[T]](fid uint, p io.Program[T], mod RawModule,
+func writeFunctionInstances[T io.Instruction](fid uint, p io.Program[T], mod RawModule,
 	executor *io.Executor[T]) []error {
 	//
 	var (
 		height  = mod.Height()
-		fn      = p.Function(fid)
+		fn      = p.Component(fid)
 		inputs  = make([]big.Int, fn.NumInputs())
 		outputs = make([]big.Int, fn.NumOutputs())
 		errors  []error
@@ -179,13 +179,13 @@ func extractExternalCalls[M sc.Module[word.BigEndian]](extern M) []hir.FunctionC
 }
 
 // Write any function instances arising from the given call.
-func writeExternCall[T io.Instruction[T]](call hir.FunctionCall, p io.Program[T], mod RawModule,
+func writeExternCall[T io.Instruction](call hir.FunctionCall, p io.Program[T], mod RawModule,
 	executor *io.Executor[T]) []error {
 	//
 	var (
 		trMod   = &mod
 		height  = mod.Height()
-		fn      = p.Function(call.Callee)
+		fn      = p.Component(call.Callee)
 		inputs  = make([]big.Int, fn.NumInputs())
 		outputs = make([]big.Int, fn.NumOutputs())
 		errors  []error
@@ -220,7 +220,7 @@ func writeExternCall[T io.Instruction[T]](call hir.FunctionCall, p io.Program[T]
 	return errors
 }
 
-func executeAndCheck[T io.Instruction[T]](fid uint, name module.Name, inputs, outputs []big.Int,
+func executeAndCheck[T io.Instruction](fid uint, name module.Name, inputs, outputs []big.Int,
 	executor *io.Executor[T]) []error {
 	var (
 		errors []error
@@ -315,23 +315,23 @@ func extractFunctionPadding(registers []register.Register, inputs, outputs []big
 
 // ReadInstances simply traverses all internal states generated within the
 // executor and converts them back into raw columns.
-func readInstances[T io.Instruction[T]](heap *lt.WordHeap, p io.Program[T], executor *io.Executor[T],
+func readInstances[T io.Instruction](heap *lt.WordHeap, p io.Program[T], executor *io.Executor[T],
 ) []lt.Module[word.BigEndian] {
 	var (
-		modules = make([]lt.Module[word.BigEndian], len(p.Functions()))
+		modules = make([]lt.Module[word.BigEndian], len(p.Components()))
 		builder = array.NewDynamicBuilder(heap)
 	)
 	//
-	for i := range p.Functions() {
-		fn := p.Function(uint(i))
+	for i := range p.Components() {
+		fn := p.Component(uint(i))
 		instances := executor.Instances(uint(i))
-		modules[i] = readFunctionInstances(fn, instances, &builder)
+		modules[i] = readFunctionInstances[T](fn, instances, &builder)
 	}
 	//
 	return modules
 }
 
-func readFunctionInstances[T io.Instruction[T]](fn io.Function[T], instances []io.FunctionInstance,
+func readFunctionInstances[T io.Instruction](fn io.Component[T], instances []io.ComponentInstance,
 	builder array.Builder[word.BigEndian]) lt.Module[word.BigEndian] {
 	var (
 		registers = fn.Registers()
@@ -347,7 +347,7 @@ func readFunctionInstances[T io.Instruction[T]](fn io.Function[T], instances []i
 	return lt.NewModule[word.BigEndian](fn.Name(), columns)
 }
 
-func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.FunctionInstance,
+func readFunctionInputOutputs(arg uint, registers []io.Register, instances []io.ComponentInstance,
 	builder array.Builder[word.BigEndian]) array.MutArray[word.BigEndian] {
 	var (
 		height = uint(len(instances))

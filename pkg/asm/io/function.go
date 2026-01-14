@@ -48,7 +48,7 @@ const (
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
-type Function[T Instruction[T]] struct {
+type Function[T Instruction] struct {
 	// Unique name of this function.
 	name string
 	// Indicates whether this is an externally visible function (or not).
@@ -67,7 +67,7 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](name module.Name, public bool, registers []Register, buses []Bus,
+func NewFunction[T Instruction](name module.Name, public bool, registers []Register, buses []Bus,
 	code []T) Function[T] {
 	//
 	var (

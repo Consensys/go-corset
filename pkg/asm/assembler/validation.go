@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 )
@@ -27,14 +28,19 @@ import (
 // are defined, and all control-flow paths must reach a "ret" instruction.
 // Finally, we cannot assign to an input register under the current calling
 // convention.
-func Validate(fieldWidth uint, functions []*MacroFunction, srcmaps source.Maps[any],
+func Validate(fieldWidth uint, functions []MacroComponent, srcmaps source.Maps[any],
 ) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError
 	//
 	for _, fn := range functions {
-		errors = append(errors, validateInstructions(fieldWidth, *fn, srcmaps)...)
-		errors = append(errors, validateControlFlow(*fn, srcmaps)...)
+		switch fn := fn.(type) {
+		case *MacroFunction:
+			errors = append(errors, validateInstructions(fieldWidth, *fn, srcmaps)...)
+			errors = append(errors, validateControlFlow(*fn, srcmaps)...)
+		default:
+			panic("unknown component")
+		}
 	}
 	//
 	return errors
@@ -43,12 +49,23 @@ func Validate(fieldWidth uint, functions []*MacroFunction, srcmaps source.Maps[a
 // ValidateMicro a micro program.  This is more challenging as we have no
 // available source mapping information.  Instead, we just panic upon
 // encountering an error.
-func ValidateMicro(fieldWidth uint, functions []*MicroFunction) {
+func ValidateMicro(fieldWidth uint, functions []MicroComponent) {
 	var srcmap source.Maps[any]
 	//
 	for _, fn := range functions {
 		// TODO: support control-flow checks as well.
-		validateInstructions(fieldWidth, *fn, srcmap)
+		validateMicroUnit[micro.Instruction](fieldWidth, fn, srcmap)
+	}
+}
+
+func validateMicroUnit[T io.Instruction](fieldWidth uint, unit io.Component[T],
+	srcmaps source.Maps[any]) []source.SyntaxError {
+	//
+	switch f := unit.(type) {
+	case *io.Function[T]:
+		return validateInstructions[T](fieldWidth, *f, srcmaps)
+	default:
+		panic("unknown component")
 	}
 }
 
@@ -58,7 +75,7 @@ func ValidateMicro(fieldWidth uint, functions []*MicroFunction) {
 // y + 1" where both x and y are byte registers.  This does not balance because
 // the right-hand side generates 9 bits but the left-hand side can only consume
 // 8bits.
-func validateInstructions[T io.Instruction[T]](fieldWidth uint, fn io.Function[T],
+func validateInstructions[T io.Instruction](fieldWidth uint, fn io.Function[T],
 	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError

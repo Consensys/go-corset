@@ -30,7 +30,7 @@ type Register = io.Register
 // Here, macro is intended to imply that the instruction may break down into
 // multiple underlying "micro instructions".
 type Instruction interface {
-	io.Instruction[Instruction]
+	io.Instruction
 	// Lower this (macro) instruction into a sequence of one or more micro
 	// instructions.
 	Lower(pc uint) micro.Instruction

@@ -56,7 +56,7 @@ func (p *ConstraintFailure[F]) String() string {
 
 // Constraint represents a wrapper around an instruction in order for it to
 // conform to the constraint interface.
-type Constraint[F field.Element[F], T io.Instruction[T]] struct {
+type Constraint[F field.Element[F], T io.Instruction] struct {
 	id        sc.ModuleId
 	name      string
 	registers []io.Register

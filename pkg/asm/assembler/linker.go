@@ -63,7 +63,7 @@ type ConstMap map[module.Name]util.Pair[big.Int, uint]
 // program, or one or more errors.  Linking is the process of connecting buses
 // which are used (e.g. by a call instruction) with their definitions (e.g. a
 // function declaration).
-func Link(items ...AssemblyItem) ([]*MacroFunction, source.Maps[any], []source.SyntaxError) {
+func Link(items ...AssemblyItem) ([]MacroComponent, source.Maps[any], []source.SyntaxError) {
 	var (
 		linker = NewLinker()
 		errors []source.SyntaxError
@@ -99,7 +99,7 @@ type Linker struct {
 	srcmap     source.Maps[any]
 	busmap     map[module.Name]uint
 	constmap   ConstMap
-	components []*MacroFunction
+	components []MacroComponent
 	names      map[module.Name]bool
 }
 
@@ -161,9 +161,21 @@ func (p *Linker) Link() []source.SyntaxError {
 // means, for every bus used locally, settings the global bus identifier and
 // also allocated regisers for the address/data lines.
 func (p *Linker) linkComponent(index uint) []source.SyntaxError {
+	switch p.components[index].(type) {
+	case *MacroFunction:
+		return p.linkFunction(index)
+	default:
+		panic("unknown component")
+	}
+}
+
+// Link all buses used within this function to their intended targets.  This
+// means, for every bus used locally, settings the global bus identifier and
+// also allocated regisers for the address/data lines.
+func (p *Linker) linkFunction(index uint) []source.SyntaxError {
 	// Mapping of bus names to allocated buses
 	var (
-		fn         = p.components[index]
+		fn         = p.components[index].(*MacroFunction)
 		buses      = fn.Buses()
 		code       = fn.Code()
 		localBuses = make(map[uint]io.Bus, 0)
@@ -256,10 +268,10 @@ func (p *Linker) linkExprs(es ...macro.Expr) *source.SyntaxError {
 // bus (if was not already allocated) or returning the existing bus (if it was
 // previously allocated).  Allocating a new bus requires allocating
 // corresponding I/O registers within the given function.
-func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components []*MacroFunction) io.Bus {
+func allocateBus(busId uint, localBuses map[uint]io.Bus, index uint, components []MacroComponent) io.Bus {
 	//
 	var (
-		fn      = components[index]
+		fn      = components[index].(*MacroFunction)
 		busName = components[busId].Name()
 		inputs  = components[busId].Inputs()
 		outputs = components[busId].Outputs()
