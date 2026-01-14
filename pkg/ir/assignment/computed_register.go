@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -271,7 +272,9 @@ func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 		// Write data across limbs
 		if !write(i, val, data, widths) {
 			// Generate error
-			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i, val.String(),
+			return fmt.Errorf("row %d out-of-bounds (%s not u%d) in module %s for: %s", i, val.String(),
+				util_math.Sum(widths...),
+				scMod.Name(),
 				expr.Lisp(false, scMod).String(true))
 		}
 	}
@@ -292,7 +295,9 @@ func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 		// Write data across limbs
 		if !write(i-1, val, data, widths) {
 			// Generate error
-			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i-1, val.String(),
+			return fmt.Errorf("row %d out-of-bounds (%s not u%d) in module %s for: %s", i-1, val.String(),
+				util_math.Sum(widths...),
+				scMod.Name(),
 				expr.Lisp(false, scMod).String(true))
 		}
 	}
