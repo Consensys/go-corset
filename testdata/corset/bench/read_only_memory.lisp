@@ -1,7 +1,5 @@
-;; simple definition of a ROM
-(module ROM1)
-;;
-(defcolumns (enable :u1) (address :u16) (data :u8))
+;; simple definition of a Read-Only Memory (ROM)
+(defcolumns (enable :u1@prove) (address :u16@prove) (data :u8@prove))
 ;; ensure enable goes high only once, and that address is 0
 (defconstraint enable ()
   (if (!= enable (prev enable))
