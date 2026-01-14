@@ -58,6 +58,11 @@ func Test_Bench_Memory32u32(t *testing.T) {
 func Test_Bench_Memory32u64(t *testing.T) {
 	util.CheckCorset(t, true, "corset/bench/memory32u64", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
+
+func Test_Bench_ReadOnlyMemory(t *testing.T) {
+	util.CheckCorset(t, true, "corset/bench/read_only_memory", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
+
 func Test_Bench_Adder(t *testing.T) {
 	util.CheckCorset(t, true, "corset/bench/adder", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
