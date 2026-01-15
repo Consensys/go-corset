@@ -45,6 +45,8 @@ func (p MirModule[F]) Initialise(mid uint, fn MicroComponent, iomap io.Map) MirM
 	case *MicroFunction:
 		// Add corresponding assignment for this function.
 		builder.AddAssignment(program.NewAssignment[F](mid, *fn, iomap))
+	case *io.ReadOnlyMemory:
+		// For now, do nothing.
 	default:
 		panic("unknown component encountered")
 	}

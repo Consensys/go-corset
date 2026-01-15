@@ -38,6 +38,8 @@ func Validate(fieldWidth uint, functions []MacroComponent, srcmaps source.Maps[a
 		case *MacroFunction:
 			errors = append(errors, validateInstructions(fieldWidth, *fn, srcmaps)...)
 			errors = append(errors, validateControlFlow(*fn, srcmaps)...)
+		case *io.ReadOnlyMemory:
+			// At this stage, nothing to do
 		default:
 			panic("unknown component")
 		}
@@ -64,6 +66,9 @@ func validateMicroUnit[T io.Instruction](fieldWidth uint, unit io.Component[T],
 	switch f := unit.(type) {
 	case *io.Function[T]:
 		return validateInstructions[T](fieldWidth, *f, srcmaps)
+	case *io.ReadOnlyMemory:
+		// nothing to do
+		return nil
 	default:
 		panic("unknown component")
 	}

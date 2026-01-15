@@ -151,6 +151,8 @@ func subdivideComponent(mapping module.LimbsMap, fn MicroComponent) MicroCompone
 	switch fn := fn.(type) {
 	case *MicroFunction:
 		return subdivideFunction(mapping, fn)
+	case *io.ReadOnlyMemory:
+		return subdivideReadOnlyMemory(mapping, fn)
 	default:
 		panic("unknown component")
 	}
@@ -181,4 +183,16 @@ func subdivideFunction(mapping module.LimbsMap, fn *MicroFunction) *MicroFunctio
 	nfn := io.NewFunction(fn.Name(), fn.IsPublic(), env.Registers(), nbuses, ninsns)
 	// Done
 	return &nfn
+}
+
+// Subdivide a given rom according to a given limbs map.  This means all
+// registers are translated into limbs according to the map.
+func subdivideReadOnlyMemory(mapping module.LimbsMap, rom *io.ReadOnlyMemory) *io.ReadOnlyMemory {
+	var (
+		modmap = mapping.ModuleOf(rom.Name())
+		//
+		nrom = io.NewReadOnlyMemory(rom.Name(), rom.IsPublic(), modmap.LimbsMap().Registers())
+	)
+	//
+	return &nrom
 }

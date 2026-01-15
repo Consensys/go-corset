@@ -53,6 +53,8 @@ func InferPadding[T Instruction](fn Component[T], executor *Executor[T]) {
 	switch fn := fn.(type) {
 	case *Function[T]:
 		inferFunctionPadding(fn, executor)
+	case *ReadOnlyMemory:
+		// for now, do nothing (hence, assuming padding always 0)
 	default:
 		panic("unknown component")
 	}

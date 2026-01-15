@@ -1,0 +1,224 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package io
+
+import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"math/big"
+
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+)
+
+// ReadOnlyMemory represents a specific type of memory which can be read, but
+// not modified by the assembly program.  In this context, inputs are referred
+// to as "address lines" and outputs are referred to as "data lines".  Thus, we
+// can view it as a form of function which returns the data values stored at the
+// the addressed determined by the parameters.  Additional constraints are
+// imposed to ensure that at most one data row exists for any given address.
+type ReadOnlyMemory struct {
+	// Unique name of this function.
+	name string
+	// Indicates whether this is an externally visible memory (or not).
+	public bool
+	// Registers describes zero or more registers of a given width.  Each
+	// register can be designated as an input / output or temporary.
+	registers []Register
+	// Number of input registers
+	numInputs uint
+	// Number of output registers
+	numOutputs uint
+}
+
+// NewReadOnlyMemory constructs a new read-only memory with the given name and registers.
+func NewReadOnlyMemory(name module.Name, public bool, registers []Register) ReadOnlyMemory {
+	//
+	var (
+		numInputs  = array.CountMatching(registers, func(r Register) bool { return r.IsInput() })
+		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
+	)
+	// Check registers sorted as: inputs, outputs then internal.
+	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind() }) {
+		panic("function registers ordered incorrectly")
+	} else if name.Multiplier != 1 {
+		panic("roms only support multiplers of 1")
+	}
+	// All good
+	return ReadOnlyMemory{name.Name, public, registers, numInputs, numOutputs}
+}
+
+// IsPublic determines whether or not this is an "externally visible" function
+// or not.  The differences between internal and external functions is small.
+// Specifically, internal functions are not visible in the generated trace
+// interface; likewise, they are hidden by default in the inspector.
+func (p *ReadOnlyMemory) IsPublic() bool {
+	return p.public
+}
+
+// IsSynthetic modules are generated during compilation, rather than being
+// provided by the user.  At this time, functions can never be synthetic
+func (p *ReadOnlyMemory) IsSynthetic() bool {
+	return false
+}
+
+// IsAtomic determines whether or not this is a "one line function".  That is,
+// where every instance of this function occupies exactly one line in the
+// corresponding trace.  This is useful to know, as certain optimisations can be
+// applied for one line functions (e.g. no PC register is required).
+func (p *ReadOnlyMemory) IsAtomic() bool {
+	return true
+}
+
+// HasRegister checks whether a register with the given name exists and, if
+// so, returns its register identifier.  Otherwise, it returns false.
+func (p *ReadOnlyMemory) HasRegister(name string) (RegisterId, bool) {
+	for i, r := range p.registers {
+		if r.Name() == name {
+			return register.NewId(uint(i)), true
+		}
+	}
+	// Failed
+	return register.UnusedId(), false
+}
+
+// Inputs returns the set of input registers for this function.
+func (p *ReadOnlyMemory) Inputs() []Register {
+	return p.registers[:p.numInputs]
+}
+
+// NumInputs returns the number of input registers for this function.
+func (p *ReadOnlyMemory) NumInputs() uint {
+	return p.numInputs
+}
+
+// NumOutputs returns the number of output registers for this function.
+func (p *ReadOnlyMemory) NumOutputs() uint {
+	return p.numOutputs
+}
+
+// Name returns the name of this function.
+func (p *ReadOnlyMemory) Name() module.Name {
+	// Functions always have a multiplier of 1.
+	return module.NewName(p.name, 1)
+}
+
+// Outputs returns the set of output registers for this function.
+func (p *ReadOnlyMemory) Outputs() []Register {
+	return p.registers[p.numInputs : p.numInputs+p.numOutputs]
+}
+
+// Register returns the ith register used in this function.
+func (p *ReadOnlyMemory) Register(id register.Id) Register {
+	return p.registers[id.Unwrap()]
+}
+
+// Registers returns the set of all registers used during execution of this
+// function.
+func (p *ReadOnlyMemory) Registers() []Register {
+	return p.registers
+}
+
+// Width returns the number of registers in this module.'
+func (p *ReadOnlyMemory) Width() uint {
+	return uint(len(p.registers))
+}
+
+// AllocateRegister allocates a new register of the given kind, name and width
+// into this function.
+func (p *ReadOnlyMemory) AllocateRegister(kind register.Type, name string, width uint, padding big.Int) RegisterId {
+	var (
+		index = uint(len(p.registers))
+	)
+	// Sanity check
+	if kind == register.INPUT_REGISTER || kind == register.OUTPUT_REGISTER {
+		panic("cannot allocate input / output register")
+	}
+	//
+	p.registers = append(p.registers, register.New(kind, name, width, padding))
+	// Done
+	return register.NewId(index)
+}
+
+// Validate that this function and all instructions contained therein is
+// well-formed.  For example, that instructions have no conflicting writes, that
+// all temporaries have been allocated, etc.  The maximum bit capacity of the
+// underlying field is needed for this calculation, to allow instructions to
+// check it does not overflow the underlying field.
+func (p *ReadOnlyMemory) Validate(fieldWidth uint) []error {
+	return nil
+}
+
+func (p *ReadOnlyMemory) String() string {
+	return register.MapToString(p)
+}
+
+// ConstRegister implementation for register.ConstMap interface
+func (p *ReadOnlyMemory) ConstRegister(constant uint8) RegisterId {
+	var (
+		name  = fmt.Sprintf("%d", constant)
+		nregs = uint(len(p.registers))
+	)
+	// Check whether register already exists
+	if rid, ok := p.HasRegister(name); ok {
+		return rid
+	}
+	// Allocate constant register
+	p.registers = append(p.registers, register.NewConst(constant))
+	//
+	return register.NewId(nregs)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *ReadOnlyMemory) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.name); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.registers); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *ReadOnlyMemory) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	// Recompute internal values
+	p.numInputs = array.CountMatching(p.registers, func(r Register) bool { return r.IsInput() })
+	p.numOutputs = array.CountMatching(p.registers, func(r Register) bool { return r.IsOutput() })
+	// Done
+	return nil
+}

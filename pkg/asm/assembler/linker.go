@@ -139,9 +139,14 @@ func (p *Linker) Register(component AssemblyComponent) {
 		p.busmap[c.Name()] = uint(len(p.busmap))
 		//
 		p.components = append(p.components, c)
+	case *io.ReadOnlyMemory:
+		// Allocate bus entry
+		p.busmap[c.Name()] = uint(len(p.busmap))
+		//
+		p.components = append(p.components, c)
 	default:
 		// Should be unreachable
-		panic(fmt.Sprintf("unknown component %s", component.Name()))
+		panic(fmt.Sprintf("unknown component \"%s\"", component.Name()))
 	}
 }
 
@@ -164,6 +169,9 @@ func (p *Linker) linkComponent(index uint) []source.SyntaxError {
 	switch p.components[index].(type) {
 	case *MacroFunction:
 		return p.linkFunction(index)
+	case *io.ReadOnlyMemory:
+		// nothing to do
+		return nil
 	default:
 		panic("unknown component")
 	}

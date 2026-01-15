@@ -115,6 +115,8 @@ func (p *Parser) Parse() (AssemblyItem, []source.SyntaxError) {
 			continue
 		case KEYWORD_FN, KEYWORD_PUB:
 			component, errors = p.parseFunction()
+		case KEYWORD_ROM:
+			component, errors = p.parseReadOnlyMemory()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -273,6 +275,45 @@ func (p *Parser) checkLabelsDeclared(env *Environment, code []macro.Instruction)
 	}
 	//
 	return nil
+}
+
+func (p *Parser) parseReadOnlyMemory() (*io.ReadOnlyMemory, []source.SyntaxError) {
+	var (
+		start  = p.index
+		env    Environment
+		name   string
+		errs   []source.SyntaxError
+		public bool
+	)
+	// Parse pub modifier (if present)
+	public = p.match(KEYWORD_PUB)
+	// Parse function declaration
+	if _, errs := p.expect(KEYWORD_ROM); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse function name
+	if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse inputs
+	if errs = p.parseArgsList(register.INPUT_REGISTER, &env); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse optional '->'
+	if p.match(RIGHTARROW) {
+		// Parse returns
+		if errs = p.parseArgsList(register.OUTPUT_REGISTER, &env); len(errs) > 0 {
+			return nil, errs
+		}
+	}
+	// Save for source map
+	end := p.index
+	// Construct read-only memory
+	rom := io.NewReadOnlyMemory(module.NewName(name, 1), public, env.registers)
+	//
+	p.srcmap.Put(&rom, p.spanOf(start, end-1))
+	// Done
+	return &rom, nil
 }
 
 func (p *Parser) parseArgsList(kind register.Type, env *Environment) []source.SyntaxError {

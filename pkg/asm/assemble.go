@@ -167,15 +167,14 @@ func LowerMixedMacroProgram(vectorize bool, program MacroHirProgram) MicroHirPro
 }
 
 func lowerMacroProgram(vectorize bool, p MacroProgram) MicroProgram {
-	functions := make([]MicroComponent, len(p.Components()))
+	components := make([]MicroComponent, len(p.Components()))
 	//
 	for i, f := range p.Components() {
-		nf := lowerComponent(vectorize, f)
-		functions[i] = &nf
+		components[i] = lowerComponent(vectorize, f)
 	}
 	// Validate generated program.  Whilst not strictly necessary, it is useful
 	// from a debugging perspective.
-	assembler.ValidateMicro(math.MaxUint, functions)
+	assembler.ValidateMicro(math.MaxUint, components)
 	//
-	return io.NewProgram(functions)
+	return io.NewProgram(components)
 }
