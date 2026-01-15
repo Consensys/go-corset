@@ -28,7 +28,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
-	util_math "github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -270,13 +269,7 @@ func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i, expr, e)
 		}
 		// Write data across limbs
-		if !write(i, val, data, widths) {
-			// Generate error
-			return fmt.Errorf("row %d out-of-bounds (%s not u%d) in module %s for: %s", i, val.String(),
-				util_math.Sum(widths...),
-				scMod.Name(),
-				expr.Lisp(false, scMod).String(true))
-		}
+		write(i, val, data, widths)
 	}
 	//
 	return nil
@@ -293,30 +286,21 @@ func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i-1, expr, e)
 		}
 		// Write data across limbs
-		if !write(i-1, val, data, widths) {
-			// Generate error
-			return fmt.Errorf("row %d out-of-bounds (%s not u%d) in module %s for: %s", i-1, val.String(),
-				util_math.Sum(widths...),
-				scMod.Name(),
-				expr.Lisp(false, scMod).String(true))
-		}
+		write(i-1, val, data, widths)
 	}
 	//
 	return nil
 }
 
-func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) bool {
-	// FIXME: following is not efficient, as it allocates memory and does quite
-	// a lot of work overall.
+func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) {
 	var elements, ok = field.SplitWord[word.BigEndian](val, bitwidths)
-	//
+	// Only write data if value was within bounds; otherwise, leave as zero
+	// (which should be caught as a constraint failure if its invalid).
 	if ok {
 		for i := range data {
 			data[i][row] = elements[i]
 		}
 	}
-	//
-	return ok
 }
 
 // RecModule is a wrapper which enables a computation to be recursive.
