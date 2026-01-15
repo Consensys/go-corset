@@ -157,9 +157,17 @@ func (p *Compiler[F, T, E, M]) compileComponent(unit MicroComponent) {
 	switch unit := unit.(type) {
 	case *MicroFunction:
 		p.compileFunction(*unit)
+	case *io.ReadOnlyMemory:
+		p.compileReadOnlyMemory(*unit)
 	default:
 		panic("unknown component")
 	}
+}
+
+// Compile a function with the given name, registers and micro-instructions into
+// constraints.
+func (p *Compiler[F, T, E, M]) compileReadOnlyMemory(fn io.ReadOnlyMemory) {
+	// For now we do nothing.  But, eventually, stuff will need to go here.
 }
 
 // Compile a function with the given name, registers and micro-instructions into
@@ -225,6 +233,8 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroComponent) {
 			bus.pcWidth = pcWidth
 			bus.retWidth = 1
 		}
+	case *io.ReadOnlyMemory:
+		// For now, do nothing
 	default:
 		panic("unknown component")
 	}

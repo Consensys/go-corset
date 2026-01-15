@@ -13,8 +13,10 @@
 package io
 
 import (
+	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -56,12 +58,12 @@ func (p *Executor[T]) Instance(bus uint) ComponentInstance {
 		inputs[i] = *ith.Set(reg.Padding())
 	}
 	// Compute function instance
-	return p.functions[bus].Call(inputs, p)
+	return p.functions[bus].Read(inputs, p)
 }
 
 // Read implementation for the io.Map interface.
 func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint) []big.Int {
-	return p.functions[bus].Call(address, p).Outputs()
+	return p.functions[bus].Read(address, p).Outputs()
 }
 
 // Instances returns accrued function instances for the given bus.
@@ -82,8 +84,7 @@ func (p *Executor[T]) Count() uint {
 
 // Write implementation for the io.Map interface.
 func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
-	// At this stage, there no components use this functionality.
-	panic("unsupported operation")
+	p.functions[bus].Write(address, values)
 }
 
 // ============================================================================
@@ -124,7 +125,7 @@ func (p *ComponentTrace[T]) Count() uint {
 // Call this function to determine its outputs for a given set of inputs.  If
 // this instance has been seen before, it will simply return that.  Otherwise,
 // it will execute the function to determine the correct outputs.
-func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance {
+func (p *ComponentTrace[T]) Read(inputs []big.Int, iomap Map) ComponentInstance {
 	var iostate = ComponentInstance{uint(len(inputs)), inputs}
 	// Obtain read lock
 	p.mux.RLock()
@@ -145,6 +146,30 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance 
 	return p.executeCall(inputs, iomap)
 }
 
+func (p *ComponentTrace[T]) Write(inputs, outputs []big.Int) ComponentInstance {
+	var iostate = ComponentInstance{uint(len(inputs)), inputs}
+	// Obtain read lock
+	p.mux.RLock()
+	// Look for cached instance
+	index := p.instances.Find(iostate)
+	// Check for cache hit.
+	if index != math.MaxUint {
+		panic("multiple writes to same address?")
+	}
+	// Release read lock
+	p.mux.RUnlock()
+	// write I/O instance
+	instance := ComponentInstance{uint(len(inputs)), append(inputs, outputs...)}
+	// Obtain  write lock
+	p.mux.Lock()
+	// Insert new instance
+	p.instances.Insert(instance)
+	// Release write lock
+	p.mux.Unlock()
+	// Done
+	return instance
+}
+
 // Execute this function for a given set of inputs to determine its outputs and
 // produce a given instance.  The created instance is recorded within the trace
 // so it can be reused rather than recomputed in the future.  This function is
@@ -160,6 +185,12 @@ func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map) ComponentIn
 	switch p.fn.(type) {
 	case *Function[T]:
 		return p.executeFunctionCall(inputs, iomap)
+	case *ReadOnlyMemory:
+		name := p.fn.Name().String()
+		address := toTupleString(inputs)
+		// Should be unreachable, since the address should be written into the
+		// executor already.
+		panic(fmt.Sprintf("rom out-of-bounds access (\"%s[%s]\")", name, address))
 	default:
 		panic("unknown component")
 	}
@@ -243,4 +274,42 @@ func (p ComponentInstance) Outputs() []big.Int {
 // Get value of given input or output argument for this instance.
 func (p ComponentInstance) Get(arg uint) big.Int {
 	return p.state[arg]
+}
+
+func (p ComponentInstance) String() string {
+	var builder strings.Builder
+	//
+	for i := range p.ninputs {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+
+		builder.WriteString(fmt.Sprintf("0x%s", p.state[i].Text(16)))
+	}
+	//
+	builder.WriteString("=>")
+	//
+	for i := p.ninputs; i < uint(len(p.state)); i++ {
+		if i != p.ninputs {
+			builder.WriteString(",")
+		}
+
+		builder.WriteString(fmt.Sprintf("0x%s", p.state[i].Text(16)))
+	}
+	//
+	return builder.String()
+}
+
+func toTupleString(vals []big.Int) string {
+	var builder strings.Builder
+	//
+	for i, v := range vals {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+
+		builder.WriteString(fmt.Sprintf("0x%s", v.Text(16)))
+	}
+	//
+	return builder.String()
 }

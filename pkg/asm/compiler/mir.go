@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
@@ -46,6 +47,8 @@ func (p MirModule[F]) Initialise(mid uint, fn MicroComponent) MirModule[F] {
 	case *MicroFunction:
 		// Add corresponding assignment for this function.
 		builder.AddAssignment(program.NewAssignment[F](mid, *fn))
+	case *io.ReadOnlyMemory:
+		// For now, do nothing.
 	default:
 		panic("unknown component encountered")
 	}

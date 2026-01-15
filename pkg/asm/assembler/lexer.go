@@ -69,6 +69,9 @@ const KEYWORD_FN uint = 23
 // KEYWORD_PUB signals a public function declaration
 const KEYWORD_PUB uint = 24
 
+// KEYWORD_ROM signals a read-only memory declaration
+const KEYWORD_ROM uint = 25
+
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 30
 
@@ -187,6 +190,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.String("const"), KEYWORD_CONST),
 	lex.Rule(lex.String("include"), KEYWORD_INCLUDE),
 	lex.Rule(lex.String("fn"), KEYWORD_FN),
+	lex.Rule(lex.String("rom"), KEYWORD_ROM),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
 }

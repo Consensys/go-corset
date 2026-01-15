@@ -36,16 +36,18 @@ type LoweringConfig struct {
 	Vectorize bool
 }
 
-func lowerComponent(vectorize bool, f MacroComponent) MicroFunction {
+func lowerComponent(vectorize bool, f MacroComponent) MicroComponent {
 	switch f := f.(type) {
 	case *MacroFunction:
 		return lowerFunction(vectorize, *f)
+	case *io.ReadOnlyMemory:
+		return f
 	default:
 		panic("unknown component")
 	}
 }
 
-func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
+func lowerFunction(vectorize bool, f MacroFunction) MicroComponent {
 	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.
 	for pc, insn := range f.Code() {
@@ -58,7 +60,7 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 		fn = vectorizeFunction(fn)
 	}
 	//
-	return fn
+	return &fn
 }
 
 // Vectorize a given function by merging as many instructions together as

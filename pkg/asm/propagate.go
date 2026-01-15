@@ -116,7 +116,7 @@ func writeInstances[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgra
 	var errors []error
 	// Write all from assembly modules
 	for i, m := range trace[:n] {
-		errs := writeFunctionInstances(uint(i), p.program, m, executor)
+		errs := writeComponentInstances(uint(i), p.program, m, executor)
 		errors = append(errors, errs...)
 	}
 	// Write all from non-assembly modules
@@ -130,6 +130,21 @@ func writeInstances[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgra
 	}
 	//
 	return errors
+}
+
+func writeComponentInstances[T io.Instruction](fid uint, p io.Program[T], mod RawModule,
+	executor *io.Executor[T]) []error {
+	//
+	var component = p.Component(fid)
+	//
+	switch component.(type) {
+	case *io.Function[T]:
+		return writeFunctionInstances(fid, p, mod, executor)
+	case *io.ReadOnlyMemory:
+		return writeReadOnlyMemoryInstances(fid, p, mod, executor)
+	default:
+		panic(fmt.Sprintf("unknown component \"%s\"", component.Name()))
+	}
 }
 
 func writeFunctionInstances[T io.Instruction](fid uint, p io.Program[T], mod RawModule,
@@ -156,6 +171,27 @@ func writeFunctionInstances[T io.Instruction](fid uint, p io.Program[T], mod Raw
 	}
 	//
 	return errors
+}
+
+func writeReadOnlyMemoryInstances[T io.Instruction](fid uint, p io.Program[T], mod RawModule,
+	executor *io.Executor[T]) []error {
+	//
+	var (
+		height  = mod.Height()
+		fn      = p.Component(fid)
+		inputs  = make([]big.Int, fn.NumInputs())
+		outputs = make([]big.Int, fn.NumOutputs())
+	)
+	//
+	// Invoke each user-defined instance in turn
+	for i := range height {
+		// Extract function inputs
+		extractFunctionColumns(i, mod, inputs, outputs)
+		// Write data into the memory
+		executor.Write(fid, inputs, outputs)
+	}
+	//
+	return nil
 }
 
 // Extract any external function calls found within the given module, returning
