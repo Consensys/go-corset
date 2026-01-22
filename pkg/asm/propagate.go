@@ -194,9 +194,14 @@ func writeExternCall[T io.Instruction](call hir.FunctionCall, p io.Program[T], m
 	if call.Selector.HasValue() {
 		var selector = call.Selector.Unwrap()
 		// Invoke each user-defined instance in turn
-		for i := uint(1); i < height; i++ {
-			// execute if selector enabled
-			if enabled, _, err := selector.TestAt(int(i), trMod, nil); enabled {
+		for i := range height {
+			enabled := true
+			var err error
+			// try selector past the row 0 only
+			if i != 0 {
+				enabled, _, err = selector.TestAt(int(i), trMod, nil)
+			}
+			if enabled {
 				// Extract external columns
 				extractExternColumns(int(i), call, trMod, inputs, outputs)
 				// Execute function call to produce outputs
