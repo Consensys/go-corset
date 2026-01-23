@@ -6,6 +6,7 @@ include "modulus.zkasm"
 pub fn modexp_u256(base u256, exponent u256, modulus=1 u256) -> (result u256){
 
 ;; some trivial output
+if modulus == 0 goto exit_0
 if modulus == 1 goto exit_0
 if exponent == 0 goto exit_1
 if base == 0 goto exit_0
