@@ -1,6 +1,6 @@
 ;; MODEXP precompile where all input are at most 256 bits long (ie are 32 bytes ie EWORD)
 
-include "../../../bench/mod.zkasm"
+include "../../bench/mod.zkasm"
 
 pub fn modexp_u256(base u256, exponent u256, modulus u256) -> (result u256){
 
