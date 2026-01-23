@@ -1,6 +1,6 @@
 ;; MODEXP precompile where all input are at most 256 bits long (ie are 32 bytes ie EWORD)
 
-include "../division.zkasm"
+include "../../../bench/mod.zkasm"
 
 pub fn modexp_u256(base u256, exponent u256, modulus u256) -> (result u256){
 
@@ -20,7 +20,7 @@ e_next, remainder = exponent
 var b_sq u512
 var b_next, res_sq u256
 b_sq = base * base
-b_next = divide_u512_u256(b_sq, modulus)
+b_next = modulus_u512_u256(b_sq, modulus)
 res_sq = modexp_u256(b_next, e_next, modulus)
 
 var res_remainder u256
@@ -28,12 +28,11 @@ res_remainder = modexp_u256(base, remainder, modulus)
 
 var tmp u512
 tmp = res_sq * res_remainder
-result = divide_u512_u256(tmp, modulus)
+result = modulus_u512_u256(tmp, modulus)
 return
 
 exit_modulus:
-var tmp1 u256
-tmp1, result = divide(base, modulus)
+result = mod(EVM_INST_MOD, base, modulus)
 return
 
 exit_0:
