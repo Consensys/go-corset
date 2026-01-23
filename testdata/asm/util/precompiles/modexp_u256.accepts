@@ -1,0 +1,10 @@
+{ "modexp_u256": { "base": [0], "exponent": [0], "modulus": [1], "res": [0]} }
+{ "modexp_u256": { "base": [1], "exponent": [1], "modulus": [0], "res": [1]} }
+{ "modexp_u256": { "base": [0], "exponent": [1], "modulus": [2], "res": [0]} }
+{ "modexp_u256": { "base": [1], "exponent": [0], "modulus": [2], "res": [1]} }
+{ "modexp_u256": { "base": [0], "exponent": [0], "modulus": [2], "res": [1]} }
+{ "modexp_u256": { "base": [2], "exponent": [3], "modulus": [5], "res": [3]} }
+
+
+
+
