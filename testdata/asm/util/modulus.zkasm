@@ -11,6 +11,7 @@ fn modulus_u512_u256(a u512, b u256) -> (res u256) {
   ;;
   return
 exit_trivial:
-  res = a
+var tmp u256
+  tmp, res = a
   return
 }
