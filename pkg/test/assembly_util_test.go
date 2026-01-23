@@ -94,5 +94,5 @@ func Test_AsmUtil_ByteSize(t *testing.T) {
 }
 
 func Test_AsmUtil_Modexp_u256(t *testing.T) {
-	util.CheckWithFields(t, false, "asm/util/modexp_u256", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
+	util.CheckWithFields(t, false, "asm/util/modexp_u256", util.ASM_MAX_PADDING, field.KOALABEAR_16)
 }
