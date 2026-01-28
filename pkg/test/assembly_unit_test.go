@@ -98,6 +98,18 @@ func Test_AsmUnit_FnCall_03(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/fncall_03", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
 }
+func Test_AsmUnit_FnCall_04(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/fncall_04", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
+func Test_AsmUnit_FnCall_05(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/fncall_05", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
+func Test_AsmUnit_FnCall_06(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/fncall_06", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
 func Test_AsmUnit_Gf251(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/gf251", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
