@@ -13,6 +13,7 @@
 package builder
 
 import (
+	"context"
 	"fmt"
 
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -23,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"golang.org/x/sync/errgroup"
 )
 
 // TraceExpansion expands a given trace according to a given schema. More
@@ -37,14 +39,16 @@ func TraceExpansion[F field.Element[F]](parallel bool, batchsize uint, schema sc
 		stats = util.NewPerfStats()
 	)
 	//
+	par := "false"
 	if parallel {
 		// Run (parallel) trace expansion
 		err = ParallelTraceExpansion(batchsize, schema, trace)
+		par = "true"
 	} else {
 		err = SequentialTraceExpansion(schema, trace)
 	}
 	// Log stats
-	stats.Log("Trace expansion")
+	stats.Log("Trace expansion " + par)
 	//
 	return err
 }
@@ -95,16 +99,34 @@ func ParallelTraceExpansion[F field.Element[F]](batchsize uint, schema sc.AnySch
 		// Dispatch next batch of assignments.
 		dispatchReadyAssignments(batch, schema, trace, ch)
 		//
+		// perf := util.NewPerfStats()
 		batches := make([]columnBatch[F], len(batch))
 		// Collect all the results
+		g, ctx := errgroup.WithContext(context.Background())
 		for i := range len(batch) {
-			batches[i] = <-ch
-			// Read from channel
-			if batches[i].err != nil {
-				// Fail immediately
-				return batches[i].err
-			}
+			idx := i
+			g.Go(func() error {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case result := <-ch:
+					batches[idx] = result
+					return result.err
+				}
+			})
 		}
+		/*		for i := range len(batch) {
+				batches[i] = <-ch
+				// Read from channel
+				if batches[i].err != nil {
+					// Fail immediately
+					return batches[i].err
+				}
+			}*/
+		if err := g.Wait(); err != nil {
+			return err
+		}
+		// perf.Log("batches")
 		// Once we get here, all go rountines are complete and we are sequential
 		// again.
 		for _, r := range batches {
@@ -140,6 +162,7 @@ func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F], sche
 func fillComputedColumns[F field.Element[F]](refs []register.Ref, cols []array.MutArray[F], trace *tr.ArrayTrace[F]) {
 	var resized bit.Set
 	// Add all columns
+	// perf := util.NewPerfStats()
 	for i, ref := range refs {
 		var (
 			rid    = ref.Column().Unwrap()
@@ -152,11 +175,14 @@ func fillComputedColumns[F field.Element[F]](refs []register.Ref, cols []array.M
 			resized.Insert(ref.Module())
 		}
 	}
+	// perf.Log("FillColumn")
 	// Finalise resized modules
+	// perf2 := util.NewPerfStats()
 	for iter := resized.Iter(); iter.HasNext(); {
 		module := trace.RawModule(iter.Next())
 		module.Resize()
 	}
+	// perf2.Log("Resize")
 }
 
 // Result from given computation.

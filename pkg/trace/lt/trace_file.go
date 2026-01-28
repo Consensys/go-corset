@@ -315,6 +315,12 @@ func (p *Column[F]) MutData() array.MutArray[F] {
 
 // Get implementation for trace.Column interface
 func (p *Column[F]) Get(row int) F {
+	if row < 0 || uint(row) >= p.data.Len() {
+		var zero F
+		// out-of-bounds access
+		return zero
+	}
+	//
 	return p.data.Get(uint(row))
 }
 
