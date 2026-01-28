@@ -185,38 +185,35 @@ func writeExternCall[T io.Instruction](call hir.FunctionCall, p io.Program[T], m
 	var (
 		trMod   = &mod
 		height  = mod.Height()
-		bounds  = call.Bounds(call.Caller)
 		fn      = p.Component(call.Callee)
 		inputs  = make([]big.Int, fn.NumInputs())
 		outputs = make([]big.Int, fn.NumOutputs())
 		errors  []error
 	)
-	// Sanity check enough rows
-	if bounds.End < height {
-		if call.Selector.HasValue() {
-			var selector = call.Selector.Unwrap()
-			// Invoke each user-defined instance in turn
-			for i := bounds.Start; i < (height - bounds.End); i++ {
-				// execute if selector enabled
-				if enabled, _, err := selector.TestAt(int(i), trMod, nil); enabled {
-					// Extract external columns
-					extractExternColumns(int(i), call, trMod, inputs, outputs)
-					// Execute function call to produce outputs
-					errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
-					errors = append(errors, errs...)
-				} else if err != nil {
-					errors = append(errors, err)
-				}
-			}
-		} else {
-			// Invoke each user-defined instance in turn
-			for i := bounds.Start; i < (height - bounds.End); i++ {
+	//
+	if call.Selector.HasValue() {
+		var selector = call.Selector.Unwrap()
+		// Invoke each user-defined instance in turn
+		for i := range height {
+			// execute if selector enabled
+			if enabled, _, err := selector.TestAt(int(i), trMod, nil); enabled {
 				// Extract external columns
 				extractExternColumns(int(i), call, trMod, inputs, outputs)
 				// Execute function call to produce outputs
 				errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
 				errors = append(errors, errs...)
+			} else if err != nil {
+				errors = append(errors, err)
 			}
+		}
+	} else {
+		// Invoke each user-defined instance in turn
+		for i := range height {
+			// Extract external columns
+			extractExternColumns(int(i), call, trMod, inputs, outputs)
+			// Execute function call to produce outputs
+			errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
+			errors = append(errors, errs...)
 		}
 	}
 	//
