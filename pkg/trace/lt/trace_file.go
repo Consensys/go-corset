@@ -271,6 +271,16 @@ func (p *Module[F]) ColumnOf(name string) trace.Column[F] {
 	panic("unsupported operation")
 }
 
+// Find implementation for the trace.Module interface.
+func (p *Module[T]) Find(...T) uint {
+	panic("unsupported operation")
+}
+
+// Keys implementation for the trace.Module interface.
+func (p *Module[T]) Keys() uint {
+	panic("unsupported operation")
+}
+
 // Width implementation for trace.Module interface
 func (p *Module[F]) Width() uint {
 	return uint(len(p.Columns))

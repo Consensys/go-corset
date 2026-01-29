@@ -60,7 +60,7 @@ func (p *Executor[T]) Instance(bus uint) ComponentInstance {
 }
 
 // Read implementation for the io.Map interface.
-func (p *Executor[T]) Read(bus uint, address []big.Int) []big.Int {
+func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint) []big.Int {
 	return p.functions[bus].Call(address, p).Outputs()
 }
 

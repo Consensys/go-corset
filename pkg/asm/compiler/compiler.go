@@ -116,8 +116,6 @@ type Compiler[F Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
 	buses []FunctionMapping[T]
 	// Mapping  of Bus names to Bus records.
 	busMap map[module.Name]uint
-	// Executor to use for assignments.
-	executor io.Executor[micro.Instruction]
 	// types & reftables
 	// sourcemap
 }
@@ -145,7 +143,6 @@ func (p *Compiler[F, T, E, M]) Compile(program MicroProgram) {
 	//
 	p.modules = make([]M, len(fns))
 	p.buses = make([]FunctionMapping[T], len(fns))
-	p.executor = *io.NewExecutor(program)
 	// Initialise buses
 	for i, f := range fns {
 		p.initModule(uint(i), f)
@@ -198,7 +195,7 @@ func (p *Compiler[F, T, E, M]) initModule(busId uint, fn MicroComponent) {
 		padding big.Int
 	)
 	// Initialise module correctly
-	module = module.Initialise(busId, fn, &p.executor)
+	module = module.Initialise(busId, fn)
 	p.modules[busId] = module
 	//
 	bus.name = fn.Name()
