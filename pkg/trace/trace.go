@@ -123,3 +123,52 @@ func ParseModuleName(name string) ModuleName {
 	// Done
 	return ModuleName{splits[0], multiplier}
 }
+
+// Module2String returns a string representation of a module which is primiarily
+// useful for debugging.
+func Module2String[F fmt.Stringer](module Module[F]) string {
+	var builder strings.Builder
+	//
+	builder.WriteString(module.Name().String())
+	builder.WriteString("=>")
+	//
+	for i := range module.Width() {
+		if i != 0 {
+			builder.WriteString(";")
+		}
+		//
+		builder.WriteString(Column2String(module.Column(i)))
+	}
+	//
+	return builder.String()
+}
+
+// Column2String returns a string representation of a column which is primiarily
+// useful for debugging.
+func Column2String[F fmt.Stringer](col Column[F]) string {
+	var (
+		builder strings.Builder
+		data    = col.Data()
+	)
+	//
+	builder.WriteString(col.Name())
+	builder.WriteString(":")
+	//
+	if data == nil {
+		builder.WriteString("∅")
+	} else {
+		builder.WriteString("[")
+		//
+		for i := range data.Len() {
+			if i != 0 {
+				builder.WriteString(",")
+			}
+			//
+			builder.WriteString(data.Get(i).String())
+		}
+		//
+		builder.WriteString("]")
+	}
+	//
+	return builder.String()
+}
