@@ -34,26 +34,6 @@ func NumberOfLimbs(maxRegisterWidth uint, registerWidth uint) uint {
 	return n
 }
 
-// CommonLimbWidth returns the "common" limb width when splitting a given
-// register for a given maximum width.  Assume a given register splits into n
-// limbs.  Assuming n > 1, then n-1 of these will have the same "common" width.
-// The remaining limb is referred to as the residue, and may have a different
-// width (usually smaller, but this is not a requirement).
-func commonLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
-	var (
-		// Determine how many limbs required
-		n = NumberOfLimbs(maxRegisterWidth, registerWidth)
-		// Determine average limb width
-		avgWidth = uint(1)
-	)
-	// Now, round up our average limb width to the nearest power of two.  This
-	// is because we "prefer" widths to be powers of two.
-	for ; (avgWidth*n) < registerWidth && (avgWidth*2 <= maxRegisterWidth); avgWidth = avgWidth * 2 {
-	}
-	//
-	return avgWidth
-}
-
 // WidthsOfLimbs returns the limb bitwidths corresponding to a given set of
 // identifiers.
 func WidthsOfLimbs(mapping sc.RegisterLimbsMap, lids []sc.LimbId) []uint {
@@ -90,21 +70,20 @@ func CombinedWidthOfLimbs(mapping sc.RegisterLimbsMap, limbs ...sc.LimbId) uint 
 // bits than the maximum allowed.
 func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 	var (
-		nlimbs     = NumberOfLimbs(maxWidth, r.Width)
-		limbs      = make([]sc.Register, nlimbs)
 		limbWidths = LimbWidths(maxWidth, r.Width)
+		limbs      = make([]sc.Register, len(limbWidths))
 		// Split padding value
 		padding = SplitConstant(r.Padding, limbWidths...)
 	)
 	// Special case when register doesn't require splitting.  This is useful
 	// because we want to retain the original register name exactly.
-	if nlimbs <= 1 {
+	if len(limbs) <= 1 {
 		return []sc.Register{r}
 	}
 	//
-	for i := range nlimbs {
+	for i, limbWidth := range limbWidths {
 		ith_name := fmt.Sprintf("%s'%d", r.Name, i)
-		limbs[i] = sc.NewRegister(r.Kind, ith_name, limbWidths[i], padding[i])
+		limbs[i] = sc.NewRegister(r.Kind, ith_name, limbWidth, padding[i])
 	}
 	//
 	return limbs
@@ -113,13 +92,12 @@ func SplitIntoLimbs(maxWidth uint, r sc.Register) []sc.Register {
 // LimbWidths determines the limb widths for any register of the given size.
 func LimbWidths(maxWidth, regWidth uint) []uint {
 	var (
-		nlimbs       = NumberOfLimbs(maxWidth, regWidth)
+		commonWidth  = commonLimbWidth(maxWidth, regWidth)
+		nlimbs       = minNumberOfLimbs(commonWidth, regWidth)
 		limbWidths   = make([]uint, nlimbs)
 		bitsLeft     = regWidth
 		accLimbWidth uint
 	)
-	//
-	commonWidth := commonLimbWidth(maxWidth, regWidth)
 	//
 	for i := range nlimbs {
 		if i+1 != nlimbs {
@@ -145,4 +123,40 @@ func LimbWidths(maxWidth, regWidth uint) []uint {
 	}
 	//
 	return limbWidths
+}
+
+// commonLimbWidth returns the "common" limb width when splitting a given
+// register for a given maximum width.  Assume a given register splits into n
+// limbs.  Assuming n > 1, then n-1 of these will have the same "common" width.
+// The remaining limb is referred to as the residue, and may have a different
+// width (usually smaller, but this is not a requirement).
+func commonLimbWidth(maxRegisterWidth uint, registerWidth uint) uint {
+	var (
+		// Determine how many limbs required
+		n = minNumberOfLimbs(maxRegisterWidth, registerWidth)
+		//
+		avgWidth = uint(1)
+	)
+	// Now, round up our average limb width to the nearest power of two.  This
+	// is because we "prefer" widths to be powers of two.
+	for ; (avgWidth*n) < registerWidth && (avgWidth*2 <= maxRegisterWidth); avgWidth = avgWidth * 2 {
+	}
+	//
+	return avgWidth
+}
+
+// minNumberOfLimbs determines the minimum number of register limbs required for
+// a given bitwidth. For example, a 64bit register splits into two limbs for a
+// maximum register width of 32bits. Observe that an e.g. 60bit register also
+// splits into two limbs here as well, where the most significant limb is 28bits
+// wide and the least significant is 32bits width.
+func minNumberOfLimbs(maxRegisterWidth uint, registerWidth uint) uint {
+	n := registerWidth / maxRegisterWidth
+	m := registerWidth % maxRegisterWidth
+	// Check for uneven split
+	if m != 0 {
+		return n + 1
+	}
+	//
+	return n
 }
