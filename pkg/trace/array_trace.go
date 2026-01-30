@@ -15,6 +15,7 @@ package trace
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -178,11 +179,14 @@ func (p ArrayModule[W]) FindLast(keys ...W) uint {
 	if uint(len(keys)) != p.numKeys {
 		panic(fmt.Sprintf("incorrect number of keys provided (was %d, expected %d)", len(keys), p.numKeys))
 	}
-	// inefficient linear scan
-	for i := range p.height {
-		if rowEquals(i, p.columns, keys) {
-			return findLastFrom(i, p.height, p.columns, keys)
-		}
+	// Search for given keys
+	index := sort.Search(int(p.height), func(row int) bool {
+		return rowLessThanEquals(keys, uint(row), p.columns)
+	})
+	// Sanity check result
+	if uint(index) < p.height && rowEquals(uint(index), p.columns, keys) {
+		// Shift along to last index
+		return findLastFrom(uint(index), p.height, p.columns, keys)
 	}
 	//
 	return math.MaxUint
@@ -392,6 +396,29 @@ func findLastFrom[W word.Word[W]](row, height uint, columns []ArrayColumn[W], ke
 	}
 	//
 	return row
+}
+
+func rowLessThanEquals[W word.Word[W]](keys []W, row uint, columns []ArrayColumn[W]) bool {
+	var n = len(keys)
+	// NOTE: since register limbs are split with the least significant having
+	// the lowest index, they are sorted in a right-to-left fashion by
+	// io.Executor.  This ensures that, after register splitting, all instances
+	// remain in sorted order.  Therefore, we have to reflect this here.
+	for k := n; k > 0; {
+		k--
+		//
+		kth := columns[k].data.Get(row)
+		//
+		if c := keys[k].Cmp(kth); c > 0 {
+			// miss
+			return false
+		} else if c < 0 {
+			// hit
+			return true
+		}
+	}
+	//
+	return true
 }
 
 func rowEquals[W word.Word[W]](row uint, columns []ArrayColumn[W], keys []W) bool {

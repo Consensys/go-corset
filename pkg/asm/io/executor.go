@@ -221,7 +221,12 @@ type ComponentInstance struct {
 // Observe that, since functions are always deterministic, this only considers
 // the inputs (as the outputs follow directly from this).
 func (p ComponentInstance) Cmp(other ComponentInstance) int {
-	for i := range p.ninputs {
+	// NOTE: since limbs are split such that the least significant comes first,
+	// we have to sort from right-to-left rather than left-to-right to ensure
+	// instances remain sorted after register splitting.  This is important for
+	// ArrayTrace.FindLast().
+	for i := p.ninputs; i > 0; {
+		i--
 		if c := p.state[i].Cmp(&other.state[i]); c != 0 {
 			return c
 		}

@@ -25,8 +25,6 @@ type Element[Operand any] interface {
 	word.Word[Operand]
 	// Add x+y
 	Add(y Operand) Operand
-	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
-	Cmp(y Operand) int
 	// Check whether this value is zero (or not).
 	IsZero() bool
 	// Check whether this value is one (or not).
