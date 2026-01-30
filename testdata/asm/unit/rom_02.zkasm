@@ -1,0 +1,24 @@
+;; Defines a byte-addressable (read-only) memory with at most 64K
+;; bytes.
+rom memory(address u16) -> (data u8)
+
+;; Find the first occurence of the given value in memory starting from
+;; a given offset.  This will fail if the value does not exist.
+fn find(value u8, start u16, end u16) -> (offset u16) {
+  var c u1
+  var val u8
+  var next u16
+  ;; check whether reached end
+  if start == end goto exit
+  ;; read position at offsfet
+  val = memory(start)
+  ;; check for match
+  if val == value goto exit
+  ;; continue searching
+  c,next = start + 1
+  offset = find(value, next, end)
+  return
+exit:
+  offset = start
+  return
+}

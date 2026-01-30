@@ -176,3 +176,17 @@ func Test_AsmUtil_Ternary2(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/ternary2", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
 }
+
+// ============================================================================
+// Rom Tests
+// ============================================================================
+
+func Test_AsmUnit_Rom_01(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/rom_01", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}
+
+func Test_AsmUnit_Rom_02(t *testing.T) {
+	util.CheckWithFields(t, false, "asm/unit/rom_02", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16, field.GF_8209)
+}

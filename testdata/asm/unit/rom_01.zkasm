@@ -1,0 +1,26 @@
+;; Defines a byte-addressable (read-only) memory with at most 64K
+;; bytes.
+rom memory(address u16) -> (data u8)
+
+;; Find the first occurence of the given value in memory starting from
+;; a given offset.  This will fail if the value does not exist.
+fn sum(n u16) -> (res u32) {
+  var acc u32
+  var i, val u16
+  var c1,c2 u1
+  ;; start from zero
+  i = 0
+  acc = 0
+loop:
+  ;; check whether done
+  if i == n goto exit
+  ;; read position at offset
+  val = memory(i)
+  c2,acc = acc + val
+  ;;
+  c1, i = i + 1
+  goto loop
+exit:
+  res = acc
+  return
+}

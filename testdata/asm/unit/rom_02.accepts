@@ -1,0 +1,1 @@
+{ "memory":{"address":[0,1,2], "data":[0,89,13]}, "find":{"value":[89], "start":[0], "end":[3], "offset":[1]}}
