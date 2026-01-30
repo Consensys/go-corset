@@ -1,1 +1,15 @@
+{ "memory": { "address": [], "data": [] }, "sum": { "n": [0], "res": [0] } }
+;;
+{ "memory": { "address": [0], "data": [73] }, "sum": { "n": [0], "res": [0] } }
+{ "memory": { "address": [0], "data": [73] }, "sum": { "n": [1], "res": [73] } }
+;;
 { "memory": { "address": [0,1,2], "data": [0,89,13] }, "sum": { "n": [0], "res": [0] } }
+{ "memory": { "address": [0,1,2], "data": [0,89,13] }, "sum": { "n": [1], "res": [0] } }
+{ "memory": { "address": [0,1,2], "data": [0,89,13] }, "sum": { "n": [2], "res": [89] } }
+{ "memory": { "address": [0,1,2], "data": [0,89,13] }, "sum": { "n": [3], "res": [102] } }
+;;
+{ "memory": { "address": [0,1,2,3], "data": [5,99,128,251] }, "sum": { "n": [0], "res": [0] } }
+{ "memory": { "address": [0,1,2,3], "data": [5,99,128,251] }, "sum": { "n": [1], "res": [5] } }
+{ "memory": { "address": [0,1,2,3], "data": [5,99,128,251] }, "sum": { "n": [2], "res": [104] } }
+{ "memory": { "address": [0,1,2,3], "data": [5,99,128,251] }, "sum": { "n": [3], "res": [232] } }
+{ "memory": { "address": [0,1,2,3], "data": [5,99,128,251] }, "sum": { "n": [4], "res": [483] } }

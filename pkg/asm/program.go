@@ -189,4 +189,5 @@ func (p *MixedProgram[F, T, M]) GobDecode(data []byte) error {
 
 func init() {
 	gob.Register(MacroComponent(&MacroFunction{}))
+	gob.Register(MacroComponent(&io.ReadOnlyMemory{}))
 }
