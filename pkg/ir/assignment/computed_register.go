@@ -335,8 +335,8 @@ func (p *recursiveModule) ColumnOf(string) trace.Column[word.BigEndian] {
 	panic("unreachable")
 }
 
-// Find implementation for the trace.Module interface.
-func (p *recursiveModule) Find(...word.BigEndian) uint {
+// FindLast implementation for the trace.Module interface.
+func (p *recursiveModule) FindLast(...word.BigEndian) uint {
 	panic("unsupported operation")
 }
 

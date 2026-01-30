@@ -296,10 +296,9 @@ func (p TraceIoMap[F]) Read(bus uint, address []big.Int, nOutputs uint) []big.In
 		nInputs  = uint(len(address))
 		mod      = p.trace.Module(bus)
 		fAddress = field.BigInts[F](address)
-		row      = mod.Find(fAddress...)
+		row      = mod.FindLast(fAddress...)
 	)
 	//
-	// TODO: skip to last in multine function;
 	if row == math.MaxUint {
 		panic(fmt.Sprintf("read failure for %s%s", mod.Name().String(), array.ToString(fAddress)))
 	}

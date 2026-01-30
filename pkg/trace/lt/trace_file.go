@@ -271,8 +271,8 @@ func (p *Module[F]) ColumnOf(name string) trace.Column[F] {
 	panic("unsupported operation")
 }
 
-// Find implementation for the trace.Module interface.
-func (p *Module[T]) Find(...T) uint {
+// FindLast implementation for the trace.Module interface.
+func (p *Module[T]) FindLast(...T) uint {
 	panic("unsupported operation")
 }
 

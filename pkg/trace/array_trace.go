@@ -170,21 +170,13 @@ func (p ArrayModule[W]) ColumnOf(name string) Column[W] {
 	panic(fmt.Sprintf("unknown column \"%s\"", name))
 }
 
-// Find implementation for the trace.Module interface.
-func (p ArrayModule[W]) Find(keys ...W) uint {
-	var n = len(keys)
+// FindLast implementation for the trace.Module interface.
+func (p ArrayModule[W]) FindLast(keys ...W) uint {
 	// inefficient linear scan
-outer:
 	for i := range p.height {
-		for k := range n {
-			kth := p.columns[k].data.Get(i)
-			if !kth.Equals(keys[k]) {
-				// miss
-				continue outer
-			}
+		if rowEquals(i, p.columns, keys) {
+			return findLastFrom(i, p.height, p.columns, keys)
 		}
-		// hit
-		return i
 	}
 	//
 	return math.MaxUint
@@ -386,4 +378,26 @@ func (p *ArrayColumn[W]) pad(front uint, back uint) {
 		// Pad front of array
 		p.data = p.data.Pad(front, back, p.padding)
 	}
+}
+
+func findLastFrom[W word.Word[W]](row, height uint, columns []ArrayColumn[W], keys []W) uint {
+	for (row+1) < height && rowEquals(row+1, columns, keys) {
+		row = row + 1
+	}
+	//
+	return row
+}
+
+func rowEquals[W word.Word[W]](row uint, columns []ArrayColumn[W], keys []W) bool {
+	var n = len(keys)
+	//
+	for k := range n {
+		kth := columns[k].data.Get(row)
+		if !kth.Equals(keys[k]) {
+			// miss
+			return false
+		}
+	}
+	//
+	return true
 }

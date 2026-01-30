@@ -53,12 +53,11 @@ type Module[T any] interface {
 	// always the first n columns in a module.  Such columns have the property
 	// that they can be used in conjunction with Find.
 	Keys() uint
-	// Find a row with matching keys.  If no such row exists, this returns
-	// math.MaxUint.  Otherwise, it returns a matching row.  Specifically, if
-	// there are multiple matching rows, the one returned is unspecified.
-	// Furthermore, if too few or too many keys are provided then this will
-	// panic.
-	Find(...T) uint
+	// FindLast finds the last row with matching keys.  If no such row exists,
+	// this returns math.MaxUint.  Otherwise, it returns the last (i.e. highest)
+	// matching row.  Furthermore, if too few or too many keys are provided then
+	// this will panic.
+	FindLast(...T) uint
 	// Returns the number of columns in this module.
 	Width() uint
 	// Returns the height of this module.

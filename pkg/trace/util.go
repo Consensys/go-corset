@@ -73,8 +73,8 @@ func (p *moduleAdapter[F1, F2]) ColumnOf(string) Column[F2] {
 	panic("unreachable")
 }
 
-// Find implementation for the trace.Module interface.
-func (p *moduleAdapter[F1, F2]) Find(...F2) uint {
+// FindLast implementation for the trace.Module interface.
+func (p *moduleAdapter[F1, F2]) FindLast(...F2) uint {
 	panic("unsupported operation")
 }
 
