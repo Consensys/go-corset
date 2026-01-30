@@ -150,11 +150,15 @@ func (p *State) Goto(pc uint) {
 // In performs an I/O read across a given bus.  More specifically, it reads the
 // value at a given address on the bus.
 func (p *State) In(bus Bus) {
-	var address = p.LoadN(bus.Address())
-	// Read value from I/O bus
-	values := p.io.Read(bus.BusId, address)
+	var (
+		address = p.LoadN(bus.Address())
+		data    = bus.Data()
+		n       = uint(len(data))
+	)
+	// Read n values from I/O bus
+	values := p.io.Read(bus.BusId, address, n)
 	// Write them back
-	p.StoreN(bus.Data(), values)
+	p.StoreN(data, values)
 }
 
 // Outputs extracts values from output registers of the given state.

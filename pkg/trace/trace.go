@@ -49,6 +49,15 @@ type Module[T any] interface {
 	Column(uint) Column[T]
 	// Access a given column by its name.
 	ColumnOf(string) Column[T]
+	// Keys returns the number n of key columns in this module.  Key columns are
+	// always the first n columns in a module.  Such columns have the property
+	// that they can be used in conjunction with Find.
+	Keys() uint
+	// FindLast finds the last row with matching keys.  If no such row exists,
+	// this returns math.MaxUint.  Otherwise, it returns the last (i.e. highest)
+	// matching row.  Furthermore, if too few or too many keys are provided then
+	// this will panic.
+	FindLast(...T) uint
 	// Returns the number of columns in this module.
 	Width() uint
 	// Returns the height of this module.
@@ -122,4 +131,53 @@ func ParseModuleName(name string) ModuleName {
 	}
 	// Done
 	return ModuleName{splits[0], multiplier}
+}
+
+// Module2String returns a string representation of a module which is primiarily
+// useful for debugging.
+func Module2String[F fmt.Stringer](module Module[F]) string {
+	var builder strings.Builder
+	//
+	builder.WriteString(module.Name().String())
+	builder.WriteString("=>")
+	//
+	for i := range module.Width() {
+		if i != 0 {
+			builder.WriteString(";")
+		}
+		//
+		builder.WriteString(Column2String(module.Column(i)))
+	}
+	//
+	return builder.String()
+}
+
+// Column2String returns a string representation of a column which is primiarily
+// useful for debugging.
+func Column2String[F fmt.Stringer](col Column[F]) string {
+	var (
+		builder strings.Builder
+		data    = col.Data()
+	)
+	//
+	builder.WriteString(col.Name())
+	builder.WriteString(":")
+	//
+	if data == nil {
+		builder.WriteString("∅")
+	} else {
+		builder.WriteString("[")
+		//
+		for i := range data.Len() {
+			if i != 0 {
+				builder.WriteString(",")
+			}
+			//
+			builder.WriteString(data.Get(i).String())
+		}
+		//
+		builder.WriteString("]")
+	}
+	//
+	return builder.String()
 }
