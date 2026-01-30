@@ -39,7 +39,9 @@ type MirModule[F field.Element[F]] struct {
 
 // Initialise this module
 func (p MirModule[F]) Initialise(mid uint, fn MicroComponent) MirModule[F] {
-	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid, false, fn.IsPublic(), false)
+	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](
+		fn.Name(), mid, false, fn.IsPublic(), false, fn.NumInputs())
+	//
 	switch fn := fn.(type) {
 	case *MicroFunction:
 		// Add corresponding assignment for this function.

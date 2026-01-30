@@ -256,7 +256,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 		traceColumns[i] = trace.NewArrayColumn(reg.Name(), data, padding)
 	}
 	//
-	return trace.NewArrayModule(mod.Name(), traceColumns)
+	return trace.NewArrayModule(mod.Name(), mod.Keys(), traceColumns)
 }
 
 // pad each module with its given level of spillage and (optionally) ensure a

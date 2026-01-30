@@ -44,6 +44,10 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 	Assignments() []schema.Assignment[F]
 	// Constraints returns those constraints added to this module.
 	Constraints() []C
+	// Keys returns the number n of key columns in this module.  Key columns are
+	// always the first n columns in a module.  Such columns have the property
+	// that they can be used in conjunction with Find.
+	Keys() uint
 	// Id returns the module index of this module.
 	Id() uint
 	// IsExtern determines whether or not this is an external module or not.
@@ -66,10 +70,10 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
 func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name module.Name,
-	mid schema.ModuleId, padding, public, synthetic bool) ModuleBuilder[F, C, T] {
+	mid schema.ModuleId, padding, public, synthetic bool, keys uint) ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
-	return &internalModuleBuilder[F, C, T]{name, mid, padding, public, synthetic, regmap, nil, nil, nil}
+	return &internalModuleBuilder[F, C, T]{name, mid, padding, public, synthetic, keys, regmap, nil, nil, nil}
 }
 
 type internalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
@@ -83,6 +87,8 @@ type internalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Ex
 	public bool
 	// Indicates whether this is a synthetic module or not
 	synthetic bool
+	// Number of key columns
+	keys uint
 	// Maps register names (including aliases) to the register number.
 	regmap map[string]uint
 	// Registers declared for this module
@@ -116,6 +122,11 @@ func (p *internalModuleBuilder[F, C, T]) Constraints() []C {
 // Id implementation for ModuleBuilder interface.
 func (p *internalModuleBuilder[F, C, T]) Id() uint {
 	return p.moduleId
+}
+
+// Id implementation for ModuleBuilder interface.
+func (p *internalModuleBuilder[F, C, T]) Keys() uint {
+	return p.keys
 }
 
 // AllowPadding implementation for ModuleBuilder interface.
@@ -258,6 +269,11 @@ func (p *externalModuleBuilder[F, C, T]) Constraints() []C {
 // Id implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) Id() uint {
 	return p.moduleId
+}
+
+// Id implementation for ModuleBuilder interface.
+func (p *externalModuleBuilder[F, C, T]) Keys() uint {
+	panic("unsupported operation")
 }
 
 // AllowPadding implementation for ModuleBuilder interface.

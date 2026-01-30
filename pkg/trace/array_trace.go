@@ -115,6 +115,9 @@ type ArrayModule[W word.Word[W]] struct {
 	name ModuleName
 	// Holds the height of all columns within this module.
 	height uint
+	// Number of keys which can be used for searching in this module.  Cannot
+	// exceed the number of columns, but it can be zero.
+	numKeys uint
 	// Holds the complete set of columns in this trace.  The index of each
 	// column in this array uniquely identifies it, and is referred to as the
 	// "column index".
@@ -123,7 +126,7 @@ type ArrayModule[W word.Word[W]] struct {
 
 // NewArrayModule constructs a module with the given name and an (as yet)
 // unspecified height.
-func NewArrayModule[W word.Word[W]](name ModuleName, columns []ArrayColumn[W]) ArrayModule[W] {
+func NewArrayModule[W word.Word[W]](name ModuleName, keys uint, columns []ArrayColumn[W]) ArrayModule[W] {
 	var (
 		height uint = 0
 		first       = true
@@ -146,7 +149,7 @@ func NewArrayModule[W word.Word[W]](name ModuleName, columns []ArrayColumn[W]) A
 		panic(fmt.Sprintf("invalid module height (have %d, expected multiple of %d)", height, name.Multiplier))
 	}
 	//
-	return ArrayModule[W]{name, height, columns}
+	return ArrayModule[W]{name, height, keys, columns}
 }
 
 // Name returns the name of this module.
@@ -172,6 +175,9 @@ func (p ArrayModule[W]) ColumnOf(name string) Column[W] {
 
 // FindLast implementation for the trace.Module interface.
 func (p ArrayModule[W]) FindLast(keys ...W) uint {
+	if uint(len(keys)) != p.numKeys {
+		panic(fmt.Sprintf("incorrect number of keys provided (was %d, expected %d)", len(keys), p.numKeys))
+	}
 	// inefficient linear scan
 	for i := range p.height {
 		if rowEquals(i, p.columns, keys) {
@@ -184,7 +190,7 @@ func (p ArrayModule[W]) FindLast(keys ...W) uint {
 
 // Keys implementation for the trace.Module interface.
 func (p ArrayModule[W]) Keys() uint {
-	panic("todo")
+	return p.numKeys
 }
 
 // Height returns the height of this module, meaning the number of assigned

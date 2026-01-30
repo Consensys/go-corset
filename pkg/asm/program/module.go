@@ -87,6 +87,11 @@ func (p *Module[F, T]) Consistent(fieldWidth uint, schema schema.AnySchema[F]) [
 	return nil
 }
 
+// Keys implementation of Module interface.
+func (p *Module[F, T]) Keys() uint {
+	panic("unsupported operation")
+}
+
 // LengthMultiplier implementation for schema.Module interface.
 func (p *Module[F, T]) LengthMultiplier() uint {
 	return 1
