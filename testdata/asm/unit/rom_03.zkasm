@@ -1,0 +1,145 @@
+;; Tiny 8bit Machine
+;;
+;; The tiny machine consists of an absolutely minimal instruction set
+;; architecture consisting of only four general purpose 8bit
+;; registers operating over a 64K read-only memory.
+;;
+;; =============================================================================
+;; Instruction Formats
+;; =============================================================================
+;;
+;; Instruction format A:
+;;
+;; (pc)
+;; +------+------+--------+
+;; |  Rd  |  Rs  | opcode |
+;; +------+------+--------+
+;;  7    6  5   4 3      0
+;;
+;; Instruction format B:
+;;
+;; (pc)                      (pc+1)
+;; +------+------+--------+  +----------------------+
+;; | Rdst |      | opcode |  |  Imm(ediate value)   |
+;; +------+------+--------+  +----------------------+
+;;  7    6  5   4 3      0    7                    0
+;;
+;; =============================================================================
+;; Instructions
+;; =============================================================================
+;; No Operation
+const INST_NOP = 0x0
+
+;; Copy Register (format A): Rd := Rs
+const INST_MOV = 0x1
+
+;; Add Registers (format A): Rd := Rd + Rs
+const INST_ADD = 0x2
+
+;; Subtract Registers (format A): Rd := Rd - Rs
+const INST_SUB = 0x3
+
+;; Multiply Registers (format A): Rd,Rs := Rd * Rs
+const INST_MUL = 0x4
+
+;; Load Immediate u8 (format B): Rd := Imm
+const INST_LDI8 = 0x8
+
+;; =============================================================================
+;; Implementation
+;; =============================================================================
+
+;; 64K byte-addressable (read-only) code segment.
+rom code(address u16) -> (data u8)
+
+fn execute(pc u16, r0 u8, r1 u8, r2 u8, r3 u8) -> (r0' u8, r1' u8, r2' u8, r3' u8) {
+  var npc u16
+  var insn, t0, t1, t2, t3 u8
+  var op u3
+  var rd, rs u2
+  var fmt, c u1
+  ;; machine termines when pc==0
+  if pc == 0 goto exit
+  ;; read instruction
+  insn = code(pc)
+  ;; decode instruction
+  rd,rs,fmt,op = insn
+  ;; dispatch instruction
+  if fmt == 0 goto fmt_a
+  ;; other formats
+  fail
+fmt_a:
+  ;; execute instruction
+  t0,t1,t2,t3 = execute_A(rd,rs,op,pc,r0,r1,r2,r3)
+  ;; increment pc
+  c,npc = pc + 1
+  ;; execute next instruction
+  r0',r1',r2',r3' = execute(npc,t0,t1,t2,t3)
+  return
+exit:
+  r0' = r0
+  r1' = r1
+  r2' = r2
+  r3' = r3
+  return
+}
+
+fn execute_A(rd u2, rs u2, op u3, pc u16, r0 u8, r1 u8, r2 u8, r3 u8) -> (r0' u8, r1' u8, r2' u8, r3' u8) {
+  var t0 u8
+  ;;
+  if op == INST_MOV goto mov
+  if op == INST_ADD goto add
+  fail
+mov:
+  t0 = read(rs,r0,r1,r2,r3)
+  r0',r1',r2',r3' = write(rd,t0,r0,r1,r2,r3)
+  return
+add:
+  fail
+}
+
+fn read(ri u2, r0 u8, r1 u8, r2 u8, r3 u8) -> (val u8) {
+  if ri == 0 goto exit_r0
+  if ri == 1 goto exit_r1
+  if ri == 2 goto exit_r2
+  val = r3
+  return
+exit_r0:
+  val = r0
+  return
+exit_r1:
+  val = r1
+  return
+exit_r2:
+  val = r2
+  return
+}
+
+fn write(ri u2, val u8, r0 u8, r1 u8, r2 u8, r3 u8) -> (r0' u8, r1' u8, r2' u8, r3' u8) {
+  if ri == 0 goto exit_r0
+  if ri == 1 goto exit_r1
+  if ri == 2 goto exit_r2
+  r0' = r0
+  r1' = r1
+  r2' = r2
+  r3' = val
+  return
+exit_r0:
+  r0' = val
+  r1' = r1
+  r2' = r2
+  r3' = r3
+  return
+exit_r1:
+  r0' = r0
+  r1' = val
+  r2' = r2
+  r3' = r3
+  return
+exit_r2:
+  r0' = r0
+  r1' = r1
+  r2' = val
+  r3' = r3
+  return
+}
