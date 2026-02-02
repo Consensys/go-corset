@@ -122,9 +122,9 @@ func (p Instruction) JumpTargets() []uint {
 // LastJump returns the index of the right-most jmp instruction (or false if
 // none exists). This is relatively easy to determine simply by looking for jmp
 // codes.
-func (p Instruction) LastJump() (uint, bool) {
+func (p Instruction) LastJump(n uint) (uint, bool) {
 	//
-	for i := uint(len(p.Codes)); i > 0; {
+	for i := n; i > 0; {
 		i = i - 1
 		//
 		if _, ok := p.Codes[i].(*Jmp); ok {
@@ -227,47 +227,74 @@ func (p Instruction) String(fn register.Map) string {
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
 func (p Instruction) Validate(fieldWidth uint, fn register.Map) error {
-	var written bit.Set
+	// Construct write map
+	var (
+		nCodes   = uint(len(p.Codes))
+		writeMap = p.WriteMap()
+	)
 	// Validate individual instructions
 	for _, r := range p.Codes {
 		if err := r.Validate(fieldWidth, fn); err != nil {
 			return err
 		}
 	}
-	//
-	// TODO: check for unreachable instructions
-	// TODO: check for conflicting function calls
-	//
-	// Check Write conflicts
-	return validateWrites(0, written, p.Codes, fn)
-}
-
-func validateWrites(cc uint, writes bit.Set, codes []Code, fn register.Map) error {
-	//
-	switch code := codes[cc].(type) {
-	case *Fail, *Ret, *Jmp:
-		return nil
-	case *Skip:
-		return validateWrites(cc+code.Skip+1, writes, codes, fn)
-	case *SkipIf:
-		if err := validateWrites(cc+code.Skip+1, writes.Clone(), codes, fn); err != nil {
-			return err
-		}
-	default:
-		//
-		for _, dst := range code.RegistersWritten() {
-			if writes.Contains(dst.Unwrap()) {
-				// Extract register name
-				name := fn.Register(dst).Name()
-				//
-				return fmt.Errorf("conflicting write on register %s in %s", name, code.String(fn))
+	// Validate no Read/Write conflicts
+	for i := range nCodes {
+		var (
+			ithState = writeMap.StateOf(i)
+			ith      = p.Codes[i]
+		)
+		// Sanity check for conflicting reads
+		for _, r := range ith.RegistersRead() {
+			if ithState.MaybeAssigned(r) && !ithState.DefinitelyAssigned(r) {
+				name := fn.Register(r).Name()
+				return fmt.Errorf("conflicting read on register \"%s\" in \"%s\"", name, ith.String(fn))
 			}
-			//
-			writes.Insert(dst.Unwrap())
+		}
+		// Sanity check conflicting writes
+		for _, r := range ith.RegistersWritten() {
+			if ithState.MaybeAssigned(r) {
+				name := fn.Register(r).Name()
+				return fmt.Errorf("conflicting write on register \"%s\" in \"%s\"", name, ith.String(fn))
+			}
 		}
 	}
-	// Fall through to next micro-code
-	return validateWrites(cc+1, writes, codes, fn)
+	// Done
+	return nil
+}
+
+// WriteMap constructs the write map for this micro instruction.
+func (p Instruction) WriteMap() WriteMap {
+	var (
+		nCodes   = uint(len(p.Codes))
+		writeMap = NewWriteMap(nCodes)
+	)
+	//
+	for i := range nCodes {
+		var (
+			code  = p.Codes[i]
+			state = writeMap.StateOf(i)
+		)
+		//
+		switch code := code.(type) {
+		case *Fail, *Ret, *Jmp:
+			continue
+		case *Skip:
+			// join into branch target
+			writeMap.JoinInto(i+code.Skip+1, state)
+			continue
+		case *SkipIf:
+			// join into branch target
+			writeMap.JoinInto(i+code.Skip+1, state)
+			// fall through
+		}
+		// Construct state after this code
+		nState := state.Write(code.RegistersWritten()...)
+		// Join into following instruction
+		writeMap.JoinInto(i+1, nState)
+	}
+	//
+	return writeMap
 }
 
 func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []uint) Code {
