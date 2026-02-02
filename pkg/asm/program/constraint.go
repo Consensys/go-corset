@@ -65,7 +65,7 @@ type Constraint[F field.Element[F], T io.Instruction] struct {
 
 // Accepts implementation for schema.Constraint interface.
 // TODO ?
-func (p Constraint[F, T]) Accepts(trace tr.Trace[F], _ sc.AnySchema[F, schema.State],
+func (p Constraint[F, T]) Accepts(trace tr.Trace[F], _ sc.AnySchema[F],
 ) (bit.Set, sc.Failure) {
 	// Extract relevant part of the trace
 	var (
@@ -106,7 +106,7 @@ func (p Constraint[F, T]) Bounds(module uint) util.Bounds {
 }
 
 // Consistent implementation for schema.Constraint interface.
-func (p Constraint[F, T]) Consistent(sc.AnySchema[F, io.State]) []error {
+func (p Constraint[F, T]) Consistent(sc.AnySchema[F]) []error {
 	return nil
 }
 
@@ -121,7 +121,7 @@ func (p Constraint[F, T]) Name() string {
 }
 
 // Lisp implementation for schema.Constraint interface.
-func (p Constraint[F, T]) Lisp(schema sc.AnySchema[F, io.State]) sexp.SExp {
+func (p Constraint[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("function"),

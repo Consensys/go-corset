@@ -29,19 +29,19 @@ import (
 //
 // NOTE: overall, this interface has got somewhat out-of-hand and it would be
 // useful to try and simplify it where possible.
-type ModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T]] interface {
+type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] interface {
 	fmt.Stringer
 	schema.ModuleView
 	// AddAssignment adds a new assignment to this module.  Assignments are
 	// responsible for computing the values of computed columns.
-	AddAssignment(assignment schema.Assignment[F, schema.State])
+	AddAssignment(assignment schema.Assignment[F])
 	// AddConstraint adds a new constraint to this module.
 	AddConstraint(constraint C)
 	// AllowPadding determines whether the given module allows an initial
 	// padding row, or not.
 	AllowPadding() bool
 	// Assignments returns those assignments added to this module.
-	Assignments() []schema.Assignment[F, schema.State]
+	Assignments() []schema.Assignment[F]
 	// Constraints returns those constraints added to this module.
 	Constraints() []C
 	// Id returns the module index of this module.
@@ -65,14 +65,14 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T t
 // ============================================================================
 
 // NewModuleBuilder constructs a new builder for a module with the given name.
-func NewModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T]](name module.Name,
+func NewModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](name module.Name,
 	mid schema.ModuleId, padding, public, synthetic bool) ModuleBuilder[F, C, T] {
 	//
 	regmap := make(map[string]uint, 0)
 	return &internalModuleBuilder[F, C, T]{name, mid, padding, public, synthetic, regmap, nil, nil, nil}
 }
 
-type internalModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T]] struct {
+type internalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
 	// Name of the module being constructed
 	name module.Name
 	// Id of this module
@@ -90,11 +90,11 @@ type internalModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.Sta
 	// Constraints for this module
 	constraints []C
 	// Assignments for computed registers
-	assignments []schema.Assignment[F, schema.State]
+	assignments []schema.Assignment[F]
 }
 
 // AddAssignment implementation for ModuleBuilder interface.
-func (p *internalModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F, schema.State]) {
+func (p *internalModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F]) {
 	p.assignments = append(p.assignments, assignment)
 }
 
@@ -104,7 +104,7 @@ func (p *internalModuleBuilder[F, C, T]) AddConstraint(constraint C) {
 }
 
 // Assignments implementation for ModuleBuilder interface.
-func (p *internalModuleBuilder[F, C, T]) Assignments() []schema.Assignment[F, schema.State] {
+func (p *internalModuleBuilder[F, C, T]) Assignments() []schema.Assignment[F] {
 	return p.assignments
 }
 
@@ -220,7 +220,7 @@ func (p *internalModuleBuilder[F, C, T]) ConstRegister(constant uint8) register.
 
 // NewExternModuleBuilder constructs a new builder suitable for external
 // modules.  These are just used for linking purposes.
-func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T]](mid schema.ModuleId,
+func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]](mid schema.ModuleId,
 	module register.ConstMap) ModuleBuilder[F, C, T] {
 	return &externalModuleBuilder[F, C, T]{mid, module}
 }
@@ -228,7 +228,7 @@ func NewExternModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.St
 // externalModuleBuilder essentially provides a wrapper for an externally
 // defined module to allow it to be accessed as though it were an internal
 // module.
-type externalModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T]] struct {
+type externalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]] struct {
 	// Id of this module
 	moduleId schema.ModuleId
 	// External source
@@ -236,7 +236,7 @@ type externalModuleBuilder[F field.Element[F], C schema.Constraint[F, schema.Sta
 }
 
 // AddAssignment implementation for ModuleBuilder interface.
-func (p *externalModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F, schema.State]) {
+func (p *externalModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F]) {
 	panic("cannot add assignment to external module")
 }
 
@@ -246,7 +246,7 @@ func (p *externalModuleBuilder[F, C, T]) AddConstraint(constraint C) {
 }
 
 // Assignments implementation for ModuleBuilder interface.
-func (p *externalModuleBuilder[F, C, T]) Assignments() []schema.Assignment[F, schema.State] {
+func (p *externalModuleBuilder[F, C, T]) Assignments() []schema.Assignment[F] {
 	return nil
 }
 

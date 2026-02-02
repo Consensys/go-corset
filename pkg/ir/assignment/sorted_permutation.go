@@ -69,7 +69,7 @@ func (p *SortedPermutation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F, schema.State], sts []schema.State) ([]array.MutArray[F], error) {
+func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
 	// Read inputs
 	sources := ReadRegistersRef(trace, p.Sources...)
 	// Apply native function
@@ -81,7 +81,7 @@ func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F,
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *SortedPermutation[F]) Consistent(schema sc.AnySchema[F, schema.State]) []error {
+func (p *SortedPermutation[F]) Consistent(schema sc.AnySchema[F]) []error {
 	var errors []error
 	// // Sanity check source types
 	for i := range p.Sources {
@@ -125,7 +125,7 @@ func (p *SortedPermutation[F]) Substitute(mapping map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F, schema.State]) sexp.SExp {
+func (p *SortedPermutation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()

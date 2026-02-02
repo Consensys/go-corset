@@ -204,7 +204,7 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg CheckConfig, batched bool, 
 		perf.Log("Trace propagation")
 	}
 	// Go!
-	var states []io.State
+	var states []sc.State
 	for i := range executor.States {
 		states = append(states, executor.States[i]...)
 	}
@@ -248,7 +248,7 @@ func CheckWithLegacyPipeline[F field.Element[F]](cfg CheckConfig, batched bool, 
 		perf.Log("Trace propagation")
 	}
 	// Go!
-	var states []io.State
+	var states []sc.State
 	for i := range executor.States {
 		states = append(states, executor.States[i]...)
 	}
@@ -265,7 +265,7 @@ func CheckWithLegacyPipeline[F field.Element[F]](cfg CheckConfig, batched bool, 
 	}
 }
 
-func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F], cfg CheckConfig, states []io.State) bool {
+func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F], cfg CheckConfig, states []sc.State) bool {
 	//
 	for _, tf := range traces {
 		//

@@ -35,13 +35,13 @@ type (
 	// Schema captures the essence of an arithmetisation at the AIR level.
 	// Specifically, it is limited to only those constraint forms permitted at the
 	// AIR level.
-	Schema[F field.Element[F]] = schema.UniformSchema[F, Module[F], schema.State]
+	Schema[F field.Element[F]] = schema.UniformSchema[F, Module[F]]
 	// Module captures the essence of a module at the AIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the AIR level.
-	Module[F field.Element[F]] = *schema.Table[F, Constraint[F], schema.State]
+	Module[F field.Element[F]] = *schema.Table[F, Constraint[F]]
 	// Constraint captures the essence of a constraint at the AIR level.
 	Constraint[F field.Element[F]] interface {
-		schema.Constraint[F, schema.State]
+		schema.Constraint[F]
 		// Air marks the constraints as been valid for the AIR representation.
 		Air()
 	}

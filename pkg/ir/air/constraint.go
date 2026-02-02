@@ -36,7 +36,7 @@ import (
 // should never change, unless the underlying prover changes in some way to
 // offer different or more fundamental primitives.
 type ConstraintBound[F field.Element[F]] interface {
-	schema.Constraint[F, schema.State]
+	schema.Constraint[F]
 
 	constraint.Assertion[F] |
 		interleaving.Constraint[F, *ColumnAccess[F]] |
@@ -108,7 +108,7 @@ func (p Air[F, C]) Air() {
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F, schema.State],
+func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F],
 ) (bit.Set, schema.Failure) {
 	return p.constraint.Accepts(trace, schema)
 }
@@ -125,7 +125,7 @@ func (p Air[F, C]) Bounds(module uint) util.Bounds {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Air[F, C]) Consistent(schema schema.AnySchema[F, schema.State]) []error {
+func (p Air[F, C]) Consistent(schema schema.AnySchema[F]) []error {
 	return p.constraint.Consistent(schema)
 }
 
@@ -148,7 +148,7 @@ func (p Air[F, C]) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Air[F, C]) Lisp(schema schema.AnySchema[F, schema.State]) sexp.SExp {
+func (p Air[F, C]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 

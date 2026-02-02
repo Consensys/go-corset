@@ -93,7 +93,7 @@ func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Assertion[F]) Consistent(schema schema.AnySchema[F, schema.State]) []error {
+func (p Assertion[F]) Consistent(schema schema.AnySchema[F]) []error {
 	return CheckConsistent(p.Context, schema, p.Property)
 }
 
@@ -122,7 +122,7 @@ func (p Assertion[F]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion[F]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F, schema.State]) (bit.Set, schema.Failure) {
+func (p Assertion[F]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine height of enclosing module
@@ -149,7 +149,7 @@ func (p Assertion[F]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F, schema.S
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Assertion[F]) Lisp(schema schema.AnySchema[F, schema.State]) sexp.SExp {
+func (p Assertion[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 	var (
 		module           = schema.Module(p.Context)
 		assertion string = "assert"
@@ -185,7 +185,7 @@ func (p Assertion[F]) Substitute(mapping map[string]F) {
 	panic("cannot substitute arbitrary field elements")
 }
 
-func (p Assertion[F]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F, schema.State],
+func (p Assertion[F]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F],
 ) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set

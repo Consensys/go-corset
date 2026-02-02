@@ -27,7 +27,7 @@ import (
 // interface.
 type Executor[T Instruction] struct {
 	functions []*ComponentTrace[T]
-	States    [][]State
+	States    [][]schema.State
 }
 
 // NewExecutor constructs a new executor.
@@ -39,7 +39,7 @@ func NewExecutor[T Instruction](program Program[T]) *Executor[T] {
 		traces[i] = NewFunctionTrace[T](program.functions[i])
 	}
 	// Construct new executor
-	return &Executor[T]{traces, [][]State{}}
+	return &Executor[T]{traces, [][]schema.State{}}
 }
 
 // Instance returns a valid instance of the given bus.
@@ -128,7 +128,7 @@ func (p *ComponentTrace[T]) Count() uint {
 // this instance has been seen before, it will simply return that.  Otherwise,
 // it will execute the function to determine the correct outputs.
 func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap schema.Map) ComponentInstance {
-	var iostate = ComponentInstance{uint(len(inputs)),  inputs}
+	var iostate = ComponentInstance{uint(len(inputs)), inputs, []schema.State{}}
 	// Obtain read lock
 	p.mux.RLock()
 	// Look for cached instance
@@ -182,7 +182,7 @@ func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap schema.Map) Comp
 func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap schema.Map) ComponentInstance {
 	var (
 		fn     = p.fn.(*Function[T])
-		states []State
+		states []schema.State
 		// Determine how many I/O registers
 		nio = fn.NumInputs() + fn.NumOutputs()
 		//
@@ -201,7 +201,7 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap schema.M
 		state.Goto(pc)
 	}
 	// Cache I/O instance
-	instance := ComponentInstance{fn.NumInputs(), state.state[:nio]}
+	instance := ComponentInstance{fn.NumInputs(), state.state[:nio], states}
 	// Obtain  write lock
 	p.mux.Lock()
 	// Insert new instance
@@ -221,6 +221,7 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap schema.M
 type ComponentInstance struct {
 	ninputs uint
 	state   []big.Int
+	States    []schema.State
 }
 
 // Cmp comparator for the I/O registers of a particular function instance.

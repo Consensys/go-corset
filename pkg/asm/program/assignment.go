@@ -65,7 +65,7 @@ func (p Assignment[F, T, S]) Bounds(module uint) util.Bounds {
 }
 
 // Compute implementation for schema.Assignment interface.
-func (p Assignment[F, T, S]) Compute(trace tr.Trace[F], schema sc.AnySchema[F, io.State], states []io.State) ([]array.MutArray[F], error) {
+func (p Assignment[F, T, S]) Compute(trace tr.Trace[F], schema sc.AnySchema[F], states []sc.State) ([]array.MutArray[F], error) {
 	//
 	perf := util.NewPerfStats()
 	var (
@@ -85,12 +85,12 @@ func (p Assignment[F, T, S]) Compute(trace tr.Trace[F], schema sc.AnySchema[F, i
 }
 
 // Consistent implementation for schema.Assignment interface.
-func (p Assignment[F, T, S]) Consistent(sc.AnySchema[F, io.State]) []error {
+func (p Assignment[F, T, S]) Consistent(sc.AnySchema[F]) []error {
 	return nil
 }
 
 // Lisp implementation for schema.Assignment interface.
-func (p Assignment[F, T, S]) Lisp(schema sc.AnySchema[F, io.State]) sexp.SExp {
+func (p Assignment[F, T, S]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),
@@ -175,7 +175,7 @@ func (p Assignment[F, T, S]) trace(inputs, outputs []big.Int) []io.State {
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[F, T, S]) states2columns(width uint, states []io.State, builder array.Builder[F]) []array.MutArray[F] {
+func (p Assignment[F, T, S]) states2columns(width uint, states []sc.State, builder array.Builder[F]) []array.MutArray[F] {
 	var (
 		cols      = make([]array.MutArray[F], width)
 		nrows     = uint(len(states))
@@ -207,7 +207,7 @@ func (p Assignment[F, T, S]) states2columns(width uint, states []io.State, build
 	return cols
 }
 
-func (p Assignment[F, T, S]) assignControlRegisters(cols []array.MutArray[F], states []io.State,
+func (p Assignment[F, T, S]) assignControlRegisters(cols []array.MutArray[F], states []sc.State,
 	builder array.Builder[F]) {
 	//
 	var (

@@ -52,7 +52,7 @@ func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, conte
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F, schema.State]) []error {
+func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
 	var errors []error
 	//
 	if len(p.Bitwidths) != len(p.Sources) {
@@ -107,7 +107,7 @@ func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F, schema.State]) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var coverage bit.Set
 	//
 	for i := range p.Sources {
@@ -125,7 +125,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F, sche
 // it can be printed.
 //
 //nolint:revive
-func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F, schema.State]) sexp.SExp {
+func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
 		module = mapping.Module(p.Context)
 		pairs  = make([]sexp.SExp, len(p.Sources))
@@ -151,7 +151,7 @@ func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 	}
 }
 
-func (p Constraint[F, E]) accepts(i int, tr trace.Trace[F], sc schema.AnySchema[F, schema.State]) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) accepts(i int, tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		trModule = tr.Module(p.Context)
