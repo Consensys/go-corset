@@ -68,7 +68,7 @@ func (p *Module[F, T]) Registers() []register.Register {
 // ============================================================================
 
 // Assignments implementation for schema.Module interface.
-func (p *Module[F, T]) Assignments() iter.Iterator[schema.Assignment[F]] {
+func (p *Module[F, T]) Assignments() iter.Iterator[schema.Assignment[F, io.State]] {
 	panic("unsupported operation")
 }
 
@@ -78,12 +78,12 @@ func (p *Module[F, T]) AllowPadding() bool {
 }
 
 // Constraints implementation for schema.Module interface.
-func (p *Module[F, T]) Constraints() iter.Iterator[schema.Constraint[F]] {
+func (p *Module[F, T]) Constraints() iter.Iterator[schema.Constraint[F, io.State]] {
 	panic("unsupported operation")
 }
 
 // Consistent implementation for schema.Module interface.
-func (p *Module[F, T]) Consistent(fieldWidth uint, schema schema.AnySchema[F]) []error {
+func (p *Module[F, T]) Consistent(fieldWidth uint, schema schema.AnySchema[F, io.State]) []error {
 	return nil
 }
 

@@ -103,7 +103,7 @@ func (p *Vector[F, E]) Len() uint {
 }
 
 // Lisp returns a textual representation of this vector.
-func (p *Vector[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+func (p *Vector[F, E]) Lisp(mapping schema.AnySchema[F, schema.State]) sexp.SExp {
 	var (
 		module = mapping.Module(p.Module)
 		terms  = sexp.EmptyList()

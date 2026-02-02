@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -68,7 +69,7 @@ func (p *SortedPermutation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]array.MutArray[F], error) {
+func (p *SortedPermutation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
 	// Read inputs
 	sources := ReadRegistersRef(trace, p.Sources...)
 	// Apply native function

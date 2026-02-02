@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/term"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -233,8 +234,8 @@ func (p *typeDecomposition[F]) AddSource(source register.Ref) {
 
 // Compute computes the values of columns defined by this assignment.
 // This requires computing the value of each byte column in the decomposition.
-func (p *typeDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F],
-) ([]array.MutArray[F], error) {
+func (p *typeDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
+	perf := util.NewPerfStats()
 	// Read inputs
 	sources := assignment.ReadRegistersRef(tr, p.sources...)
 	padding := assignment.ReadPadding(tr, p.sources...)
@@ -243,6 +244,7 @@ func (p *typeDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F]
 	// Generate decomposition
 	data := computeDecomposition(p.loWidth, p.hiWidth, combined, tr.Builder())
 	// Done
+	perf.Log("Bitwidth compute")
 	return data, nil
 }
 

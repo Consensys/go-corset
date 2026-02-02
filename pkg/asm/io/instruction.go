@@ -14,7 +14,6 @@ package io
 
 import (
 	"math"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
@@ -30,7 +29,7 @@ const UNKNOWN_BUS = math.MaxUint
 // bus, we set both the address and data lines, etc.  This mechanism abstracts
 // the various I/O peripherals found within a program, such as functions, Random
 // Access Memory, etc.
-type Map interface {
+/*type Map interface {
 	// Read a set of values at a given address on a bus.  The exact meaning of
 	// this depends upon the I/O peripheral connected to the bus.  For example,
 	// if its a function then the function is executed with the given address as
@@ -42,7 +41,7 @@ type Map interface {
 	// for writeable memory, such Random Access Memory (RAM).  In contrast,
 	// functions and Read-Only Memory (ROM) are not considered writeable.
 	Write(bus uint, address []big.Int, values []big.Int)
-}
+}*/
 
 // Instruction provides an abstract notion of an executable "machine instruction".
 type Instruction interface {

@@ -19,13 +19,13 @@ import (
 )
 
 // Any converts a concrete schema into a generic view of the schema.
-func Any[F any, C Constraint[F]](schema Schema[F, C]) AnySchema[F] {
-	return schema.(Schema[F, Constraint[F]])
+func Any[F any, C Constraint[F, S], S State](schema Schema[F, C, S]) AnySchema[F, S] {
+	return schema.(Schema[F, Constraint[F, S], S])
 }
 
 // AnySchema captures a generic view of a schema, which is useful in situations
 // where exactly details about the schema are not important.
-type AnySchema[F any] Schema[F, Constraint[F]]
+type AnySchema[F any, S State] Schema[F, Constraint[F, S], S]
 
 // ============================================================================
 
@@ -36,11 +36,11 @@ type AnySchema[F any] Schema[F, Constraint[F]]
 // in the final trace, whilst constraints are properties which should hold for
 // any acceptable trace.  Finally, assignments represent arbitrary computations
 // which "assign" values to registers during "trace expansion".
-type Schema[F any, C any] interface {
+type Schema[F any, C any, S State] interface {
 	// Assignments returns an iterator over the assignments of this schema.
 	// That is, the set of computations used to determine values for all
 	// computed columns.
-	Assignments() iter.Iterator[Assignment[F]]
+	Assignments() iter.Iterator[Assignment[F, S]]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
@@ -49,16 +49,16 @@ type Schema[F any, C any] interface {
 	// schema.  Observe that this does include assertions which, strictly
 	// speaking, are not constraints in the true sense.  That is, they are never
 	// compiled into vanishing polynomials but, instead, are used purely for
-	// debugging.
+	// debugging.C
 	Constraints() iter.Iterator[C]
 	// HasModule checks whether a module with the given name exists and, if so,
 	// returns its module identifier.  Otherwise, it returns false.
 	HasModule(name module.Name) (ModuleId, bool)
 	// Access a given module in this schema.
-	Module(module uint) Module[F]
+	Module(module uint) Module[F, S]
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
-	Modules() iter.Iterator[Module[F]]
+	Modules() iter.Iterator[Module[F, S]]
 	// Access a given register in this schema.
 	Register(register.Ref) register.Register
 	// Returns the number of modules in this schema.

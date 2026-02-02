@@ -79,16 +79,16 @@ type UniformSchema[F field.Element[F]] = sc.UniformSchema[F, mir.Module[F]]
 func Concretize[F Element[F]](cfg field.Config, hp MicroHirProgram,
 ) (MicroMirProgram[F], module.LimbsMap) {
 	var (
-		fns = hp.program.Components()
+		fns = hp.Program.Components()
 		// Lower HIR program first.  This is necessary to ensure any registers
 		// added during this process are included in the subsequent limbs map.
-		p = NewMixedProgram(hp.program, hir.LowerToMir(fns, hp.externs)...)
+		p = NewMixedProgram(hp.Program, hir.LowerToMir(fns, hp.externs)...)
 		// Construct a limbs map which determines the mapping of all registers
 		// into their limbs.
 		mapping = module.NewLimbsMap[F](cfg, p.Modules().Collect()...)
 	)
 	// Split registers in assembly functions
-	ap := subdivideProgram(mapping, p.program)
+	ap := subdivideProgram(mapping, p.Program)
 	// Concretize legacy components
 	mirModules := mir.Concretize[word.BigEndian, F](mapping, ap.Components(), p.Externs())
 	// Done
@@ -106,7 +106,7 @@ func Compile[F Element[F]](p MicroMirProgram[F]) UniformSchema[F] {
 		modules = make([]mir.Module[F], p.Width())
 	)
 	// Compile subdivided assembly components into MIR
-	comp.Compile(p.program)
+	comp.Compile(p.Program)
 	// Copy over compiled components
 	for i, m := range comp.Modules() {
 		modules[i] = ir.BuildModule[F, mir.Constraint[F], mir.Term[F], mir.Module[F]](m.Module)

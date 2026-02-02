@@ -18,6 +18,7 @@ import (
 	"os"
 
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/inspector"
 	"github.com/consensys/go-corset/pkg/cmd/view"
@@ -94,17 +95,18 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	schema := stack.UniqueConcreteSchema()
 	//
 	stats.Log("Reading trace file")
+	executor := io.NewExecutor(binf.Schema.Program)
 	//
 	if expanding {
 		// Apply trace propagation
-		tracefile, errors = asm.Propagate(binf.Schema, tracefile)
+		tracefile, errors = asm.Propagate(binf.Schema, tracefile, executor)
 	}
 	// Apply trace expansion
 	if len(errors) != 0 && validate {
 		fmt.Println("(use --validate=false to ignore trace propagation errors)")
 		fmt.Println()
 	} else {
-		trace, errors = stack.TraceBuilder().Build(schema, tracefile)
+		trace, errors = stack.TraceBuilder().Build(schema, tracefile, executor.States[0])
 	}
 	//
 	if len(errors) == 0 {

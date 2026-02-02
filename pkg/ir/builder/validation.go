@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -27,7 +28,7 @@ import (
 // TraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func TraceValidation[F field.Element[F]](parallel bool, schema sc.AnySchema[F], tr tr.Trace[F]) []error {
+func TraceValidation[F field.Element[F]](parallel bool, schema sc.AnySchema[F, io.State], tr tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Start timer
@@ -50,7 +51,7 @@ func TraceValidation[F field.Element[F]](parallel bool, schema sc.AnySchema[F], 
 // SequentialTraceValidation validates that values held in trace columns match
 // the expected type.  This is really a sanity check that the trace is not
 // malformed.
-func SequentialTraceValidation[F field.Element[F]](schema sc.AnySchema[F], tr trace.Trace[F]) []error {
+func SequentialTraceValidation[F field.Element[F]](schema sc.AnySchema[F, io.State], tr trace.Trace[F]) []error {
 	var errors []error
 	//
 	for i := uint(0); i < max(schema.Width(), tr.Width()); i++ {
@@ -77,7 +78,7 @@ func SequentialTraceValidation[F field.Element[F]](schema sc.AnySchema[F], tr tr
 // ParallelTraceValidation validates that values held in trace columns match the
 // expected type.  This is really a sanity check that the trace is not
 // malformed.
-func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema[F], trace tr.Trace[F]) []error {
+func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema[F, io.State], trace tr.Trace[F]) []error {
 	var (
 		errors []error
 		// Construct a communication channel for errors.
@@ -114,7 +115,7 @@ func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema[F], trace t
 	return errors
 }
 
-func sequentialModuleValidation[F field.Element[F]](scMod sc.Module[F], trMod trace.Module[F]) []error {
+func sequentialModuleValidation[F field.Element[F]](scMod sc.Module[F, io.State], trMod trace.Module[F]) []error {
 	var (
 		errors []error
 		// Extract module registers
@@ -151,7 +152,7 @@ func sequentialModuleValidation[F field.Element[F]](scMod sc.Module[F], trMod tr
 }
 
 // Validate that all elements of a given column fit within a given bitwidth.
-func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F], mod sc.Module[F]) error {
+func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F], mod sc.Module[F, io.State]) error {
 	// Sanity check bitwidth can be checked.
 	if bitwidth == math.MaxUint {
 		// This indicates a column which has no fixed bitwidth but, rather, uses

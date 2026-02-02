@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
@@ -26,6 +27,7 @@ import (
 // interface.
 type Executor[T Instruction] struct {
 	functions []*ComponentTrace[T]
+	States    [][]State
 }
 
 // NewExecutor constructs a new executor.
@@ -37,7 +39,7 @@ func NewExecutor[T Instruction](program Program[T]) *Executor[T] {
 		traces[i] = NewFunctionTrace[T](program.functions[i])
 	}
 	// Construct new executor
-	return &Executor[T]{traces}
+	return &Executor[T]{traces, [][]State{}}
 }
 
 // Instance returns a valid instance of the given bus.
@@ -61,7 +63,8 @@ func (p *Executor[T]) Instance(bus uint) ComponentInstance {
 
 // Read implementation for the io.Map interface.
 func (p *Executor[T]) Read(bus uint, address []big.Int) []big.Int {
-	return p.functions[bus].Call(address, p).Outputs()
+	compInstance := p.functions[bus].Call(address, p)
+	return compInstance.Outputs()
 }
 
 // Instances returns accrued function instances for the given bus.
@@ -124,8 +127,8 @@ func (p *ComponentTrace[T]) Count() uint {
 // Call this function to determine its outputs for a given set of inputs.  If
 // this instance has been seen before, it will simply return that.  Otherwise,
 // it will execute the function to determine the correct outputs.
-func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance {
-	var iostate = ComponentInstance{uint(len(inputs)), inputs}
+func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap schema.Map) ComponentInstance {
+	var iostate = ComponentInstance{uint(len(inputs)),  inputs}
 	// Obtain read lock
 	p.mux.RLock()
 	// Look for cached instance
@@ -156,7 +159,7 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance 
 // instances --- even if that means, occasionally, an instance is computed more
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
-func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map) ComponentInstance {
+func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap schema.Map) ComponentInstance {
 	switch p.fn.(type) {
 	case *Function[T]:
 		return p.executeFunctionCall(inputs, iomap)
@@ -176,9 +179,10 @@ func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map) ComponentIn
 // instances --- even if that means, occasionally, an instance is computed more
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
-func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map) ComponentInstance {
+func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap schema.Map) ComponentInstance {
 	var (
-		fn = p.fn.(*Function[T])
+		fn     = p.fn.(*Function[T])
+		states []State
 		// Determine how many I/O registers
 		nio = fn.NumInputs() + fn.NumOutputs()
 		//
@@ -191,6 +195,8 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map) Com
 		insn := fn.CodeAt(pc)
 		// execute given instruction
 		pc = insn.Execute(state)
+		// record internal state
+		states = append(states, finaliseState(pc == RETURN, state))
 		// update state pc
 		state.Goto(pc)
 	}
@@ -238,4 +244,19 @@ func (p ComponentInstance) Outputs() []big.Int {
 // Get value of given input or output argument for this instance.
 func (p ComponentInstance) Get(arg uint) big.Int {
 	return p.state[arg]
+}
+
+// Finalising a given state does two things: firstly, it clones the state;
+// secondly, if the state has terminated, it makes sure the outputs match the
+// original trace.
+func finaliseState(terminated bool, state State) State {
+	// Clone state
+	var nstate = state.Clone()
+	// Cheeck whether terminal state
+	if terminated {
+		// Mark state as terminated
+		nstate.Terminate()
+	}
+	//
+	return nstate
 }

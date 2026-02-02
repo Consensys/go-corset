@@ -17,7 +17,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
@@ -39,7 +38,7 @@ type MirModule[F field.Element[F]] struct {
 }
 
 // Initialise this module
-func (p MirModule[F]) Initialise(mid uint, fn MicroComponent, iomap io.Map) MirModule[F] {
+func (p MirModule[F]) Initialise(mid uint, fn MicroComponent, iomap schema.Map) MirModule[F] {
 	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid, false, fn.IsPublic(), false)
 	switch fn := fn.(type) {
 	case *MicroFunction:

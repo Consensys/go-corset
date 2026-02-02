@@ -20,7 +20,9 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/binfile"
+	"github.com/consensys/go-corset/pkg/cmd"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
@@ -108,6 +110,7 @@ func CheckWithFields(t *testing.T, stdlib bool, test string, maxPadding uint, fi
 func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, maxPadding uint,
 	field field.Config) {
 	//
+	var cfgg cmd.CheckConfig
 	var (
 		filenames = matchSourceFiles(test)
 		// Configure the stack for the given field.
@@ -126,7 +129,8 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 			traces = ReadTracesFile(testFilename)
 			if len(traces) > 0 {
 				// Run tests
-				fullCheckTraces(t, testFilename, cfg, maxPadding, traces, stacks)
+				//fullCheckTraces(t, testFilename, cfg, maxPadding, traces, stacks)
+				cmd.CheckWithLegacyPipeline(cfgg, false, traces, stacks)
 			}
 		}
 		// Record how many tests we found
@@ -143,10 +147,11 @@ func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, 
 	//
 	if cfg.expand {
 		var errors []error
-		// Extract root schema
+		// Extract root schemaincide
 		schema := stack.BinaryFile().Schema
 		// Apply trace propagation
-		if traces, errors = asm.PropagateAll(schema, traces); len(errors) != 0 && cfg.expected {
+		executor := io.NewExecutor(schema.Program)
+		if traces, errors = asm.PropagateAll(schema, traces, executor); len(errors) != 0 && cfg.expected {
 			t.Errorf("Trace propagation failed (%s): %s", test, errors)
 			return
 		} else if len(errors) != 0 {

@@ -20,6 +20,7 @@ import (
 	"runtime/pprof"
 
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/view"
@@ -65,7 +66,7 @@ var checkCmds = []FieldAgnosticCmd{
 }
 
 func runCheckCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
-	var cfg checkConfig
+	var cfg CheckConfig
 
 	if len(args) < 2 {
 		fmt.Println(cmd.UsageString())
@@ -143,7 +144,7 @@ func writeMemProfile(cmd *cobra.Command) {
 
 // check config encapsulates certain parameters to be used when
 // checking traces.
-type checkConfig struct {
+type CheckConfig struct {
 	// Corset source mapping (maybe nil if non available).
 	corsetSourceMap *corset.SourceMap
 	// Specifies whether to use coverage testing and, if so, where to write the
@@ -168,7 +169,7 @@ type checkConfig struct {
 }
 
 // Check raw constraints using the legacy pipeline.
-func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, tracefile string,
+func checkWithLegacyPipeline[F field.Element[F]](cfg CheckConfig, batched bool, tracefile string,
 	schemas cmd_util.SchemaStacker[F]) {
 	//
 	var (
@@ -193,17 +194,22 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 	//
 	schema := schemas.BinaryFile().Schema
+	executor := io.NewExecutor(schema.Program)
 	// Apply trace propagation
 	if expanding {
 		perf := util.NewPerfStats()
 		//
-		traces, errors = asm.PropagateAll(schema, traces)
+		traces, errors = asm.PropagateAll(schema, traces, executor)
 		//
 		perf.Log("Trace propagation")
 	}
 	// Go!
+	var states []io.State
+	for i := range executor.States {
+		states = append(states, executor.States[i]...)
+	}
 	if len(errors) == 0 {
-		ok = checkTraces(traces, schemas, cfg) && ok
+		ok = checkTraces(traces, schemas, cfg, states) && ok
 	}
 	// Handle errors
 	if !ok || len(errors) > 0 {
@@ -215,7 +221,51 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 }
 
-func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F], cfg checkConfig) bool {
+// Check raw constraints using the legacy pipeline.
+func CheckWithLegacyPipeline[F field.Element[F]](cfg CheckConfig, batched bool, traces []lt.TraceFile,
+	schemas cmd_util.SchemaStacker[F]) {
+	//
+	var (
+		errors    []error
+		ok        bool = true
+		expanding      = true
+	)
+	//
+	stats := util.NewPerfStats()
+	// Extract debug information (if available)
+	cfg.corsetSourceMap, _ = binfile.GetAttribute[*corset.SourceMap](schemas.BinaryFile())
+	//
+	stats.Log("Reading constraints file")
+	//
+	schema := schemas.BinaryFile().Schema
+	executor := io.NewExecutor(schema.Program)
+	// Apply trace propagation
+	if expanding {
+		perf := util.NewPerfStats()
+		//
+		traces, errors = asm.PropagateAll(schema, traces, executor)
+		//
+		perf.Log("Trace propagation")
+	}
+	// Go!
+	var states []io.State
+	for i := range executor.States {
+		states = append(states, executor.States[i]...)
+	}
+	if len(errors) == 0 {
+		ok = checkTraces(traces, schemas, cfg, states) && ok
+	}
+	// Handle errors
+	if !ok || len(errors) > 0 {
+		for _, err := range errors {
+			log.Errorf("%s\n", err.Error())
+		}
+		//
+		os.Exit(1)
+	}
+}
+
+func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F], cfg CheckConfig, states []io.State) bool {
 	//
 	for _, tf := range traces {
 		//
@@ -229,7 +279,7 @@ func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.Sch
 			for i, schema := range stack.ConcreteSchemas() {
 				ir := stack.ConcreteIrName(uint(i))
 				stats := util.NewPerfStats()
-				trace, errs := builder.Build(schema, tf)
+				trace, errs := builder.Build(schema, tf, states)
 				// Log cost of expansion
 				stats.Log("Expanding trace columns")
 				// Report any errors
@@ -256,7 +306,7 @@ func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.Sch
 
 // Report constraint failures, whilst providing contextual information (when requested).
 func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], mapping module.LimbsMap,
-	cfg checkConfig) {
+	cfg CheckConfig) {
 	//
 	var (
 		errs = make([]error, len(failures))
@@ -277,7 +327,7 @@ func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace 
 
 // Print a human-readable report detailing the given failure
 func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], mapping module.LimbsMap,
-	cfg checkConfig) {
+	cfg CheckConfig) {
 	//
 	if f, ok := failure.(*vanishing.Failure[F]); ok {
 		cells := f.RequiredCells(trace)
@@ -304,7 +354,7 @@ func reportFailure[F field.Element[F]](failure sc.Failure, trace tr.Trace[F], ma
 
 // Print a human-readable report detailing the given failure with a vanishing constraint.
 func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef], trace tr.Trace[F],
-	mapping module.LimbsMap, cfg checkConfig) {
+	mapping module.LimbsMap, cfg CheckConfig) {
 	// Construct trace window
 	window := view.NewBuilder[F](mapping).
 		WithLimbs(cfg.reportLimbs).

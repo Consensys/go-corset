@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir/builder"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -164,7 +165,7 @@ func (tb TraceBuilder[F]) Mapping() module.LimbsMap {
 
 // Build attempts to construct a trace for a given schema, producing errors if
 // there are inconsistencies (e.g. missing columns, duplicate columns, etc).
-func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.Trace[F], []error) {
+func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F, io.State], tf lt.TraceFile, states []io.State) (trace.Trace[F], []error) {
 	var (
 		arrBuilder array.Builder[F]
 		modules    []lt.Module[F]
@@ -202,7 +203,7 @@ func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.
 			}
 		}
 		// Expand trace
-		if err := builder.TraceExpansion(tb.parallel, tb.batchSize, schema, tr); err != nil {
+		if err := builder.TraceExpansion(tb.parallel, tb.batchSize, schema, tr, states); err != nil {
 			return nil, append(errors, err)
 		}
 		// Validate expanded trace
@@ -221,7 +222,7 @@ func (tb TraceBuilder[F]) Build(schema sc.AnySchema[F], tf lt.TraceFile) (trace.
 	return tr, errors
 }
 
-func initialiseTrace[F field.Element[F]](schema sc.AnySchema[F], pool array.Builder[F], rawTrace []lt.Module[F],
+func initialiseTrace[F field.Element[F]](schema sc.AnySchema[F, io.State], pool array.Builder[F], rawTrace []lt.Module[F],
 ) *trace.ArrayTrace[F] {
 	//
 	var modules = make([]trace.ArrayModule[F], schema.Width())
@@ -235,7 +236,7 @@ func initialiseTrace[F field.Element[F]](schema sc.AnySchema[F], pool array.Buil
 	return trace.NewArrayTrace(pool, modules)
 }
 
-func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F]) trace.ArrayModule[F] {
+func fillTraceModule[F field.Element[F]](mod sc.Module[F, io.State], rawModule lt.Module[F]) trace.ArrayModule[F] {
 	var (
 		traceColumns = make([]trace.ArrayColumn[F], mod.Width())
 	)
@@ -261,7 +262,7 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 
 // pad each module with its given level of spillage and (optionally) ensure a
 // given level of defensive padding.
-func addSpillageAndDefensivePadding[F any](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema[F]) {
+func addSpillageAndDefensivePadding[F any](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema[F, io.State]) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
@@ -293,7 +294,7 @@ func determineModuleHeights[F any](tr *trace.ArrayTrace[F]) []uint {
 // checkModuleHeights checks the expanded heights match exactly what was
 // expected.
 func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayTrace[F],
-	schema sc.AnySchema[F]) error {
+	schema sc.AnySchema[F, io.State]) error {
 	//
 	expanded := determineModuleHeights(tr)
 	//
@@ -315,7 +316,7 @@ func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayT
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padColumns[F any](tr *trace.ArrayTrace[F], schema sc.AnySchema[F], padding uint) {
+func padColumns[F any](tr *trace.ArrayTrace[F], schema sc.AnySchema[F, io.State], padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {

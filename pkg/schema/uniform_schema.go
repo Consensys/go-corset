@@ -24,26 +24,26 @@ import (
 
 // UniformSchema represents the simplest kind of schema which contains only
 // modules of the same kind (e.g. all MIR modules).
-type UniformSchema[F any, M Module[F]] struct {
+type UniformSchema[F any, M Module[F, S], S State] struct {
 	modules []M
 }
 
 // NewUniformSchema constructs a new schema comprising the given modules.
-func NewUniformSchema[F any, M Module[F]](modules []M) UniformSchema[F, M] {
-	return UniformSchema[F, M]{modules}
+func NewUniformSchema[F any, M Module[F, S], S State](modules []M) UniformSchema[F, M, S] {
+	return UniformSchema[F, M, S]{modules}
 }
 
 // Assignments returns an iterator over the assignments of this schema
 // These are the computations used to assign values to all computed columns
 // in this schema.
-func (p UniformSchema[F, M]) Assignments() iter.Iterator[Assignment[F]] {
+func (p UniformSchema[F, M, S]) Assignments() iter.Iterator[Assignment[F, S]] {
 	return assignmentsOf(p.modules)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p UniformSchema[F, M]) Consistent(fieldWidth uint) []error {
+func (p UniformSchema[F, M, S]) Consistent(fieldWidth uint) []error {
 	var errors []error
 	// Check modules
 	for _, m := range p.modules {
@@ -55,13 +55,13 @@ func (p UniformSchema[F, M]) Consistent(fieldWidth uint) []error {
 
 // Constraints returns an iterator over all constraints defined in this
 // schema.
-func (p UniformSchema[F, M]) Constraints() iter.Iterator[Constraint[F]] {
+func (p UniformSchema[F, M, S]) Constraints() iter.Iterator[Constraint[F, S]] {
 	return constraintsOf(p.modules)
 }
 
 // HasModule checks whether a module with the given name exists and, if so,
 // returns its module identifier.  Otherwise, it returns false.
-func (p UniformSchema[F, M]) HasModule(name module.Name) (ModuleId, bool) {
+func (p UniformSchema[F, M, S]) HasModule(name module.Name) (ModuleId, bool) {
 	for i := range p.Width() {
 		if p.Module(i).Name() == name {
 			return i, true
@@ -72,48 +72,48 @@ func (p UniformSchema[F, M]) HasModule(name module.Name) (ModuleId, bool) {
 }
 
 // Module provides access to a given module in this schema.
-func (p UniformSchema[F, M]) Module(module uint) Module[F] {
+func (p UniformSchema[F, M, S]) Module(module uint) Module[F, S] {
 	return p.modules[module]
 }
 
 // Modules returns an iterator over the declared set of modules within this
 // schema.
-func (p UniformSchema[F, M]) Modules() iter.Iterator[Module[F]] {
+func (p UniformSchema[F, M, S]) Modules() iter.Iterator[Module[F, S]] {
 	arrayIter := iter.NewArrayIterator(p.modules)
-	return iter.NewCastIterator[M, Module[F]](arrayIter)
+	return iter.NewCastIterator[M, Module[F, S]](arrayIter)
 }
 
 // RawModules provides access to the underlying modules of this schema.
-func (p UniformSchema[F, M]) RawModules() []M {
+func (p UniformSchema[F, M, S]) RawModules() []M {
 	return p.modules
 }
 
 // Register returns the given register in this schema.
-func (p UniformSchema[F, M]) Register(ref register.Ref) register.Register {
+func (p UniformSchema[F, M, S]) Register(ref register.Ref) register.Register {
 	return p.Module(ref.Module()).Register(ref.Register())
 }
 
 // Width returns the number of modules in this schema.
-func (p UniformSchema[F, M]) Width() uint {
+func (p UniformSchema[F, M, S]) Width() uint {
 	return uint(len(p.modules))
 }
 
 // Extract an iterator over all the constraints in a given array using a
 // projecting iterator.
-func assignmentsOf[F any, M Module[F]](modules []M) iter.Iterator[Assignment[F]] {
+func assignmentsOf[F any, M Module[F, S], S State](modules []M) iter.Iterator[Assignment[F, S]] {
 	arrIter := iter.NewArrayIterator(modules)
 	//
-	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Assignment[F]] {
+	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Assignment[F, S]] {
 		return m.Assignments()
 	})
 }
 
 // Extract an iterator over all the constraints in a given array using a
 // projecting iterator.
-func constraintsOf[F any, M Module[F]](modules []M) iter.Iterator[Constraint[F]] {
+func constraintsOf[F any, M Module[F, S], S State](modules []M) iter.Iterator[Constraint[F, S]] {
 	arrIter := iter.NewArrayIterator(modules)
 	//
-	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Constraint[F]] {
+	return iter.NewFlattenIterator(arrIter, func(m M) iter.Iterator[Constraint[F, S]] {
 		return m.Constraints()
 	})
 }
@@ -123,7 +123,7 @@ func constraintsOf[F any, M Module[F]](modules []M) iter.Iterator[Constraint[F]]
 // ============================================================================
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p UniformSchema[F, M]) GobEncode() (data []byte, err error) {
+func (p UniformSchema[F, M, S]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
 	//
 	gobEncoder := gob.NewEncoder(&buffer)
@@ -136,7 +136,7 @@ func (p UniformSchema[F, M]) GobEncode() (data []byte, err error) {
 }
 
 // GobDecode a previously encoded option
-func (p *UniformSchema[F, M]) GobDecode(data []byte) error {
+func (p *UniformSchema[F, M, S]) GobDecode(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	gobDecoder := gob.NewDecoder(buffer)
 	// Modules

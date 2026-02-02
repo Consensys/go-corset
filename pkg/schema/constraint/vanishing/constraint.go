@@ -56,7 +56,7 @@ func NewConstraint[F field.Element[F], T term.Testable[F]](handle string, contex
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, T]) Consistent(schema schema.AnySchema[F]) []error {
+func (p Constraint[F, T]) Consistent(schema schema.AnySchema[F, schema.State]) []error {
 	return constraint.CheckConsistent(p.Context, schema, p.Constraint)
 }
 
@@ -94,7 +94,7 @@ func (p Constraint[F, T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F, schema.State]) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
 		handle = constraint.DetermineHandle(p.Handle, p.Context, tr)
@@ -133,7 +133,7 @@ func (p Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 // HoldsGlobally checks whether a given expression vanishes (i.e. evaluates to
 // zero) for all rows of a trace.  If not, report an appropriate error.
 func HoldsGlobally[F field.Element[F], T term.Testable[F]](handle string, ctx schema.ModuleId, constraint T,
-	trMod trace.Module[F], scMod schema.Module[F]) (bit.Set, schema.Failure) {
+	trMod trace.Module[F], scMod schema.Module[F, schema.State]) (bit.Set, schema.Failure) {
 	//
 	var (
 		coverage bit.Set
@@ -161,7 +161,7 @@ func HoldsGlobally[F field.Element[F], T term.Testable[F]](handle string, ctx sc
 // HoldsLocally checks whether a given constraint holds (e.g. vanishes) on a
 // specific row of a trace. If not, report an appropriate error.
 func HoldsLocally[F field.Element[F], T term.Testable[F]](k uint, handle string, term T, ctx schema.ModuleId,
-	trMod trace.Module[F], scMod schema.Module[F]) (schema.Failure, uint) {
+	trMod trace.Module[F], scMod schema.Module[F, schema.State]) (schema.Failure, uint) {
 	//
 	ok, id, err := term.TestAt(int(k), trMod, scMod)
 	// Check for errors
@@ -178,7 +178,7 @@ func HoldsLocally[F field.Element[F], T term.Testable[F]](k uint, handle string,
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Constraint[F, T]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+func (p Constraint[F, T]) Lisp(mapping schema.AnySchema[F, schema.State]) sexp.SExp {
 	var (
 		module  = mapping.Module(p.Context)
 		name    string

@@ -40,7 +40,7 @@ type RawModule = lt.Module[word.BigEndian]
 // Batch size?
 // Recursion limit (to prevent infinite loops)
 func PropagateAll[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
-	ts []lt.TraceFile) ([]lt.TraceFile, []error) {
+	ts []lt.TraceFile, executor *io.Executor[T]) ([]lt.TraceFile, []error) {
 	//
 	var (
 		errors  []error
@@ -54,7 +54,7 @@ func PropagateAll[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[
 		// the empty traces as this helps error reporting with respect to line
 		// numbers.
 		if trace.RawModules() != nil {
-			ntraces[i], errs = Propagate(p, trace)
+			ntraces[i], errs = Propagate(p, trace, executor)
 			errors = append(errors, errs...)
 		}
 	}
@@ -78,13 +78,12 @@ func PropagateAll[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[
 // Batch size?
 // Recursion limit (to prevent infinite loops)
 func Propagate[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[word.BigEndian, T, M],
-	trace lt.TraceFile) (lt.TraceFile, []error) {
+	trace lt.TraceFile, executor *io.Executor[T]) (lt.TraceFile, []error) {
 	// Construct suitable executior for the given program
 	var (
 		errors []error
-		n      = uint(len(p.program.Components()))
+		n      = uint(len(p.Program.Components()))
 		//
-		executor  = io.NewExecutor(p.program)
 		trModules []lt.Module[word.BigEndian]
 		// Clone heap in trace file, since will mutate this.
 		heap = trace.Heap()
@@ -100,7 +99,7 @@ func Propagate[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[wor
 	// Write seed instances
 	errors = writeInstances(p, n, trModules, executor)
 	// Read out generated instances
-	modules := readInstances(&heap, p.program, executor)
+	modules := readInstances(&heap, p.Program, executor)
 	// Append external modules (which are unaffected by propagation).
 	modules = append(modules, trModules[n:]...)
 	// Done
@@ -116,7 +115,7 @@ func writeInstances[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgra
 	var errors []error
 	// Write all from assembly modules
 	for i, m := range trace[:n] {
-		errs := writeFunctionInstances(uint(i), p.program, m, executor)
+		errs := writeFunctionInstances(uint(i), p.Program, m, executor)
 		errors = append(errors, errs...)
 	}
 	// Write all from non-assembly modules
@@ -124,7 +123,7 @@ func writeInstances[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgra
 		var extern = p.externs[i]
 		// Write instances from any external calls
 		for _, call := range extractExternalCalls(extern) {
-			errs := writeExternCall(call, p.program, m, executor)
+			errs := writeExternCall(call, p.Program, m, executor)
 			errors = append(errors, errs...)
 		}
 	}

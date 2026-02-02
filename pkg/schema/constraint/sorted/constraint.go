@@ -57,7 +57,7 @@ func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, conte
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
+func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F, schema.State]) []error {
 	// TODO: add more useful checks
 	return nil
 }
@@ -97,7 +97,7 @@ func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 
 // Accepts checks whether a Sorted holds between the source and
 // target columns.
-func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F, schema.State]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine enclosing module
@@ -144,7 +144,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F, schema.State]) sexp.SExp {
 	var (
 		module  = mapping.Module(p.Context)
 		kind    = "sorted"
@@ -198,7 +198,7 @@ func (p Constraint[F, E]) Substitute(mapping map[string]F) {
 }
 
 func sorted[F field.Element[F], E term.Evaluable[F]](first, second uint, bound F, sources []E, signs []bool,
-	strict bool, trMod trace.Module[F], scMod schema.Module[F], lhs []F, rhs []F) (bool, error) {
+	strict bool, trMod trace.Module[F], scMod schema.Module[F, schema.State], lhs []F, rhs []F) (bool, error) {
 	//
 	var (
 		delta F
@@ -235,7 +235,7 @@ func sorted[F field.Element[F], E term.Evaluable[F]](first, second uint, bound F
 }
 
 func evalExprsAt[F field.Element[F], E term.Evaluable[F]](k uint, sources []E, trMod trace.Module[F],
-	scMod schema.Module[F], buffer []F) error {
+	scMod schema.Module[F, schema.State], buffer []F) error {
 	//
 	var err error
 	// Evaluate each expression in turn

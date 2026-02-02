@@ -17,6 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -30,7 +31,7 @@ import (
 
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
-type Assignment[F field.Element[F], T io.Instruction] struct {
+type Assignment[F field.Element[F], T io.Instruction, S io.State] struct {
 	id         sc.ModuleId
 	name       module.Name
 	registers  []io.Register
@@ -38,15 +39,15 @@ type Assignment[F field.Element[F], T io.Instruction] struct {
 	numInputs  uint
 	numOutputs uint
 	code       []T
-	iomap      io.Map
+	iomap      schema.Map
 }
 
 // NewAssignment constructs a new assignment capable of trace filling for a
 // given function.
-func NewAssignment[F field.Element[F], T io.Instruction](id sc.ModuleId, fn io.Function[T], iomap io.Map,
-) *Assignment[F, T] {
+func NewAssignment[F field.Element[F], T io.Instruction, S io.State](id sc.ModuleId, fn io.Function[T], iomap schema.Map,
+) *Assignment[F, T, S] {
 	//
-	return &Assignment[F, T]{
+	return &Assignment[F, T, S]{
 		id:         id,
 		name:       fn.Name(),
 		registers:  fn.Registers(),
@@ -59,35 +60,37 @@ func NewAssignment[F field.Element[F], T io.Instruction](id sc.ModuleId, fn io.F
 }
 
 // Bounds implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Bounds(module uint) util.Bounds {
+func (p Assignment[F, T, S]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Compute implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]array.MutArray[F], error) {
+func (p Assignment[F, T, S]) Compute(trace tr.Trace[F], schema sc.AnySchema[F, io.State], states []io.State) ([]array.MutArray[F], error) {
 	//
+	perf := util.NewPerfStats()
 	var (
 		trModule = trace.Module(p.id)
-		states   []io.State
 	)
 	// Trace given rows
-	for i := range trModule.Height() {
+	/*	for i := range trModule.Height() {
 		inputs := extractValues(i, trModule, 0, p.numInputs)
 		outputs := extractValues(i, trModule, p.numInputs, p.numInputs+p.numOutputs)
 		sts := p.trace(inputs, outputs)
-		states = append(states, sts...)
-	}
+		sts := states[i]
+		states := append(states, sts...)
+	}*/
+	perf.Log("Assignment compute")
 	//
 	return p.states2columns(trModule.Width(), states, trace.Builder()), nil
 }
 
 // Consistent implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Consistent(sc.AnySchema[F]) []error {
+func (p Assignment[F, T, S]) Consistent(sc.AnySchema[F, io.State]) []error {
 	return nil
 }
 
 // Lisp implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p Assignment[F, T, S]) Lisp(schema sc.AnySchema[F, io.State]) sexp.SExp {
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),
@@ -96,12 +99,12 @@ func (p Assignment[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 }
 
 // RegistersExpanded implementation for schema.Assignment interface.
-func (p Assignment[F, T]) RegistersExpanded() []register.Ref {
+func (p Assignment[F, T, S]) RegistersExpanded() []register.Ref {
 	return p.RegistersRead()
 }
 
 // RegistersRead implementation for schema.Assignment interface.
-func (p Assignment[F, T]) RegistersRead() []register.Ref {
+func (p Assignment[F, T, S]) RegistersRead() []register.Ref {
 	var regs []register.Ref
 	//
 	for i, reg := range p.registers {
@@ -112,10 +115,12 @@ func (p Assignment[F, T]) RegistersRead() []register.Ref {
 	}
 	//
 	return regs
-}
+} /*inputs := extractValues(i, trModule, 0, p.numInputs)
+outputs := extractValues(i, trModule, p.numInputs, p.numInputs+p.numOutputs)
+*/
 
 // RegistersWritten implementation for schema.Assignment interface.
-func (p Assignment[F, T]) RegistersWritten() []register.Ref {
+func (p Assignment[F, T, S]) RegistersWritten() []register.Ref {
 	var (
 		regs       []register.Ref
 		nRegisters = len(p.registers)
@@ -136,7 +141,7 @@ func (p Assignment[F, T]) RegistersWritten() []register.Ref {
 }
 
 // Substitute implementation for schema.Assignment interface.
-func (p Assignment[F, T]) Substitute(map[string]F) {
+func (p Assignment[F, T, S]) Substitute(map[string]F) {
 	// Do nothing since assembly instructions do not (at the time of writing)
 	// employ labelled constants.
 }
@@ -146,12 +151,12 @@ func (p Assignment[F, T]) Substitute(map[string]F) {
 // traces.  The expected outputs are not strictly necessary here, but are
 // included so they can be checked against the internally generated outputs to
 // ensure internal consistency.
-func (p Assignment[F, T]) trace(inputs, outputs []big.Int) []io.State {
+func (p Assignment[F, T, S]) trace(inputs, outputs []big.Int) []io.State {
 	var (
 		code   = p.code
 		states []io.State
 		// Construct local state
-		state = io.InitialState(inputs, p.registers, p.buses, p.iomap)
+		stateInit = io.InitialState(inputs, p.registers, p.buses, p.iomap)
 		// Program counter position
 		pc uint = 0
 	)
@@ -159,18 +164,18 @@ func (p Assignment[F, T]) trace(inputs, outputs []big.Int) []io.State {
 	for pc != io.RETURN && pc != io.FAIL {
 		insn := code[pc]
 		// execute given instruction
-		pc = insn.Execute(state)
+		pc = insn.Execute(stateInit)
 		// record internal state
-		states = append(states, finaliseState(pc == io.RETURN, state, outputs))
+		states = append(states, finaliseState(pc == io.RETURN, stateInit, outputs))
 		// update state pc
-		state.Goto(pc)
+		stateInit.Goto(pc)
 	}
 	// Done
 	return states
 }
 
 // Convert a given set of states into a corresponding set of array columns.
-func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder array.Builder[F]) []array.MutArray[F] {
+func (p Assignment[F, T, S]) states2columns(width uint, states []io.State, builder array.Builder[F]) []array.MutArray[F] {
 	var (
 		cols      = make([]array.MutArray[F], width)
 		nrows     = uint(len(states))
@@ -202,7 +207,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder 
 	return cols
 }
 
-func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], states []io.State,
+func (p Assignment[F, T, S]) assignControlRegisters(cols []array.MutArray[F], states []io.State,
 	builder array.Builder[F]) {
 	//
 	var (

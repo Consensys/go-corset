@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
 	"github.com/consensys/go-corset/pkg/cmd/view"
@@ -239,15 +240,16 @@ func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaSta
 		tr        trace.Trace[F]
 	)
 	// Apply trace propagation
+	executor := io.NewExecutor(schema.Program)
 	if bldr.Expanding() {
 		perf := util.NewPerfStats()
 		//
-		tf, tp_errors = asm.Propagate(schema, tf)
+		tf, tp_errors = asm.Propagate(schema, tf, executor)
 		//
 		perf.Log("Trace propagation")
 	}
 	// Construct expanded trace
-	tr, tb_errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
+	tr, tb_errors = bldr.Build(stack.UniqueConcreteSchema(), tf, executor.States[0])
 	// Handle errors
 	if len(tb_errors) > 0 {
 		for _, err := range tb_errors {

@@ -13,9 +13,9 @@
 package builder
 
 import (
-	"context"
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -24,14 +24,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"golang.org/x/sync/errgroup"
 )
 
 // TraceExpansion expands a given trace according to a given schema. More
 // specifically, that means computing the actual values for any assignments.
 // This is done using a straightforward sequential algorithm.
-func TraceExpansion[F field.Element[F]](parallel bool, batchsize uint, schema sc.AnySchema[F],
-	trace *tr.ArrayTrace[F]) error {
+func TraceExpansion[F field.Element[F]](parallel bool, batchsize uint, schema sc.AnySchema[F, io.State],
+	trace *tr.ArrayTrace[F], states []io.State) error {
 	//
 	var (
 		err error
@@ -42,10 +41,10 @@ func TraceExpansion[F field.Element[F]](parallel bool, batchsize uint, schema sc
 	par := "false"
 	if parallel {
 		// Run (parallel) trace expansion
-		err = ParallelTraceExpansion(batchsize, schema, trace)
+		err = ParallelTraceExpansion(batchsize, schema, trace, states)
 		par = "true"
 	} else {
-		err = SequentialTraceExpansion(schema, trace)
+		err = SequentialTraceExpansion(schema, trace, states)
 	}
 	// Log stats
 	stats.Log("Trace expansion " + par)
@@ -56,18 +55,18 @@ func TraceExpansion[F field.Element[F]](parallel bool, batchsize uint, schema sc
 // SequentialTraceExpansion expands a given trace according to a given schema.
 // More specifically, that means computing the actual values for any
 // assignments.  This is done using a straightforward sequential algorithm.
-func SequentialTraceExpansion[F field.Element[F]](schema sc.AnySchema[F], trace *trace.ArrayTrace[F]) error {
+func SequentialTraceExpansion[F field.Element[F]](schema sc.AnySchema[F, io.State], trace *trace.ArrayTrace[F], states []io.State) error {
 	var (
 		err      error
 		expander = NewExpander(schema.Width(), schema.Assignments())
 	)
-	// Compute each assignment in turn
+	// Compute each assignment in t
 	for !expander.Done() {
 		var cols []array.MutArray[F]
 		// Get next assignment
 		ith := expander.Next(1)[0]
 		// Compute ith assignment(s)
-		if cols, err = ith.Compute(trace, schema); err != nil {
+		if cols, err = ith.Compute(trace, schema, states); err != nil {
 			return err
 		}
 		// Fill all computed columns
@@ -82,7 +81,7 @@ func SequentialTraceExpansion[F field.Element[F]](schema sc.AnySchema[F], trace 
 // continuous approach.  This is for two reasons: firstly, the latter would
 // require locks that would slow down evaluation performance; secondly, the vast
 // majority of jobs are run in the very first wave.
-func ParallelTraceExpansion[F field.Element[F]](batchsize uint, schema sc.AnySchema[F], trace *tr.ArrayTrace[F]) error {
+func ParallelTraceExpansion[F field.Element[F]](batchsize uint, schema sc.AnySchema[F, io.State], trace *tr.ArrayTrace[F], states []io.State) error {
 	var (
 		batchNum = 0
 		// Construct a communication channel for errors.
@@ -97,36 +96,23 @@ func ParallelTraceExpansion[F field.Element[F]](batchsize uint, schema sc.AnySch
 			batch = expander.Next(batchsize)
 		)
 		// Dispatch next batch of assignments.
-		dispatchReadyAssignments(batch, schema, trace, ch)
+		dispatchReadyAssignments(batch, schema, trace, ch, states)
 		//
 		// perf := util.NewPerfStats()
 		batches := make([]columnBatch[F], len(batch))
 		// Collect all the results
-		g, ctx := errgroup.WithContext(context.Background())
+		perf := util.NewPerfStats()
 		for i := range len(batch) {
-			idx := i
-			g.Go(func() error {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case result := <-ch:
-					batches[idx] = result
-					return result.err
-				}
-			})
+			// perf2 := util.NewPerfStats()
+			batches[i] = <-ch
+			// perf2.Log("Waited")
+			// Read from channel
+			if batches[i].err != nil {
+				// Fail immediately
+				return batches[i].err
+			}
 		}
-		/*		for i := range len(batch) {
-				batches[i] = <-ch
-				// Read from channel
-				if batches[i].err != nil {
-					// Fail immediately
-					return batches[i].err
-				}
-			}*/
-		if err := g.Wait(); err != nil {
-			return err
-		}
-		// perf.Log("batches")
+		perf.Log("batches")
 		// Once we get here, all go rountines are complete and we are sequential
 		// again.
 		for _, r := range batches {
@@ -143,13 +129,13 @@ func ParallelTraceExpansion[F field.Element[F]](batchsize uint, schema sc.AnySch
 
 // Dispatch the given set of assignments with results being fed back into the
 // shared channel.
-func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F], schema sc.AnySchema[F],
-	trace *tr.ArrayTrace[F], ch chan columnBatch[F]) {
+func dispatchReadyAssignments[F field.Element[F]](batch []sc.Assignment[F, io.State], schema sc.AnySchema[F, io.State],
+	trace *tr.ArrayTrace[F], ch chan columnBatch[F], states []io.State) {
 	// Dispatch each assignment in the batch
 	for _, ith := range batch {
 		// Dispatch!
 		go func(targets []register.Ref) {
-			cols, err := ith.Compute(trace, schema)
+			cols, err := ith.Compute(trace, schema, states)
 			// Send outcome back
 			ch <- columnBatch[F]{targets, cols, err}
 		}(ith.RegistersWritten())

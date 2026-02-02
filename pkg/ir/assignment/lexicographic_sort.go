@@ -17,6 +17,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -82,8 +83,7 @@ func (p *LexicographicSort[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined as needed to support the
 // LexicographicSortingGadget. That includes the delta column, and the bit
 // selectors.
-func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
-) ([]array.MutArray[F], error) {
+func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
 		nbits = len(p.signs)

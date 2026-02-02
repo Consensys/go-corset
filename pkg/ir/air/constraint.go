@@ -13,6 +13,7 @@
 package air
 
 import (
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -36,9 +37,9 @@ import (
 // should never change, unless the underlying prover changes in some way to
 // offer different or more fundamental primitives.
 type ConstraintBound[F field.Element[F]] interface {
-	schema.Constraint[F]
+	schema.Constraint[F, schema.State]
 
-	constraint.Assertion[F] |
+	constraint.Assertion[F, schema.State] |
 		interleaving.Constraint[F, *ColumnAccess[F]] |
 		lookup.Constraint[F, *ColumnAccess[F]] |
 		permutation.Constraint[F] |
@@ -56,7 +57,7 @@ type Air[F field.Element[F], C ConstraintBound[F]] struct {
 
 // newAir is a helper method for the various constraint constructors, basically
 // to avoid lots of generic types.
-func newAir[F field.Element[F], C ConstraintBound[F]](constraint C) Air[F, C] {
+func newAir[F field.Element[F], C ConstraintBound[F], S io.State](constraint C) Air[F, C] {
 	return Air[F, C]{constraint}
 }
 
@@ -108,7 +109,7 @@ func (p Air[F, C]) Air() {
 // Accepts determines whether a given constraint accepts a given trace or
 // not.  If not, a failure is produced.  Otherwise, a bitset indicating
 // branch coverage is returned.
-func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F],
+func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F, schema.State],
 ) (bit.Set, schema.Failure) {
 	return p.constraint.Accepts(trace, schema)
 }
@@ -125,7 +126,7 @@ func (p Air[F, C]) Bounds(module uint) util.Bounds {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Air[F, C]) Consistent(schema schema.AnySchema[F]) []error {
+func (p Air[F, C]) Consistent(schema schema.AnySchema[F, schema.State]) []error {
 	return p.constraint.Consistent(schema)
 }
 
@@ -148,7 +149,7 @@ func (p Air[F, C]) Name() string {
 // so it can be printed.
 //
 //nolint:revive
-func (p Air[F, C]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Air[F, C]) Lisp(schema schema.AnySchema[F, schema.State]) sexp.SExp {
 	return p.constraint.Lisp(schema)
 }
 

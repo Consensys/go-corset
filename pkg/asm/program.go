@@ -30,7 +30,7 @@ import (
 // MixedProgram represents the composition of an assembly program along with
 // zero or more legacy (i.e. external) modules.
 type MixedProgram[F field.Element[F], T io.Instruction, M schema.Module[F]] struct {
-	program io.Program[T]
+	Program io.Program[T]
 	// External module declarations.
 	externs []M
 }
@@ -49,13 +49,13 @@ func (p *MixedProgram[F, T, M]) Externs() []M {
 // Component returns the ith component in this program, where a component is
 // e.g. a function or a form of memory, etc.
 func (p *MixedProgram[F, T, M]) Component(id uint) io.Component[T] {
-	return p.program.Component(id)
+	return p.Program.Component(id)
 }
 
 // Components returns all functions making up this program, where a component is
 // e.g. a function or a form of memory, etc.
 func (p *MixedProgram[F, T, Map]) Components() []io.Component[T] {
-	return p.program.Components()
+	return p.Program.Components()
 }
 
 // ============================================================================
@@ -77,7 +77,7 @@ func (p *MixedProgram[F, T, M]) Assignments() iter.Iterator[schema.Assignment[F]
 func (p *MixedProgram[F, T, M]) Consistent(fieldWidth uint) []error {
 	var errors []error
 	// Check left
-	for _, m := range p.program.Components() {
+	for _, m := range p.Program.Components() {
 		errors = append(errors, m.Validate(fieldWidth)...)
 	}
 	// Check right
@@ -111,11 +111,11 @@ func (p *MixedProgram[F, T, M]) HasModule(name module.Name) (schema.ModuleId, bo
 // Module returns a given module in this schema.
 func (p *MixedProgram[F, T, M]) Module(module uint) schema.Module[F] {
 	var (
-		n = uint(len(p.program.Components()))
+		n = uint(len(p.Program.Components()))
 	)
 	//
 	if module < n {
-		return program.NewModule[F, T](module, p.program.Component(module))
+		return program.NewModule[F, T](module, p.Program.Component(module))
 	}
 	//
 	return p.externs[module-n]
@@ -125,7 +125,7 @@ func (p *MixedProgram[F, T, M]) Module(module uint) schema.Module[F] {
 // schema.
 func (p *MixedProgram[F, T, M]) Modules() iter.Iterator[schema.Module[F]] {
 	// Map all functions into modules
-	modules := array.Map(p.program.Components(), func(mid uint, fn io.Component[T]) schema.Module[F] {
+	modules := array.Map(p.Program.Components(), func(mid uint, fn io.Component[T]) schema.Module[F] {
 		return program.NewModule[F, T](mid, fn)
 	})
 	// Construct appropriate iterators
@@ -143,7 +143,7 @@ func (p *MixedProgram[F, T, M]) Register(ref register.Ref) Register {
 
 // Width returns the number of modules in this schema.
 func (p *MixedProgram[F, T, M]) Width() uint {
-	return uint(len(p.program.Components()) + len(p.externs))
+	return uint(len(p.Program.Components()) + len(p.externs))
 }
 
 // ============================================================================
@@ -156,7 +156,7 @@ func (p *MixedProgram[F, T, M]) GobEncode() (data []byte, err error) {
 	//
 	gobEncoder := gob.NewEncoder(&buffer)
 	// Left modules
-	if err := gobEncoder.Encode(&p.program); err != nil {
+	if err := gobEncoder.Encode(&p.Program); err != nil {
 		return nil, err
 	}
 	// Right modules
@@ -172,7 +172,7 @@ func (p *MixedProgram[F, T, M]) GobDecode(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	gobDecoder := gob.NewDecoder(buffer)
 	// Left modules
-	if err := gobDecoder.Decode(&p.program); err != nil {
+	if err := gobDecoder.Decode(&p.Program); err != nil {
 		return err
 	}
 	// Right modules

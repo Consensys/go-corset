@@ -13,6 +13,7 @@
 package air
 
 import (
+	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -35,13 +36,13 @@ type (
 	// Schema captures the essence of an arithmetisation at the AIR level.
 	// Specifically, it is limited to only those constraint forms permitted at the
 	// AIR level.
-	Schema[F field.Element[F]] = schema.UniformSchema[F, Module[F]]
+	Schema[F field.Element[F]] = schema.UniformSchema[F, Module[F], io.State]
 	// Module captures the essence of a module at the AIR level.  Specifically, it
 	// is limited to only those constraint forms permitted at the AIR level.
-	Module[F field.Element[F]] = *schema.Table[F, Constraint[F]]
+	Module[F field.Element[F]] = *schema.Table[F, Constraint[F], io.State]
 	// Constraint captures the essence of a constraint at the AIR level.
 	Constraint[F field.Element[F]] interface {
-		schema.Constraint[F]
+		schema.Constraint[F, io.State]
 		// Air marks the constraints as been valid for the AIR representation.
 		Air()
 	}
@@ -68,7 +69,7 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F]]
+	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F, schema.State]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
 	InterleavingConstraint[F field.Element[F]] = Air[F, interleaving.Constraint[F, *ColumnAccess[F]]]

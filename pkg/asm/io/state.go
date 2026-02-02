@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
@@ -51,12 +52,12 @@ type State struct {
 	// appropriate bitwidths for copying data, and also for debugging.
 	registers []Register
 	// Io subsystem is necessary for enabling reads / writes from I/O buses.
-	io Map
+	io schema.Map
 }
 
 // EmptyState constructs an initially empty state at the given PC value.  One
 // can then set register values as needed via Store.
-func EmptyState(pc uint, registers []register.Register, io Map) State {
+func EmptyState(pc uint, registers []register.Register, io schema.Map) State {
 	var (
 		state      = make([]big.Int, len(registers))
 		numInputs  uint
@@ -75,7 +76,7 @@ func EmptyState(pc uint, registers []register.Register, io Map) State {
 }
 
 // NewState constructs a new state instance from the given state values.
-func NewState(state []big.Int, registers []register.Register, io Map) State {
+func NewState(state []big.Int, registers []register.Register, io schema.Map) State {
 	var (
 		numInputs  uint
 		numOutputs uint
@@ -94,7 +95,7 @@ func NewState(state []big.Int, registers []register.Register, io Map) State {
 
 // InitialState constructs a suitable initial state for executing a given
 // function with the given arguments.
-func InitialState(inputs []big.Int, registers []register.Register, buses []Bus, iomap Map) State {
+func InitialState(inputs []big.Int, registers []register.Register, buses []Bus, iomap schema.Map) State {
 	state := make([]big.Int, len(registers))
 	// Initialise input arguments
 	copy(state, inputs)

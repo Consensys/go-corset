@@ -15,6 +15,7 @@ package builder
 import (
 	"slices"
 
+	"github.com/consensys/go-corset/pkg/asm/io"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -31,7 +32,7 @@ type Expander[F any] struct {
 	// Width records the number of modules in the schema.
 	width uint
 	// Set of assignments yet to run
-	worklist []sc.Assignment[F]
+	worklist []sc.Assignment[F, io.State]
 	// Records which columns are not ready.
 	notReady bit.Set
 	// Records set of columns being vertically expanded.
@@ -39,7 +40,7 @@ type Expander[F any] struct {
 }
 
 // NewExpander constructs a new trace expander for a given set of assignments.
-func NewExpander[F any](width uint, assignments iter.Iterator[sc.Assignment[F]]) Expander[F] {
+func NewExpander[F any](width uint, assignments iter.Iterator[sc.Assignment[F, io.State]]) Expander[F] {
 	var (
 		notReady  bit.Set
 		expanding bit.Set
@@ -78,9 +79,9 @@ func (p *Expander[F]) Count() uint {
 // removed from the worklist and will not be returned again.  Specifically, they
 // are assumed to have been processed before any subsequent call is made to this
 // method.
-func (p *Expander[F]) Next(n uint) []sc.Assignment[F] {
+func (p *Expander[F]) Next(n uint) []sc.Assignment[F, io.State] {
 	var (
-		batch []sc.Assignment[F]
+		batch []sc.Assignment[F, io.State]
 		m     = len(p.worklist)
 	)
 	// Go through each assignment in turn, pulling out those which are ready.

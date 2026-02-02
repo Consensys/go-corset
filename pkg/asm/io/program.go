@@ -17,6 +17,7 @@ import (
 	"encoding/gob"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
@@ -84,7 +85,7 @@ func inferFunctionPadding[T Instruction](fn *Function[T], executor *Executor[T])
 }
 
 // Construct initial state from the given padding values.
-func initialState(registers []Register, buses []Bus, iomap Map) State {
+func initialState(registers []Register, buses []Bus, iomap schema.Map) State {
 	var (
 		state = make([]big.Int, len(registers))
 		index = 0

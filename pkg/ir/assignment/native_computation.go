@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
@@ -64,8 +65,7 @@ func (p *NativeComputation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *NativeComputation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F],
-) ([]array.MutArray[F], error) {
+func (p *NativeComputation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
 	// Identify Computation
 	fn := findNative[F](p.Function)
 	// Go!

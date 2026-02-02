@@ -161,7 +161,7 @@ func readIncludedFiles(file source.File, item assembler.AssemblyItem,
 // are lowered into "micro" modules (i.e. those using only micro instructions).
 // This does not impact any externally defined (e.g. MIR) modules in the schema.
 func LowerMixedMacroProgram(vectorize bool, program MacroHirProgram) MicroHirProgram {
-	var microProgram = lowerMacroProgram(vectorize, program.program)
+	var microProgram = lowerMacroProgram(vectorize, program.Program)
 	// Done
 	return NewMixedProgram(microProgram, program.externs...)
 }

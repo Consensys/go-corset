@@ -82,8 +82,7 @@ func (p *ComputedRegister[F]) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F],
-) ([]array.MutArray[F], error) {
+func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
 	var (
 		trModule = trace.ModuleAdapter[F, word.BigEndian](tr.Module(p.Module))
 		scModule = schema.Module(p.Module)

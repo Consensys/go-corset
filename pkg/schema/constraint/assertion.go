@@ -65,7 +65,7 @@ func (p *AssertionFailure[F]) String() string {
 // That is, they should be implied by the actual constraints.  Thus, whilst the
 // prover cannot enforce such properties, external tools (such as for formal
 // verification) can attempt to ensure they do indeed always hold.
-type Assertion[F field.Element[F]] struct {
+type Assertion[F field.Element[F], S schema.State] struct {
 	// A unique identifier for this constraint.  This is primarily
 	// useful for debugging.
 	Handle string
@@ -84,22 +84,22 @@ type Assertion[F field.Element[F]] struct {
 }
 
 // NewAssertion constructs a new property assertion!
-func NewAssertion[F field.Element[F]](handle string, ctx schema.ModuleId, domain util.Option[int],
-	property Property) Assertion[F] {
+func NewAssertion[F field.Element[F], S schema.State](handle string, ctx schema.ModuleId, domain util.Option[int],
+	property Property) Assertion[F, S] {
 	//
-	return Assertion[F]{handle, ctx, domain, property}
+	return Assertion[F, S]{handle, ctx, domain, property}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Assertion[F]) Consistent(schema schema.AnySchema[F]) []error {
+func (p Assertion[F, S]) Consistent(schema schema.AnySchema[F, S]) []error {
 	return CheckConsistent(p.Context, schema, p.Property)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Assertion[F]) Name() string {
+func (p Assertion[F, S]) Name() string {
 	return p.Handle
 }
 
@@ -108,13 +108,13 @@ func (p Assertion[F]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Assertion[F]) Contexts() []schema.ModuleId {
+func (p Assertion[F, S]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
 // Bounds is not required for a property assertion since these are not real
 // constraints.
-func (p Assertion[F]) Bounds(module uint) util.Bounds {
+func (p Assertion[F, S]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
@@ -122,7 +122,7 @@ func (p Assertion[F]) Bounds(module uint) util.Bounds {
 // of a table. If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Assertion[F]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p Assertion[F, S]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F, S]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		// Determine height of enclosing module
@@ -149,7 +149,7 @@ func (p Assertion[F]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Se
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p Assertion[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
+func (p Assertion[F, S]) Lisp(schema schema.AnySchema[F, S]) sexp.SExp {
 	var (
 		module           = schema.Module(p.Context)
 		assertion string = "assert"
@@ -175,7 +175,7 @@ func (p Assertion[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Assertion[F]) Substitute(mapping map[string]F) {
+func (p Assertion[F, S]) Substitute(mapping map[string]F) {
 	// Sanity check we have what we expect
 	if m, ok := any(mapping).(map[string]word.BigEndian); ok {
 		p.Property.Substitute(m)
@@ -185,7 +185,7 @@ func (p Assertion[F]) Substitute(mapping map[string]F) {
 	panic("cannot substitute arbitrary field elements")
 }
 
-func (p Assertion[F]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F],
+func (p Assertion[F, S]) acceptRange(start, end uint, tr trace.Trace[F], sc schema.AnySchema[F, S],
 ) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
