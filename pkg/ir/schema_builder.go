@@ -15,7 +15,6 @@ package ir
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -26,10 +25,10 @@ import (
 // BuildableModule embodies the notion of a module which can be initialised from
 // the various required components.  This provides a useful way for constructing
 // modules once all the various pieces of information have been finalised.
-type BuildableModule[F any, C schema.Constraint[F, io.State], M any] interface {
+type BuildableModule[F any, C schema.Constraint[F, schema.State], M any] interface {
 	Init(name module.Name, padding, public, synthetic bool) M
 	// Add one or more assignments to this buildable module
-	AddAssignments(assignments ...schema.Assignment[F, io.State])
+	AddAssignments(assignments ...schema.Assignment[F, schema.State])
 	// Add one or more constraints to this buildable module
 	AddConstraints(constraints ...C)
 	// Add one or more registers to this buildable module.
@@ -37,7 +36,7 @@ type BuildableModule[F any, C schema.Constraint[F, io.State], M any] interface {
 }
 
 // BuildSchema builds all modules defined within a give SchemaBuilder instance.
-func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constraint[F, io.State], T term.Expr[F, T]](
+func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T]](
 	p SchemaBuilder[F, C, T]) []M {
 	//
 	var modules = make([]M, len(p.modules))
@@ -50,7 +49,7 @@ func BuildSchema[M BuildableModule[F, C, M], F field.Element[F], C schema.Constr
 }
 
 // BuildModule builds a module from a given ModuleBuilder instance.
-func BuildModule[F field.Element[F], C schema.Constraint[F, io.State], T term.Expr[F, T], M BuildableModule[F, C, M]](
+func BuildModule[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T], M BuildableModule[F, C, M]](
 	m ModuleBuilder[F, C, T]) M {
 	//
 	var module M
@@ -66,7 +65,7 @@ func BuildModule[F field.Element[F], C schema.Constraint[F, io.State], T term.Ex
 // SchemaBuilder is a mechanism for constructing mixed schemas which attempts to
 // simplify the problem of mapping source-level names to e.g. module-specific
 // register indexes.
-type SchemaBuilder[F field.Element[F], C schema.Constraint[F, io.State], T term.Expr[F, T]] struct {
+type SchemaBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T]] struct {
 	// Modmap maps modules identifers to modules
 	modmap map[module.Name]uint
 	// Externs represent modules which have already been constructed.  These
@@ -79,7 +78,7 @@ type SchemaBuilder[F field.Element[F], C schema.Constraint[F, io.State], T term.
 
 // NewSchemaBuilder constructs a new schema builder with a given number of
 // externally defined modules.  Such modules are allocated module indices first.
-func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F, io.State], T term.Expr[F, T], E register.ConstMap](externs ...E,
+func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F, schema.State], T term.Expr[F, T], E register.ConstMap](externs ...E,
 ) SchemaBuilder[F, C, T] {
 	var (
 		modmap   = make(map[module.Name]uint, 0)

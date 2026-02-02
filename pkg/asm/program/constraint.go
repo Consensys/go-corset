@@ -64,7 +64,8 @@ type Constraint[F field.Element[F], T io.Instruction] struct {
 }
 
 // Accepts implementation for schema.Constraint interface.
-func (p Constraint[F, T]) Accepts(trace tr.Trace[F], _ sc.AnySchema[F, io.State],
+// TODO ?
+func (p Constraint[F, T]) Accepts(trace tr.Trace[F], _ sc.AnySchema[F, schema.State],
 ) (bit.Set, sc.Failure) {
 	// Extract relevant part of the trace
 	var (

@@ -26,7 +26,7 @@ import (
 // RequiredPaddingRows determines the number of additional (spillage / padding)
 // rows that will be added during trace expansion.  The exact value depends on
 // whether defensive padding is enabled or not.
-func RequiredPaddingRows[F any, S State](module uint, defensive bool, schema AnySchema[F, S]) uint {
+func RequiredPaddingRows[F any](module uint, defensive bool, schema AnySchema[F]) uint {
 	var (
 		multiplier = schema.Module(module).Name().Multiplier
 		padding    = requiredSpillage(module, schema)
@@ -46,7 +46,7 @@ func RequiredPaddingRows[F any, S State](module uint, defensive bool, schema Any
 // module to ensure valid traces are accepted in the presence of arbitrary
 // padding.  Spillage can only arise from computations as this is where values
 // outside of the user's control are determined.
-func requiredSpillage[F any, S State](module uint, schema AnySchema[F, S]) uint {
+func requiredSpillage[F any](module uint, schema AnySchema[F]) uint {
 	var mod = schema.Module(module)
 	// Sanity check whether padding is allowed for this module.
 	if !mod.AllowPadding() {
@@ -74,7 +74,7 @@ func requiredSpillage[F any, S State](module uint, schema AnySchema[F, S]) uint 
 // ensure no constraint operating in the active region is clipped.  Observe that
 // only front padding is considered because, for now, we assume the prover will
 // only pad at the front.
-func defensivePadding[F any, S State](module uint, schema AnySchema[F, S]) uint {
+func defensivePadding[F any](module uint, schema AnySchema[F]) uint {
 	var (
 		mod   = schema.Module(module)
 		front = uint(0)
@@ -98,15 +98,15 @@ func defensivePadding[F any, S State](module uint, schema AnySchema[F, S]) uint 
 // constraint which does not hold.
 //
 //nolint:revive
-func Accepts[F field.Element[F], C Constraint[F, S], S State](parallel bool, batchsize uint, schema Schema[F, C, S],
+func Accepts[F field.Element[F], C Constraint[F]](parallel bool, batchsize uint, schema Schema[F, C],
 	trace tr.Trace[F]) []Failure {
 	//
 	return accepts(parallel, batchsize, schema.Constraints(), trace, schema, "Constraint")
 }
 
 //nolint:revive
-func accepts[F field.Element[F], C Constraint[F, S], S State](parallel bool, batchsize uint, iter iter.Iterator[C],
-	trace tr.Trace[F], schema Schema[F, C, S], kind string) []Failure {
+func accepts[F field.Element[F], C Constraint[F]](parallel bool, batchsize uint, iter iter.Iterator[C],
+	trace tr.Trace[F], schema Schema[F, C], kind string) []Failure {
 	//
 	if parallel {
 		return parallelAccepts(batchsize, iter, trace, schema, kind)
@@ -115,8 +115,8 @@ func accepts[F field.Element[F], C Constraint[F, S], S State](parallel bool, bat
 	return sequentialAccepts(iter, trace, schema)
 }
 
-func sequentialAccepts[F field.Element[F], C Constraint[F, S], S State](iter iter.Iterator[C], trace tr.Trace[F],
-	schema Schema[F, C, S]) []Failure {
+func sequentialAccepts[F field.Element[F], C Constraint[F]](iter iter.Iterator[C], trace tr.Trace[F],
+	schema Schema[F, C]) []Failure {
 	//
 	errors := make([]Failure, 0)
 	//
@@ -132,8 +132,8 @@ func sequentialAccepts[F field.Element[F], C Constraint[F, S], S State](iter ite
 	return errors
 }
 
-func parallelAccepts[F field.Element[F], C Constraint[F, S], S State](batchsize uint, iter iter.Iterator[C], trace tr.Trace[F],
-	schema Schema[F, C, S], kind string) []Failure {
+func parallelAccepts[F field.Element[F], C Constraint[F]](batchsize uint, iter iter.Iterator[C], trace tr.Trace[F],
+	schema Schema[F, C], kind string) []Failure {
 	//
 	errors := make([]Failure, 0)
 	// Initialise batch number (for debugging purposes)
@@ -150,8 +150,8 @@ func parallelAccepts[F field.Element[F], C Constraint[F, S], S State](batchsize 
 }
 
 // Process a given set of constraints in a single batch whilst recording all constraint failures.
-func processConstraintBatch[F field.Element[F], C Constraint[F, S], S State](logtitle string, batch uint, batchsize uint,
-	iter iter.Iterator[C], trace tr.Trace[F], schema Schema[F, C, S]) []Failure {
+func processConstraintBatch[F field.Element[F], C Constraint[F]](logtitle string, batch uint, batchsize uint,
+	iter iter.Iterator[C], trace tr.Trace[F], schema Schema[F, C]) []Failure {
 	//
 	n := uint(0)
 	c := make(chan batchOutcome, batchsize)

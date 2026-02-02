@@ -42,7 +42,7 @@ type ModuleView interface {
 
 // Module represents a "table" within a schema which contains zero or more rows
 // for a given set of registers.
-type Module[F any, S State] interface {
+type Module[F any] interface {
 	ModuleView
 	// AllowPadding determines whether the given module allows an initial
 	// padding row, or not.
@@ -50,14 +50,14 @@ type Module[F any, S State] interface {
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
-	Assignments() iter.Iterator[Assignment[F, S]]
+	Assignments() iter.Iterator[Assignment[F]]
 	// Constraints provides access to those constraints associated with this
 	// module.
-	Constraints() iter.Iterator[Constraint[F, S]]
+	Constraints() iter.Iterator[Constraint[F]]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
-	Consistent(fieldWidth uint, schema AnySchema[F, S]) []error
+	Consistent(fieldWidth uint, schema AnySchema[F]) []error
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
 }
@@ -73,45 +73,45 @@ type Module[F any, S State] interface {
 // and Y (in that order) where both are to be halfed.  Then, the result is X'0,
 // X'1, Y'0. Y'1 (in that order).  Hence, predicting the new register indices is
 // relatively straightforward.
-type Table[F field.Element[F], C Constraint[F, S], S State] struct {
+type Table[F field.Element[F], C Constraint[F]] struct {
 	name        module.Name
 	padding     bool
 	public      bool
 	synthetic   bool
 	registers   []register.Register
 	constraints []C
-	assignments []Assignment[F, S]
+	assignments []Assignment[F]
 }
 
 // NewTable constructs a table module with the given registers and constraints.
-func NewTable[F field.Element[F], C Constraint[F, S], S State](name module.Name,
-	padding, public, synthetic bool) *Table[F, C, S] {
+func NewTable[F field.Element[F], C Constraint[F]](name module.Name,
+	padding, public, synthetic bool) *Table[F, C] {
 	//
-	return &Table[F, C, S]{name, padding, public, synthetic, nil, nil, nil}
+	return &Table[F, C]{name, padding, public, synthetic, nil, nil, nil}
 }
 
 // Init implementation for ir.InitModule interface.
-func (p *Table[F, C, S]) Init(name module.Name, padding, public, synthetic bool) *Table[F, C, S] {
-	return &Table[F, C, S]{name, padding, public, synthetic, nil, nil, nil}
+func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic bool) *Table[F, C] {
+	return &Table[F, C]{name, padding, public, synthetic, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
 // table.
-func (p *Table[F, C, S]) Assignments() iter.Iterator[Assignment[F, S]] {
+func (p *Table[F, C]) Assignments() iter.Iterator[Assignment[F]] {
 	return iter.NewArrayIterator(p.assignments)
 }
 
 // Constraints provides access to those constraints associated with this
 // module.
-func (p *Table[F, C, S]) Constraints() iter.Iterator[Constraint[F, S]] {
+func (p *Table[F, C]) Constraints() iter.Iterator[Constraint[F]] {
 	arrIter := iter.NewArrayIterator(p.constraints)
-	return iter.NewCastIterator[C, Constraint[F, S]](arrIter)
+	return iter.NewCastIterator[C, Constraint[F]](arrIter)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p *Table[F, C, S]) Consistent(fieldWidth uint, schema AnySchema[F, S]) []error {
+func (p *Table[F, C]) Consistent(fieldWidth uint, schema AnySchema[F]) []error {
 	var errors []error
 	// Check constraints
 	for _, c := range p.constraints {
@@ -127,7 +127,7 @@ func (p *Table[F, C, S]) Consistent(fieldWidth uint, schema AnySchema[F, S]) []e
 
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
-func (p *Table[F, C, S]) HasRegister(name string) (register.Id, bool) {
+func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 	for i := range p.Width() {
 		if p.registers[i].Name() == name {
 			return register.NewId(i), true
@@ -138,53 +138,53 @@ func (p *Table[F, C, S]) HasRegister(name string) (register.Id, bool) {
 }
 
 // Name returns the module name.
-func (p *Table[F, C, S]) Name() module.Name {
+func (p *Table[F, C]) Name() module.Name {
 	return p.name
 }
 
 // AllowPadding determines whether the given module supports padding at the
 // beginning of the module.  This is necessary because legacy modules expect an
 // initial padding row, and allow defensive padding as well.
-func (p *Table[F, C, S]) AllowPadding() bool {
+func (p *Table[F, C]) AllowPadding() bool {
 	return p.padding
 }
 
 // IsPublic identifies whether or not this module is externally visible.
-func (p *Table[F, C, S]) IsPublic() bool {
+func (p *Table[F, C]) IsPublic() bool {
 	return p.public
 }
 
 // IsSynthetic modules are generated during compilation, rather than being
 // provided by the user.
-func (p *Table[F, C, S]) IsSynthetic() bool {
+func (p *Table[F, C]) IsSynthetic() bool {
 	return p.synthetic
 }
 
 // RawAssignments provides raw access to those assignments defined as part of this
 // table.
-func (p *Table[F, C, S]) RawAssignments() []Assignment[F, S] {
+func (p *Table[F, C]) RawAssignments() []Assignment[F] {
 	return p.assignments
 }
 
 // RawConstraints provides raw access to those constraints associated with this
 // module.
-func (p *Table[F, C, S]) RawConstraints() []C {
+func (p *Table[F, C]) RawConstraints() []C {
 	return p.constraints
 }
 
 // Register returns the given register in this table.
-func (p *Table[F, C, S]) Register(id register.Id) register.Register {
+func (p *Table[F, C]) Register(id register.Id) register.Register {
 	return p.registers[id.Unwrap()]
 }
 
 // Registers returns an iterator over the underlying registers of this schema.
 // Specifically, the index of a register in this array is its register index.
-func (p *Table[F, C, S]) Registers() []register.Register {
+func (p *Table[F, C]) Registers() []register.Register {
 	return p.registers
 }
 
 // Substitute any matchined labelled constants within this module
-func (p *Table[F, C, S]) Substitute(mapping map[string]F) {
+func (p *Table[F, C]) Substitute(mapping map[string]F) {
 	for _, c := range p.assignments {
 		c.Substitute(mapping)
 	}
@@ -195,16 +195,16 @@ func (p *Table[F, C, S]) Substitute(mapping map[string]F) {
 }
 
 // Width returns the number of registers in this Table.
-func (p *Table[F, C, S]) Width() uint {
+func (p *Table[F, C]) Width() uint {
 	return uint(len(p.registers))
 }
 
-func (p *Table[F, C, S]) String() string {
+func (p *Table[F, C]) String() string {
 	return register.MapToString(p)
 }
 
 // ConstRegister implementation for register.ConstMap interface
-func (p *Table[F, C, S]) ConstRegister(constant uint8) register.Id {
+func (p *Table[F, C]) ConstRegister(constant uint8) register.Id {
 	var (
 		name  = fmt.Sprintf("%d", constant)
 		nregs = uint(len(p.registers))
@@ -224,17 +224,17 @@ func (p *Table[F, C, S]) ConstRegister(constant uint8) register.Id {
 // ============================================================================
 
 // AddAssignments adds a new assignments to this table.
-func (p *Table[F, C, S]) AddAssignments(assignments ...Assignment[F, S]) {
+func (p *Table[F, C]) AddAssignments(assignments ...Assignment[F]) {
 	p.assignments = append(p.assignments, assignments...)
 }
 
 // AddConstraints adds new constraints to this table.
-func (p *Table[F, C, S]) AddConstraints(constraints ...C) {
+func (p *Table[F, C]) AddConstraints(constraints ...C) {
 	p.constraints = append(p.constraints, constraints...)
 }
 
 // AddRegisters adds new registers to this table.
-func (p *Table[F, C, S]) AddRegisters(registers ...register.Register) {
+func (p *Table[F, C]) AddRegisters(registers ...register.Register) {
 	// Add registers
 	p.registers = append(p.registers, registers...)
 }
@@ -244,7 +244,7 @@ func (p *Table[F, C, S]) AddRegisters(registers ...register.Register) {
 // ============================================================================
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p *Table[F, M, S]) GobEncode() (data []byte, err error) {
+func (p *Table[F, M]) GobEncode() (data []byte, err error) {
 	var buffer bytes.Buffer
 	//
 	gobEncoder := gob.NewEncoder(&buffer)
@@ -277,7 +277,7 @@ func (p *Table[F, M, S]) GobEncode() (data []byte, err error) {
 }
 
 // GobDecode a previously encoded option
-func (p *Table[F, M, S]) GobDecode(data []byte) error {
+func (p *Table[F, M]) GobDecode(data []byte) error {
 	buffer := bytes.NewBuffer(data)
 	gobDecoder := gob.NewDecoder(buffer)
 	// Name

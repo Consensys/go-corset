@@ -65,7 +65,7 @@ func (p *NativeComputation[F]) Bounds(_ sc.ModuleId) util.Bounds {
 // Compute computes the values of columns defined by this assignment. This
 // requires copying the data in the source columns, and sorting that data
 // according to the permutation criteria.
-func (p *NativeComputation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
+func (p *NativeComputation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F, schema.State], sts []schema.State) ([]array.MutArray[F], error) {
 	// Identify Computation
 	fn := findNative[F](p.Function)
 	// Go!
@@ -75,7 +75,7 @@ func (p *NativeComputation[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]
 // Consistent performs some simple checks that the given schema is consistent.
 // This provides a double check of certain key properties, such as that
 // registers used for assignments are large enough, etc.
-func (p *NativeComputation[F]) Consistent(_ sc.AnySchema[F]) []error {
+func (p *NativeComputation[F]) Consistent(_ sc.AnySchema[F, schema.State]) []error {
 	// NOTE: this is where we could (in principle) check the type of the
 	// function being defined to ensure it is, for example, typed correctly.
 	return nil
@@ -108,7 +108,7 @@ func (p *NativeComputation[F]) Substitute(map[string]F) {
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p *NativeComputation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *NativeComputation[F]) Lisp(schema sc.AnySchema[F, schema.State]) sexp.SExp {
 	var (
 		targets = sexp.EmptyList()
 		sources = sexp.EmptyList()

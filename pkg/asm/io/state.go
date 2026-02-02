@@ -121,7 +121,7 @@ func InitialState(inputs []big.Int, registers []register.Register, buses []Bus, 
 }
 
 // Clone this state, producing a disjoint state.
-func (p *State) Clone() State {
+func (p State) Clone() State {
 	return State{
 		p.pc,
 		p.terminal,
@@ -134,23 +134,23 @@ func (p *State) Clone() State {
 }
 
 // IsTerminal checks whether this is a terminating state, or not.
-func (p *State) IsTerminal() bool {
+func (p State) IsTerminal() bool {
 	return p.terminal
 }
 
 // Terminate marks this state as being terminal.
-func (p *State) Terminate() {
+func (p State) Terminate() {
 	p.terminal = true
 }
 
 // Goto updates the program counter for this state to a given value.
-func (p *State) Goto(pc uint) {
+func (p State) Goto(pc uint) {
 	p.pc = pc
 }
 
 // In performs an I/O read across a given bus.  More specifically, it reads the
 // value at a given address on the bus.
-func (p *State) In(bus Bus) {
+func (p State) In(bus Bus) {
 	var address = p.LoadN(bus.Address())
 	// Read value from I/O bus
 	values := p.io.Read(bus.BusId, address)
@@ -159,7 +159,7 @@ func (p *State) In(bus Bus) {
 }
 
 // Outputs extracts values from output registers of the given state.
-func (p *State) Outputs() []big.Int {
+func (p State) Outputs() []big.Int {
 	// Construct outputs
 	outputs := make([]big.Int, p.numOutputs)
 	//
@@ -172,17 +172,17 @@ func (p *State) Outputs() []big.Int {
 
 // Internal provides access to the internal state.  Obviously care should be
 // taken with this.
-func (p *State) Internal() []big.Int {
+func (p State) Internal() []big.Int {
 	return p.state
 }
 
 // Load value of a given register from this state.
-func (p *State) Load(reg RegisterId) *big.Int {
+func (p State) Load(reg RegisterId) *big.Int {
 	return &p.state[reg.Unwrap()]
 }
 
 // LoadN reads the values of zero or more registers from this state.
-func (p *State) LoadN(registers []RegisterId) []big.Int {
+func (p State) LoadN(registers []RegisterId) []big.Int {
 	values := make([]big.Int, len(registers))
 	//
 	for i, src := range registers {
@@ -194,7 +194,7 @@ func (p *State) LoadN(registers []RegisterId) []big.Int {
 
 // Out performs an I/O write across a given bus.  More specifically, it sets the
 // value at a given address on the bus.
-func (p *State) Out(bus Bus) {
+func (p State) Out(bus Bus) {
 	var (
 		address = p.LoadN(bus.Address())
 		data    = p.LoadN(bus.Data())
@@ -204,17 +204,17 @@ func (p *State) Out(bus Bus) {
 }
 
 // Pc returns the current program counter position.
-func (p *State) Pc() uint {
+func (p State) Pc() uint {
 	return p.pc
 }
 
 // Registers returns the set of registers used within this state.
-func (p *State) Registers() []register.Register {
+func (p State) Registers() []register.Register {
 	return p.registers
 }
 
 // Store value to a given register from this state.
-func (p *State) Store(reg RegisterId, value big.Int) {
+func (p State) Store(reg RegisterId, value big.Int) {
 	index := reg.Unwrap()
 	//
 	if value.BitLen() > int(p.registers[index].Width()) {
@@ -228,7 +228,7 @@ func (p *State) Store(reg RegisterId, value big.Int) {
 // necessary.  The target registers are given with the least significant first.
 // For example, consider writing 01100010 to registers [R1, R2] of type u4.
 // Then, after the write, we have R1=0010 and R2=0110.
-func (p *State) StoreAcross(value big.Int, registers ...RegisterId) {
+func (p State) StoreAcross(value big.Int, registers ...RegisterId) {
 	var (
 		offset uint    = 0
 		val    big.Int = value
@@ -254,14 +254,14 @@ func (p *State) StoreAcross(value big.Int, registers ...RegisterId) {
 
 // StoreN writes a set of zero or more values to a corresponding set of
 // registers in this state.
-func (p *State) StoreN(registers []RegisterId, values []big.Int) {
+func (p State) StoreN(registers []RegisterId, values []big.Int) {
 	for i, dst := range registers {
 		p.Store(dst, values[i])
 	}
 }
 
 // String produces a string representation of the given execution state.
-func (p *State) String() string {
+func (p State) String() string {
 	var builder strings.Builder
 	//
 	if p.Terminated() {
@@ -287,7 +287,7 @@ func (p *State) String() string {
 
 // Terminated determines whether this state represents a terminated function
 // execution.
-func (p *State) Terminated() bool {
+func (p State) Terminated() bool {
 	return p.pc == RETURN
 }
 

@@ -82,7 +82,7 @@ func (p *ComputedRegister[F]) Bounds(mid sc.ModuleId) util.Bounds {
 // Compute the values of columns defined by this assignment. Specifically, this
 // creates a new column which contains the result of evaluating a given
 // expression on each row.
-func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F], sts []schema.State) ([]array.MutArray[F], error) {
+func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema[F, schema.State], sts []schema.State) ([]array.MutArray[F], error) {
 	var (
 		trModule = trace.ModuleAdapter[F, word.BigEndian](tr.Module(p.Module))
 		scModule = schema.Module(p.Module)
@@ -152,7 +152,7 @@ func concretizeColumn[F field.Element[F]](data []word.BigEndian, tr trace.Trace[
 // consistent with its enclosing schema This provides a double check of certain
 // key properties, such as that registers used for assignments are valid,
 // etc.
-func (p *ComputedRegister[F]) Consistent(schema sc.AnySchema[F]) []error {
+func (p *ComputedRegister[F]) Consistent(schema sc.AnySchema[F, schema.State]) []error {
 	return nil
 }
 
@@ -230,7 +230,7 @@ func (p *ComputedRegister[F]) Substitute(mapping map[string]F) {
 // Lisp converts this constraint into an S-Expression.
 //
 //nolint:revive
-func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
+func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F, schema.State]) sexp.SExp {
 	var (
 		module  = schema.Module(p.Module)
 		targets = make([]sexp.SExp, len(p.Targets))

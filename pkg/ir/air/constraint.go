@@ -13,7 +13,6 @@
 package air
 
 import (
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -39,7 +38,7 @@ import (
 type ConstraintBound[F field.Element[F]] interface {
 	schema.Constraint[F, schema.State]
 
-	constraint.Assertion[F, schema.State] |
+	constraint.Assertion[F] |
 		interleaving.Constraint[F, *ColumnAccess[F]] |
 		lookup.Constraint[F, *ColumnAccess[F]] |
 		permutation.Constraint[F] |
@@ -57,7 +56,7 @@ type Air[F field.Element[F], C ConstraintBound[F]] struct {
 
 // newAir is a helper method for the various constraint constructors, basically
 // to avoid lots of generic types.
-func newAir[F field.Element[F], C ConstraintBound[F], S io.State](constraint C) Air[F, C] {
+func newAir[F field.Element[F], C ConstraintBound[F]](constraint C) Air[F, C] {
 	return Air[F, C]{constraint}
 }
 

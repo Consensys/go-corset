@@ -22,15 +22,15 @@ type State interface {
 	IsTerminal() bool
 	Terminate()
 	Goto(pc uint)
-	In(bus Bus)
+	// In(bus Bus)
 	Outputs() []big.Int
 	Internal() []big.Int
 	Load(reg register.Id) *big.Int
 	LoadN(registers []register.Id) []big.Int
-	Out(bus Bus)
+	// Out(bus Bus)
 	Terminated() bool
 	Pc() uint
-	Registers()
+	Registers() []register.Register
 	Store(reg register.Id, value big.Int)
 	StoreAcross(value big.Int, registers ...register.Id)
 	StoreN(registers []register.Id, values []big.Int)

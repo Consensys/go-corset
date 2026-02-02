@@ -41,7 +41,7 @@ type Bus struct {
 }
 
 // IsUnlinked checks whether a given bus has been linked already or not.
-func (p *Bus) IsUnlinked() bool {
+func (p Bus) IsUnlinked() bool {
 	return p.BusId == UNKNOWN_BUS
 }
 
@@ -59,19 +59,19 @@ func NewBus(name module.Name, id uint, address []RegisterId, data []RegisterId) 
 
 // Address returns the "address lines" for this bus.  That is, the registers
 // which hold the various components of the address.
-func (p *Bus) Address() []RegisterId {
+func (p Bus) Address() []RegisterId {
 	return p.AddressLines
 }
 
 // Data returns the "data lines" for this bus.  That is, the registers which
 // hold the various data values (either being read or written).
-func (p *Bus) Data() []RegisterId {
+func (p Bus) Data() []RegisterId {
 	return p.DataLines
 }
 
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
-func (p *Bus) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) Bus {
+func (p Bus) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) Bus {
 	// Split bus
 	address := register.ApplyLimbsMap(mapping, p.AddressLines...)
 	data := register.ApplyLimbsMap(mapping, p.DataLines...)
@@ -79,7 +79,7 @@ func (p *Bus) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) Bus
 	return NewBus(p.Name, p.BusId, address, data)
 }
 
-func (p *Bus) String() string {
+func (p Bus) String() string {
 	var builder strings.Builder
 	//
 	builder.WriteString(fmt.Sprintf("%s(%d)", p.Name, p.BusId))

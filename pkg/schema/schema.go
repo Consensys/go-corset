@@ -19,13 +19,13 @@ import (
 )
 
 // Any converts a concrete schema into a generic view of the schema.
-func Any[F any, C Constraint[F, S], S State](schema Schema[F, C, S]) AnySchema[F, S] {
-	return schema.(Schema[F, Constraint[F, S], S])
+func Any[F any, C Constraint[F]](schema Schema[F, C]) AnySchema[F] {
+	return schema.(Schema[F, Constraint[F]])
 }
 
 // AnySchema captures a generic view of a schema, which is useful in situations
 // where exactly details about the schema are not important.
-type AnySchema[F any, S State] Schema[F, Constraint[F, S], S]
+type AnySchema[F any] Schema[F, Constraint[F]]
 
 // ============================================================================
 
@@ -36,11 +36,11 @@ type AnySchema[F any, S State] Schema[F, Constraint[F, S], S]
 // in the final trace, whilst constraints are properties which should hold for
 // any acceptable trace.  Finally, assignments represent arbitrary computations
 // which "assign" values to registers during "trace expansion".
-type Schema[F any, C any, S State] interface {
+type Schema[F any, C any] interface {
 	// Assignments returns an iterator over the assignments of this schema.
 	// That is, the set of computations used to determine values for all
 	// computed columns.
-	Assignments() iter.Iterator[Assignment[F, S]]
+	Assignments() iter.Iterator[Assignment[F]]
 	// Consistent applies a number of internal consistency checks.  Whilst not
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
@@ -55,10 +55,10 @@ type Schema[F any, C any, S State] interface {
 	// returns its module identifier.  Otherwise, it returns false.
 	HasModule(name module.Name) (ModuleId, bool)
 	// Access a given module in this schema.
-	Module(module uint) Module[F, S]
+	Module(module uint) Module[F]
 	// Modules returns an iterator over the declared set of modules within this
 	// schema.
-	Modules() iter.Iterator[Module[F, S]]
+	Modules() iter.Iterator[Module[F]]
 	// Access a given register in this schema.
 	Register(register.Ref) register.Register
 	// Returns the number of modules in this schema.
