@@ -248,12 +248,12 @@ type externalModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Ex
 
 // AddAssignment implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) AddAssignment(assignment schema.Assignment[F]) {
-	panic("cannot add assignment to external module")
+	panic(fmt.Sprintf("cannot add assignment to external module (%s)", p.module.Name()))
 }
 
 // AddConstraint implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) AddConstraint(constraint C) {
-	panic("cannot add constraint to external module")
+	panic(fmt.Sprintf("cannot add constraint (%s) to external module (%s)", constraint.Name(), p.module.Name()))
 }
 
 // Assignments implementation for ModuleBuilder interface.
@@ -313,7 +313,7 @@ func (p *externalModuleBuilder[F, C, T]) Name() module.Name {
 
 // NewRegister implementation for ModuleBuilder interface.
 func (p *externalModuleBuilder[F, C, T]) NewRegister(reg register.Register) register.Id {
-	panic("cannot add register to external module")
+	panic(fmt.Sprintf("cannot add register (%s) to external module (%s)", reg.Name(), p.module.Name()))
 }
 
 // NewRegisters implementation for ModuleBuilder interface.
