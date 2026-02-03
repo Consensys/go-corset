@@ -119,6 +119,22 @@ func (p Instruction) JumpTargets() []uint {
 	return targets
 }
 
+// LastJump returns the index of the right-most jmp instruction (or false if
+// none exists). This is relatively easy to determine simply by looking for jmp
+// codes.
+func (p Instruction) LastJump() (uint, bool) {
+	//
+	for i := uint(len(p.Codes)); i > 0; {
+		i = i - 1
+		//
+		if _, ok := p.Codes[i].(*Jmp); ok {
+			return i, true
+		}
+	}
+	//
+	return 0, false
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p Instruction) Registers() []io.RegisterId {
 	return append(p.RegistersRead(), p.RegistersWritten()...)
@@ -232,6 +248,8 @@ func validateWrites(cc uint, writes bit.Set, codes []Code, fn register.Map) erro
 	case *Fail, *Ret, *Jmp:
 		return nil
 	case *Skip:
+		return validateWrites(cc+code.Skip+1, writes, codes, fn)
+	case *SkipIf:
 		if err := validateWrites(cc+code.Skip+1, writes.Clone(), codes, fn); err != nil {
 			return err
 		}
@@ -259,18 +277,25 @@ func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []ui
 	)
 	// First, check whether this is a skip instruction (or not) since only skip
 	// instructions need to be retargeted.
-	skip, ok := code.(*Skip)
-	//
-	if !ok {
+	switch c := code.(type) {
+	case *Skip:
+		// Determine true skip target
+		target := oldIndex + 1 + (c.Skip - leftInPacket)
+		// Determine new location of skip target
+		nTarget := mapping[target]
+		//
+		return &Skip{Skip: nTarget - newIndex - 1}
+	case *SkipIf:
+		// Determine true skip target
+		target := oldIndex + 1 + (c.Skip - leftInPacket)
+		// Determine new location of skip target
+		nTarget := mapping[target]
+		//
+		return &SkipIf{Left: c.Left,
+			Right: c.Right,
+			Skip:  nTarget - newIndex - 1,
+		}
+	default:
 		return code
-	}
-	// Determine true skip target
-	target := oldIndex + 1 + (skip.Skip - leftInPacket)
-	// Determine new location of skip target
-	nTarget := mapping[target]
-	//
-	return &Skip{Left: skip.Left,
-		Right: skip.Right,
-		Skip:  nTarget - newIndex - 1,
 	}
 }
