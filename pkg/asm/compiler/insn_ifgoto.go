@@ -94,18 +94,23 @@ func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code)
 		pc := worklist.pop()
 		branch := branches[pc]
 		// Check whether we have a skip, or not
-		if code, ok := codes[pc].(*micro.Skip); ok {
+		if code, ok := codes[pc].(*micro.SkipIf); ok {
 			// Determine branch targets
 			nextTarget := pc + 1
 			skipTarget := pc + code.Skip + 1
 			//
-			nextBranch := extend(branch, true, code)
-			skipBranch := extend(branch, false, code)
+			nextBranch := extendSkipIf(branch, true, code)
+			skipBranch := extendSkipIf(branch, false, code)
 			//
 			branches[nextTarget] = branches[nextTarget].Or(nextBranch)
 			branches[skipTarget] = branches[skipTarget].Or(skipBranch)
 			//
 			worklist.push(nextTarget)
+			worklist.push(skipTarget)
+		} else if code, ok := codes[pc].(*micro.Skip); ok {
+			skipTarget := pc + code.Skip + 1
+			branches[skipTarget] = branches[skipTarget].Or(branch)
+			//
 			worklist.push(skipTarget)
 		} else {
 			// end of the road
@@ -116,7 +121,7 @@ func (p *StateTranslator[F, T, E, M]) traverseSkips(cc uint, codes []micro.Code)
 	return table
 }
 
-func extend(tail BranchCondition, sign bool, code *micro.Skip) BranchCondition {
+func extendSkipIf(tail BranchCondition, sign bool, code *micro.SkipIf) BranchCondition {
 	var (
 		head      BranchEquality
 		rightUsed = code.Right.HasFirst()

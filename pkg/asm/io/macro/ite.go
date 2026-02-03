@@ -89,7 +89,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
+			&micro.SkipIf{Left: lhs, Right: rhs, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: thenBranch},
 			&micro.Jmp{Target: pc + 1},
@@ -99,7 +99,7 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 2},
+			&micro.SkipIf{Left: lhs, Right: rhs, Skip: 2},
 			// Then branch
 			&micro.Assign{Targets: p.Targets, Source: elseBranch},
 			&micro.Jmp{Target: pc + 1},
