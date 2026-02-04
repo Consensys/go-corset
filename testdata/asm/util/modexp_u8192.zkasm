@@ -4,7 +4,7 @@ include "../bench/mod.zkasm"
 include "../bench/ext.zkasm"
 include "modulus.zkasm"
 
-pub fn modexp_u8192(base u8192, exponent u8192, modulus=1 u9194) -> (result u8192){
+pub fn modexp_u8192(base u8192, exponent u8192, modulus=1 u8192) -> (result u8192){
 
 ;; some trivial output
 if modulus == 0 goto exit_0
@@ -24,7 +24,9 @@ var b_next, res_sq u8192
 b_next = mul_mod_8192(base, base, modulus)
 res_sq = modexp_u8192(b_next, e_next, modulus)
 
-result = remainder == 1 ? mul_mod_8192(res_sq, base, modulus) : res_sq
+var tmp_useless u8192
+tmp_useless = mul_mod_8192(res_sq, base, modulus)
+result = remainder == 1 ? tmp_useless : res_sq
 return
 
 exit_modulus:
