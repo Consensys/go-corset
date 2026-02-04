@@ -15,3 +15,16 @@ exit_0:
   return
 }
 
+fn modulus_u16384_u8192(A u16384, M u8192) -> (RES u8192) {
+  var quot u16384
+  var sum u24576
+  var witsum u8193
+  var witness u8192
+  ;; handle division by 0
+  if M == 0 goto exit_0
+  quot, RES, witness, sum, witsum = A / M
+  return
+exit_0:
+  RES = 0
+  return
+}
