@@ -59,9 +59,6 @@ func NewTransfer[T any](state T, target uint) Transfer[T] {
 type State[T any] interface {
 	// String representation (primarily used for debugging)
 	String(register.Map) string
-	// Clone state to produce physically disjoint state which is otherwise
-	// identical.
-	Clone() T
 	// Join combines two states together to produce a state representing both.
 	// Typically, this happens when two paths converge on the same location and
 	// the states from them are combined.
@@ -91,7 +88,7 @@ func (p *Result[T]) JoinInto(i uint, st T) {
 	if ith.HasValue() {
 		nst = st.Join(ith.Unwrap())
 	} else {
-		nst = st.Clone()
+		nst = st
 	}
 	//
 	p.states[i] = util.Some(nst)

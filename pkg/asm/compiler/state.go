@@ -22,6 +22,14 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
+// RegisterReader is a simplified view of a translator which is suitable for
+// reading registers only.
+type RegisterReader[T any, E Expr[T, E]] interface {
+	// ReadRegister constructs a suitable accessor for referring to a given register.
+	// This applies forwarding as appropriate.
+	ReadRegister(reg io.RegisterId, forwarding bool) E
+}
+
 // Translator encapsulates general information related to the mapping from
 // instructions down to constraints.
 type Translator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
@@ -41,10 +49,10 @@ type Translator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] s
 // constraint.
 func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) E {
 	var (
-		nCodes       = uint(len(insn.Codes))
-		constants    = p.determineConstants(insn)
-		writes       = insn.Writes()
-		constraint E = True[T, E]()
+		nCodes                = uint(len(insn.Codes))
+		constants             = p.determineConstants(insn)
+		writes, branchTable   = constructBranchTable[T, E](insn, p)
+		constraint          E = True[T, E]()
 	)
 	//
 	for cc := uint(0); cc < nCodes; cc++ {
@@ -70,6 +78,8 @@ func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) E {
 		default:
 			panic("unreachable")
 		}
+		// Add control-flow requirements
+		local = If(branchTable[cc], local)
 		// Include local constraint
 		constraint = constraint.And(local)
 	}
@@ -77,6 +87,25 @@ func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) E {
 	constraint = p.WithGlobalConstancies(pc, constants, constraint)
 	// Apply framing guards (if applicable)
 	return If(p.Framing.Guard(pc), constraint)
+}
+
+// ReadRegister constructs a suitable accessor for referring to a given register.
+// This applies forwarding as appropriate.
+func (p *Translator[F, T, E, M]) ReadRegister(regId io.RegisterId, forwarding bool) E {
+	var (
+		reg   = p.Registers[regId.Unwrap()]
+		colId = p.Columns[regId.Unwrap()]
+	)
+	//
+	if reg.IsInput() {
+		// Inputs don't need to refer back
+		return Variable[T, E](colId, reg.Width(), 0)
+	} else if forwarding {
+		// Forwarded
+		return Variable[T, E](colId, reg.Width(), 0)
+	}
+	// Not forwarded
+	return Variable[T, E](colId, reg.Width(), -1)
 }
 
 func (p *Translator[F, T, E, M]) determineConstants(insn micro.Instruction) bit.Set {
@@ -148,14 +177,6 @@ func (p *Translator[F, T, E, M]) IsLocalConstancy(id uint) bool {
 	// return !r.IsInput() && !p.constants.Contains(id) &&
 	// 	!p.mutated.Contains(id) && !p.mapping.ioLines.Contains(id)
 	panic("todo")
-}
-
-// StateReader is a simplified view of a state translator which is suitable for
-// reading registers only.
-type StateReader[T any, E Expr[T, E]] interface {
-	// ReadRegister constructs a suitable accessor for referring to a given register.
-	// This applies forwarding as appropriate.
-	ReadRegister(reg io.RegisterId) E
 }
 
 // StateTranslator packages up key information regarding how an individual state
