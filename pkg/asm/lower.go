@@ -99,22 +99,30 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.M
 			jmp := insn.Codes[index].(*micro.Jmp)
 			// Extract target instruction
 			target := insns[jmp.Target]
-			// check against loops and conflicting instructions
-			if jmp.Target != pc && externs[jmp.Target] > index &&
-				!conflictingInstructions(0, insn.Codes, bit.Set{}, jmp.Target, target) {
-				//
-				if offset := externs[jmp.Target]; offset != math.MaxUint && len(target.Codes) > 1 {
+			// Check against loops
+			if offset := externs[jmp.Target]; offset > index && jmp.Target != pc {
+				var ninsn micro.Instruction
+				// Inline instruction
+				if offset != math.MaxUint {
 					// no need to inline, as this instruction was previously inlined further down.
-					insn = replaceJump(insn, index, offset)
+					ninsn = replaceJump(insn, index, offset)
 				} else {
-					insn = inlineJump(insn, index, target.Codes)
-					// update the micro mapping
-					updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
+					ninsn = inlineJump(insn, index, target.Codes)
 				}
-				// done
-				changed = true
-				//
-				break
+				// Check whether instruction remains valid or not.  An
+				// instruction might be invalid at this point if it contains a
+				// conflicting write and/or breaks any internal invariants.
+				if ninsn.Validate(math.MaxUint, mapping) == nil {
+					// valid, so update micro mapping (if applicable)
+					if offset == math.MaxUint {
+						updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
+					}
+					//
+					insn = ninsn
+					changed = true
+					// Done
+					break
+				}
 			}
 			// continue looking for non-conflicting rightmost branch
 			index, ok = insn.LastJump(index)
@@ -137,45 +145,6 @@ func updateMicroMap(externs []uint, index uint, jmpTarget uint, ncodes uint) {
 	}
 }
 
-func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target uint, insn micro.Instruction) bool {
-	// set of written registers
-	var written []io.RegisterId
-	//
-	switch code := codes[cc].(type) {
-	case *micro.Assign:
-		written = code.RegistersWritten()
-	case *micro.Division:
-		written = code.RegistersWritten()
-	case *micro.Jmp:
-		if code.Target == target {
-			// Prevent inlining multiple times.
-			return conflictingInstructions(0, insn.Codes, writes, math.MaxUint, insn)
-		}
-		//
-		return false
-	case *micro.Skip:
-		return conflictingInstructions(cc+1+code.Skip, codes, writes, target, insn)
-	case *micro.SkipIf:
-		// Check target location
-		if conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn) {
-			return true
-		}
-		// Fall through
-	case *micro.Ret, *micro.Fail:
-		return false
-	}
-	// Check conflicts, and update mutated registers
-	for _, r := range written {
-		if writes.Contains(r.Unwrap()) {
-			return true
-		}
-		//
-		writes.Insert(r.Unwrap())
-	}
-	// Proceed
-	return conflictingInstructions(cc+1, codes, writes, target, insn)
-}
-
 // Replace a jump at a given index with a skip to a given micro offset
 func replaceJump(insn micro.Instruction, jmpIndex uint, offset uint) micro.Instruction {
 	var (
@@ -187,9 +156,6 @@ func replaceJump(insn micro.Instruction, jmpIndex uint, offset uint) micro.Instr
 	if offset <= jmpIndex {
 		// Should be unreachable
 		panic("cannot skip backwards")
-	} else if delta == 0 {
-		// replace instruction with nothing
-		return inlineJump(insn, jmpIndex, nil)
 	}
 	//
 	codes[jmpIndex] = &micro.Skip{Skip: delta}
