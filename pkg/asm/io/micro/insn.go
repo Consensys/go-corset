@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -230,7 +231,7 @@ func (p Instruction) Validate(fieldWidth uint, fn register.Map) error {
 	// Construct write map
 	var (
 		nCodes   = uint(len(p.Codes))
-		writeMap = p.WriteMap()
+		writeMap = p.Writes()
 	)
 	// Validate individual instructions
 	for _, r := range p.Codes {
@@ -263,38 +264,32 @@ func (p Instruction) Validate(fieldWidth uint, fn register.Map) error {
 	return nil
 }
 
-// WriteMap constructs the write map for this micro instruction.
-func (p Instruction) WriteMap() WriteMap {
-	var (
-		nCodes   = uint(len(p.Codes))
-		writeMap = NewWriteMap(nCodes)
-	)
+// Writes constructs the write map for this micro instruction.
+func (p Instruction) Writes() dfa.Result[dfa.Writes] {
+	return dfa.Construct(dfa.Writes{}, p.Codes, writeDfaTransfer)
+}
+
+// Data-flow transfer function for the writes analysis
+func writeDfaTransfer(offset uint, code Code, state dfa.Writes) []dfa.Transfer[dfa.Writes] {
+	var arcs []dfa.Transfer[dfa.Writes]
 	//
-	for i := range nCodes {
-		var (
-			code  = p.Codes[i]
-			state = writeMap.StateOf(i)
-		)
-		//
-		switch code := code.(type) {
-		case *Fail, *Ret, *Jmp:
-			continue
-		case *Skip:
-			// join into branch target
-			writeMap.JoinInto(i+code.Skip+1, state)
-			continue
-		case *SkipIf:
-			// join into branch target
-			writeMap.JoinInto(i+code.Skip+1, state)
-			// fall through
-		}
-		// Construct state after this code
-		nState := state.Write(code.RegistersWritten()...)
-		// Join into following instruction
-		writeMap.JoinInto(i+1, nState)
+	switch code := code.(type) {
+	case *Fail, *Ret, *Jmp:
+		return nil
+	case *Skip:
+		// join into branch target
+		return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
+	case *SkipIf:
+		// join into branch target
+		arcs = append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
+		// fall through
 	}
-	//
-	return writeMap
+	// Construct state after this code
+	nState := state.Write(code.RegistersWritten()...)
+	// Transfer to following instruction
+	arcs = append(arcs, dfa.NewTransfer(nState, offset+1))
+	// Done
+	return arcs
 }
 
 func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []uint) Code {
