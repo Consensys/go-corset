@@ -13,12 +13,11 @@
 package compiler
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -26,8 +25,6 @@ import (
 // Translator encapsulates general information related to the mapping from
 // instructions down to constraints.
 type Translator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
-	// Enclosing module to which constraints are added.
-	Module M
 	// Framining identifies any required control lines.
 	Framing Framing[T, E]
 	// Registers of the given machine
@@ -40,19 +37,117 @@ type Translator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] s
 	Columns []T
 }
 
-// Translate a micro-instruction at a given program counter position.
-func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) {
+// Translate a micro instruction at a given Program Counter value into a given
+// constraint.
+func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) E {
 	var (
-		tr         = NewStateTranslator(*p, pc, insn)
-		constraint = tr.translateCode(0, insn.Codes)
-		name       = fmt.Sprintf("pc%d", pc)
+		nCodes       = uint(len(insn.Codes))
+		constants    = p.determineConstants(insn)
+		writes       = insn.Writes()
+		constraint E = True[T, E]()
 	)
-	// Apply global constancies
-	constraint = tr.WithGlobalConstancies(constraint)
-	// Apply framing guards (if applicable)
-	constraint = If(p.Framing.Guard(pc), constraint)
 	//
-	p.Module.NewConstraint(name, util.None[int](), constraint)
+	for cc := uint(0); cc < nCodes; cc++ {
+		var local E
+		//
+		switch c := insn.Codes[cc].(type) {
+		case *micro.Assign:
+			var str = StateTranslator[F, T, E, M]{*p, writes.StateOf(cc)}
+			//
+			local = str.translateAssign(c)
+		case *micro.Division, *micro.InOut:
+			// do nothing
+			continue
+		case *micro.Fail:
+			local = False[T, E]()
+		case *micro.Jmp:
+			local = p.WithLocalConstancies(pc, p.Framing.Goto(c.Target))
+		case *micro.Ret:
+			local = p.WithLocalConstancies(pc, p.Framing.Return())
+		case *micro.SkipIf, *micro.Skip:
+			// do nothing
+			continue
+		default:
+			panic("unreachable")
+		}
+		// Include local constraint
+		constraint = constraint.And(local)
+	}
+	// Apply global constancies
+	constraint = p.WithGlobalConstancies(pc, constants, constraint)
+	// Apply framing guards (if applicable)
+	return If(p.Framing.Guard(pc), constraint)
+}
+
+func (p *Translator[F, T, E, M]) determineConstants(insn micro.Instruction) bit.Set {
+	var constants bit.Set
+	// Initially include all registers
+	for i := range p.Registers {
+		// I/O lines are never considered global constants.
+		if !p.ioLines.Contains(uint(i)) {
+			constants.Insert(uint(i))
+		}
+	}
+	// Remove those which are actually modified
+	for _, code := range insn.Codes {
+		for _, reg := range code.RegistersWritten() {
+			constants.Remove(reg.Unwrap())
+		}
+	}
+	//
+	return constants
+}
+
+// WithGlobalConstancies adds constancy constraints for all registers not
+// mutated at all by an instruction.
+func (p *Translator[F, T, E, M]) WithGlobalConstancies(pc uint, constants bit.Set, condition E) E {
+	if pc > 0 {
+		//
+		for i, reg := range p.Registers {
+			rid := p.Columns[i]
+			//
+			if !reg.IsInput() && constants.Contains(uint(i)) {
+				r_i := Variable[T, E](rid, reg.Width(), 0)
+				r_im1 := Variable[T, E](rid, reg.Width(), -1)
+				constancy := r_i.Equals(r_im1)
+				//
+				condition = condition.And(constancy)
+			}
+		}
+	}
+	//
+	return condition
+}
+
+// WithLocalConstancies adds constancy constraints for all registers not
+// mutated by a given branch through an instruction.
+func (p *Translator[F, T, E, M]) WithLocalConstancies(pc uint, condition E) E {
+	if pc > 0 {
+		// for i, reg := range p.mapping.Registers {
+		// 	rid := p.mapping.Columns[i]
+		// 	//
+		// 	if p.IsLocalConstancy(uint(i)) {
+		// 		r_i := Variable[T, E](rid, reg.Width(), 0)
+		// 		r_im1 := Variable[T, E](rid, reg.Width(), -1)
+		// 		constancy := r_i.Equals(r_im1)
+		// 		//
+		// 		condition = condition.And(constancy)
+		// 	}
+		// }
+		panic("todo")
+	}
+	//
+	return condition
+}
+
+// IsLocalConstancy determines whether a given register should be given a
+// constancy constraint to ensure its current value matches its previous value.
+func (p *Translator[F, T, E, M]) IsLocalConstancy(id uint) bool {
+	// r := p.Registers[id]
+	// //
+	// return !r.IsInput() && !p.constants.Contains(id) &&
+	// 	!p.mutated.Contains(id) && !p.mapping.ioLines.Contains(id)
+	panic("todo")
 }
 
 // StateReader is a simplified view of a state translator which is suitable for
@@ -67,65 +162,8 @@ type StateReader[T any, E Expr[T, E]] interface {
 // of the machine is compiled down to the lower level.
 type StateTranslator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] struct {
 	mapping Translator[F, T, E, M]
-	// Program counter
-	pc uint
-	// Set of registers not mutated by the enclosing instruction.
-	constants bit.Set
-	// Set of registers mutated on the current branch.
-	mutated bit.Set
-	// Set of registers currently being forwarded.
-	forwarded bit.Set
-}
-
-// NewStateTranslator constructs a new translated for a given state (i.e.
-// program counter location) with a given mapping.
-func NewStateTranslator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]](mapping Translator[F, T, E, M],
-	pc uint, insn micro.Instruction) StateTranslator[F, T, E, M] {
-	//
-	var constants bit.Set
-	// Initially include all registers
-	for i := range mapping.Registers {
-		// I/O lines are never considered global constants.
-		if !mapping.ioLines.Contains(uint(i)) {
-			constants.Insert(uint(i))
-		}
-	}
-	// Remove those which are actually modified
-	for _, code := range insn.Codes {
-		for _, reg := range code.RegistersWritten() {
-			constants.Remove(reg.Unwrap())
-		}
-	}
-	//
-	return StateTranslator[F, T, E, M]{
-		mapping:   mapping,
-		pc:        pc,
-		constants: constants,
-		mutated:   bit.Set{},
-		forwarded: bit.Set{},
-	}
-}
-
-// Terminate current frame, and setup for next frame.
-func (p *StateTranslator[F, T, E, M]) Terminate() E {
-	return p.WithLocalConstancies(p.mapping.Framing.Return())
-}
-
-// Goto returns an expression suitable for ensuring that the given instruction
-// transitions to the state representing the given PC value.
-func (p *StateTranslator[F, T, E, M]) Goto(pc uint) E {
-	// Apply framing
-	return p.WithLocalConstancies(p.mapping.Framing.Goto(pc))
-}
-
-// Clone creates a fresh copy of this translator.
-func (p *StateTranslator[F, T, E, M]) Clone() StateTranslator[F, T, E, M] {
-	return StateTranslator[F, T, E, M]{
-		mapping:   p.mapping,
-		constants: p.constants.Clone(),
-		mutated:   p.mutated.Clone(),
-		forwarded: p.forwarded.Clone(),
-	}
+	// Set of registers writes on the current branch.
+	writes dfa.Writes
 }
 
 // WriteRegister constructs a suitable accessors for a register written by a
@@ -136,10 +174,6 @@ func (p *StateTranslator[F, T, E, M]) WriteRegister(dst io.RegisterId) E {
 		ith = p.mapping.Registers[dst.Unwrap()]
 		lhs = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width(), 0)
 	)
-	// Activate forwarding for this register
-	p.forwarded.Insert(dst.Unwrap())
-	// Mark register as having been written.
-	p.mutated.Insert(dst.Unwrap())
 	//
 	return lhs
 }
@@ -155,10 +189,6 @@ func (p *StateTranslator[F, T, E, M]) WriteRegisters(targets []io.RegisterId) []
 		var ith = p.mapping.Registers[dst.Unwrap()]
 
 		lhs[i] = Variable[T, E](p.mapping.Columns[dst.Unwrap()], ith.Width(), 0)
-		// Activate forwarding for this register
-		p.forwarded.Insert(dst.Unwrap())
-		// Mark register as having been written.
-		p.mutated.Insert(dst.Unwrap())
 	}
 	//
 	return lhs
@@ -182,10 +212,6 @@ func (p *StateTranslator[F, T, E, M]) WriteAndShiftRegisters(targets []io.Regist
 		}
 		// left shift offset by given register width.
 		offset.Lsh(offset, p.mapping.Registers[dst.Unwrap()].Width())
-		// Activate forwarding for this register
-		p.forwarded.Insert(dst.Unwrap())
-		// Mark register as having been written.
-		p.mutated.Insert(dst.Unwrap())
 	}
 	//
 	return lhs
@@ -202,7 +228,7 @@ func (p *StateTranslator[F, T, E, M]) ReadRegister(regId io.RegisterId) E {
 	if reg.IsInput() {
 		// Inputs don't need to refer back
 		return Variable[T, E](colId, reg.Width(), 0)
-	} else if p.forwarded.Contains(regId.Unwrap()) {
+	} else if p.writes.MaybeAssigned(regId) {
 		// Forwarded
 		return Variable[T, E](colId, reg.Width(), 0)
 	}
@@ -220,77 +246,4 @@ func (p *StateTranslator[F, T, E, M]) ReadRegisters(sources []io.RegisterId) []E
 	}
 	//
 	return rhs
-}
-
-// WithLocalConstancies adds constancy constraints for all registers not
-// mutated by a given branch through an instruction.
-func (p *StateTranslator[F, T, E, M]) WithLocalConstancies(condition E) E {
-	if p.pc > 0 {
-		for i, reg := range p.mapping.Registers {
-			rid := p.mapping.Columns[i]
-			//
-			if p.IsLocalConstancy(uint(i)) {
-				r_i := Variable[T, E](rid, reg.Width(), 0)
-				r_im1 := Variable[T, E](rid, reg.Width(), -1)
-				constancy := r_i.Equals(r_im1)
-				//
-				condition = condition.And(constancy)
-			}
-		}
-	}
-	//
-	return condition
-}
-
-// IsLocalConstancy determines whether a given register should be given a
-// constancy constraint to ensure its current value matches its previous value.
-func (p *StateTranslator[F, T, E, M]) IsLocalConstancy(id uint) bool {
-	r := p.mapping.Registers[id]
-	//
-	return !r.IsInput() && !p.constants.Contains(id) &&
-		!p.mutated.Contains(id) && !p.mapping.ioLines.Contains(id)
-}
-
-// WithGlobalConstancies adds constancy constraints for all registers not
-// mutated at all by an instruction.
-func (p *StateTranslator[F, T, E, M]) WithGlobalConstancies(condition E) E {
-	// FIXME: following check is temporary hack
-	if p.pc > 0 {
-		for i, reg := range p.mapping.Registers {
-			rid := p.mapping.Columns[i]
-			//
-			if !reg.IsInput() && p.constants.Contains(uint(i)) {
-				r_i := Variable[T, E](rid, reg.Width(), 0)
-				r_im1 := Variable[T, E](rid, reg.Width(), -1)
-				constancy := r_i.Equals(r_im1)
-				//
-				condition = condition.And(constancy)
-			}
-		}
-	}
-	//
-	return condition
-}
-
-func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code) E {
-	switch c := codes[cc].(type) {
-	case *micro.Assign:
-		return p.translateAssign(cc, codes)
-	case *micro.Division:
-		return p.translateDivision(cc, codes)
-	case *micro.Fail:
-		return False[T, E]()
-	case *micro.InOut:
-		return p.translateInOut(cc, codes)
-	case *micro.Jmp:
-		return p.translateJmp(cc, codes)
-	case *micro.Ret:
-		return p.translateRet()
-	case *micro.SkipIf:
-		return p.translateSkip(cc, codes)
-	case *micro.Skip:
-		return p.translateCode(cc+1+c.Skip, codes)
-	default:
-		panic("unreachable")
-	}
 }
