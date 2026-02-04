@@ -103,11 +103,11 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.M
 			if jmp.Target != pc && externs[jmp.Target] > index &&
 				!conflictingInstructions(0, insn.Codes, bit.Set{}, jmp.Target, target) {
 				//
-				if offset := externs[jmp.Target]; offset != math.MaxUint {
+				if offset := externs[jmp.Target]; offset != math.MaxUint && len(target.Codes) > 1 {
 					// no need to inline, as this instruction was previously inlined further down.
 					insn = replaceJump(insn, index, offset)
 				} else {
-					insn = inlineJump(insn, index, target)
+					insn = inlineJump(insn, index, target.Codes)
 					// update the micro mapping
 					updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
 				}
@@ -187,6 +187,9 @@ func replaceJump(insn micro.Instruction, jmpIndex uint, offset uint) micro.Instr
 	if offset <= jmpIndex {
 		// Should be unreachable
 		panic("cannot skip backwards")
+	} else if delta == 0 {
+		// replace instruction with nothing
+		return inlineJump(insn, jmpIndex, nil)
 	}
 	//
 	codes[jmpIndex] = &micro.Skip{Skip: delta}
@@ -197,7 +200,7 @@ func replaceJump(insn micro.Instruction, jmpIndex uint, offset uint) micro.Instr
 // Inline a jump instruction within this instruction.  This requires correctly
 // updating internal code offsets for skip instructions, otherwise they could
 // now skip over the wrong number of codes.
-func inlineJump(insn micro.Instruction, jmpIndex uint, target micro.Instruction) micro.Instruction {
+func inlineJump(insn micro.Instruction, jmpIndex uint, targetCodes []micro.Code) micro.Instruction {
 	var (
 		// Extract jump instruction
 		codes   = insn.Codes
@@ -212,7 +215,7 @@ func inlineJump(insn micro.Instruction, jmpIndex uint, target micro.Instruction)
 		// Check for insn being inlined.
 		if cc == jmpIndex {
 			// NOTE: -1 as will overwrite the jmp.
-			npc += len(target.Codes) - 1
+			npc += len(targetCodes) - 1
 		}
 	}
 	// construct new sequence (to be filled out).
@@ -225,7 +228,7 @@ func inlineJump(insn micro.Instruction, jmpIndex uint, target micro.Instruction)
 		case *micro.Jmp:
 			if cc == jmpIndex {
 				// copy over target instructions
-				for _, c := range target.Codes {
+				for _, c := range targetCodes {
 					ninsns[npc] = c.Clone()
 					npc++
 				}
