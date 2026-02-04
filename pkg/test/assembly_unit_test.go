@@ -182,5 +182,9 @@ func Test_AsmUnit_Ternary2(t *testing.T) {
 // ===================================================================
 
 func Test_AsmUnit_Cfg_01(t *testing.T) {
-	util.CheckCorset(t, true, "corset/valid/cfg_01", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+	util.CheckCorset(t, true, "asm/unit/cfg_01", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
+
+func Test_AsmUnit_Cfg_02(t *testing.T) {
+	util.CheckCorset(t, true, "asm/unit/cfg_02", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }

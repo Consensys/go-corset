@@ -79,7 +79,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	return io.NewFunction(f.Name(), f.IsPublic(), f.Registers(), f.Buses(), insns)
 }
 
-func vectorizeInstruction(pc uint, insns []micro.Instruction, _ register.Map) micro.Instruction {
+func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.Map) micro.Instruction {
 	var (
 		insn    = insns[pc]
 		changed = true
@@ -87,30 +87,37 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction, _ register.Map) mi
 		// MaxUint (if they don't).
 		externs []uint = array.FrontPad[uint](nil, uint(len(insns)), math.MaxUint)
 	)
+	//
 	// Keep vectorizing until worklist empty.
 	for changed {
 		changed = false
+		//
+		index, ok := insn.LastJump(uint(len(insn.Codes)))
 		// Identify rightmost jump target (if exists)
-		if index, ok := insn.LastJump(); ok {
+		for ok {
 			// Extract jump instruction
 			jmp := insn.Codes[index].(*micro.Jmp)
 			// Extract target instruction
 			target := insns[jmp.Target]
-			//
-			if jmp.Target != pc && !conflictingInstructions(0, insn.Codes, bit.Set{}, jmp.Target, target) {
+			// check against loops and conflicting instructions
+			if jmp.Target != pc && externs[jmp.Target] > index &&
+				!conflictingInstructions(0, insn.Codes, bit.Set{}, jmp.Target, target) {
+				//
 				if offset := externs[jmp.Target]; offset != math.MaxUint {
 					// no need to inline, as this instruction was previously inlined further down.
 					insn = replaceJump(insn, index, offset)
-					// done
-					changed = true
 				} else {
 					insn = inlineJump(insn, index, target)
 					// update the micro mapping
 					updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
-					// done
-					changed = true
 				}
+				// done
+				changed = true
+				//
+				break
 			}
+			// continue looking for non-conflicting rightmost branch
+			index, ok = insn.LastJump(index)
 		}
 	}
 	//
@@ -147,7 +154,7 @@ func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target
 		//
 		return false
 	case *micro.Skip:
-		return conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn)
+		return conflictingInstructions(cc+1+code.Skip, codes, writes, target, insn)
 	case *micro.SkipIf:
 		// Check target location
 		if conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn) {

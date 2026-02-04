@@ -122,9 +122,9 @@ func (p Instruction) JumpTargets() []uint {
 // LastJump returns the index of the right-most jmp instruction (or false if
 // none exists). This is relatively easy to determine simply by looking for jmp
 // codes.
-func (p Instruction) LastJump() (uint, bool) {
+func (p Instruction) LastJump(n uint) (uint, bool) {
 	//
-	for i := uint(len(p.Codes)); i > 0; {
+	for i := n; i > 0; {
 		i = i - 1
 		//
 		if _, ok := p.Codes[i].(*Jmp); ok {
