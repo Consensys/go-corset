@@ -25,8 +25,6 @@ type Element[Operand any] interface {
 	word.Word[Operand]
 	// Add x+y
 	Add(y Operand) Operand
-	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
-	Cmp(y Operand) int
 	// Check whether this value is zero (or not).
 	IsZero() bool
 	// Check whether this value is one (or not).
@@ -57,7 +55,7 @@ func One[F Element[F]]() F {
 	return element.SetUint64(1)
 }
 
-// BigInt construct a field element from a given big.Int
+// BigInt constructs a field element from a given big.Int
 func BigInt[F Element[F]](val big.Int) F {
 	var (
 		element F
@@ -70,6 +68,17 @@ func BigInt[F Element[F]](val big.Int) F {
 	}
 	//
 	return element
+}
+
+// BigInts constructs an array of field elements from a given array of big.Int.
+func BigInts[F Element[F]](values []big.Int) []F {
+	var elements = make([]F, len(values))
+	//
+	for i, val := range values {
+		elements[i] = BigInt[F](val)
+	}
+	//
+	return elements
 }
 
 // Uint64 construct a field element from a given uint64

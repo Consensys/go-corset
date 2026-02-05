@@ -224,8 +224,10 @@ func executeAndCheck[T io.Instruction](fid uint, name module.Name, inputs, outpu
 	executor *io.Executor[T]) []error {
 	var (
 		errors []error
+		// Determine number of expected outputs
+		nOutputs = uint(len(outputs))
 		// Execute function call to produce actual outputs
-		actual = executor.Read(fid, inputs)
+		actual = executor.Read(fid, inputs, nOutputs)
 	)
 	// Sanity actual outputs match expected outputs
 	for i := range len(outputs) {

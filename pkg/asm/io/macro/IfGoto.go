@@ -110,13 +110,13 @@ func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
+			&micro.SkipIf{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: p.Target},
 			&micro.Jmp{Target: pc + 1},
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
+			&micro.SkipIf{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: pc + 1},
 			&micro.Jmp{Target: p.Target},
 		}

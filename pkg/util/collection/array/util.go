@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 )
 
 // Comparable interface which can be implemented by non-primitive types.
@@ -398,4 +399,24 @@ func MergeSorted[S Comparable[S]](lhs []S, rhs []S) []S {
 	copy(result[i:], rhs[ri:])
 	// Done
 	return result
+}
+
+// ToString constructs a string representation for an array of values which
+// themselves have String() functions.
+func ToString[S fmt.Stringer](arr []S) string {
+	var builder strings.Builder
+	//
+	builder.WriteString("[")
+	//
+	for i, v := range arr {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+		//
+		builder.WriteString(v.String())
+	}
+	//
+	builder.WriteString("]")
+	//
+	return builder.String()
 }

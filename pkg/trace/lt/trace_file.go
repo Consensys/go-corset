@@ -271,6 +271,16 @@ func (p *Module[F]) ColumnOf(name string) trace.Column[F] {
 	panic("unsupported operation")
 }
 
+// FindLast implementation for the trace.Module interface.
+func (p *Module[T]) FindLast(...T) uint {
+	panic("unsupported operation")
+}
+
+// Keys implementation for the trace.Module interface.
+func (p *Module[T]) Keys() uint {
+	panic("unsupported operation")
+}
+
 // Width implementation for trace.Module interface
 func (p *Module[F]) Width() uint {
 	return uint(len(p.Columns))
@@ -315,6 +325,12 @@ func (p *Column[F]) MutData() array.MutArray[F] {
 
 // Get implementation for trace.Column interface
 func (p *Column[F]) Get(row int) F {
+	if row < 0 || uint(row) >= p.data.Len() {
+		var zero F
+		// out-of-bounds access
+		return zero
+	}
+	//
 	return p.data.Get(uint(row))
 }
 

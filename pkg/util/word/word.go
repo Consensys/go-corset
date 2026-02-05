@@ -19,6 +19,8 @@ import (
 // Word abstracts a sequence of n bits.
 type Word[T any] interface {
 	fmt.Stringer
+	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
+	Cmp(y T) int
 	// Check whether two items are equal (or not).
 	Equals(T) bool
 	// Return a suitable hashcode.

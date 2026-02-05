@@ -273,7 +273,7 @@ func (p *StateTranslator[F, T, E, M]) WithGlobalConstancies(condition E) E {
 }
 
 func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code) E {
-	switch codes[cc].(type) {
+	switch c := codes[cc].(type) {
 	case *micro.Assign:
 		return p.translateAssign(cc, codes)
 	case *micro.Division:
@@ -286,8 +286,10 @@ func (p *StateTranslator[F, T, E, M]) translateCode(cc uint, codes []micro.Code)
 		return p.translateJmp(cc, codes)
 	case *micro.Ret:
 		return p.translateRet()
-	case *micro.Skip:
+	case *micro.SkipIf:
 		return p.translateSkip(cc, codes)
+	case *micro.Skip:
+		return p.translateCode(cc+1+c.Skip, codes)
 	default:
 		panic("unreachable")
 	}
