@@ -13,6 +13,7 @@
 package logical
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -265,8 +266,17 @@ func unitPropagation[I any, A Atom[I, A]](p Proposition[I, A], i, j uint) (bool,
 		ith = p.conjuncts[i].atoms[0].Negate()
 		jth = p.conjuncts[j]
 	)
+	fmt.Printf("Removing %s from %s\n", ith.String(func(id I) string {
+		return fmt.Sprintf("%v", id)
+	}), jth.String(true, func(id I) string {
+		return fmt.Sprintf("%v", id)
+	}))
 	// Check whether anything to do
 	if kth, ok := jth.Remove(ith); ok {
+		//
+		fmt.Printf("KTH=%v\n", kth.String(true, func(id I) string {
+			return fmt.Sprintf("%v", id)
+		}))
 		p.conjuncts[j] = kth
 		return true, false
 	}

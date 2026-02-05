@@ -79,7 +79,14 @@ type BranchState struct {
 
 // Join implementation for dfa.State interface
 func (p BranchState) Join(st BranchState) BranchState {
-	return BranchState{p.condition.Or(st.condition)}
+	fun := func(id BranchRegisterId) string {
+		return id.String()
+	}
+	fmt.Printf("%s || %s == \n", p.condition.String(fun), st.condition.String(fun))
+	r := BranchState{p.condition.Or(st.condition)}
+	fmt.Printf("%s || %s == %s\n", p.condition.String(fun), st.condition.String(fun), r)
+
+	return r
 }
 
 // String implementation for dfa.State interface
