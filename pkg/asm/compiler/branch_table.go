@@ -127,9 +127,9 @@ func branchTableTransfer(writeMap dfa.Result[dfa.Writes]) BranchTransferFunction
 		case *micro.SkipIf:
 			var (
 				// Determine true branch
-				trueBranch = extendSkipIf(state, false, code, writes)
+				trueBranch = extendSkipIf(state, true, code, writes)
 				// Determine false branch
-				falseBranch = extendSkipIf(state, true, code, writes)
+				falseBranch = extendSkipIf(state, false, code, writes)
 			)
 			// join into branch target
 			arcs = append(arcs, dfa.NewTransfer(trueBranch, offset+code.Skip+1))
@@ -150,15 +150,15 @@ func extendSkipIf(tail BranchState, sign bool, code *micro.SkipIf, writes dfa.Wr
 	)
 	//
 	switch {
-	case sign && rightUsed:
-		right := code.Right.First()
-		head = logical.Equals(left, BranchRegisterId{right, writes.MaybeAssigned(right)})
-	case sign && !rightUsed:
-		head = logical.EqualsConst(left, code.Right.Second())
 	case !sign && rightUsed:
 		right := code.Right.First()
 		head = logical.Equals(left, BranchRegisterId{right, writes.MaybeAssigned(right)})
 	case !sign && !rightUsed:
+		head = logical.EqualsConst(left, code.Right.Second())
+	case sign && rightUsed:
+		right := code.Right.First()
+		head = logical.NotEquals(left, BranchRegisterId{right, writes.MaybeAssigned(right)})
+	case sign && !rightUsed:
 		head = logical.NotEqualsConst(left, code.Right.Second())
 	}
 	// NOTE: the reason this method is needed is because we have no implicit
