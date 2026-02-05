@@ -228,15 +228,20 @@ func InsertAllAt[T any](items []T, elements []T, index uint) []T {
 // index removed.  If the index is beyond the bounds of the array, then there is
 // no change.
 func RemoveAt[T any](items []T, index uint) []T {
-	n := uint(len(items))
+	var (
+		n      = uint(len(items))
+		nitems []T
+	)
 	//
-	if index < n {
-		first := items[0:index]
-		second := items[index+1:]
-		items = append(first, second...)
+	if index >= n {
+		return items
 	}
+	// Construct new array
+	nitems = make([]T, n-1)
+	copy(nitems, items[0:index])
+	copy(nitems[index:], items[index+1:])
 	//
-	return items
+	return nitems
 }
 
 // RemoveMatching removes all elements from an array matching the given item.
