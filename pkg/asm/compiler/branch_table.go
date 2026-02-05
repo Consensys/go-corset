@@ -96,17 +96,16 @@ func (p BranchState) String(mapping register.Map) string {
 }
 
 func constructBranchTable[T any, E Expr[T, E]](insn micro.Instruction, reader RegisterReader[T, E],
-) (dfa.Result[dfa.Writes], []E) {
+) (dfa.Result[dfa.Writes], []BranchCondition) {
 	//
 	var (
 		writes   = insn.Writes()
 		branches = dfa.Construct(BranchState{TRUE}, insn.Codes, branchTableTransfer(writes))
-		table    = make([]E, len(insn.Codes))
+		table    = make([]BranchCondition, len(insn.Codes))
 	)
 	//
 	for i := 0; i < len(table); i++ {
-		ith := branches.StateOf(uint(i)).condition
-		table[i] = translateBranchCondition[T, E](ith, reader)
+		table[i] = branches.StateOf(uint(i)).condition
 	}
 	// Done
 	return writes, table
