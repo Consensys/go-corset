@@ -156,7 +156,7 @@ func (p *State) In(bus Bus) {
 		n       = uint(len(data))
 	)
 	// Read n values from I/O bus
-	values := p.io.Read(bus.BusId, address, n)
+	values := p.io.Read(bus.BusId, address, n, false)
 	// Write them back
 	p.StoreN(data, values)
 }
