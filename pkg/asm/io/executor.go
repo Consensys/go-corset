@@ -15,9 +15,12 @@ package io
 import (
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 
+	"github.com/consensys/go-corset/pkg/asm/io/bitwise"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
@@ -25,7 +28,8 @@ import (
 // generating a suitable top-level trace.  Executor implements the io.Map
 // interface.
 type Executor[T Instruction] struct {
-	functions []*ComponentTrace[T]
+	functions   []*ComponentTrace[T]
+	shouldPrint bool
 }
 
 // NewExecutor constructs a new executor.
@@ -37,7 +41,7 @@ func NewExecutor[T Instruction](program Program[T]) *Executor[T] {
 		traces[i] = NewFunctionTrace[T](program.functions[i])
 	}
 	// Construct new executor
-	return &Executor[T]{traces}
+	return &Executor[T]{traces, false}
 }
 
 // Instance returns a valid instance of the given bus.
@@ -56,12 +60,37 @@ func (p *Executor[T]) Instance(bus uint) ComponentInstance {
 		inputs[i] = *ith.Set(reg.Padding())
 	}
 	// Compute function instance
-	return p.functions[bus].Call(inputs, p)
+	return p.functions[bus].Call(inputs, p, false)
 }
 
 // Read implementation for the io.Map interface.
-func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint) []big.Int {
-	return p.functions[bus].Call(address, p).Outputs()
+func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint, pp bool) []big.Int {
+	// perf := util.NewPerfStats()
+	fnBus := p.functions[bus]
+	/*	if strings.Contains(fnBus.fn.String(), "modexp") {
+		p.shouldPrint = true
+	}*/
+	// code := fn.Code()
+	/*	if pp {
+		perf.Log("Read function bus stats " + fnBus.fn.String() + "input " + strconv.Itoa(len(address)) + " code " + strconv.Itoa(len(code)))
+	}*/
+		fn := fnBus.fn.(*Function[T])
+		if strings.Contains(fn.Name().String(), "bit_xoan_") {
+		switch address[0].Int64() {
+		//XOR
+		case 0:
+			return []big.Int{bitwise.XOR(address[1], address[2])}
+		case 1:
+			return []big.Int{bitwise.OR(address[1], address[2])}
+		case 2:
+			return []big.Int{bitwise.AND(address[1], address[2])}
+		case 3:
+			return []big.Int{bitwise.NOT(address[1])}
+		}
+	} else {
+	return fnBus.Call(address, p, pp).Outputs()
+		}
+		return []big.Int{}
 }
 
 // Instances returns accrued function instances for the given bus.
@@ -124,7 +153,7 @@ func (p *ComponentTrace[T]) Count() uint {
 // Call this function to determine its outputs for a given set of inputs.  If
 // this instance has been seen before, it will simply return that.  Otherwise,
 // it will execute the function to determine the correct outputs.
-func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance {
+func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map, pp bool) ComponentInstance {
 	var iostate = ComponentInstance{uint(len(inputs)), inputs}
 	// Obtain read lock
 	p.mux.RLock()
@@ -134,7 +163,7 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance 
 	if index != math.MaxUint {
 		// Yes, therefore return precomputed outputs
 		instance := p.instances[index]
-		// Release read lock
+		// Release read lofnBusck
 		p.mux.RUnlock()
 		//
 		return instance
@@ -142,7 +171,7 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance 
 	// Release read lock
 	p.mux.RUnlock()
 	// Execute function to determine new outputs.
-	return p.executeCall(inputs, iomap)
+	return p.executeCall(inputs, iomap, pp)
 }
 
 // Execute this function for a given set of inputs to determine its outputs and
@@ -156,10 +185,10 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance 
 // instances --- even if that means, occasionally, an instance is computed more
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
-func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map) ComponentInstance {
+func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map, pp bool) ComponentInstance {
 	switch p.fn.(type) {
 	case *Function[T]:
-		return p.executeFunctionCall(inputs, iomap)
+		return p.executeFunctionCall(inputs, iomap, pp)
 	default:
 		panic("unknown component")
 	}
@@ -176,7 +205,8 @@ func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map) ComponentIn
 // instances --- even if that means, occasionally, an instance is computed more
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
-func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map) ComponentInstance {
+func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp bool) ComponentInstance {
+
 	var (
 		fn = p.fn.(*Function[T])
 		// Determine how many I/O registers
@@ -186,13 +216,25 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map) Com
 		//
 		state = InitialState(inputs, fn.Registers(), fn.Buses(), iomap)
 	)
+	/*	if pp {
+		perf.Log("Performing InitialState " + fn.name)
+	}*/
+	perf := util.NewPerfStats()
+	// perf2 := util.NewPerfStats()
 	// Keep executing until we're done.
 	for pc != RETURN && pc != FAIL {
+		//perf2 := util.NewPerfStats()
 		insn := fn.CodeAt(pc)
 		// execute given instruction
 		pc = insn.Execute(state)
 		// update state pc
 		state.Goto(pc)
+		/*		if pp {
+				perf2.Log("insn execute " + insn.String(fn) + "pc : " + strconv.FormatUint(uint64(pc), 10))
+			}*/
+	}
+	if pp {
+		perf.Log("insn execute ")
 	}
 	// Cache I/O instance
 	instance := ComponentInstance{fn.NumInputs(), state.state[:nio]}

@@ -291,7 +291,7 @@ func NewTraceIoMap[F field.Element[F]](trace tr.Trace[F]) io.Map {
 }
 
 // Read implementation of the io.Map interface.
-func (p TraceIoMap[F]) Read(bus uint, address []big.Int, nOutputs uint) []big.Int {
+func (p TraceIoMap[F]) Read(bus uint, address []big.Int, nOutputs uint, _ bool) []big.Int {
 	var (
 		nInputs  = uint(len(address))
 		mod      = p.trace.Module(bus)

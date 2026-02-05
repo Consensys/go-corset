@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/trace/lt"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
@@ -92,13 +93,17 @@ func Propagate[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgram[wor
 	// Clone heap
 	heap = heap.Clone()
 	// Perform trace alignment
+	// perf2 := util.NewPerfStats()
 	trModules, errors = ir.AlignTrace(p.Modules().Collect(), trace.RawModules(), true)
+	// perf2.Log("AlignTrace")
 	// Sanity check for errors
 	if len(errors) > 0 {
 		return lt.TraceFile{}, errors
 	}
 	// Write seed instances
+	// perf := util.NewPerfStats()
 	errors = writeInstances(p, n, trModules, executor)
+	// perf.Log("writeInstances")
 	// Read out generated instances
 	modules := readInstances(&heap, p.program, executor)
 	// Append external modules (which are unaffected by propagation).
@@ -115,16 +120,24 @@ func writeInstances[T io.Instruction, M sc.Module[word.BigEndian]](p MixedProgra
 	//
 	var errors []error
 	// Write all from assembly modules
+	perf := util.NewPerfStats()
 	for i, m := range trace[:n] {
+		// perf := util.NewPerfStats()
 		errs := writeFunctionInstances(uint(i), p.program, m, executor)
 		errors = append(errors, errs...)
+		// perf.Log("writeFunctionInstances " + m.Name().String())
 	}
+	perf.Log("writeFunctionInstances END")
 	// Write all from non-assembly modules
 	for i, m := range trace[n:] {
+		// perf := util.NewPerfStats()
 		var extern = p.externs[i]
+		// perf.Log("externs " + m.Name().String())
 		// Write instances from any external calls
 		for _, call := range extractExternalCalls(extern) {
+			perf := util.NewPerfStats()
 			errs := writeExternCall(call, p.program, m, executor)
+			perf.Log("writeExternalCall" + call.Name())
 			errors = append(errors, errs...)
 		}
 	}
@@ -145,15 +158,22 @@ func writeFunctionInstances[T io.Instruction](fid uint, p io.Program[T], mod Raw
 	// Invoke padding instance
 	extractFunctionPadding(fn.Registers(), inputs, outputs)
 	// Execute function call to produce outputs
-	errors = executeAndCheck(fid, fn.Name(), inputs, outputs, executor)
+	errors = executeAndCheck(fid, fn.Name(), inputs, outputs, executor, false)
 	// Invoke each user-defined instance in turn
+	// perf2 := util.NewPerfStats()
 	for i := range height {
 		// Extract function inputs
 		extractFunctionColumns(i, mod, inputs, outputs)
 		// Execute function call to produce outputs
-		errs := executeAndCheck(fid, fn.Name(), inputs, outputs, executor)
+		// perf := util.NewPerfStats()
+		errs := executeAndCheck(fid, fn.Name(), inputs, outputs, executor, false)
+		// perf.Log("executeAndCheck" + fn.Name().String())
 		errors = append(errors, errs...)
 	}
+	// perf2.Log("Execute and check TOTAL " + fn.Name().String())
+/*	if fn.Name().String() == "blake2f" {
+		perf2.Log("writeFunctionInstances - executeAndCheck " + fn.Name().String() + " height " + strconv.FormatUint(uint64(height), 10))
+	}*/
 	//
 	return errors
 }
@@ -198,9 +218,13 @@ func writeExternCall[T io.Instruction](call hir.FunctionCall, p io.Program[T], m
 			// execute if selector enabled
 			if enabled, _, err := selector.TestAt(int(i), trMod, nil); enabled {
 				// Extract external columns
+				// perf := util.NewPerfStats()
 				extractExternColumns(int(i), call, trMod, inputs, outputs)
+				// perf.Log("extractExternColumns2")
 				// Execute function call to produce outputs
-				errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
+				// perf2 := util.NewPerfStats()
+				errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor, true)
+				// perf2.Log("executeAndCheck2")
 				errors = append(errors, errs...)
 			} else if err != nil {
 				errors = append(errors, err)
@@ -210,9 +234,13 @@ func writeExternCall[T io.Instruction](call hir.FunctionCall, p io.Program[T], m
 		// Invoke each user-defined instance in turn
 		for i := range height {
 			// Extract external columns
+			// perf := util.NewPerfStats()
 			extractExternColumns(int(i), call, trMod, inputs, outputs)
+			// perf.Log("extractExternColumns1")
 			// Execute function call to produce outputs
-			errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor)
+			perf2 := util.NewPerfStats()
+			errs := executeAndCheck(call.Callee, fn.Name(), inputs, outputs, executor, true)
+			perf2.Log("executeAndCheck1")
 			errors = append(errors, errs...)
 		}
 	}
@@ -221,14 +249,21 @@ func writeExternCall[T io.Instruction](call hir.FunctionCall, p io.Program[T], m
 }
 
 func executeAndCheck[T io.Instruction](fid uint, name module.Name, inputs, outputs []big.Int,
-	executor *io.Executor[T]) []error {
+	executor *io.Executor[T], pp bool) []error {
+	perf := util.NewPerfStats()
+	if name.String() == "blake2f" {
+ 			pp  = true
+	}
 	var (
 		errors []error
 		// Determine number of expected outputs
 		nOutputs = uint(len(outputs))
 		// Execute function call to produce actual outputs
-		actual = executor.Read(fid, inputs, nOutputs)
+		actual = executor.Read(fid, inputs, nOutputs, pp)
 	)
+	if pp {
+		perf.Log("Read ")
+	}
 	// Sanity actual outputs match expected outputs
 	for i := range len(outputs) {
 		given := outputs[i]
