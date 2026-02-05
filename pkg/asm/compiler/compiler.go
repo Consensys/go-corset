@@ -185,7 +185,7 @@ func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction) {
 	for pc, inst := range fn.Code() {
 		// Core translation
 		constraint := mapping.Translate(uint(pc), inst)
-		//
+		// Add constraint
 		module.NewConstraint(fmt.Sprintf("pc%d", pc), util.None[int](), constraint)
 	}
 }

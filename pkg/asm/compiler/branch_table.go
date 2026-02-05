@@ -13,30 +13,64 @@
 package compiler
 
 import (
+	"fmt"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/logical"
 )
 
+// BranchRegisterId represents a register ID which can additionally indicate
+// whether forwarding is active or not.  Forwarding indicates that the register
+// was previously assigned in the given micro instruction and, hence, needs to
+// be "forwarded" to the point where its used.
+type BranchRegisterId struct {
+	// Underlying register ID
+	id register.Id
+	// Indication of whether forwarding is active or not.
+	forwarding bool
+}
+
+// Cmp implementation of the logical.Variable interface
+func (p BranchRegisterId) Cmp(o BranchRegisterId) int {
+	if p.forwarding == o.forwarding {
+		return p.id.Cmp(o.id)
+	} else if p.forwarding {
+		return 1
+	}
+	//
+	return -1
+}
+
+// String implementation of the logical.Variable interface
+func (p BranchRegisterId) String() string {
+	if p.forwarding {
+		return p.id.String()
+	}
+	//
+	return fmt.Sprintf("'%s", p.id.String())
+}
+
 // BranchCondition abstracts the possible conditions under which a given branch
 // is taken.
-type BranchCondition = logical.Proposition[io.RegisterId, BranchEquality]
+type BranchCondition = logical.Proposition[BranchRegisterId, BranchEquality]
 
 // FALSE represents an unreachable path
-var FALSE BranchCondition = logical.Truth[io.RegisterId, BranchEquality](false)
+var FALSE BranchCondition = logical.Truth[BranchRegisterId, BranchEquality](false)
 
 // TRUE represents an path which is always reached
-var TRUE BranchCondition = logical.Truth[io.RegisterId, BranchEquality](true)
+var TRUE BranchCondition = logical.Truth[BranchRegisterId, BranchEquality](true)
 
 // BranchConjunction represents the conjunction of two paths
-type BranchConjunction = logical.Conjunction[io.RegisterId, BranchEquality]
+type BranchConjunction = logical.Conjunction[BranchRegisterId, BranchEquality]
 
 // BranchEquality represents an atomic branch equality
-type BranchEquality = logical.Equality[io.RegisterId]
+type BranchEquality = logical.Equality[BranchRegisterId]
+
+// BranchTransferFunction represents a transfer function over branch state.
+type BranchTransferFunction func(offset uint, code micro.Code, state BranchState) []dfa.Transfer[BranchState]
 
 // BranchState adapts a branch condition to be an instance of dfa.State.
 type BranchState struct {
@@ -50,8 +84,14 @@ func (p BranchState) Join(st BranchState) BranchState {
 
 // String implementation for dfa.State interface
 func (p BranchState) String(mapping register.Map) string {
-	return p.condition.String(func(rid register.Id) string {
-		return mapping.Register(rid).Name()
+	return p.condition.String(func(rid BranchRegisterId) string {
+		var name = mapping.Register(rid.id).Name()
+		//
+		if rid.forwarding {
+			return name
+		}
+		//
+		return fmt.Sprintf("'%s", name)
 	})
 }
 
@@ -60,7 +100,7 @@ func constructBranchTable[T any, E Expr[T, E]](insn micro.Instruction, reader Re
 	//
 	var (
 		writes   = insn.Writes()
-		branches = dfa.Construct(BranchState{TRUE}, insn.Codes, branchTableTransfer)
+		branches = dfa.Construct(BranchState{TRUE}, insn.Codes, branchTableTransfer(writes))
 		table    = make([]E, len(insn.Codes))
 	)
 	//
@@ -72,47 +112,55 @@ func constructBranchTable[T any, E Expr[T, E]](insn micro.Instruction, reader Re
 	return writes, table
 }
 
-func branchTableTransfer(offset uint, code micro.Code, state BranchState) []dfa.Transfer[BranchState] {
-	var arcs []dfa.Transfer[BranchState]
-	//
-	switch code := code.(type) {
-	case *micro.Fail, *micro.Ret, *micro.Jmp:
-		return nil
-	case *micro.Skip:
-		// join into branch target
-		return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
-	case *micro.SkipIf:
+func branchTableTransfer(writeMap dfa.Result[dfa.Writes]) BranchTransferFunction {
+	return func(offset uint, code micro.Code, state BranchState) []dfa.Transfer[BranchState] {
 		var (
-			// Determine true branch
-			trueBranch = extendSkipIf(state, false, code)
-			// Determine false branch
-			falseBranch = extendSkipIf(state, true, code)
+			arcs   []dfa.Transfer[BranchState]
+			writes = writeMap.StateOf(offset)
 		)
-		// join into branch target
-		arcs = append(arcs, dfa.NewTransfer(trueBranch, offset+code.Skip+1))
-		// join into following instruction
-		return append(arcs, dfa.NewTransfer(falseBranch, offset+1))
+		//
+		switch code := code.(type) {
+		case *micro.Fail, *micro.Ret, *micro.Jmp:
+			return nil
+		case *micro.Skip:
+			// join into branch target
+			return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
+		case *micro.SkipIf:
+			var (
+				// Determine true branch
+				trueBranch = extendSkipIf(state, false, code, writes)
+				// Determine false branch
+				falseBranch = extendSkipIf(state, true, code, writes)
+			)
+			// join into branch target
+			arcs = append(arcs, dfa.NewTransfer(trueBranch, offset+code.Skip+1))
+			// join into following instruction
+			return append(arcs, dfa.NewTransfer(falseBranch, offset+1))
+		}
+		// Transfer to following instruction
+		return append(arcs, dfa.NewTransfer(state, offset+1))
 	}
-	// Transfer to following instruction
-	return append(arcs, dfa.NewTransfer(state, offset+1))
 }
 
-func extendSkipIf(tail BranchState, sign bool, code *micro.SkipIf) BranchState {
+func extendSkipIf(tail BranchState, sign bool, code *micro.SkipIf, writes dfa.Writes) BranchState {
 	var (
 		head      BranchEquality
 		rightUsed = code.Right.HasFirst()
 		tailc     = tail.condition
+		left      = BranchRegisterId{code.Left, writes.MaybeAssigned(code.Left)}
 	)
 	//
 	switch {
 	case sign && rightUsed:
-		head = logical.Equals(code.Left, code.Right.First())
+		right := code.Right.First()
+		head = logical.Equals(left, BranchRegisterId{right, writes.MaybeAssigned(right)})
 	case sign && !rightUsed:
-		head = logical.EqualsConst(code.Left, code.Right.Second())
+		head = logical.EqualsConst(left, code.Right.Second())
 	case !sign && rightUsed:
-		head = logical.NotEquals(code.Left, code.Right.First())
+		right := code.Right.First()
+		head = logical.Equals(left, BranchRegisterId{right, writes.MaybeAssigned(right)})
 	case !sign && !rightUsed:
-		head = logical.NotEqualsConst(code.Left, code.Right.Second())
+		head = logical.NotEqualsConst(left, code.Right.Second())
 	}
 	// NOTE: the reason this method is needed is because we have no implicit
 	// rerpesentation of logical truth or falsehood.  This means an empty path
@@ -190,6 +238,6 @@ func translateBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader Regis
 
 // ReadRegister constructs a suitable accessor for referring to a given register.
 // This applies forwarding as appropriate.
-func ReadRegister[T any, E Expr[T, E]](regId io.RegisterId, reader RegisterReader[T, E]) E {
-	return reader.ReadRegister(regId, false)
+func ReadRegister[T any, E Expr[T, E]](reg BranchRegisterId, reader RegisterReader[T, E]) E {
+	return reader.ReadRegister(reg.id, reg.forwarding)
 }

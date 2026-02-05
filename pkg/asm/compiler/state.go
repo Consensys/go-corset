@@ -13,6 +13,7 @@
 package compiler
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -49,10 +50,10 @@ type Translator[F field.Element[F], T any, E Expr[T, E], M Module[F, T, E, M]] s
 // constraint.
 func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) E {
 	var (
-		nCodes                = uint(len(insn.Codes))
-		constants             = p.determineConstants(insn)
-		writes, branchTable   = constructBranchTable[T, E](insn, p)
-		constraint          E = True[T, E]()
+		nCodes              = uint(len(insn.Codes))
+		constants           = p.determineConstants(insn)
+		writes, branchTable = constructBranchTable[T, E](insn, p)
+		constraint          = True[T, E]()
 	)
 	//
 	for cc := uint(0); cc < nCodes; cc++ {
@@ -85,7 +86,7 @@ func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) E {
 	}
 	// Apply global constancies
 	constraint = p.WithGlobalConstancies(pc, constants, constraint)
-	// Apply framing guards (if applicable)
+	// Add framing guards
 	return If(p.Framing.Guard(pc), constraint)
 }
 
@@ -163,7 +164,8 @@ func (p *Translator[F, T, E, M]) WithLocalConstancies(pc uint, condition E) E {
 		// 		condition = condition.And(constancy)
 		// 	}
 		// }
-		panic("todo")
+		//panic("todo")
+		fmt.Printf("TODO: implement local consistency")
 	}
 	//
 	return condition
