@@ -107,7 +107,7 @@ fn negate(val u256) -> (neg_val u256) {
   return
 }
 
-;; Divide numerator by denominator, where divizion by zero is resolved
+;; Divide numerator by denominator, where division by zero is resolved
 ;; as 0 / 0.
 fn divide(num u256, den=1 u256) -> (quot u256, rem u256) {
   var sum u512

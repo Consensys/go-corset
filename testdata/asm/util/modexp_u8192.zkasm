@@ -1,0 +1,50 @@
+;; MODEXP precompile where all input are at most 256 bits long (ie are 32 bytes ie EWORD)
+
+include "../bench/mod.zkasm"
+include "../bench/ext.zkasm"
+include "modulus.zkasm"
+
+pub fn modexp_u8192(base u8192, exponent u8192, modulus=1 u8192) -> (result u8192){
+
+;; some trivial output
+if modulus == 0 goto exit_0
+if modulus == 1 goto exit_0
+if exponent == 0 goto exit_1
+if base == 0 goto exit_0
+if exponent == 1 goto exit_modulus
+
+;; exponent = 2*e_next + remainder
+;; b ** e mod n == ((b**2) ** e_next mod n) * (b ** remainder mod n)
+var e_next u8191
+var remainder u1
+e_next, remainder = exponent
+
+;; ((b**2) ** e_next mod n) == (b_sq mod (n)) ** e_next mod n
+var b_next, res_sq u8192
+b_next = mul_mod_8192(base, base, modulus)
+res_sq = modexp_u8192(b_next, e_next, modulus)
+
+var tmp_useless u8192
+tmp_useless = mul_mod_8192(res_sq, base, modulus)
+result = remainder == 1 ? tmp_useless : res_sq
+return
+
+exit_modulus:
+result = modulus_u16384_u8192(base, modulus)
+return
+
+exit_0:
+result = 0
+return
+
+exit_1:
+result = 1
+return
+}
+
+fn mul_mod_8192(A u8192, B u8192, M u8192) -> (RES u8192) {
+  var tmp u16384
+  tmp = A * B
+  RES = modulus_u16384_u8192(tmp, M)
+  return
+}

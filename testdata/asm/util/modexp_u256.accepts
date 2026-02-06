@@ -1,0 +1,15 @@
+{ "modexp_u256": { "base": [0], "exponent": [0], "modulus": [1], "result": [0]} }
+{ "modexp_u256": { "base": [1], "exponent": [1], "modulus": [0], "result": [0]} }
+{ "modexp_u256": { "base": [0], "exponent": [1], "modulus": [2], "result": [0]} }
+{ "modexp_u256": { "base": [1], "exponent": [0], "modulus": [2], "result": [1]} }
+{ "modexp_u256": { "base": [0], "exponent": [0], "modulus": [2], "result": [1]} }
+{ "modexp_u256": { "base": [2], "exponent": [3], "modulus": [5], "result": [3]} }
+
+;; test case from EIP-198
+{ "modexp_u256": { "base": [3], "exponent": [115792089237316195423570985008687907853269984665640564039457584007908834671662], "modulus": [115792089237316195423570985008687907853269984665640564039457584007908834671663], "result": [1]}}
+
+;; { "modexp_u256": { "base": [2], "exponent": [2], "modulus": [5], "result": [4]} } 
+
+
+
+
