@@ -46,8 +46,7 @@ func Test_AsmBench_Mul(t *testing.T) {
 }
 
 func Test_AsmBench_Oob(t *testing.T) {
-	// KOALABEAR_16 disabled (see #1409)
-	util.CheckWithFields(t, false, "asm/bench/oob", util.ASM_MAX_PADDING, field.BLS12_377)
+	util.CheckWithFields(t, false, "asm/bench/oob", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_AsmBench_Shf(t *testing.T) {
@@ -63,7 +62,6 @@ func Test_AsmBench_Stp(t *testing.T) {
 }
 
 func Test_AsmBench_Trm(t *testing.T) {
-	//#1319
 	util.CheckWithFields(t, false, "asm/bench/trm", util.ASM_MAX_PADDING, field.BLS12_377, field.KOALABEAR_16)
 }
 
