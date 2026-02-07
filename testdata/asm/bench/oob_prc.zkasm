@@ -134,7 +134,10 @@ exit_f:
 
 fn oob_prc_blake(inst=0xFA09 u16, callee_gas u128, cds_rounds u128, rc_f u128) -> (success u1, return_gas u128, rc_nz u1) {
    var delta u128
-   var b u1
+   var b, rc_f_0, rc_f_1 u1
+   ;;
+   rc_f_0 = rc_f == 0 ? 1 : 0
+   rc_f_1 = rc_f == 1 ? 1 : 0
    ;;
    if inst == OOB_INST_BLAKE_CDS goto blake_cds
    if inst == OOB_INST_BLAKE_PARAMS goto blake_params
@@ -142,7 +145,7 @@ fn oob_prc_blake(inst=0xFA09 u16, callee_gas u128, cds_rounds u128, rc_f u128) -
 
 blake_cds:
   ;; calculate r@c != 0
-  rc_nz = rc_f != 0 ? 1 : 0
+  rc_nz = rc_f_0 == 0 ? 1 : 0
   ;; check cds==213
   success = cds_rounds == 213 ? 1 : 0
   return_gas = 0
@@ -153,8 +156,8 @@ blake_params:
   ;; check gas_cost <= rounds
   b, delta = callee_gas - cds_rounds
   if b != 0 goto exit_f
-  if rc_f == 0 goto exit_s
-  if rc_f == 1 goto exit_s
+  if rc_f_0 == 1 goto exit_s
+  if rc_f_1 == 1 goto exit_s
 exit_f:
   success = 0
   return_gas = 0
@@ -185,7 +188,7 @@ fn oob_prc_pricing(inst=0xFF01 u16, callee_gas u128, cds u32, r_c u128) -> (succ
   success = 1
   return_gas = delta
   extract_call_data = cds != 0 ? 1 : 0
-  empty_call_data = inst == OOB_INST_P256_VERIFY ? 0 : 1 - extract_call_data
+  empty_call_data = 1 - extract_call_data
   return
 p256verify:
   success = 1

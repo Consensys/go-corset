@@ -168,11 +168,24 @@ func Test_AsmUnit_Sub(t *testing.T) {
 		field.KOALABEAR_16, field.GF_8209)
 }
 
-func Test_AsmUtil_Ternary(t *testing.T) {
+func Test_AsmUnit_Ternary(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/ternary", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
 }
-func Test_AsmUtil_Ternary2(t *testing.T) {
+func Test_AsmUnit_Ternary2(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/ternary2", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)
+}
+
+// ===================================================================
+// Misc
+// ===================================================================
+
+func Test_AsmUnit_Cfg_01(t *testing.T) {
+	// Ignoring KOALABEAR_16 and GF_8209 for now
+	util.CheckCorset(t, true, "asm/unit/cfg_01", field.BLS12_377)
+}
+
+func Test_AsmUnit_Cfg_02(t *testing.T) {
+	util.CheckCorset(t, true, "asm/unit/cfg_02", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }

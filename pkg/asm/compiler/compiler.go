@@ -165,14 +165,17 @@ func (p *Compiler[F, T, E, M]) compileComponent(unit MicroComponent) {
 // Compile a function with the given name, registers and micro-instructions into
 // constraints.
 func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction) {
-	busId := p.busMap[fn.Name()]
-	// Setup framing columns / constraints
-	framing := p.initFunctionFraming(busId, fn)
-	// Initialise buses required for this code sequence
-	ioLines := p.initBuses(busId, fn)
+	var (
+		busId = p.busMap[fn.Name()]
+		// Extract module
+		module = p.modules[busId]
+		// Setup framing columns / constraints
+		framing = p.initFunctionFraming(busId, fn)
+		// Initialise buses required for this code sequence
+		ioLines = p.initBuses(busId, fn)
+	)
 	// Construct appropriate mapping
 	mapping := Translator[F, T, E, M]{
-		Module:    p.modules[busId],
 		Framing:   framing,
 		Registers: fn.Registers(),
 		ioLines:   ioLines,
@@ -181,7 +184,9 @@ func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction) {
 	// Compile each instruction in turn
 	for pc, inst := range fn.Code() {
 		// Core translation
-		mapping.Translate(uint(pc), inst)
+		constraint := mapping.Translate(uint(pc), inst)
+		// Add constraint
+		module.NewConstraint(fmt.Sprintf("pc%d", pc), util.None[int](), constraint)
 	}
 }
 

@@ -1316,3 +1316,11 @@ func Test_Valid_Stdlib_04(t *testing.T) {
 func Test_Valid_Stdlib_05(t *testing.T) {
 	util.CheckCorset(t, true, "corset/valid/stdlib_05", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
 }
+
+// ===================================================================
+// Misc
+// ===================================================================
+
+func Test_Valid_Cfg_01(t *testing.T) {
+	util.CheckCorset(t, true, "corset/valid/cfg_01", field.BLS12_377, field.KOALABEAR_16, field.GF_8209)
+}
