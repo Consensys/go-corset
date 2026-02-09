@@ -120,7 +120,7 @@ func (p *MirLowering) lowerModule(hirIndex, mirIndex uint) {
 // Lower a constraint to the MIR level.
 func (p *MirLowering) lowerConstraint(c Constraint, mirModule mirModuleBuilder) {
 	// Check what kind of constraint we have
-	switch v := c.constraint.(type) {
+	switch v := c.Constraint.(type) {
 	case Assertion:
 		p.lowerAssertion(v, mirModule)
 	case FunctionCall:
