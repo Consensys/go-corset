@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // MixedProgram represents the composition of an assembly program along with
@@ -189,4 +190,6 @@ func (p *MixedProgram[F, T, M]) GobDecode(data []byte) error {
 
 func init() {
 	gob.Register(MacroComponent(&MacroFunction{}))
+	gob.Register(schema.AnySchema[word.BigEndian](&MacroHirProgram{}))
+	gob.Register(schema.AnySchema[word.BigEndian](&MicroHirProgram{}))
 }
