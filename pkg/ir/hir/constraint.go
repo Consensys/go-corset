@@ -35,7 +35,7 @@ import (
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
 // are not found at the Constraint level.
 type Constraint struct {
-	constraint schema.Constraint[word.BigEndian]
+	Constraint schema.Constraint[word.BigEndian]
 }
 
 // NewAssertion constructs a new assertion
@@ -104,7 +104,7 @@ func NewSortedConstraint(handle string, context schema.ModuleId, bitwidth uint,
 func (p Constraint) Accepts(trace trace.Trace[word.BigEndian],
 	schema schema.AnySchema[word.BigEndian]) (bit.Set, schema.Failure) {
 	//
-	return p.constraint.Accepts(trace, schema)
+	return p.Constraint.Accepts(trace, schema)
 }
 
 // Bounds determines the well-definedness bounds for this constraint in both the
@@ -113,14 +113,14 @@ func (p Constraint) Accepts(trace trace.Trace[word.BigEndian],
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass)
 func (p Constraint) Bounds(module uint) util.Bounds {
-	return p.constraint.Bounds(module)
+	return p.Constraint.Bounds(module)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p Constraint) Consistent(schema schema.AnySchema[word.BigEndian]) []error {
-	return p.constraint.Consistent(schema)
+	return p.Constraint.Consistent(schema)
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -129,13 +129,13 @@ func (p Constraint) Consistent(schema schema.AnySchema[word.BigEndian]) []error 
 // constraints have at least one context (which we can call the "primary"
 // context).
 func (p Constraint) Contexts() []schema.ModuleId {
-	return p.constraint.Contexts()
+	return p.Constraint.Contexts()
 }
 
 // Name returns a unique name and case number for a given constraint.  This
 // is useful purely for identifying constraints in reports, etc.
 func (p Constraint) Name() string {
-	return p.constraint.Name()
+	return p.Constraint.Name()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -143,33 +143,15 @@ func (p Constraint) Name() string {
 //
 //nolint:revive
 func (p Constraint) Lisp(schema schema.AnySchema[word.BigEndian]) sexp.SExp {
-	return p.constraint.Lisp(schema)
+	return p.Constraint.Lisp(schema)
 }
 
 // Substitute any matchined labelled constants within this constraint
 func (p Constraint) Substitute(mapping map[string]word.BigEndian) {
-	p.constraint.Substitute(mapping)
+	p.Constraint.Substitute(mapping)
 }
 
 // Unwrap provides access to the underlying constraint.
 func (p Constraint) Unwrap() schema.Constraint[word.BigEndian] {
-	return p.constraint
-}
-
-// ============================================================================
-// Encoding / Decoding
-// ============================================================================
-
-// GobEncode an option.  This allows it to be marshalled into a binary form.
-func (p Constraint) GobEncode() (data []byte, err error) {
-	return encode_constraint(p.constraint)
-}
-
-// GobDecode a previously encoded option
-func (p *Constraint) GobDecode(data []byte) error {
-	var error error
-	//
-	p.constraint, error = decode_constraint(data)
-	//
-	return error
+	return p.Constraint
 }
