@@ -31,7 +31,7 @@ func FromRawTrace[F field.Element[F]](metadata []byte, trace trace.Trace[F]) Tra
 		ltModules = make([]Module[word.BigEndian], len(trModules))
 	)
 	//
-	for i, m := range trace.Modules().Collect() {
+	for i, m := range trModules {
 		ltModules[i] = reconstructLtTraceModule(m, &builder)
 	}
 	//

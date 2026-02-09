@@ -35,7 +35,7 @@ type SharedHeap[T word.DynamicWord[T]] struct {
 	// heap of bytes
 	heap []byte
 	// byte lengths for each chunk in the pool
-	lengths []uint8
+	lengths []uint16
 	// hash buckets
 	buckets [][]uint32
 	// count of words stored
@@ -50,7 +50,7 @@ func NewSharedHeap[T word.DynamicWord[T]]() *SharedHeap[T] {
 	var (
 		empty T
 		p     = &SharedHeap[T]{
-			lengths: []uint8{0},
+			lengths: []uint16{0},
 			buckets: make([][]uint32, HEAP_POOL_INIT_BUCKETS),
 			heap:    nil,
 			count:   0,
@@ -72,7 +72,7 @@ func (p *SharedHeap[T]) Size() uint {
 func (p *SharedHeap[T]) Clone() *SharedHeap[T] {
 	var (
 		heap    = make([]byte, len(p.heap))
-		lengths = make([]uint8, len(p.lengths))
+		lengths = make([]uint16, len(p.lengths))
 		buckets = make([][]uint32, len(p.buckets))
 	)
 	//
@@ -163,7 +163,7 @@ func (p *SharedHeap[T]) alloc(word T) uint32 {
 	// Write word data
 	word.PutBytes(p.heap[address : address+bytewidth])
 	// Configure word length
-	p.lengths[address] = uint8(bytewidth)
+	p.lengths[address] = uint16(bytewidth)
 	// Record word
 	p.count++
 	// Done
