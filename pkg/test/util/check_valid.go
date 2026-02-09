@@ -220,6 +220,8 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 	if !cfg.expand {
 		maxPadding = 0
 	}
+	// Configure stack.
+	stack := stacker.Build()
 	// Run through all configurations.
 	for padding := uint(0); padding <= maxPadding; padding++ {
 		// Fork trace
@@ -234,9 +236,6 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 					// However, we still want to test the pipeline (i.e. since that is used
 					// in production); therefore, we just restrict how much its used.
 					var parallel = (i == 0)
-					// Configure stack.  This ensures true separation between
-					// runs (e.g. for the io.Executor).
-					stack := stacker.Build()
 					//
 					if tf.RawModules() != nil {
 						// Construct trace identifier
