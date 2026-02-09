@@ -186,7 +186,7 @@ func factoredPolynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
 		lhs := factoredPolynomialToTerm[F](factor)
 		rhs := factoredPolynomialToTerm[F](remainder)
 		// Now recombine
-		r = term.RawRegisterAccess[F, Term[F]](rid.Id(), rid.BitWidth(), rid.RelativeShift()).Mask(rid.MaskWidth())
+		r = term.RawRegisterAccess[F, Term[F]](rid.Id(), rid.BitWidth, rid.RelativeShift()).Mask(rid.MaskWidth)
 		//
 		return term.Sum(term.Product[F](lhs, r), rhs)
 	}
@@ -294,8 +294,8 @@ func monomialToTerm[F field.Element[F]](monomial agnostic.DynamicMonomial) Term[
 	//
 	for i := range monomial.Len() {
 		ith := monomial.Nth(i)
-		ith_term := term.RawRegisterAccess[F, Term[F]](ith.Id(), ith.BitWidth(), ith.RelativeShift())
-		terms[i+1] = ith_term.Mask(ith.MaskWidth())
+		ith_term := term.RawRegisterAccess[F, Term[F]](ith.Id(), ith.BitWidth, ith.RelativeShift())
+		terms[i+1] = ith_term.Mask(ith.MaskWidth)
 	}
 	//
 	return term.Product(terms...)

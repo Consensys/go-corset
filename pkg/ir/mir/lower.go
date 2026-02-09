@@ -137,20 +137,20 @@ func (p *AirLowering[F]) LowerModule(index uint) {
 // Lower a constraint to the AIR level.
 func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule air.ModuleBuilder[F], bitwidths []uint) {
 	// Check what kind of constraint we have
-	switch v := c.constraint.(type) {
-	case Assertion[F]:
+	switch v := c.Constraint.(type) {
+	case *Assertion[F]:
 		p.lowerAssertionToAir(v, airModule)
-	case InterleavingConstraint[F]:
+	case *InterleavingConstraint[F]:
 		p.lowerInterleavingConstraintToAir(v, airModule)
-	case LookupConstraint[F]:
+	case *LookupConstraint[F]:
 		p.lowerLookupConstraintToAir(v, airModule)
-	case PermutationConstraint[F]:
+	case *PermutationConstraint[F]:
 		p.lowerPermutationConstraintToAir(v, airModule)
-	case RangeConstraint[F]:
+	case *RangeConstraint[F]:
 		p.lowerRangeConstraintToAir(v, airModule)
-	case SortedConstraint[F]:
+	case *SortedConstraint[F]:
 		p.lowerSortedConstraintToAir(v, airModule)
-	case VanishingConstraint[F]:
+	case *VanishingConstraint[F]:
 		p.lowerVanishingConstraintToAir(v, airModule, bitwidths)
 	default:
 		// Should be unreachable as no other constraint types can be added to a
@@ -160,7 +160,7 @@ func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule air.Mod
 }
 
 // Lowering an assertion is straightforward since its not a true constraint.
-func (p *AirLowering[F]) lowerAssertionToAir(v Assertion[F], airModule air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerAssertionToAir(v *Assertion[F], airModule air.ModuleBuilder[F]) {
 	airModule.AddConstraint(air.NewAssertion[F](v.Handle, v.Context, v.Domain, v.Property))
 }
 
@@ -168,7 +168,7 @@ func (p *AirLowering[F]) lowerAssertionToAir(v Assertion[F], airModule air.Modul
 // straightforward and simply relies on lowering the expression being
 // constrained.  This may result in the generation of computed columns, e.g. to
 // hold inverses, etc.
-func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F], airModule air.ModuleBuilder[F],
+func (p *AirLowering[F]) lowerVanishingConstraintToAir(v *VanishingConstraint[F], airModule air.ModuleBuilder[F],
 	bitwidths []uint) {
 	//
 	var (
@@ -186,7 +186,7 @@ func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F],
 
 // Lower a permutation constraint to the AIR level.  This is trivial because
 // permutation constraints do not currently support complex forms.
-func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint[F], airModule air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerPermutationConstraintToAir(v *PermutationConstraint[F], airModule air.ModuleBuilder[F]) {
 	airModule.AddConstraint(
 		air.NewPermutationConstraint[F](v.Handle, v.Context, v.Targets, v.Sources),
 	)
@@ -198,7 +198,7 @@ func (p *AirLowering[F]) lowerPermutationConstraintToAir(v PermutationConstraint
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModule air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerRangeConstraintToAir(v *RangeConstraint[F], airModule air.ModuleBuilder[F]) {
 	// Extract target expression
 	for i, e := range v.Sources {
 		// Apply bitwidth gadget
@@ -217,7 +217,7 @@ func (p *AirLowering[F]) lowerRangeConstraintToAir(v RangeConstraint[F], airModu
 // whenever a general expression is encountered, we must generate a computed
 // column to hold the value of that expression, along with appropriate
 // constraints to enforce the expected value.
-func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstraint[F],
+func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c *InterleavingConstraint[F],
 	airModule air.ModuleBuilder[F]) {
 	var (
 		n = len(c.Target.Vars)
@@ -255,7 +255,7 @@ func (p *AirLowering[F]) lowerInterleavingConstraintToAir(c InterleavingConstrai
 // expression is encountered, we must generate a computed column to hold the
 // value of that expression, along with appropriate constraints to enforce the
 // expected value.
-func (p *AirLowering[F]) lowerLookupConstraintToAir(c LookupConstraint[F], airModule air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerLookupConstraintToAir(c *LookupConstraint[F], airModule air.ModuleBuilder[F]) {
 	var (
 		sources = make([]lookup.Vector[F, *air.ColumnAccess[F]], len(c.Sources))
 		targets = make([]lookup.Vector[F, *air.ColumnAccess[F]], len(c.Targets))
@@ -290,7 +290,7 @@ func (p *AirLowering[F]) expandLookupVectorToAir(vector LookupVector[F],
 // Lower a sorted constraint to the AIR level.  The challenge here is that there
 // is not concept of sorting constraints at the AIR level.  Instead, we have to
 // generate the necessary machinery to enforce the sorting constraint.
-func (p *AirLowering[F]) lowerSortedConstraintToAir(c SortedConstraint[F], airModule air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerSortedConstraintToAir(c *SortedConstraint[F], airModule air.ModuleBuilder[F]) {
 	var (
 		sources = make([]register.Id, len(c.Sources))
 	)
@@ -882,7 +882,7 @@ func determineTrueBitwidths[F field.Element[F]](mirModule schema.Module[F]) []ui
 		// Following should always hold
 		c := iter.Next().(Constraint[F])
 		// Check what kind of constraint we have
-		if v, ok := c.constraint.(RangeConstraint[F]); ok {
+		if v, ok := c.Constraint.(*RangeConstraint[F]); ok {
 			// apply constraints
 			for i, e := range v.Sources {
 				rid := e.Register().Unwrap()

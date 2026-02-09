@@ -61,7 +61,7 @@ type RegisterIdentifier[T any] interface {
 // register accesses.
 func DynamicEnvironment() Environment[register.AccessId] {
 	return func(rid register.AccessId) uint {
-		return rid.MaskWidth()
+		return rid.MaskWidth
 	}
 }
 
@@ -235,7 +235,7 @@ func RegistersRead[T RegisterIdentifier[T]](p Polynomial[T]) []register.Id {
 	)
 	//
 	for i := range p.Len() {
-		for _, ident := range p.Term(i).Vars() {
+		for _, ident := range p.Term(i).Variables() {
 			rid := ident.Id()
 			//
 			if !regs.Contains(rid.Unwrap()) {
@@ -253,7 +253,7 @@ func RegisterReadSet[T RegisterIdentifier[T]](p Polynomial[T]) bit.Set {
 	var regs bit.Set
 	//
 	for i := range p.Len() {
-		for _, ident := range p.Term(i).Vars() {
+		for _, ident := range p.Term(i).Variables() {
 			rid := ident.Id()
 			regs.Insert(rid.Unwrap())
 		}
@@ -289,7 +289,7 @@ func SubstituteMonomial[T RegisterIdentifier[T]](t Monomial[T], mapping func(T) 
 	r = r.Set(poly.NewMonomial[T](t.Coefficient()))
 	// Initially, attempt to avoid substitution altgoether.  This ensures we
 	// only allocate memory when an actual subistition happens.
-	for _, v := range t.Vars() {
+	for _, v := range t.Variables() {
 		tmp := mapping(v)
 		// Sanity check what happened
 		if tmp == nil {

@@ -39,12 +39,12 @@ import (
 type ConstraintBound[F field.Element[F]] interface {
 	schema.Constraint[F]
 
-	constraint.Assertion[F] |
-		interleaving.Constraint[F, *ColumnAccess[F]] |
-		lookup.Constraint[F, *ColumnAccess[F]] |
-		permutation.Constraint[F] |
-		ranged.Constraint[F, *ColumnAccess[F]] |
-		vanishing.Constraint[F, LogicalTerm[F]]
+	*constraint.Assertion[F] |
+		*interleaving.Constraint[F, *ColumnAccess[F]] |
+		*lookup.Constraint[F, *ColumnAccess[F]] |
+		*permutation.Constraint[F] |
+		*ranged.Constraint[F, *ColumnAccess[F]] |
+		*vanishing.Constraint[F, LogicalTerm[F]]
 }
 
 // Air attempts to encapsulate the notion of a valid constraint at the AIR
@@ -52,7 +52,7 @@ type ConstraintBound[F field.Element[F]] interface {
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
 // are not found at the Air level.
 type Air[F field.Element[F], C ConstraintBound[F]] struct {
-	constraint C
+	Constraint C
 }
 
 // newAir is a helper method for the various constraint constructors, basically
@@ -111,7 +111,7 @@ func (p Air[F, C]) Air() {
 // branch coverage is returned.
 func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F],
 ) (bit.Set, schema.Failure) {
-	return p.constraint.Accepts(trace, schema)
+	return p.Constraint.Accepts(trace, schema)
 }
 
 // Bounds determines the well-definedness bounds for this constraint in both the
@@ -120,21 +120,17 @@ func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F],
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass)
 func (p Air[F, C]) Bounds(module uint) util.Bounds {
-	return p.constraint.Bounds(module)
+	return p.Constraint.Bounds(module)
 }
 
 // Complexity implementation for constraint interface
 func (p Air[F, C]) Complexity() uint {
-	var bound schema.Constraint[F] = p.constraint
+	var bound schema.Constraint[F] = p.Constraint
 	//
-	if c, ok := bound.(vanishing.Constraint[F, LogicalTerm[F]]); ok {
-		var t = c.Constraint.Term
-		return term.ComplexityOfTerm[F](t)
-	} else if c, ok := bound.(*vanishing.Constraint[F, LogicalTerm[F]]); ok {
+	if c, ok := bound.(*vanishing.Constraint[F, LogicalTerm[F]]); ok {
 		var t = c.Constraint.Term
 		return term.ComplexityOfTerm[F](t)
 	}
-
 	//
 	return 0
 }
@@ -143,7 +139,7 @@ func (p Air[F, C]) Complexity() uint {
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p Air[F, C]) Consistent(schema schema.AnySchema[F]) []error {
-	return p.constraint.Consistent(schema)
+	return p.Constraint.Consistent(schema)
 }
 
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
@@ -152,13 +148,13 @@ func (p Air[F, C]) Consistent(schema schema.AnySchema[F]) []error {
 // constraints have at least one context (which we can call the "primary"
 // context).
 func (p Air[F, C]) Contexts() []schema.ModuleId {
-	return p.constraint.Contexts()
+	return p.Constraint.Contexts()
 }
 
 // Name returns a unique name and case number for a given constraint.  This
 // is useful purely for identifying constraints in reports, etc.
 func (p Air[F, C]) Name() string {
-	return p.constraint.Name()
+	return p.Constraint.Name()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -166,7 +162,7 @@ func (p Air[F, C]) Name() string {
 //
 //nolint:revive
 func (p Air[F, C]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
-	return p.constraint.Lisp(schema)
+	return p.Constraint.Lisp(schema)
 }
 
 // Substitute any matchined labelled constants within this constraint
@@ -178,5 +174,5 @@ func (p Air[F, C]) Substitute(map[string]F) {
 
 // Unwrap provides access to the underlying constraint.
 func (p Air[F, C]) Unwrap() C {
-	return p.constraint
+	return p.Constraint
 }
