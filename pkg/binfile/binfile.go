@@ -50,6 +50,17 @@ func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MacroHirP
 	}
 }
 
+// Clone this binary file producing an identical, but physically disjoint copy.
+func (p BinaryFile) Clone() (r BinaryFile) {
+	if bytes, err := p.MarshalBinary(); err != nil {
+		panic(err.Error())
+	} else if err := r.UnmarshalBinary(bytes); err != nil {
+		panic(err.Error())
+	}
+	//
+	return r
+}
+
 // GetAttribute returns the first instance of a given attribute, or nil if none
 // exists.
 func GetAttribute[T Attribute](binf *BinaryFile) (T, bool) {
