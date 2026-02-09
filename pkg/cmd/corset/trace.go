@@ -101,16 +101,10 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	cfg.sortColumn = GetUint(cmd, "sort")
 	//ltv2 := GetFlag(cmd, "ltv2")
 	// Read in constraint files
-	stacker := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
-	stack := stacker.Build()
+	stack := *getSchemaStack[F](cmd, SCHEMA_OPTIONAL, args[1:]...)
 	builder := stack.TraceBuilder().WithPadding(padding)
-	//
-	if stacker.HasBinaryFile() {
-		// Extract debug information (if available)
-		cfg.sourceMap, _ = binfile.GetAttribute[*corset.SourceMap](stacker.BinaryFile())
-	}
-	// Extract register mapping (for limbs)
-	cfg.mapping = stack.RegisterMapping()
+	// Extract debug information (if available)
+	cfg.sourceMap, _ = binfile.FindAttribute[*corset.SourceMap](stack.Attributes())
 	// Parse trace file(s)
 	if batched {
 		// batched mode
@@ -132,6 +126,8 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 			tp_errors []error
 			traces    []trace.Trace[F]
 		)
+		// Extract register mapping (for limbs)
+		cfg.mapping = stack.ConcreteMapping()
 		// Expand all the traces
 		traces, tp_errors = expandLtTraces(ltTraces, stack, builder)
 		// Print trace info
@@ -273,7 +269,7 @@ func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaSta
 ) (tr.Trace[F], []error) {
 	//
 	var (
-		schema    = stack.BinaryFile().Schema
+		schema    = stack.AbstractSchema()
 		tb_errors []error
 		tp_errors []error
 		tr        trace.Trace[F]
@@ -286,8 +282,10 @@ func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaSta
 		//
 		perf.Log("Trace propagation")
 	}
+	// Extract the compiled schema
+	compiledSchema := binfile.ExtractSchema[F](stack.ConcreteSchema())
 	// Construct expanded trace
-	tr, tb_errors = bldr.Build(stack.ConcreteSchema(), tf)
+	tr, tb_errors = bldr.Build(compiledSchema, tf)
 	// Handle errors
 	if len(tb_errors) > 0 {
 		for _, err := range tb_errors {

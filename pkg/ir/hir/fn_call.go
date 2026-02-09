@@ -38,7 +38,7 @@ type FunctionCall struct {
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p FunctionCall) Consistent(schema schema.AnySchema[word.BigEndian]) []error {
+func (p *FunctionCall) Consistent(schema schema.AnySchema[word.BigEndian]) []error {
 	var (
 		errors []error
 		nargs  = uint(len(p.Arguments))
@@ -76,7 +76,7 @@ func (p FunctionCall) Consistent(schema schema.AnySchema[word.BigEndian]) []erro
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p FunctionCall) Name() string {
+func (p *FunctionCall) Name() string {
 	return p.Handle
 }
 
@@ -85,14 +85,14 @@ func (p FunctionCall) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p FunctionCall) Contexts() []schema.ModuleId {
+func (p *FunctionCall) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{
 		p.Callee, p.Caller,
 	}
 }
 
 // Complexity implementation for constraint interface
-func (p FunctionCall) Complexity() uint {
+func (p *FunctionCall) Complexity() uint {
 	return 0
 }
 
@@ -103,7 +103,7 @@ func (p FunctionCall) Complexity() uint {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p FunctionCall) Bounds(module uint) util.Bounds {
+func (p *FunctionCall) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.Caller {
@@ -131,7 +131,7 @@ func (p FunctionCall) Bounds(module uint) util.Bounds {
 // all rows of the source columns.
 //
 //nolint:revive
-func (p FunctionCall) Accepts(_ trace.Trace[word.BigEndian], _ schema.AnySchema[word.BigEndian],
+func (p *FunctionCall) Accepts(_ trace.Trace[word.BigEndian], _ schema.AnySchema[word.BigEndian],
 ) (bit.Set, schema.Failure) {
 	// Currently this is unreachable.
 	panic("unreachable")
@@ -141,7 +141,7 @@ func (p FunctionCall) Accepts(_ trace.Trace[word.BigEndian], _ schema.AnySchema[
 // so it can be printed.
 //
 //nolint:revive
-func (p FunctionCall) Lisp(mapping schema.AnySchema[word.BigEndian]) sexp.SExp {
+func (p *FunctionCall) Lisp(mapping schema.AnySchema[word.BigEndian]) sexp.SExp {
 	var (
 		module = mapping.Module(p.Caller)
 		callee = mapping.Module(p.Callee)
@@ -173,7 +173,7 @@ func (p FunctionCall) Lisp(mapping schema.AnySchema[word.BigEndian]) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p FunctionCall) Substitute(mapping map[string]word.BigEndian) {
+func (p *FunctionCall) Substitute(mapping map[string]word.BigEndian) {
 	//nolint
 	for _, ith := range p.Returns {
 		ith.Substitute(mapping)

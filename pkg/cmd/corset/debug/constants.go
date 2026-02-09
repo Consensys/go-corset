@@ -22,11 +22,11 @@ import (
 
 // PrintExternalisedConstants is responsible for printing any externalised
 // constants contained within the given binary file.
-func PrintExternalisedConstants(binf *binfile.BinaryFile) {
+func PrintExternalisedConstants(attributes []binfile.Attribute) {
 	//
 	fmt.Println("External constants:")
 	// Sanity check debug information is available.
-	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+	srcmap, srcmap_ok := binfile.FindAttribute[*corset.SourceMap](attributes)
 	//
 	if !srcmap_ok {
 		fmt.Println("\t(no information available)")

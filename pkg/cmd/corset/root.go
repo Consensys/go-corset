@@ -107,7 +107,7 @@ func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnostic
 	os.Exit(2)
 }
 
-func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStacker[F] {
+func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames ...string) *cmd_util.SchemaStack[F] {
 	var (
 		stacker      cmd_util.SchemaStacker[F]
 		corsetConfig corset.CompilationConfig
@@ -182,26 +182,6 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 		WithCorsetConfig(corsetConfig).
 		WithOptimisationConfig(mir.OPTIMISATION_LEVELS[optimisation]).
 		WithConstantDefinitions(externs)
-	//
-	if asmEnable {
-		stacker = stacker.WithLayer(cmd_util.MACRO_ASM_LAYER)
-	}
-	//
-	if uasmEnable {
-		stacker = stacker.WithLayer(cmd_util.MICRO_ASM_LAYER)
-	}
-	//
-	if nasmEnable {
-		stacker = stacker.WithLayer(cmd_util.NANO_ASM_LAYER)
-	}
-	//
-	if mirEnable {
-		stacker = stacker.WithLayer(cmd_util.MIR_LAYER)
-	}
-	//
-	if airEnable {
-		stacker = stacker.WithLayer(cmd_util.AIR_LAYER)
-	}
 	// Read / compile given source files.
 	if mode != SCHEMA_OPTIONAL || len(filenames) > 0 {
 		stacker = stacker.Read(filenames...)
@@ -211,8 +191,23 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 	}
 	// Configure builder
 	stacker = stacker.WithTraceBuilder(builder)
-	// Done
-	return &stacker
+
+	switch {
+	case asmEnable:
+		stacker = stacker.WithLayer(cmd_util.MACRO_ASM_LAYER)
+	case uasmEnable:
+		stacker = stacker.WithLayer(cmd_util.MICRO_ASM_LAYER)
+	case nasmEnable:
+		stacker = stacker.WithLayer(cmd_util.NANO_ASM_LAYER)
+	case mirEnable:
+		stacker = stacker.WithLayer(cmd_util.MIR_LAYER)
+	case airEnable:
+		stacker = stacker.WithLayer(cmd_util.AIR_LAYER)
+	default:
+		panic("invalid config")
+	}
+	//
+	return stacker.Build()
 }
 
 func countFlags(flags ...bool) (r uint) {

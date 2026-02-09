@@ -25,9 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
-	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -107,6 +105,17 @@ func (p SchemaStacker[F]) WithCorsetConfig(config corset.CompilationConfig) Sche
 	return p
 }
 
+// WithLayer identifies that the given layer should be included in the schema
+// stack.
+func (p SchemaStacker[F]) WithLayer(layer uint) SchemaStacker[F] {
+	// clone layers first
+	p.layers = p.layers.Clone()
+	// add new layer
+	p.layers.Insert(layer)
+	//
+	return p
+}
+
 // WithOptimisationConfig determines the optimisation level to apply at the MIR
 // layer.
 func (p SchemaStacker[F]) WithOptimisationConfig(config mir.OptimisationConfig) SchemaStacker[F] {
@@ -119,17 +128,6 @@ func (p SchemaStacker[F]) WithOptimisationConfig(config mir.OptimisationConfig) 
 // apply to the constructed binary file.
 func (p SchemaStacker[F]) WithConstantDefinitions(externs []string) SchemaStacker[F] {
 	p.externs = externs
-	//
-	return p
-}
-
-// WithLayer identifies that the given layer should be included in the schema
-// stack.
-func (p SchemaStacker[F]) WithLayer(layer uint) SchemaStacker[F] {
-	// clone layers first
-	p.layers = p.layers.Clone()
-	// add new layer
-	p.layers.Insert(layer)
 	//
 	return p
 }
@@ -172,72 +170,117 @@ func (p SchemaStacker[F]) TraceBuilder() ir.TraceBuilder[F] {
 }
 
 // Build a fresh SchemaStack from this stacker.
-func (p SchemaStacker[F]) Build() SchemaStack[F] {
+func (p SchemaStacker[F]) Build() *SchemaStack[F] {
 	var (
-		asmProgram  asm.MacroHirProgram
-		uasmProgram asm.MicroHirProgram
-		airSchema   air.Schema[F]
-		stack       SchemaStack[F]
+		stack SchemaStack[F]
 	)
 	//
 	if p.binfile.HasValue() {
-		stats := util.NewPerfStats()
-		binfile := p.binfile.Unwrap()
-		// Apply any user-specified values for externalised constants.
-		applyExternOverrides(p.externs, &binfile)
-		// Read out the mixed macro schema
-		asmProgram = binfile.Schema
-		// Lower to mixed micro schema
-		uasmProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
-		//
-		stats.Log("lowering")
-		// Apply register splitting for field agnosticity
-		nasmProgram, mapping := asm.Concretize[F](p.asmConfig.Field, uasmProgram)
-		//
-		stats.Log("concretization")
-		// Compile
-		mirSchema := asm.Compile(nasmProgram)
-		//
-		stats.Log("translation")
-		// Record mapping
-		stack.mapping = mapping
-		// Include (Macro) Assembly Layer (if requested)
-		if p.layers.Contains(MACRO_ASM_LAYER) {
-			stack.abstractSchemas = append(stack.abstractSchemas, &asmProgram)
-			stack.names = append(stack.names, "ASM")
+		var binf = p.binfile.Unwrap()
+		// Check whether compiled constraints already present in the binfile.
+		if binf.Compiled.HasValue() {
+			return p.extractConstraints()
+		} else {
+			return p.lowerConstraints()
 		}
-		// Include (Micro) Assembly Layer (if requested)
-		if p.layers.Contains(MICRO_ASM_LAYER) {
-			stack.abstractSchemas = append(stack.abstractSchemas, &uasmProgram)
-			stack.names = append(stack.names, "UASM")
-		}
-		// Include (Micro) Assembly Layer (if requested)
-		if p.layers.Contains(NANO_ASM_LAYER) {
-			stack.concreteSchemas = append(stack.concreteSchemas, &nasmProgram)
-			stack.names = append(stack.names, "NASM")
-		}
-		// Include Mid-level IR layer (if requested)
-		if p.layers.Contains(MIR_LAYER) {
-			stack.concreteSchemas = append(stack.concreteSchemas, mirSchema)
-			stack.names = append(stack.names, "MIR")
-		}
-		// Include Arithmetic-level IR layer (if requested)
-		if p.layers.Contains(AIR_LAYER) {
-			// Lower to AIR
-			airSchema = mir.LowerToAir(mirSchema, p.Field().BandWidth, p.mirConfig)
-			//
-			stats.Log("arithmetizion")
-			//
-			stack.concreteSchemas = append(stack.concreteSchemas, schema.Any(airSchema))
-			stack.names = append(stack.names, "AIR")
-		}
-		// Assign trace builder with limb map
-		stack.traceBuilder = p.traceBuilder.WithRegisterMapping(mapping)
-		// Assign binfile used to build the stack
-		stack.binfile = util.Some(binfile)
 	}
 	//
-	return stack
+	return &stack
+}
+
+func (p SchemaStacker[F]) extractConstraints() *SchemaStack[F] {
+	var (
+		binf     = p.binfile.Unwrap()
+		compiled = binf.Compiled.Unwrap()
+		config   = util.Some[field.Config](p.asmConfig.Field)
+		stack    SchemaStack[F]
+	)
+	// Sanity check field configurations match
+	if compiled.Config.HasValue() {
+		if config != compiled.Config {
+			fmt.Printf("mismatched field configuration (%s requested, but %s embedded in binary file)\n",
+				p.asmConfig.Field.Name, compiled.Config.Unwrap().Name)
+			os.Exit(15)
+		} else if p.layers.Count() != 1 {
+			layers := toIrLayerNames(p.layers)
+			fmt.Printf(
+				"mismatched intermediate representation (%s requested, buy only %s embedded in binary file)\n",
+				layers, compiled.Name)
+			os.Exit(15)
+		} else if !p.layers.Contains(toIrLayerId(compiled.Name)) {
+			layers := toIrLayerNames(p.layers)
+			fmt.Printf("mismatched intermediate representation (%s requested, but %s embedded in binary file)\n",
+				layers, compiled.Name)
+			os.Exit(15)
+		}
+	}
+	// Assign binfile used to build the stack
+	stack.header = binf.Header
+	stack.attributes = binf.Attributes
+	stack.compiled = append(stack.compiled, binfile.NewAbstractSchema("ASM", &binf.Schema))
+	stack.compiled = append(stack.compiled, compiled)
+	stack.mapping = compiled.Mapping
+	// Assign trace builder with limb map
+	stack.traceBuilder = p.traceBuilder.WithRegisterMapping(compiled.Mapping)
+	//
+	return &stack
+}
+
+func (p SchemaStacker[F]) lowerConstraints() *SchemaStack[F] {
+	var (
+		binf        = p.binfile.Unwrap()
+		asmProgram  = binf.Schema
+		uasmProgram asm.MicroHirProgram
+		stats       = util.NewPerfStats()
+		stack       SchemaStack[F]
+	)
+	// Apply any user-specified values for externalised constants.
+	applyExternOverrides(p.externs, &binf)
+	// Lower to mixed micro schema
+	uasmProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
+	//
+	stats.Log("lowering")
+	// Apply register splitting for field agnosticity
+	nasmProgram, mapping := asm.Concretize[F](p.asmConfig.Field, uasmProgram)
+	//
+	stats.Log("concretization")
+	// Compile
+	mirSchema := asm.Compile(nasmProgram)
+	//
+	stats.Log("translation")
+	// Assign trace builder with limb map
+	stack.traceBuilder = p.traceBuilder.WithRegisterMapping(mapping)
+	// Assign binfile used to build the stack
+	stack.header = binf.Header
+	stack.attributes = binf.Attributes
+	// Always include (Macro) assembly layer first
+	compiled := binfile.NewAbstractSchema("ASM", &asmProgram)
+	stack.compiled = append(stack.compiled, compiled)
+	// Include (Micro) Assembly Layer (if requested)
+	if p.layers.Contains(MICRO_ASM_LAYER) {
+		compiled := binfile.NewAbstractSchema("uASM", &uasmProgram)
+		stack.compiled = append(stack.compiled, compiled)
+	}
+	// Include (Micro) Assembly Layer (if requested)
+	if p.layers.Contains(NANO_ASM_LAYER) {
+		compiled := binfile.NewConcreteSchema(p.Field(), "nASM", mapping, &nasmProgram)
+		stack.compiled = append(stack.compiled, compiled)
+	}
+	// Include Mid-level IR layer (if requested)
+	if p.layers.Contains(MIR_LAYER) {
+		compiled := binfile.NewConcreteSchema(p.Field(), "MIR", mapping, mirSchema)
+		stack.compiled = append(stack.compiled, compiled)
+	}
+	// Include Arithmetic-level IR layer (if requested)
+	if p.layers.Contains(AIR_LAYER) {
+		airSchema := mir.LowerToAir(mirSchema, p.Field().BandWidth, p.mirConfig)
+		compiled := binfile.NewConcreteSchema(p.Field(), "AIR", mapping, airSchema)
+		stack.compiled = append(stack.compiled, compiled)
+	}
+	//
+	stack.mapping = mapping
+	//
+	return &stack
 }
 
 // readConstraintFiles provides a generic interface for reading constraint files
@@ -350,7 +393,7 @@ func CompileSourceFiles(config corset.CompilationConfig, asmConfig asm.LoweringC
 		// Check for any errors
 		if len(errors) == 0 {
 			attributes := []binfile.Attribute{&srcmap}
-			return *binfile.NewBinaryFile(nil, attributes, mixedMacroProgram)
+			return *binfile.NewBinaryFile(nil, attributes, mixedMacroProgram, util.None[binfile.CompiledSchema]())
 		}
 	}
 	// Report errors
@@ -494,6 +537,55 @@ func checkExternExists(name []string, mod corset.SourceModule) bool {
 	}
 	//
 	return false
+}
+
+func toIrLayerNames(layers bit.Set) string {
+	var (
+		firstTime = true
+		builder   strings.Builder
+	)
+
+	for i := layers.Iter(); i.HasNext(); {
+		if !firstTime {
+			builder.WriteString(", ")
+		}
+
+		firstTime = false
+
+		switch i.Next() {
+		case MACRO_ASM_LAYER:
+			builder.WriteString("ASM")
+		case MICRO_ASM_LAYER:
+			builder.WriteString("uASM")
+		case NANO_ASM_LAYER:
+			builder.WriteString("nASM")
+		case MIR_LAYER:
+			builder.WriteString("MIR")
+		case AIR_LAYER:
+			builder.WriteString("AIR")
+		default:
+			panic("unknown layer encountered")
+		}
+	}
+
+	return builder.String()
+}
+
+func toIrLayerId(name string) uint {
+	switch name {
+	case "ASM":
+		return MACRO_ASM_LAYER
+	case "uASM":
+		return MICRO_ASM_LAYER
+	case "nASM":
+		return NANO_ASM_LAYER
+	case "MIR":
+		return MIR_LAYER
+	case "AIR":
+		return AIR_LAYER
+	default:
+		panic(fmt.Sprintf("unknown layer \"%s\" encountered", name))
+	}
 }
 
 // Print a syntax error with appropriate highlighting.

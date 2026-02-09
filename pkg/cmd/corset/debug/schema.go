@@ -14,30 +14,36 @@ package debug
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/macro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/corset/util"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // PrintSchemas is responsible for printing out a human-readable description of
 // a given schema.
 func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth uint) {
+	compiled := stack.ConcreteSchema()
 	//
-	for _, schema := range stack.AbstractSchemas() {
+	if compiled.Config.HasValue() {
+		// Concrete schema
+		schema := binfile.ExtractSchema[F](stack.ConcreteSchema())
+		//
 		printSchema(schema, textwidth)
-	}
-	//
-	if stack.HasConcreteSchema() {
-		printSchema(stack.ConcreteSchema(), textwidth)
+	} else {
+		// abstract schema
+		schema := binfile.ExtractSchema[word.BigEndian](stack.ConcreteSchema())
+		//
+		printSchema(schema, textwidth)
 	}
 }
 
@@ -134,10 +140,10 @@ func printRegisters[F any](module schema.Module[F], prefix string, filter func(r
 		//
 		for _, r := range module.Registers() {
 			if filter(r) {
-				if r.Width() != math.MaxUint {
-					regT = fmt.Sprintf("u%d", r.Width())
-				} else {
+				if r.IsNative() {
 					regT = "𝔽"
+				} else {
+					regT = fmt.Sprintf("u%d", r.Width())
 				}
 				// construct name string whilst applying quotes when necessary.
 				name := sexp.NewSymbol(r.Name()).String(true)
@@ -167,7 +173,7 @@ func countRegisters[F any](module schema.Module[F], filter func(register.Registe
 
 func requiresSpacing[F field.Element[F]](c schema.Constraint[F]) bool {
 	if c, ok := c.(mir.Constraint[F]); ok {
-		if _, ok := c.Unwrap().(mir.VanishingConstraint[F]); ok {
+		if _, ok := c.Unwrap().(*mir.VanishingConstraint[F]); ok {
 			return ok
 		}
 	}

@@ -13,12 +13,14 @@
 package gadgets
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
 	"github.com/consensys/go-corset/pkg/ir/term"
+	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -28,7 +30,12 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/hash"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // BitwidthGadget is a general-purpose mechanism for enforcing type constraints
@@ -216,19 +223,19 @@ func (p *BitwidthGadget[F]) constructTypeProof(handle module.Name, bitwidth uint
 
 type typeDecomposition[F field.Element[F]] struct {
 	// Limb widths of decomposition.
-	loWidth, hiWidth uint
+	LoWidth, HiWidth uint
 	// Source registers being decomposed which represent the set of all the
 	// columns in the entire system being proved to have the given bitwidth.
-	sources []register.Ref
+	Sources []register.Ref
 	// Target registers for decomposition.  There are always exactly three
 	// registers, where the first holds the original value, followed by the
 	// least significant (lo) limb and, finally, the most significant (hi) limb.
-	targets []register.Ref
+	Targets []register.Ref
 }
 
 // AddSource adds a new source column to this decomposition.
 func (p *typeDecomposition[F]) AddSource(source register.Ref) {
-	p.sources = append(p.sources, source)
+	p.Sources = append(p.Sources, source)
 }
 
 // Compute computes the values of columns defined by this assignment.
@@ -236,12 +243,12 @@ func (p *typeDecomposition[F]) AddSource(source register.Ref) {
 func (p *typeDecomposition[F]) Compute(tr trace.Trace[F], schema sc.AnySchema[F],
 ) ([]array.MutArray[F], error) {
 	// Read inputs
-	sources := assignment.ReadRegistersRef(tr, p.sources...)
-	padding := assignment.ReadPadding(tr, p.sources...)
+	sources := assignment.ReadRegistersRef(tr, p.Sources...)
+	padding := assignment.ReadPadding(tr, p.Sources...)
 	// Combine all sources
-	combined := combineSources(p.loWidth+p.hiWidth, sources, padding, tr.Builder())
+	combined := combineSources(p.LoWidth+p.HiWidth, sources, padding, tr.Builder())
 	// Generate decomposition
-	data := computeDecomposition(p.loWidth, p.hiWidth, combined, tr.Builder())
+	data := computeDecomposition(p.LoWidth, p.HiWidth, combined, tr.Builder())
 	// Done
 	return data, nil
 }
@@ -270,12 +277,12 @@ func (p *typeDecomposition[F]) RegistersExpanded() []register.Ref {
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *typeDecomposition[F]) RegistersRead() []register.Ref {
-	return p.sources
+	return p.Sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
 func (p *typeDecomposition[F]) RegistersWritten() []register.Ref {
-	return p.targets
+	return p.Targets
 }
 
 // Substitute any matchined labelled constants within this assignment
@@ -291,7 +298,7 @@ func (p *typeDecomposition[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		sources = sexp.EmptyList()
 	)
 
-	for _, ref := range p.targets {
+	for _, ref := range p.Targets {
 		module := schema.Module(ref.Module())
 		ith := module.Register(ref.Register())
 		name := sexp.NewSymbol(ith.QualifiedName(module))
@@ -300,7 +307,7 @@ func (p *typeDecomposition[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		targets.Append(def)
 	}
 
-	for _, ref := range p.sources {
+	for _, ref := range p.Sources {
 		module := schema.Module(ref.Module())
 		ith := module.Register(ref.Register())
 		ithName := ith.QualifiedName(module)
@@ -427,4 +434,20 @@ func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
 	}
 	//
 	return loFr, hiFr
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+func init() {
+	initForField[word.BigEndian]()
+	initForField[bls12_377.Element]()
+	initForField[koalabear.Element]()
+	initForField[gf8209.Element]()
+	initForField[gf251.Element]()
+}
+
+func initForField[F field.Element[F]]() {
+	gob.Register(schema.Assignment[F](&typeDecomposition[F]{}))
 }
