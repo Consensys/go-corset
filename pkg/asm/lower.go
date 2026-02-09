@@ -79,7 +79,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	return io.NewFunction(f.Name(), f.IsPublic(), f.Registers(), f.Buses(), insns)
 }
 
-func vectorizeInstruction(pc uint, insns []micro.Instruction, _ register.Map) micro.Instruction {
+func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.Map) micro.Instruction {
 	var (
 		insn    = insns[pc]
 		changed = true
@@ -87,30 +87,45 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction, _ register.Map) mi
 		// MaxUint (if they don't).
 		externs []uint = array.FrontPad[uint](nil, uint(len(insns)), math.MaxUint)
 	)
+	//
 	// Keep vectorizing until worklist empty.
 	for changed {
 		changed = false
+		//
+		index, ok := insn.LastJump(uint(len(insn.Codes)))
 		// Identify rightmost jump target (if exists)
-		if index, ok := insn.LastJump(); ok {
+		for ok {
 			// Extract jump instruction
 			jmp := insn.Codes[index].(*micro.Jmp)
 			// Extract target instruction
 			target := insns[jmp.Target]
-			//
-			if jmp.Target != pc && !conflictingInstructions(0, insn.Codes, bit.Set{}, jmp.Target, target) {
-				if offset := externs[jmp.Target]; offset != math.MaxUint {
+			// Check against loops
+			if offset := externs[jmp.Target]; offset > index && jmp.Target != pc {
+				var ninsn micro.Instruction
+				// Inline instruction
+				if offset != math.MaxUint {
 					// no need to inline, as this instruction was previously inlined further down.
-					insn = replaceJump(insn, index, offset)
-					// done
-					changed = true
+					ninsn = replaceJump(insn, index, offset)
 				} else {
-					insn = inlineJump(insn, index, target)
-					// update the micro mapping
-					updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
-					// done
+					ninsn = inlineJump(insn, index, target.Codes)
+				}
+				// Check whether instruction remains valid or not.  An
+				// instruction might be invalid at this point if it contains a
+				// conflicting write and/or breaks any internal invariants.
+				if ninsn.Validate(math.MaxUint, mapping) == nil {
+					// valid, so update micro mapping (if applicable)
+					if offset == math.MaxUint {
+						updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
+					}
+					//
+					insn = ninsn
 					changed = true
+					// Done
+					break
 				}
 			}
+			// continue looking for non-conflicting rightmost branch
+			index, ok = insn.LastJump(index)
 		}
 	}
 	//
@@ -128,45 +143,6 @@ func updateMicroMap(externs []uint, index uint, jmpTarget uint, ncodes uint) {
 			externs[i] += ncodes - 1
 		}
 	}
-}
-
-func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target uint, insn micro.Instruction) bool {
-	// set of written registers
-	var written []io.RegisterId
-	//
-	switch code := codes[cc].(type) {
-	case *micro.Assign:
-		written = code.RegistersWritten()
-	case *micro.Division:
-		written = code.RegistersWritten()
-	case *micro.Jmp:
-		if code.Target == target {
-			// Prevent inlining multiple times.
-			return conflictingInstructions(0, insn.Codes, writes, math.MaxUint, insn)
-		}
-		//
-		return false
-	case *micro.Skip:
-		return conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn)
-	case *micro.SkipIf:
-		// Check target location
-		if conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn) {
-			return true
-		}
-		// Fall through
-	case *micro.Ret, *micro.Fail:
-		return false
-	}
-	// Check conflicts, and update mutated registers
-	for _, r := range written {
-		if writes.Contains(r.Unwrap()) {
-			return true
-		}
-		//
-		writes.Insert(r.Unwrap())
-	}
-	// Proceed
-	return conflictingInstructions(cc+1, codes, writes, target, insn)
 }
 
 // Replace a jump at a given index with a skip to a given micro offset
@@ -190,7 +166,7 @@ func replaceJump(insn micro.Instruction, jmpIndex uint, offset uint) micro.Instr
 // Inline a jump instruction within this instruction.  This requires correctly
 // updating internal code offsets for skip instructions, otherwise they could
 // now skip over the wrong number of codes.
-func inlineJump(insn micro.Instruction, jmpIndex uint, target micro.Instruction) micro.Instruction {
+func inlineJump(insn micro.Instruction, jmpIndex uint, targetCodes []micro.Code) micro.Instruction {
 	var (
 		// Extract jump instruction
 		codes   = insn.Codes
@@ -205,7 +181,7 @@ func inlineJump(insn micro.Instruction, jmpIndex uint, target micro.Instruction)
 		// Check for insn being inlined.
 		if cc == jmpIndex {
 			// NOTE: -1 as will overwrite the jmp.
-			npc += len(target.Codes) - 1
+			npc += len(targetCodes) - 1
 		}
 	}
 	// construct new sequence (to be filled out).
@@ -218,7 +194,7 @@ func inlineJump(insn micro.Instruction, jmpIndex uint, target micro.Instruction)
 		case *micro.Jmp:
 			if cc == jmpIndex {
 				// copy over target instructions
-				for _, c := range target.Codes {
+				for _, c := range targetCodes {
 					ninsns[npc] = c.Clone()
 					npc++
 				}
