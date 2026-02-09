@@ -265,7 +265,7 @@ func reconstructLtTraces[F field.Element[F]](ltTraces []lt.TraceFile, traces []t
 		)
 		// Construct legacy trace file (if requested)
 		if legacy {
-			ntraces[i] = lt.NewTraceFileV1(ith.Header().MetaData, ith.Heap(), ith.RawModules())
+			ith = lt.NewTraceFileV1(ith.Header().MetaData, ith.Heap(), ith.RawModules())
 		}
 		// Done
 		ntraces[i] = ith
