@@ -13,6 +13,8 @@
 package util
 
 import (
+	"bytes"
+	"encoding/gob"
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/binfile"
@@ -56,12 +58,39 @@ func (p *SchemaStack[F]) BinaryFile() *binfile.BinaryFile {
 	return &bf
 }
 
+<<<<<<< HEAD:pkg/cmd/corset/util/schema_stack.go
 // HasConcreteSchema returns true if there is at least one concrete schema..
 func (p *SchemaStack[F]) HasConcreteSchema() bool {
 	return len(p.concreteSchemas) > 0
 }
 
 // ConcreteSchema returns the stack of concrete schemas according to the selected
+=======
+// Clone this stack producing a physically disjoint but otherwise identical
+// stack.  The purpose of this is to ensure not interference between runs.
+func (p *SchemaStack[F]) Clone() SchemaStack[F] {
+	var (
+		binfile         util.Option[binfile.BinaryFile]
+		abstractSchemas = cloneSchemas(p.abstractSchemas)
+		concreteSchemas = cloneSchemas(p.concreteSchemas)
+	)
+	//
+	if p.binfile.HasValue() {
+		binfile = util.Some(p.binfile.Unwrap().Clone())
+	}
+	//
+	return SchemaStack[F]{
+		binfile,
+		abstractSchemas,
+		concreteSchemas,
+		p.mapping,
+		p.names,
+		p.traceBuilder,
+	}
+}
+
+// ConcreteSchemas returns the stack of concrete schemas according to the selected
+>>>>>>> 4d1b4745 (support SchemaStack.Clone()):pkg/cmd/util/schema_stack.go
 // layers, where higher-level layers come first.
 func (p *SchemaStack[F]) ConcreteSchema() schema.AnySchema[F] {
 	var n = len(p.concreteSchemas) - 1
@@ -98,4 +127,43 @@ func (p *SchemaStack[F]) ConcreteIrName() string {
 // TraceBuilder returns a configured trace builder.
 func (p *SchemaStack[F]) TraceBuilder() ir.TraceBuilder[F] {
 	return p.traceBuilder
+}
+
+// Perform a deep copy of a schema by encoding it into bytes, and then decoding
+// it from those bytes back into a fresh object.
+func cloneSchemas[F field.Element[F]](schemas []schema.AnySchema[F]) []schema.AnySchema[F] {
+	var nschemas = make([]schema.AnySchema[F], len(schemas))
+	//
+	for i, s := range schemas {
+		nschemas[i] = decodeSchema[F](encodeSchema[F](s))
+	}
+	//
+	return nschemas
+}
+
+func encodeSchema[F field.Element[F]](schema schema.AnySchema[F]) []byte {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder *gob.Encoder = gob.NewEncoder(&buffer)
+	)
+	// Encode schema
+	if err := gobEncoder.Encode(&schema); err != nil {
+		panic(err.Error())
+	}
+	// Done
+	return buffer.Bytes()
+}
+
+func decodeSchema[F field.Element[F]](data []byte) (r schema.AnySchema[F]) {
+	var (
+		buffer = bytes.NewBuffer(data)
+		// Looks good, proceed.
+		decoder = gob.NewDecoder(buffer)
+	)
+	// Finally, decode the schema itself
+	if err := decoder.Decode(&r); err != nil {
+		panic(err.Error())
+	}
+	//
+	return r
 }
