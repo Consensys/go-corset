@@ -127,17 +127,23 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		fmt.Println("must specify one of --mir/air")
 		os.Exit(2)
 	} else if builder.Expanding() {
-		var tp_errors []error
+		var (
+			tp_errors []error
+			traces    []trace.Trace[F]
+		)
 		// Expand all the traces
-		for _, ltf := range ltTraces {
-			ith, errs := expandLtTrace(ltf, stack, builder)
-			printTraceInfo(cfg, ith)
-
-			tp_errors = append(tp_errors, errs...)
+		traces, tp_errors = expandLtTraces(ltTraces, stack, builder)
+		// Print trace info
+		for _, tf := range traces {
+			printTraceInfo(cfg, tf)
 		}
 		// Report any propagation errors
 		for _, err := range tp_errors {
 			log.Errorln(err)
+		}
+		// Reconstruct traces (if needed)
+		if output != "" {
+			ltTraces = reconstructLtTraces(ltTraces, traces, false)
 		}
 	} else {
 		// Use raw trace
@@ -159,8 +165,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		// 	}
 		// }
 		// //
-		// writeBatchedTracesFile(output, ltTraces...)
-		panic("todo")
+		writeBatchedTracesFile(output, ltTraces...)
 	}
 }
 
@@ -228,6 +233,46 @@ func constructTraceFilter[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]
 
 // RawColumn provides a convenient alias
 type RawColumn = lt.Column[word.BigEndian]
+
+func expandLtTraces[F field.Element[F]](traceFiles []lt.TraceFile, stack cmd_util.SchemaStack[F],
+	bldr ir.TraceBuilder[F]) ([]tr.Trace[F], []error) {
+	//
+	var (
+		traces = make([]tr.Trace[F], len(traceFiles))
+		errors []error
+	)
+	//
+	for i := range traceFiles {
+		var errs []error
+		//
+		traces[i], errs = expandLtTrace(traceFiles[i], stack, bldr)
+		//
+		errors = append(errors, errs...)
+	}
+	//
+	return traces, errors
+}
+
+func reconstructLtTraces[F field.Element[F]](ltTraces []lt.TraceFile, traces []trace.Trace[F], legacy bool,
+) []lt.TraceFile {
+	//
+	var ntraces = make([]lt.TraceFile, len(ltTraces))
+	// Convert all traces back to lt files.
+	for i := range traces {
+		var (
+			header = ltTraces[i].Header()
+			ith    = lt.FromRawTrace(header.MetaData, traces[i])
+		)
+		// Construct legacy trace file (if requested)
+		if legacy {
+			ntraces[i] = lt.NewTraceFileV1(ith.Header().MetaData, ith.Heap(), ith.RawModules())
+		}
+		// Done
+		ntraces[i] = ith
+	}
+	//
+	return ntraces
+}
 
 func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaStack[F], bldr ir.TraceBuilder[F],
 ) (tr.Trace[F], []error) {

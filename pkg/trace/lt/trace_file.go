@@ -77,8 +77,18 @@ type TraceFile struct {
 }
 
 // NewTraceFile constructs a new trace file with the default header for the
-// currently supported version.
+// current default version.
 func NewTraceFile(metadata []byte, pool WordHeap, modules []Module[word.BigEndian]) TraceFile {
+	return TraceFile{
+		Header{ZKTRACER, LTV2_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
+		pool,
+		modules,
+	}
+}
+
+// NewTraceFileV1 constructs a new legacy trace file with the default header for
+// the current default version.
+func NewTraceFileV1(metadata []byte, pool WordHeap, modules []Module[word.BigEndian]) TraceFile {
 	return TraceFile{
 		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
 		pool,
