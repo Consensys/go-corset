@@ -228,6 +228,8 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 		t.Run(test, func(t *testing.T) {
 			// Enable parallel testing
 			t.Parallel()
+			// Clone localStack to ensure complete separation between tests.
+			localStack := stack.Clone()
 			//
 			for _, ir := range []string{"MIR", "AIR"} {
 				for i, tf := range traces {
@@ -245,7 +247,7 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 						if cfg.expand || ir == "AIR" {
 							// Always check if expansion required, otherwise
 							// only check AIR constraints.
-							checkTrace(t, tf, id, stack.ConcreteSchemaOf(ir), stack.RegisterMapping())
+							checkTrace(t, tf, id, localStack.ConcreteSchemaOf(ir), localStack.RegisterMapping())
 						}
 					}
 				}
