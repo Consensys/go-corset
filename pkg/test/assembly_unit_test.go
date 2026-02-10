@@ -24,6 +24,12 @@ func Test_AsmUnit_BitShift(t *testing.T) {
 		field.KOALABEAR_16, field.GF_8209)
 }
 
+func Test_AsmUnit_ByteAt(t *testing.T) {
+	// ignore GF_8209 for performance reasons
+	util.CheckWithFields(t, false, "asm/unit/byte_at", util.ASM_MAX_PADDING, field.BLS12_377,
+		field.KOALABEAR_16)
+}
+
 func Test_AsmUnit_ByteShift(t *testing.T) {
 	util.CheckWithFields(t, false, "asm/unit/byte_shift", util.ASM_MAX_PADDING, field.BLS12_377,
 		field.KOALABEAR_16, field.GF_8209)

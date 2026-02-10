@@ -58,10 +58,6 @@ func NewRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, b
 // register on the current row.
 func RawRegisterAccess[F field.Element[F], T Expr[F, T]](register register.Id, bitwidth uint, shift int,
 ) *RegisterAccess[F, T] {
-	// TEMPORARY CHECK
-	if bitwidth > 1024 {
-		panic(fmt.Sprintf("invalid bitwidth (%d)", bitwidth))
-	}
 	//
 	return &RegisterAccess[F, T]{register, bitwidth, bitwidth, shift}
 }

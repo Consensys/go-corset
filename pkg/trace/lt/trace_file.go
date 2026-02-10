@@ -31,11 +31,11 @@ type ArrayBuilder = array.DynamicBuilder[word.BigEndian, *pool.SharedHeap[word.B
 // WordHeap provides a usefuil alias
 type WordHeap = pool.LocalHeap[word.BigEndian]
 
-// LT_MAJOR_VERSION givesn the major version of the (currently supported) legacy
+// LTV1_MAJOR_VERSION givesn the major version of the (currently supported) legacy
 // binary file format.  No matter what version, we should always have the
 // ZKBINARY identifier first, followed by a GOB encoding of the header.  What
 // follows after that, however, is determined by the major version.
-const LT_MAJOR_VERSION uint16 = 1
+const LTV1_MAJOR_VERSION uint16 = 1
 
 // LTV2_MAJOR_VERSION gives the major version of the binary file format.  No
 // matter what version, we should always have the ZKBINARY identifier first,
@@ -43,10 +43,16 @@ const LT_MAJOR_VERSION uint16 = 1
 // is determined by the major version.
 const LTV2_MAJOR_VERSION uint16 = 2
 
-// LT_MINOR_VERSION gives the minor version of the binary file format.  The
+// LTV3_MAJOR_VERSION gives the major version of the binary file format.  No
+// matter what version, we should always have the ZKBINARY identifier first,
+// followed by a GOB encoding of the header.  What follows after that, however,
+// is determined by the major version.
+const LTV3_MAJOR_VERSION uint16 = 3
+
+// LTV3_MINOR_VERSION gives the minor version of the binary file format.  The
 // expected interpretation is that older versions are compatible with newer
 // ones, but not vice-versa.
-const LT_MINOR_VERSION uint16 = 0
+const LTV3_MINOR_VERSION uint16 = 0
 
 // ZKTRACER is used as the file identifier for binary file types.  This just
 // helps us identify actual binary files from corrupted files.
@@ -80,7 +86,7 @@ type TraceFile struct {
 // current default version.
 func NewTraceFile(metadata []byte, pool WordHeap, modules []Module[word.BigEndian]) TraceFile {
 	return TraceFile{
-		Header{ZKTRACER, LTV2_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
+		Header{ZKTRACER, LTV3_MAJOR_VERSION, LTV3_MINOR_VERSION, metadata},
 		pool,
 		modules,
 	}
@@ -90,7 +96,7 @@ func NewTraceFile(metadata []byte, pool WordHeap, modules []Module[word.BigEndia
 // the current default version.
 func NewTraceFileV1(metadata []byte, pool WordHeap, modules []Module[word.BigEndian]) TraceFile {
 	return TraceFile{
-		Header{ZKTRACER, LT_MAJOR_VERSION, LT_MINOR_VERSION, metadata},
+		Header{ZKTRACER, LTV1_MAJOR_VERSION, LTV3_MINOR_VERSION, metadata},
 		pool,
 		modules,
 	}
@@ -195,9 +201,9 @@ func (p *TraceFile) MarshalBinary() ([]byte, error) {
 	buffer.Write(headerBytes)
 	// Write column data
 	switch p.header.MajorVersion {
-	case 1:
+	case LTV1_MAJOR_VERSION:
 		columnBytes, err = ToBytesLegacy(p.modules)
-	case 2:
+	case LTV3_MAJOR_VERSION:
 		columnBytes, err = ToBytes(p.heap, p.modules)
 	default:
 		err = fmt.Errorf("unknown lt major file format %d", p.header.MajorVersion)
@@ -232,17 +238,20 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	if err = p.header.UnmarshalBinary(buffer); err != nil {
 		return err
 	} else if !p.header.IsCompatible() {
-		return fmt.Errorf("incompatible binary file was v%d.%d, but expected v%d.%d)",
-			p.header.MajorVersion, p.header.MinorVersion, LT_MAJOR_VERSION, LT_MINOR_VERSION)
+		return fmt.Errorf("incompatible binary trace file (v%d.%d))",
+			p.header.MajorVersion, p.header.MinorVersion)
 	}
 	//
 	switch p.header.MajorVersion {
 	case 1:
 		// Legacy Format
-		p.heap, p.modules, err = FromBytesLegacy(buffer.Bytes())
+		p.heap, p.modules, err = FromBytesV1(buffer.Bytes())
 	case 2:
+		// Legacy format
+		p.heap, p.modules, err = FromBytesV2(buffer.Bytes())
+	case 3:
 		// New format
-		p.heap, p.modules, err = FromBytes(buffer.Bytes())
+		p.heap, p.modules, err = FromBytesV3(buffer.Bytes())
 	default:
 		panic("unreachable")
 	}
