@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // Following types capture top-level abstractions at the MIR level.
@@ -48,6 +49,10 @@ type (
 	LogicalTerm[F any] interface {
 		term.Logical[F, LogicalTerm[F]]
 	}
+	// Computation captures the notion of computations used in a small number of places.
+	Computation = term.Computation[word.BigEndian]
+	// LogicalComputation captures the notion of computations used in a small number of places.
+	LogicalComputation = term.LogicalComputation[word.BigEndian]
 )
 
 // Following types capture permitted constraint forms at the MIR level.

@@ -57,7 +57,7 @@ func NewRegisterSplittingEnvironment(maxWidth uint, registers []Register) *Regis
 		// Map old id to new id
 		mapping[i] = uint(len(splitRegisters))
 		// Check whether splitting required.
-		if reg.Width > maxWidth {
+		if reg.Width() > maxWidth {
 			// Yes!
 			splitRegisters = append(splitRegisters, SplitRegister(maxWidth, reg)...)
 		} else {
@@ -99,7 +99,7 @@ func (p *RegisterSplittingEnvironment) SplitSourceRegisters(sources ...RegisterI
 		ntarget := p.regMap[target.Unwrap()]
 		reg := p.regsBefore[target.Unwrap()]
 		// Determine split parameters
-		n := NumberOfLimbs(p.maxWidth, reg.Width)
+		n := NumberOfLimbs(p.maxWidth, reg.Width())
 		// Split up n limbs
 		for j := uint(0); j != n; j++ {
 			limbId := register.NewId(ntarget + j)
@@ -127,7 +127,7 @@ func (p *RegisterSplittingEnvironment) SplitTargetRegisters(targets ...RegisterI
 	for _, target := range targets {
 		ntarget := p.regMap[target.Unwrap()]
 		reg := p.regsBefore[target.Unwrap()]
-		n := NumberOfLimbs(p.maxWidth, reg.Width)
+		n := NumberOfLimbs(p.maxWidth, reg.Width())
 		// Split into n limbs
 		for j := uint(0); j != n; j++ {
 			limbId := register.NewId(ntarget + j)
@@ -149,8 +149,8 @@ func (p *RegisterSplittingEnvironment) AllocateTargetLimbs(targetLimbs []Registe
 		target = targetLimbs[n].Unwrap()
 	)
 	// Determine how many limbs to use
-	for n < len(targetLimbs) && width+p.regsAfter[target].Width < p.maxWidth {
-		width = width + p.regsAfter[target].Width
+	for n < len(targetLimbs) && width+p.regsAfter[target].Width() < p.maxWidth {
+		width = width + p.regsAfter[target].Width()
 		n++
 		//
 		if n < len(targetLimbs) {

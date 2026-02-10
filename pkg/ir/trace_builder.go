@@ -251,17 +251,19 @@ func fillTraceModule[F field.Element[F]](mod sc.Module[F], rawModule lt.Module[F
 			data = rawModule.Columns[i].MutData()
 		}
 		// Set padding for this column
-		padding = padding.SetBytes(reg.Padding.Bytes())
+		padding = padding.SetBytes(reg.Padding().Bytes())
 		//
-		traceColumns[i] = trace.NewArrayColumn(reg.Name, data, padding)
+		traceColumns[i] = trace.NewArrayColumn(reg.Name(), data, padding)
 	}
 	//
-	return trace.NewArrayModule(mod.Name(), traceColumns)
+	return trace.NewArrayModule(mod.Name(), mod.Keys(), traceColumns)
 }
 
 // pad each module with its given level of spillage and (optionally) ensure a
 // given level of defensive padding.
-func addSpillageAndDefensivePadding[F any](defensive bool, tr *trace.ArrayTrace[F], schema sc.AnySchema[F]) {
+func addSpillageAndDefensivePadding[F field.Element[F]](defensive bool, tr *trace.ArrayTrace[F],
+	schema sc.AnySchema[F]) {
+	//
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {
@@ -276,7 +278,7 @@ func addSpillageAndDefensivePadding[F any](defensive bool, tr *trace.ArrayTrace[
 }
 
 // determineModuleHeights returns the height for each module in the trace.
-func determineModuleHeights[F any](tr *trace.ArrayTrace[F]) []uint {
+func determineModuleHeights[F field.Element[F]](tr *trace.ArrayTrace[F]) []uint {
 	n := tr.Modules().Count()
 	mid := 0
 	heights := make([]uint, n)
@@ -292,7 +294,7 @@ func determineModuleHeights[F any](tr *trace.ArrayTrace[F]) []uint {
 
 // checkModuleHeights checks the expanded heights match exactly what was
 // expected.
-func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayTrace[F],
+func checkModuleHeights[F field.Element[F]](original []uint, defensive bool, tr *trace.ArrayTrace[F],
 	schema sc.AnySchema[F]) error {
 	//
 	expanded := determineModuleHeights(tr)
@@ -315,7 +317,7 @@ func checkModuleHeights[F any](original []uint, defensive bool, tr *trace.ArrayT
 // PadColumns pads every column in a given trace with a given amount of (front)
 // padding. Observe that this applies on top of any spillage and/or defensive
 // padding already applied.
-func padColumns[F any](tr *trace.ArrayTrace[F], schema sc.AnySchema[F], padding uint) {
+func padColumns[F field.Element[F]](tr *trace.ArrayTrace[F], schema sc.AnySchema[F], padding uint) {
 	n := tr.Modules().Count()
 	// Iterate over modules
 	for i := uint(0); i < n; i++ {

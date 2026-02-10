@@ -97,7 +97,7 @@ func ParallelTraceValidation[F field.Element[F]](schema sc.AnySchema[F], trace t
 			// Check elements
 			go func(reg register.Register, data tr.Column[F]) {
 				// Send outcome back
-				c <- validateColumnBitWidth(reg.Width, data, scMod)
+				c <- validateColumnBitWidth(reg.Width(), data, scMod)
 			}(scMod.Register(rid), trMod.Column(i))
 			//
 			ntodo++
@@ -128,7 +128,7 @@ func sequentialModuleValidation[F field.Element[F]](scMod sc.Module[F], trMod tr
 		for i := uint(0); i < max(trMod.Width(), scMod.Width()); i++ {
 			// Sanity checks first
 			if i >= trMod.Width() {
-				err := fmt.Errorf("register %s.%s missing from trace", trMod.Name(), registers[i].Name)
+				err := fmt.Errorf("register %s.%s missing from trace", trMod.Name(), registers[i].Name())
 				errors = append(errors, err)
 			} else if i >= scMod.Width() {
 				err := fmt.Errorf("unknown register %s.%s in trace", trMod.Name(), trMod.Column(i).Name())
@@ -140,7 +140,7 @@ func sequentialModuleValidation[F field.Element[F]](scMod sc.Module[F], trMod tr
 					data = trMod.Column(i)
 				)
 				// Sanity check data has expected bitwidth
-				if err := validateColumnBitWidth(reg.Width, data, scMod); err != nil {
+				if err := validateColumnBitWidth(reg.Width(), data, scMod); err != nil {
 					errors = append(errors, err)
 				}
 			}

@@ -14,7 +14,6 @@ package mir
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/assignment"
@@ -58,7 +57,9 @@ import (
 //
 // Here, c is a 1bit register introduced as part of the transformation to act as
 // a "carry" between the two constraints.
-func Subdivide[F field.Element[F], E register.Map](mapping module.LimbsMap, externs []E, mods []Module[F]) []Module[F] {
+func Subdivide[F field.Element[F], E register.ConstMap](mapping module.LimbsMap, externs []E,
+	mods []Module[F]) []Module[F] {
+	//
 	var (
 		builder = ir.NewSchemaBuilder[F, Constraint[F], Term[F]](externs...)
 	)
@@ -67,7 +68,7 @@ func Subdivide[F field.Element[F], E register.Map](mapping module.LimbsMap, exte
 		// original registers.
 		var (
 			eid      = uint(i + len(externs))
-			mid      = builder.NewModule(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
+			mid      = builder.NewModule(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic(), 0)
 			module   = builder.Module(mid)
 			limbsMap = mapping.Module(mid).LimbsMap()
 		)
@@ -145,50 +146,12 @@ func (p *Subdivider[F]) FlushAllocator(mid module.Id, alloc agnostic.RegisterAll
 	}
 }
 
-// ConstantRegister returns a register in the given module whose value is always
-// the given constant. This function is responsible for enforcing this (e.g. by
-// adding constraints as necessary).  Furthermore, it will attempt to reuse
-// existing constant registers where possible.
-func (p *Subdivider[F]) ConstantRegister(mid module.Id, constant F) register.Id {
-	var (
-		module      = p.modules.Module(mid)
-		name        = constant.String()
-		padding     big.Int
-		maxBitwidth = p.mapping.Field().RegisterWidth
-	)
-	// attempt to lookup existing register
-	if rid, ok := module.HasRegister(name); ok {
-		return rid
-	}
-	// Initialise padding value
-	padding.SetBytes(constant.Bytes())
-	// Determine appropriate bitwidth
-	bitwidth := uint(padding.BitLen())
-	// Sanity check
-	if maxBitwidth < bitwidth {
-		panic(fmt.Sprintf("constant register exceeds maximum bitwidth (u%d v u%d)", bitwidth, maxBitwidth))
-	}
-	//
-	var (
-		// no existing register, therefore create one.
-		rid = module.NewRegister(register.NewComputed(name, bitwidth, padding))
-		// Construct word version of cosntant
-		wordVal = field.FromBigEndianBytes[word.BigEndian](constant.Bytes())
-	)
-	// Construct computation
-	computation := term.NewComputation[word.BigEndian, LogicalTerm[word.BigEndian]](
-		term.Const[word.BigEndian, Term[word.BigEndian]](wordVal))
-	// Add assignment for filling said computed column
-	module.AddAssignment(
-		assignment.NewComputedRegister[F](computation, true, module.Id(), rid))
-	// add constraint
-	module.AddConstraint(
-		NewVanishingConstraint(name, mid, util.None[int](), term.Equals[F, LogicalTerm[F]](
-			term.NewRegisterAccess[F, Term[F]](rid, bitwidth, 0),
-			term.Const[F, Term[F]](constant),
-		)))
-	//
-	return rid
+// ZeroRegister returns a register in the given module whose value is always
+// the constant zero.
+func (p *Subdivider[F]) ZeroRegister(mid module.Id) register.Id {
+	var module = p.modules.Module(mid)
+	// Access zero register for given module
+	return module.ConstRegister(0)
 }
 
 // ============================================================================
@@ -405,7 +368,7 @@ func (p *Subdivider[F]) subdivideSorted(c SortedConstraint[F]) SortedConstraint[
 		for j := len(split); j > 0; j-- {
 			var (
 				jth       = split[j-1]
-				limbWidth = modmap.Limb(jth.Register()).Width
+				limbWidth = modmap.Limb(jth.Register()).Width()
 			)
 			//
 			sources = append(sources, jth)
@@ -535,7 +498,7 @@ func subdivideRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], map
 	for i, limbId := range limbs {
 		var (
 			limb      = mapping.Limb(limbId)
-			limbWidth = min(bitwidth, limb.Width)
+			limbWidth = min(bitwidth, limb.Width())
 		)
 		// NOTE: following ensures at least one limb is always added for any
 		// register.  This is necessary to ensure we never completely eliminate
@@ -544,7 +507,7 @@ func subdivideRawRegisterAccess[F field.Element[F]](expr *RegisterAccess[F], map
 		// registers whose value constant).
 		if limbWidth > 0 || i == 0 {
 			// Construct register access
-			ith := term.RawRegisterAccess[F, Term[F]](limbId, limb.Width, expr.RelativeShift())
+			ith := term.RawRegisterAccess[F, Term[F]](limbId, limb.Width(), expr.RelativeShift())
 			// Mask off any unrequired bits
 			terms = append(terms, ith.Mask(limbWidth))
 		}

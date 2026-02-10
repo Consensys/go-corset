@@ -28,7 +28,7 @@ import (
 // PaddingFor determines the appropriate padding value for the given term.  This
 // is done by evaluating the term against a artificially constructed trace from
 // the given module, where each column has its declared padding value.
-func PaddingFor[F field.Element[F], T term.Evaluable[F]](term T, mod schema.Module[F]) big.Int {
+func PaddingFor[F field.Element[F], T term.Evaluable[F]](term T, mod schema.ModuleView) big.Int {
 	var (
 		num      big.Int
 		val, err = term.EvalAt(-1, &traceModule[F]{mod}, mod)
@@ -45,7 +45,7 @@ func PaddingFor[F field.Element[F], T term.Evaluable[F]](term T, mod schema.Modu
 
 // Wrapper around a schema module making it look like a trace.
 type traceModule[F field.Element[F]] struct {
-	mod schema.Module[F]
+	mod schema.ModuleView
 }
 
 // Name implementation for trace.Module interface
@@ -60,14 +60,24 @@ func (p *traceModule[F]) Column(index uint) trace.Column[F] {
 		padding F
 	)
 	// Convert bigint to field element
-	padding = padding.SetBytes(ith.Padding.Bytes())
+	padding = padding.SetBytes(ith.Padding().Bytes())
 	//
-	return &traceColumn[F]{ith.Name, padding}
+	return &traceColumn[F]{ith.Name(), padding}
 }
 
 // ColumnOf implementation for trace.Module interface
 func (p *traceModule[F]) ColumnOf(string) trace.Column[F] {
 	panic("unreachable")
+}
+
+// FindLast implementation for the trace.Module interface.
+func (p *traceModule[F]) FindLast(...F) uint {
+	panic("unsupported operation")
+}
+
+// Keys implementation for the trace.Module interface.
+func (p *traceModule[F]) Keys() uint {
+	panic("unsupported operation")
 }
 
 // Width implementation for trace.Module interface

@@ -98,7 +98,7 @@ func (p *ComputedRegister[F]) Compute(tr trace.Trace[F], schema schema.AnySchema
 	for i, target := range p.Targets {
 		wrapper.data[i] = make([]word.BigEndian, height)
 		// Record bitwidth information
-		bitwidths[i] = scModule.Register(target).Width
+		bitwidths[i] = scModule.Register(target).Width()
 	}
 	// Expand the trace
 	if !p.IsRecursive() {
@@ -242,8 +242,8 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 			datatype = "𝔽"
 			ith      = module.Register(t)
 		)
-		if ith.Width != math.MaxUint {
-			datatype = fmt.Sprintf("u%d", ith.Width)
+		if ith.Width() != math.MaxUint {
+			datatype = fmt.Sprintf("u%d", ith.Width())
 		}
 
 		targets[i] = sexp.NewList([]sexp.SExp{
@@ -269,11 +269,7 @@ func fwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i, expr, e)
 		}
 		// Write data across limbs
-		if !write(i, val, data, widths) {
-			// Generate error
-			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i, val.String(),
-				expr.Lisp(false, scMod).String(true))
-		}
+		write(i, val, data, widths)
 	}
 	//
 	return nil
@@ -290,28 +286,21 @@ func bwdComputation(height uint, data [][]word.BigEndian, widths []uint, expr te
 			return constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i-1, expr, e)
 		}
 		// Write data across limbs
-		if !write(i-1, val, data, widths) {
-			// Generate error
-			return fmt.Errorf("row %d out-of-bounds (%s) for: %s", i-1, val.String(),
-				expr.Lisp(false, scMod).String(true))
-		}
+		write(i-1, val, data, widths)
 	}
 	//
 	return nil
 }
 
-func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) bool {
-	// FIXME: following is not efficient, as it allocates memory and does quite
-	// a lot of work overall.
+func write(row uint, val word.BigEndian, data [][]word.BigEndian, bitwidths []uint) {
 	var elements, ok = field.SplitWord[word.BigEndian](val, bitwidths)
-	//
+	// Only write data if value was within bounds; otherwise, leave as zero
+	// (which should be caught as a constraint failure if its invalid).
 	if ok {
 		for i := range data {
 			data[i][row] = elements[i]
 		}
 	}
-	//
-	return ok
 }
 
 // RecModule is a wrapper which enables a computation to be recursive.
@@ -344,6 +333,16 @@ func (p *recursiveModule) ColumnOf(string) trace.Column[word.BigEndian] {
 	// NOTE: this is marked unreachable because, as it stands, expression
 	// evaluation never calls this method.
 	panic("unreachable")
+}
+
+// FindLast implementation for the trace.Module interface.
+func (p *recursiveModule) FindLast(...word.BigEndian) uint {
+	panic("unsupported operation")
+}
+
+// Keys implementation for the trace.Module interface.
+func (p *recursiveModule) Keys() uint {
+	panic("unsupported operation")
 }
 
 // Width implementation for trace.Module interface.

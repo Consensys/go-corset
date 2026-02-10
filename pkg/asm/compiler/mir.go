@@ -17,7 +17,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
@@ -35,14 +34,21 @@ type ModuleBuilder[F field.Element[F]] = ir.ModuleBuilder[F, mir.Constraint[F], 
 
 // MirModule provides a wrapper around a corset-level module declaration.
 type MirModule[F field.Element[F]] struct {
-	Module *ModuleBuilder[F]
+	Module ModuleBuilder[F]
 }
 
 // Initialise this module
-func (p MirModule[F]) Initialise(mid uint, fn MicroFunction, iomap io.Map) MirModule[F] {
-	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](fn.Name(), mid, false, fn.IsPublic(), false)
-	// Add corresponding assignment for this function.
-	builder.AddAssignment(program.NewAssignment[F](mid, fn, iomap))
+func (p MirModule[F]) Initialise(mid uint, fn MicroComponent) MirModule[F] {
+	builder := ir.NewModuleBuilder[F, mir.Constraint[F], mir.Term[F]](
+		fn.Name(), mid, false, fn.IsPublic(), false, fn.NumInputs())
+	//
+	switch fn := fn.(type) {
+	case *MicroFunction:
+		// Add corresponding assignment for this function.
+		builder.AddAssignment(program.NewAssignment[F](mid, *fn))
+	default:
+		panic("unknown component encountered")
+	}
 	//
 	p.Module = builder
 	//
@@ -102,7 +108,7 @@ func (p MirModule[F]) NewLookup(name string, from []register.Id, target MirModul
 	} else {
 		var (
 			enReg = target.Module.Register(enable.Unwrap())
-			en    = term.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), enReg.Width, 0)
+			en    = term.RawRegisterAccess[F, mir.Term[F]](enable.Unwrap(), enReg.Width(), 0)
 		)
 		//
 		targetVectors = append(targetVectors, lookup.FilteredVector(target.Module.Id(), en, targets...))
@@ -272,7 +278,7 @@ func wrapMirRegisterAccesses[F field.Element[F]](mapping register.Map, regs ...r
 	for i, rid := range regs {
 		var reg = mapping.Register(rid)
 		//
-		vars[i] = term.RawRegisterAccess[F, mir.Term[F]](rid, reg.Width, 0)
+		vars[i] = term.RawRegisterAccess[F, mir.Term[F]](rid, reg.Width(), 0)
 	}
 	//
 	return vars

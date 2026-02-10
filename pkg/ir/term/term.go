@@ -205,12 +205,12 @@ func subdivideRegAccesses[F field.Element[F], S Logical[F, S], T Expr[F, T]](map
 		for _, limbId := range mapping.LimbIds(v.Register()) {
 			var (
 				limb = mapping.Limb(limbId)
-				mask = min(limb.Width, bitwidth)
+				mask = min(limb.Width(), bitwidth)
 			)
 			//
 			if mask > 0 {
 				// Construct access for given limb
-				ith := RawRegisterAccess[F, T](limbId, limb.Width, v.RelativeShift())
+				ith := RawRegisterAccess[F, T](limbId, limb.Width(), v.RelativeShift())
 				// Mask access to eliminate any unused bits
 				nterms = append(nterms, ith.Mask(mask))
 			}
@@ -288,7 +288,7 @@ func SubdivideLogicals[F field.Element[F], S Logical[F, S], T Expr[F, T]](cs []S
 // ============================================================================
 
 // IsUnsafeExpr determines whether or not a given expression contains an unsafe
-// operation (i.e. a runtime case).  Specifically, something which could fail at
+// operation (i.e. a runtime cast).  Specifically, something which could fail at
 // runtime.
 func IsUnsafeExpr[F field.Element[F], S Logical[F, S], T Expr[F, T]](c T) bool {
 	var f Expr[F, T] = any(c).(Expr[F, T])

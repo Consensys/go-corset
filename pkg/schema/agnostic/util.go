@@ -37,7 +37,7 @@ func CombinedWidthOfRegisters(mapping register.Map, registers ...register.LimbId
 	)
 	//
 	for _, rid := range registers {
-		width += mapping.Register(rid).Width
+		width += mapping.Register(rid).Width()
 	}
 	//
 	return width
@@ -102,16 +102,16 @@ func (p *VariableSplitter) SplitVariable(rid register.Id) Equation {
 		//
 		lhs DynamicPolynomial
 		// Determine necessary widths
-		limbWidths = register.LimbWidths(p.bitwidth, reg.Width)
+		limbWidths = register.LimbWidths(p.bitwidth, reg.Width())
 		// Construct filler for limbs
-		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, reg.Width, 0)
+		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, reg.Width(), 0)
 	)
 	// Allocate limbs with corresponding filler
 	limbs := p.allocate(rid, filler, limbWidths)
 	// Construct constraint connecting reg and limbs
-	lhs = lhs.Set(poly.NewMonomial(one, rid.AccessOf(reg.Width)))
+	lhs = lhs.Set(poly.NewMonomial(one, rid.AccessOf(reg.Width())))
 	// Done
-	return NewEquation(lhs, LimbPolynomial(reg.Width, 0, limbs, limbWidths))
+	return NewEquation(lhs, LimbPolynomial(reg.Width(), 0, limbs, limbWidths))
 }
 
 // Apply the splitting to a given polynomial by substituting through all split
@@ -147,7 +147,7 @@ func (p *VariableSplitter) allocate(rid register.Id, filler Computation, limbWid
 	var (
 		reg = p.mapping.Register(rid)
 		//
-		limbs = p.mapping.AllocateWithN(reg.Name, filler, limbWidths...)
+		limbs = p.mapping.AllocateWithN(reg.Name(), filler, limbWidths...)
 	)
 	//
 	if uint(len(p.limbs)) <= rid.Unwrap() {

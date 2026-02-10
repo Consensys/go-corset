@@ -123,7 +123,7 @@ func (p *NativeComputation[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		for _, ref := range refs.Registers() {
 			ith := module.Register(ref)
 			name := sexp.NewSymbol(ith.QualifiedName(module))
-			datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
+			datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width()))
 			def := sexp.NewList([]sexp.SExp{name, datatype})
 			regs.Append(def)
 		}

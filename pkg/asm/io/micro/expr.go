@@ -53,7 +53,7 @@ func (e Expr) ToVec() VecExpr {
 // of this expression.
 func (e Expr) Bitwidth(fn register.Map) uint {
 	if e.HasFirst() {
-		return fn.Register(e.First()).Width
+		return fn.Register(e.First()).Width()
 	}
 	//
 	val := e.Second()
@@ -75,7 +75,7 @@ func (e Expr) Eval(state io.State) *big.Int {
 
 func (e Expr) String(fn register.Map) string {
 	if e.HasFirst() {
-		return fn.Register(e.First()).Name
+		return fn.Register(e.First()).Name()
 	}
 	//
 	val := e.Second()

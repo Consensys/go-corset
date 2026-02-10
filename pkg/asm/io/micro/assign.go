@@ -97,7 +97,7 @@ func (p *Assign) String(fn register.Map) string {
 	builder.WriteString(io.RegistersReversedToString(p.Targets, regs))
 	builder.WriteString(" = ")
 	builder.WriteString(poly.String(p.Source, func(rid io.RegisterId) string {
-		return regs[rid.Unwrap()].Name
+		return regs[rid.Unwrap()].Name()
 	}))
 	//
 	return builder.String()
@@ -165,7 +165,7 @@ func sumTargetBits(targets []io.RegisterId, regs []io.Register) uint {
 	sum := uint(0)
 	//
 	for _, target := range targets {
-		sum += regs[target.Unwrap()].Width
+		sum += regs[target.Unwrap()].Width()
 	}
 	//
 	return sum

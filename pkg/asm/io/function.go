@@ -15,6 +15,7 @@ package io
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"math"
 	"math/big"
 
@@ -47,7 +48,7 @@ const (
 // accepts zero or more inputs and produce zero or more outputs.  Functions
 // declare zero or more internal registers for use, and their interpretation is
 // given by a sequence of zero or more instructions.
-type Function[T Instruction[T]] struct {
+type Function[T Instruction] struct {
 	// Unique name of this function.
 	name string
 	// Indicates whether this is an externally visible function (or not).
@@ -66,7 +67,7 @@ type Function[T Instruction[T]] struct {
 }
 
 // NewFunction constructs a new function with the given components.
-func NewFunction[T Instruction[T]](name module.Name, public bool, registers []Register, buses []Bus,
+func NewFunction[T Instruction](name module.Name, public bool, registers []Register, buses []Bus,
 	code []T) Function[T] {
 	//
 	var (
@@ -74,7 +75,7 @@ func NewFunction[T Instruction[T]](name module.Name, public bool, registers []Re
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
 	)
 	// Check registers sorted as: inputs, outputs then internal.
-	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind }) {
+	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind() }) {
 		panic("function registers ordered incorrectly")
 	} else if name.Multiplier != 1 {
 		panic("functions only support multiplers of 1")
@@ -125,7 +126,7 @@ func (p *Function[T]) IsAtomic() bool {
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Function[T]) HasRegister(name string) (RegisterId, bool) {
 	for i, r := range p.registers {
-		if r.Name == name {
+		if r.Name() == name {
 			return register.NewId(uint(i)), true
 		}
 	}
@@ -182,7 +183,7 @@ func (p *Function[T]) AllocateRegister(kind register.Type, name string, width ui
 		index = uint(len(p.registers))
 	)
 	// Sanity check
-	if kind != register.COMPUTED_REGISTER {
+	if kind == register.INPUT_REGISTER || kind == register.OUTPUT_REGISTER {
 		panic("cannot allocate input / output register")
 	}
 	//
@@ -210,6 +211,22 @@ func (p *Function[T]) Validate(fieldWidth uint) []error {
 
 func (p *Function[T]) String() string {
 	return register.MapToString(p)
+}
+
+// ConstRegister implementation for register.ConstMap interface
+func (p *Function[T]) ConstRegister(constant uint8) RegisterId {
+	var (
+		name  = fmt.Sprintf("%d", constant)
+		nregs = uint(len(p.registers))
+	)
+	// Check whether register already exists
+	if rid, ok := p.HasRegister(name); ok {
+		return rid
+	}
+	// Allocate constant register
+	p.registers = append(p.registers, register.NewConst(constant))
+	//
+	return register.NewId(nregs)
 }
 
 // ============================================================================

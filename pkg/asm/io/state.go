@@ -102,11 +102,17 @@ func InitialState(inputs []big.Int, registers []register.Register, buses []Bus, 
 	for _, bus := range buses {
 		// Initialise address lines from padding
 		for _, rid := range bus.Address() {
-			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+			state[rid.Unwrap()] = *registers[rid.Unwrap()].Padding()
 		}
 		// Initialise data lines from padding
 		for _, rid := range bus.Data() {
-			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+			state[rid.Unwrap()] = *registers[rid.Unwrap()].Padding()
+		}
+	}
+	// Initialise constant registers
+	for i, reg := range registers {
+		if reg.IsConst() {
+			state[i] = *reg.Padding()
 		}
 	}
 	//
@@ -144,11 +150,15 @@ func (p *State) Goto(pc uint) {
 // In performs an I/O read across a given bus.  More specifically, it reads the
 // value at a given address on the bus.
 func (p *State) In(bus Bus) {
-	var address = p.LoadN(bus.Address())
-	// Read value from I/O bus
-	values := p.io.Read(bus.BusId, address)
+	var (
+		address = p.LoadN(bus.Address())
+		data    = bus.Data()
+		n       = uint(len(data))
+	)
+	// Read n values from I/O bus
+	values := p.io.Read(bus.BusId, address, n)
 	// Write them back
-	p.StoreN(bus.Data(), values)
+	p.StoreN(data, values)
 }
 
 // Outputs extracts values from output registers of the given state.
@@ -210,7 +220,7 @@ func (p *State) Registers() []register.Register {
 func (p *State) Store(reg RegisterId, value big.Int) {
 	index := reg.Unwrap()
 	//
-	if value.BitLen() > int(p.registers[index].Width) {
+	if value.BitLen() > int(p.registers[index].Width()) {
 		panic("write exceeds register width")
 	}
 	// Write to normal register
@@ -239,7 +249,7 @@ func (p *State) StoreAcross(value big.Int, registers ...RegisterId) {
 	}
 	//
 	for _, id := range registers {
-		width := p.registers[id.Unwrap()].Width
+		width := p.registers[id.Unwrap()].Width()
 		p.Store(id, ReadBitSlice(offset, width, val, sign))
 		offset += width
 	}
@@ -271,7 +281,7 @@ func (p *State) String() string {
 		}
 		//
 		val := p.Load(register.NewId(uint(i))).Text(16)
-		reg := p.registers[i].Name
+		reg := p.registers[i].Name()
 		builder.WriteString(fmt.Sprintf("%s=0x%s", reg, val))
 	}
 	//

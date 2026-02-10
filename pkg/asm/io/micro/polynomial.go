@@ -96,7 +96,7 @@ func LimbPolynomial(limbs []register.Id, env register.LimbsMap) Polynomial {
 		// Construct term
 		terms[i] = poly.NewMonomial(coeff, rid)
 		// Shift offset up
-		offset.Lsh(&offset, reg.Width)
+		offset.Lsh(&offset, reg.Width())
 	}
 	// Done
 	return res.Set(terms...)

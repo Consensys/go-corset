@@ -110,13 +110,13 @@ func (p *IfGoto) Lower(pc uint) micro.Instruction {
 	switch p.Cond {
 	case EQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
+			&micro.SkipIf{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: p.Target},
 			&micro.Jmp{Target: pc + 1},
 		}
 	case NEQ:
 		codes = []micro.Code{
-			&micro.Skip{Left: lhs, Right: rhs, Skip: 1},
+			&micro.SkipIf{Left: lhs, Right: rhs, Skip: 1},
 			&micro.Jmp{Target: pc + 1},
 			&micro.Jmp{Target: p.Target},
 		}
@@ -172,6 +172,12 @@ func (p *IfGoto) Validate(fieldWidth uint, fn register.Map) error {
 			return fmt.Errorf("always taken")
 		default:
 			return fmt.Errorf("never taken")
+		}
+	}
+	// sanity check
+	if _, lhsConst := p.Left.(*expr.Const); lhsConst {
+		if _, rhsConst := p.Right.(*expr.Const); rhsConst {
+			return fmt.Errorf("branch always (or never) taken")
 		}
 	}
 	//

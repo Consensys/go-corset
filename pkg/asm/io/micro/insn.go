@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
@@ -119,6 +120,22 @@ func (p Instruction) JumpTargets() []uint {
 	return targets
 }
 
+// LastJump returns the index of the right-most jmp instruction (or false if
+// none exists). This is relatively easy to determine simply by looking for jmp
+// codes.
+func (p Instruction) LastJump(n uint) (uint, bool) {
+	//
+	for i := n; i > 0; {
+		i = i - 1
+		//
+		if _, ok := p.Codes[i].(*Jmp); ok {
+			return i, true
+		}
+	}
+	//
+	return 0, false
+}
+
 // Registers returns the set of registers read/written by this instruction.
 func (p Instruction) Registers() []io.RegisterId {
 	return append(p.RegistersRead(), p.RegistersWritten()...)
@@ -211,45 +228,68 @@ func (p Instruction) String(fn register.Map) string {
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
 func (p Instruction) Validate(fieldWidth uint, fn register.Map) error {
-	var written bit.Set
+	// Construct write map
+	var (
+		nCodes   = uint(len(p.Codes))
+		writeMap = p.Writes()
+	)
 	// Validate individual instructions
 	for _, r := range p.Codes {
 		if err := r.Validate(fieldWidth, fn); err != nil {
 			return err
 		}
 	}
-	//
-	// TODO: check for unreachable instructions
-	// TODO: check for conflicting function calls
-	//
-	// Check Write conflicts
-	return validateWrites(0, written, p.Codes, fn)
+	// Validate no Read/Write conflicts
+	for i := range nCodes {
+		var (
+			ithState = writeMap.StateOf(i)
+			ith      = p.Codes[i]
+		)
+		// Sanity check for conflicting reads
+		for _, r := range ith.RegistersRead() {
+			if ithState.MaybeAssigned(r) && !ithState.DefinitelyAssigned(r) {
+				name := fn.Register(r).Name()
+				return fmt.Errorf("conflicting read on register \"%s\" in \"%s\"", name, ith.String(fn))
+			}
+		}
+		// Sanity check conflicting writes
+		for _, r := range ith.RegistersWritten() {
+			if ithState.MaybeAssigned(r) {
+				name := fn.Register(r).Name()
+				return fmt.Errorf("conflicting write on register \"%s\" in \"%s\"", name, ith.String(fn))
+			}
+		}
+	}
+	// Done
+	return nil
 }
 
-func validateWrites(cc uint, writes bit.Set, codes []Code, fn register.Map) error {
+// Writes constructs the write map for this micro instruction.
+func (p Instruction) Writes() dfa.Result[dfa.Writes] {
+	return dfa.Construct(dfa.Writes{}, p.Codes, writeDfaTransfer)
+}
+
+// Data-flow transfer function for the writes analysis
+func writeDfaTransfer(offset uint, code Code, state dfa.Writes) []dfa.Transfer[dfa.Writes] {
+	var arcs []dfa.Transfer[dfa.Writes]
 	//
-	switch code := codes[cc].(type) {
+	switch code := code.(type) {
 	case *Fail, *Ret, *Jmp:
 		return nil
 	case *Skip:
-		if err := validateWrites(cc+code.Skip+1, writes.Clone(), codes, fn); err != nil {
-			return err
-		}
-	default:
-		//
-		for _, dst := range code.RegistersWritten() {
-			if writes.Contains(dst.Unwrap()) {
-				// Extract register name
-				name := fn.Register(dst).Name
-				//
-				return fmt.Errorf("conflicting write on register %s in %s", name, code.String(fn))
-			}
-			//
-			writes.Insert(dst.Unwrap())
-		}
+		// join into branch target
+		return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
+	case *SkipIf:
+		// join into branch target
+		arcs = append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
+		// fall through
 	}
-	// Fall through to next micro-code
-	return validateWrites(cc+1, writes, codes, fn)
+	// Construct state after this code
+	nState := state.Write(code.RegistersWritten()...)
+	// Transfer to following instruction
+	arcs = append(arcs, dfa.NewTransfer(nState, offset+1))
+	// Done
+	return arcs
 }
 
 func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []uint) Code {
@@ -259,18 +299,25 @@ func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []ui
 	)
 	// First, check whether this is a skip instruction (or not) since only skip
 	// instructions need to be retargeted.
-	skip, ok := code.(*Skip)
-	//
-	if !ok {
+	switch c := code.(type) {
+	case *Skip:
+		// Determine true skip target
+		target := oldIndex + 1 + (c.Skip - leftInPacket)
+		// Determine new location of skip target
+		nTarget := mapping[target]
+		//
+		return &Skip{Skip: nTarget - newIndex - 1}
+	case *SkipIf:
+		// Determine true skip target
+		target := oldIndex + 1 + (c.Skip - leftInPacket)
+		// Determine new location of skip target
+		nTarget := mapping[target]
+		//
+		return &SkipIf{Left: c.Left,
+			Right: c.Right,
+			Skip:  nTarget - newIndex - 1,
+		}
+	default:
 		return code
-	}
-	// Determine true skip target
-	target := oldIndex + 1 + (skip.Skip - leftInPacket)
-	// Determine new location of skip target
-	nTarget := mapping[target]
-	//
-	return &Skip{Left: skip.Left,
-		Right: skip.Right,
-		Skip:  nTarget - newIndex - 1,
 	}
 }

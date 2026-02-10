@@ -139,7 +139,7 @@ func (p limbsMap) Name() trace.ModuleName {
 // RegisterOf determines a register's ID based on its name.
 func (p limbsMap) RegisterOf(name string) Id {
 	for i, reg := range p.registers {
-		if reg.Name == name {
+		if reg.Name() == name {
 			return NewId(uint(i))
 		}
 	}
@@ -150,7 +150,7 @@ func (p limbsMap) RegisterOf(name string) Id {
 // HasRegister implementation for RegisterMap interface.
 func (p limbsMap) HasRegister(name string) (Id, bool) {
 	for i, reg := range p.registers {
-		if reg.Name == name {
+		if reg.Name() == name {
 			return NewId(uint(i)), true
 		}
 	}
@@ -184,7 +184,7 @@ func WidthsOfLimbs(mapping LimbsMap, lids []LimbId) []uint {
 	)
 	//
 	for i, lid := range lids {
-		widths[i] = mapping.Limb(lid).Width
+		widths[i] = mapping.Limb(lid).Width()
 	}
 	//
 	return widths
@@ -230,7 +230,7 @@ func LimbsMapToString(p LimbsMap) string {
 			builder.WriteString(",")
 		}
 		//
-		builder.WriteString(r.Name)
+		builder.WriteString(r.Name())
 		builder.WriteString("=>")
 		//
 		mapping := p.Limbs()
@@ -242,7 +242,7 @@ func LimbsMapToString(p LimbsMap) string {
 			//
 			j = j - 1
 			//
-			builder.WriteString(mapping[j].Name)
+			builder.WriteString(mapping[j].Name())
 		}
 	}
 	//

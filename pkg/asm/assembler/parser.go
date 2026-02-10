@@ -31,6 +31,17 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
 
+// MacroComponent is a component whose instructions (if applicable) are
+// themselves macro instructions. A macro unit must be compiled down into a
+// micro unit before we can generate constraints.
+type MacroComponent = io.Component[macro.Instruction]
+
+// MicroComponent is a component whose instructions (if applicable) are
+// themselves micro instructions.  A micro function represents the lowest
+// representation of a function, where each instruction is made up of
+// microcodes.
+type MicroComponent = io.Component[micro.Instruction]
+
 // MacroFunction is a function whose instructions are themselves macro
 // instructions.  A macro function must be compiled down into a micro function
 // before we can generate constraints.
@@ -473,12 +484,6 @@ func (p *Parser) parseIfGoto(env *Environment) (macro.Instruction, []source.Synt
 	// Parse right hand side
 	if rhs, errs = p.parseAtomicExpr(env); len(errs) > 0 {
 		return nil, errs
-	}
-	// sanity check
-	if _, lhsConst := lhs.(*expr.Const); lhsConst {
-		if _, rhsConst := rhs.(*expr.Const); rhsConst {
-			return nil, p.syntaxErrors(p.tokens[p.index-1], "branch always (or never) taken")
-		}
 	}
 	// Parse "goto"
 	if errs = p.parseKeyword("goto"); len(errs) > 0 {

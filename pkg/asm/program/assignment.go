@@ -14,6 +14,7 @@ package program
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -30,7 +31,7 @@ import (
 
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
-type Assignment[F field.Element[F], T io.Instruction[T]] struct {
+type Assignment[F field.Element[F], T io.Instruction] struct {
 	id         sc.ModuleId
 	name       module.Name
 	registers  []io.Register
@@ -38,12 +39,11 @@ type Assignment[F field.Element[F], T io.Instruction[T]] struct {
 	numInputs  uint
 	numOutputs uint
 	code       []T
-	iomap      io.Map
 }
 
 // NewAssignment constructs a new assignment capable of trace filling for a
 // given function.
-func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn io.Function[T], iomap io.Map,
+func NewAssignment[F field.Element[F], T io.Instruction](id sc.ModuleId, fn io.Function[T],
 ) *Assignment[F, T] {
 	//
 	return &Assignment[F, T]{
@@ -54,7 +54,6 @@ func NewAssignment[F field.Element[F], T io.Instruction[T]](id sc.ModuleId, fn i
 		numInputs:  fn.NumInputs(),
 		numOutputs: fn.NumOutputs(),
 		code:       fn.Code(),
-		iomap:      iomap,
 	}
 }
 
@@ -69,12 +68,13 @@ func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]
 	var (
 		trModule = trace.Module(p.id)
 		states   []io.State
+		iomap    = NewTraceIoMap(trace)
 	)
 	// Trace given rows
 	for i := range trModule.Height() {
 		inputs := extractValues(i, trModule, 0, p.numInputs)
 		outputs := extractValues(i, trModule, p.numInputs, p.numInputs+p.numOutputs)
-		sts := p.trace(inputs, outputs)
+		sts := p.trace(inputs, outputs, iomap)
 		states = append(states, sts...)
 	}
 	//
@@ -146,12 +146,12 @@ func (p Assignment[F, T]) Substitute(map[string]F) {
 // traces.  The expected outputs are not strictly necessary here, but are
 // included so they can be checked against the internally generated outputs to
 // ensure internal consistency.
-func (p Assignment[F, T]) trace(inputs, outputs []big.Int) []io.State {
+func (p Assignment[F, T]) trace(inputs, outputs []big.Int, iomap io.Map) []io.State {
 	var (
 		code   = p.code
 		states []io.State
 		// Construct local state
-		state = io.InitialState(inputs, p.registers, p.buses, p.iomap)
+		state = io.InitialState(inputs, p.registers, p.buses, iomap)
 		// Program counter position
 		pc uint = 0
 	)
@@ -178,7 +178,7 @@ func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder 
 	)
 	// Initialise register columns
 	for i, r := range p.registers {
-		cols[i] = builder.NewArray(nrows, r.Width)
+		cols[i] = builder.NewArray(nrows, r.Width())
 	}
 	// Initialise control columns (if applicable)
 	// transcribe values
@@ -231,26 +231,6 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 	}
 }
 
-func extractValues[F field.Element[F]](row uint, mod tr.Module[F], start, end uint) []big.Int {
-	var (
-		n      = end - start
-		values = make([]big.Int, n)
-	)
-	// Initialise arguments
-	for i := start; i < end; i++ {
-		var (
-			val = mod.Column(i).Data().Get(row)
-			ith big.Int
-		)
-		// Clone big int.
-		ith.SetBytes(val.Bytes())
-		// Assign to ith register
-		values[i-start] = ith
-	}
-	//
-	return values
-}
-
 // Finalising a given state does two things: firstly, it clones the state;
 // secondly, if the state has terminated, it makes sure the outputs match the
 // original trace.
@@ -290,10 +270,63 @@ func checkConsistentOutputs(state io.State, outputs []big.Int) {
 				// Following should be unreachable unless there is a bug
 				// somewhere (e.g. when translating from ASM to UASM).
 				panic(fmt.Sprintf("computed output for register \"%s\" does not match expected output (0x%s vs 0x%s)",
-					reg.Name, actual.Text(16), expected.Text(16)))
+					reg.Name(), actual.Text(16), expected.Text(16)))
 			}
 			//
 			index++
 		}
 	}
+}
+
+// TraceIoMap adapts a trace to look like an instance of io.Map.  This assumes
+// all function instances are already recorded in the trace (i.e. trace
+// propagation has already occurred).
+type TraceIoMap[F field.Element[F]] struct {
+	trace tr.Trace[F]
+}
+
+// NewTraceIoMap constructs a new instance of TraceIoMap[F].
+func NewTraceIoMap[F field.Element[F]](trace tr.Trace[F]) io.Map {
+	return TraceIoMap[F]{trace}
+}
+
+// Read implementation of the io.Map interface.
+func (p TraceIoMap[F]) Read(bus uint, address []big.Int, nOutputs uint) []big.Int {
+	var (
+		nInputs  = uint(len(address))
+		mod      = p.trace.Module(bus)
+		fAddress = field.BigInts[F](address)
+		row      = mod.FindLast(fAddress...)
+	)
+	//
+	if row == math.MaxUint {
+		panic(fmt.Sprintf("read failure for %s%s", mod.Name().String(), array.ToString(fAddress)))
+	}
+	//
+	return extractValues(row, mod, nInputs, nInputs+nOutputs)
+}
+
+// Write implementation of the io.Map interface.
+func (p TraceIoMap[F]) Write(bus uint, address []big.Int, values []big.Int) {
+	panic("unsupported operation")
+}
+
+func extractValues[F field.Element[F]](row uint, mod tr.Module[F], start, end uint) []big.Int {
+	var (
+		n      = end - start
+		values = make([]big.Int, n)
+	)
+	// Initialise arguments
+	for i := start; i < end; i++ {
+		var (
+			val = mod.Column(i).Data().Get(row)
+			ith big.Int
+		)
+		// Clone big int.
+		ith.SetBytes(val.Bytes())
+		// Assign to ith register
+		values[i-start] = ith
+	}
+	//
+	return values
 }

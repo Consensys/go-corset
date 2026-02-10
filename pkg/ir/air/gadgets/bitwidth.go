@@ -72,9 +72,9 @@ func (p *BitwidthGadget[F]) Constrain(ref register.Ref, bitwidth uint) {
 		p.applyBinaryGadget(ref)
 		return
 	case bitwidth <= p.maxRangeConstraint:
-		handle := fmt.Sprintf("%s:u%d", reg.Name, bitwidth)
+		handle := fmt.Sprintf("%s:u%d", reg.Name(), bitwidth)
 		// Construct access to register
-		access := term.RawRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)
+		access := term.RawRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width(), 0)
 		// Add range constraint
 		module.AddConstraint(air.NewRangeConstraint(handle, module.Id(),
 			[]*term.RegisterAccess[F, air.Term[F]]{access}, []uint{bitwidth}))
@@ -90,10 +90,10 @@ func (p *BitwidthGadget[F]) applyZeroGadget(ref register.Ref) {
 	var (
 		module = p.schema.Module(ref.Module())
 		reg    = module.Register(ref.Register())
-		handle = fmt.Sprintf("%s:u0", reg.Name)
+		handle = fmt.Sprintf("%s:u0", reg.Name())
 	)
 	// Construct X
-	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)
+	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width(), 0)
 	// Construct X == 0
 	X_eq0 := term.Subtract(X, term.Const64[F, air.Term[F]](0))
 	// Done!
@@ -108,10 +108,10 @@ func (p *BitwidthGadget[F]) applyBinaryGadget(ref register.Ref) {
 	var (
 		module = p.schema.Module(ref.Module())
 		reg    = module.Register(ref.Register())
-		handle = fmt.Sprintf("%s:u1", reg.Name)
+		handle = fmt.Sprintf("%s:u1", reg.Name())
 	)
 	// Construct X
-	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)
+	X := term.NewRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width(), 0)
 	// Construct X == 0
 	X_eq0 := term.Subtract(X, term.Const64[F, air.Term[F]](0))
 	// Construct X == 0
@@ -135,7 +135,7 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 		proofHandle  = module.Name{Name: fmt.Sprintf("u%d", bitwidth), Multiplier: 1}
 		mod          = p.schema.Module(ref.Module())
 		reg          = mod.Register(ref.Register())
-		lookupHandle = fmt.Sprintf("%s:u%d", reg.Name, bitwidth)
+		lookupHandle = fmt.Sprintf("%s:u%d", reg.Name(), bitwidth)
 	)
 	// Recursive case.
 	mid, ok := p.schema.HasModule(proofHandle)
@@ -146,7 +146,7 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 	// Add lookup constraint for register into proof
 	sourceAccesses := []*air.ColumnAccess[F]{
 		// Source Value
-		term.RawRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width, 0)}
+		term.RawRegisterAccess[F, air.Term[F]](ref.Register(), reg.Width(), 0)}
 	// NOTE: 0th column always assumed to hold full value, with others
 	// representing limbs, etc.
 	targetAccesses := []*air.ColumnAccess[F]{
@@ -162,14 +162,14 @@ func (p *BitwidthGadget[F]) applyRecursiveBitwidthGadget(ref register.Ref, bitwi
 	// Add column to assignment so its proof is included
 	typeModule := p.schema.Module(mid)
 	//
-	decomposition := typeModule.Assignments().Next().(*typeDecomposition[F])
+	decomposition := typeModule.Assignments()[0].(*typeDecomposition[F])
 	decomposition.AddSource(ref)
 }
 
 func (p *BitwidthGadget[F]) constructTypeProof(handle module.Name, bitwidth uint) sc.ModuleId {
 	var (
 		// Create new module for this type proof
-		mid    = p.schema.NewModule(handle, false, false, true)
+		mid    = p.schema.NewModule(handle, false, false, true, 0)
 		module = p.schema.Module(mid)
 		// Determine limb widths.
 		loWidth, hiWidth = determineLimbSplit(bitwidth)
@@ -295,7 +295,7 @@ func (p *typeDecomposition[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		module := schema.Module(ref.Module())
 		ith := module.Register(ref.Register())
 		name := sexp.NewSymbol(ith.QualifiedName(module))
-		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width))
+		datatype := sexp.NewSymbol(fmt.Sprintf("u%d", ith.Width()))
 		def := sexp.NewList([]sexp.SExp{name, datatype})
 		targets.Append(def)
 	}

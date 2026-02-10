@@ -151,10 +151,12 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 	// Assembly lowering config
 	asmConfig.Vectorize = GetFlag(cmd, "vectorize")
 	asmConfig.Field = *fieldConfig
-	//
 	// Sanity check MIR optimisation level
 	if optimisation >= uint(len(mir.OPTIMISATION_LEVELS)) {
 		fmt.Printf("invalid optimisation level %d\n", optimisation)
+		os.Exit(2)
+	} else if countFlags(asmEnable, uasmEnable, nasmEnable, mirEnable, airEnable) > 1 {
+		fmt.Printf("cannot specify more than one of --asm/uasm/nasm/mir/air\n")
 		os.Exit(2)
 	}
 	// If no IR was specified, set a default
@@ -210,6 +212,16 @@ func getSchemaStack[F field.Element[F]](cmd *cobra.Command, mode uint, filenames
 	stacker = stacker.WithTraceBuilder(builder)
 	// Done
 	return &stacker
+}
+
+func countFlags(flags ...bool) (r uint) {
+	for _, f := range flags {
+		if f {
+			r++
+		}
+	}
+	//
+	return r
 }
 
 func init() {

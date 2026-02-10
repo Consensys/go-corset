@@ -16,7 +16,6 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema/agnostic"
 	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
@@ -32,13 +31,14 @@ const UNKNOWN_BUS = math.MaxUint
 // the various I/O peripherals found within a program, such as functions, Random
 // Access Memory, etc.
 type Map interface {
-	// Read a set of values at a given address on a bus.  The exact meaning of
+	// Read a set of n values at a given address on a bus.  The exact meaning of
 	// this depends upon the I/O peripheral connected to the bus.  For example,
 	// if its a function then the function is executed with the given address as
 	// its arguments, producing some number of outputs.  Likewise, if its a
 	// memory, then this will return the current value stored in that address,
-	// etc.
-	Read(bus uint, address []big.Int) []big.Int
+	// etc.  Finally, the number of expected values must match that provided by
+	// the underlying component.
+	Read(bus uint, address []big.Int, n uint) []big.Int
 	// Write a set of values to a given address on a bus.  This only makes sense
 	// for writeable memory, such Random Access Memory (RAM).  In contrast,
 	// functions and Read-Only Memory (ROM) are not considered writeable.
@@ -46,7 +46,7 @@ type Map interface {
 }
 
 // Instruction provides an abstract notion of an executable "machine instruction".
-type Instruction[T any] interface {
+type Instruction interface {
 	// Execute this instruction with the given local and global state.  The next
 	// program counter position is returned, or io.RETURN if the enclosing
 	// function has terminated (i.e. because a return instruction was
@@ -65,14 +65,6 @@ type Instruction[T any] interface {
 	// Produce a suitable string representation of this instruction.  This is
 	// primarily used for debugging.
 	String(fn register.Map) string
-}
-
-// SplittableInstruction is an instruction which supports register splitting for
-// the purposes of ensuring field agnosticity.
-type SplittableInstruction[T any] interface {
-	Instruction[T]
-
-	SplitRegisters(agnostic.RegisterAllocator) T
 }
 
 // InOutInstruction is simply a kind of instruction which performs some kind of I/O

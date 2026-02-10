@@ -101,7 +101,7 @@ func (p *Environment) DeclareRegister(kind register.Type, name string, width uin
 // register.
 func (p *Environment) IsRegister(name string) bool {
 	for _, reg := range p.registers {
-		if reg.Name == name {
+		if reg.Name() == name {
 			return true
 		}
 	}
@@ -130,7 +130,7 @@ func (p *Environment) IsLabelBound(index uint) bool {
 // LookupRegister looks up the index for a given register.
 func (p *Environment) LookupRegister(name string) io.RegisterId {
 	for i, reg := range p.registers {
-		if reg.Name == name {
+		if reg.Name() == name {
 			return register.NewId(uint(i))
 		}
 	}

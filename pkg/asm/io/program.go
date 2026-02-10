@@ -23,33 +23,42 @@ import (
 // Program encapsulates one of more functions together, such that one may call
 // another, etc.  Furthermore, it provides an interface between assembly
 // components and the notion of a Schema.
-type Program[T Instruction[T]] struct {
-	functions []*Function[T]
+type Program[T Instruction] struct {
+	functions []Component[T]
 }
 
 // NewProgram constructs a new program using a given level of instruction.
-func NewProgram[T Instruction[T]](components []*Function[T]) Program[T] {
+func NewProgram[T Instruction](components []Component[T]) Program[T] {
 	//
-	fns := make([]*Function[T], len(components))
+	fns := make([]Component[T], len(components))
 	copy(fns, components)
 
 	return Program[T]{fns}
 }
 
-// Function returns the ith function in this program.
-func (p *Program[T]) Function(id uint) Function[T] {
-	return *p.functions[id]
+// Component returns the ith entity in this program.
+func (p *Program[T]) Component(id uint) Component[T] {
+	return p.functions[id]
 }
 
-// Functions returns all functions making up this program.
-func (p *Program[T]) Functions() []*Function[T] {
+// Components returns all functions making up this program.
+func (p *Program[T]) Components() []Component[T] {
 	return p.functions
 }
 
 // InferPadding attempts to infer suitable padding values for a function, based
 // on those padding values provided for its inputs (which default to 0).  In
 // essence, this constructs a witness for the function in question.
-func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
+func InferPadding[T Instruction](fn Component[T], executor *Executor[T]) {
+	switch fn := fn.(type) {
+	case *Function[T]:
+		inferFunctionPadding(fn, executor)
+	default:
+		panic("unknown component")
+	}
+}
+
+func inferFunctionPadding[T Instruction](fn *Function[T], executor *Executor[T]) {
 	//
 	if fn.IsAtomic() {
 		// Only infer padding for one-line functions.
@@ -69,7 +78,7 @@ func InferPadding[T Instruction[T]](fn Function[T], executor *Executor[T]) {
 			// Load ith register value
 			val.Set(state.Load(rid))
 			// Update padding value
-			registers[i].Padding = val
+			registers[i].SetPadding(&val)
 		}
 	}
 }
@@ -82,10 +91,10 @@ func initialState(registers []Register, buses []Bus, iomap Map) State {
 	)
 	// Initialise arguments
 	for i, reg := range registers {
-		if reg.IsInput() {
+		if reg.IsInput() || reg.IsConst() {
 			var ith big.Int
 			// Clone big int.
-			ith.SetBytes(reg.Padding.Bytes())
+			ith.SetBytes(reg.Padding().Bytes())
 			// Assign to ith register
 			state[i] = ith
 			index = index + 1
@@ -95,11 +104,11 @@ func initialState(registers []Register, buses []Bus, iomap Map) State {
 	for _, bus := range buses {
 		// Initialise address lines from padding
 		for _, rid := range bus.Address() {
-			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+			state[rid.Unwrap()] = *registers[rid.Unwrap()].Padding()
 		}
 		// Initialise data lines from padding
 		for _, rid := range bus.Data() {
-			state[rid.Unwrap()] = registers[rid.Unwrap()].Padding
+			state[rid.Unwrap()] = *registers[rid.Unwrap()].Padding()
 		}
 	}
 	//

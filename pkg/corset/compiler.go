@@ -143,7 +143,7 @@ func (p *Compiler) Compile(config field.Config) (asm.MacroHirProgram, SourceMap,
 		errors []SyntaxError
 	)
 	// Resolve variables (via nested scopes)
-	scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit, p.asmProgram.Functions()...)
+	scope, errors = compiler.ResolveCircuit(p.srcmap, &p.circuit, p.asmProgram.Components()...)
 	// Type check circuit.
 	errors = append(errors, compiler.TypeCheckCircuit(p.srcmap, &p.circuit)...)
 	// Catch errors

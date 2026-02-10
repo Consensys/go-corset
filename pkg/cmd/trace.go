@@ -87,7 +87,8 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	cfg.stats = GetFlag(cmd, "stats")
 	cfg.includes = GetStringArray(cmd, "include")
 	cfg.maxCellWidth = GetUint(cmd, "max-width")
-	cfg.limbs = GetFlag(cmd, "limbs")
+	cfg.showLimbs = GetFlag(cmd, "show-limbs")
+	cfg.showComputed = GetFlag(cmd, "show-computed")
 	cfg.startRow = GetUint(cmd, "start")
 	cfg.endRow = GetUint(cmd, "end")
 	cfg.filter, err = regexp.Compile(GetString(cmd, "filter"))
@@ -123,21 +124,24 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 	}
 	//
-	if builder.Expanding() && !stack.HasUniqueSchema() {
-		fmt.Println("must specify one of --mir/air")
-		os.Exit(2)
-	} else if builder.Expanding() {
-		var tp_errors []error
+	if builder.Expanding() {
+		var (
+			tp_errors []error
+			traces    []trace.Trace[F]
+		)
 		// Expand all the traces
-		for _, ltf := range ltTraces {
-			ith, errs := expandLtTrace(ltf, stack, builder)
-			printTraceInfo(cfg, ith)
-
-			tp_errors = append(tp_errors, errs...)
+		traces, tp_errors = expandLtTraces(ltTraces, stack, builder)
+		// Print trace info
+		for _, tf := range traces {
+			printTraceInfo(cfg, tf)
 		}
 		// Report any propagation errors
 		for _, err := range tp_errors {
 			log.Errorln(err)
+		}
+		// Reconstruct traces (if needed)
+		if output != "" {
+			ltTraces = reconstructLtTraces(ltTraces, traces, false)
 		}
 	} else {
 		// Use raw trace
@@ -150,17 +154,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Write out results (if requested)
 	if output != "" {
-		// // Convert all traces back to lt files.
-		// for i := range traces {
-		// 	ltTraces[i] = seqReconstructRawTrace(ltTraces[i].Header.MetaData, traces[i])
-		// 	// Upgrade to ltv2 if requested
-		// 	if ltv2 {
-		// 		ltTraces[i].Header.MajorVersion = lt.LTV2_MAJOR_VERSION
-		// 	}
-		// }
-		// //
-		// writeBatchedTracesFile(output, ltTraces...)
-		panic("todo")
+		writeBatchedTracesFile(output, ltTraces...)
 	}
 }
 
@@ -176,7 +170,8 @@ func init() {
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
-	traceCmd.Flags().BoolP("limbs", "l", false, "show register limbs")
+	traceCmd.Flags().Bool("show-computed", false, "show (low-level) computed registers")
+	traceCmd.Flags().BoolP("show-limbs", "l", false, "show register limbs")
 	traceCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
@@ -196,8 +191,10 @@ type TraceConfig struct {
 	maxTitleWidth uint
 	// Column / Module summarisers to include
 	includes []string
-	//nolint
-	limbs bool
+	// Indicate whether or not to show limbs in trace.
+	showLimbs bool
+	// Indicate whether or not to show low-level registers in trace.
+	showComputed bool
 	// Column to sort on
 	sortColumn uint
 	// Start/end row for trace view
@@ -229,6 +226,46 @@ func constructTraceFilter[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]
 // RawColumn provides a convenient alias
 type RawColumn = lt.Column[word.BigEndian]
 
+func expandLtTraces[F field.Element[F]](traceFiles []lt.TraceFile, stack cmd_util.SchemaStack[F],
+	bldr ir.TraceBuilder[F]) ([]tr.Trace[F], []error) {
+	//
+	var (
+		traces = make([]tr.Trace[F], len(traceFiles))
+		errors []error
+	)
+	//
+	for i := range traceFiles {
+		var errs []error
+		//
+		traces[i], errs = expandLtTrace(traceFiles[i], stack, bldr)
+		//
+		errors = append(errors, errs...)
+	}
+	//
+	return traces, errors
+}
+
+func reconstructLtTraces[F field.Element[F]](ltTraces []lt.TraceFile, traces []trace.Trace[F], legacy bool,
+) []lt.TraceFile {
+	//
+	var ntraces = make([]lt.TraceFile, len(ltTraces))
+	// Convert all traces back to lt files.
+	for i := range traces {
+		var (
+			header = ltTraces[i].Header()
+			ith    = lt.FromRawTrace(header.MetaData, traces[i])
+		)
+		// Construct legacy trace file (if requested)
+		if legacy {
+			ith = lt.NewTraceFileV1(ith.Header().MetaData, ith.Heap(), ith.RawModules())
+		}
+		// Done
+		ntraces[i] = ith
+	}
+	//
+	return ntraces
+}
+
 func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaStack[F], bldr ir.TraceBuilder[F],
 ) (tr.Trace[F], []error) {
 	//
@@ -247,7 +284,7 @@ func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaSta
 		perf.Log("Trace propagation")
 	}
 	// Construct expanded trace
-	tr, tb_errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
+	tr, tb_errors = bldr.Build(stack.ConcreteSchema(), tf)
 	// Handle errors
 	if len(tb_errors) > 0 {
 		for _, err := range tb_errors {
@@ -279,7 +316,8 @@ func printTraceInfo[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]) {
 	// Construct trace window
 	view := view.NewBuilder[F](cfg.mapping).
 		WithCellWidth(cfg.maxCellWidth).
-		WithLimbs(cfg.limbs)
+		WithLimbs(cfg.showLimbs).
+		WithComputed(cfg.showComputed)
 	// Add source map (if applicable)
 	if cfg.sourceMap != nil {
 		view = view.WithSourceMap(*cfg.sourceMap)
@@ -387,7 +425,7 @@ func listColumns(cfg TraceConfig, window view.TraceView) {
 		for _, reg := range activeRegisters(mod) {
 			// Launch summarisers
 			go func(index uint, reg register.Id) {
-				name := mapping.Register(reg).Name
+				name := mapping.Register(reg).Name()
 				// Apply summarisers to column
 				row := summariseColumn(data.Name(), name, data.DataOf(mapping.LimbIds(reg)), summarisers)
 				// Package result

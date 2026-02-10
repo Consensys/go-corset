@@ -43,29 +43,30 @@ func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		fmt.Fprintf(os.Stderr, "Only picus backend supported")
 		os.Exit(1)
 	}
-
-	schemas := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...).Build()
-	for _, schema := range schemas.ConcreteSchemas() {
-		switch v := schema.(type) {
-		case mir.Schema[F]:
-			// only translate mir schema if explicitly specified
-			if mirEnable {
-				picusLowering := picus.NewMirPicusTranslator(v)
-				picusProgram := picusLowering.Translate()
-
-				if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
-					fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
-					os.Exit(1)
-				}
-			}
-		case air.Schema[F]:
-			picusLowering := picus.NewAirPicusTranslator(v)
+	// Construct schema stack
+	stack := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...).Build()
+	// Identify concrete (i.e. lowest) schema
+	schema := stack.ConcreteSchema()
+	//
+	switch v := schema.(type) {
+	case mir.Schema[F]:
+		// only translate mir schema if explicitly specified
+		if mirEnable {
+			picusLowering := picus.NewMirPicusTranslator(v)
 			picusProgram := picusLowering.Translate()
 
 			if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
 				fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
 				os.Exit(1)
 			}
+		}
+	case air.Schema[F]:
+		picusLowering := picus.NewAirPicusTranslator(v)
+		picusProgram := picusLowering.Translate()
+
+		if _, err := picusProgram.WriteTo(os.Stdout); err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing out Picus program: %v", err)
+			os.Exit(1)
 		}
 	}
 }

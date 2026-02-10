@@ -190,9 +190,9 @@ func ReadTraceFile(filename string) lt.TraceFile {
 			// Check for legacy format
 			if !lt.IsTraceFile(data) {
 				// legacy format
-				pool, modules, err = lt.FromBytesLegacy(data)
+				pool, modules, err = lt.FromBytesV1(data)
 				if err == nil {
-					tracefile = lt.NewTraceFile(nil, pool, modules)
+					tracefile = lt.NewTraceFileV1(nil, pool, modules)
 				}
 			} else {
 				err = tracefile.UnmarshalBinary(data)

@@ -35,6 +35,19 @@ type Map interface {
 	Registers() []Register
 }
 
+// ConstMap is a register map which additionally provides guaranteed access to
+// a constant (binary) register.  That is, a register which is always either "0"
+// or always either "1".
+type ConstMap interface {
+	Map
+	// ConstRegister returns the ID of a constant register which is either
+	// always zero or always one (no other constants are supported at this
+	// time).   If such a register does not already exist, then one is created.
+	// This ensures constant registers are only included when they are actually
+	// needed.
+	ConstRegister(constant uint8) Id
+}
+
 // MapToString provides a default method for converting a register map
 // into a simple string representation.
 func MapToString(p Map) string {
@@ -49,7 +62,7 @@ func MapToString(p Map) string {
 			builder.WriteString(",")
 		}
 		//
-		builder.WriteString(r.Name)
+		builder.WriteString(r.Name())
 	}
 	//
 	builder.WriteString("}")

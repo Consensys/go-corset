@@ -24,24 +24,24 @@ import (
 // Executor provides a mechanism for executing a program efficiently and
 // generating a suitable top-level trace.  Executor implements the io.Map
 // interface.
-type Executor[T Instruction[T]] struct {
-	functions []*FunctionTrace[T]
+type Executor[T Instruction] struct {
+	functions []*ComponentTrace[T]
 }
 
 // NewExecutor constructs a new executor.
-func NewExecutor[T Instruction[T]](program Program[T]) *Executor[T] {
+func NewExecutor[T Instruction](program Program[T]) *Executor[T] {
 	// Initialise executor traces
-	traces := make([]*FunctionTrace[T], len(program.Functions()))
+	traces := make([]*ComponentTrace[T], len(program.Components()))
 	//
 	for i := range traces {
-		traces[i] = NewFunctionTrace(program.functions[i])
+		traces[i] = NewFunctionTrace[T](program.functions[i])
 	}
 	// Construct new executor
 	return &Executor[T]{traces}
 }
 
 // Instance returns a valid instance of the given bus.
-func (p *Executor[T]) Instance(bus uint) FunctionInstance {
+func (p *Executor[T]) Instance(bus uint) ComponentInstance {
 	var (
 		fn     = p.functions[bus].fn
 		inputs = make([]big.Int, fn.NumInputs())
@@ -53,19 +53,19 @@ func (p *Executor[T]) Instance(bus uint) FunctionInstance {
 			reg = fn.Register(register.NewId(i))
 		)
 		// Initialise input from padding value
-		inputs[i] = *ith.Set(&reg.Padding)
+		inputs[i] = *ith.Set(reg.Padding())
 	}
 	// Compute function instance
 	return p.functions[bus].Call(inputs, p)
 }
 
 // Read implementation for the io.Map interface.
-func (p *Executor[T]) Read(bus uint, address []big.Int) []big.Int {
+func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint) []big.Int {
 	return p.functions[bus].Call(address, p).Outputs()
 }
 
 // Instances returns accrued function instances for the given bus.
-func (p *Executor[T]) Instances(bus uint) []FunctionInstance {
+func (p *Executor[T]) Instances(bus uint) []ComponentInstance {
 	return p.functions[bus].instances
 }
 
@@ -90,30 +90,30 @@ func (p *Executor[T]) Write(bus uint, address []big.Int, values []big.Int) {
 // FunctionTrace
 // ============================================================================
 
-// FunctionTrace captures all instances for a given function, and provides a
+// ComponentTrace captures all instances for a given component, and provides a
 // (thread-safe) API for calling to compute its output for a given set of
 // inputs.
-type FunctionTrace[T Instruction[T]] struct {
+type ComponentTrace[T Instruction] struct {
 	// Function whose instances are captured here
-	fn *Function[T]
+	fn Component[T]
 	// Cached instances of the given function
-	instances set.AnySortedSet[FunctionInstance]
+	instances set.AnySortedSet[ComponentInstance]
 	// mutex required to ensure thread safety.
 	mux sync.RWMutex
 }
 
 // NewFunctionTrace constructs an empty trace for a given function.
-func NewFunctionTrace[T Instruction[T]](fn *Function[T]) *FunctionTrace[T] {
-	instances := set.NewAnySortedSet[FunctionInstance]()
+func NewFunctionTrace[T Instruction](fn Component[T]) *ComponentTrace[T] {
+	instances := set.NewAnySortedSet[ComponentInstance]()
 	//
-	return &FunctionTrace[T]{
+	return &ComponentTrace[T]{
 		fn:        fn,
 		instances: *instances,
 	}
 }
 
 // Count the number of instances recorded as part of this function's trace.
-func (p *FunctionTrace[T]) Count() uint {
+func (p *ComponentTrace[T]) Count() uint {
 	p.mux.RLock()
 	count := uint(len(p.instances))
 	p.mux.RUnlock()
@@ -124,8 +124,8 @@ func (p *FunctionTrace[T]) Count() uint {
 // Call this function to determine its outputs for a given set of inputs.  If
 // this instance has been seen before, it will simply return that.  Otherwise,
 // it will execute the function to determine the correct outputs.
-func (p *FunctionTrace[T]) Call(inputs []big.Int, iomap Map) FunctionInstance {
-	var iostate = FunctionInstance{uint(len(inputs)), inputs}
+func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance {
+	var iostate = ComponentInstance{uint(len(inputs)), inputs}
 	// Obtain read lock
 	p.mux.RLock()
 	// Look for cached instance
@@ -156,9 +156,29 @@ func (p *FunctionTrace[T]) Call(inputs []big.Int, iomap Map) FunctionInstance {
 // instances --- even if that means, occasionally, an instance is computed more
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
-func (p *FunctionTrace[T]) executeCall(inputs []big.Int, iomap Map) FunctionInstance {
+func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map) ComponentInstance {
+	switch p.fn.(type) {
+	case *Function[T]:
+		return p.executeFunctionCall(inputs, iomap)
+	default:
+		panic("unknown component")
+	}
+}
+
+// Execute this function for a given set of inputs to determine its outputs and
+// produce a given instance.  The created instance is recorded within the trace
+// so it can be reused rather than recomputed in the future.  This function is
+// thread-safe, and will acquire the write lock on the cached instances
+// momentarily to insert the new instance.
+//
+// NOTE: this does not attempt any form of thread blocking (e.g. when a desired
+// instance if being computed by another thread). Instead, it eagerly computes
+// instances --- even if that means, occasionally, an instance is computed more
+// than once.  This is safe since instances are always deterministic (i.e. same
+// output for a given input).
+func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map) ComponentInstance {
 	var (
-		fn = p.fn
+		fn = p.fn.(*Function[T])
 		// Determine how many I/O registers
 		nio = fn.NumInputs() + fn.NumOutputs()
 		//
@@ -175,7 +195,7 @@ func (p *FunctionTrace[T]) executeCall(inputs []big.Int, iomap Map) FunctionInst
 		state.Goto(pc)
 	}
 	// Cache I/O instance
-	instance := FunctionInstance{fn.NumInputs(), state.state[:nio]}
+	instance := ComponentInstance{fn.NumInputs(), state.state[:nio]}
 	// Obtain  write lock
 	p.mux.Lock()
 	// Insert new instance
@@ -190,9 +210,9 @@ func (p *FunctionTrace[T]) executeCall(inputs []big.Int, iomap Map) FunctionInst
 // FunctionInstance
 // ============================================================================
 
-// FunctionInstance captures the mapping from inputs (i.e. parameters) to outputs (i.e.
-// returns) for a particular instance of a given function.
-type FunctionInstance struct {
+// ComponentInstance captures the mapping from inputs (i.e. parameters) to
+// outputs (i.e. returns) for a particular instance of a given function.
+type ComponentInstance struct {
 	ninputs uint
 	state   []big.Int
 }
@@ -200,8 +220,13 @@ type FunctionInstance struct {
 // Cmp comparator for the I/O registers of a particular function instance.
 // Observe that, since functions are always deterministic, this only considers
 // the inputs (as the outputs follow directly from this).
-func (p FunctionInstance) Cmp(other FunctionInstance) int {
-	for i := range p.ninputs {
+func (p ComponentInstance) Cmp(other ComponentInstance) int {
+	// NOTE: since limbs are split such that the least significant comes first,
+	// we have to sort from right-to-left rather than left-to-right to ensure
+	// instances remain sorted after register splitting.  This is important for
+	// ArrayTrace.FindLast().
+	for i := p.ninputs; i > 0; {
+		i--
 		if c := p.state[i].Cmp(&other.state[i]); c != 0 {
 			return c
 		}
@@ -211,11 +236,11 @@ func (p FunctionInstance) Cmp(other FunctionInstance) int {
 }
 
 // Outputs returns the output values for this function instance.
-func (p FunctionInstance) Outputs() []big.Int {
+func (p ComponentInstance) Outputs() []big.Int {
 	return p.state[p.ninputs:]
 }
 
 // Get value of given input or output argument for this instance.
-func (p FunctionInstance) Get(arg uint) big.Int {
+func (p ComponentInstance) Get(arg uint) big.Int {
 	return p.state[arg]
 }

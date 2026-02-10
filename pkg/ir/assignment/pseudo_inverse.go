@@ -130,8 +130,8 @@ func (e *PseudoInverse[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
 		datatype = "𝔽"
 	)
 	//
-	if target.Width != math.MaxUint {
-		datatype = fmt.Sprintf("u%d", target.Width)
+	if target.Width() != math.MaxUint {
+		datatype = fmt.Sprintf("u%d", target.Width())
 	}
 	//
 	return sexp.NewList(

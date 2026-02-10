@@ -74,7 +74,7 @@ func (e VecExpr) Eval(state io.State) *big.Int {
 		// Include in total
 		val.Add(&val, &ith)
 		//
-		offset += reg.Width
+		offset += reg.Width()
 	}
 	//
 	return &val

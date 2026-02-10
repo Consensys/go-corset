@@ -57,7 +57,7 @@ func (p *MirPicusTranslator[F]) TranslateModule(i uint) {
 	picusModule := p.picusProgram.AddModule(mirModule.Name().String())
 	// register inputs and outputs from MIR inputs/outputs
 	for _, register := range mirModule.Registers() {
-		picusVar := pcl.V[F](register.Name)
+		picusVar := pcl.V[F](register.Name())
 		if register.IsInput() {
 			picusModule.AddInput(picusVar)
 		} else if register.IsOutput() {
@@ -268,7 +268,7 @@ func (p *MirPicusTranslator[F]) lowerTerm(t mir.Term[F], module schema.Module[F]
 	case *mir.Constant[F]:
 		return pcl.C(e.Value)
 	case *mir.RegisterAccess[F]:
-		name := module.Register(e.Register()).Name
+		name := module.Register(e.Register()).Name()
 		if strings.Contains(name, " ") {
 			name = fmt.Sprintf("\"%s\"", name)
 		}

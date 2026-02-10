@@ -23,17 +23,14 @@ import (
 )
 
 // Translate this instruction into low-level constraints.
-func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Code) E {
+func (p *StateTranslator[F, T, E, M]) translateAssign(code *micro.Assign) E {
 	var (
-		code = codes[cc].(*micro.Assign)
 		// Determine sign of polynomial
 		_, signed = agnostic.WidthOfPolynomial(code.Source, agnostic.ArrayEnvironment(p.mapping.Registers))
 		// build rhs
 		rhs = p.translatePolynomial(code.Source)
 		// build lhs (must be after rhs)
 		lhs = p.WriteAndShiftRegisters(code.Targets)
-		// equation
-		eqn E
 	)
 	// Construct equation
 	if signed && !hasSignBit(code.Targets, p.mapping.Registers) {
@@ -44,9 +41,7 @@ func (p *StateTranslator[F, T, E, M]) translateAssign(cc uint, codes []micro.Cod
 		lhs, rhs = p.rebalanceAssign(lhs, rhs)
 	}
 	//
-	eqn = Sum(lhs).Equals(Sum(rhs))
-	// Continue
-	return eqn.And(p.translateCode(cc+1, codes))
+	return Sum(lhs).Equals(Sum(rhs))
 }
 
 // Consider an assignment b, X := Y - 1.  This should be translated into the
@@ -110,7 +105,7 @@ func hasSignBit(targets []register.Id, regs []register.Register) bool {
 		return false
 	}
 	// Look for single sign bit
-	return regs[targets[n].Unwrap()].Width == 1
+	return regs[targets[n].Unwrap()].Width() == 1
 }
 
 // useful for debugging
@@ -123,13 +118,13 @@ func assignToString(registers []register.Register, lhs []register.Id, rhs agnost
 		if i != 0 {
 			builder.WriteString(",")
 		}
-		builder.WriteString(registers[ith.Unwrap()].Name)
+		builder.WriteString(registers[ith.Unwrap()].Name())
 	}
 	//
 	builder.WriteString(" := ")
 	//
 	builder.WriteString(poly.String(rhs, func(id register.Id) string {
-		return registers[id.Unwrap()].Name
+		return registers[id.Unwrap()].Name()
 	}))
 	//
 	return builder.String()

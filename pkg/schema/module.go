@@ -15,6 +15,7 @@ package schema
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -43,6 +44,9 @@ type ModuleView interface {
 // for a given set of registers.
 type Module[F any] interface {
 	ModuleView
+	// AllowPadding determines whether the given module allows an initial
+	// padding row, or not.
+	AllowPadding() bool
 	// Assignments returns an iterator over the assignments of this module.
 	// These are the computations used to assign values to all computed columns
 	// in this module.
@@ -54,8 +58,10 @@ type Module[F any] interface {
 	// strictly necessary, these can highlight otherwise hidden problems as an aid
 	// to debugging.
 	Consistent(fieldWidth uint, schema AnySchema[F]) []error
-	// AllowPadding determines the amount of initial padding a module expects.
-	AllowPadding() bool
+	// Keys returns the number n of key columns in this module.  Key columns are
+	// always the first n columns in a module.  Such columns have the property
+	// that they can be used in conjunction with Find.
+	Keys() uint
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
 }
@@ -76,21 +82,15 @@ type Table[F field.Element[F], C Constraint[F]] struct {
 	padding     bool
 	public      bool
 	synthetic   bool
+	keys        uint
 	registers   []register.Register
 	constraints []C
 	assignments []Assignment[F]
 }
 
-// NewTable constructs a table module with the given registers and constraints.
-func NewTable[F field.Element[F], C Constraint[F]](name module.Name,
-	padding, public, synthetic bool) *Table[F, C] {
-	//
-	return &Table[F, C]{name, padding, public, synthetic, nil, nil, nil}
-}
-
 // Init implementation for ir.InitModule interface.
-func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic bool) *Table[F, C] {
-	return &Table[F, C]{name, padding, public, synthetic, nil, nil, nil}
+func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic bool, keys uint) *Table[F, C] {
+	return &Table[F, C]{name, padding, public, synthetic, keys, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -127,7 +127,7 @@ func (p *Table[F, C]) Consistent(fieldWidth uint, schema AnySchema[F]) []error {
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 	for i := range p.Width() {
-		if p.registers[i].Name == name {
+		if p.registers[i].Name() == name {
 			return register.NewId(i), true
 		}
 	}
@@ -138,6 +138,11 @@ func (p *Table[F, C]) HasRegister(name string) (register.Id, bool) {
 // Name returns the module name.
 func (p *Table[F, C]) Name() module.Name {
 	return p.name
+}
+
+// Keys implementation of Module interface.
+func (p *Table[F, C]) Keys() uint {
+	return p.keys
 }
 
 // AllowPadding determines whether the given module supports padding at the
@@ -199,6 +204,22 @@ func (p *Table[F, C]) Width() uint {
 
 func (p *Table[F, C]) String() string {
 	return register.MapToString(p)
+}
+
+// ConstRegister implementation for register.ConstMap interface
+func (p *Table[F, C]) ConstRegister(constant uint8) register.Id {
+	var (
+		name  = fmt.Sprintf("%d", constant)
+		nregs = uint(len(p.registers))
+	)
+	// Check whether register already exists
+	if rid, ok := p.HasRegister(name); ok {
+		return rid
+	}
+	// Allocate constant register
+	p.registers = append(p.registers, register.NewConst(constant))
+	//
+	return register.NewId(nregs)
 }
 
 // ============================================================================

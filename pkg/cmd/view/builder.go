@@ -35,6 +35,8 @@ type Builder[F field.Element[F]] struct {
 	// Limbs indicates whether or not to show the raw limbs, or the combined
 	// source-level register.
 	limbs bool
+	// Computed indicates whether or not to show (low-level) computed registers
+	computed bool
 	// Default cell width to use
 	cellWidth uint
 	// Default title width to use
@@ -51,7 +53,7 @@ type Builder[F field.Element[F]] struct {
 
 // NewBuilder constructs a default builder.
 func NewBuilder[F field.Element[F]](mapping module.LimbsMap) Builder[F] {
-	return Builder[F]{util.None[CellRefSet](), false, 16, 16, mapping,
+	return Builder[F]{util.None[CellRefSet](), false, false, 16, 16, mapping,
 		DefaultFormatter(), util.None[corset.SourceMap]()}
 }
 
@@ -79,6 +81,15 @@ func (p Builder[F]) WithLimbs(limbs bool) Builder[F] {
 	var builder = p
 	//
 	builder.limbs = limbs
+	//
+	return builder
+}
+
+// WithComputed determines whether to show low-level computed registers.
+func (p Builder[F]) WithComputed(computed bool) Builder[F] {
+	var builder = p
+	//
+	builder.computed = computed
 	//
 	return builder
 }
@@ -112,7 +123,7 @@ func (p Builder[F]) Build(trace tr.Trace[F]) TraceView {
 		trMod := trace.Module(i)
 		scMod := p.mapping.Module(i)
 		//
-		public, columns := extractSourceMapData(trMod.Name(), p.limbs, srcmap, scMod)
+		public, columns := extractSourceMapData(trMod, p.limbs, p.computed, srcmap, scMod)
 		//
 		data := newModuleData(i, scMod, trMod, public, enums, columns)
 		// construct initial module view
@@ -148,32 +159,46 @@ func extractSourceMap(optSrcmap util.Option[corset.SourceMap]) (map[string]corse
 	return mapping, enums
 }
 
-func extractSourceMapData(name module.Name, limbs bool, srcmap map[string]corset.SourceModule,
-	mapping register.LimbsMap) (bool, []SourceColumn) {
+func extractSourceMapData[F field.Element[F]](trMod tr.Module[F], limbs bool, computed bool,
+	srcmap map[string]corset.SourceModule, mapping register.LimbsMap) (bool, []SourceColumn) {
 	//
 	var (
 		public  = true
 		columns []SourceColumn
+		seen    = make(map[uint]bool)
+		name    = trMod.Name()
 	)
 	//
 	if m, ok := srcmap[name.Name]; ok {
 		public = m.Public
+		// Extract column info
 		columns = extractSourceColumns(file.NewAbsolutePath(""),
 			name.Multiplier, m.Selector, limbs, m.Columns, m.Submodules, mapping)
-	} else {
-		// No source mapping information is available for this module, hence
-		// fall back onto a default using the given limbs mapping.
-		for i, reg := range mapping.Registers() {
-			rid := register.NewId(uint(i))
+		// Mark all as seen
+		for _, column := range columns {
+			for _, limb := range column.Limbs {
+				seen[limb.Unwrap()] = true
+			}
+		}
+	}
+	//
+	if computed {
+		// Add any registers not already seen
+		for i := range trMod.Width() {
+			ith := trMod.Column(i)
 			//
-			columns = append(columns, SourceColumn{
-				Name:     reg.Name,
-				Display:  0,
-				Computed: reg.IsComputed(),
-				Selector: util.None[string](),
-				Register: rid,
-				Limbs:    mapping.LimbIds(rid),
-			})
+			if _, ok := seen[i]; !ok {
+				rid := register.NewId(i)
+				//
+				columns = append(columns, SourceColumn{
+					Name:     ith.Name(),
+					Display:  0,
+					Computed: true,
+					Selector: util.None[string](),
+					Register: rid,
+					Limbs:    []register.Id{rid},
+				})
+			}
 		}
 	}
 	//
@@ -199,7 +224,7 @@ func extractSourceColumns(path file.Path, multiplier uint, selector util.Option[
 					limb := mapping.Limb(lid)
 					//
 					srcColumns = append(srcColumns, SourceColumn{
-						Name:     limb.Name,
+						Name:     limb.Name(),
 						Display:  col.Display,
 						Computed: col.Computed,
 						Selector: selector,

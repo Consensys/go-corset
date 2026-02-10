@@ -36,8 +36,8 @@ type Element[F any] = field.Element[F]
 // constants (which no longer make sense).  Furthermore, this stage can
 // technically fail if the relevant constraints cannot be correctly concretized.
 // For example, they contain a constant which does not fit within the field.
-func Concretize[F1 Element[F1], F2 Element[F2], E register.Map](mapping module.LimbsMap, externs []E, mods []Module[F1],
-) []Module[F2] {
+func Concretize[F1 Element[F1], F2 Element[F2], E register.ConstMap](mapping module.LimbsMap, externs []E,
+	mods []Module[F1]) []Module[F2] {
 	var (
 		nModules = make([]Module[F2], len(mods))
 	)
@@ -59,7 +59,7 @@ func concretizeModule[F1 Element[F1], F2 Element[F2]](m Module[F1]) Module[F2] {
 		constraints = concretizeConstraints[F1, F2](m.RawConstraints())
 	)
 	// Initialise new module
-	r = r.Init(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic())
+	r = r.Init(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic(), m.Keys())
 	// Add concretized components
 	r.AddRegisters(m.Registers()...)
 	r.AddAssignments(assignments...)
