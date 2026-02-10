@@ -297,8 +297,18 @@ func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []ui
 		newIndex     = mapping[oldIndex] + pktIndex
 		leftInPacket = pktSize - pktIndex - 1
 	)
-	// First, check whether this is a skip instruction (or not) since only skip
-	// instructions need to be retargeted.
+	// Check whether this is an internal skip instruction (or not)
+	switch c := code.(type) {
+	case *Skip:
+		if c.Skip < leftInPacket {
+			return c
+		}
+	case *SkipIf:
+		if c.Skip < leftInPacket {
+			return c
+		}
+	}
+	// Retarget skip instructions
 	switch c := code.(type) {
 	case *Skip:
 		// Determine true skip target
