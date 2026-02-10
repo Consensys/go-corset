@@ -1,4 +1,4 @@
-(defcolumns (X :i16) (Y :i16) (Z :i16))
+(defcolumns (X :i32) (Y :i32) (Z :i32))
 
 (defconstraint test ()
   ;; if x == 0 && y == 0 then z == 0
