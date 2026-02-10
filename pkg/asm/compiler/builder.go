@@ -15,7 +15,6 @@ package compiler
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
@@ -26,7 +25,7 @@ import (
 // system.
 type Module[F field.Element[F], T any, E Expr[T, E], M any] interface {
 	// SetName sets the name of this module.
-	Initialise(mid uint, fn MicroComponent, iomap io.Map) M
+	Initialise(mid uint, fn MicroComponent) M
 
 	// NewAssignment adds a new assignment to this module.
 	NewAssignment(assignment schema.Assignment[F])

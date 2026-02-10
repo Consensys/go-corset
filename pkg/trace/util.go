@@ -73,6 +73,16 @@ func (p *moduleAdapter[F1, F2]) ColumnOf(string) Column[F2] {
 	panic("unreachable")
 }
 
+// FindLast implementation for the trace.Module interface.
+func (p *moduleAdapter[F1, F2]) FindLast(...F2) uint {
+	panic("unsupported operation")
+}
+
+// Keys implementation for the trace.Module interface.
+func (p *moduleAdapter[F1, F2]) Keys() uint {
+	panic("unsupported operation")
+}
+
 // Width implementation for trace.Module interface.
 func (p *moduleAdapter[F1, F2]) Width() uint {
 	return p.module.Width()

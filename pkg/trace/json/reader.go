@@ -128,6 +128,7 @@ func newArrayFromBigInts(bitwidth uint, data []big.Int, pool ArrayBuilder) array
 	//
 	for i := range n {
 		ithBytes := data[i].Bytes()
+		//
 		arr = arr.Set(i, word.NewBigEndian(ithBytes))
 	}
 	//
@@ -165,7 +166,7 @@ func splitColumnBitwidth(name string) (string, uint, error) {
 	// Extract colwidth, whilst ignoring column type (for now)
 	colwidth := bits[1][1:]
 	//
-	if bitwidth, err = strconv.ParseUint(colwidth, 10, 9); err != nil {
+	if bitwidth, err = strconv.ParseUint(colwidth, 10, 17); err != nil {
 		// failure
 		return "", 0, err
 	}

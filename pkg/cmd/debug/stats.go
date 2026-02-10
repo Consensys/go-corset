@@ -31,23 +31,20 @@ import (
 // such as the number and type of constraints, etc.
 func PrintStats[F field.Element[F]](stack cmd_util.SchemaStack[F]) {
 	var (
-		schemas     = stack.ConcreteSchemas()
+		schema      = stack.ConcreteSchema()
 		summarisers = getSummerisers[F]()
 		//
-		n   = 1 + uint(len(schemas))
 		m   = uint(len(summarisers))
-		tbl = termio.NewFormattedTable(n, m)
+		tbl = termio.NewFormattedTable(2, m)
 	)
 	// Go!
 	for i := uint(0); i < m; i++ {
 		ith := summarisers[i]
-		row := make([]termio.FormattedText, n)
+		row := make([]termio.FormattedText, 2)
 		row[0] = termio.NewText(ith.name)
 
-		for j := 0; j < len(schemas); j++ {
-			count := ith.summary(schemas[j])
-			row[j+1] = termio.NewText(fmt.Sprintf("%d", count))
-		}
+		count := ith.summary(schema)
+		row[1] = termio.NewText(fmt.Sprintf("%d", count))
 
 		tbl.SetRow(i, row...)
 	}

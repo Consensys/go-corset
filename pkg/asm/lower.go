@@ -18,6 +18,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
@@ -69,7 +71,7 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	var insns = slices.Clone(f.Code())
 	// Vectorize instructions as much as possible.
 	for pc := range insns {
-		insns[pc] = vectorizeInstruction(uint(pc), f.Code())
+		insns[pc] = vectorizeInstruction(uint(pc), f.Code(), &f)
 	}
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
@@ -77,101 +79,122 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 	return io.NewFunction(f.Name(), f.IsPublic(), f.Registers(), f.Buses(), insns)
 }
 
-func vectorizeInstruction(pc uint, insns []micro.Instruction) micro.Instruction {
+func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.Map) micro.Instruction {
 	var (
 		insn    = insns[pc]
 		changed = true
+		// maps foreign instructions to their micro-offset (if they have one) or
+		// MaxUint (if they don't).
+		externs []uint = array.FrontPad[uint](nil, uint(len(insns)), math.MaxUint)
 	)
+	//
 	// Keep vectorizing until worklist empty.
 	for changed {
 		changed = false
 		//
-		for _, target := range insn.JumpTargets() {
-			targetInsn := insns[target]
-			//
-			if target != pc && !conflictingInstructions(0, insn.Codes, bit.Set{}, target, targetInsn) {
-				insn = inlineInstruction(insn, target, insns[target])
-				changed = true
+		index, ok := insn.LastJump(uint(len(insn.Codes)))
+		// Identify rightmost jump target (if exists)
+		for ok {
+			// Extract jump instruction
+			jmp := insn.Codes[index].(*micro.Jmp)
+			// Extract target instruction
+			target := insns[jmp.Target]
+			// Check against loops
+			if offset := externs[jmp.Target]; offset > index && jmp.Target != pc {
+				var ninsn micro.Instruction
+				// Inline instruction
+				if offset != math.MaxUint {
+					// no need to inline, as this instruction was previously inlined further down.
+					ninsn = replaceJump(insn, index, offset)
+				} else {
+					ninsn = inlineJump(insn, index, target.Codes)
+				}
+				// Check whether instruction remains valid or not.  An
+				// instruction might be invalid at this point if it contains a
+				// conflicting write and/or breaks any internal invariants.
+				if ninsn.Validate(math.MaxUint, mapping) == nil {
+					// valid, so update micro mapping (if applicable)
+					if offset == math.MaxUint {
+						updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
+					}
+					//
+					insn = ninsn
+					changed = true
+					// Done
+					break
+				}
 			}
+			// continue looking for non-conflicting rightmost branch
+			index, ok = insn.LastJump(index)
 		}
 	}
 	//
 	return insn
 }
 
-func conflictingInstructions(cc uint, codes []micro.Code, writes bit.Set, target uint, insn micro.Instruction) bool {
-	// set of written registers
-	var written []io.RegisterId
+// Update the micro map after an instruction with n micro-codes is inlined at a
+// given index.
+func updateMicroMap(externs []uint, index uint, jmpTarget uint, ncodes uint) {
+	// update micro mapping
+	externs[jmpTarget] = index
 	//
-	switch code := codes[cc].(type) {
-	case *micro.Assign:
-		written = code.RegistersWritten()
-	case *micro.Division:
-		written = code.RegistersWritten()
-	case *micro.Jmp:
-		if code.Target == target {
-			// Prevent inlining multiple times.
-			return conflictingInstructions(0, insn.Codes, writes, math.MaxUint, insn)
+	for i := 0; i < len(externs); i++ {
+		if externs[i] != math.MaxUint && externs[i] > index {
+			externs[i] += ncodes - 1
 		}
-		//
-		return false
-	case *micro.Skip:
-		// Check target location
-		if conflictingInstructions(cc+1+code.Skip, codes, writes.Clone(), target, insn) {
-			return true
-		}
-		// Fall through
-	case *micro.Ret, *micro.Fail:
-		return false
 	}
-	// Check conflicts, and update mutated registers
-	for _, r := range written {
-		if writes.Contains(r.Unwrap()) {
-			return true
-		}
-		//
-		writes.Insert(r.Unwrap())
-	}
-	// Proceed
-	return conflictingInstructions(cc+1, codes, writes, target, insn)
 }
 
-// Inline a given target instruction into existing instruction.  This means
-// going through the existing instruction and replacing all jump's to the target
-// address with the contents of the target instruction.  This is non-trivial as
-// we must also correctly update internal code offsets for skip instructions,
-// otherwise they could now skip over the wrong number of codes.
-func inlineInstruction(insn micro.Instruction, target uint, targetInsn micro.Instruction) micro.Instruction {
+// Replace a jump at a given index with a skip to a given micro offset
+func replaceJump(insn micro.Instruction, jmpIndex uint, offset uint) micro.Instruction {
 	var (
-		codes   = slices.Clone(insn.Codes)
+		// Extract jump instruction
+		codes = slices.Clone(insn.Codes)
+		delta = offset - (jmpIndex + 1)
+	)
+	// Sanity check
+	if offset <= jmpIndex {
+		// Should be unreachable
+		panic("cannot skip backwards")
+	}
+	//
+	codes[jmpIndex] = &micro.Skip{Skip: delta}
+	// Done
+	return micro.Instruction{Codes: codes}
+}
+
+// Inline a jump instruction within this instruction.  This requires correctly
+// updating internal code offsets for skip instructions, otherwise they could
+// now skip over the wrong number of codes.
+func inlineJump(insn micro.Instruction, jmpIndex uint, targetCodes []micro.Code) micro.Instruction {
+	var (
+		// Extract jump instruction
+		codes   = insn.Codes
 		mapping = make([]uint, len(codes))
 		npc     int
 	)
-	// First determine length of final sequence, and construct an appropriate
-	// mapping from code offsets in the original instruction to those in the new
+	// Determine length of final sequence, and construct an appropriate mapping
+	// from code offsets in the original instruction to those in the new
 	// instruction.
-	for cc := 0; cc < len(codes); cc, npc = cc+1, npc+1 {
+	for cc := uint(0); cc < uint(len(codes)); cc, npc = cc+1, npc+1 {
 		mapping[cc] = uint(npc)
-		// Look for jump instruction
-		if jmp, ok := codes[cc].(*micro.Jmp); ok {
-			// Check whether its going to the right place
-			if jmp.Target == target {
-				// NOTE: -1 as will overwrite the jmp.
-				npc += len(targetInsn.Codes) - 1
-			}
+		// Check for insn being inlined.
+		if cc == jmpIndex {
+			// NOTE: -1 as will overwrite the jmp.
+			npc += len(targetCodes) - 1
 		}
 	}
-	//
+	// construct new sequence (to be filled out).
 	ninsns := make([]micro.Code, npc)
-	//
-	for cc, npc := 0, 0; cc < len(codes); cc++ {
+	// fill out new sequence.
+	for cc, npc := uint(0), uint(0); cc < uint(len(codes)); cc++ {
 		code := codes[cc]
 		//
 		switch c := code.(type) {
 		case *micro.Jmp:
-			if c.Target == target {
+			if cc == jmpIndex {
 				// copy over target instructions
-				for _, c := range targetInsn.Codes {
+				for _, c := range targetCodes {
 					ninsns[npc] = c.Clone()
 					npc++
 				}
@@ -179,7 +202,15 @@ func inlineInstruction(insn micro.Instruction, target uint, targetInsn micro.Ins
 				continue
 			}
 		case *micro.Skip:
-			code = retargetSkip(uint(cc), uint(npc), *c, mapping)
+			// Determine absolute target
+			target := mapping[cc+1+c.Skip]
+			// Recalculate as relative offset
+			code = &micro.Skip{Skip: target - npc - 1}
+		case *micro.SkipIf:
+			// Determine absolute target
+			target := mapping[cc+1+c.Skip]
+			// Recalculate as relative offset
+			code = &micro.SkipIf{Left: c.Left, Right: c.Right, Skip: target - npc - 1}
 		}
 		//
 		ninsns[npc] = code
@@ -187,21 +218,6 @@ func inlineInstruction(insn micro.Instruction, target uint, targetInsn micro.Ins
 	}
 	// Skip instructions may need updating here.
 	return micro.Instruction{Codes: ninsns}
-}
-
-// Calculate the updated skip offset based on the mapping of old code offsets to
-// new code offsets.
-func retargetSkip(cc uint, npc uint, code micro.Skip, mapping []uint) micro.Code {
-	// Determine absolute target
-	target := mapping[cc+1+code.Skip]
-	// Recalculate as relative offset
-	target = target - npc - 1
-	//
-	return &micro.Skip{
-		Left:  code.Left,
-		Right: code.Right,
-		Skip:  target,
-	}
 }
 
 // Identify and remove all unreachable instructions.  A tricky aspect of this is

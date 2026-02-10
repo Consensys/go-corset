@@ -56,10 +56,11 @@ func (p *SchemaStack[F]) BinaryFile() *binfile.BinaryFile {
 	return &bf
 }
 
-// ConcreteSchemas returns the stack of concrete schemas according to the selected
+// ConcreteSchema returns the stack of concrete schemas according to the selected
 // layers, where higher-level layers come first.
-func (p *SchemaStack[F]) ConcreteSchemas() []schema.AnySchema[F] {
-	return p.concreteSchemas
+func (p *SchemaStack[F]) ConcreteSchema() schema.AnySchema[F] {
+	var n = len(p.concreteSchemas) - 1
+	return p.concreteSchemas[n]
 }
 
 // ConcreteSchemaOf returns the schema associated with the given IR representation.  If
@@ -76,33 +77,17 @@ func (p *SchemaStack[F]) ConcreteSchemaOf(ir string) schema.AnySchema[F] {
 	panic(fmt.Sprintf("schema for %s not found", ir))
 }
 
-// HasUniqueSchema determines whether or not we have exactly one schema.
-func (p *SchemaStack[F]) HasUniqueSchema() bool {
-	return len(p.concreteSchemas) == 1
-}
-
 // RegisterMapping returns the register mapping used to split registers
 // according to the given field configuration.
 func (p *SchemaStack[F]) RegisterMapping() module.LimbsMap {
 	return p.mapping
 }
 
-// UniqueConcreteSchema returns the first schema on the stack which, when
-// HasUniqueSchema() holds, means the uniquely specified schema.
-func (p *SchemaStack[F]) UniqueConcreteSchema() schema.AnySchema[F] {
-	return p.concreteSchemas[0]
-}
-
-// LowestConcreteSchema returns the last (i.e. lowest) schema on the stack.
-func (p *SchemaStack[F]) LowestConcreteSchema() schema.AnySchema[F] {
-	n := len(p.concreteSchemas) - 1
-	return p.concreteSchemas[n]
-}
-
 // ConcreteIrName returns a human-readable anacronym of the IR used to generate the
 // corresponding SCHEMA.
-func (p *SchemaStack[F]) ConcreteIrName(index uint) string {
-	return p.names[len(p.abstractSchemas)+int(index)]
+func (p *SchemaStack[F]) ConcreteIrName() string {
+	var n = len(p.concreteSchemas) - 1
+	return p.names[len(p.abstractSchemas)+n]
 }
 
 // TraceBuilder returns a configured trace builder.
