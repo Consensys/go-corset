@@ -238,8 +238,8 @@ func (p *TraceFile) UnmarshalBinary(data []byte) error {
 	if err = p.header.UnmarshalBinary(buffer); err != nil {
 		return err
 	} else if !p.header.IsCompatible() {
-		return fmt.Errorf("incompatible binary trace file was v%d.%d, but expected v%d.%d)",
-			p.header.MajorVersion, p.header.MinorVersion, LTV1_MAJOR_VERSION, LTV3_MINOR_VERSION)
+		return fmt.Errorf("incompatible binary trace file (v%d.%d))",
+			p.header.MajorVersion, p.header.MinorVersion)
 	}
 	//
 	switch p.header.MajorVersion {
