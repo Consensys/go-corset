@@ -13,6 +13,7 @@
 package pool
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"sync"
@@ -155,6 +156,10 @@ func (p *SharedHeap[T]) alloc(word T) uint32 {
 		// Determine length of word
 		bytewidth = uint32(word.ByteWidth())
 	)
+	//
+	if bytewidth > math.MaxUint16 {
+		panic(fmt.Sprintf("word is too long (%d bytes)", bytewidth))
+	}
 	// Allocate space for new word
 	for range bytewidth {
 		p.heap = append(p.heap, 0)

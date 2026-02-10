@@ -166,7 +166,7 @@ func splitColumnBitwidth(name string) (string, uint, error) {
 	// Extract colwidth, whilst ignoring column type (for now)
 	colwidth := bits[1][1:]
 	//
-	if bitwidth, err = strconv.ParseUint(colwidth, 10, 16); err != nil {
+	if bitwidth, err = strconv.ParseUint(colwidth, 10, 17); err != nil {
 		// failure
 		return "", 0, err
 	}
