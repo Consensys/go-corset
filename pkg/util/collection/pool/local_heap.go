@@ -132,7 +132,7 @@ func (p *LocalHeap[T]) MarshalBinaryV3() ([]byte, error) {
 	if m, err := buf.Write(lengths); err != nil {
 		return nil, err
 	} else if m != 2*n {
-		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, n)
+		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, 2*n)
 	}
 	// write bytes
 	if m, err := buf.Write(p.heap); err != nil {
