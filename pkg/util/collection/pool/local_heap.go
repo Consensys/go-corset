@@ -112,8 +112,8 @@ func (p *LocalHeap[T]) Size() uint {
 	return p.count
 }
 
-// MarshalBinary converts this heap into a sequence of bytes.
-func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
+// MarshalBinaryV3 converts this heap into a sequence of bytes.
+func (p *LocalHeap[T]) MarshalBinaryV3() ([]byte, error) {
 	var (
 		buf     bytes.Buffer
 		n       = len(p.lengths)
@@ -144,9 +144,33 @@ func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// UnmarshalBinary initialises this heap from a given set of data bytes. This
+// UnmarshalBinaryV2 initialises this heap from a given set of data bytes. This
 // should match exactly the encoding above.
-func (p *LocalHeap[T]) UnmarshalBinary(data []byte) error {
+func (p *LocalHeap[T]) UnmarshalBinaryV2(data []byte) error {
+	var (
+		buf = bytes.NewReader(data)
+		n   uint32
+	)
+	// Read bytes length
+	if err := binary.Read(buf, binary.BigEndian, &n); err != nil {
+		return err
+	}
+	// Allocate space
+	p.lengths = make([]uint16, n)
+	p.heap = data[n+4 : n+n+4]
+	// Reconstruct lengths
+	for i, b := range data[4 : n+4] {
+		p.lengths[i] = uint16(b)
+	}
+	// Reconstruct hash
+	p.reconstruct()
+	// Done
+	return nil
+}
+
+// UnmarshalBinaryV3 initialises this heap from a given set of data bytes. This
+// should match exactly the encoding above.
+func (p *LocalHeap[T]) UnmarshalBinaryV3(data []byte) error {
 	var (
 		buf     = bytes.NewReader(data)
 		lengths []byte

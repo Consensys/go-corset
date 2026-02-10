@@ -42,7 +42,7 @@ func ToBytes(heap WordHeap, rawModules []Module[word.BigEndian]) ([]byte, error)
 		return nil, err
 	}
 	// Construct heap data
-	if heapBytes, err = heap.MarshalBinary(); err != nil {
+	if heapBytes, err = heap.MarshalBinaryV3(); err != nil {
 		return nil, err
 	}
 	// Write header size
