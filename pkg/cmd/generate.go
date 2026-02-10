@@ -95,7 +95,7 @@ func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		// build schema stack
 		stack := stacker.Build()
 		// NOTE: assume defensive padding is enabled.
-		spillage := determineSpillage(stack.LowestConcreteSchema(), true)
+		spillage := determineSpillage(stack.ConcreteSchema(), true)
 		// Generate appropriate Java source
 		source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, binf)
 		// check for errors

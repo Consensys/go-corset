@@ -26,7 +26,7 @@ import (
 func PrintModuleStats[F field.Element[F]](stack cmd_util.SchemaStack[F], maxCellWidth uint, sorter uint) {
 	var (
 		//
-		schema      = stack.UniqueConcreteSchema()
+		schema      = stack.ConcreteSchema()
 		summarisers = getModuleSummarisers[F]()
 		m           = 1 + uint(len(summarisers))
 		n           = schema.Width()

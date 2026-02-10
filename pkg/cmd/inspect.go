@@ -68,6 +68,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	//
 	validate := GetFlag(cmd, "validate")
+	showLimbs := GetFlag(cmd, "show-limbs")
 	// Read in constraint files
 	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
 	stack := stacker.Build()
@@ -82,16 +83,13 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	if !srcmap_ok {
 		fmt.Printf("binary file \"%s\" missing source map", args[1])
-	} else if !stack.HasUniqueSchema() {
-		fmt.Println("must specify exactly one of --air/mir/uasm/asm")
-		os.Exit(2)
 	}
 	//
 	stats.Log("Reading constraints file")
 	// Parse trace file
 	tracefile := ReadTraceFile(args[0])
-	// Extract scheam
-	schema := stack.UniqueConcreteSchema()
+	// Extract schema
+	schema := stack.ConcreteSchema()
 	//
 	stats.Log("Reading trace file")
 	//
@@ -109,7 +107,7 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	if len(errors) == 0 {
 		// Run the inspector.
-		errors = inspect(stack.TraceBuilder().Mapping(), srcmap, trace)
+		errors = inspect(stack.TraceBuilder().Mapping(), srcmap, trace, showLimbs)
 	}
 	// Sanity check what happened
 	if len(errors) > 0 {
@@ -122,9 +120,10 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 }
 
 // Inspect a given trace using a given schema.
-func inspect[F field.Element[F]](mapping module.LimbsMap, srcmap *corset.SourceMap, trace tr.Trace[F]) []error {
+func inspect[F field.Element[F]](mapping module.LimbsMap, srcmap *corset.SourceMap, trace tr.Trace[F],
+	limbs bool) []error {
 	// Construct inspector window
-	inspector := construct(mapping, trace, srcmap)
+	inspector := construct(mapping, trace, srcmap, limbs)
 	// Render inspector
 	if err := inspector.Render(); err != nil {
 		return []error{err}
@@ -133,7 +132,7 @@ func inspect[F field.Element[F]](mapping module.LimbsMap, srcmap *corset.SourceM
 	return inspector.Start()
 }
 
-func construct[F field.Element[F]](mapping module.LimbsMap, trace tr.Trace[F], srcmap *corset.SourceMap,
+func construct[F field.Element[F]](mapping module.LimbsMap, trace tr.Trace[F], srcmap *corset.SourceMap, limbs bool,
 ) *inspector.Inspector {
 	//
 	term, err := termio.NewTerminal()
@@ -143,6 +142,8 @@ func construct[F field.Element[F]](mapping module.LimbsMap, trace tr.Trace[F], s
 			WithSourceMap(*srcmap).
 			WithTitleWidth(math.MaxUint).
 			WithFormatting(inspector.NewFormatter()).
+			WithLimbs(limbs).
+			WithComputed(true).
 			Build(trace)
 		// Construct inspector state
 		return inspector.NewInspector(term, window)
@@ -157,4 +158,5 @@ func construct[F field.Element[F]](mapping module.LimbsMap, trace tr.Trace[F], s
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(inspectCmd)
+	inspectCmd.Flags().Bool("show-limbs", false, "specify whether to show register limbs")
 }

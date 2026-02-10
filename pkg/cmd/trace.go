@@ -87,7 +87,8 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	cfg.stats = GetFlag(cmd, "stats")
 	cfg.includes = GetStringArray(cmd, "include")
 	cfg.maxCellWidth = GetUint(cmd, "max-width")
-	cfg.limbs = GetFlag(cmd, "limbs")
+	cfg.showLimbs = GetFlag(cmd, "show-limbs")
+	cfg.showComputed = GetFlag(cmd, "show-computed")
 	cfg.startRow = GetUint(cmd, "start")
 	cfg.endRow = GetUint(cmd, "end")
 	cfg.filter, err = regexp.Compile(GetString(cmd, "filter"))
@@ -123,10 +124,7 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 	}
 	//
-	if builder.Expanding() && !stack.HasUniqueSchema() {
-		fmt.Println("must specify one of --mir/air")
-		os.Exit(2)
-	} else if builder.Expanding() {
+	if builder.Expanding() {
 		var (
 			tp_errors []error
 			traces    []trace.Trace[F]
@@ -156,15 +154,6 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Write out results (if requested)
 	if output != "" {
-		// // Convert all traces back to lt files.
-		// for i := range traces {
-		// 	ltTraces[i] = seqReconstructRawTrace(ltTraces[i].Header.MetaData, traces[i])
-		// 	// Upgrade to ltv2 if requested
-		// 	if ltv2 {
-		// 		ltTraces[i].Header.MajorVersion = lt.LTV2_MAJOR_VERSION
-		// 	}
-		// }
-		// //
 		writeBatchedTracesFile(output, ltTraces...)
 	}
 }
@@ -181,7 +170,8 @@ func init() {
 	traceCmd.Flags().Uint("start", 0, "filter out rows below this")
 	traceCmd.Flags().Uint("end", math.MaxUint, "filter out this and all following rows")
 	traceCmd.Flags().Uint("max-width", 32, "specify maximum display width for a column")
-	traceCmd.Flags().BoolP("limbs", "l", false, "show register limbs")
+	traceCmd.Flags().Bool("show-computed", false, "show (low-level) computed registers")
+	traceCmd.Flags().BoolP("show-limbs", "l", false, "show register limbs")
 	traceCmd.Flags().Uint("padding", 0, "specify amount of (front) padding to apply")
 	traceCmd.Flags().StringP("out", "o", "", "Specify output file to write trace")
 	traceCmd.Flags().StringP("filter", "f", "", "Filter columns matching regex")
@@ -201,8 +191,10 @@ type TraceConfig struct {
 	maxTitleWidth uint
 	// Column / Module summarisers to include
 	includes []string
-	//nolint
-	limbs bool
+	// Indicate whether or not to show limbs in trace.
+	showLimbs bool
+	// Indicate whether or not to show low-level registers in trace.
+	showComputed bool
 	// Column to sort on
 	sortColumn uint
 	// Start/end row for trace view
@@ -292,7 +284,7 @@ func expandLtTrace[F field.Element[F]](tf lt.TraceFile, stack cmd_util.SchemaSta
 		perf.Log("Trace propagation")
 	}
 	// Construct expanded trace
-	tr, tb_errors = bldr.Build(stack.UniqueConcreteSchema(), tf)
+	tr, tb_errors = bldr.Build(stack.ConcreteSchema(), tf)
 	// Handle errors
 	if len(tb_errors) > 0 {
 		for _, err := range tb_errors {
@@ -324,7 +316,8 @@ func printTraceInfo[F field.Element[F]](cfg TraceConfig, trace tr.Trace[F]) {
 	// Construct trace window
 	view := view.NewBuilder[F](cfg.mapping).
 		WithCellWidth(cfg.maxCellWidth).
-		WithLimbs(cfg.limbs)
+		WithLimbs(cfg.showLimbs).
+		WithComputed(cfg.showComputed)
 	// Add source map (if applicable)
 	if cfg.sourceMap != nil {
 		view = view.WithSourceMap(*cfg.sourceMap)

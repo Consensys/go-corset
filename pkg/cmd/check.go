@@ -83,7 +83,8 @@ func runCheckCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	cfg.padding.Right = GetUint(cmd, "padding")
 	cfg.report = GetFlag(cmd, "report")
 	cfg.reportPadding = GetUint(cmd, "report-context")
-	cfg.reportLimbs = GetFlag(cmd, "report-limbs")
+	cfg.reportLimbs = GetFlag(cmd, "show-limbs")
+	cfg.reportComputed = GetFlag(cmd, "show-computed")
 	cfg.reportCellWidth = GetUint(cmd, "report-cellwidth")
 	cfg.reportTitleWidth = GetUint(cmd, "report-titlewidth")
 	cfg.ansiEscapes = GetFlag(cmd, "ansi-escapes")
@@ -163,6 +164,8 @@ type checkConfig struct {
 	reportTitleWidth uint
 	// Specifies whether or not to show raw limbs
 	reportLimbs bool
+	// Specifies whether or not to show raw computed registers
+	reportComputed bool
 	// Enable ansi escape codes in reports
 	ansiEscapes bool
 }
@@ -225,29 +228,30 @@ func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.Sch
 			stack := stacker.Build()
 			// configure trace builder
 			builder := stack.TraceBuilder().WithPadding(n)
-			// Run each concrete schema separately
-			for i, schema := range stack.ConcreteSchemas() {
-				ir := stack.ConcreteIrName(uint(i))
-				stats := util.NewPerfStats()
-				trace, errs := builder.Build(schema, tf)
-				// Log cost of expansion
-				stats.Log("Expanding trace columns")
-				// Report any errors
-				reportErrors(ir, errs)
-				// Check whether considered unrecoverable
-				if trace == nil || len(errs) > 0 {
-					return false
-				}
-				//
-				stats = util.NewPerfStats()
-				// Check constraints
-				if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
-					reportFailures(ir, errs, trace, builder.Mapping(), cfg)
-					return false
-				}
-
-				stats.Log("Checking constraints")
+			// identify concrete schema separately
+			schema := stack.ConcreteSchema()
+			// identify schema name
+			ir := stack.ConcreteIrName()
+			// begin performance measurement
+			stats := util.NewPerfStats()
+			trace, errs := builder.Build(schema, tf)
+			// Log cost of expansion
+			stats.Log("Expanding trace columns")
+			// Report any errors
+			reportErrors(ir, errs)
+			// Check whether considered unrecoverable
+			if trace == nil || len(errs) > 0 {
+				return false
 			}
+			//
+			stats = util.NewPerfStats()
+			// Check constraints
+			if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
+				reportFailures(ir, errs, trace, builder.Mapping(), cfg)
+				return false
+			}
+
+			stats.Log("Checking constraints")
 		}
 	}
 	// Done
@@ -308,6 +312,7 @@ func reportRelevantCells[F field.Element[F]](cells *set.AnySortedSet[tr.CellRef]
 	// Construct trace window
 	window := view.NewBuilder[F](mapping).
 		WithLimbs(cfg.reportLimbs).
+		WithComputed(cfg.reportComputed).
 		WithCellWidth(cfg.reportCellWidth).
 		WithTitleWidth(cfg.reportTitleWidth).
 		WithSourceMap(*cfg.corsetSourceMap).
@@ -352,7 +357,8 @@ func init() {
 	rootCmd.AddCommand(checkCmd)
 	checkCmd.Flags().Bool("report", false, "report details of failure for debugging")
 	checkCmd.Flags().Uint("report-context", 2, "specify number of rows to show eitherside of failure in report")
-	checkCmd.Flags().Bool("report-limbs", false, "specify whether to show register limbs in report")
+	checkCmd.Flags().Bool("show-computed", false, "show (low-level) computed registers")
+	checkCmd.Flags().Bool("show-limbs", false, "specify whether to show register limbs in report")
 	checkCmd.Flags().Uint("report-cellwidth", 32, "specify max number of bytes to show in a given cell in report")
 	checkCmd.Flags().Uint("report-titlewidth", 40, "specify maximum width of column titles in report")
 	//
