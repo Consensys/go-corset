@@ -57,7 +57,7 @@ type ModuleBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T]
 	NewRegister(reg register.Register) register.Id
 	// NewRegisters declares zero or more new registers within the module being
 	// built.  This will panic if a register of the same name already exists.
-	NewRegisters(registers ...register.Register)
+	NewRegisters(registers ...register.Register) []register.Id
 	// ZeroRegister returns an ID for the "zero register".  That is, a register
 	// which is always zero.  If no such register exists already, one is
 	// created.
@@ -183,10 +183,14 @@ func (p *internalModuleBuilder[F, C, T]) NewRegister(reg register.Register) regi
 }
 
 // NewRegisters implementation for ModuleBuilder interface.
-func (p *internalModuleBuilder[F, C, T]) NewRegisters(registers ...register.Register) {
-	for _, r := range registers {
-		p.NewRegister(r)
+func (p *internalModuleBuilder[F, C, T]) NewRegisters(registers ...register.Register) []register.Id {
+	var ids = make([]register.Id, len(registers))
+	//
+	for i, r := range registers {
+		ids[i] = p.NewRegister(r)
 	}
+	//
+	return ids
 }
 
 // Register implementation for register.Map interface.
@@ -317,10 +321,14 @@ func (p *externalModuleBuilder[F, C, T]) NewRegister(reg register.Register) regi
 }
 
 // NewRegisters implementation for ModuleBuilder interface.
-func (p *externalModuleBuilder[F, C, T]) NewRegisters(registers ...register.Register) {
-	for _, r := range registers {
-		p.NewRegister(r)
+func (p *externalModuleBuilder[F, C, T]) NewRegisters(registers ...register.Register) []register.Id {
+	var ids = make([]register.Id, len(registers))
+	//
+	for i, r := range registers {
+		ids[i] = p.NewRegister(r)
 	}
+	//
+	return ids
 }
 
 // Register implementation for register.Map interface.

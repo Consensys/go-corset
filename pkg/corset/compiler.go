@@ -24,7 +24,6 @@ import (
 	"github.com/consensys/go-corset/pkg/corset/compiler"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -42,19 +41,7 @@ var STDLIB []byte
 type SyntaxError = source.SyntaxError
 
 // CompilationConfig encapsulates various options which can affect compilation.
-type CompilationConfig struct {
-	// Enable standard library
-	Stdlib bool
-	// Enable debug constraints
-	Debug bool
-	// Enable legacy register allocator
-	Legacy bool
-	// Enforce all types by default
-	EnforceTypes bool
-	// Target field configuration.  This is only used to assist in reporting
-	// errors which are specific to the given field configuration.
-	Field field.Config
-}
+type CompilationConfig = compiler.Config
 
 // CompileSourceFiles compiles one or more source files into a schema.  This
 // process can fail if the source files are mal-formed, or contain syntax errors
@@ -64,7 +51,7 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []source.File, extern
 	// Include the standard library (if requested)
 	srcfiles = includeStdlib(config.Stdlib, srcfiles)
 	// Parse all source files (inc stdblib if applicable).
-	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, config.EnforceTypes)
+	circuit, srcmap, errs := compiler.ParseSourceFiles(srcfiles, config)
 	// Check for parsing errors
 	if errs != nil {
 		return asm.MacroHirProgram{}, SourceMap{}, errs
@@ -79,7 +66,7 @@ func CompileSourceFiles(config CompilationConfig, srcfiles []source.File, extern
 		comp.SetAllocator(compiler.ImprovedAllocator)
 	}
 	//
-	return comp.Compile(config.Field)
+	return comp.Compile(config)
 }
 
 // CompileSourceFile compiles exactly one source file into a schema.  This is
@@ -137,7 +124,7 @@ func (p *Compiler) SetAllocator(allocator func(compiler.RegisterAllocation)) *Co
 // ways if the given modules are malformed in some way.  For example, if some
 // expression refers to a non-existent module or column, or is not well-typed,
 // etc.
-func (p *Compiler) Compile(config field.Config) (asm.MacroHirProgram, SourceMap, []SyntaxError) {
+func (p *Compiler) Compile(config compiler.Config) (asm.MacroHirProgram, SourceMap, []SyntaxError) {
 	var (
 		scope  *compiler.ModuleScope
 		errors []SyntaxError

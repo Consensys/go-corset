@@ -41,7 +41,7 @@ import (
 // additional combines all fragments of the same module together into one place.
 // Thus, you should never expect to see duplicate module names in the returned
 // array.
-func ParseSourceFiles(files []source.File, enforceTypes bool) (ast.Circuit, *source.Maps[ast.Node], []SyntaxError) {
+func ParseSourceFiles(files []source.File, config Config) (ast.Circuit, *source.Maps[ast.Node], []SyntaxError) {
 	var (
 		circuit ast.Circuit
 		// (for now) at most one error per source file is supported.
@@ -57,7 +57,7 @@ func ParseSourceFiles(files []source.File, enforceTypes bool) (ast.Circuit, *sou
 	)
 	//
 	for _, file := range files {
-		c, srcmap, errs := parseSourceFile(file, enforceTypes, handles)
+		c, srcmap, errs := parseSourceFile(file, config, handles)
 		// Handle errors
 		if len(errs) > 0 {
 			// Report any errors encountered
@@ -98,7 +98,7 @@ func ParseSourceFiles(files []source.File, enforceTypes bool) (ast.Circuit, *sou
 	return circuit, srcmaps, nil
 }
 
-func parseSourceFile(srcfile source.File, enforceTypes bool,
+func parseSourceFile(srcfile source.File, config Config,
 	handles map[string]bool) (ast.Circuit, *source.Map[ast.Node], []SyntaxError) {
 	//
 	//
@@ -114,7 +114,7 @@ func parseSourceFile(srcfile source.File, enforceTypes bool,
 		return circuit, nil, []SyntaxError{*err}
 	}
 	// Construct parser for corset syntax
-	p := NewParser(srcfile, srcmap, enforceTypes, handles)
+	p := NewParser(srcfile, srcmap, config, handles)
 	// Parse whatever is declared at the beginning of the file before the first
 	// module declaration.  These declarations form part of the "prelude".
 	if circuit.Declarations, terms, errors = p.parseModuleContents(path, terms); len(errors) > 0 {
@@ -159,20 +159,20 @@ type Parser struct {
 	translator *sexp.Translator[ast.Expr]
 	// Mapping from constructed S-Expressions to their spans in the original text.
 	nodemap *source.Map[ast.Node]
-	// Flag to signal when types should be automatically enforced by default.
-	enforceTypes bool
+	// configuration options
+	config Config
 }
 
 // NewParser constructs a new parser using a given mapping from S-Expressions to
 // spans in the underlying source file.
-func NewParser(srcfile source.File, srcmap *source.Map[sexp.SExp], enforceTypes bool, handles map[string]bool,
+func NewParser(srcfile source.File, srcmap *source.Map[sexp.SExp], config Config, handles map[string]bool,
 ) *Parser {
 	//
 	p := sexp.NewTranslator[ast.Expr](&srcfile, srcmap)
 	// Construct (initially empty) node map
 	nodemap := source.NewSourceMap[ast.Node](srcmap.Source())
 	// Construct parser
-	parser := &Parser{handles, p, nodemap, enforceTypes}
+	parser := &Parser{handles, p, nodemap, config}
 	// Configure expression translator
 	p.AddSymbolRule(constantParserRule)
 	p.AddSymbolRule(varAccessParserRule)
@@ -406,7 +406,7 @@ func (p *Parser) parseColumnDeclaration(context file.Path, path file.Path, compu
 			ColumnContext: context,
 			Kind:          ast.NOT_COMPUTED,
 			Multiplier:    uint(multiplier),
-			MustProve:     p.enforceTypes,
+			MustProve:     p.config.EnforceTypes,
 			Padding:       zero,
 			Display:       "hex",
 		}
@@ -760,7 +760,7 @@ func (p *Parser) parseDefConstHead(head sexp.SExp) (*sexp.Symbol, ast.Type, bool
 			// Handle errors
 			if err != nil {
 				return nil, nil, false, []SyntaxError{*err}
-			} else if prove && !p.enforceTypes {
+			} else if prove && !p.config.EnforceTypes {
 				return nil, nil, false, p.translator.SyntaxErrors(list, "constants cannot have proven types")
 			}
 		}
@@ -1576,7 +1576,7 @@ func (p *Parser) parseFunctionParameter(element sexp.SExp) (*ast.DefParameter, [
 	//
 	if err != nil {
 		return nil, []SyntaxError{*err}
-	} else if prove && !p.enforceTypes {
+	} else if prove && !p.config.EnforceTypes {
 		// Parameters cannot be marked @prove
 		err := p.translator.SyntaxError(element, "malformed parameter declaration")
 		//
@@ -1755,7 +1755,7 @@ func (p *Parser) parseType(term sexp.SExp) (ast.Type, bool, *SyntaxError) {
 		datatype = ast.NewUintType(uint(n))
 	}
 	// Types default to not proven (unless explicitly requested)
-	var proven bool = p.enforceTypes
+	var proven bool = p.config.EnforceTypes
 	// Process type modifiers
 	for i := 1; i < len(parts); i++ {
 		switch parts[i] {
