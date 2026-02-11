@@ -526,6 +526,9 @@ func (p *Parser) parseAssignment(env *Environment) (macro.Instruction, []source.
 	} else if p.following(IDENTIFIER, DIV) || p.following(NUMBER, DIV) {
 		// division assignment
 		return p.parseDivisionRhs(lhs, env)
+	} else if cast, ok := p.parseCast(env); ok {
+		// parse cast
+		return p.parseCastRhs(lhs, cast, env)
 	}
 	// Parse right-hand side
 	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
@@ -541,6 +544,38 @@ func (p *Parser) parseAssignmentLhs(env *Environment) ([]io.RegisterId, []source
 	lhs = array.Reverse(lhs)
 	//
 	return lhs, errs
+}
+
+func (p *Parser) parseCast(env *Environment) (uint, bool) {
+	var start = p.index
+	//
+	if p.following(LBRACE, IDENTIFIER, RBRACE) {
+		p.match(LBRACE)
+
+		if v, errs := p.parseType(); len(errs) == 0 {
+			p.match(RBRACE)
+			return v, true
+		}
+		// failed parsing to back up
+		p.index = start
+	}
+	// No cast to parse
+	return 0, false
+}
+
+func (p *Parser) parseCastRhs(lhs []io.RegisterId, cast uint, env *Environment,
+) (macro.Instruction, []source.SyntaxError) {
+	//
+	var (
+		errs []source.SyntaxError
+		rhs  register.Id
+	)
+	//
+	if rhs, errs = p.parseVariable(env); len(errs) > 0 {
+		return nil, errs
+	}
+	//
+	return macro.NewCast(lhs, cast, rhs), nil
 }
 
 func (p *Parser) parseCallRhs(lhs []io.RegisterId, env *Environment) (macro.Instruction, []source.SyntaxError) {

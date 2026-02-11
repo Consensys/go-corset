@@ -27,6 +27,8 @@ func Construct[T State[T], C any](initial T, codes []C, transfer func(uint, C, T
 	//
 	if nCodes > 0 {
 		result.states[0] = util.Some(initial)
+	} else if nCodes == 0 {
+		panic("unreachable")
 	}
 	//
 	for i := range nCodes {
@@ -74,7 +76,13 @@ type Result[T State[T]] struct {
 
 // StateOf returns the current state on entry to the given micro-code.
 func (p *Result[T]) StateOf(i uint) T {
-	return p.states[i].Unwrap()
+	var empty T
+	//
+	if p.states[i].HasValue() {
+		return p.states[i].Unwrap()
+	}
+	//
+	return empty
 }
 
 // JoinInto updates the write state for a given micro-code to include that from
