@@ -13,14 +13,13 @@
 package io
 
 import (
+	"fmt"
 	"math"
 	"math/big"
-	"strings"
 	"sync"
 
 	"github.com/consensys/go-corset/pkg/asm/io/bitwise"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
@@ -74,23 +73,7 @@ func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint, pp bool) []big.I
 	/*	if pp {
 		perf.Log("Read function bus stats " + fnBus.fn.String() + "input " + strconv.Itoa(len(address)) + " code " + strconv.Itoa(len(code)))
 	}*/
-		fn := fnBus.fn.(*Function[T])
-		if strings.Contains(fn.Name().String(), "bit_xoan_") {
-		switch address[0].Int64() {
-		//XOR
-		case 0:
-			return []big.Int{bitwise.XOR(address[1], address[2])}
-		case 1:
-			return []big.Int{bitwise.OR(address[1], address[2])}
-		case 2:
-			return []big.Int{bitwise.AND(address[1], address[2])}
-		case 3:
-			return []big.Int{bitwise.NOT(address[1])}
-		}
-	} else {
 	return fnBus.Call(address, p, pp).Outputs()
-		}
-		return []big.Int{}
 }
 
 // Instances returns accrued function instances for the given bus.
@@ -206,7 +189,6 @@ func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map, pp bool) Co
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
 func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp bool) ComponentInstance {
-
 	var (
 		fn = p.fn.(*Function[T])
 		// Determine how many I/O registers
@@ -216,12 +198,17 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp 
 		//
 		state = InitialState(inputs, fn.Registers(), fn.Buses(), iomap)
 	)
-	/*	if pp {
-		perf.Log("Performing InitialState " + fn.name)
-	}*/
-	perf := util.NewPerfStats()
-	// perf2 := util.NewPerfStats()
 	// Keep executing until we're done.
+	var a *big.Int
+	// We intercept execution if function is bit_xoan
+	/*	if strings.Contains(fn.name, "bit_xoan_u") {
+		a = executeBitXoanOperations(inputs, fn.name)
+		if a == nil {
+			panic(fmt.Sprintf("trying to intercept an unsupported bitwise operation (%s)", fn.name))
+		}
+		state.state[nio-1] = *a
+		state.pc = math.MaxUint
+	} else {*/
 	for pc != RETURN && pc != FAIL {
 		//perf2 := util.NewPerfStats()
 		insn := fn.CodeAt(pc)
@@ -233,9 +220,8 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp 
 				perf2.Log("insn execute " + insn.String(fn) + "pc : " + strconv.FormatUint(uint64(pc), 10))
 			}*/
 	}
-	if pp {
-		perf.Log("insn execute ")
-	}
+	// }
+	fmt.Sprintf(a.String())
 	// Cache I/O instance
 	instance := ComponentInstance{fn.NumInputs(), state.state[:nio]}
 	// Obtain  write lock
@@ -246,6 +232,161 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp 
 	p.mux.Unlock()
 	// Done
 	return instance
+}
+
+func executeBitXoanOperations(inputs []big.Int, fnName string) *big.Int {
+	switch fnName {
+	case "bit_xoan_u256":
+		switch inputs[0].Int64() {
+		//XOR
+		case 0:
+			inputs1 := bitwise.BigIntTo32Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo32Bytes(&inputs[2])
+			return bitwise.XOR256(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo32Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo32Bytes(&inputs[2])
+			return bitwise.OR256(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo32Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo32Bytes(&inputs[2])
+			return bitwise.AND256(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo32Bytes(&inputs[1])
+			return bitwise.NOT256(inputs1)
+		}
+	case "bit_xoan_u128":
+		switch inputs[0].Int64() {
+		case 0:
+			inputs1 := bitwise.BigIntTo16Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo16Bytes(&inputs[2])
+			return bitwise.XOR128(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo16Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo16Bytes(&inputs[2])
+			return bitwise.OR128(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo16Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo16Bytes(&inputs[2])
+			return bitwise.AND128(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo16Bytes(&inputs[1])
+			return bitwise.NOT128(inputs1)
+		}
+	case "bit_xoan_u64":
+		switch inputs[0].Int64() {
+		case 0:
+			inputs1 := bitwise.BigIntTo8Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo8Bytes(&inputs[2])
+			return bitwise.XOR64(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo8Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo8Bytes(&inputs[2])
+			return bitwise.OR64(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo8Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo8Bytes(&inputs[2])
+			return bitwise.AND64(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo8Bytes(&inputs[1])
+			return bitwise.NOT64(inputs1)
+		}
+	case "bit_xoan_u32":
+		switch inputs[0].Int64() {
+		case 0:
+			inputs1 := bitwise.BigIntTo4Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo4Bytes(&inputs[2])
+			return bitwise.XOR32(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo4Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo4Bytes(&inputs[2])
+			return bitwise.OR32(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo4Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo4Bytes(&inputs[2])
+			return bitwise.AND32(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo4Bytes(&inputs[1])
+			return bitwise.NOT32(inputs1)
+		}
+	case "bit_xoan_u16":
+		switch inputs[0].Int64() {
+		case 0:
+			inputs1 := bitwise.BigIntTo2Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo2Bytes(&inputs[2])
+			return bitwise.XOR16(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo2Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo2Bytes(&inputs[2])
+			return bitwise.OR16(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo2Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo2Bytes(&inputs[2])
+			return bitwise.AND16(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo2Bytes(&inputs[1])
+			return bitwise.NOT16(inputs1)
+		}
+	case "bit_xoan_u8":
+		switch inputs[0].Int64() {
+		case 0:
+			inputs1 := bitwise.BigIntTo1Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo1Bytes(&inputs[2])
+			return bitwise.XOR8(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo1Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo1Bytes(&inputs[2])
+			return bitwise.OR8(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo1Bytes(&inputs[1])
+			inputs2 := bitwise.BigIntTo1Bytes(&inputs[2])
+			return bitwise.AND8(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo1Bytes(&inputs[1])
+			return bitwise.NOT8(inputs1)
+		}
+	case "bit_xoan_u4":
+		switch inputs[0].Int64() {
+		case 0:
+			inputs1 := bitwise.BigIntTo4Bits(&inputs[1])
+			inputs2 := bitwise.BigIntTo4Bits(&inputs[2])
+			return bitwise.Xor4Bits(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo4Bits(&inputs[1])
+			inputs2 := bitwise.BigIntTo4Bits(&inputs[2])
+			return bitwise.Or4Bits(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo4Bits(&inputs[1])
+			inputs2 := bitwise.BigIntTo4Bits(&inputs[2])
+			return bitwise.And4Bits(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo4Bits(&inputs[1])
+			return bitwise.Not4Bits(inputs1)
+		}
+	case "bit_xoan_u2":
+		switch inputs[0].Int64() {
+		case 0:
+			inputs1 := bitwise.BigIntTo2Bits(&inputs[1])
+			inputs2 := bitwise.BigIntTo2Bits(&inputs[2])
+			return bitwise.Xor2Bits(inputs1, inputs2)
+		case 1:
+			inputs1 := bitwise.BigIntTo2Bits(&inputs[1])
+			inputs2 := bitwise.BigIntTo2Bits(&inputs[2])
+			return bitwise.Or2Bits(inputs1, inputs2)
+		case 2:
+			inputs1 := bitwise.BigIntTo2Bits(&inputs[1])
+			inputs2 := bitwise.BigIntTo2Bits(&inputs[2])
+			return bitwise.And2Bits(inputs1, inputs2)
+		case 3:
+			inputs1 := bitwise.BigIntTo2Bits(&inputs[1])
+			return bitwise.Not2Bits(inputs1)
+		}
+	}
+	/*			if (*a).Cmp(&state.state[3]) != 0 {
+				fmt.Sprintf("Here is the error :")
+				perf.Log("Here is the errror in XOR")
+			} */
+	return nil
 }
 
 // ============================================================================
