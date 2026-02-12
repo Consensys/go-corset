@@ -13,6 +13,7 @@
 package asm
 
 import (
+	"fmt"
 	"math"
 	"path/filepath"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/ir/hir"
 	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema/constraint/lookup"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/word"
@@ -162,6 +164,8 @@ func readIncludedFiles(file source.File, item assembler.AssemblyItem,
 // This does not impact any externally defined (e.g. MIR) modules in the schema.
 func LowerMixedMacroProgram(vectorize bool, program MacroHirProgram) MicroHirProgram {
 	var microProgram = lowerMacroProgram(vectorize, program.program)
+	//
+	checkMultiLineLookups(microProgram, program.externs)
 	// Done
 	return NewMixedProgram(microProgram, program.externs...)
 }
@@ -178,4 +182,51 @@ func lowerMacroProgram(vectorize bool, p MacroProgram) MicroProgram {
 	assembler.ValidateMicro(math.MaxUint, functions)
 	//
 	return io.NewProgram(functions)
+}
+
+// Sanity check mutli-line lookups.  Realistically, this is not a great point to
+// do this check since it cannot report decent syntax errors.  However, given
+// the current architecture, its really the best we can do for now.
+func checkMultiLineLookups(program MicroProgram, externs []hir.Module) {
+	for _, m := range externs {
+		for _, c := range m.RawConstraints() {
+			switch c := c.Unwrap().(type) {
+			case hir.LookupConstraint:
+				handle := fmt.Sprintf("%s.%s", m.Name(), c.Handle)
+				checkMultiLineLookup(program, c, handle)
+			case hir.FunctionCall:
+				checkMultiLineFnCall(program, c, m.Name().String())
+			}
+		}
+	}
+}
+
+func checkMultiLineLookup(program MicroProgram, c hir.LookupConstraint, handle string) {
+	for _, src := range c.Sources {
+		checkMultiLineLookupVector(program, src, handle, "source")
+	}
+	//
+	for _, tgt := range c.Targets {
+		checkMultiLineLookupVector(program, tgt, handle, "target")
+	}
+}
+
+func checkMultiLineLookupVector(program MicroProgram, c lookup.Vector[word.BigEndian, hir.Term],
+	handle string, prefix string) {
+	//
+	var n = uint(len(program.Components()))
+	//
+	if c.Selector.IsEmpty() && c.Module < n && !program.Component(c.Module).IsAtomic() {
+		panic(fmt.Sprintf("lookup %s requires %s selector (for multi-line function)", handle, prefix))
+	}
+}
+
+func checkMultiLineFnCall(program MicroProgram, c hir.FunctionCall, handle string) {
+	var (
+		callee = program.Component(c.Callee)
+	)
+	//
+	if !callee.IsAtomic() {
+		panic(fmt.Sprintf("call into multi-line function not supported (%s => %s)", handle, callee.Name().String()))
+	}
 }
