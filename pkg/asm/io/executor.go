@@ -13,8 +13,10 @@
 package io
 
 import (
+	"fmt"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 
 	"github.com/consensys/go-corset/pkg/asm/io/bitwise"
@@ -188,23 +190,24 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map) Com
 		state = InitialState(inputs, fn.Registers(), fn.Buses(), iomap)
 	)
 	// Keep executing until we're done.
-	// var a *big.Int
+	var a *big.Int
 	// We intercept execution if function is bit_xoan
-	/*	if strings.Contains(fn.name, "bit_xoan_u") {
+	if strings.Contains(fn.name, "bit_xoan_u") {
 		a = executeBitXoanOperations(inputs, fn.name)
 		if a == nil {
 			panic(fmt.Sprintf("trying to intercept an unsupported bitwise operation (%s)", fn.name))
 		}
 		state.state[nio-1] = *a
 		state.pc = math.MaxUint
-	} else {*/
-	for pc != RETURN && pc != FAIL {
-		insn := fn.CodeAt(pc)
-		// execute given instruction
-		pc = insn.Execute(state)
-		// update state pc
-		state.Goto(pc)
-	}
+	} else {
+		for pc != RETURN && pc != FAIL {
+			insn := fn.CodeAt(pc)
+			// execute given instruction
+			pc = insn.Execute(state)
+			// update state pc
+			state.Goto(pc)
+		}
+	 }
 	// Cache I/O instance
 	instance := ComponentInstance{fn.NumInputs(), state.state[:nio]}
 	// Obtain  write lock
@@ -365,10 +368,6 @@ func executeBitXoanOperations(inputs []big.Int, fnName string) *big.Int {
 			return bitwise.Not2Bits(inputs1)
 		}
 	}
-	/*			if (*a).Cmp(&state.state[3]) != 0 {
-				fmt.Sprintf("Here is the error :")
-				perf.Log("Here is the errror in XOR")
-			} */
 	return nil
 }
 
