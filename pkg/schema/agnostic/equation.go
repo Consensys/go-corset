@@ -189,8 +189,13 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) (targe
 		mapping.Reset(n)
 	}
 	// Reconstruct target equations
-	for i := range len(lhs) {
-		if lhs[i].Len() > 0 || rhs[i].Len() > 0 {
+	for i := range max(len(lhs), len(rhs)) {
+		var zero DynamicPolynomial
+		if len(lhs) <= i {
+			targets = append(targets, NewEquation(zero, rhs[i]))
+		} else if len(rhs) <= i {
+			targets = append(targets, NewEquation(lhs[i], zero))
+		} else {
 			targets = append(targets, NewEquation(lhs[i], rhs[i]))
 		}
 	}
@@ -293,8 +298,10 @@ func chunkPolynomial(p DynamicPolynomial, chunkWidths []uint, field field.Config
 		var remainder DynamicPolynomial
 		// Chunk the polynomials
 		p, remainder = p.Shr(chunkWidth)
-		// Include remainder as chunk
-		chunks = append(chunks, remainder)
+		// Include remainder as chunk (if non-zero)
+		if p.Len() != 0 || remainder.Len() != 0 {
+			chunks = append(chunks, remainder)
+		}
 	}
 	// Add carry lines as necessary
 	for i := 0; i < len(chunks); i++ {
