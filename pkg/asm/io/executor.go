@@ -72,7 +72,7 @@ func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint, pp bool) []big.I
 		perf.Log("Read function bus stats " + fnBus.fn.String() + "input " + strconv.Itoa(len(address)) + " code " + strconv.Itoa(len(code)))
 	}*/
 	return fnBus.Call(address, p, pp).Outputs()
-}
+	}
 
 // Instances returns accrued function instances for the given bus.
 func (p *Executor[T]) Instances(bus uint) []ComponentInstance {
