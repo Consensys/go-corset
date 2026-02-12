@@ -38,7 +38,7 @@ type Map interface {
 	// memory, then this will return the current value stored in that address,
 	// etc.  Finally, the number of expected values must match that provided by
 	// the underlying component.
-	Read(bus uint, address []big.Int, n uint, pp bool) []big.Int
+	Read(bus uint, address []big.Int, n uint) []big.Int
 	// Write a set of values to a given address on a bus.  This only makes sense
 	// for writeable memory, such Random Access Memory (RAM).  In contrast,
 	// functions and Read-Only Memory (ROM) are not considered writeable.
