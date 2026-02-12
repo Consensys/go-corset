@@ -13,7 +13,6 @@
 package io
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -27,8 +26,7 @@ import (
 // generating a suitable top-level trace.  Executor implements the io.Map
 // interface.
 type Executor[T Instruction] struct {
-	functions   []*ComponentTrace[T]
-	shouldPrint bool
+	functions []*ComponentTrace[T]
 }
 
 // NewExecutor constructs a new executor.
@@ -40,7 +38,7 @@ func NewExecutor[T Instruction](program Program[T]) *Executor[T] {
 		traces[i] = NewFunctionTrace[T](program.functions[i])
 	}
 	// Construct new executor
-	return &Executor[T]{traces, false}
+	return &Executor[T]{traces}
 }
 
 // Instance returns a valid instance of the given bus.
@@ -59,21 +57,12 @@ func (p *Executor[T]) Instance(bus uint) ComponentInstance {
 		inputs[i] = *ith.Set(reg.Padding())
 	}
 	// Compute function instance
-	return p.functions[bus].Call(inputs, p, false)
+	return p.functions[bus].Call(inputs, p)
 }
 
 // Read implementation for the io.Map interface.
-func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint, pp bool) []big.Int {
-	// perf := util.NewPerfStats()
-	fnBus := p.functions[bus]
-	/*	if strings.Contains(fnBus.fn.String(), "modexp") {
-		p.shouldPrint = true
-	}*/
-	// code := fn.Code()
-	/*	if pp {
-		perf.Log("Read function bus stats " + fnBus.fn.String() + "input " + strconv.Itoa(len(address)) + " code " + strconv.Itoa(len(code)))
-	}*/
-	return fnBus.Call(address, p, pp).Outputs()
+func (p *Executor[T]) Read(bus uint, address []big.Int, _ uint) []big.Int {
+	return p.functions[bus].Call(address, p).Outputs()
 }
 
 // Instances returns accrued function instances for the given bus.
@@ -136,7 +125,7 @@ func (p *ComponentTrace[T]) Count() uint {
 // Call this function to determine its outputs for a given set of inputs.  If
 // this instance has been seen before, it will simply return that.  Otherwise,
 // it will execute the function to determine the correct outputs.
-func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map, pp bool) ComponentInstance {
+func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map) ComponentInstance {
 	var iostate = ComponentInstance{uint(len(inputs)), inputs}
 	// Obtain read lock
 	p.mux.RLock()
@@ -146,7 +135,7 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map, pp bool) Component
 	if index != math.MaxUint {
 		// Yes, therefore return precomputed outputs
 		instance := p.instances[index]
-		// Release read lofnBusck
+		// Release read lock
 		p.mux.RUnlock()
 		//
 		return instance
@@ -154,7 +143,7 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map, pp bool) Component
 	// Release read lock
 	p.mux.RUnlock()
 	// Execute function to determine new outputs.
-	return p.executeCall(inputs, iomap, pp)
+	return p.executeCall(inputs, iomap)
 }
 
 // Execute this function for a given set of inputs to determine its outputs and
@@ -168,10 +157,10 @@ func (p *ComponentTrace[T]) Call(inputs []big.Int, iomap Map, pp bool) Component
 // instances --- even if that means, occasionally, an instance is computed more
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
-func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map, pp bool) ComponentInstance {
+func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map) ComponentInstance {
 	switch p.fn.(type) {
 	case *Function[T]:
-		return p.executeFunctionCall(inputs, iomap, pp)
+		return p.executeFunctionCall(inputs, iomap)
 	default:
 		panic("unknown component")
 	}
@@ -188,7 +177,7 @@ func (p *ComponentTrace[T]) executeCall(inputs []big.Int, iomap Map, pp bool) Co
 // instances --- even if that means, occasionally, an instance is computed more
 // than once.  This is safe since instances are always deterministic (i.e. same
 // output for a given input).
-func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp bool) ComponentInstance {
+func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map) ComponentInstance {
 	var (
 		fn = p.fn.(*Function[T])
 		// Determine how many I/O registers
@@ -199,7 +188,7 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp 
 		state = InitialState(inputs, fn.Registers(), fn.Buses(), iomap)
 	)
 	// Keep executing until we're done.
-	var a *big.Int
+	// var a *big.Int
 	// We intercept execution if function is bit_xoan
 	/*	if strings.Contains(fn.name, "bit_xoan_u") {
 		a = executeBitXoanOperations(inputs, fn.name)
@@ -210,18 +199,12 @@ func (p *ComponentTrace[T]) executeFunctionCall(inputs []big.Int, iomap Map, pp 
 		state.pc = math.MaxUint
 	} else {*/
 	for pc != RETURN && pc != FAIL {
-		//perf2 := util.NewPerfStats()
 		insn := fn.CodeAt(pc)
 		// execute given instruction
 		pc = insn.Execute(state)
 		// update state pc
 		state.Goto(pc)
-		/*		if pp {
-				perf2.Log("insn execute " + insn.String(fn) + "pc : " + strconv.FormatUint(uint64(pc), 10))
-			}*/
 	}
-	// }
-	fmt.Sprintf(a.String())
 	// Cache I/O instance
 	instance := ComponentInstance{fn.NumInputs(), state.state[:nio]}
 	// Obtain  write lock
