@@ -321,7 +321,7 @@ func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Confi
 		// Check whether chunk fits
 		if chunkWidth > field.BandWidth {
 			// No, it does not.
-			vars.Union(RegisterReadSet(remainder))
+			vars.Union(NonLinearReadSet(remainder))
 		} else if !last && chunkWidth > chunk.bitwidth {
 			// Overflow case.
 			p, chunk = propagateCarry(chunk, overflow, p, mapping)

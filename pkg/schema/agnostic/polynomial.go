@@ -258,6 +258,24 @@ func RegisterReadSet[T RegisterIdentifier[T]](p Polynomial[T]) bit.Set {
 	return regs
 }
 
+// NonLinearReadSet returns the set of registers read by this instruction.
+func NonLinearReadSet[T RegisterIdentifier[T]](p Polynomial[T]) bit.Set {
+	var regs bit.Set
+	//
+	for i := range p.Len() {
+		ith := p.Term(i)
+		// Check for non-linea term
+		if ith.Len() > 1 {
+			for _, ident := range p.Term(i).Vars() {
+				rid := ident.Id()
+				regs.Insert(rid.Unwrap())
+			}
+		}
+	}
+	//
+	return regs
+}
+
 // SubstitutePolynomial replaces all occurrences of a given variable with a set
 // of (zero or more) variables (e.g. typically used for substituting limbs).
 func SubstitutePolynomial[T RegisterIdentifier[T]](p Polynomial[T], mapping func(T) Polynomial[T]) (r Polynomial[T]) {
