@@ -335,3 +335,38 @@ func BigIntTo1Bytes(n *big.Int) [1]byte {
 	if n == nil {
 		return out
 	}
+
+	b := n.Bytes() // big-endian, no leading zeros
+	if len(b) > 1 {
+		b = b[len(b)-1:]
+	}
+
+	copy(out[1-len(b):], b)
+	return out
+}
+
+func BigIntTo4Bits(n *big.Int) uint8 {
+	if n == nil {
+		return 0
+	}
+	var mask = big.NewInt(0xF) // 0b1111
+	var tmp big.Int
+	tmp.And(n, mask)
+	return uint8(tmp.Uint64()) // value is guaranteed to be <= 15
+}
+
+func BigIntTo2Bits(n *big.Int) uint8 {
+	if n == nil {
+		return 0
+	}
+	var mask = big.NewInt(0x3) // 0b11
+	var tmp big.Int
+	tmp.And(n, mask)
+	return uint8(tmp.Uint64()) // guaranteed <= 3
+}
+
+// not2Bit returns the bitwise NOT of a 2‑bit value (only lowest 2 bits kept).
+func Not2Bit(arg1 uint8) *big.Int {
+	out := ^arg1 & 0b11 // or & 3
+	return new(big.Int).SetUint64(uint64(out))
+}

@@ -1,0 +1,11 @@
+
+fn bin(INST u256 ) -> (RES u256) {
+    var is_inst_zero u1
+    is_inst_zero = INST == 0 ? 1 : 0
+    if is_inst_zero == 1 goto res1
+    RES = 0
+    return
+res1:
+    RES = 1
+    return
+}
