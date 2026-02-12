@@ -54,7 +54,11 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	output := GetString(cmd, "output")
 	defines := GetStringArray(cmd, "define")
 	// Parse constraints
-	binfile := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...).BinaryFile()
+	stacker := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
+	// Sanity check it can be build
+	_ = stacker.Build()
+	// Extract binfile
+	binfile := stacker.BinaryFile()
 	// Write metadata
 	if err := binfile.Header.SetMetaData(buildMetadata(defines)); err != nil {
 		fmt.Printf("error writing metadata: %s\n", err.Error())
