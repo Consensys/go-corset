@@ -267,7 +267,7 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
 			width = WidthOfMonomial(term, env)
 		)
 		//
-		if width > field.BandWidth {
+		if term.Len() > 1 && width > field.BandWidth {
 			for _, v := range term.Vars() {
 				// Check whether register is above threshold or not.
 				if mapping.Register(v.Id()).Width() > regWidth {
@@ -365,7 +365,12 @@ func balancePolynomial(poly DynamicPolynomial) (pos, neg DynamicPolynomial) {
 
 // DynamicPoly2String provides a convenient helper function for debugging polynomials.
 func DynamicPoly2String(p DynamicPolynomial, env register.Map) string {
-	return poly.String(p, func(r register.AccessId) string {
+	return poly.String(p, RegAccess2String(env))
+}
+
+// RegAccess2String provides a convenient helper function for debugging polynomials.
+func RegAccess2String(env register.Map) func(r register.AccessId) string {
+	return func(r register.AccessId) string {
 		var (
 			name  = env.Register(r.Id()).Name()
 			shift = r.RelativeShift()
@@ -379,5 +384,5 @@ func DynamicPoly2String(p DynamicPolynomial, env register.Map) string {
 		default:
 			return fmt.Sprintf("%s[i%d]", name, shift)
 		}
-	})
+	}
 }
