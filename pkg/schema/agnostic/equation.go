@@ -259,11 +259,13 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
 	//
 	for i := range p.Len() {
 		var (
-			term  = p.Term(i)
-			width = WidthOfMonomial(term, env)
+			term          = p.Term(i)
+			width, signed = WidthOfMonomial(term, env)
 		)
 		//
-		if term.Len() > 1 && width > field.BandWidth {
+		if signed {
+			panic("unbalance equation encountered")
+		} else if width > field.BandWidth {
 			for _, v := range term.Vars() {
 				// Check whether register is above threshold or not.
 				if mapping.Register(v.Id()).Width() > regWidth {
