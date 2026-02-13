@@ -201,11 +201,16 @@ func (p *Assignment) chunkUp(field field.Config, mapping RegisterAllocator) []As
 outer:
 	for iteration := 0; ; iteration++ {
 		//
-		var right StaticPolynomial = p.RightHandSide
+		var (
+			right StaticPolynomial = p.RightHandSide
+		)
 		// keep going until no more candidates to split.
 		for candidates > 0 {
+			var localAssignments []Assignment
 			// Split right-hand side
-			right, assignments, candidates = splitAssignmentRhs(chunkWidth, field, right, mapping)
+			right, localAssignments, candidates = splitAssignmentRhs(chunkWidth, field, right, mapping)
+			// Append all assignments
+			assignments = append(assignments, localAssignments...)
 			// Record current number of registers
 			m := uint(len(mapping.Registers()))
 			// Attempt to chunk right-hand side
@@ -221,6 +226,8 @@ outer:
 		}
 		// Reset candidates to ensure go through again.
 		candidates = 1
+		// Reset assignments
+		assignments = nil
 		// Chunking unsuccessful, therefore decrease chunk width and try again.
 		chunkWidth /= 2
 		// Reset any allocated carry registers as we are starting over

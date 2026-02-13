@@ -262,39 +262,6 @@ func RegisterReadSet[T RegisterIdentifier[T]](p Polynomial[T]) bit.Set {
 	return regs
 }
 
-// NonLinearReadSet returns the set of registers read by this instruction.
-func NonLinearReadSet(p StaticPolynomial, mapping register.Map) bit.Set {
-	var (
-		regs     bit.Set
-		env      = StaticEnvironment(mapping)
-		maxWidth uint
-	)
-	for i := range p.Len() {
-		var (
-			width, _ = WidthOfMonomial[register.Id](p.Term(i), env)
-		)
-		//
-		maxWidth = max(maxWidth, width)
-	}
-	//
-	for i := range p.Len() {
-		var (
-			ith      = p.Term(i)
-			width, _ = WidthOfMonomial[register.Id](ith, env)
-		)
-		//
-		if width == maxWidth {
-			// Check for non-linea term
-			for _, ident := range ith.Vars() {
-				rid := ident.Id()
-				regs.Insert(rid.Unwrap())
-			}
-		}
-	}
-	//
-	return regs
-}
-
 // SubstitutePolynomial replaces all occurrences of a given variable with a set
 // of (zero or more) variables (e.g. typically used for substituting limbs).
 func SubstitutePolynomial[T RegisterIdentifier[T]](p Polynomial[T], mapping func(T) Polynomial[T]) (r Polynomial[T]) {
