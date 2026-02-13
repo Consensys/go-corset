@@ -107,11 +107,48 @@ func (p *VariableSplitter) SplitVariable(rid register.Id) Equation {
 		filler Computation = term.NewRegisterAccess[word.BigEndian, Computation](rid, reg.Width(), 0)
 	)
 	// Allocate limbs with corresponding filler
-	limbs := p.allocate(rid, filler, limbWidths)
+	limbs := p.allocate(rid, limbWidths, filler)
 	// Construct constraint connecting reg and limbs
 	lhs = lhs.Set(poly.NewMonomial(one, rid.AccessOf(reg.Width())))
 	// Done
 	return NewEquation(lhs, LimbPolynomial(reg.Width(), 0, limbs, limbWidths))
+}
+
+// StaticSplitVars splits a given set of variables into limbs of maximum bitwidth
+// configured for this splitter.  This produces a set of equations which map
+// each variable to its limbs.
+func (p *VariableSplitter) StaticSplitVars(vars bit.Set) (constraints []Assignment) {
+	// Split each variable in turn
+	for iter := vars.Iter(); iter.HasNext(); {
+		// Identify variable to split
+		var (
+			v          = register.NewId(iter.Next())
+			assignment Assignment
+		)
+		// Split the variable
+		assignment = p.StaticSplitVar(v)
+		// Include constraint needed to enforce split
+		constraints = append(constraints, assignment)
+	}
+	//
+	return constraints
+}
+
+// StaticSplitVar splits a single variable into limbs of the given maximum
+// bitwidth configured for this splitter, and produces an equation mapping that
+// variable to its limbs.
+func (p *VariableSplitter) StaticSplitVar(rid register.Id) Assignment {
+	//
+	var (
+		reg = p.mapping.Register(rid)
+		// Determine necessary widths
+		limbWidths = register.LimbWidths(p.bitwidth, reg.Width())
+		rhs        StaticPolynomial
+	)
+	// Allocate limbs with corresponding filler
+	limbs := p.allocate(rid, limbWidths, nil)
+	// Done
+	return NewAssignment(limbs, rhs.Set(poly.NewMonomial(one, rid)))
 }
 
 // Apply the splitting to a given polynomial by substituting through all split
@@ -141,14 +178,50 @@ func (p *VariableSplitter) Apply(poly DynamicPolynomial) DynamicPolynomial {
 	})
 }
 
+// StaticApply the splitting to a given polynomial by substituting through all
+// split variables for their allocated limbs, whilst leaving all others
+// untouched.
+func (p *VariableSplitter) StaticApply(poly StaticPolynomial) StaticPolynomial {
+	// Construct cache
+	var cache = make(map[register.Id]StaticPolynomial, 0)
+	//
+	return SubstitutePolynomial(poly, func(rid register.Id) StaticPolynomial {
+		var index = rid.Unwrap()
+		// Check whether variable is split, or not.
+		if index < uint(len(p.limbs)) && p.limbs[index] != nil {
+			// Check whether already cached
+			if rp, ok := cache[rid]; ok {
+				// Yes, so return immediately
+				return rp
+			}
+			//
+			reg := p.mapping.Register(rid)
+			// No, so build and cache
+			rp := StaticLimbPolynomial(reg.Width(), p.limbs[index], p.limbWidths[index])
+			// Cache result
+			cache[rid] = rp
+			// Done
+			return rp
+		}
+		//
+		return nil
+	})
+}
+
 // Allocate the limbs for a given register using the provided widths.  This
 // records the constructs limbs and widths internally for later use.
-func (p *VariableSplitter) allocate(rid register.Id, filler Computation, limbWidths []uint) []register.Id {
+func (p *VariableSplitter) allocate(rid register.Id, limbWidths []uint, filler Computation) []register.Id {
 	var (
 		reg = p.mapping.Register(rid)
 		//
-		limbs = p.mapping.AllocateWithN(reg.Name(), filler, limbWidths...)
+		limbs []register.Id
 	)
+	//
+	if filler == nil {
+		limbs = p.mapping.AllocateN(reg.Name(), limbWidths)
+	} else {
+		limbs = p.mapping.AllocateWithN(reg.Name(), filler, limbWidths...)
+	}
 	//
 	if uint(len(p.limbs)) <= rid.Unwrap() {
 		nlimbs := make([][]register.Id, 2*(rid.Unwrap()+1))

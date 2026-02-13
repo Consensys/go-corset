@@ -134,22 +134,26 @@ func RawWidthOfPolynomial[T RegisterIdentifier[T]](source Polynomial[T], env Env
 // monomial, this function first determines its smallest enclosing integer
 // range.
 func WidthOfMonomial[T RegisterIdentifier[T]](source Monomial[T], env Environment[T],
-) (bitwidth uint) {
+) (bitwidth uint, signed bool) {
 	//
 	var (
-		coeff     = source.Coefficient()
 		intRange  = IntegerRangeOfMonomial(source, env)
 		lower     = intRange.MinIntValue()
 		upper     = intRange.MaxIntValue()
 		upperBits = uint(upper.BitLen())
-		lowerBits = uint(lower.BitLen())
 	)
 	// Check whether negative mononial
-	if coeff.Sign() < 0 {
-		return lowerBits
+	if lower.Sign() < 0 {
+		// NOTE: this accounts for the fact that, on the negative side, we get
+		// an extra value.  For example, with signed 8bit values the range is
+		// -128 upto 127.
+		lowerBits := uint(lower.Add(&lower, &one).BitLen())
+		// Yes, we have negative value but we don't adjust to include a sign bit
+		// (in this case).
+		return max(lowerBits, upperBits), true
 	}
 	// Positive mononial
-	return upperBits
+	return upperBits, false
 }
 
 // SplitWidthOfPolynomial resturns the number of bits required for all positive
@@ -315,6 +319,32 @@ func LimbPolynomial(bitwidth uint, shift int, limbs []register.Id, widths []uint
 		//
 		if limbWidth > 0 {
 			terms = append(terms, poly.NewMonomial(*c, limb.AccessOf(widths[i]).Shift(shift).Mask(limbWidth)))
+			width += limbWidth
+		}
+		//
+		bitwidth -= limbWidth
+	}
+	//
+	return p.Set(terms...)
+}
+
+// StaticLimbPolynomial constructs a polynomial representing the combined value of all
+// limbs according to their given bitwidths.  For example, given [l0, l1, l2]
+// with limbs widths [8,8,2] the resulting polynomial is: l0 + 2^8*l1 + 2^8*l2.
+func StaticLimbPolynomial(bitwidth uint, limbs []register.Id, widths []uint) (p StaticPolynomial) {
+	var (
+		terms []StaticMonomial
+		width uint
+	)
+	//
+	for i, limb := range limbs {
+		var (
+			c         = util_math.Pow2(width)
+			limbWidth = min(bitwidth, widths[i])
+		)
+		//
+		if limbWidth > 0 {
+			terms = append(terms, poly.NewMonomial(*c, limb))
 			width += limbWidth
 		}
 		//

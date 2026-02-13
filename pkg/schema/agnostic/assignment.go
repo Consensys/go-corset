@@ -181,52 +181,58 @@ func (p *Assignment) Split(field field.Config, env RegisterAllocator) (eqs []Ass
 // chunked, to determine which variable(s) to subdivide and by how much.
 func (p *Assignment) chunkUp(field field.Config, mapping RegisterAllocator) []Assignment {
 	var (
-		last      StaticPolynomial
-		iteration = 0
 		// Record initial number of registers
 		n = uint(len(mapping.Registers()))
-		//
-		splitter = NewRegisterSplitter(n)
+		// Current chunk width
+		chunkWidth = field.RegisterWidth
+		// Flag indicating whether chunking successful
+		overflows bool
+		// Indicates whether any more candidates can be split at this chunk
+		// width.
+		candidates uint = 1
 		// Determine the bitwidth of each chunk
-		rhsChunks []RhsChunk
-		lhsChunks []LhsChunk
+		rhsChunks   []RhsChunk
+		lhsChunks   []LhsChunk
+		assignments []Assignment
 		//
 		initLhsChunks = initialiseLhsChunks(p.LeftHandSide, field, p.Signed(mapping), mapping)
 	)
 	//
-	for {
-		var (
-			overflows bit.Set
-			// Right-hand side
-			right = splitter.Apply(p.RightHandSide, mapping)
-		)
-		// Attempt to chunk right-hand side
-		lhsChunks, rhsChunks, overflows = determineRhsChunks(right, initLhsChunks, field, mapping)
+outer:
+	for iteration := 0; ; iteration++ {
 		//
-		if overflows.Count() == 0 {
-			// Successful chunking, therefore include any constraints necessary
-			// for splitting of non-linear terms and construct final equations.
-			break
-		} else if iteration > 1 && right.Equal(last) {
-			// If we get here, then splitting made no improvement on the
-			// previous iteration and we are stuck.  The idea is that this
-			// should be unreachable, but it remains as a fall-back to prevent
-			// the potential for an infinite loop.
-			debugChunks(lhsChunks, rhsChunks, mapping)
-			fmt.Printf("Divisions: %s\n", splitter.String(mapping))
-			panic(fmt.Sprintf("malformed assignment (after %d iterations)", iteration))
+		var (
+			right StaticPolynomial = p.RightHandSide
+		)
+		// keep going until no more candidates to split.
+		for candidates > 0 {
+			var localAssignments []Assignment
+			// Split right-hand side
+			right, localAssignments, candidates = splitAssignmentRhs(chunkWidth, field, right, mapping)
+			// Append all assignments
+			assignments = append(assignments, localAssignments...)
+			// Record current number of registers
+			m := uint(len(mapping.Registers()))
+			// Attempt to chunk right-hand side
+			lhsChunks, rhsChunks, overflows = determineRhsChunks(right, initLhsChunks, field, mapping)
+			//
+			if !overflows {
+				// Successful chunking, therefore include any constraints necessary
+				// for splitting of non-linear terms and construct final equations.
+				break outer
+			}
+			// Reset any allocated carry registers as we are starting over
+			mapping.Reset(m)
 		}
-		// Update divisions based on identified overflows
-		splitter.Subdivide(overflows)
+		// Reset candidates to ensure go through again.
+		candidates = 1
+		// Reset assignments
+		assignments = nil
+		// Chunking unsuccessful, therefore decrease chunk width and try again.
+		chunkWidth /= 2
 		// Reset any allocated carry registers as we are starting over
 		mapping.Reset(n)
-		splitter.Reset()
-		// Start next iteration
-		last = right
-		iteration++
 	}
-	// Initialise with splits
-	assignments := splitter.assignments
 	// Reconstruct equations
 	for i := range len(lhsChunks) {
 		l := lhsChunks[i]
@@ -291,17 +297,89 @@ func getNextLhsChunk(regs []register.Id, chunkWidth uint, signed bool, mapping r
 	return LhsChunk{bitwidth, regs}, nil
 }
 
+func splitAssignmentRhs(regWidth uint, field field.Config, p StaticPolynomial,
+	mapping RegisterAllocator) (StaticPolynomial, []Assignment, uint) {
+	//
+	var (
+		splitter   = NewVariableSplitter(mapping, regWidth)
+		env        = StaticEnvironment(mapping)
+		vars       bit.Set
+		maxWidth   = uint(0)
+		candidates bit.Set
+	)
+	// Determine largest monomial(s) containing a register above chunk width.
+	for i := range p.Len() {
+		var (
+			ith      = p.Term(i)
+			width, _ = WidthOfMonomial[register.Id](ith, env)
+		)
+		//
+		if hasCandidate(ith, regWidth, mapping) {
+			maxWidth = max(maxWidth, width)
+		}
+	}
+	// Pull out all candidate registers from largest monomial(s), whilst also
+	// identifying whether any other monomials contain candidates.
+	for i := range p.Len() {
+		var (
+			ith       = p.Term(i)
+			width, _  = WidthOfMonomial[register.Id](ith, env)
+			candidate = hasCandidate(ith, regWidth, mapping)
+		)
+		//
+		if candidate && width == maxWidth {
+			vars.Union(getCandidates(ith, regWidth, mapping))
+		} else if candidate {
+			candidates.Union(getCandidates(ith, regWidth, mapping))
+		}
+	}
+	// Split all variables according to the given register width.
+	assignments := splitter.StaticSplitVars(vars)
+	// Substitute through the given polynomial
+	return splitter.StaticApply(p), assignments, candidates.Count()
+}
+
+// Determine whether the given monomial contains a register which is greater
+// than the given register width.  This is therefore a candidate for splitting.
+func hasCandidate(m StaticMonomial, regWidth uint, mapping register.Map) bool {
+	for _, id := range m.Vars() {
+		reg := mapping.Register(id)
+		// Check for candidate
+		if reg.Width() > regWidth {
+			return true
+		}
+	}
+	//
+	return false
+}
+
+// Identify all registers in this monomial which are larger than the given
+// register width.  These are therefore candidates for splitting.
+func getCandidates(m StaticMonomial, regWidth uint, mapping register.Map) bit.Set {
+	var candidates bit.Set
+
+	for _, id := range m.Vars() {
+		reg := mapping.Register(id)
+		// Check for candidate
+		if reg.Width() > regWidth {
+			candidates.Insert(id.Unwrap())
+		}
+	}
+	//
+	return candidates
+}
+
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
 // determined by the chunk widths.  This inserts carry and borrow registers as
 // needed to ensure correctness of both signed and unsigned arithmetic.
 func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Config,
-	mapping RegisterAllocator) ([]LhsChunk, []RhsChunk, bit.Set) {
+	mapping RegisterAllocator) ([]LhsChunk, []RhsChunk, bool) {
 	//
 	var (
 		env       = StaticEnvironment(mapping)
 		rhsChunks []RhsChunk
 		lhsChunks []LhsChunk
-		vars      bit.Set
+		overflows bool
 		signed    bool
 	)
 	// Subdivide polynomial into chunks
@@ -321,7 +399,7 @@ func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Confi
 		// Check whether chunk fits
 		if chunkWidth > field.BandWidth {
 			// No, it does not.
-			vars.Union(RegisterReadSet(remainder))
+			overflows = true
 		} else if !last && chunkWidth > chunk.bitwidth {
 			// Overflow case.
 			p, chunk = propagateCarry(chunk, overflow, p, mapping)
@@ -336,7 +414,7 @@ func determineRhsChunks(p StaticPolynomial, chunks []LhsChunk, field field.Confi
 		lhsChunks = append(lhsChunks, chunk)
 	}
 	//
-	return lhsChunks, rhsChunks, vars
+	return lhsChunks, rhsChunks, overflows
 }
 
 // Propagate a given number of overflow bits from the current chunk into the
