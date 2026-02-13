@@ -173,8 +173,9 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) (targe
 			right, rightEqs = splitNonLinearTerms(chunkWidth, field, p.RightHandSide, mapping)
 		)
 		// Attempt to chunk polynomials
-		lhs, lhsChunked = chunkPolynomial(left, chunkWidths, field, mapping)
-		rhs, rhsChunked = chunkPolynomial(right, chunkWidths, field, mapping)
+		lhsChunks, rhsChunks := chunkEquation(left, right, chunkWidths)
+		lhs, lhsChunked = addCarryLines(lhsChunks, chunkWidths, field, mapping)
+		rhs, rhsChunked = addCarryLines(rhsChunks, chunkWidths, field, mapping)
 		//
 		if lhsChunked && rhsChunked {
 			// Successful chunking, therefore include any constraints necessary
@@ -190,12 +191,7 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) (targe
 	}
 	// Reconstruct target equations
 	for i := range max(len(lhs), len(rhs)) {
-		var zero DynamicPolynomial
-		if len(lhs) <= i {
-			targets = append(targets, NewEquation(zero, rhs[i]))
-		} else if len(rhs) <= i {
-			targets = append(targets, NewEquation(lhs[i], zero))
-		} else {
+		if lhs[i].Len() > 0 || rhs[i].Len() > 0 {
 			targets = append(targets, NewEquation(lhs[i], rhs[i]))
 		}
 	}
@@ -284,25 +280,36 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
 }
 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
-// determined by the chunk widths.  This inserts carry lines as needed to ensure
-// correctness.
-func chunkPolynomial(p DynamicPolynomial, chunkWidths []uint, field field.Config,
-	mapping RegisterAllocator) ([]DynamicPolynomial, bool) {
+// determined by the chunk widths.
+func chunkEquation(lhs, rhs DynamicPolynomial, chunkWidths []uint) (l, r []DynamicPolynomial) {
 	//
 	var (
-		env    = DynamicEnvironment()
-		chunks []DynamicPolynomial
+		lhsChunks []DynamicPolynomial
+		rhsChunks []DynamicPolynomial
 	)
 	// Subdivide polynomial into chunks
 	for _, chunkWidth := range chunkWidths {
-		var remainder DynamicPolynomial
+		var lhsRem, rhsRem DynamicPolynomial
 		// Chunk the polynomials
-		p, remainder = p.Shr(chunkWidth)
-		// Include remainder as chunk (if non-zero)
-		if p.Len() != 0 || remainder.Len() != 0 {
-			chunks = append(chunks, remainder)
+		lhs, lhsRem = lhs.Shr(chunkWidth)
+		rhs, rhsRem = rhs.Shr(chunkWidth)
+		// Include remainders (if non-zero)
+		if lhs.Len() != 0 || rhs.Len() != 0 || lhsRem.Len() != 0 || rhsRem.Len() != 0 {
+			lhsChunks = append(lhsChunks, lhsRem)
+			rhsChunks = append(rhsChunks, rhsRem)
 		}
 	}
+	//
+	return lhsChunks, rhsChunks
+}
+
+// Add carry lines into chunks as needed to ensure correctness.
+func addCarryLines(chunks []DynamicPolynomial, chunkWidths []uint, field field.Config,
+	mapping RegisterAllocator) ([]DynamicPolynomial, bool) {
+	//
+	var (
+		env = DynamicEnvironment()
+	)
 	// Add carry lines as necessary
 	for i := 0; i < len(chunks); i++ {
 		var (
