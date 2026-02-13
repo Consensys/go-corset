@@ -123,12 +123,12 @@ func (p *VariableSplitter) StaticSplitVars(vars bit.Set) (constraints []Assignme
 		// Identify variable to split
 		var (
 			v          = register.NewId(iter.Next())
-			constraint Assignment
+			assignment Assignment
 		)
 		// Split the variable
-		constraint = p.StaticSplitVar(v)
+		assignment = p.StaticSplitVar(v)
 		// Include constraint needed to enforce split
-		constraints = append(constraints, constraint)
+		constraints = append(constraints, assignment)
 	}
 	//
 	return constraints
@@ -143,11 +143,12 @@ func (p *VariableSplitter) StaticSplitVar(rid register.Id) Assignment {
 		reg = p.mapping.Register(rid)
 		// Determine necessary widths
 		limbWidths = register.LimbWidths(p.bitwidth, reg.Width())
+		rhs        StaticPolynomial
 	)
 	// Allocate limbs with corresponding filler
 	limbs := p.allocate(rid, limbWidths, nil)
 	// Done
-	return NewAssignment([]register.Id{rid}, StaticLimbPolynomial(reg.Width(), limbs, limbWidths))
+	return NewAssignment(limbs, rhs.Set(poly.NewMonomial(one, rid)))
 }
 
 // Apply the splitting to a given polynomial by substituting through all split
