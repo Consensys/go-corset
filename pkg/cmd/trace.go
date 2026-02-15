@@ -124,7 +124,10 @@ func runTraceCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 	}
 	//
-	if builder.Expanding() {
+	if builder.Expanding() && !stack.HasConcreteSchema() {
+		fmt.Println("must specify one of --mir/air")
+		os.Exit(2)
+	} else if builder.Expanding() {
 		var (
 			tp_errors []error
 			traces    []trace.Trace[F]
