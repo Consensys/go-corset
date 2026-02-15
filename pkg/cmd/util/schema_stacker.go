@@ -217,7 +217,7 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 		// Include Arithmetic-level IR layer (if requested)
 		if p.layers.Contains(AIR_LAYER) {
 			// Lower to AIR
-			airSchema = mir.LowerToAir(mirSchema, p.mirConfig)
+			airSchema = mir.LowerToAir(mirSchema, p.Field().BandWidth, p.mirConfig)
 			//
 			stack.concreteSchemas = append(stack.concreteSchemas, schema.Any(airSchema))
 			stack.names = append(stack.names, "AIR")

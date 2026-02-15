@@ -14,6 +14,7 @@ package mir
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/ir"
@@ -32,8 +33,8 @@ import (
 // LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToAir[F field.Element[F]](schema Schema[F], config OptimisationConfig) air.Schema[F] {
-	lowering := NewAirLowering(schema)
+func LowerToAir[F field.Element[F]](schema Schema[F], fieldBandwith uint, config OptimisationConfig) air.Schema[F] {
+	lowering := NewAirLowering(fieldBandwith, schema)
 	// Configure optimisations
 	lowering.ConfigureOptimisation(config)
 	//
@@ -46,6 +47,8 @@ func LowerToAir[F field.Element[F]](schema Schema[F], config OptimisationConfig)
 // managing type proofs).
 type AirLowering[F field.Element[F]] struct {
 	config OptimisationConfig
+	// Maximum field bandwidth
+	fieldBandwidth uint
 	// Modules we are lowering from
 	mirSchema Schema[F]
 	// Modules we are lowering to
@@ -53,7 +56,7 @@ type AirLowering[F field.Element[F]] struct {
 }
 
 // NewAirLowering constructs an initial state for lowering a given MIR schema.
-func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
+func NewAirLowering[F field.Element[F]](fieldBandwidth uint, mirSchema Schema[F]) AirLowering[F] {
 	var (
 		airSchema = ir.NewSchemaBuilder[F, air.Constraint[F], air.Term[F], air.Module[F]]()
 	)
@@ -64,6 +67,7 @@ func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
 	//
 	return AirLowering[F]{
 		DEFAULT_OPTIMISATION_LEVEL,
+		fieldBandwidth,
 		mirSchema,
 		airSchema,
 	}
@@ -368,7 +372,7 @@ func (p *AirLowering[F]) lowerConjunctionTo(sign bool, e *Conjunct[F], airModule
 	var terms = p.lowerLogicalsTo(sign, airModule, e.Args...)
 	//
 	if sign {
-		return conjunction(terms...)
+		return p.conjunction(airModule, terms...)
 	}
 	//
 	return disjunction(terms...)
@@ -382,7 +386,7 @@ func (p *AirLowering[F]) lowerDisjunctionTo(sign bool, e *Disjunct[F], airModule
 		return disjunction(terms...)
 	}
 	//
-	return conjunction(terms...)
+	return p.conjunction(airModule, terms...)
 }
 
 func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F], airModule air.ModuleBuilder[F],
@@ -461,13 +465,13 @@ func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule air.ModuleBuild
 	if e.TrueBranch != nil {
 		trueCondition := p.lowerLogicalTo(true, e.Condition, airModule)
 		notTrueBranch := p.lowerLogicalTo(false, e.TrueBranch, airModule)
-		terms = append(terms, conjunction(trueCondition, notTrueBranch))
+		terms = append(terms, p.conjunction(airModule, trueCondition, notTrueBranch))
 	}
 	//
 	if e.FalseBranch != nil {
 		falseCondition := p.lowerLogicalTo(false, e.Condition, airModule)
 		notFalseBranch := p.lowerLogicalTo(false, e.FalseBranch, airModule)
-		terms = append(terms, conjunction(falseCondition, notFalseBranch))
+		terms = append(terms, p.conjunction(airModule, falseCondition, notFalseBranch))
 	}
 	//
 	return disjunction(terms...)
@@ -616,15 +620,61 @@ func disjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
 	return nterms
 }
 
-func conjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
-	// FIXME: can we do better here in cases where the terms being conjuncted
-	// can be safely summed?  This requires exploiting the ValueRange analysis
-	// on the terms and check whether their sum fits within the field element.
-	var nterms []air.Term[F]
-	// Combine conjuncts
+func (p *AirLowering[F]) conjunction(airModule air.ModuleBuilder[F], terms ...[]air.Term[F]) []air.Term[F] {
+	var (
+		nterms []air.Term[F]
+		sums   []air.Term[F]
+	)
+	// flattern conjuncts
 	for _, ts := range terms {
 		nterms = array.AppendAll(nterms, ts...)
 	}
 	//
-	return nterms
+	for len(nterms) > 0 {
+		var sum air.Term[F]
+		//
+		nterms, sum = p.sumConjuncts(airModule, nterms)
+		sums = append(sums, sum)
+	}
+	//
+	return sums
+}
+
+func (p *AirLowering[F]) sumConjuncts(airMod air.ModuleBuilder[F], terms []air.Term[F]) ([]air.Term[F], air.Term[F]) {
+	var (
+		index    = 0
+		sumTerms []air.Term[F]
+		sum      big.Int
+	)
+	//
+	for ; index < len(terms); index++ {
+		var (
+			ith    = terms[index]
+			values = ith.ValueRange()
+			minVal = values.MinValue()
+			signed = !minVal.IsNotAnInfinity() || minVal.Sign() < 0
+		)
+		// Check for signed value
+		if signed {
+			// terminator
+			break
+		}
+		// Update sum value
+		maxVal := values.MaxIntValue()
+		//
+		sum.Add(&sum, &maxVal)
+		// Check sum still within field bandwidth
+		if uint(sum.BitLen()) > p.fieldBandwidth {
+			//
+			break
+		}
+		//
+		sumTerms = append(sumTerms, ith)
+	}
+	// Sanity check what happened
+	if index == 0 {
+		return terms[1:], terms[0]
+	}
+	//
+	return terms[index:], term.Sum(sumTerms...)
 }
