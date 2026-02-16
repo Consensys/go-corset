@@ -109,6 +109,11 @@ func (p Constraint[F]) Consistent(schema schema.AnySchema[F]) []error {
 	return p.constraint.Consistent(schema)
 }
 
+// Complexity implementation for constraint interface
+func (p Constraint[F]) Complexity() uint {
+	return 0
+}
+
 // Contexts returns the evaluation contexts (i.e. enclosing module + length
 // multiplier) for this constraint.  Most constraints have only a single
 // evaluation context, though some (e.g. lookups) have more.  Note that all

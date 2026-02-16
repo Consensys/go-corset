@@ -14,8 +14,11 @@ package debug
 
 import (
 	"fmt"
+	"math"
+	"math/big"
 
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -84,6 +87,8 @@ func getModuleSummarisers[F field.Element[F]]() []ModuleSummariser[F] {
 		{"Columns", func(m sc.Module[F]) int { return int(m.Width()) }},
 		// Assignments
 		{"Assignments", func(m sc.Module[F]) int { return int(m.Assignments().Count()) }},
+		// Complexity
+		{"Complexity", complexityAnalysis[F]},
 	}
 }
 
@@ -100,4 +105,23 @@ func moduleConstraintCounter[F any](title string, includes func(schema.Constrain
 			return sum
 		},
 	}
+}
+
+func complexityAnalysis[F field.Element[F]](m sc.Module[F]) int {
+	var sum big.Int
+	//
+	for iter := m.Constraints(); iter.HasNext(); {
+		ith := iter.Next()
+		//
+		if c, ok := ith.(term.Costable); ok {
+			var val = new(big.Int).SetUint64(uint64(c.Complexity()))
+			sum.Add(&sum, val)
+		}
+	}
+	//
+	if sum.BitLen() < 63 {
+		return int(sum.Int64())
+	}
+	// overflow
+	return math.MaxInt
 }
