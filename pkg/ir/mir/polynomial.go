@@ -24,7 +24,8 @@ import (
 )
 
 var (
-	biONE big.Int = *big.NewInt(1)
+	biZERO big.Int = *big.NewInt(0)
+	biONE  big.Int = *big.NewInt(1)
 )
 
 // Polynomial provides a useful alias
