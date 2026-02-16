@@ -26,15 +26,16 @@ type VecExpr struct {
 	util.Union[register.Vector, big.Int]
 }
 
-// NewVecExpr constructs an vectorizable expression from a regular expression.
-func NewVecExpr(e Expr) VecExpr {
+// NewVecExpr constructs an vectorizable expression from a register vector.
+func NewVecExpr(regs register.Vector) VecExpr {
 	//
-	if e.HasFirst() {
-		regs := register.NewVector(e.First())
-		return VecExpr{util.Union1[register.Vector, big.Int](regs)}
-	}
+	return VecExpr{util.Union1[register.Vector, big.Int](regs)}
+}
+
+// ConstVecExpr constructs an vectorizable expression from a constant.
+func ConstVecExpr(c big.Int) VecExpr {
 	//
-	return VecExpr{util.Union2[register.Vector](e.Second())}
+	return VecExpr{util.Union2[register.Vector](c)}
 }
 
 // Bitwidth returns the minimum number of bits required to store any evaluation

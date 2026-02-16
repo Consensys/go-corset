@@ -65,6 +65,29 @@ func FrontPad[T any](slice []T, n uint, item T) []T {
 	return slice
 }
 
+// BackPad pads an array upto a given length n with a given item.
+// Specifically, new items are inserted at the back of the array.
+func BackPad[T any](slice []T, n uint, item T) []T {
+	var m = uint(len(slice))
+	//
+	if m < n {
+		var (
+			nslice = make([]T, n)
+			delta  = n - m
+		)
+		//
+		copy(nslice, slice)
+		// Pad out remainder
+		for i := uint(0); i < delta; i++ {
+			nslice[i+m] = item
+		}
+		//
+		slice = nslice
+	}
+	//
+	return slice
+}
+
 // Prepend creates a new slice containing the result of prepending the given
 // item onto the end of the given slice.  Observe that, unlike the built-in
 // append() function, this will never modify the given slice.

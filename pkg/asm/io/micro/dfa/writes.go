@@ -85,6 +85,18 @@ func (p Writes) MaybeAssigned(reg register.Id) bool {
 	return p.maybeWrites.Contains(reg.Unwrap())
 }
 
+// MayAnybeAssigned determines whether or not any of the given registers may have been
+// assigned.
+func (p Writes) MayAnybeAssigned(regs []register.Id) bool {
+	for _, r := range regs {
+		if p.maybeWrites.Contains(r.Unwrap()) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // DefinitelyAssigned determines whether or not a give register has definitely
 // been assigned.  Observe that, for any register r, it follows that
 // DefinitelyAssigned(r) implies MaybeAssigned(r).

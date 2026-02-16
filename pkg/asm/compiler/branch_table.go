@@ -13,30 +13,57 @@
 package compiler
 
 import (
+	"cmp"
 	"fmt"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/logical"
 )
 
-// BranchRegisterId represents a register ID which can additionally indicate
+// BranchGroupId represents a register ID which can additionally indicate
 // whether forwarding is active or not.  Forwarding indicates that the register
 // was previously assigned in the given micro instruction and, hence, needs to
 // be "forwarded" to the point where its used.
-type BranchRegisterId struct {
-	// Underlying register ID
+type BranchGroupId struct {
+	// First underlying register in group
 	id register.Id
+	// Number of registers in group
+	n uint
 	// Indication of whether forwarding is active or not.
 	forwarding bool
 }
 
+func newGroupId(vec register.Vector, forwarding bool) BranchGroupId {
+	var first = vec.Registers()[0].Unwrap()
+	// Sanity check all registers in the vector are allocated in the expected
+	// order (i.e. consecutively, starting from the least significant limb).
+	for i := range len(vec.Registers()) {
+		expected := register.NewId(first + uint(i))
+		//
+		if vec.Registers()[i] != expected {
+			panic("invalid register group")
+		}
+	}
+	//
+	return BranchGroupId{
+		vec.Registers()[0],
+		uint(len(vec.Registers())),
+		forwarding,
+	}
+}
+
 // Cmp implementation of the logical.Variable interface
-func (p BranchRegisterId) Cmp(o BranchRegisterId) int {
+func (p BranchGroupId) Cmp(o BranchGroupId) int {
 	if p.forwarding == o.forwarding {
-		return p.id.Cmp(o.id)
+		if c := p.id.Cmp(o.id); c != 0 {
+			return c
+		}
+		//
+		return cmp.Compare(p.n, o.n)
 	} else if p.forwarding {
 		return 1
 	}
@@ -45,29 +72,35 @@ func (p BranchRegisterId) Cmp(o BranchRegisterId) int {
 }
 
 // String implementation of the logical.Variable interface
-func (p BranchRegisterId) String() string {
+func (p BranchGroupId) String() string {
+	var (
+		first = p.id.Unwrap()
+		last  = first + p.n - 1
+		id    = fmt.Sprintf("{%d...%d}", first, last)
+	)
+	//
 	if p.forwarding {
-		return p.id.String()
+		return id
 	}
 	//
-	return fmt.Sprintf("'%s", p.id.String())
+	return fmt.Sprintf("'%s", id)
 }
 
 // BranchCondition abstracts the possible conditions under which a given branch
 // is taken.
-type BranchCondition = logical.Proposition[BranchRegisterId, BranchEquality]
+type BranchCondition = logical.Proposition[BranchGroupId, BranchEquality]
 
 // FALSE represents an unreachable path
-var FALSE BranchCondition = logical.Truth[BranchRegisterId, BranchEquality](false)
+var FALSE BranchCondition = logical.Truth[BranchGroupId, BranchEquality](false)
 
 // TRUE represents an path which is always reached
-var TRUE BranchCondition = logical.Truth[BranchRegisterId, BranchEquality](true)
+var TRUE BranchCondition = logical.Truth[BranchGroupId, BranchEquality](true)
 
 // BranchConjunction represents the conjunction of two paths
-type BranchConjunction = logical.Conjunction[BranchRegisterId, BranchEquality]
+type BranchConjunction = logical.Conjunction[BranchGroupId, BranchEquality]
 
 // BranchEquality represents an atomic branch equality
-type BranchEquality = logical.Equality[BranchRegisterId]
+type BranchEquality = logical.Equality[BranchGroupId]
 
 // BranchTransferFunction represents a transfer function over branch state.
 type BranchTransferFunction func(offset uint, code micro.Code, state BranchState) []dfa.Transfer[BranchState]
@@ -84,7 +117,7 @@ func (p BranchState) Join(st BranchState) BranchState {
 
 // String implementation for dfa.State interface
 func (p BranchState) String(mapping register.Map) string {
-	return p.condition.String(func(rid BranchRegisterId) string {
+	return p.condition.String(func(rid BranchGroupId) string {
 		var name = mapping.Register(rid.id).Name()
 		//
 		if rid.forwarding {
@@ -146,18 +179,18 @@ func extendSkipIf(tail BranchState, sign bool, code *micro.SkipIf, writes dfa.Wr
 		head      BranchEquality
 		rightUsed = code.Right.HasFirst()
 		tailc     = tail.condition
-		left      = BranchRegisterId{code.Left, writes.MaybeAssigned(code.Left)}
+		left      = newGroupId(code.Left, writes.MayAnybeAssigned(code.Left.Registers()))
 	)
 	//
 	switch {
 	case !sign && rightUsed:
 		right := code.Right.First()
-		head = logical.Equals(left, BranchRegisterId{right, writes.MaybeAssigned(right)})
+		head = logical.Equals(left, newGroupId(right, writes.MayAnybeAssigned(right.Registers())))
 	case !sign && !rightUsed:
 		head = logical.EqualsConst(left, code.Right.Second())
 	case sign && rightUsed:
 		right := code.Right.First()
-		head = logical.NotEquals(left, BranchRegisterId{right, writes.MaybeAssigned(right)})
+		head = logical.NotEquals(left, newGroupId(right, writes.MayAnybeAssigned(right.Registers())))
 	case sign && !rightUsed:
 		head = logical.NotEqualsConst(left, code.Right.Second())
 	}
@@ -217,26 +250,59 @@ func translateBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader Re
 // Translate a given condition within the context of a given state translator.
 func translateBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[T, E]) E {
 	var (
-		left  = ReadRegister[T, E](p.Left, reader)
-		right E
+		zero  = BigNumber[T, E](big.NewInt(0))
+		left  = ReadRegisters[T, E](p.Left, reader)
+		right []E
 	)
 	//
 	if p.Right.HasSecond() {
-		bi := p.Right.Second()
-		right = BigNumber[T, E](&bi)
+		// bi := p.Right.Second()
+		// right = BigNumber[T, E](&bi)
+		panic("got here")
 	} else {
-		right = ReadRegister[T, E](p.Right.First(), reader)
+		right = ReadRegisters[T, E](p.Right.First(), reader)
 	}
+	// pad out with zeros
+	n := uint(max(len(left), len(right)))
+	left = array.BackPad(left, n, zero)
+	right = array.BackPad(right, n, zero)
 	//
 	if p.Sign {
-		return left.Equals(right)
+		var condition E
+		//
+		for i := range n {
+			if i == 0 {
+				condition = left[i].Equals(right[i])
+			} else {
+				condition = condition.And(left[i].Equals(right[i]))
+			}
+		}
+		//
+		return condition
 	}
 	//
-	return left.NotEquals(right)
+	var condition E
+	//
+	for i := range n {
+		if i == 0 {
+			condition = left[i].NotEquals(right[i])
+		} else {
+			condition = condition.Or(left[i].NotEquals(right[i]))
+		}
+	}
+	//
+	return condition
 }
 
-// ReadRegister constructs a suitable accessor for referring to a given register.
-// This applies forwarding as appropriate.
-func ReadRegister[T any, E Expr[T, E]](reg BranchRegisterId, reader RegisterReader[T, E]) E {
-	return reader.ReadRegister(reg.id, reg.forwarding)
+// ReadRegisters constructs a suitable accessor for referring to a given set of
+// registers. This applies forwarding as appropriate.
+func ReadRegisters[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader[T, E]) []E {
+	var reads = make([]E, reg.n)
+	//
+	for i := range reg.n {
+		ith := register.NewId(reg.id.Unwrap() + i)
+		reads[i] = reader.ReadRegister(ith, reg.forwarding)
+	}
+	//
+	return reads
 }

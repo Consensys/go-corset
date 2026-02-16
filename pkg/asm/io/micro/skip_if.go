@@ -15,6 +15,7 @@ package micro
 import (
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema/agnostic"
@@ -27,9 +28,9 @@ import (
 // is indiciated when the right register is marked as UNUSED.
 type SkipIf struct {
 	// Left and right comparisons
-	Left io.RegisterId
+	Left register.Vector
 	//
-	Right Expr
+	Right VecExpr
 	// Skip
 	Skip uint
 }
@@ -38,7 +39,7 @@ type SkipIf struct {
 func (p *SkipIf) Clone() Code {
 	//
 	return &SkipIf{
-		Left:  p.Left,
+		Left:  p.Left.Clone(),
 		Right: p.Right,
 		Skip:  p.Skip,
 	}
@@ -50,9 +51,25 @@ func (p *SkipIf) Clone() Code {
 // program counter (which can signal return of enclosing function).
 func (p *SkipIf) MicroExecute(state io.State) (uint, uint) {
 	var (
-		lhs = state.Load(p.Left)
-		rhs = p.Right.Eval(state)
+		offset uint
+		lhs    big.Int
+		rhs    = p.Right.Eval(state)
 	)
+	//
+	for _, rid := range p.Left.Registers() {
+		var (
+			reg = state.Registers()[rid.Unwrap()]
+			ith big.Int
+		)
+		// Load & clone ith value
+		ith.Set(state.Load(rid))
+		// Shift into position
+		ith.Lsh(&ith, offset)
+		// Include in total
+		lhs.Add(&lhs, &ith)
+		//
+		offset += reg.Width()
+	}
 	//
 	if lhs.Cmp(rhs) != 0 {
 		return 1 + p.Skip, 0
@@ -63,11 +80,15 @@ func (p *SkipIf) MicroExecute(state io.State) (uint, uint) {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *SkipIf) RegistersRead() []io.RegisterId {
+	var regs []io.RegisterId
+	// Add all registers on the left-hand side
+	regs = append(regs, p.Left.Registers()...)
+	// Add all registers on the right-hand side (if applicable)
 	if p.Right.HasFirst() {
-		return []io.RegisterId{p.Left, p.Right.First()}
+		regs = append(regs, p.Right.First().Registers()...)
 	}
 	//
-	return []io.RegisterId{p.Left}
+	return regs
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
@@ -78,27 +99,39 @@ func (p *SkipIf) RegistersWritten() []io.RegisterId {
 // Split this micro code using registers of arbirary width into one or more
 // micro codes using registers of a fixed maximum width.
 func (p *SkipIf) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
-	//
-	if p.Right.HasSecond() {
-		return splitRegConst(p.Left, p.Right.Second(), p.Skip, mapping)
+	// Sanity check lhs
+	if len(p.Left.Registers()) != 1 {
+		panic("expecting only a single register on the left-hand side")
 	}
 	//
-	return splitRegReg(p.Left, p.Right.First(), p.Skip, mapping)
+	var left = p.Left.Registers()[0]
+	//
+	if p.Right.HasSecond() {
+		return splitRegConst(left, p.Right.Second(), p.Skip, mapping)
+	}
+	// Sanity check rhs
+	if len(p.Right.First().Registers()) != 1 {
+		panic("expecting a single register on the right-hand side")
+	}
+	//
+	var right = p.Right.First().Registers()[0]
+	//
+	return splitRegReg(left, right, p.Skip, mapping)
 }
 
 func (p *SkipIf) String(fn register.Map) string {
 	var (
-		l = fn.Register(p.Left).Name()
+		l = p.Left.String(fn)
 		r = p.Right.String(fn)
 	)
 	//
-	return fmt.Sprintf("skip %s!=%s %d", l, r, p.Skip)
+	return fmt.Sprintf("skip %s != %s %d", l, r, p.Skip)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.
 func (p *SkipIf) Validate(fieldWidth uint, fn register.Map) error {
 	var (
-		lw = fn.Register(p.Left).Width()
+		lw = p.Left.BitWidth(fn)
 		rw = p.Right.Bitwidth(fn)
 	)
 	//
@@ -115,46 +148,19 @@ func (p *SkipIf) Validate(fieldWidth uint, fn register.Map) error {
 func splitRegConst(left register.Id, right big.Int, skip uint, mapping register.LimbsMap) []Code {
 	var (
 		lhsLimbs = mapping.LimbIds(left)
-		ncodes   []Code
-		n        = uint(len(lhsLimbs))
+		lhs      = register.NewVector(slices.Clone(lhsLimbs)...)
 	)
 	//
-	skip = skip + n - 1
-	//
-	lhsLimbWidths := register.WidthsOfLimbs(mapping, lhsLimbs)
-	constantLimbs := register.SplitConstant(right, lhsLimbWidths...)
-	//
-	for i := range n {
-		ncode := &SkipIf{lhsLimbs[i], NewConstant(constantLimbs[i]), skip - i}
-		ncodes = append(ncodes, ncode)
-	}
-	//
-	return ncodes
+	return []Code{&SkipIf{lhs, ConstVecExpr(right), skip}}
 }
 
 func splitRegReg(left, right register.Id, skip uint, mapping register.LimbsMap) []Code {
 	var (
-		lhsLimbs   = mapping.LimbIds(left)
-		rhsLimbs   = mapping.LimbIds(right)
-		ncodes     []Code
-		nLhs, nRhs = uint(len(lhsLimbs)), uint(len(rhsLimbs))
-		n          = max(nLhs, nRhs)
+		lhsLimbs = mapping.LimbIds(left)
+		rhsLimbs = mapping.LimbIds(right)
+		lhs      = register.NewVector(slices.Clone(lhsLimbs)...)
+		rhs      = register.NewVector(slices.Clone(rhsLimbs)...)
 	)
 	//
-	skip = skip + n - 1
-	//
-	for i := range n {
-		var ncode Code
-		if i < nLhs && i < nRhs {
-			ncode = &SkipIf{lhsLimbs[i], NewRegister(rhsLimbs[i]), skip - i}
-		} else if i < nLhs {
-			ncode = &SkipIf{lhsLimbs[i], NewConstant64(0), skip - i}
-		} else {
-			ncode = &SkipIf{rhsLimbs[i], NewConstant64(0), skip - i}
-		}
-		//
-		ncodes = append(ncodes, ncode)
-	}
-	//
-	return ncodes
+	return []Code{&SkipIf{lhs, NewVecExpr(rhs), skip}}
 }
