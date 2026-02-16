@@ -803,7 +803,7 @@ func valueRangeOf[F field.Element[F]](term air.Term[F], bitwidths []uint) util_m
 		var res util_math.Interval
 
 		for i, arg := range t.Args {
-			ith := arg.ValueRange()
+			ith := valueRangeOf(arg, bitwidths)
 			if i == 0 {
 				res.Set(ith)
 			} else {
@@ -813,15 +813,15 @@ func valueRangeOf[F field.Element[F]](term air.Term[F], bitwidths []uint) util_m
 		//
 		return res
 	case *air.ColumnAccess[F]:
-		var bitwidth = bitwidths[t.Register().Unwrap()]
+		var rid = t.Register().Unwrap()
 		// NOTE: the following is necessary because MaxUint is permitted as a signal
 		// that the given register has no fixed bitwidth.  Rather, it can consume
 		// all possible values of the underlying field element.
-		if bitwidth == math.MaxUint {
+		if rid >= uint(len(bitwidths)) || bitwidths[rid] == math.MaxUint {
 			return util_math.INFINITY
 		}
 		//
-		return valueRangeOfBits(bitwidth)
+		return valueRangeOfBits(bitwidths[rid])
 	case *air.Constant[F]:
 		var c big.Int
 		// Extract big integer from field element
@@ -832,7 +832,7 @@ func valueRangeOf[F field.Element[F]](term air.Term[F], bitwidths []uint) util_m
 		var res util_math.Interval
 
 		for i, arg := range t.Args {
-			ith := arg.ValueRange()
+			ith := valueRangeOf(arg, bitwidths)
 			if i == 0 {
 				res.Set(ith)
 			} else {
@@ -845,7 +845,7 @@ func valueRangeOf[F field.Element[F]](term air.Term[F], bitwidths []uint) util_m
 		var res util_math.Interval
 
 		for i, arg := range t.Args {
-			ith := arg.ValueRange()
+			ith := valueRangeOf(arg, bitwidths)
 			if i == 0 {
 				res.Set(ith)
 			} else {
