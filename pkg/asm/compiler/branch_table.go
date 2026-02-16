@@ -335,11 +335,13 @@ func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []E {
 	for i, limbWidth := range widths {
 		var (
 			limb  big.Int
-			bound = big.NewInt(2)
+			bound = big.NewInt(1)
 		)
-		// Determine upper bound
+		// bound = 1 << limbWidth
 		bound.Lsh(bound, limbWidth)
+		// limb = acc & (bound - 1)
 		limb.And(&acc, bound.Sub(bound, &one))
+		// done
 		limbs[i] = BigNumber[T, E](&limb)
 		//
 		acc.Rsh(&acc, limbWidth)
