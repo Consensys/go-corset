@@ -64,6 +64,7 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	constants := GetFlag(cmd, "constants")
 	spillage := GetFlag(cmd, "spillage")
 	textWidth := GetUint(cmd, "textwidth")
+	sort := GetUint(cmd, "sort")
 	// Read in constraint files
 	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
 	stack := stacker.Build()
@@ -85,7 +86,7 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Print module stats (if requested)
 	if modules {
-		debug.PrintModuleStats(stack, 32, 1)
+		debug.PrintModuleStats(stack, 32, sort)
 	}
 	// Print embedded attributes (if requested
 	if attrs {
@@ -106,6 +107,7 @@ func init() {
 	debugCmd.Flags().BoolP("modules", "m", false, "show module stats")
 	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
+	debugCmd.Flags().Uint("sort", 0, "sort table column")
 }
 
 func printAttributes(binf *binfile.BinaryFile) {

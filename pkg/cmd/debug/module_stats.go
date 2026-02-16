@@ -118,8 +118,6 @@ func complexityAnalysis[F field.Element[F]](m sc.Module[F]) int {
 			sum.Add(&sum, val)
 		}
 	}
-	// Divide by one million
-	sum.Div(&sum, big.NewInt(1_000_000))
 	//
 	if sum.BitLen() < 63 {
 		return int(sum.Int64())

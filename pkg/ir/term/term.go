@@ -153,7 +153,7 @@ func ComplexityOfTerm[F field.Element[F], T Expr[F, T]](c T) uint {
 		var r = uint(0)
 		//
 		for _, arg := range t.Args {
-			r += max(r, ComplexityOfTerm[F](arg))
+			r = max(r, ComplexityOfTerm[F](arg))
 		}
 		//
 		return r
@@ -173,7 +173,7 @@ func ComplexityOfTerm[F field.Element[F], T Expr[F, T]](c T) uint {
 		var r = uint(0)
 		//
 		for _, arg := range t.Args {
-			r += max(r, ComplexityOfTerm[F](arg))
+			r = max(r, ComplexityOfTerm[F](arg))
 		}
 		//
 		return r
