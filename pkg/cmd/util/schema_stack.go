@@ -56,6 +56,11 @@ func (p *SchemaStack[F]) BinaryFile() *binfile.BinaryFile {
 	return &bf
 }
 
+// HasConcreteSchema returns true if there is at least one concrete schema..
+func (p *SchemaStack[F]) HasConcreteSchema() bool {
+	return len(p.concreteSchemas) > 0
+}
+
 // ConcreteSchema returns the stack of concrete schemas according to the selected
 // layers, where higher-level layers come first.
 func (p *SchemaStack[F]) ConcreteSchema() schema.AnySchema[F] {

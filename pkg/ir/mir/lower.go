@@ -14,6 +14,8 @@ package mir
 
 import (
 	"fmt"
+	"math"
+	"math/big"
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/ir"
@@ -32,8 +34,8 @@ import (
 // LowerToAir lowers (or refines) an MIR schema into an AIR schema.  That means
 // lowering all the columns and constraints, whilst adding additional columns /
 // constraints as necessary to preserve the original semantics.
-func LowerToAir[F field.Element[F]](schema Schema[F], config OptimisationConfig) air.Schema[F] {
-	lowering := NewAirLowering(schema)
+func LowerToAir[F field.Element[F]](schema Schema[F], fieldBandwith uint, config OptimisationConfig) air.Schema[F] {
+	lowering := NewAirLowering(fieldBandwith, schema)
 	// Configure optimisations
 	lowering.ConfigureOptimisation(config)
 	//
@@ -46,6 +48,8 @@ func LowerToAir[F field.Element[F]](schema Schema[F], config OptimisationConfig)
 // managing type proofs).
 type AirLowering[F field.Element[F]] struct {
 	config OptimisationConfig
+	// Maximum field bandwidth
+	fieldBandwidth uint
 	// Modules we are lowering from
 	mirSchema Schema[F]
 	// Modules we are lowering to
@@ -53,7 +57,7 @@ type AirLowering[F field.Element[F]] struct {
 }
 
 // NewAirLowering constructs an initial state for lowering a given MIR schema.
-func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
+func NewAirLowering[F field.Element[F]](fieldBandwidth uint, mirSchema Schema[F]) AirLowering[F] {
 	var (
 		airSchema = ir.NewSchemaBuilder[F, air.Constraint[F], air.Term[F], air.Module[F]]()
 	)
@@ -64,6 +68,7 @@ func NewAirLowering[F field.Element[F]](mirSchema Schema[F]) AirLowering[F] {
 	//
 	return AirLowering[F]{
 		DEFAULT_OPTIMISATION_LEVEL,
+		fieldBandwidth,
 		mirSchema,
 		airSchema,
 	}
@@ -109,6 +114,8 @@ func (p *AirLowering[F]) LowerModule(index uint) {
 	var (
 		mirModule = p.mirSchema.Module(index)
 		airModule = p.airSchema.Module(index)
+		// record of true bitwidths
+		bitwidths = determineTrueBitwidths(mirModule)
 	)
 	// Add assignments.  At this time, there is nothing to do in terms of
 	// lowering.  Observe that this must be done *before* lowering assignments
@@ -123,12 +130,12 @@ func (p *AirLowering[F]) LowerModule(index uint) {
 		// Following should always hold
 		constraint := iter.Next().(Constraint[F])
 		//
-		p.lowerConstraintToAir(constraint, airModule)
+		p.lowerConstraintToAir(constraint, airModule, bitwidths)
 	}
 }
 
 // Lower a constraint to the AIR level.
-func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule air.ModuleBuilder[F], bitwidths []uint) {
 	// Check what kind of constraint we have
 	switch v := c.constraint.(type) {
 	case Assertion[F]:
@@ -144,7 +151,7 @@ func (p *AirLowering[F]) lowerConstraintToAir(c Constraint[F], airModule air.Mod
 	case SortedConstraint[F]:
 		p.lowerSortedConstraintToAir(v, airModule)
 	case VanishingConstraint[F]:
-		p.lowerVanishingConstraintToAir(v, airModule)
+		p.lowerVanishingConstraintToAir(v, airModule, bitwidths)
 	default:
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
@@ -161,10 +168,11 @@ func (p *AirLowering[F]) lowerAssertionToAir(v Assertion[F], airModule air.Modul
 // straightforward and simply relies on lowering the expression being
 // constrained.  This may result in the generation of computed columns, e.g. to
 // hold inverses, etc.
-func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F], airModule air.ModuleBuilder[F]) {
+func (p *AirLowering[F]) lowerVanishingConstraintToAir(v VanishingConstraint[F], airModule air.ModuleBuilder[F],
+	bitwidths []uint) {
 	//
 	var (
-		terms = p.lowerAndSimplifyLogicalTo(v.Constraint, airModule)
+		terms = p.lowerAndSimplifyLogicalTo(v.Constraint, airModule, bitwidths)
 	)
 	//
 	for i, air_expr := range terms {
@@ -324,153 +332,232 @@ func (p *AirLowering[F]) lowerRegisterAccesses(terms ...*RegisterAccess[F]) []*a
 }
 
 func (p *AirLowering[F]) lowerAndSimplifyLogicalTo(term LogicalTerm[F],
-	airModule air.ModuleBuilder[F]) []air.Term[F] {
+	airModule air.ModuleBuilder[F], bitwidths []uint) []air.Term[F] {
+	// Expand term to remove all syntactic sugage
+	term = p.expandLogical(true, term)
 	// Apply all reasonable simplifications
 	term = term.Simplify(false)
 	// Lower properly
-	return simplify(p.lowerLogicalTo(true, term, airModule))
+	return simplify(p.lowerLogical(term, airModule, bitwidths))
 }
 
-func (p *AirLowering[F]) lowerLogicalTo(sign bool, e LogicalTerm[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) expandLogical(sign bool, e LogicalTerm[F]) LogicalTerm[F] {
 	//
 	switch e := e.(type) {
 	case *Conjunct[F]:
-		return p.lowerConjunctionTo(sign, e, airModule)
+		return p.expandConjunction(sign, e)
 	case *Disjunct[F]:
-		return p.lowerDisjunctionTo(sign, e, airModule)
+		return p.expandDisjunction(sign, e)
 	case *Equal[F]:
-		return p.lowerEqualityTo(sign, e.Lhs, e.Rhs, airModule)
+		return p.expandEquality(sign, e.Lhs, e.Rhs)
 	case *Ite[F]:
-		return p.lowerIteTo(sign, e, airModule)
+		return p.expandIteTo(sign, e)
 	case *Negate[F]:
-		return p.lowerLogicalTo(!sign, e.Arg, airModule)
+		return p.expandLogical(!sign, e.Arg)
 	case *NotEqual[F]:
-		return p.lowerEqualityTo(!sign, e.Lhs, e.Rhs, airModule)
+		return p.expandEquality(!sign, e.Lhs, e.Rhs)
 	default:
 		name := reflect.TypeOf(e).Name()
 		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
 	}
 }
 
-func (p *AirLowering[F]) lowerLogicalsTo(sign bool, airModule air.ModuleBuilder[F], terms ...LogicalTerm[F],
-) [][]air.Term[F] {
+func (p *AirLowering[F]) expandLogicals(sign bool, terms ...LogicalTerm[F]) []LogicalTerm[F] {
 	//
-	nexprs := make([][]air.Term[F], len(terms))
+	nexprs := make([]LogicalTerm[F], len(terms))
 
 	for i := range len(terms) {
-		nexprs[i] = p.lowerLogicalTo(sign, terms[i], airModule)
+		nexprs[i] = p.expandLogical(sign, terms[i])
 	}
 
 	return nexprs
 }
 
-func (p *AirLowering[F]) lowerConjunctionTo(sign bool, e *Conjunct[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
-	var terms = p.lowerLogicalsTo(sign, airModule, e.Args...)
+func (p *AirLowering[F]) expandConjunction(sign bool, e *Conjunct[F]) LogicalTerm[F] {
+	var terms = p.expandLogicals(sign, e.Args...)
 	//
 	if sign {
-		return conjunction(terms...)
+		return term.Conjunction(terms...)
 	}
 	//
-	return disjunction(terms...)
+	return term.Disjunction(terms...)
 }
 
-func (p *AirLowering[F]) lowerDisjunctionTo(sign bool, e *Disjunct[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
-	var terms = p.lowerLogicalsTo(sign, airModule, e.Args...)
+func (p *AirLowering[F]) expandDisjunction(sign bool, e *Disjunct[F]) LogicalTerm[F] {
+	var terms = p.expandLogicals(sign, e.Args...)
 	//
 	if sign {
 		//
-		return disjunction(terms...)
+		return term.Disjunction(terms...)
 	}
 	//
-	return conjunction(terms...)
+	return term.Conjunction(terms...)
 }
 
-func (p *AirLowering[F]) lowerEqualityTo(sign bool, left Term[F], right Term[F], airModule air.ModuleBuilder[F],
-) []air.Term[F] {
-	//
-	var (
-		lhs air.Term[F] = p.lowerTermTo(left, airModule)
-		rhs air.Term[F] = p.lowerTermTo(right, airModule)
-		eq              = term.Subtract(lhs, rhs)
-	)
-	//
+func (p *AirLowering[F]) expandEquality(sign bool, left Term[F], right Term[F]) LogicalTerm[F] {
 	if sign {
-		return []air.Term[F]{eq}
+		return term.Equals[F, LogicalTerm[F]](left, right)
 	}
 	//
-	one := term.Const64[F, air.Term[F]](1)
-	// construct norm(eq)
-	norm_eq := p.normalise(eq, airModule)
-	// construct 1 - norm(eq)
-	return []air.Term[F]{term.Subtract(one, norm_eq)}
+	return term.NotEquals[F, LogicalTerm[F]](left, right)
 }
 
-func (p *AirLowering[F]) lowerIteTo(sign bool, e *Ite[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) expandIteTo(sign bool, e *Ite[F]) LogicalTerm[F] {
 	if sign {
-		return p.lowerPositiveIteTo(e, airModule)
+		return p.expandPositiveIteTo(e)
 	}
 	//
-	return p.lowerNegativeIteTo(e, airModule)
+	return p.expandNegativeIteTo(e)
 }
 
-func (p *AirLowering[F]) lowerPositiveIteTo(e *Ite[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
+func (p *AirLowering[F]) expandPositiveIteTo(e *Ite[F]) LogicalTerm[F] {
 	var (
-		terms []air.Term[F]
+		terms []LogicalTerm[F]
 	)
-	// NOTE: using extractNormalisedCondition could be useful here.
-	if e.TrueBranch != nil && e.FalseBranch != nil {
-		trueCondition := p.lowerLogicalTo(true, e.Condition, airModule)
-		falseCondition := p.lowerLogicalTo(false, e.Condition, airModule)
-		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, airModule)
-		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, airModule)
-		// Check whether optimisation is possible
-		if len(trueCondition) == 1 && len(falseCondition) == 1 &&
-			len(falseBranch) == 1 && len(trueBranch) == 1 {
-			// Yes, its safe to apply.
-			fb := term.Product(trueCondition[0], falseBranch[0])
-			tb := term.Product(falseCondition[0], trueBranch[0])
-			//
-			return []air.Term[F]{term.Sum(tb, fb)}
-		}
-		// No, optimisation does not apply
-		terms = append(terms, disjunction(falseCondition, trueBranch)...)
-		terms = append(terms, disjunction(trueCondition, falseBranch)...)
-	} else if e.TrueBranch != nil {
-		falseCondition := p.lowerLogicalTo(false, e.Condition, airModule)
-		trueBranch := p.lowerLogicalTo(true, e.TrueBranch, airModule)
-		terms = append(terms, disjunction(falseCondition, trueBranch)...)
-	} else if e.FalseBranch != nil {
-		trueCondition := p.lowerLogicalTo(true, e.Condition, airModule)
-		falseBranch := p.lowerLogicalTo(true, e.FalseBranch, airModule)
-		terms = append(terms, disjunction(trueCondition, falseBranch)...)
+	// Handle true branch (if applicable)
+	if e.TrueBranch != nil {
+		falseCondition := p.expandLogical(false, e.Condition)
+		trueBranch := p.expandLogical(true, e.TrueBranch)
+		terms = append(terms, term.Disjunction(falseCondition, trueBranch))
+	}
+	// Handle false branch (if applicable)
+	if e.FalseBranch != nil {
+		trueCondition := p.expandLogical(true, e.Condition)
+		falseBranch := p.expandLogical(true, e.FalseBranch)
+		terms = append(terms, term.Disjunction(trueCondition, falseBranch))
 	}
 	//
-	return terms
+	return term.Conjunction(terms...)
 }
 
 // !ITE(A,B,C) => !((!A||B) && (A||C))
 //
 //	=> !(!A||B) || !(A||C)
 //	=> (A&&!B) || (!A&&!C)
-func (p *AirLowering[F]) lowerNegativeIteTo(e *Ite[F], airModule air.ModuleBuilder[F]) []air.Term[F] {
-	// NOTE: using extractNormalisedCondition could be useful here.
+func (p *AirLowering[F]) expandNegativeIteTo(e *Ite[F]) LogicalTerm[F] {
 	var (
-		terms [][]air.Term[F]
+		terms []LogicalTerm[F]
+	)
+	// Handle true branch (if applicable)
+	if e.TrueBranch != nil {
+		trueCondition := p.expandLogical(true, e.Condition)
+		notTrueBranch := p.expandLogical(false, e.TrueBranch)
+		terms = append(terms, term.Conjunction(trueCondition, notTrueBranch))
+	}
+	// Handle false branch (if applicable)
+	if e.FalseBranch != nil {
+		falseCondition := p.expandLogical(false, e.Condition)
+		notFalseBranch := p.expandLogical(false, e.FalseBranch)
+		terms = append(terms, term.Conjunction(falseCondition, notFalseBranch))
+	}
+	//
+	return term.Disjunction(terms...)
+}
+
+func (p *AirLowering[F]) lowerLogical(e LogicalTerm[F], airMod air.ModuleBuilder[F], bitwidths []uint) []air.Term[F] {
+	//
+	switch e := e.(type) {
+	case *Conjunct[F]:
+		return p.lowerConjunct(e, airMod, bitwidths)
+	case *Disjunct[F]:
+		return p.lowerDisjunct(e, airMod, bitwidths)
+	case *Equal[F]:
+		return p.lowerEqualityTo(e, airMod, bitwidths)
+	case *NotEqual[F]:
+		return p.lowerNonEqualityTo(e, airMod, bitwidths)
+	default:
+		name := reflect.TypeOf(e).Name()
+		panic(fmt.Sprintf("unknown MIR expression \"%s\"", name))
+	}
+}
+
+func (p *AirLowering[F]) lowerLogicals(terms []LogicalTerm[F], airMod air.ModuleBuilder[F], bitwidths []uint,
+) [][]air.Term[F] {
+	nexprs := make([][]air.Term[F], len(terms))
+
+	for i := range len(terms) {
+		nexprs[i] = p.lowerLogical(terms[i], airMod, bitwidths)
+	}
+
+	return nexprs
+}
+
+func (p *AirLowering[F]) lowerConjunct(e *Conjunct[F], airMod air.ModuleBuilder[F], bitwidths []uint) []air.Term[F] {
+	var (
+		worklist []air.Term[F]
+		sums     []air.Term[F]
+	)
+	// flattern conjuncts
+	for _, ts := range p.lowerLogicals(e.Args, airMod, bitwidths) {
+		worklist = array.AppendAll(worklist, ts...)
+	}
+	//
+	for len(worklist) > 0 {
+		// determine length of next conjunct
+		n := p.nextSumConjunct(bitwidths, worklist)
+		// construct next sum
+		sums = append(sums, term.Sum(worklist[:n]...))
+		// Remove n terms from worklist
+		worklist = worklist[n:]
+	}
+	//
+	return sums
+}
+
+func (p *AirLowering[F]) lowerDisjunct(e *Disjunct[F], airMod air.ModuleBuilder[F], bitwidths []uint) []air.Term[F] {
+	var (
+		zero     = term.Const64[F, Term[F]](0)
+		nterms   []LogicalTerm[F]
+		worklist []Term[F]
+	)
+	// Split out suitable non-zero checks
+	for _, t := range e.Args {
+		if ra := isNonZeroCheck(t); ra != nil {
+			worklist = append(worklist, ra)
+		} else {
+			nterms = append(nterms, t)
+		}
+	}
+	// Combine non-zero checks together
+	for len(worklist) > 0 {
+		// determine length of next packet
+		n := p.nextNonZeroCheck(worklist, bitwidths)
+		// construct next non-zero check
+		check := term.NotEquals[F, LogicalTerm[F]](term.Sum(worklist[:n]...), zero)
+		// append check
+		nterms = append(nterms, check)
+		// Remove n terms from worklist
+		worklist = worklist[n:]
+	}
+	// Continue as before
+	return disjunction(p.lowerLogicals(nterms, airMod, bitwidths)...)
+}
+
+func (p *AirLowering[F]) lowerEqualityTo(e *Equal[F], airModule air.ModuleBuilder[F], bitwidths []uint,
+) []air.Term[F] {
+	//
+	var (
+		lhs air.Term[F] = p.lowerTermTo(e.Lhs, airModule)
+		rhs air.Term[F] = p.lowerTermTo(e.Rhs, airModule)
 	)
 	//
-	if e.TrueBranch != nil {
-		trueCondition := p.lowerLogicalTo(true, e.Condition, airModule)
-		notTrueBranch := p.lowerLogicalTo(false, e.TrueBranch, airModule)
-		terms = append(terms, conjunction(trueCondition, notTrueBranch))
-	}
+	return []air.Term[F]{term.Subtract(lhs, rhs)}
+}
+
+func (p *AirLowering[F]) lowerNonEqualityTo(e *NotEqual[F], airModule air.ModuleBuilder[F], bitwidths []uint,
+) []air.Term[F] {
+	// //
+	var (
+		lhs air.Term[F] = p.lowerTermTo(e.Lhs, airModule)
+		rhs air.Term[F] = p.lowerTermTo(e.Rhs, airModule)
+		eq              = term.Subtract(lhs, rhs)
+	)
 	//
-	if e.FalseBranch != nil {
-		falseCondition := p.lowerLogicalTo(false, e.Condition, airModule)
-		notFalseBranch := p.lowerLogicalTo(false, e.FalseBranch, airModule)
-		terms = append(terms, conjunction(falseCondition, notFalseBranch))
-	}
-	//
-	return disjunction(terms...)
+	one := term.Const64[F, air.Term[F]](1)
+	// construct norm(eq)
+	norm_eq := p.normalise(eq, airModule)
+	// construct 1 - norm(eq)
+	return []air.Term[F]{term.Subtract(one, norm_eq)}
 }
 
 // Inner form is used for recursive calls and does not repeat the constant
@@ -587,6 +674,100 @@ func simplify[F field.Element[F]](terms []air.Term[F]) []air.Term[F] {
 	return nterms
 }
 
+func (p *AirLowering[F]) nextSumConjunct(bitwidths []uint, terms []air.Term[F]) (n uint) {
+	//
+	var (
+		sum big.Int
+	)
+	//
+	for i := 0; i < len(terms); i++ {
+		var (
+			ith    = terms[i]
+			values = valueRangeOf(ith, bitwidths)
+			minVal = values.MinValue()
+			maxVal = values.MaxValue()
+			signed = !minVal.IsNotAnInfinity() || minVal.Sign() < 0
+		)
+		// Check for signed value
+		if signed || !maxVal.IsNotAnInfinity() {
+			// terminate packet.  Observe that, we need to make sure at least
+			// one item is included in the next packet.
+			return uint(max(1, i))
+		}
+		// Update sum value
+		tmp := maxVal.IntVal()
+		//
+		sum.Add(&sum, &tmp)
+		// Check sum still within field bandwidth
+		if uint(sum.BitLen()) > p.fieldBandwidth {
+			// terminate here
+			return uint(max(1, i))
+		}
+	}
+	// consume all terms
+	return uint(len(terms))
+}
+
+func (p *AirLowering[F]) nextNonZeroCheck(checks []Term[F], bitwidths []uint) (n uint) {
+	var (
+		// Bitwidth of current check
+		sum big.Int
+	)
+	//
+	for i := 0; i < len(checks); i++ {
+		var (
+			ith          = checks[i].(*RegisterAccess[F])
+			ith_bitwidth = bitwidths[ith.Register().Unwrap()]
+		)
+		// Sanity check bitwidth
+		if ith_bitwidth == math.MaxUint {
+			// terminate packet.  Observe that, we need to make sure at least
+			// one item is included in the next packet.
+			return uint(max(1, i))
+		}
+		//
+		ithRange := valueRangeOfBits(ith_bitwidth)
+		ithMax := ithRange.MaxIntValue()
+		//
+		sum.Add(&sum, &ithMax)
+		//
+		if sum.BitLen() > int(p.fieldBandwidth) {
+			// terminate packet here
+			return uint(max(1, i))
+		}
+	}
+	// Consume all checks
+	return uint(len(checks))
+}
+
+func isNonZeroCheck[F field.Element[F]](term LogicalTerm[F]) *RegisterAccess[F] {
+	if t, ok := term.(*NotEqual[F]); ok {
+		var candidate Term[F]
+		//
+		if isZero(t.Lhs) {
+			candidate = t.Rhs
+		} else if isZero(t.Rhs) {
+			candidate = t.Lhs
+		} else {
+			return nil
+		}
+		// Final check
+		if ra, ok := candidate.(*RegisterAccess[F]); ok {
+			return ra
+		}
+	}
+	//
+	return nil
+}
+
+func isZero[F field.Element[F]](term Term[F]) bool {
+	if c, ok := term.(*Constant[F]); ok {
+		return c.Value.IsZero()
+	}
+	//
+	return false
+}
+
 // Construct the disjunction lhs v rhs, where both lhs and rhs can be
 // conjunctions of terms.
 func disjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
@@ -616,15 +797,104 @@ func disjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
 	return nterms
 }
 
-func conjunction[F field.Element[F]](terms ...[]air.Term[F]) []air.Term[F] {
-	// FIXME: can we do better here in cases where the terms being conjuncted
-	// can be safely summed?  This requires exploiting the ValueRange analysis
-	// on the terms and check whether their sum fits within the field element.
-	var nterms []air.Term[F]
-	// Combine conjuncts
-	for _, ts := range terms {
-		nterms = array.AppendAll(nterms, ts...)
+func valueRangeOf[F field.Element[F]](term air.Term[F], bitwidths []uint) util_math.Interval {
+	switch t := term.(type) {
+	case *air.Add[F]:
+		var res util_math.Interval
+
+		for i, arg := range t.Args {
+			ith := valueRangeOf(arg, bitwidths)
+			if i == 0 {
+				res.Set(ith)
+			} else {
+				res.Add(ith)
+			}
+		}
+		//
+		return res
+	case *air.ColumnAccess[F]:
+		var rid = t.Register().Unwrap()
+		// NOTE: the following is necessary because MaxUint is permitted as a signal
+		// that the given register has no fixed bitwidth.  Rather, it can consume
+		// all possible values of the underlying field element.
+		if rid >= uint(len(bitwidths)) || bitwidths[rid] == math.MaxUint {
+			return util_math.INFINITY
+		}
+		//
+		return valueRangeOfBits(bitwidths[rid])
+	case *air.Constant[F]:
+		var c big.Int
+		// Extract big integer from field element
+		c.SetBytes(t.Value.Bytes())
+		// Return as interval
+		return util_math.NewInterval(c, c)
+	case *air.Mul[F]:
+		var res util_math.Interval
+
+		for i, arg := range t.Args {
+			ith := valueRangeOf(arg, bitwidths)
+			if i == 0 {
+				res.Set(ith)
+			} else {
+				res.Mul(ith)
+			}
+		}
+		//
+		return res
+	case *air.Sub[F]:
+		var res util_math.Interval
+
+		for i, arg := range t.Args {
+			ith := valueRangeOf(arg, bitwidths)
+			if i == 0 {
+				res.Set(ith)
+			} else {
+				res.Sub(ith)
+			}
+		}
+		//
+		return res
+	default:
+		panic("unknown AIR term encountered")
+	}
+}
+
+func valueRangeOfBits(bitwidth uint) util_math.Interval {
+	var bound = big.NewInt(2)
+	//
+	bound.Exp(bound, big.NewInt(int64(bitwidth)), nil)
+	// Subtract 1 because interval is inclusive.
+	bound.Sub(bound, &biONE)
+	// Done
+	return util_math.NewInterval(biZERO, *bound)
+}
+
+// This function goes through all the registers of the module to determine which
+// have type constraints and records their maximum bitwidths arising.
+func determineTrueBitwidths[F field.Element[F]](mirModule schema.Module[F]) []uint {
+	var bitwidths = make([]uint, mirModule.Width())
+	// initialise with maximum widths
+	for i := range bitwidths {
+		bitwidths[i] = math.MaxUint
 	}
 	//
-	return nterms
+	for iter := mirModule.Constraints(); iter.HasNext(); {
+		// Following should always hold
+		c := iter.Next().(Constraint[F])
+		// Check what kind of constraint we have
+		if v, ok := c.constraint.(RangeConstraint[F]); ok {
+			// apply constraints
+			for i, e := range v.Sources {
+				rid := e.Register().Unwrap()
+				// sanity check
+				if bitwidths[rid] != math.MaxUint {
+					panic("duplicate range constraint detected")
+				}
+				// Update bitwidth accordingly
+				bitwidths[rid] = min(bitwidths[rid], v.Bitwidths[i])
+			}
+		}
+	}
+	//
+	return bitwidths
 }
