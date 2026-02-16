@@ -20,7 +20,6 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/logical"
 )
 
@@ -69,6 +68,12 @@ func (p BranchGroupId) Cmp(o BranchGroupId) int {
 	}
 	//
 	return -1
+}
+
+// Get the ith id in this group as a (singleton) group.
+func (p BranchGroupId) Get(i uint) BranchGroupId {
+	rid := register.NewId(p.id.Unwrap() + i)
+	return BranchGroupId{rid, 1, p.forwarding}
 }
 
 // Registers returns the set of registers in this group.
@@ -222,14 +227,18 @@ func extendSkipIf(tail BranchState, sign bool, code *micro.SkipIf, writes dfa.Wr
 // context of a given state reader.
 func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader RegisterReader[T, E]) E {
 	var condition E
-	//
+	// Expand the condition to ensure it is as simplified as we can make it.
+	// This is necessary because simplification on MIR terms is very limited
+	// and, without this, we cannot reasonably compile some examples.
+	p = expandBranchCondition(p, reader)
+	// Sanity check for obvious cases
 	if p.IsTrue() {
 		var zero = BigNumber[T, E](big.NewInt(0))
 		return zero.Equals(zero)
 	} else if p.IsFalse() {
 		panic("unreachable")
 	}
-	//
+	// Translate (assuming an expanded branch condition)
 	for i, c := range p.Conjuncts() {
 		ith := translateBranchConjunct[T, E](c, reader)
 		//
@@ -264,70 +273,198 @@ func translateBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader Re
 // Translate a given condition within the context of a given state translator.
 func translateBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[T, E]) E {
 	var (
-		zero  = BigNumber[T, E](big.NewInt(0))
-		left  = ReadRegisters[T, E](p.Left, reader)
-		right []E
+		left  = ReadRegister[T, E](p.Left, reader)
+		right E
 	)
 	//
 	if p.Right.HasSecond() {
 		bi := p.Right.Second()
-		right = splitConstant[T, E](bi, reader.RegisterWidths(p.Left.Registers()...))
+		right = BigNumber[T, E](&bi)
 	} else {
-		right = ReadRegisters[T, E](p.Right.First(), reader)
+		right = ReadRegister[T, E](p.Right.First(), reader)
 	}
-	// pad out with zeros
-	n := uint(max(len(left), len(right)))
-	left = array.BackPad(left, n, zero)
-	right = array.BackPad(right, n, zero)
 	//
 	if p.Sign {
-		var condition E
-		//
-		for i := range n {
-			if i == 0 {
-				condition = left[i].Equals(right[i])
-			} else {
-				condition = condition.And(left[i].Equals(right[i]))
-			}
-		}
-		//
-		return condition
+		return left.Equals(right)
 	}
 	//
-	var condition E
+	return left.NotEquals(right)
+}
+
+// ReadRegister constructs a suitable accessor for referring to a given register.
+// This applies forwarding as appropriate.
+func ReadRegister[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader[T, E]) E {
+	if reg.n != 1 {
+		panic("invalid singleton group it")
+	}
 	//
-	for i := range n {
+	return reader.ReadRegister(reg.id, reg.forwarding)
+}
+
+func expandBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader RegisterReader[T, E]) BranchCondition {
+	var condition BranchCondition
+	//
+	for i, atom := range p.Conjuncts() {
+		ith := expandBranchConjunct(atom, reader)
+		//
 		if i == 0 {
-			condition = left[i].NotEquals(right[i])
+			condition = ith
 		} else {
-			condition = condition.Or(left[i].NotEquals(right[i]))
+			condition = condition.Or(ith)
 		}
 	}
 	//
 	return condition
 }
 
-// ReadRegisters constructs a suitable accessor for referring to a given set of
-// registers. This applies forwarding as appropriate.
-func ReadRegisters[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader[T, E]) []E {
-	var reads = make([]E, reg.n)
+func expandBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader RegisterReader[T, E]) BranchCondition {
+	var condition BranchCondition
 	//
-	for i := range reg.n {
-		ith := register.NewId(reg.id.Unwrap() + i)
-		reads[i] = reader.ReadRegister(ith, reg.forwarding)
+	for i, atom := range p.Atoms() {
+		ith := expandBranchEquality(atom, reader)
+		//
+		if i == 0 {
+			condition = ith
+		} else {
+			condition = condition.And(ith)
+		}
 	}
 	//
-	return reads
+	return condition
+}
+
+// Translate a given condition within the context of a given state translator.
+func expandBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[T, E]) BranchCondition {
+	if p.Right.HasSecond() {
+		bi := p.Right.Second()
+		rhs := splitConstant[T, E](bi, reader.RegisterWidths(p.Left.Registers()...))
+		//
+		if p.Sign {
+			return expandBranchEqualityRegConst(p.Left, rhs)
+		}
+		//
+		return expandBranchNonEqualityRegConst(p.Left, rhs)
+	} else if p.Sign {
+		return expandBranchEqualityRegReg(p.Left, p.Right.First())
+	}
+
+	return expandBranchNonEqualityRegReg(p.Left, p.Right.First())
+}
+
+func expandBranchEqualityRegConst(lhs BranchGroupId, rhs []big.Int) BranchCondition {
+	var (
+		condition BranchCondition = TRUE
+		m                         = uint(len(rhs))
+		n                         = min(lhs.n, m)
+	)
+	//
+	for i := range n {
+		ith := lhs.Get(i)
+		neq := logical.EqualsConst(ith, rhs[i])
+		condition = condition.And(logical.NewProposition(neq))
+	}
+	// expand rhs as needed
+	for i := n; i < lhs.n; i++ {
+		ith := lhs.Get(i)
+		neq := logical.EqualsConst(ith, zero)
+		condition = condition.And(logical.NewProposition(neq))
+	}
+	// sanity check
+	if m > n {
+		panic("constant is too large")
+	}
+	//
+	return condition
+}
+
+func expandBranchNonEqualityRegConst(lhs BranchGroupId, rhs []big.Int) BranchCondition {
+	var (
+		condition BranchCondition = FALSE
+		m                         = uint(len(rhs))
+		n                         = min(lhs.n, m)
+	)
+	//
+	for i := range n {
+		ith := lhs.Get(i)
+		neq := logical.NotEqualsConst(ith, rhs[i])
+		condition = condition.Or(logical.NewProposition(neq))
+	}
+	// expand rhs as needed
+	for i := n; i < lhs.n; i++ {
+		ith := lhs.Get(i)
+		neq := logical.NotEqualsConst(ith, zero)
+		condition = condition.Or(logical.NewProposition(neq))
+	}
+	// sanity check
+	if m > n {
+		panic("constant is too large")
+	}
+	//
+	return condition
+}
+
+func expandBranchEqualityRegReg(lhs BranchGroupId, rhs BranchGroupId) BranchCondition {
+	var (
+		condition BranchCondition = TRUE
+		n                         = min(lhs.n, rhs.n)
+	)
+	//
+	for i := range n {
+		lth, rth := lhs.Get(i), rhs.Get(i)
+		neq := logical.Equals(lth, rth)
+		condition = condition.And(logical.NewProposition(neq))
+	}
+	// expand lhs as needed
+	for i := n; i < lhs.n; i++ {
+		ith := lhs.Get(i)
+		neq := logical.EqualsConst(ith, zero)
+		condition = condition.And(logical.NewProposition(neq))
+	}
+	// expand rhs as needed
+	for i := n; i < rhs.n; i++ {
+		ith := rhs.Get(i)
+		neq := logical.EqualsConst(ith, zero)
+		condition = condition.And(logical.NewProposition(neq))
+	}
+	//
+	return condition
+}
+
+func expandBranchNonEqualityRegReg(lhs BranchGroupId, rhs BranchGroupId) BranchCondition {
+	var (
+		condition BranchCondition = FALSE
+		n                         = min(lhs.n, rhs.n)
+	)
+	//
+	for i := range n {
+		lth, rth := lhs.Get(i), rhs.Get(i)
+		neq := logical.NotEquals(lth, rth)
+		condition = condition.Or(logical.NewProposition(neq))
+	}
+	// expand lhs as needed
+	for i := n; i < lhs.n; i++ {
+		ith := lhs.Get(i)
+		neq := logical.NotEqualsConst(ith, zero)
+		condition = condition.Or(logical.NewProposition(neq))
+	}
+	// expand rhs as needed
+	for i := n; i < rhs.n; i++ {
+		ith := rhs.Get(i)
+		neq := logical.NotEqualsConst(ith, zero)
+		condition = condition.Or(logical.NewProposition(neq))
+	}
+	//
+	return condition
 }
 
 // Alias for big integer representation of 0.
 var zero big.Int = *big.NewInt(0)
 var one big.Int = *big.NewInt(1)
 
-func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []E {
+func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []big.Int {
 	var (
 		acc   big.Int
-		limbs []E = make([]E, len(widths))
+		limbs []big.Int = make([]big.Int, len(widths))
 	)
 	// Clone constant
 	acc.Set(&constant)
@@ -342,7 +479,7 @@ func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []E {
 		// limb = acc & (bound - 1)
 		limb.And(&acc, bound.Sub(bound, &one))
 		// done
-		limbs[i] = BigNumber[T, E](&limb)
+		limbs[i] = limb
 		//
 		acc.Rsh(&acc, limbWidth)
 	}
