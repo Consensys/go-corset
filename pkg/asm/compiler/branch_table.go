@@ -71,6 +71,20 @@ func (p BranchGroupId) Cmp(o BranchGroupId) int {
 	return -1
 }
 
+// Registers returns the set of registers in this group.
+func (p BranchGroupId) Registers() []register.Id {
+	var (
+		first = p.id.Unwrap()
+		regs  = make([]register.Id, p.n)
+	)
+	//
+	for i := range p.n {
+		regs[i] = register.NewId(first + i)
+	}
+	//
+	return regs
+}
+
 // String implementation of the logical.Variable interface
 func (p BranchGroupId) String() string {
 	var (
@@ -256,9 +270,8 @@ func translateBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader Regis
 	)
 	//
 	if p.Right.HasSecond() {
-		// bi := p.Right.Second()
-		// right = BigNumber[T, E](&bi)
-		panic("got here")
+		bi := p.Right.Second()
+		right = splitConstant[T, E](bi, reader.RegisterWidths(p.Left.Registers()...))
 	} else {
 		right = ReadRegisters[T, E](p.Right.First(), reader)
 	}
@@ -305,4 +318,36 @@ func ReadRegisters[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader
 	}
 	//
 	return reads
+}
+
+// Alias for big integer representation of 0.
+var zero big.Int = *big.NewInt(0)
+
+func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []E {
+	var (
+		acc   big.Int
+		limbs []E = make([]E, len(widths))
+	)
+	// Clone constant
+	acc.Set(&constant)
+	//
+	for i, limbWidth := range widths {
+		var (
+			limb  big.Int
+			bound = big.NewInt(2)
+		)
+		// Determine upper bound
+		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
+		//
+		limb.Mod(&acc, bound)
+		limbs[i] = BigNumber[T, E](&limb)
+
+		acc.Rsh(&acc, limbWidth)
+	}
+	// sanity check
+	if acc.Cmp(&zero) != 0 {
+		panic("invalid constant")
+	}
+	//
+	return limbs
 }

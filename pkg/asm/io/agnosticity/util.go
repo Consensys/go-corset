@@ -78,29 +78,6 @@ func SplitRegister(maxWidth uint, r Register) []Register {
 	return limbs
 }
 
-// SplitRegisterValue takes a value assigned to a given register and splits it
-// across the determined target registers.
-func SplitRegisterValue(maxWidth uint, reg Register, value big.Int, regmap map[string]big.Int) map[string]big.Int {
-	var (
-		nlimbs = NumberOfLimbs(maxWidth, reg.Width())
-	)
-	//
-	if nlimbs == 1 {
-		// no splitting required
-		regmap[reg.Name()] = value
-	} else {
-		// splitting required
-		regs := SplitRegister(maxWidth, reg)
-		values := SplitConstant(uint(len(regs)), maxWidth, value)
-		//
-		for i, limb := range regs {
-			regmap[limb.Name()] = values[i]
-		}
-	}
-	//
-	return regmap
-}
-
 // SplitConstant splits a given constant into a number of "limbs" of a given
 // maximum width. For example, consider splitting the constant 0x7b2d into 8bit
 // limbs.  Then, this function returns the array [0x2d,0x7b].
