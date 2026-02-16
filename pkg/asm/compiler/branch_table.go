@@ -322,6 +322,7 @@ func ReadRegisters[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader
 
 // Alias for big integer representation of 0.
 var zero big.Int = *big.NewInt(0)
+var one big.Int = *big.NewInt(1)
 
 func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []E {
 	var (
@@ -337,11 +338,10 @@ func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []E {
 			bound = big.NewInt(2)
 		)
 		// Determine upper bound
-		bound.Exp(bound, big.NewInt(int64(limbWidth)), nil)
-		//
-		limb.Mod(&acc, bound)
+		bound.Lsh(bound, limbWidth)
+		limb.And(&acc, bound.Sub(bound, &one))
 		limbs[i] = BigNumber[T, E](&limb)
-
+		//
 		acc.Rsh(&acc, limbWidth)
 	}
 	// sanity check
