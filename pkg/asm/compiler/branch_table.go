@@ -232,10 +232,6 @@ func extendSkipIf(tail BranchState, sign bool, code *micro.SkipIf, writes dfa.Wr
 // context of a given state reader.
 func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader RegisterReader[E]) E {
 	var condition E
-	// Expand the condition to ensure it is as simplified as we can make it.
-	// This is necessary because simplification on MIR terms is very limited
-	// and, without this, we cannot reasonably compile some examples.
-	p = expandBranchCondition(p, reader)
 	// Sanity check for obvious cases
 	if p.IsTrue() {
 		var zero = BigNumber[T, E](big.NewInt(0))
@@ -243,6 +239,10 @@ func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader Reg
 	} else if p.IsFalse() {
 		panic("unreachable")
 	}
+	// Expand the condition to ensure it is as simplified as we can make it.
+	// This is necessary because simplification on MIR terms is very limited
+	// and, without this, we cannot reasonably compile some examples.
+	p = expandBranchCondition(p, reader)
 	// Translate (assuming an expanded branch condition)
 	for i, c := range p.Conjuncts() {
 		ith := translateBranchConjunct[T, E](c, reader)
