@@ -46,7 +46,11 @@ func NewConstant64(c uint64) Expr {
 
 // ToVec converts this expression into a vectorizable expression.
 func (e Expr) ToVec() VecExpr {
-	return NewVecExpr(e)
+	if e.HasFirst() {
+		return NewVecExpr(register.NewVector(e.First()))
+	}
+	//
+	return ConstVecExpr(e.Second())
 }
 
 // Bitwidth returns the minimum number of bits required to store any evaluation

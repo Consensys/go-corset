@@ -71,19 +71,19 @@ func (p *IfThenElse) Lower(pc uint) micro.Instruction {
 		codes      []micro.Code
 		thenBranch = p.Then.Polynomial()
 		elseBranch = p.Else.Polynomial()
-		lhs        io.RegisterId
-		rhs        micro.Expr
+		lhs        register.Vector
+		rhs        micro.VecExpr
 	)
 	// normalise left / right
 	if c, ok := p.Left.(*expr.Const); ok {
-		lhs = p.Right.(*expr.RegAccess).Register
-		rhs = micro.NewConstant(c.Constant)
+		lhs = register.NewVector(p.Right.(*expr.RegAccess).Register)
+		rhs = micro.NewConstant(c.Constant).ToVec()
 	} else if c, ok := p.Right.(*expr.Const); ok {
-		lhs = p.Left.(*expr.RegAccess).Register
-		rhs = micro.NewConstant(c.Constant)
+		lhs = register.NewVector(p.Left.(*expr.RegAccess).Register)
+		rhs = micro.NewConstant(c.Constant).ToVec()
 	} else {
-		lhs = p.Left.(*expr.RegAccess).Register
-		rhs = p.Right.(*expr.RegAccess).ToMicroExpr()
+		lhs = register.NewVector(p.Left.(*expr.RegAccess).Register)
+		rhs = p.Right.(*expr.RegAccess).ToMicroExpr().ToVec()
 	}
 	//
 	switch p.Cond {

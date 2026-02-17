@@ -95,13 +95,11 @@ func (p *Cast) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []
 	}
 	// construct safety checks (if applicable)
 	if nLhs < nRhs {
-		for i := nLhs; i < nRhs; i++ {
-			skip := nRhs - i
-			// [assertion 2] if witsum != divisor goto fail
-			code := &SkipIf{Left: rhs[i], Right: zero, Skip: skip}
-			// Branch
-			ncodes = append(ncodes, code)
-		}
+		ncodes = append(ncodes, &SkipIf{
+			Left:  register.NewVector(rhs[nLhs:nRhs]...),
+			Right: zero.ToVec(),
+			Skip:  1,
+		})
 		// skip over fail
 		ncodes = append(ncodes, &Skip{1})
 		// fail

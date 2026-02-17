@@ -100,9 +100,9 @@ func (p *Division) Lower(pc uint) micro.Instruction {
 			Source:  p.Remainder.Polynomial().Add(p.Witness.Polynomial()).AddScalar(one),
 		},
 		// [assertion 1] if sum != dividend goto fail
-		&micro.SkipIf{Left: p.Sum.Register, Right: p.Dividend.ToMicroExpr(), Skip: 2},
+		&micro.SkipIf{Left: register.NewVector(p.Sum.Register), Right: p.Dividend.ToMicroExpr().ToVec(), Skip: 2},
 		// [assertion 2] if witsum != divisor goto fail
-		&micro.SkipIf{Left: p.WitSum.Register, Right: p.Divisor.ToMicroExpr(), Skip: 1},
+		&micro.SkipIf{Left: register.NewVector(p.WitSum.Register), Right: p.Divisor.ToMicroExpr().ToVec(), Skip: 1},
 		// Branch
 		&micro.Jmp{Target: pc + 1},
 		// fail
