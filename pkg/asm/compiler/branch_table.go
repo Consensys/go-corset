@@ -342,7 +342,7 @@ func expandBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader Regis
 func expandBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[E]) BranchCondition {
 	if p.Right.HasSecond() {
 		bi := p.Right.Second()
-		rhs := splitConstant[T, E](bi, reader.RegisterWidths(p.Left.Registers()...))
+		rhs := splitConstant(bi, reader.RegisterWidths(p.Left.Registers()...))
 		//
 		if p.Sign {
 			return expandBranchEqualityRegConst(p.Left, rhs)
@@ -466,7 +466,7 @@ func expandBranchNonEqualityRegReg(lhs BranchGroupId, rhs BranchGroupId) BranchC
 var zero big.Int = *big.NewInt(0)
 var one big.Int = *big.NewInt(1)
 
-func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []big.Int {
+func splitConstant(constant big.Int, widths []uint) []big.Int {
 	var (
 		acc   big.Int
 		limbs []big.Int = make([]big.Int, len(widths))
