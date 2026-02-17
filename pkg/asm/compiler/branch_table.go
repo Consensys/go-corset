@@ -72,7 +72,12 @@ func (p BranchGroupId) Cmp(o BranchGroupId) int {
 
 // Get the ith id in this group as a (singleton) group.
 func (p BranchGroupId) Get(i uint) BranchGroupId {
+	if i >= p.n {
+		panic("invalid group member")
+	}
+	//
 	rid := register.NewId(p.id.Unwrap() + i)
+	//
 	return BranchGroupId{rid, 1, p.forwarding}
 }
 
@@ -147,7 +152,7 @@ func (p BranchState) String(mapping register.Map) string {
 	})
 }
 
-func constructBranchTable[T any, E Expr[T, E]](insn micro.Instruction, reader RegisterReader[T, E],
+func constructBranchTable[T any, E Expr[T, E]](insn micro.Instruction, reader RegisterReader[E],
 ) (dfa.Result[dfa.Writes], []BranchCondition) {
 	//
 	var (
@@ -225,7 +230,7 @@ func extendSkipIf(tail BranchState, sign bool, code *micro.SkipIf, writes dfa.Wr
 
 // TranslateBranchCondition translates a given branch condition within the
 // context of a given state reader.
-func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader RegisterReader[T, E]) E {
+func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader RegisterReader[E]) E {
 	var condition E
 	// Expand the condition to ensure it is as simplified as we can make it.
 	// This is necessary because simplification on MIR terms is very limited
@@ -236,7 +241,9 @@ func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader Reg
 		var zero = BigNumber[T, E](big.NewInt(0))
 		return zero.Equals(zero)
 	} else if p.IsFalse() {
-		panic("unreachable")
+		//panic("unreachable")
+		var zero = BigNumber[T, E](big.NewInt(0))
+		return zero.NotEquals(zero)
 	}
 	// Translate (assuming an expanded branch condition)
 	for i, c := range p.Conjuncts() {
@@ -254,7 +261,7 @@ func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader Reg
 
 // Translate a given branch condition within the context of a given state
 // reader.
-func translateBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader RegisterReader[T, E]) E {
+func translateBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader RegisterReader[E]) E {
 	var condition E
 	//
 	for i, atom := range p.Atoms() {
@@ -271,7 +278,7 @@ func translateBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader Re
 }
 
 // Translate a given condition within the context of a given state translator.
-func translateBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[T, E]) E {
+func translateBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[E]) E {
 	var (
 		left  = ReadRegister[T, E](p.Left, reader)
 		right E
@@ -293,7 +300,7 @@ func translateBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader Regis
 
 // ReadRegister constructs a suitable accessor for referring to a given register.
 // This applies forwarding as appropriate.
-func ReadRegister[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader[T, E]) E {
+func ReadRegister[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader[E]) E {
 	if reg.n != 1 {
 		panic("invalid singleton group it")
 	}
@@ -301,8 +308,8 @@ func ReadRegister[T any, E Expr[T, E]](reg BranchGroupId, reader RegisterReader[
 	return reader.ReadRegister(reg.id, reg.forwarding)
 }
 
-func expandBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader RegisterReader[T, E]) BranchCondition {
-	var condition BranchCondition
+func expandBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader RegisterReader[E]) BranchCondition {
+	var condition BranchCondition = FALSE
 	//
 	for i, atom := range p.Conjuncts() {
 		ith := expandBranchConjunct(atom, reader)
@@ -317,8 +324,8 @@ func expandBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader Regist
 	return condition
 }
 
-func expandBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader RegisterReader[T, E]) BranchCondition {
-	var condition BranchCondition
+func expandBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader RegisterReader[E]) BranchCondition {
+	var condition BranchCondition = TRUE
 	//
 	for i, atom := range p.Atoms() {
 		ith := expandBranchEquality(atom, reader)
@@ -334,7 +341,7 @@ func expandBranchConjunct[T any, E Expr[T, E]](p BranchConjunction, reader Regis
 }
 
 // Translate a given condition within the context of a given state translator.
-func expandBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[T, E]) BranchCondition {
+func expandBranchEquality[T any, E Expr[T, E]](p BranchEquality, reader RegisterReader[E]) BranchCondition {
 	if p.Right.HasSecond() {
 		bi := p.Right.Second()
 		rhs := splitConstant[T, E](bi, reader.RegisterWidths(p.Left.Registers()...))
@@ -363,7 +370,7 @@ func expandBranchEqualityRegConst(lhs BranchGroupId, rhs []big.Int) BranchCondit
 		neq := logical.EqualsConst(ith, rhs[i])
 		condition = condition.And(logical.NewProposition(neq))
 	}
-	// expand rhs as needed
+	// expand lhs as needed
 	for i := n; i < lhs.n; i++ {
 		ith := lhs.Get(i)
 		neq := logical.EqualsConst(ith, zero)
@@ -489,4 +496,28 @@ func splitConstant[T any, E Expr[T, E]](constant big.Int, widths []uint) []big.I
 	}
 	//
 	return limbs
+}
+
+// this is primarily for debugging purposes
+// nolint
+func groupId2String[T any](reader RegisterReader[T]) func(BranchGroupId) string {
+	return func(gid BranchGroupId) string {
+		var (
+			first = reader.Register(gid.id).Name()
+			id    string
+		)
+		//
+		if gid.n == 1 {
+			id = first
+		} else {
+			last := reader.Register(register.NewId(gid.id.Unwrap() + gid.n - 1)).Name()
+			id = fmt.Sprintf("{%s..%s}", first, last)
+		}
+		//
+		if gid.forwarding {
+			return id
+		}
+		//
+		return fmt.Sprintf("'%s", id)
+	}
 }

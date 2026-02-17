@@ -27,7 +27,9 @@ import (
 
 // RegisterReader is a simplified view of a translator which is suitable for
 // reading registers only.
-type RegisterReader[T any, E Expr[T, E]] interface {
+type RegisterReader[E any] interface {
+	// Register returns information about a given register
+	Register(io.RegisterId) io.Register
 	// RegisterWidths returns the bitwidth of a given set of registers.
 	RegisterWidths(reg ...io.RegisterId) []uint
 	// ReadRegister constructs a suitable accessor for referring to a given register.
@@ -173,6 +175,11 @@ func (p *Translator[F, T, E, M]) ReadRegister(regId io.RegisterId, forwarding bo
 	}
 	// Not forwarded
 	return Variable[T, E](colId, reg.Width(), -1)
+}
+
+// Register implementation for RegisterReader interface
+func (p *Translator[F, T, E, M]) Register(reg io.RegisterId) io.Register {
+	return p.Registers[reg.Unwrap()]
 }
 
 // RegisterWidths implementation for RegisterReader interface
