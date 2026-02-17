@@ -7,7 +7,7 @@ import (
 func XOR256(a, b [32]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 32; i++ {
-		out = append(out, a[i] ^ b[i])
+		out = append(out, a[i]^b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -15,7 +15,7 @@ func XOR256(a, b [32]byte) *big.Int {
 func OR256(a, b [32]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 32; i++ {
-		out = append(out, a[i] | b[i])
+		out = append(out, a[i]|b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -23,7 +23,7 @@ func OR256(a, b [32]byte) *big.Int {
 func AND256(a, b [32]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 32; i++ {
-		out = append(out,  a[i] & b[i])
+		out = append(out, a[i]&b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -39,7 +39,7 @@ func NOT256(a [32]byte) *big.Int {
 func XOR128(a, b [16]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 16; i++ {
-		out = append(out, a[i] ^ b[i])
+		out = append(out, a[i]^b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -47,7 +47,7 @@ func XOR128(a, b [16]byte) *big.Int {
 func OR128(a, b [16]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 16; i++ {
-		out = append(out, a[i] | b[i])
+		out = append(out, a[i]|b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -55,7 +55,7 @@ func OR128(a, b [16]byte) *big.Int {
 func AND128(a, b [16]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 16; i++ {
-		out = append(out,  a[i] & b[i])
+		out = append(out, a[i]&b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -71,7 +71,7 @@ func NOT128(a [16]byte) *big.Int {
 func XOR64(a, b [8]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 8; i++ {
-		out = append(out, a[i] ^ b[i])
+		out = append(out, a[i]^b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -79,7 +79,7 @@ func XOR64(a, b [8]byte) *big.Int {
 func OR64(a, b [8]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 8; i++ {
-		out = append(out, a[i] | b[i])
+		out = append(out, a[i]|b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -87,7 +87,7 @@ func OR64(a, b [8]byte) *big.Int {
 func AND64(a, b [8]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 8; i++ {
-		out = append(out,  a[i] & b[i])
+		out = append(out, a[i]&b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -103,7 +103,7 @@ func NOT64(a [8]byte) *big.Int {
 func XOR32(a, b [4]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 4; i++ {
-		out = append(out, a[i] ^ b[i])
+		out = append(out, a[i]^b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -111,7 +111,7 @@ func XOR32(a, b [4]byte) *big.Int {
 func OR32(a, b [4]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 4; i++ {
-		out = append(out, a[i] | b[i])
+		out = append(out, a[i]|b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -119,7 +119,7 @@ func OR32(a, b [4]byte) *big.Int {
 func AND32(a, b [4]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 4; i++ {
-		out = append(out,  a[i] & b[i])
+		out = append(out, a[i]&b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -135,7 +135,7 @@ func NOT32(a [4]byte) *big.Int {
 func XOR16(a, b [2]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 2; i++ {
-		out = append(out, a[i] ^ b[i])
+		out = append(out, a[i]^b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -143,7 +143,7 @@ func XOR16(a, b [2]byte) *big.Int {
 func OR16(a, b [2]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 2; i++ {
-		out = append(out, a[i] | b[i])
+		out = append(out, a[i]|b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -151,7 +151,7 @@ func OR16(a, b [2]byte) *big.Int {
 func AND16(a, b [2]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 2; i++ {
-		out = append(out,  a[i] & b[i])
+		out = append(out, a[i]&b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -167,7 +167,7 @@ func NOT16(a [2]byte) *big.Int {
 func XOR8(a, b [1]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 1; i++ {
-		out = append(out, a[i] ^ b[i])
+		out = append(out, a[i]^b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -175,7 +175,7 @@ func XOR8(a, b [1]byte) *big.Int {
 func OR8(a, b [1]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 1; i++ {
-		out = append(out, a[i] | b[i])
+		out = append(out, a[i]|b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -183,7 +183,7 @@ func OR8(a, b [1]byte) *big.Int {
 func AND8(a, b [1]byte) *big.Int {
 	var out []byte
 	for i := 0; i < 1; i++ {
-		out = append(out,  a[i] & b[i])
+		out = append(out, a[i]&b[i])
 	}
 	return new(big.Int).SetBytes(out)
 }
@@ -218,7 +218,7 @@ func And4Bits(arg1, arg2 uint8) *big.Int {
 
 func Not4Bits(arg1 uint8) *big.Int {
 	const mask uint8 = 0x0F // 0b11, keep only 2 bits
-	res := (^arg1) & mask    // invert, then mask to 2 bits
+	res := (^arg1) & mask   // invert, then mask to 2 bits
 	return new(big.Int).SetUint64(uint64(res))
 }
 
@@ -242,7 +242,7 @@ func And2Bits(arg1, arg2 uint8) *big.Int {
 
 func Not2Bits(arg1 uint8) *big.Int {
 	const mask uint8 = 0x03 // 0b11, keep only 2 bits
-	res := (^arg1) & mask    // invert, then mask to 2 bits
+	res := (^arg1) & mask   // invert, then mask to 2 bits
 	return new(big.Int).SetUint64(uint64(res))
 }
 
@@ -295,7 +295,6 @@ func BigIntTo8Bytes(n *big.Int) [8]byte {
 	copy(out[8-len(b):], b)
 	return out
 }
-
 
 func BigIntTo4Bytes(n *big.Int) [4]byte {
 	var out [4]byte
@@ -363,6 +362,24 @@ func BigIntTo2Bits(n *big.Int) uint8 {
 	var tmp big.Int
 	tmp.And(n, mask)
 	return uint8(tmp.Uint64()) // guaranteed <= 3
+}
+
+func SplitByteInto2BigInt(n [1]byte) (high, low *big.Int) {
+	b := n[0]
+	h := (b & 0xF0) >> 4 // upper 4 bits
+	l := b & 0x0F        // lower 4 bits
+
+	high = big.NewInt(int64(h))
+	low = big.NewInt(int64(l))
+	return
+}
+
+func SplitUint8Into2BigInt(n uint8) (high, low *big.Int) {
+    l_hi := (n >> 2) & 0x3
+	l_lo := n & 0x03
+	high = big.NewInt(int64(l_hi))
+	low = big.NewInt(int64(l_lo))
+	return
 }
 
 // not2Bit returns the bitwise NOT of a 2‑bit value (only lowest 2 bits kept).
