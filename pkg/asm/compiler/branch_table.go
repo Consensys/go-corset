@@ -241,9 +241,7 @@ func translateBranchCondition[T any, E Expr[T, E]](p BranchCondition, reader Reg
 		var zero = BigNumber[T, E](big.NewInt(0))
 		return zero.Equals(zero)
 	} else if p.IsFalse() {
-		//panic("unreachable")
-		var zero = BigNumber[T, E](big.NewInt(0))
-		return zero.NotEquals(zero)
+		panic("unreachable")
 	}
 	// Translate (assuming an expanded branch condition)
 	for i, c := range p.Conjuncts() {
