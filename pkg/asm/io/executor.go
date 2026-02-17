@@ -255,11 +255,11 @@ func (p *ComponentTrace[T]) executeBitXoanOperations(inputs []big.Int, fnName st
 		switch inputs[0].Int64() {
 		//XOR
 		case 0:
-			res = bitwise.XOR256(inputs1, inputs2)
+			res = new(big.Int).Xor(&inputs[1], &inputs[2])
 		case 1:
-			res = bitwise.OR256(inputs1, inputs2)
+			res = new(big.Int).Or(&inputs[1], &inputs[2])
 		case 2:
-			res = bitwise.AND256(inputs1, inputs2)
+			res = new(big.Int).And(&inputs[1], &inputs[2])
 		case 3:
 			res = bitwise.NOT256(inputs1)
 		}
@@ -272,12 +272,13 @@ func (p *ComponentTrace[T]) executeBitXoanOperations(inputs []big.Int, fnName st
 		state.io.Read(9, subInputsHi, 0)
 		state.io.Read(9, subInputsLo, 0)
 		switch inputs[0].Int64() {
+		//XOR
 		case 0:
-			res = bitwise.XOR128(inputs1, inputs2)
+			res = new(big.Int).Xor(&inputs[1], &inputs[2])
 		case 1:
-			res = bitwise.OR128(inputs1, inputs2)
+			res = new(big.Int).Or(&inputs[1], &inputs[2])
 		case 2:
-			res = bitwise.AND128(inputs1, inputs2)
+			res = new(big.Int).And(&inputs[1], &inputs[2])
 		case 3:
 			res = bitwise.NOT128(inputs1)
 		}
@@ -290,12 +291,13 @@ func (p *ComponentTrace[T]) executeBitXoanOperations(inputs []big.Int, fnName st
 		state.io.Read(10, subInputsHi, 0)
 		state.io.Read(10, subInputsLo, 0)
 		switch inputs[0].Int64() {
+		//XOR
 		case 0:
-			res = bitwise.XOR64(inputs1, inputs2)
+			res = new(big.Int).Xor(&inputs[1], &inputs[2])
 		case 1:
-			res = bitwise.OR64(inputs1, inputs2)
+			res = new(big.Int).Or(&inputs[1], &inputs[2])
 		case 2:
-			res = bitwise.AND64(inputs1, inputs2)
+			res = new(big.Int).And(&inputs[1], &inputs[2])
 		case 3:
 			res = bitwise.NOT64(inputs1)
 		}
@@ -308,12 +310,13 @@ func (p *ComponentTrace[T]) executeBitXoanOperations(inputs []big.Int, fnName st
 		state.io.Read(11, subInputsHi, 0)
 		state.io.Read(11, subInputsLo, 0)
 		switch inputs[0].Int64() {
+		//XOR
 		case 0:
-			res = bitwise.XOR32(inputs1, inputs2)
+			res = new(big.Int).Xor(&inputs[1], &inputs[2])
 		case 1:
-			res = bitwise.OR32(inputs1, inputs2)
+			res = new(big.Int).Or(&inputs[1], &inputs[2])
 		case 2:
-			res = bitwise.AND32(inputs1, inputs2)
+			res = new(big.Int).And(&inputs[1], &inputs[2])
 		case 3:
 			res = bitwise.NOT32(inputs1)
 		}
@@ -326,12 +329,13 @@ func (p *ComponentTrace[T]) executeBitXoanOperations(inputs []big.Int, fnName st
 		state.io.Read(12, subInputsHi, 0)
 		state.io.Read(12, subInputsLo, 0)
 		switch inputs[0].Int64() {
+		//XOR
 		case 0:
-			res = bitwise.XOR16(inputs1, inputs2)
+			res = new(big.Int).Xor(&inputs[1], &inputs[2])
 		case 1:
-			res = bitwise.OR16(inputs1, inputs2)
+			res = new(big.Int).Or(&inputs[1], &inputs[2])
 		case 2:
-			res = bitwise.AND16(inputs1, inputs2)
+			res = new(big.Int).And(&inputs[1], &inputs[2])
 		case 3:
 			res = bitwise.NOT16(inputs1)
 		}
@@ -346,12 +350,13 @@ func (p *ComponentTrace[T]) executeBitXoanOperations(inputs []big.Int, fnName st
 		state.io.Read(13, subInputsHi, 0)
 		state.io.Read(13, subInputsLo, 0)
 		switch inputs[0].Int64() {
+		//XOR
 		case 0:
-			res = bitwise.XOR8(inputs1, inputs2)
+			res = new(big.Int).Xor(&inputs[1], &inputs[2])
 		case 1:
-			res = bitwise.OR8(inputs1, inputs2)
+			res = new(big.Int).Or(&inputs[1], &inputs[2])
 		case 2:
-			res = bitwise.AND8(inputs1, inputs2)
+			res = new(big.Int).And(&inputs[1], &inputs[2])
 		case 3:
 			res = bitwise.NOT8(inputs1)
 		}
@@ -369,12 +374,13 @@ func (p *ComponentTrace[T]) executeBitXoanOperations(inputs []big.Int, fnName st
 		state.io.Read(14, subInputsHi, 0)
 		state.io.Read(14, subInputsLo, 0)
 		switch inputs[0].Int64() {
+		//XOR
 		case 0:
-			res = bitwise.Xor4Bits(inputs1, inputs2)
+			res = new(big.Int).Xor(&inputs[1], &inputs[2])
 		case 1:
-			res = bitwise.Or4Bits(inputs1, inputs2)
+			res = new(big.Int).Or(&inputs[1], &inputs[2])
 		case 2:
-			res = bitwise.And4Bits(inputs1, inputs2)
+			res = new(big.Int).And(&inputs[1], &inputs[2])
 		case 3:
 			res = bitwise.Not4Bits(inputs1)
 		}

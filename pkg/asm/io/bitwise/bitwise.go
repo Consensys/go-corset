@@ -5,27 +5,27 @@ import (
 )
 
 func XOR256(a, b [32]byte) *big.Int {
-	var out []byte
+	var out [32]byte
 	for i := 0; i < 32; i++ {
-		out = append(out, a[i]^b[i])
+		out[i] = a[i] ^ b[i]
 	}
-	return new(big.Int).SetBytes(out)
+	return new(big.Int).SetBytes(out[:])
 }
 
 func OR256(a, b [32]byte) *big.Int {
-	var out []byte
+	var out [32]byte
 	for i := 0; i < 32; i++ {
-		out = append(out, a[i]|b[i])
+		out[i] = a[i] | b[i]
 	}
-	return new(big.Int).SetBytes(out)
+	return new(big.Int).SetBytes(out[:])
 }
 
 func AND256(a, b [32]byte) *big.Int {
-	var out []byte
+	var out [32]byte
 	for i := 0; i < 32; i++ {
-		out = append(out, a[i]&b[i])
+		out[i] = a[i] & b[i]
 	}
-	return new(big.Int).SetBytes(out)
+    return new(big.Int).SetBytes(out[:])
 }
 
 func NOT256(a [32]byte) *big.Int {
@@ -37,163 +37,201 @@ func NOT256(a [32]byte) *big.Int {
 }
 
 func XOR128(a, b [16]byte) *big.Int {
-	var out []byte
+	var out [16]byte
 	for i := 0; i < 16; i++ {
-		out = append(out, a[i]^b[i])
+		out[i] = a[i] ^ b[i]
 	}
-	return new(big.Int).SetBytes(out)
+	return new(big.Int).SetBytes(out[:])
 }
 
 func OR128(a, b [16]byte) *big.Int {
-	var out []byte
+	var out [16]byte
 	for i := 0; i < 16; i++ {
-		out = append(out, a[i]|b[i])
+		out[i] = a[i] | b[i]
 	}
-	return new(big.Int).SetBytes(out)
+	return new(big.Int).SetBytes(out[:])
 }
 
 func AND128(a, b [16]byte) *big.Int {
-	var out []byte
+	var out [16]byte
 	for i := 0; i < 16; i++ {
-		out = append(out, a[i]&b[i])
+		out[i] = a[i] & b[i]
 	}
-	return new(big.Int).SetBytes(out)
+	return new(big.Int).SetBytes(out[:])
 }
 
 func NOT128(a [16]byte) *big.Int {
-	var out [16]byte
-	for i := 0; i < 16; i++ {
-		out[i] = ^a[i]
-	}
-	return new(big.Int).SetBytes(out[:])
+	// Interpret a as an unsigned 128-bit integer (big-endian)
+	x := new(big.Int).SetBytes(a[:])
+	// mask = 2^128 - 1 (all 128 bits set to 1)
+	mask := new(big.Int).Lsh(big.NewInt(1), 128)
+	mask.Sub(mask, big.NewInt(1))
+	// x = ^a == a XOR mask  (bitwise NOT over 128 bits)
+	x.Xor(x, mask)
+	return x
 }
 
 func XOR64(a, b [8]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 8; i++ {
-		out = append(out, a[i]^b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// Interpret inputs as big-endian uint64
+	va := uint64(a[0])<<56 |
+		uint64(a[1])<<48 |
+		uint64(a[2])<<40 |
+		uint64(a[3])<<32 |
+		uint64(a[4])<<24 |
+		uint64(a[5])<<16 |
+		uint64(a[6])<<8 |
+		uint64(a[7])
+	vb := uint64(b[0])<<56 |
+		uint64(b[1])<<48 |
+		uint64(b[2])<<40 |
+		uint64(b[3])<<32 |
+		uint64(b[4])<<24 |
+		uint64(b[5])<<16 |
+		uint64(b[6])<<8 |
+		uint64(b[7])
+	// Convert to *big.Int
+	return new(big.Int).SetUint64(va ^ vb)
 }
 
 func OR64(a, b [8]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 8; i++ {
-		out = append(out, a[i]|b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// Interpret inputs as big-endian uint64
+	va := uint64(a[0])<<56 |
+		uint64(a[1])<<48 |
+		uint64(a[2])<<40 |
+		uint64(a[3])<<32 |
+		uint64(a[4])<<24 |
+		uint64(a[5])<<16 |
+		uint64(a[6])<<8 |
+		uint64(a[7])
+	vb := uint64(b[0])<<56 |
+		uint64(b[1])<<48 |
+		uint64(b[2])<<40 |
+		uint64(b[3])<<32 |
+		uint64(b[4])<<24 |
+		uint64(b[5])<<16 |
+		uint64(b[6])<<8 |
+		uint64(b[7])
+	// Convert to *big.Int
+	return new(big.Int).SetUint64(va | vb)
 }
 
 func AND64(a, b [8]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 8; i++ {
-		out = append(out, a[i]&b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// Interpret inputs as big-endian uint64
+	va := uint64(a[0])<<56 |
+		uint64(a[1])<<48 |
+		uint64(a[2])<<40 |
+		uint64(a[3])<<32 |
+		uint64(a[4])<<24 |
+		uint64(a[5])<<16 |
+		uint64(a[6])<<8 |
+		uint64(a[7])
+	vb := uint64(b[0])<<56 |
+		uint64(b[1])<<48 |
+		uint64(b[2])<<40 |
+		uint64(b[3])<<32 |
+		uint64(b[4])<<24 |
+		uint64(b[5])<<16 |
+		uint64(b[6])<<8 |
+		uint64(b[7])
+	// Convert to *big.Int
+	return new(big.Int).SetUint64(va & vb)
 }
 
 func NOT64(a [8]byte) *big.Int {
-	var out [8]byte
-	for i := 0; i < 8; i++ {
-		out[i] = ^a[i]
-	}
-	return new(big.Int).SetBytes(out[:])
+	// Interpret a as big-endian uint64
+	v := uint64(a[0])<<56 |
+		uint64(a[1])<<48 |
+		uint64(a[2])<<40 |
+		uint64(a[3])<<32 |
+		uint64(a[4])<<24 |
+		uint64(a[5])<<16 |
+		uint64(a[6])<<8 |
+		uint64(a[7])
+	// Convert to *big.Int
+	return big.NewInt(0).SetUint64(^v)
 }
 
 func XOR32(a, b [4]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 4; i++ {
-		out = append(out, a[i]^b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// interpret inputs as big-endian uint32
+	va := uint32(a[0])<<24 | uint32(a[1])<<16 | uint32(a[2])<<8 | uint32(a[3])
+	vb := uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	// convert to *big.Int
+	return big.NewInt(int64(va ^ vb))
 }
 
 func OR32(a, b [4]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 4; i++ {
-		out = append(out, a[i]|b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// interpret inputs as big-endian uint32
+	va := uint32(a[0])<<24 | uint32(a[1])<<16 | uint32(a[2])<<8 | uint32(a[3])
+	vb := uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	// convert to *big.Int
+	return big.NewInt(int64(va | vb))
 }
 
 func AND32(a, b [4]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 4; i++ {
-		out = append(out, a[i]&b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// interpret inputs as big-endian uint32
+	va := uint32(a[0])<<24 | uint32(a[1])<<16 | uint32(a[2])<<8 | uint32(a[3])
+	vb := uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	// convert to *big.Int
+	return big.NewInt(int64(va & vb))
 }
 
 func NOT32(a [4]byte) *big.Int {
-	var out [4]byte
-	for i := 0; i < 4; i++ {
-		out[i] = ^a[i]
-	}
-	return new(big.Int).SetBytes(out[:])
+	// Interpret a as big-endian uint32
+	v := uint32(a[0])<<24 |
+		uint32(a[1])<<16 |
+		uint32(a[2])<<8 |
+		uint32(a[3])
+	// Convert to *big.Int
+	return big.NewInt(int64(^v & 0xFFFFFFFF))
 }
 
 func XOR16(a, b [2]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 2; i++ {
-		out = append(out, a[i]^b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// interpret inputs as big-endian uint16
+	va := uint16(a[0])<<8 | uint16(a[1])
+	vb := uint16(b[0])<<8 | uint16(b[1])
+	// convert to *big.Int
+	return big.NewInt(int64(va ^ vb))
 }
 
 func OR16(a, b [2]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 2; i++ {
-		out = append(out, a[i]|b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// interpret inputs as big-endian uint16
+	va := uint16(a[0])<<8 | uint16(a[1])
+	vb := uint16(b[0])<<8 | uint16(b[1])
+	// convert to *big.Int
+	return big.NewInt(int64(va | vb))
 }
 
 func AND16(a, b [2]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 2; i++ {
-		out = append(out, a[i]&b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	// interpret inputs as big-endian uint16
+	va := uint16(a[0])<<8 | uint16(a[1])
+	vb := uint16(b[0])<<8 | uint16(b[1])
+	// convert to *big.Int
+	return big.NewInt(int64(va & vb))
 }
 
 func NOT16(a [2]byte) *big.Int {
-	var out [2]byte
-	for i := 0; i < 2; i++ {
-		out[i] = ^a[i]
-	}
-	return new(big.Int).SetBytes(out[:])
+	// Interpret a as a big-endian uint16
+	v := uint16(a[0])<<8 | uint16(a[1])
+	// Bitwise NOT on 16 bits
+	v = ^v & 0xFFFF
+	// Convert to *big.Int
+	return big.NewInt(int64(v))
 }
 
 func XOR8(a, b [1]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 1; i++ {
-		out = append(out, a[i]^b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	return big.NewInt(int64(a[0] ^ b[0]))
 }
 
 func OR8(a, b [1]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 1; i++ {
-		out = append(out, a[i]|b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	return big.NewInt(int64(a[0] | b[0]))
 }
 
 func AND8(a, b [1]byte) *big.Int {
-	var out []byte
-	for i := 0; i < 1; i++ {
-		out = append(out, a[i]&b[i])
-	}
-	return new(big.Int).SetBytes(out)
+	return big.NewInt(int64(a[0] & b[0]))
 }
 
 func NOT8(a [1]byte) *big.Int {
-	var out [1]byte
-	for i := 0; i < 1; i++ {
-		out[i] = ^a[i]
-	}
-	return new(big.Int).SetBytes(out[:])
+	return big.NewInt(int64(^a[0]))
 }
 
 func Xor4Bits(arg1, arg2 uint8) *big.Int {
@@ -375,7 +413,7 @@ func SplitByteInto2BigInt(n [1]byte) (high, low *big.Int) {
 }
 
 func SplitUint8Into2BigInt(n uint8) (high, low *big.Int) {
-    l_hi := (n >> 2) & 0x3
+	l_hi := (n >> 2) & 0x3
 	l_lo := n & 0x03
 	high = big.NewInt(int64(l_hi))
 	low = big.NewInt(int64(l_lo))
