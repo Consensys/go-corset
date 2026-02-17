@@ -181,6 +181,7 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 	)
 	//
 	if p.binfile.HasValue() {
+		stats := util.NewPerfStats()
 		binfile := p.binfile.Unwrap()
 		// Apply any user-specified values for externalised constants.
 		applyExternOverrides(p.externs, &binfile)
@@ -188,10 +189,16 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 		asmProgram = binfile.Schema
 		// Lower to mixed micro schema
 		uasmProgram = asm.LowerMixedMacroProgram(p.asmConfig.Vectorize, asmProgram)
+		//
+		stats.Log("lowering")
 		// Apply register splitting for field agnosticity
 		nasmProgram, mapping := asm.Concretize[F](p.asmConfig.Field, uasmProgram)
+		//
+		stats.Log("concretization")
 		// Compile
 		mirSchema := asm.Compile(nasmProgram)
+		//
+		stats.Log("translation")
 		// Record mapping
 		stack.mapping = mapping
 		// Include (Macro) Assembly Layer (if requested)
@@ -218,6 +225,8 @@ func (p SchemaStacker[F]) Build() SchemaStack[F] {
 		if p.layers.Contains(AIR_LAYER) {
 			// Lower to AIR
 			airSchema = mir.LowerToAir(mirSchema, p.Field().BandWidth, p.mirConfig)
+			//
+			stats.Log("arithmetizion")
 			//
 			stack.concreteSchemas = append(stack.concreteSchemas, schema.Any(airSchema))
 			stack.names = append(stack.names, "AIR")
