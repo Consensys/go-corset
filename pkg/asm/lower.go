@@ -13,14 +13,12 @@
 package asm
 
 import (
-	"fmt"
 	"math"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -50,7 +48,6 @@ func lowerComponent(vectorize bool, f MacroComponent) MicroFunction {
 }
 
 func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
-	stats := util.NewPerfStats()
 	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.
 	for pc, insn := range f.Code() {
@@ -63,8 +60,6 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 		fn = vectorizeFunction(fn)
 	}
 	//
-	stats.Log(fmt.Sprintf("lowering function %s", f.Name()))
-	//
 	return fn
 }
 
@@ -74,7 +69,6 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 // be combined into a vector instruction "x=y;a=b".
 func vectorizeFunction(f MicroFunction) MicroFunction {
 	var (
-		stats    = util.NewPerfStats()
 		insns    = make([]micro.Instruction, len(f.Code()))
 		visited  = make([]bool, len(f.Code()))
 		worklist stack.Stack[uint]
@@ -90,12 +84,8 @@ func vectorizeFunction(f MicroFunction) MicroFunction {
 		//
 		markJumpTargets(insns[pc], visited, &worklist)
 	}
-	//
-	stats.Log(fmt.Sprintf("vectorizing function %s", f.Name()))
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
-	//
-	stats.Log(fmt.Sprintf("pruning function %s", f.Name()))
 	//
 	return io.NewFunction(f.Name(), f.IsPublic(), f.Registers(), f.Buses(), insns)
 }

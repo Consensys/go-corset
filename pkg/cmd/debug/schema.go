@@ -36,7 +36,9 @@ func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth u
 		printSchema(schema, textwidth)
 	}
 	//
-	printSchema(stack.ConcreteSchema(), textwidth)
+	if stack.HasConcreteSchema() {
+		printSchema(stack.ConcreteSchema(), textwidth)
+	}
 }
 
 // Print out all declarations included in a given
