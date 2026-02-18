@@ -13,14 +13,16 @@
 package asm
 
 import (
+	"fmt"
 	"math"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/stack"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
@@ -48,6 +50,7 @@ func lowerComponent(vectorize bool, f MacroComponent) MicroFunction {
 }
 
 func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
+	stats := util.NewPerfStats()
 	insns := make([]micro.Instruction, len(f.Code()))
 	// Lower macro instructions to micro instructions.
 	for pc, insn := range f.Code() {
@@ -60,6 +63,8 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 		fn = vectorizeFunction(fn)
 	}
 	//
+	stats.Log(fmt.Sprintf("lowering function %s", f.Name()))
+	//
 	return fn
 }
 
@@ -68,15 +73,48 @@ func lowerFunction(vectorize bool, f MacroFunction) MicroFunction {
 // Since this instructions do not conflict over any assigned register, they can
 // be combined into a vector instruction "x=y;a=b".
 func vectorizeFunction(f MicroFunction) MicroFunction {
-	var insns = slices.Clone(f.Code())
+	var (
+		stats    = util.NewPerfStats()
+		insns    = make([]micro.Instruction, len(f.Code()))
+		visited  = make([]bool, len(f.Code()))
+		worklist stack.Stack[uint]
+	)
+	// Initialise worklist
+	worklist.Push(0)
 	// Vectorize instructions as much as possible.
-	for pc := range insns {
-		insns[pc] = vectorizeInstruction(uint(pc), f.Code(), &f)
+	for !worklist.IsEmpty() {
+		// Get next instruction to process
+		pc := worklist.Pop()
+		//
+		insns[pc] = vectorizeInstruction(pc, f.Code(), &f)
+		//
+		markJumpTargets(insns[pc], visited, &worklist)
 	}
+	//
+	stats.Log(fmt.Sprintf("vectorizing function %s", f.Name()))
 	// Remove all uncreachable instructions and compact remainder.
 	insns = pruneUnreachableInstructions(insns)
 	//
+	stats.Log(fmt.Sprintf("pruning function %s", f.Name()))
+	//
 	return io.NewFunction(f.Name(), f.IsPublic(), f.Registers(), f.Buses(), insns)
+}
+
+func markJumpTargets(insn micro.Instruction, visited []bool, worklist *stack.Stack[uint]) {
+	// identify first jumpo
+	index, ok := insn.LastJump(uint(len(insn.Codes)))
+	//
+	for ok {
+		// Extract jump instruction
+		jmp := insn.Codes[index].(*micro.Jmp)
+		// Mark instruction (if not already visited)
+		if !visited[jmp.Target] {
+			visited[jmp.Target] = true
+			worklist.Push(jmp.Target)
+		}
+		// continue to next
+		index, ok = insn.LastJump(index)
+	}
 }
 
 func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.Map) micro.Instruction {
@@ -87,7 +125,6 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.M
 		// MaxUint (if they don't).
 		externs []uint = array.FrontPad[uint](nil, uint(len(insns)), math.MaxUint)
 	)
-	//
 	// Keep vectorizing until worklist empty.
 	for changed {
 		changed = false
@@ -224,13 +261,12 @@ func inlineJump(insn micro.Instruction, jmpIndex uint, targetCodes []micro.Code)
 // that we must updating jump targets accordingly.
 func pruneUnreachableInstructions(insns []micro.Instruction) []micro.Instruction {
 	var (
-		reachable bit.Set = determineReachableInstructions(insns)
-		ninsns    []micro.Instruction
-		mapping   []uint = make([]uint, len(insns))
+		ninsns  []micro.Instruction
+		mapping []uint = make([]uint, len(insns))
 	)
 	// Remove all unreachable
 	for i, insn := range insns {
-		if reachable.Contains(uint(i)) {
+		if len(insn.Codes) != 0 {
 			mapping[i] = uint(len(ninsns))
 			ninsns = append(ninsns, insn)
 		}
@@ -247,62 +283,4 @@ func pruneUnreachableInstructions(insns []micro.Instruction) []micro.Instruction
 	}
 	//
 	return ninsns
-}
-
-func determineReachableInstructions(insns []micro.Instruction) bit.Set {
-	var (
-		worklist = VecWorklist{}
-	)
-	//
-	if len(insns) > 0 {
-		// Start with entry block
-		worklist.Push(0)
-		//
-		for !worklist.Empty() {
-			pc := worklist.Pop()
-			//
-			worklist.PushAll(insns[pc].JumpTargets())
-		}
-	}
-	// Done
-	return worklist.visited
-}
-
-// VecWorklist is a worklist suitable for the vectorisation algorithm.
-type VecWorklist struct {
-	// Set of target pc locations yet to be explored
-	targets []uint
-	// Set of target pc locations already explored.
-	visited bit.Set
-}
-
-// Empty determines whether or not the worklist is empty.
-func (p *VecWorklist) Empty() bool {
-	return len(p.targets) == 0
-}
-
-// Pop returns the next item off the worklist.
-func (p *VecWorklist) Pop() uint {
-	n := len(p.targets) - 1
-	item := p.targets[n]
-	p.targets = p.targets[:n]
-	//
-	return item
-}
-
-// Push pushes a new target onto the worklist, provided it has not been
-// previously visited.
-func (p *VecWorklist) Push(target uint) {
-	if !p.visited.Contains(target) {
-		p.visited.Insert(target)
-		p.targets = append(p.targets, target)
-	}
-}
-
-// PushAll attempts to push all targets onto the worklist, whilst excluding
-// those which have been visited already.
-func (p *VecWorklist) PushAll(targets []uint) {
-	for _, target := range targets {
-		p.Push(target)
-	}
 }
