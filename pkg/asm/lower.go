@@ -125,8 +125,6 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.M
 		// MaxUint (if they don't).
 		externs []uint = array.FrontPad[uint](nil, uint(len(insns)), math.MaxUint)
 	)
-	//
-	iterations := 0
 	// Keep vectorizing until worklist empty.
 	for changed {
 		changed = false
@@ -134,7 +132,6 @@ func vectorizeInstruction(pc uint, insns []micro.Instruction, mapping register.M
 		index, ok := insn.LastJump(uint(len(insn.Codes)))
 		// Identify rightmost jump target (if exists)
 		for ok {
-			iterations++
 			// Extract jump instruction
 			jmp := insn.Codes[index].(*micro.Jmp)
 			// Extract target instruction
