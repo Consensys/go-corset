@@ -20,15 +20,16 @@ import (
 )
 
 // Machine represents the state of an executing machine, including the state of
-// all registers, and memories.  A machine may be executing or terminated.
-type Machine[W any] interface {
+// all registers, memories and functions.  A machine may be executing or
+// terminated.
+type Machine[W any, I any] interface {
 	// Current call stack of the machine.  This consists of zero or more stack
 	// frames, where that with highest index is currently executing.  If the
 	// call stack is empty, then the machine has terminated.
 	CallStack() []StackFrame[W]
 	// Return the ith function in this machine in order, for example, to access
 	// its compiled bytecode.
-	Function(id uint) fun.Function[W]
+	Function(id uint) fun.Function[W, I]
 	// Return the ith Read-Only Memory (ROM) in this machine.  ROMs are used as
 	// inputs in one of two ways: firstly, as inputs to a given execution;
 	// secondly, as static inputs to all executions.  The latter, for example,
@@ -46,6 +47,9 @@ type Machine[W any] interface {
 	// speaking) as output streams.  All WOMs are empty at the start of
 	// execution, and may be written values as the program executes.
 	Wom(id uint) wom.WriteOnceMemory[W]
+}
+
+type State[W any] struct {
 }
 
 // StackFrame represents an executing function on the call stack.  Specifically,
