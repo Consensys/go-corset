@@ -1,5 +1,3 @@
-// Copyright Consensys Software Inc.
-//
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 // the License. You may obtain a copy of the License at
 //
@@ -10,10 +8,13 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package main
+package decl
 
-import "github.com/consensys/go-corset/pkg/cmd/corset"
-
-func main() {
-	corset.Execute()
+// Declaration represents something declared within a source file, such as a
+// function or constant, etc.
+type Declaration[E any] interface {
+	// Return name of this component
+	Name() string
+	// Determine all reference external symbols
+	Externs() []E
 }

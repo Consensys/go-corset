@@ -77,7 +77,7 @@ func (p *BitArray[T]) Clone() MutArray[T] {
 func (p *BitArray[T]) Get(index uint) T {
 	var b T
 	//
-	if bit.Read(p.data, index) {
+	if bit.LittleEndianRead(p.data, index) {
 		return b.SetBytes(bitOne)
 	}
 	// Default is zero
@@ -104,7 +104,7 @@ func (p *BitArray[T]) Set(index uint, word T) MutArray[T] {
 	// if byte length is 0, the word represents 0.  otherwise, it must be 1.
 	var val = !word.IsZero()
 	//
-	bit.Write(val, p.data, index)
+	bit.LittleEndianWrite(val, p.data, index)
 	//
 	return p
 }
@@ -112,7 +112,7 @@ func (p *BitArray[T]) Set(index uint, word T) MutArray[T] {
 // SetRaw sets a raw bit at the given index in this array, overwriting the
 // original value.
 func (p *BitArray[T]) SetRaw(index uint, val bool) {
-	bit.Write(val, p.data, index)
+	bit.LittleEndianWrite(val, p.data, index)
 }
 
 // Slice out a subregion of this array.
@@ -133,7 +133,7 @@ func (p *BitArray[T]) Slice(start uint, end uint) Array[T] {
 	// the use cases for Slice() are very limited at this time, so no need.
 	bytes := make([]byte, bytewidth)
 	// Copy height bits over
-	bit.Copy(p.data, start, bytes, 0, height)
+	bit.LittleEndianCopy(p.data, start, bytes, 0, height)
 	// Done
 	return &BitArray[T]{bytes, height}
 }
@@ -163,7 +163,7 @@ func (p *BitArray[T]) insertBits(n uint, padding T) {
 		data      = make([]byte, bytewidth)
 	)
 	// copy
-	bit.Copy(p.data, 0, data, n, p.height)
+	bit.LittleEndianCopy(p.data, 0, data, n, p.height)
 	p.data = data
 	// assign
 	for i := range n {
