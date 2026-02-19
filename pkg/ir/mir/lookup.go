@@ -32,8 +32,8 @@ func subdivideLookup[F field.Element[F]](c LookupConstraint[F], mapping schema.L
 		targets = mapLookupVectors(c.Targets, mapping)
 	)
 	//
-	targets = splitLookupVectors(geometry, targets, mapping)
-	sources = splitLookupVectors(geometry, sources, mapping)
+	targets = splitLookupVectors(geometry, targets, mapping, c.Handle)
+	sources = splitLookupVectors(geometry, sources, mapping, c.Handle)
 	//
 	return lookup.NewConstraint(c.Handle, targets, sources)
 }
@@ -71,19 +71,19 @@ func mapLookupVectors[F field.Element[F]](vectors []lookup.Vector[F, Term[F]],
 // notice padding has been applied to ensure we have a matching number of
 // columns on the left- and right-hand sides.
 func splitLookupVectors[F field.Element[F]](geometry lookup.Geometry, vectors []lookup.Vector[F, Term[F]],
-	mapping schema.LimbsMap) []lookup.Vector[F, Term[F]] {
+	mapping schema.LimbsMap, handle string) []lookup.Vector[F, Term[F]] {
 	//
 	var nterms = make([]lookup.Vector[F, Term[F]], len(vectors))
 	//
 	for i, vector := range vectors {
-		nterms[i] = splitLookupVector(geometry, vector, mapping)
+		nterms[i] = splitLookupVector(geometry, vector, mapping, handle)
 	}
 	//
 	return nterms
 }
 
 func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector lookup.Vector[F, Term[F]],
-	mapping schema.LimbsMap) lookup.Vector[F, Term[F]] {
+	mapping schema.LimbsMap, handle string) lookup.Vector[F, Term[F]] {
 	//
 	var (
 		limbs  [][]Term[F] = make([][]Term[F], vector.Len())
@@ -118,7 +118,7 @@ func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector look
 	}
 	// Alignment
 	for i, limbs := range limbs {
-		alignLookupLimbs(limbs, geometry.LimbWidths(uint(i)), modmap)
+		alignLookupLimbs(handle, limbs, geometry.LimbWidths(uint(i)), modmap)
 	}
 	// Padding
 	nlimbs := padLookupLimbs(limbs, geometry)
@@ -153,7 +153,7 @@ func splitLookupVector[F field.Element[F]](geometry lookup.Geometry, vector look
 //
 // NOTE: For now, this function only checks that limbs are aligned and panics
 // otherwise.
-func alignLookupLimbs[F field.Element[F]](limbs []Term[F], geometry []uint, mapping schema.RegisterLimbsMap) {
+func alignLookupLimbs[F field.Element[F]](handle string, limbs []Term[F], geometry []uint, mapping schema.RegisterLimbsMap) {
 	var (
 		n       = len(geometry) - 1
 		m       = len(limbs) - 1
@@ -167,9 +167,9 @@ func alignLookupLimbs[F field.Element[F]](limbs []Term[F], geometry []uint, mapp
 		bitwidth, _ := valrange.BitWidth()
 		// Sanity check for irregular lookups
 		if i != n && bitwidth > geometry[i] {
-			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
+			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d) \"%s\"", bitwidth, geometry[i], handle))
 		} else if i != m && bitwidth != geometry[i] {
-			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d)", bitwidth, geometry[i]))
+			panic(fmt.Sprintf("irregular lookup detected (u%d v u%d) \"%s\"", bitwidth, geometry[i], handle))
 		}
 	}
 }
