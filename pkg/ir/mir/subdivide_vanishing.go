@@ -113,18 +113,30 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], path Logical
 	alloc agnostic.RegisterAllocator) (target LogicalTerm[F], context LogicalTerm[F]) {
 	//
 	var (
+		lhsTerm = subdivideTerm(lhs, mapping)
+		rhsTerm = subdivideTerm(rhs, mapping)
 		// Split terms accordingl to mapping, and translate into polynomials
-		left  = termToPolynomial(subdivideTerm(lhs, mapping), mapping.LimbsMap())
-		right = termToPolynomial(subdivideTerm(rhs, mapping), mapping.LimbsMap())
+		lhsPoly = termToPolynomial(lhsTerm, mapping.LimbsMap())
+		rhsPoly = termToPolynomial(rhsTerm, mapping.LimbsMap())
 		// Construct equality for spltting
-		equation = agnostic.NewEquation(left, right)
+		equation = agnostic.NewEquation(lhsPoly, rhsPoly)
 		// Split the equation
 		tgtEqns, ctxEqns = equation.Split(mapping.Field(), alloc)
 		// Prepare resulting conjunct / disjunct
 		tgtTerms = make([]LogicalTerm[F], len(tgtEqns))
 		ctxTerms = make([]LogicalTerm[F], len(ctxEqns))
 	)
-	// Translate target equations
+	// Check whether any splitting actually occurred.  If not, then keep the
+	// original form to protect against expansion impacting performance.
+	if len(tgtEqns) == 1 && len(ctxEqns) == 0 {
+		if sign {
+			return term.Equals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
+		}
+		//
+		return term.NotEquals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
+	}
+	// Splitting actually occurred, hence translate target equations and
+	// context.
 	for i, eq := range tgtEqns {
 		// reconstruct original term
 		l := polynomialToTerm[F](eq.LeftHandSide)
@@ -179,7 +191,7 @@ func sizeOfTree[F field.Element[F]](term LogicalTerm[F], mapping register.Map) u
 	case *NotEqual[F]:
 		return 1
 	default:
-		panic("unknown logical term encountered")
+		panic(fmt.Sprintf("unknown logical term encountered (%s)", term.Lisp(false, mapping).String(true)))
 	}
 }
 
