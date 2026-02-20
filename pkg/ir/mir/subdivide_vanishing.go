@@ -118,6 +118,7 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], path Logical
 		// Split terms accordingl to mapping, and translate into polynomials
 		lhsPoly = termToPolynomial(lhsTerm, mapping.LimbsMap())
 		rhsPoly = termToPolynomial(rhsTerm, mapping.LimbsMap())
+		//
 		// Construct equality for spltting
 		equation = agnostic.NewEquation(lhsPoly, rhsPoly)
 		// Split the equation
@@ -128,13 +129,13 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], path Logical
 	)
 	// Check whether any splitting actually occurred.  If not, then keep the
 	// original form to protect against expansion impacting performance.
-	if len(tgtEqns) == 1 && len(ctxEqns) == 0 {
-		if sign {
-			return term.Equals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
-		}
-		//
-		return term.NotEquals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
-	}
+	// if len(tgtEqns) == 1 && len(ctxEqns) == 0 {
+	// 	if sign {
+	// 		return term.Equals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
+	// 	}
+	// 	//
+	// 	return term.NotEquals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
+	// }
 	// Splitting actually occurred, hence translate target equations and
 	// context.
 	for i, eq := range tgtEqns {

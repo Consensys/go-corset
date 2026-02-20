@@ -170,6 +170,10 @@ func (p BigEndian) Uint64() uint64 {
 
 // Bytes implementation for Word interface.
 func (p BigEndian) Bytes() []byte {
+	if p.val.Sign() < 0 {
+		panic("cannot convert negative integer into unsigned bytes")
+	}
+	//
 	return p.val.Bytes()
 }
 
