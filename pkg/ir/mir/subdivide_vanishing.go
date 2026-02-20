@@ -129,13 +129,13 @@ func splitEquality[F field.Element[F]](sign bool, lhs, rhs Term[F], path Logical
 	)
 	// Check whether any splitting actually occurred.  If not, then keep the
 	// original form to protect against expansion impacting performance.
-	// if len(tgtEqns) == 1 && len(ctxEqns) == 0 {
-	// 	if sign {
-	// 		return term.Equals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
-	// 	}
-	// 	//
-	// 	return term.NotEquals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
-	// }
+	if len(tgtEqns) == 1 && len(ctxEqns) == 0 {
+		if sign {
+			return term.Equals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
+		}
+		//
+		return term.NotEquals[F, LogicalTerm[F]](lhsTerm, rhsTerm), term.True[F, LogicalTerm[F]]()
+	}
 	// Splitting actually occurred, hence translate target equations and
 	// context.
 	for i, eq := range tgtEqns {
@@ -192,7 +192,7 @@ func sizeOfTree[F field.Element[F]](term LogicalTerm[F], mapping register.Map) u
 	case *NotEqual[F]:
 		return 1
 	default:
-		panic(fmt.Sprintf("unknown logical term encountered (%s)", term.Lisp(false, mapping).String(true)))
+		panic("unknown logical term encountered")
 	}
 }
 

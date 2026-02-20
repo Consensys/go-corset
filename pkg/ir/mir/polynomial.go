@@ -161,6 +161,10 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], _ regis
 // Polynomial => Term
 // ============================================================================
 
+// Switch to determine whether or not to apply the factoring algorithm. Overall,
+// this benefits of using this algorithm thus far have been negligible and,
+// hence, it is disabled by default.  However, the algorithm has been tested and
+// appears to work.
 const applyPolynomialFactoring = true
 
 func polynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {

@@ -148,7 +148,7 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 	case l_const && r_add:
 		nterms := array.Prepend(lhs, ra.Args)
 		// if rhs has constant, subtract it.
-		if rc, ok := findConstant(ra.Args); ok {
+		if rc, ok := findConstant(ra.Args); ok && lc.Value.Cmp(rc) >= 0 {
 			c := lc.Value.Sub(rc)
 			nterms = mergeConstants(c, nterms)
 		}
