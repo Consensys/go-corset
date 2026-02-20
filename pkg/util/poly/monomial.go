@@ -16,6 +16,7 @@ import (
 	"bytes"
 	"math/big"
 	"slices"
+	"sort"
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -59,6 +60,16 @@ func (p Monomial[S]) Coefficient() big.Int {
 	return p.coefficient
 }
 
+// Contains checks whether this monomial contains the given variable, or not.
+func (p Monomial[S]) Contains(v S) bool {
+	// employ binary search to find the item
+	_, res := sort.Find(len(p.vars), func(i int) int {
+		return v.Cmp(p.vars[i])
+	})
+	//
+	return res
+}
+
 // Cmp implementation for the Comparable interface
 func (p Monomial[S]) Cmp(other Monomial[S]) int {
 	// Compare variables first.  Observe this is critical to ensuring correct
@@ -70,6 +81,26 @@ func (p Monomial[S]) Cmp(other Monomial[S]) int {
 	}
 	//
 	return p.coefficient.Cmp(&other.coefficient)
+}
+
+// FactorOut produces a fresh monomial containing one less occurrence of the
+// given variable (if it is contained within).  Otherwise, it returns an
+// identical monomial.
+func (p Monomial[S]) FactorOut(v S) Monomial[S] {
+	// employ binary search to find the item
+	index, res := sort.Find(len(p.vars), func(i int) int {
+		return v.Cmp(p.vars[i])
+	})
+	//
+	if res {
+		// Remove occurrence at matched index
+		nvars := array.RemoveAt(p.vars, uint(index))
+		// Construct fresh monomial
+		return NewMonomial(p.coefficient, nvars...)
+	}
+	// Not contained, therefore construct fresh (but otherwise identical)
+	// monomial
+	return p.Clone()
 }
 
 // Equal performs structural equality between two mononomials.  That is, they

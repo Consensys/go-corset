@@ -161,8 +161,106 @@ func termVecAccessToPolynomial[F field.Element[F]](term VectorAccess[F], _ regis
 // Polynomial => Term
 // ============================================================================
 
-// Translate a term into a polynomial.
+// Switch to determine whether or not to apply the factoring algorithm. Overall,
+// this benefits of using this algorithm thus far have been negligible and,
+// hence, it is disabled by default.  However, the algorithm has been tested and
+// appears to work.
+const applyPolynomialFactoring = false
+
 func polynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
+	if applyPolynomialFactoring {
+		return factoredPolynomialToTerm[F](poly)
+	}
+	//
+	return unfactoredPolynomialToTerm[F](poly)
+}
+
+// Translate a term into a polynomial.
+func factoredPolynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
+	var r Term[F]
+	//
+	if rid, n := findCommonFactor(poly); n >= 2 {
+		// Split polynomial into factored potion and unfactored portion
+		factor, remainder := factorPolynomial(rid, poly)
+		// Recursively translate the factored and unfactored portions
+		lhs := factoredPolynomialToTerm[F](factor)
+		rhs := factoredPolynomialToTerm[F](remainder)
+		// Now recombine
+		r = term.RawRegisterAccess[F, Term[F]](rid.Id(), rid.BitWidth(), rid.RelativeShift()).Mask(rid.MaskWidth())
+		//
+		return term.Sum(term.Product[F](lhs, r), rhs)
+	}
+	// No factors available, default to direct translation
+	return unfactoredPolynomialToTerm[F](poly)
+}
+
+// Identify a variable which occurs in the most monomials out of any, returning
+// that variable and the number of occurrences.
+func findCommonFactor(poly Polynomial) (register.AccessId, uint) {
+	var (
+		uses    = make(map[register.AccessId]uint)
+		maxUses uint
+	)
+	//
+	for i := range poly.Len() {
+		term := poly.Term(i)
+		for j := range term.Len() {
+			var (
+				count = uint(0)
+				jth   = term.Nth(j)
+			)
+			// check whether seen already
+			if j > 0 && term.Nth(j-1).Cmp(jth) == 0 {
+				continue
+			} else if c, ok := uses[jth]; ok {
+				count = c
+			}
+			//
+			uses[jth] = count + 1
+			maxUses = max(maxUses, count+1)
+		}
+	}
+	// Extract first match
+	for r, c := range uses {
+		if c == maxUses {
+			return r, maxUses
+		}
+	}
+	// Default
+	return register.AccessId{}, 0
+}
+
+// Factor a polynomial with respect to a given variable.  For example, consider
+// factoring the polynomial "x.y + x.z + y" with respect to x.  Then, this will
+// return "y+z" (the factor) and "y" (the remainder).
+func factorPolynomial(rid register.AccessId, poly Polynomial) (Polynomial, Polynomial) {
+	var (
+		factor, remainder Polynomial
+	)
+	//
+	for i := range poly.Len() {
+		term := poly.Term(i)
+		if term.Contains(rid) {
+			nterm := term.FactorOut(rid)
+			//
+			if factor == nil {
+				factor = factor.Set(nterm)
+			} else {
+				factor.AddTerm(nterm)
+			}
+		} else {
+			if remainder == nil {
+				remainder = remainder.Set(term)
+			} else {
+				remainder.AddTerm(term)
+			}
+		}
+	}
+	//
+	return factor, remainder
+}
+
+func unfactoredPolynomialToTerm[F field.Element[F]](poly Polynomial) Term[F] {
 	var (
 		pos []Term[F]
 		neg []Term[F]

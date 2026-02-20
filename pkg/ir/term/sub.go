@@ -140,7 +140,7 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 	case r_zero:
 		// Right-hand side zero, nothing to subtract.
 		return lhs
-	case l_const && r_const:
+	case l_const && r_const && lc.Value.Cmp(rc.Value) >= 0:
 		// Both sides constant, result is constant.
 		c := lc.Value.Sub(rc.Value)
 		//
@@ -148,7 +148,7 @@ func (p *Sub[F, T]) Simplify(casts bool) T {
 	case l_const && r_add:
 		nterms := array.Prepend(lhs, ra.Args)
 		// if rhs has constant, subtract it.
-		if rc, ok := findConstant(ra.Args); ok {
+		if rc, ok := findConstant(ra.Args); ok && lc.Value.Cmp(rc) >= 0 {
 			c := lc.Value.Sub(rc)
 			nterms = mergeConstants(c, nterms)
 		}
