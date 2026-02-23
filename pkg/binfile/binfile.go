@@ -27,19 +27,26 @@ import (
 // Binary File Format
 // ============================================================================
 
-// BinaryFile is a programatic represresentation of an underlying binary file.
+// BinaryFile is the in-memory representation of a compiled constraint binary.
+// It is produced by the go-corset compiler and consumed by the checker/prover.
+// The on-disk layout is: a custom binary Header, followed by a gob-encoded
+// attribute list, followed by a gob-encoded MacroHirProgram schema.
 type BinaryFile struct {
-	// Header for the binary file
+	// Header holds the magic identifier, version numbers, and optional JSON
+	// metadata for the file.
 	Header Header
-	// Attributes for the binary file.  These hold, for example, information for
-	// debugging, etc.
+	// Attributes carry supplementary information that is not required for
+	// constraint checking but may be useful for tooling (e.g. source-column
+	// mappings for debug output).
 	Attributes []Attribute
-	// The mixed assembly schema.
+	// Schema is the compiled constraint program, combining macro-level assembly
+	// instructions with a HIR constraint schema.
 	Schema asm.MacroHirProgram
 }
 
-// NewBinaryFile constructs a new binary file with the default header for the
-// currently supported version.
+// NewBinaryFile constructs a BinaryFile with a header stamped at the current
+// major/minor version.  metadata is an optional JSON blob stored verbatim in
+// the header (pass nil for none).
 func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MacroHirProgram,
 ) *BinaryFile {
 	//
@@ -64,22 +71,29 @@ func GetAttribute[T Attribute](binf *BinaryFile) (T, bool) {
 	return empty, false
 }
 
-// Attribute is essentially an abstraction allowing arbitrary
-// attributes to be embedded alongside the schema.  These can be used, for
-// example, for storing mapping information from source columns to allocated
-// columns, etc.
+// Attribute is an extension point for storing arbitrary metadata alongside the
+// compiled schema.  Typical uses include source-to-column mappings and
+// debug/profiling annotations.  Attribute values must be gob-encodable.
 type Attribute interface {
 	// AttributeName returns the name of this attribute.
 	AttributeName() string
 }
 
-// Header provides a structured header for the binary file format.  In
-// particular, it supports versioning and embedded (binary) metadata.
+// Header is the fixed-layout prefix of every binary file.  It is serialised
+// using a hand-rolled big-endian encoding (not gob) so that the magic
+// identifier and version numbers can be read without a full decode.
 type Header struct {
-	Identifier   [8]byte
+	// Identifier is the 8-byte magic constant "zkbinary" that marks the file type.
+	Identifier [8]byte
+	// MajorVersion must match BINFILE_MAJOR_VERSION exactly for the file to be
+	// considered compatible.
 	MajorVersion uint16
+	// MinorVersion must be ≤ BINFILE_MINOR_VERSION for the file to be
+	// considered compatible (older minor versions remain readable).
 	MinorVersion uint16
-	MetaData     []byte
+	// MetaData is an optional JSON blob carrying key/value pairs (e.g. the
+	// source file path, compiler version, or build timestamp).
+	MetaData []byte
 }
 
 // GetMetaData attempts to parse the metadata bytes as JSON which is then
@@ -189,8 +203,10 @@ func (p *Header) UnmarshalBinary(buffer *bytes.Buffer) error {
 	return nil
 }
 
-// IsCompatible determines whether a given binary file is compatible with this
-// version of go-corset.
+// IsCompatible reports whether this header can be decoded by the current
+// version of go-corset.  Compatibility requires the "zkbinary" magic
+// identifier, an exact match on the major version, and a minor version no
+// greater than the current minor version.
 func (p *Header) IsCompatible() bool {
 	//
 	return p.Identifier == ZKBINARY &&
@@ -198,15 +214,15 @@ func (p *Header) IsCompatible() bool {
 		p.MinorVersion <= BINFILE_MINOR_VERSION
 }
 
-// BINFILE_MAJOR_VERSION givesn the major version of the binary file format.  No
-// matter what version, we should always have the ZKBINARY identifier first,
-// followed by a GOB encoding of the header.  What follows after that, however,
-// is determined by the major version.
+// BINFILE_MAJOR_VERSION is the major version of the binary file format.
+// Regardless of version, the file always begins with the ZKBINARY identifier
+// followed by a hand-rolled binary Header.  The encoding of everything after
+// the header is determined by the major version.
 const BINFILE_MAJOR_VERSION uint16 = 10
 
-// BINFILE_MINOR_VERSION gives the minor version of the binary file format.  The
-// expected interpretation is that older versions are compatible with newer
-// ones, but not vice-versa.
+// BINFILE_MINOR_VERSION is the minor version of the binary file format.  Files
+// with a lower minor version remain readable by this implementation, but files
+// produced by this implementation may not be readable by older versions.
 const BINFILE_MINOR_VERSION uint16 = 0
 
 // ZKBINARY is used as the file identifier for binary file types.  This just
