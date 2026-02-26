@@ -11,6 +11,7 @@
 package decl
 
 import (
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -43,8 +44,8 @@ type Function[E any] struct {
 // NewFunction constructs a new function with the given variables and code
 func NewFunction[E any](name string, variables []variable.Descriptor, code []stmt.Instruction[E]) *Function[E] {
 	var (
-		numInputs  uint
-		numOutputs uint
+		numInputs  = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsParameter() })
+		numOutputs = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsReturn() })
 	)
 	//
 	return &Function[E]{name, variables, numInputs, numOutputs, code}
