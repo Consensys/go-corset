@@ -518,6 +518,8 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 		returned, insn, errs = p.parseFail(env)
 	case KEYWORD_IF:
 		returned, insns, errs = p.parseIfElse(pc, env)
+	case KEYWORD_WHILE:
+		returned, insns, errs = p.parseWhile(pc, env)
 	case KEYWORD_RETURN:
 		returned, insn, errs = p.parseReturn(env)
 	case KEYWORD_VAR:
@@ -616,6 +618,35 @@ func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []ast.UnresolvedI
 
 	// Done
 	return trueRet && falseRet, insns, nil
+}
+
+func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []ast.UnresolvedInstruction, []source.SyntaxError) {
+	var (
+		errs  []source.SyntaxError
+		cond  expr.Condition
+		insns = []ast.UnresolvedInstruction{nil}
+		body  []ast.UnresolvedInstruction
+	)
+	// Match while
+	if _, errs = p.expect(KEYWORD_WHILE); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Parse condition
+	if cond, errs = p.parseCondition(env); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Parse body block; body starts at pc+1
+	if _, body, errs = p.parseStatementBlock(pc+1, env); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Back-goto jumps to the if-goto at pc
+	insns = append(insns, body...)
+	insns = append(insns, &stmt.Goto[ast.UnresolvedSymbol]{Target: pc})
+	// The conditional skip jumps past the back-goto to the instruction after the loop
+	exitTarget := pc + uint(len(insns))
+	insns[0] = &stmt.IfGoto[ast.UnresolvedSymbol]{Cond: cond.Negate(), Target: exitTarget}
+	// A while loop never guarantees a return
+	return false, insns, nil
 }
 
 func (p *Parser) parseReturn(env *Environment) (bool, ast.UnresolvedInstruction, []source.SyntaxError) {
