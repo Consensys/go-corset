@@ -525,7 +525,7 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 	case KEYWORD_RETURN:
 		returned, insn, errs = p.parseReturn(env)
 	case KEYWORD_VAR:
-		return false, nil, p.parseVar(env)
+		insns, errs = p.parseVar(env)
 	default:
 		// parse assignment
 		insn, errs = p.parseAssignment(env)
@@ -724,7 +724,7 @@ func (p *Parser) parseFail(env *Environment) (bool, ast.UnresolvedInstruction, [
 	//
 	return true, &stmt.Fail[ast.UnresolvedSymbol]{}, nil
 }
-func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
+func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []source.SyntaxError) {
 	var (
 		errs     []source.SyntaxError
 		names    []string
@@ -732,7 +732,7 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 	)
 	//
 	if _, errs = p.expect(KEYWORD_VAR); len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
 	// Parse name(s)
 	for len(names) == 0 || p.match(COMMA) {
@@ -742,23 +742,43 @@ func (p *Parser) parseVar(env *Environment) []source.SyntaxError {
 		name, errs := p.parseIdentifier()
 		//
 		if len(errs) > 0 {
-			return errs
+			return nil, errs
 		} else if env.IsVariable(name) {
-			return p.syntaxErrors(lookahead, "variable already declared")
+			return nil, p.syntaxErrors(lookahead, "variable already declared")
 		}
 		//
 		names = append(names, name)
 	}
-	// parse bitwidth
+	// parse type
 	if datatype, errs = p.parseType(); len(errs) > 0 {
-		return errs
+		return nil, errs
 	}
-	//
+	// Declare all variables before parsing any initialiser, so the
+	// initialiser expression can reference other already-declared variables.
 	for _, name := range names {
 		env.DeclareVariable(variable.LOCAL, name, datatype)
 	}
+	// Check for optional initialiser
+	if !p.match(EQUALS) {
+		return nil, nil
+	}
+	// Initialisers are only supported for single-variable declarations.
+	if len(names) > 1 {
+		return nil, p.syntaxErrors(p.lookahead(), "initialiser requires single variable declaration")
+	}
+	// Parse the initialiser expression
+	rhs, errs := p.parseExpr(env)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	// Build the assignment instruction
+	target := env.LookupVariable(names[0])
+	insn := &stmt.Assign[ast.UnresolvedSymbol]{
+		Targets: []variable.Id{target},
+		Source:  rhs,
+	}
 	//
-	return nil
+	return []ast.UnresolvedInstruction{insn}, nil
 }
 
 func (p *Parser) parseCondition(env *Environment) (expr.Condition, []source.SyntaxError) {
