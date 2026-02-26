@@ -28,3 +28,18 @@ arg2:
    res = arg2
    return
 }
+
+fn max_u8(arg1 u8, arg2 u8) -> (res u8) {
+   var b1,b2 u1
+   var tmp1, tmp2 u8
+   ;; check arg1 >= arg2
+   b1,tmp1 = arg1 - arg2
+   if b1!=0 goto arg2
+   ;; arg1 wins
+   res = arg1
+   return
+arg2:
+   ;; arg2 wins
+   res = arg2
+   return
+}
