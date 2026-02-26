@@ -114,7 +114,9 @@ func writeMemoryContents(values []big.Int) {
 	var N = 20
 	//
 	for i := 0; i < len(values); i += N {
-		for j := range N {
+		var left = len(values) - i
+		//
+		for j := range min(N, left) {
 			fmt.Printf("0x%s", values[i+j].Text(16))
 			//
 			if i+j+1 != len(values) {

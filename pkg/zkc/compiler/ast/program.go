@@ -220,7 +220,7 @@ func initInputMemory(mem *Memory, input map[string][]byte, acc []BootMemory, err
 		decoder := NewAddressDecoder(mem.Address, mem.Data)
 		ints := data.DecodeAll(mem.Data, bytes)
 		//
-		return append(acc, memory.NewArray[big.Int](mem.Name(), decoder, ints...)), nil
+		return append(acc, memory.NewArray[big.Int](mem.Name(), decoder, ints...)), errs
 	}
 	// Error
 	return acc, append(errs, fmt.Errorf("missing input \"%s\"", mem.Name()))
@@ -237,7 +237,7 @@ func initOtherMemory(mem *Memory, input map[string][]byte, acc []BootMemory, err
 	//
 	decoder := NewAddressDecoder(mem.Address, mem.Data)
 	//
-	return append(acc, memory.NewArray[big.Int](mem.Name(), decoder)), nil
+	return append(acc, memory.NewArray[big.Int](mem.Name(), decoder)), errs
 }
 
 // AddressDecoder translates a multi-dimensional logical address into the

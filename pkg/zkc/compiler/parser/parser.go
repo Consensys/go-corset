@@ -493,7 +493,7 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment,
 		//
 		insns = append(insns, ith...)
 		// increment pc
-		pc = pc + uint(len(insns))
+		pc = pc + uint(len(ith))
 	}
 	// Advance past "}"
 	p.match(RCURLY)
@@ -595,17 +595,18 @@ func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []ast.UnresolvedI
 	if p.lookahead().Kind == KEYWORD_ELSE {
 		// Skip over if
 		_, _ = p.expect(KEYWORD_ELSE)
-		// Parse false branch
-		if falseRet, falseBranch, errs = p.parseStatementBlock(pc+1, env); len(errs) > 0 {
-			return false, nil, errs
-		}
-		// add false branch (if applicable)
+		// add branch bypass (if needed)
 		if !trueRet {
 			// update targets
 			falseTarget++
 			endTarget := falseTarget + uint(len(falseBranch))
 			insns = append(insns, &stmt.Goto[ast.UnresolvedSymbol]{Target: endTarget})
 		}
+		// parse false branch
+		if falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env); len(errs) > 0 {
+			return false, nil, errs
+		}
+		// add false branch (if applicable)
 		//
 		insns = append(insns, falseBranch...)
 	}

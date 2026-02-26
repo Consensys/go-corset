@@ -104,7 +104,7 @@ func NewStaticMemory[E any](public bool, name string, address data.Type, data da
 		return &Memory[E]{name, PUBLIC_STATIC_MEMORY, address, data, contents}
 	}
 	//
-	return &Memory[E]{name, PRIVATE_STATIC_MEMORY, address, data, nil}
+	return &Memory[E]{name, PRIVATE_STATIC_MEMORY, address, data, contents}
 }
 
 // Name implementation for Declaration interface

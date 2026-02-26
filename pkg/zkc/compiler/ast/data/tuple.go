@@ -50,7 +50,7 @@ func (p *Tuple) Flattern(prefix string, constructor func(name string, bitwidth u
 func (p *Tuple) String() string {
 	var builder strings.Builder
 	//
-	builder.WriteString("()")
+	builder.WriteString("(")
 	//
 	for i, element := range p.elements {
 		if i != 0 {
