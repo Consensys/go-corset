@@ -10,10 +10,21 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package main
+package expr
 
-import "github.com/consensys/go-corset/pkg/cmd/corset"
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+)
 
-func main() {
-	corset.Execute()
+// Condition describes a logical condition which can be used as branch
+// conditions (e.g. for if/while, etc).
+type Condition interface {
+	// Negate a given condition to produce an equivalent (but negated)
+	// condition.
+	Negate() Condition
+	// RegistersRead returns the set of variables used (i.e. read) by this expression
+	Uses() bit.Set
+	// String returns a string representation of this expression.
+	String(mapping variable.Map) string
 }

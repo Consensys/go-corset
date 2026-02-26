@@ -1,5 +1,3 @@
-// Copyright Consensys Software Inc.
-//
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 // the License. You may obtain a copy of the License at
 //
@@ -10,10 +8,26 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package main
+package variable
 
-import "github.com/consensys/go-corset/pkg/cmd/corset"
+// Map defines an abstract notion of mapping a variable identifier to a
+// variable description.
+type Map interface {
+	// Get the descriptor for a given variable.
+	Variable(Id) Descriptor
+}
 
-func main() {
-	corset.Execute()
+// ArrayMap constructs a variable map from an array of variables.
+func ArrayMap(vars ...Descriptor) Map {
+	return &arrayMap{vars}
+}
+
+// arrayMap constructs a variable map from an array of variable declarations.
+type arrayMap struct {
+	vars []Descriptor
+}
+
+// Variable implementation for Map interface
+func (p arrayMap) Variable(id Id) Descriptor {
+	return p.vars[id]
 }

@@ -1,0 +1,56 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package expr
+
+import (
+	"strings"
+
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+)
+
+// ConstAccess represents a named constant value within an expresion.
+type ConstAccess struct {
+	Label string
+}
+
+// NewConstantAccess constructs an expression representing a constant value,
+// along with a base (which is used for pretty printing, etc).
+func NewConstantAccess(label string) Expr {
+	return &ConstAccess{label}
+}
+
+// Equals implementation for the Expr interface.
+func (p *ConstAccess) Equals(e Expr) bool {
+	if e, ok := e.(*Const); ok {
+		return strings.Compare(p.Label, e.Label) == 0
+	}
+	//
+	return false
+}
+
+// Uses implementation for the Expr interface.
+func (p *ConstAccess) Uses() bit.Set {
+	var empty bit.Set
+	return empty
+}
+
+func (p *ConstAccess) String(mapping variable.Map) string {
+	return String(p, mapping)
+}
+
+// ValueRange implementation for the Expr interface.
+func (p *ConstAccess) ValueRange(env variable.Map) math.Interval {
+	panic("todo")
+}

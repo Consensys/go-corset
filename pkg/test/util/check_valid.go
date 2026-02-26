@@ -21,7 +21,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
-	cmd_util "github.com/consensys/go-corset/pkg/cmd/util"
+	cmd_util "github.com/consensys/go-corset/pkg/cmd/corset/util"
 	"github.com/consensys/go-corset/pkg/corset"
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/mir"

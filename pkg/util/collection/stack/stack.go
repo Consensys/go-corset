@@ -82,3 +82,8 @@ func (p *Stack[T]) Pop() T {
 	// Done
 	return item
 }
+
+// Top peeks at the last item on the stack.
+func (p *Stack[T]) Top() T {
+	return p.Peek(0)
+}
