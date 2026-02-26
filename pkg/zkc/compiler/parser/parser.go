@@ -518,6 +518,8 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 		returned, insn, errs = p.parseFail(env)
 	case KEYWORD_IF:
 		returned, insns, errs = p.parseIfElse(pc, env)
+	case KEYWORD_FOR:
+		returned, insns, errs = p.parseFor(pc, env)
 	case KEYWORD_WHILE:
 		returned, insns, errs = p.parseWhile(pc, env)
 	case KEYWORD_RETURN:
@@ -646,6 +648,64 @@ func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []ast.UnresolvedIn
 	exitTarget := pc + uint(len(insns))
 	insns[0] = &stmt.IfGoto[ast.UnresolvedSymbol]{Cond: cond.Negate(), Target: exitTarget}
 	// A while loop never guarantees a return
+	return false, insns, nil
+}
+
+func (p *Parser) parseFor(pc uint, env *Environment) (bool, []ast.UnresolvedInstruction, []source.SyntaxError) {
+	var (
+		errs []source.SyntaxError
+		init ast.UnresolvedInstruction
+		cond expr.Condition
+		post ast.UnresolvedInstruction
+		body []ast.UnresolvedInstruction
+	)
+	// Match 'for'
+	if _, errs = p.expect(KEYWORD_FOR); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Parse init assignment
+	if init, errs = p.parseAssignment(env); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Parse ';'
+	if _, errs = p.expect(SEMICOLON); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Parse condition
+	if cond, errs = p.parseCondition(env); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Parse ';'
+	if _, errs = p.expect(SEMICOLON); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Parse post assignment
+	if post, errs = p.parseAssignment(env); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Layout:
+	//   pc+0:                   init
+	//   pc+1:                   if !cond goto exit  (placeholder)
+	//   pc+2 .. pc+1+|body|:    body
+	//   pc+2+|body|:            post
+	//   pc+3+|body|:            goto pc+1
+	//   pc+4+|body| (exit):     ...
+	condPC := pc + 1
+	// Parse body; starts at condPC+1 = pc+2
+	if _, body, errs = p.parseStatementBlock(condPC+1, env); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Build the instruction sequence
+	insns := make([]ast.UnresolvedInstruction, 0, len(body)+4)
+	insns = append(insns, init)
+	insns = append(insns, nil) // placeholder for if-goto at condPC
+	insns = append(insns, body...)
+	insns = append(insns, post)
+	insns = append(insns, &stmt.Goto[ast.UnresolvedSymbol]{Target: condPC})
+	// Fill in the conditional check: exit is the instruction after the back-goto
+	exitTarget := pc + uint(len(insns))
+	insns[1] = &stmt.IfGoto[ast.UnresolvedSymbol]{Cond: cond.Negate(), Target: exitTarget}
+	// A for loop never guarantees a return
 	return false, insns, nil
 }
 
