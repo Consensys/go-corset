@@ -96,10 +96,14 @@ func writeMemory(m *ast.Memory) {
 	case decl.PRIVATE_STATIC_MEMORY:
 		fmt.Printf("private static")
 	case decl.RANDOM_ACCESS_MEMORY:
-		fmt.Printf("var")
+		fmt.Printf("memory")
 	}
 	// address lines
-	fmt.Printf(" [%s]%s %s", m.Address.String(), m.Data.String(), m.Name())
+	fmt.Printf(" %s(", m.Name())
+	writeMemoryParams(m.Address)
+	fmt.Printf(") -> (")
+	writeMemoryParams(m.Data)
+	fmt.Printf(")")
 	//
 	if m.Contents != nil {
 		fmt.Println(" = {")
@@ -108,6 +112,16 @@ func writeMemory(m *ast.Memory) {
 	}
 	//
 	fmt.Println()
+}
+
+func writeMemoryParams(params []variable.Descriptor) {
+	for i, p := range params {
+		if i > 0 {
+			fmt.Printf(", ")
+		}
+
+		fmt.Printf("%s %s", p.DataType.String(), p.Name)
+	}
 }
 
 func writeMemoryContents(values []big.Int) {

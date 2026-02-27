@@ -103,11 +103,11 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			}
 			// Avoid appending to components
 			continue
-		case KEYWORD_FN:
+		case KEYWORD_FUNCTION:
 			component, errors = p.parseFunction()
 		case KEYWORD_PUBLIC, KEYWORD_PRIVATE:
 			component, errors = p.parseInputOutputMemory()
-		case KEYWORD_VAR:
+		case KEYWORD_MEMORY:
 			component, errors = p.parseReadWriteMemory()
 		case KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
 			errors = p.syntaxErrors(lookahead, "requires public or private")
@@ -188,7 +188,7 @@ func (p *Parser) parseFunction() (ast.UnresolvedDeclaration, []source.SyntaxErro
 		returned bool
 	)
 	// Parse function declaration
-	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
+	if _, errs := p.expect(KEYWORD_FUNCTION); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse function name
@@ -274,8 +274,8 @@ func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.S
 		input   bool
 		name    string
 		errs    []source.SyntaxError
-		address data.Type
-		data    data.Type
+		address []variable.Descriptor
+		data    []variable.Descriptor
 	)
 	// Parse pub modifier (if present)
 	if p.match(KEYWORD_PUBLIC) {
@@ -298,148 +298,102 @@ func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.S
 	default:
 		return nil, p.syntaxErrors(lookahead, "unknown declaration")
 	}
-	// Parse memory type first (C-style)
-	if address, data, errs = p.parseMemoryType(false); len(errs) > 0 {
-		return nil, errs
-	}
-	// Parse memory name
+	// Parse memory name first (function-style)
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
-	// Done
-	if input {
-		return decl.NewReadOnlyMemory[ast.UnresolvedSymbol](public, name, address, data), nil
+	// Parse address args: (type param, ...)
+	if address, errs = p.parseMemoryArgsList(variable.PARAMETER); len(errs) > 0 {
+		return nil, errs
 	}
-	//
-	return decl.NewWriteOnceMemory[ast.UnresolvedSymbol](public, name, address, data), nil
+	// Parse ->
+	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse data args: (type result, ...)
+	if data, errs = p.parseMemoryArgsList(variable.RETURN); len(errs) > 0 {
+		return nil, errs
+	}
+	// Done
+	var mem *decl.Memory[ast.UnresolvedSymbol]
+	if input {
+		mem = decl.NewReadOnlyMemory[ast.UnresolvedSymbol](public, name, address, data)
+	} else {
+		mem = decl.NewWriteOnceMemory[ast.UnresolvedSymbol](public, name, address, data)
+	}
+
+	return mem, nil
 }
 
 func (p *Parser) parseReadWriteMemory() (ast.UnresolvedDeclaration, []source.SyntaxError) {
 	var (
 		name    string
 		errs    []source.SyntaxError
-		address data.Type
-		data    data.Type
+		address []variable.Descriptor
+		data    []variable.Descriptor
 	)
 	//
-	if _, errs := p.expect(KEYWORD_VAR); len(errs) > 0 {
+	if _, errs := p.expect(KEYWORD_MEMORY); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse memory type first (C-style)
-	if address, data, errs = p.parseMemoryType(true); len(errs) > 0 {
-		return nil, errs
-	}
-	// Parse memory name
+	// Parse memory name first (function-style)
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
+	// Parse address args: (type param, ...)
+	if address, errs = p.parseMemoryArgsList(variable.PARAMETER); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse ->
+	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
+		return nil, errs
+	}
+	// Parse data args: (type result, ...)
+	if data, errs = p.parseMemoryArgsList(variable.RETURN); len(errs) > 0 {
+		return nil, errs
+	}
 	// Done
-	return decl.NewRandomAccessMemory[ast.UnresolvedSymbol](name, address, data), nil
+	mem := decl.NewRandomAccessMemory[ast.UnresolvedSymbol](name, address, data)
+
+	return mem, nil
 }
 
-func (p *Parser) parseMemoryType(ram bool) (data.Type, data.Type, []source.SyntaxError) {
+// parseMemoryArgsList parses a function-style typed parameter list for memory
+// declarations: (type name, type name, ...).  Returns both the combined type
+// (for the address/data bus) and the individual named descriptors.
+func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]variable.Descriptor, []source.SyntaxError) {
 	var (
-		addressBus data.Type
-		dataBus    data.Type
-		errs       []source.SyntaxError
+		params []variable.Descriptor
+		errs   []source.SyntaxError
 	)
-	// Parse entries until end brace
-	if ram {
-		if addressBus, errs = p.parseSeparatedTypeList(LSQUARE, RSQUARE); len(errs) > 0 {
-			return nil, nil, errs
-		}
-	} else if addressBus, errs = p.parseTypeList(LSQUARE, RSQUARE); len(errs) > 0 {
-		return nil, nil, errs
-	}
-	// Check for type list or not
-	if p.lookahead().Kind == LBRACE {
-		if dataBus, errs = p.parseTypeList(LBRACE, RBRACE); len(errs) > 0 {
-			return nil, nil, errs
-		}
-	} else {
-		if dataBus, errs = p.parseType(); len(errs) > 0 {
-			return nil, nil, errs
-		}
-	}
-	//
-	return addressBus, dataBus, nil
-}
-
-func (p *Parser) parseSeparatedTypeList(lBrace, rBrace uint) (data.Type, []source.SyntaxError) {
-	var (
-		types []data.Type
-		errs  []source.SyntaxError
-	)
-	// Parse start of list
-	if _, errs = p.expect(lBrace); len(errs) > 0 {
+	if _, errs = p.expect(LBRACE); len(errs) > 0 {
 		return nil, errs
 	}
-	// Keep going until end of list
-	// Parse entries until end brace
-	for p.lookahead().Kind != rBrace {
-		var next data.Type
-		// look for ","
-		switch {
-		case len(types) == 1:
-			if _, errs = p.expect(SEMICOLON); len(errs) > 0 {
-				return nil, errs
-			}
-		case len(types) > 1:
+
+	for p.lookahead().Kind != RBRACE {
+		var t data.Type
+
+		if len(params) > 0 {
 			if _, errs = p.expect(COMMA); len(errs) > 0 {
 				return nil, errs
 			}
 		}
-		//
-		if next, errs = p.parseType(); len(errs) > 0 {
-			return nil, errs
-		}
-		//
-		types = append(types, next)
-	}
-	//
-	p.match(rBrace)
-	//
-	if len(types) == 1 {
-		return types[0], nil
-	}
-	//
-	return data.NewTuple(types...), nil
-}
 
-func (p *Parser) parseTypeList(lBrace, rBrace uint) (data.Type, []source.SyntaxError) {
-	var (
-		types []data.Type
-		errs  []source.SyntaxError
-	)
-	// Parse start of list
-	if _, errs = p.expect(lBrace); len(errs) > 0 {
-		return nil, errs
-	}
-	// Keep going until end of list
-	// Parse entries until end brace
-	for p.lookahead().Kind != rBrace {
-		var next data.Type
-		// look for ","
-		if len(types) > 0 {
-			if _, errs = p.expect(COMMA); len(errs) > 0 {
-				return nil, errs
-			}
-		}
-		//
-		if next, errs = p.parseType(); len(errs) > 0 {
+		if t, errs = p.parseType(); len(errs) > 0 {
 			return nil, errs
 		}
-		//
-		types = append(types, next)
+
+		var pname string
+		if pname, errs = p.parseIdentifier(); len(errs) > 0 {
+			return nil, errs
+		}
+
+		params = append(params, variable.New(kind, pname, t))
 	}
-	//
-	p.match(rBrace)
-	//
-	if len(types) == 1 {
-		return types[0], nil
-	}
-	//
-	return data.NewTuple(types...), nil
+
+	p.match(RBRACE)
+
+	return params, nil
 }
 
 func (p *Parser) parseType() (data.Type, []source.SyntaxError) {

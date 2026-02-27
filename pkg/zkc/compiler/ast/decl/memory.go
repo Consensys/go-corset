@@ -13,7 +13,7 @@ package decl
 import (
 	"math/big"
 
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // MemoryKind determines the type of a given memory (i.e. random access, read
@@ -53,16 +53,16 @@ type Memory[E any] struct {
 	Kind MemoryKind
 	// Address bus for memory (where, for random access, the first line always
 	// denotes the index type used).
-	Address data.Type
+	Address []variable.Descriptor
 	// Data bus for memory.
-	Data data.Type
+	Data []variable.Descriptor
 	// Contents (for static memory only)
 	Contents []big.Int
 }
 
 // NewMemory constructs a new memory.
-func NewMemory[E any](name string, kind MemoryKind, address data.Type, data data.Type, contents []big.Int,
-) *Memory[E] {
+func NewMemory[E any](name string, kind MemoryKind, address []variable.Descriptor, data []variable.Descriptor,
+	contents []big.Int) *Memory[E] {
 	// sanity checks
 	if contents != nil && kind != PUBLIC_STATIC_MEMORY && kind != PRIVATE_STATIC_MEMORY {
 		panic("invalid non-static memory")
@@ -70,41 +70,43 @@ func NewMemory[E any](name string, kind MemoryKind, address data.Type, data data
 		panic("invalid static memory")
 	}
 	//
-	return &Memory[E]{name, kind, address, data, contents}
+	return &Memory[E]{name: name, Kind: kind, Address: address, Data: data, Contents: contents}
 }
 
 // NewRandomAccessMemory constructs a new random access memory.
-func NewRandomAccessMemory[E any](name string, address data.Type, data data.Type) *Memory[E] {
-	return &Memory[E]{name, RANDOM_ACCESS_MEMORY, address, data, nil}
+func NewRandomAccessMemory[E any](name string, address []variable.Descriptor, data []variable.Descriptor) *Memory[E] {
+	return &Memory[E]{name: name, Kind: RANDOM_ACCESS_MEMORY, Address: address, Data: data}
 }
 
 // NewReadOnlyMemory constructs a new read-only access memory.
-func NewReadOnlyMemory[E any](public bool, name string, address data.Type, data data.Type) *Memory[E] {
+func NewReadOnlyMemory[E any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+) *Memory[E] {
 	if public {
-		return &Memory[E]{name, PUBLIC_READ_ONLY_MEMORY, address, data, nil}
+		return &Memory[E]{name: name, Kind: PUBLIC_READ_ONLY_MEMORY, Address: address, Data: data}
 	}
 	//
-	return &Memory[E]{name, PRIVATE_READ_ONLY_MEMORY, address, data, nil}
+	return &Memory[E]{name: name, Kind: PRIVATE_READ_ONLY_MEMORY, Address: address, Data: data}
 }
 
 // NewWriteOnceMemory constructs a new write-once memory.
-func NewWriteOnceMemory[E any](public bool, name string, address data.Type, data data.Type) *Memory[E] {
+func NewWriteOnceMemory[E any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+) *Memory[E] {
 	if public {
-		return &Memory[E]{name, PUBLIC_WRITE_ONCE_MEMORY, address, data, nil}
+		return &Memory[E]{name: name, Kind: PUBLIC_WRITE_ONCE_MEMORY, Address: address, Data: data}
 	}
 	//
-	return &Memory[E]{name, PRIVATE_WRITE_ONCE_MEMORY, address, data, nil}
+	return &Memory[E]{name: name, Kind: PRIVATE_WRITE_ONCE_MEMORY, Address: address, Data: data}
 }
 
 // NewStaticMemory constructs a new static memory.
-func NewStaticMemory[E any](public bool, name string, address data.Type, data data.Type,
+func NewStaticMemory[E any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
 	contents []big.Int) *Memory[E] {
 	//
 	if public {
-		return &Memory[E]{name, PUBLIC_STATIC_MEMORY, address, data, contents}
+		return &Memory[E]{name: name, Kind: PUBLIC_STATIC_MEMORY, Address: address, Data: data, Contents: contents}
 	}
 	//
-	return &Memory[E]{name, PRIVATE_STATIC_MEMORY, address, data, contents}
+	return &Memory[E]{name: name, Kind: PRIVATE_STATIC_MEMORY, Address: address, Data: data, Contents: contents}
 }
 
 // Name implementation for Declaration interface

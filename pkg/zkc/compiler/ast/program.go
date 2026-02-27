@@ -218,7 +218,7 @@ func (p *Program) BootMachine(input map[string][]byte, mainFn string) (BootMachi
 func initInputMemory(mem *Memory, input map[string][]byte, acc []BootMemory, errs []error) ([]BootMemory, []error) {
 	if bytes, ok := input[mem.Name()]; ok {
 		decoder := NewAddressDecoder(mem.Address, mem.Data)
-		ints := data.DecodeAll(mem.Data, bytes)
+		ints := data.DecodeAll(variable.DescriptorsToType(mem.Data...), bytes)
 		//
 		return append(acc, memory.NewArray[big.Int](mem.Name(), decoder, ints...)), errs
 	}
@@ -257,18 +257,25 @@ type AddressDecoder struct {
 // addressGeometry is populated by flattening the address type and collecting
 // each leaf's bit width.  dataGeometry is the number of leaves produced by
 // flattening the data type (i.e. the number of data words per row).
-func NewAddressDecoder(address data.Type, dataType data.Type) AddressDecoder {
-	var addrGeom []uint
-	address.Flattern("", func(_ string, bitwidth uint) {
-		addrGeom = append(addrGeom, bitwidth)
-	})
+func NewAddressDecoder(addressLines []variable.Descriptor, dataLines []variable.Descriptor) AddressDecoder {
+	var (
+		addressGeometry []uint
+		dataGeometry    uint
+	)
+	// flattern address lines
+	for _, address := range addressLines {
+		address.DataType.Flattern(address.Name, func(_ string, bitwidth uint) {
+			addressGeometry = append(addressGeometry, bitwidth)
+		})
+	}
+	// flattern data lines
+	for _, data := range dataLines {
+		data.DataType.Flattern(data.Name, func(_ string, _ uint) {
+			dataGeometry++
+		})
+	}
 
-	var dataGeom uint
-	dataType.Flattern("", func(_ string, _ uint) {
-		dataGeom++
-	})
-
-	return AddressDecoder{addrGeom, dataGeom}
+	return AddressDecoder{addressGeometry, dataGeometry}
 }
 
 // Decode maps address (a tuple of big.Int values representing a logical memory
