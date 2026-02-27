@@ -62,7 +62,7 @@ func (p *Assign[E]) Definitions() []variable.Id {
 func (p *Assign[E]) String(mapping variable.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(array.Reverse(p.Targets), mapping))
+	builder.WriteString(variablesToString(array.Reverse(p.Targets), mapping))
 	builder.WriteString(" = ")
 	builder.WriteString(p.Source.String(mapping))
 	//
@@ -138,9 +138,9 @@ func checkTargetRegisters(targets []variable.Id, env variable.Map) error {
 	return nil
 }
 
-// RegistersToString returns a string representation for zero or more registers
+// variablesToString returns a string representation for zero or more registers
 // separated by a comma.
-func registersToString(rids []variable.Id, env variable.Map) string {
+func variablesToString(rids []variable.Id, env variable.Map) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(rids); i++ {
