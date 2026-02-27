@@ -35,7 +35,7 @@ type ResolvedSymbol struct {
 // Instruction represents a macro instruction  where external identifiers
 // are otherwise resolved. As such, it should not be possible that such a
 // declaration refers to unknown (or otherwise incorrect) external components.
-type Instruction = stmt.Instruction[ResolvedSymbol]
+type Instruction = stmt.Stmt[ResolvedSymbol]
 
 // Declaration represents a declaration which can contain macro
 // instructions and where external identifiers are otherwise resolved. As such,
@@ -65,7 +65,7 @@ type UnresolvedSymbol struct {
 // components are unresolved linkage records.  As such, its possible that such a
 // instruction may fail with an error at link time due to an unresolvable
 // reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedInstruction = stmt.Instruction[UnresolvedSymbol]
+type UnresolvedInstruction = stmt.Stmt[UnresolvedSymbol]
 
 // UnresolvedDeclaration represents a declaration which contains string identifies
 // for external (i.e. unlinked) components.  As such, its possible that such a
