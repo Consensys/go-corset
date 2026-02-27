@@ -1,0 +1,5 @@
+;;error:2:31-32:variable already declared
+function f(u8 x) -> (u8 r, u8 r) {
+  r = 0
+  return
+}

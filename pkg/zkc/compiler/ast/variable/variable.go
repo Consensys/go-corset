@@ -21,8 +21,6 @@ type Kind uint8
 type Id = uint
 
 var (
-	// GENERIC defines the type of generic parameters.
-	GENERIC = Kind(0)
 	// CONTEXT defines the type of "contextual" variables.
 	CONTEXT = Kind(1)
 	// PARAMETER defines the type of parameter variables.

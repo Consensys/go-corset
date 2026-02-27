@@ -1,0 +1,6 @@
+;;error:3:13-14:initialiser requires single variable declaration
+function f(u8 x) -> (u8 r) {
+  u8 a, b = 0
+  r = 0
+  return
+}

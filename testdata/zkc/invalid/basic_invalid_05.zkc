@@ -1,0 +1,5 @@
+;;error:3:3-4:unknown register
+function f(u8 x) -> (u8 r) {
+  z = 0
+  return
+}

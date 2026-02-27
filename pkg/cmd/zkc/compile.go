@@ -96,10 +96,14 @@ func writeMemory(m *ast.Memory) {
 	case decl.PRIVATE_STATIC_MEMORY:
 		fmt.Printf("private static")
 	case decl.RANDOM_ACCESS_MEMORY:
-		fmt.Printf("var")
+		fmt.Printf("memory")
 	}
 	// address lines
-	fmt.Printf(" %s [%s]%s", m.Name(), m.Address.String(), m.Data.String())
+	fmt.Printf(" %s(", m.Name())
+	writeMemoryParams(m.Address)
+	fmt.Printf(") -> (")
+	writeMemoryParams(m.Data)
+	fmt.Printf(")")
 	//
 	if m.Contents != nil {
 		fmt.Println(" = {")
@@ -108,6 +112,16 @@ func writeMemory(m *ast.Memory) {
 	}
 	//
 	fmt.Println()
+}
+
+func writeMemoryParams(params []variable.Descriptor) {
+	for i, p := range params {
+		if i > 0 {
+			fmt.Printf(", ")
+		}
+
+		fmt.Printf("%s %s", p.DataType.String(), p.Name)
+	}
 }
 
 func writeMemoryContents(values []big.Int) {
@@ -159,7 +173,7 @@ func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
 				first = false
 			}
 			//
-			fmt.Printf("%s %s", r.Name, r.DataType.String())
+			fmt.Printf("%s %s", r.DataType.String(), r.Name)
 		}
 	}
 }
@@ -167,7 +181,7 @@ func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
 func writeFunctionVariables(f *ast.Function) {
 	for _, r := range f.Variables {
 		if r.IsLocal() {
-			fmt.Printf("\tvar %s %s\n", r.Name, r.DataType.String())
+			fmt.Printf("\t%s %s\n", r.DataType.String(), r.Name)
 		}
 	}
 }
