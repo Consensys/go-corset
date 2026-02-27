@@ -14,7 +14,7 @@ package machine
 
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
-	"github.com/consensys/go-corset/pkg/zkc/vm/fun"
+	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 )
 
@@ -36,22 +36,24 @@ func New[W, N any, M memory.Memory[W], E Executor[W, N, BaseState[W, N, M]]]() B
 	return Base[W, N, M, E]{NewBaseState[W, N, M](), executor}
 }
 
-// Boot this machine by starting the given function.
-func (p Base[W, N, M, E]) Boot(main uint) *Base[W, N, M, E] {
+// Boot this machine by starting the given function with the given inputs.
+func (p Base[W, N, M, E]) Boot(main uint, input map[string][]W) Base[W, N, M, E] {
 	var (
 		base      = p
 		mainFn    = p.state.functions[main]
 		bootFrame = NewFrame[W](main, mainFn.Width())
 	)
+	// Initialise memory
+
 	// Boot the frame
 	base.state.callstack.Push(bootFrame)
 	// Done
-	return &base
+	return base
 }
 
 // WithFunctions returns a base machine updated with the given set of functions,
 // but which is otherwise identical to before.
-func (p Base[W, N, M, E]) WithFunctions(fns ...fun.Function[N]) Base[W, N, M, E] {
+func (p Base[W, N, M, E]) WithFunctions(fns ...function.Function[N]) Base[W, N, M, E] {
 	var base = p
 	//
 	base.state.functions = fns
@@ -101,14 +103,14 @@ func (p Base[W, N, M, E]) WithStatics(statics ...M) Base[W, N, M, E] {
 
 // Execute the machine for the given number of steps, returning the actual
 // number of steps executed and an error (if execution failed).
-func (p *Base[W, N, M, E]) Execute(steps uint) (uint, error) {
+func (p Base[W, N, M, E]) Execute(steps uint) (uint, error) {
 	var (
 		nsteps uint
 		err    error
 	)
 	//
 	for !p.state.callstack.IsEmpty() {
-		if p.state, err = p.executor.Execute(p.state); err != nil {
+		if err = p.executor.Execute(p.state); err != nil {
 			return nsteps, err
 		}
 		//
@@ -119,7 +121,7 @@ func (p *Base[W, N, M, E]) Execute(steps uint) (uint, error) {
 }
 
 // State implementation for the Machine interface.
-func (p *Base[W, N, M, E]) State() State[W, N] {
+func (p Base[W, N, M, E]) State() State[W, N] {
 	return p.state
 }
 
@@ -130,7 +132,7 @@ func (p *Base[W, N, M, E]) State() State[W, N] {
 // BaseState provides the base implementation of the StaticState
 // interface.
 type BaseState[W any, N any, M memory.Memory[W]] struct {
-	functions []fun.Function[N]
+	functions []function.Function[N]
 	statics   []M
 	inputs    []M
 	outputs   []M
@@ -155,7 +157,7 @@ func NewBaseState[W any, N any, M memory.Memory[W]]() BaseState[W, N, M] {
 // ========================================================
 
 // Function implementation of StaticState interface
-func (p BaseState[W, N, M]) Function(id uint) fun.Function[N] {
+func (p BaseState[W, N, M]) Function(id uint) function.Function[N] {
 	return p.functions[id]
 }
 

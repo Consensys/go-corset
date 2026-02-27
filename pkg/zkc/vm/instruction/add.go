@@ -13,7 +13,6 @@
 package instruction
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -35,7 +34,7 @@ import (
 // result of r1 + 1 occupies 17bits, of which the first 16 are written to r0
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
-type Add[W fmt.Stringer] struct {
+type Add[W any] struct {
 	// Target registers for assignment
 	Targets []register.Id
 	// Source registers for assignment

@@ -37,7 +37,7 @@ func registersToString(regs []register.Id, env register.Map) string {
 	return builder.String()
 }
 
-func expressionToString[W fmt.Stringer](op string, regs []register.Id, constant W, env register.Map) string {
+func expressionToString[W any](op string, regs []register.Id, constant W, env register.Map) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(regs); i++ {
@@ -49,7 +49,7 @@ func expressionToString[W fmt.Stringer](op string, regs []register.Id, constant 
 		builder.WriteString("")
 	}
 	//
-	builder.WriteString(constant.String())
+	builder.WriteString(fmt.Sprintf("%v", constant))
 	//
 	return builder.String()
 }

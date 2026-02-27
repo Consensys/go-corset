@@ -10,22 +10,35 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ast
+package machine
 
 import (
 	"errors"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 )
 
-// Executor for (resolved) ast programs.
-type Executor[S machine.State[big.Int, Instruction]] struct{}
+// BootState is the concrete runtime state of a booted   It bundles
+// the function table together with all memory banks (statics, inputs, outputs,
+// RAMs) and the call stack, and is passed by value into each BootExecutor step.
+type BootState = BaseState[big.Int, instruction.Instruction[big.Int], memory.Boot]
 
-// Execute implementation for the machine.Executor interface
-func (p Executor[S]) Execute(state S) (S, error) {
+// Boot is a fully assembled machine operating over big integers.
+type Boot = Base[big.Int, instruction.Boot, memory.Boot, BootExecutor[BootState]]
+
+// NewBoot constructs an empty boot machine.
+func NewBoot() Boot {
+	return Base[big.Int, instruction.Boot, memory.Boot, BootExecutor[BootState]]{}
+}
+
+// BootExecutor for boot machine(s).
+type BootExecutor[S State[big.Int, instruction.Boot]] struct{}
+
+// Execute implementation for the Executor interface
+func (p BootExecutor[S]) Execute(state S) error {
 	var (
 		err       error
 		callstack = state.CallStack()
@@ -40,32 +53,24 @@ func (p Executor[S]) Execute(state S) (S, error) {
 	)
 	//
 	switch insn := insn.(type) {
-	case *stmt.Assign[ResolvedSymbol]:
-		panic("todo assignment")
-	case *stmt.IfGoto[ResolvedSymbol]:
-		v := executeCondition(insn.Cond, frame)
-		//
-		if v {
-			frame.Goto(insn.Target)
-		} else {
-			frame.Goto(pc + 1)
-		}
-	case *stmt.Goto[ResolvedSymbol]:
+	case *instruction.Add[big.Int]:
+		panic("todo add")
+	case *instruction.Goto:
 		frame.Goto(insn.Target)
-	case *stmt.Fail[ResolvedSymbol]:
+	case *instruction.Fail:
 		err = errors.New("machine panic")
-	case *stmt.Return[ResolvedSymbol]:
-		return state, nil
+	case *instruction.Return:
+		return nil
 	default:
 		panic("unknown instruction encountered")
 	}
 	//
 	callstack.Push(frame)
 	//
-	return state, err
+	return err
 }
 
-func executeCondition(cond expr.Condition, frame machine.Frame[big.Int]) bool {
+func executeCondition(cond expr.Condition, frame Frame[big.Int]) bool {
 	switch c := cond.(type) {
 	case *expr.Cmp:
 		return executeCmp(*c, frame)
@@ -74,7 +79,7 @@ func executeCondition(cond expr.Condition, frame machine.Frame[big.Int]) bool {
 	}
 }
 
-func executeCmp(cond expr.Cmp, frame machine.Frame[big.Int]) bool {
+func executeCmp(cond expr.Cmp, frame Frame[big.Int]) bool {
 	var (
 		lhs = executeExpression(cond.Left, frame)
 		rhs = executeExpression(cond.Right, frame)
@@ -99,7 +104,7 @@ func executeCmp(cond expr.Cmp, frame machine.Frame[big.Int]) bool {
 	}
 }
 
-func executeExpression(e expr.Expr, frame machine.Frame[big.Int]) big.Int {
+func executeExpression(e expr.Expr, frame Frame[big.Int]) big.Int {
 	switch e := e.(type) {
 	case *expr.Add:
 		return add(e.Exprs, frame)
@@ -118,7 +123,7 @@ func executeExpression(e expr.Expr, frame machine.Frame[big.Int]) big.Int {
 	}
 }
 
-func add(es []expr.Expr, frame machine.Frame[big.Int]) big.Int {
+func add(es []expr.Expr, frame Frame[big.Int]) big.Int {
 	var result big.Int
 	//
 	for i, e := range es {
@@ -134,7 +139,7 @@ func add(es []expr.Expr, frame machine.Frame[big.Int]) big.Int {
 	return result
 }
 
-func multiply(es []expr.Expr, frame machine.Frame[big.Int]) big.Int {
+func multiply(es []expr.Expr, frame Frame[big.Int]) big.Int {
 	var result big.Int
 	//
 	for i, e := range es {
@@ -150,7 +155,7 @@ func multiply(es []expr.Expr, frame machine.Frame[big.Int]) big.Int {
 	return result
 }
 
-func subtract(es []expr.Expr, frame machine.Frame[big.Int]) big.Int {
+func subtract(es []expr.Expr, frame Frame[big.Int]) big.Int {
 	var result big.Int
 	//
 	for i, e := range es {
