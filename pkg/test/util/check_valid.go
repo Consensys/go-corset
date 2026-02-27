@@ -20,7 +20,7 @@ import (
 // CheckValid checks that a given source file compiles without any errors.
 // nolint
 func CheckValid(t *testing.T, test, ext string, compiler ErrorCompiler) {
-	var filename = fmt.Sprintf("%s/%s.%s", InvalidTestDir, test, ext)
+	var filename = fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
 	// Enable testing each trace in parallel
 	t.Parallel()
 	//

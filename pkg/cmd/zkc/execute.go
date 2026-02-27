@@ -14,6 +14,7 @@ package zkc
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 	"os"
 
@@ -55,20 +56,31 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	program := CompileSourceFiles(args[1:])
 	//
 	if ir {
-		executeIrProgram(program, input)
+		executeIrProgram("main", program, input)
 	}
 }
 
-func executeIrProgram(program ast.Program, input map[string][]byte) {
+func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {
 	var (
-		vm     machine.Core[big.Int, ast.Instruction]
-		errors []error
+		vm        machine.Boot
+		bigInputs map[string][]big.Int
+		errors    []error
 	)
 	// Execute machine in chunks of 1K steps
-	if vm, errors = program.BootMachine(input, "main"); len(errors) == 0 {
-		if _, err := machine.ExecuteAll(vm, 1024); err != nil {
-			// NOTE: determine stack trace!
-			errors = append(errors, err)
+	if bigInputs, errors = program.MapInputs(input); len(errors) == 0 {
+		// Build our machine
+		vm := program.BuildMachine()
+		//
+		if main, ok := findFunction(mainFn, vm); ok {
+			// Boot it
+			vm = vm.Boot(main, bigInputs)
+			// Execute it
+			if _, err := machine.ExecuteAll(vm, 1024); err != nil {
+				// NOTE: determine stack trace!
+				errors = append(errors, err)
+			}
+		} else {
+			errors = append(errors, fmt.Errorf("unknown function \"%s\"", mainFn))
 		}
 	}
 	// Exit with failure (if errors)
@@ -96,6 +108,18 @@ func executeIrProgram(program ast.Program, input map[string][]byte) {
 		//
 		fmt.Println()
 	}
+}
+
+func findFunction(fun string, vm machine.Boot) (uint, bool) {
+	for i := range vm.State().NumFunctions() {
+		ith := vm.State().Function(i)
+		//
+		if ith.Name() == fun {
+			return i, true
+		}
+	}
+	//
+	return math.MaxUint, false
 }
 
 //nolint:errcheck

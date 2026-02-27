@@ -69,3 +69,39 @@ func MapToString(p Map) string {
 	//
 	return builder.String()
 }
+
+// ArrayMap constructs a register map from an array of registers.
+func ArrayMap(name trace.ModuleName, regs ...Register) Map {
+	return &arrayMap{name, regs}
+}
+
+type arrayMap struct {
+	name trace.ModuleName
+	regs []Register
+}
+
+func (p *arrayMap) Name() trace.ModuleName {
+	return p.name
+}
+
+func (p *arrayMap) HasRegister(name string) (Id, bool) {
+	for i, r := range p.regs {
+		if r.Name() == name {
+			return NewId(uint(i)), true
+		}
+	}
+	//
+	return UnusedId(), false
+}
+
+func (p *arrayMap) Register(id Id) Register {
+	return p.regs[id.Unwrap()]
+}
+
+func (p *arrayMap) Registers() []Register {
+	return p.regs
+}
+
+func (p *arrayMap) String() string {
+	return MapToString(p)
+}

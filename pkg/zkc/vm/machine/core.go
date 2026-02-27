@@ -14,7 +14,7 @@ package machine
 
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
-	"github.com/consensys/go-corset/pkg/zkc/vm/fun"
+	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 )
 
@@ -39,7 +39,7 @@ func ExecuteAll[W any, I any, M Core[W, I]](machine M, n uint) (uint, error) {
 // the context of a given machine's state.  This may produce an error, such as
 // when a fail instruction is encountered.
 type Executor[W, N any, S State[W, N]] interface {
-	Execute(state S) (S, error)
+	Execute(state S) error
 }
 
 // Core represents the state of an executing machine, including the state of
@@ -66,7 +66,7 @@ type Core[W any, N any] interface {
 type StaticState[W any, N any] interface {
 	// Return the ith function in this machine in order, for example, to access
 	// its compiled bytecode.
-	Function(id uint) fun.Function[N]
+	Function(id uint) function.Function[N]
 	// Return the number of functions in this machine.
 	NumFunctions() uint
 	// Return the number of (static) Read-Only Memory's of this machine.
