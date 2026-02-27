@@ -526,11 +526,15 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 		returned, insns, errs = p.parseWhile(pc, env)
 	case KEYWORD_RETURN:
 		returned, insn, errs = p.parseReturn(env)
-	case KEYWORD_VAR:
-		insns, errs = p.parseVar(env)
 	default:
-		// parse assignment
-		insn, errs = p.parseAssignment(env)
+		// A declaration starts with a type identifier followed by a name identifier
+		// (e.g. "u8 x = 0"), while an assignment starts with a known variable.
+		if lookahead.Kind == IDENTIFIER && p.tokens[p.index+1].Kind == IDENTIFIER {
+			insns, errs = p.parseVar(env)
+		} else {
+			// parse assignment
+			insn, errs = p.parseAssignment(env)
+		}
 	}
 	// Include unit instruction (if applicable)
 	if insn != nil {
@@ -732,10 +736,6 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 		names    []string
 		datatype data.Type
 	)
-	//
-	if _, errs = p.expect(KEYWORD_VAR); len(errs) > 0 {
-		return nil, errs
-	}
 	// parse type first (C-style)
 	if datatype, errs = p.parseType(); len(errs) > 0 {
 		return nil, errs

@@ -167,7 +167,7 @@ func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
 func writeFunctionVariables(f *ast.Function) {
 	for _, r := range f.Variables {
 		if r.IsLocal() {
-			fmt.Printf("\tvar %s %s\n", r.DataType.String(), r.Name)
+			fmt.Printf("\t%s %s\n", r.DataType.String(), r.Name)
 		}
 	}
 }
