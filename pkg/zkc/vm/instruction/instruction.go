@@ -10,27 +10,28 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package stmt
+package instruction
 
-import "github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+import (
+	"math/big"
 
-// Stmt provides an abstract notion of a macro "machine instruction".
-// Here, macro is intended to imply that the instruction may break down into
-// multiple underlying "micro instructions".
-type Stmt[N any] interface {
-	// Buses identifies any external components (i.e. functions, memories,
-	// types) used by this instruction.  For example, a function call will
-	// return the identifier of the function being called, etc.
-	Buses() []N
+	"github.com/consensys/go-corset/pkg/schema/register"
+)
+
+// Boot instruction is the type of instruction used within the boot machine.
+type Boot = Instruction[big.Int]
+
+// Instruction provides an abstract notion of a "machine instruction".  That is, a single atomic unit which can be
+type Instruction[W any] interface {
 	// Uses returns the set of variables used (i.e. read) by this instruction.
-	Uses() []variable.Id
+	Uses() []register.Id
 	// Definitions returns the set of variables registers defined (i.e. written)
 	// by this instruction.
-	Definitions() []variable.Id
+	Definitions() []register.Id
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.
-	Validate(env variable.Map) error
+	Validate(env register.Map) error
 	// Provide human readable form of instruction
-	String(env variable.Map) string
+	String(env register.Map) string
 }

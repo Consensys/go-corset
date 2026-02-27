@@ -10,27 +10,31 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package util
+package instruction
 
 import (
-	"fmt"
-	"testing"
+	"github.com/consensys/go-corset/pkg/schema/register"
 )
 
-// CheckValid checks that a given source file compiles without any errors.
-// nolint
-func CheckValid(t *testing.T, test, ext string, compiler ErrorCompiler) {
-	var filename = fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
-	// Enable testing each trace in parallel
-	t.Parallel()
-	//
-	srcfile := readSourceFile(t, filename)
-	// Compile source file and expect no errors
-	if errors := compiler(*srcfile); len(errors) > 0 {
-		msg := fmt.Sprintf("Error %s should have compiled\n", srcfile.Filename())
-		for _, err := range errors {
-			msg = fmt.Sprintf("%s  %s\n", msg, errorToString(err))
-		}
-		t.Fatal(msg)
-	}
+// Return performs an unconditional branch to a given target instructon.
+type Return struct {
+}
+
+// Uses implementation for Instruction interface.
+func (p *Return) Uses() []register.Id {
+	return nil
+}
+
+// Definitions implementation for Instruction interface.
+func (p *Return) Definitions() []register.Id {
+	return nil
+}
+
+func (p *Return) String(_ register.Map) string {
+	return "return"
+}
+
+// Validate implementation for Instruction interface.
+func (p *Return) Validate(env register.Map) error {
+	return nil
 }

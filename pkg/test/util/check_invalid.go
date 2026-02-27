@@ -21,18 +21,13 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 )
 
-// InvalidTestDir determines the (relative) location of the test directory.
-// That is where the corset test files (lisp) and the corresponding traces
-// (accepts/rejects) are found.
-const InvalidTestDir = "../../testdata"
-
 // ErrorCompiler compiles a source file and produces zero or more errors.
 type ErrorCompiler func(source.File) []source.SyntaxError
 
 // Check that a given source file fails to compiler.
 // nolint
 func CheckInvalid(t *testing.T, test, ext string, compiler ErrorCompiler) {
-	var filename = fmt.Sprintf("%s/%s.%s", InvalidTestDir, test, ext)
+	var filename = fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
 	// Enable testing each trace in parallel
 	t.Parallel()
 	//

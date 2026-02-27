@@ -38,11 +38,11 @@ type Function[E any] struct {
 	// Number of output variables
 	NumOutputs uint
 	// Code defines the body of this function.
-	Code []stmt.Instruction[E]
+	Code []stmt.Stmt[E]
 }
 
 // NewFunction constructs a new function with the given variables and code
-func NewFunction[E any](name string, variables []variable.Descriptor, code []stmt.Instruction[E]) *Function[E] {
+func NewFunction[E any](name string, variables []variable.Descriptor, code []stmt.Stmt[E]) *Function[E] {
 	var (
 		numInputs  = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsParameter() })
 		numOutputs = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsReturn() })

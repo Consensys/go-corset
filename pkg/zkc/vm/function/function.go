@@ -10,13 +10,17 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package fun
+package function
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 )
+
+// Boot function is suitable for a boot machine.
+type Boot = Function[instruction.Boot]
 
 // Function contains information about an executable function in the system.  A
 // function has one or more registers where: the first n registers are the input
