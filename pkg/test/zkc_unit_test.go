@@ -10,27 +10,26 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package util
+package test
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/consensys/go-corset/pkg/test/util"
 )
 
-// CheckValid checks that a given source file compiles without any errors.
-// nolint
-func CheckValid(t *testing.T, test, ext string, compiler ErrorCompiler) {
-	var filename = fmt.Sprintf("%s/%s.%s", InvalidTestDir, test, ext)
-	// Enable testing each trace in parallel
-	t.Parallel()
-	//
-	srcfile := readSourceFile(t, filename)
-	// Compile source file and expect no errors
-	if errors := compiler(*srcfile); len(errors) > 0 {
-		msg := fmt.Sprintf("Error %s should have compiled\n", srcfile.Filename())
-		for _, err := range errors {
-			msg = fmt.Sprintf("%s  %s\n", msg, errorToString(err))
-		}
-		t.Fatal(msg)
-	}
+// ===================================================================
+// Basic Tests
+// ===================================================================
+
+func Test_ZkcUnit_Basic_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_valid_01")
+}
+
+// ===================================================================
+// Test Helpers
+// ===================================================================
+
+func checkZkcUnit(t *testing.T, test string) {
+	util.CheckValid(t, test, "zkc", compileZkc)
 }

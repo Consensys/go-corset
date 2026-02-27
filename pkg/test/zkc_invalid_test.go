@@ -28,6 +28,66 @@ func Test_ZkcInvalid_Basic_01(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_invalid_01")
 }
 
+func Test_ZkcInvalid_Basic_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_02")
+}
+
+func Test_ZkcInvalid_Basic_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_03")
+}
+
+func Test_ZkcInvalid_Basic_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_04")
+}
+
+func Test_ZkcInvalid_Basic_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_05")
+}
+
+func Test_ZkcInvalid_Basic_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_06")
+}
+
+func Test_ZkcInvalid_Basic_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_07")
+}
+
+func Test_ZkcInvalid_Basic_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_08")
+}
+
+// ===================================================================
+// If Tests
+// ===================================================================
+
+func Test_ZkcInvalid_If_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/if_invalid_01")
+}
+
+func Test_ZkcInvalid_If_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/if_invalid_02")
+}
+
+func Test_ZkcInvalid_If_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/if_invalid_03")
+}
+
+// ===================================================================
+// While Tests
+// ===================================================================
+
+func Test_ZkcInvalid_While_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/while_invalid_01")
+}
+
+func Test_ZkcInvalid_While_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/while_invalid_02")
+}
+
+func Test_ZkcInvalid_While_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/while_invalid_03")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

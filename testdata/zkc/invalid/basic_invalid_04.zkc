@@ -1,0 +1,5 @@
+;;error:2:12-15:unknown type
+function f(int x) -> (u8 r) {
+  r = 0
+  return
+}
