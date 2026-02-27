@@ -102,6 +102,12 @@ const KEYWORD_PUBLIC uint = 32
 // KEYWORD_PRIVATE signals a private input / output
 const KEYWORD_PRIVATE uint = 33
 
+// KEYWORD_WHILE signals a while loop
+const KEYWORD_WHILE uint = 34
+
+// KEYWORD_FOR signals a for loop
+const KEYWORD_FOR uint = 35
+
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 60
 
@@ -231,6 +237,8 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.String("return"), KEYWORD_RETURN),
 	lex.Rule(lex.String("static"), KEYWORD_STATIC),
 	lex.Rule(lex.String("var"), KEYWORD_VAR),
+	lex.Rule(lex.String("for"), KEYWORD_FOR),
+	lex.Rule(lex.String("while"), KEYWORD_WHILE),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
 }
