@@ -99,7 +99,7 @@ func writeMemory(m *ast.Memory) {
 		fmt.Printf("var")
 	}
 	// address lines
-	fmt.Printf(" %s [%s]%s", m.Name(), m.Address.String(), m.Data.String())
+	fmt.Printf(" [%s]%s %s", m.Address.String(), m.Data.String(), m.Name())
 	//
 	if m.Contents != nil {
 		fmt.Println(" = {")
@@ -159,7 +159,7 @@ func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
 				first = false
 			}
 			//
-			fmt.Printf("%s %s", r.Name, r.DataType.String())
+			fmt.Printf("%s %s", r.DataType.String(), r.Name)
 		}
 	}
 }
@@ -167,7 +167,7 @@ func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
 func writeFunctionVariables(f *ast.Function) {
 	for _, r := range f.Variables {
 		if r.IsLocal() {
-			fmt.Printf("\tvar %s %s\n", r.Name, r.DataType.String())
+			fmt.Printf("\tvar %s %s\n", r.DataType.String(), r.Name)
 		}
 	}
 }

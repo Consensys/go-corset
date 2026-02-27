@@ -247,12 +247,14 @@ func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.Sy
 		}
 		//
 		first = false
-		// save lookahead token for syntax errors
-		lookahead := p.lookahead()
-		// parse name, type & optional padding
-		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
+		// parse type first (C-style)
+		if datatype, errs = p.parseType(); len(errs) > 0 {
 			return errs
-		} else if datatype, errs = p.parseType(); len(errs) > 0 {
+		}
+		// save lookahead here so errors point at the name token
+		lookahead := p.lookahead()
+		// parse name
+		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
 			return errs
 		} else if env.IsVariable(arg) {
 			return p.syntaxErrors(lookahead, "variable already declared")
@@ -296,12 +298,12 @@ func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.S
 	default:
 		return nil, p.syntaxErrors(lookahead, "unknown declaration")
 	}
-	// Parse memory name
-	if name, errs = p.parseIdentifier(); len(errs) > 0 {
+	// Parse memory type first (C-style)
+	if address, data, errs = p.parseMemoryType(false); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse memory type
-	if address, data, errs = p.parseMemoryType(false); len(errs) > 0 {
+	// Parse memory name
+	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -323,12 +325,12 @@ func (p *Parser) parseReadWriteMemory() (ast.UnresolvedDeclaration, []source.Syn
 	if _, errs := p.expect(KEYWORD_VAR); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse memory name
-	if name, errs = p.parseIdentifier(); len(errs) > 0 {
+	// Parse memory type first (C-style)
+	if address, data, errs = p.parseMemoryType(true); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse memory type
-	if address, data, errs = p.parseMemoryType(true); len(errs) > 0 {
+	// Parse memory name
+	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -734,6 +736,10 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 	if _, errs = p.expect(KEYWORD_VAR); len(errs) > 0 {
 		return nil, errs
 	}
+	// parse type first (C-style)
+	if datatype, errs = p.parseType(); len(errs) > 0 {
+		return nil, errs
+	}
 	// Parse name(s)
 	for len(names) == 0 || p.match(COMMA) {
 		// Store lookahead for error reporting
@@ -748,10 +754,6 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 		}
 		//
 		names = append(names, name)
-	}
-	// parse type
-	if datatype, errs = p.parseType(); len(errs) > 0 {
-		return nil, errs
 	}
 	// Declare all variables before parsing any initialiser, so the
 	// initialiser expression can reference other already-declared variables.
