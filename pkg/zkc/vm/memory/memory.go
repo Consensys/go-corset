@@ -20,6 +20,9 @@ package memory
 type Memory[W any] interface {
 	// Name returns the name of this RAM
 	Name() string
+	// Initialise this memory with the given contents.  This will overwrite any
+	// existing contents.
+	Initialise(contents []W)
 	// Read a given data-tuple from a given address-tuple.
 	Read(address []W) []W
 	// Write a given data-tuple to a given address-tuple, overwriting the

@@ -14,10 +14,13 @@ package instruction
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // Mul represents an instruction of the following form:
@@ -35,7 +38,7 @@ import (
 // result of r1 * 2 occupies 17bits, of which the first 16 are written to r0
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
-type Mul[W fmt.Stringer] struct {
+type Mul[W word.Word[W]] struct {
 	// Target registers for assignment
 	Targets []register.Id
 	// Source registers for assignment
@@ -65,7 +68,30 @@ func (p *Mul[W]) String(mapping register.Map) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Mul[W]) Validate(env register.Map) error {
-	// TODO
-	return nil
+func (p *Mul[W]) Validate(config field.Config, env register.Map) []error {
+	var errors []error
+	// (1) validate left-hand side fits within bandwidth; target registers fit
+	// within register width; target registers have valid identifiers;
+	errors = append(errors, checkTargetRegisters(config, p.Targets, env)...)
+	// (2) validate right-hand side within bandwidth;
+	if width := p.rhsBitwidth(env); width > config.BandWidth {
+		errors = append(errors, fmt.Errorf("right-hand side exceeds target bandwidth (u%d > u%d)", width, config.BandWidth))
+	}
+	//
+	return errors
+}
+
+func (p *Mul[W]) rhsBitwidth(env register.Map) uint {
+	var rhs big.Int
+	//
+	rhs.SetUint64(1)
+	//
+	for _, target := range p.Sources {
+		ith := env.Register(target)
+		rhs.Mul(&rhs, ith.MaxValue())
+	}
+	// Include constant (if relevant)
+	rhs.Mul(&rhs, p.Constant.BigInt())
+	//
+	return uint(rhs.BitLen())
 }

@@ -16,6 +16,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Goto performs an unconditional branch to a given target instructon.
@@ -38,6 +39,6 @@ func (p *Goto) String(_ register.Map) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Goto) Validate(env register.Map) error {
+func (p *Goto) Validate(_ field.Config, _ register.Map) []error {
 	return nil
 }

@@ -15,7 +15,6 @@ package zkc
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"os"
 
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -25,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -63,13 +63,13 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {
 	var (
 		vm        machine.Boot
-		bigInputs map[string][]big.Int
+		bigInputs map[string][]word.Uint
 		errors    []error
 	)
 	// Execute machine in chunks of 1K steps
 	if bigInputs, errors = program.MapInputs(input); len(errors) == 0 {
 		// Build our machine
-		vm := program.BuildMachine()
+		vm = program.BuildMachine()
 		//
 		if main, ok := findFunction(mainFn, vm); ok {
 			// Boot it

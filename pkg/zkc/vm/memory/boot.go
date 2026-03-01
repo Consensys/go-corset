@@ -13,14 +13,13 @@
 package memory
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // Boot is the concrete memory type used by the boot machine: a pointer to a
 // flat Array of big.Int words addressed via an AddressDecoder.
-type Boot = *Array[big.Int, BootDecoder]
+type Boot = *Array[word.Uint, BootDecoder]
 
 // BootDecoder translates a multi-dimensional logical address into the half-open
 // index range [start, end) within the backing flat slice of a memory.Array.
@@ -69,7 +68,7 @@ func NewBootDecoder(addressLines []variable.Descriptor, dataLines []variable.Des
 // subsequent components, then OR-ed in.  For a scalar address this reduces to
 // index = address[0]; for a tuple (u8, u16) it gives
 // index = address[0]<<16 | address[1].
-func (p BootDecoder) Decode(address []big.Int) (uint64, uint64) {
+func (p BootDecoder) Decode(address []word.Uint) (uint64, uint64) {
 	var index uint64
 	for i, component := range address {
 		index = (index << p.addressGeometry[i]) | component.Uint64()

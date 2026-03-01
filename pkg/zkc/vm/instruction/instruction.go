@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Boot instruction is the type of instruction used within the boot machine.
@@ -31,7 +32,7 @@ type Instruction[W any] interface {
 	// Validate that this instruction is well-formed.  For example, that it is
 	// balanced, that there are no conflicting writes, that all temporaries have
 	// been allocated, etc.
-	Validate(env register.Map) error
+	Validate(field field.Config, env register.Map) []error
 	// Provide human readable form of instruction
 	String(env register.Map) string
 }

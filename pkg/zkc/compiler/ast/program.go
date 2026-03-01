@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // ResolvedSymbol provides linkage information about the given component being
@@ -122,9 +123,9 @@ func NewProgram(components []Declaration) Program {
 // MapInputs configures a given set of input bytes appropriately for the boot
 // program.  If there are missing, unknown or conflicting inputs, then errors
 // are returned.
-func (p *Program) MapInputs(input map[string][]byte) (map[string][]big.Int, []error) {
+func (p *Program) MapInputs(input map[string][]byte) (map[string][]word.Uint, []error) {
 	var (
-		output  = make(map[string][]big.Int)
+		output  = make(map[string][]word.Uint)
 		visited = make(map[string]bool)
 		errors  []error
 	)
@@ -184,13 +185,13 @@ func (p *Program) BuildMachine() machine.Boot {
 			//
 			switch c.Kind {
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
-				inputs = append(inputs, memory.NewArray[big.Int](c.Name(), decoder))
+				inputs = append(inputs, memory.NewArray[word.Uint](c.Name(), decoder))
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
-				outputs = append(outputs, memory.NewArray[big.Int](c.Name(), decoder))
+				outputs = append(outputs, memory.NewArray[word.Uint](c.Name(), decoder))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
-				statics = append(statics, memory.NewArray[big.Int](c.Name(), decoder))
+				statics = append(statics, memory.NewArray[word.Uint](c.Name(), decoder))
 			case decl.RANDOM_ACCESS_MEMORY:
-				rams = append(rams, memory.NewArray[big.Int](c.Name(), decoder))
+				rams = append(rams, memory.NewArray[word.Uint](c.Name(), decoder))
 			}
 		default:
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))

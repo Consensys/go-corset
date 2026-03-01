@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // RegistersToString returns a string representation for zero or more registers
@@ -44,12 +45,54 @@ func expressionToString[W any](op string, regs []register.Id, constant W, env re
 		var rid = regs[i]
 		//
 		builder.WriteString(env.Register(rid).Name())
-		builder.WriteString("")
+		builder.WriteString(" ")
 		builder.WriteString(op)
-		builder.WriteString("")
+		builder.WriteString(" ")
 	}
 	//
 	builder.WriteString(fmt.Sprintf("%v", constant))
 	//
 	return builder.String()
+}
+
+// CheckTargetRegisters performs some simple checks on a set of target registers
+// being written.  Firstly, they cannot be input registers (as this are always
+// constant).  Secondly, we cannot write to the same register more than once
+// (i.e. a conflicting write).
+func checkTargetRegisters(config field.Config, targets []register.Id, regs register.Map) []error {
+	var errors []error
+	//
+	for i, target := range targets {
+		ith := regs.Register(target)
+		//
+		if ith.IsInput() {
+			errors = append(errors, fmt.Errorf("cannot write input register %s", ith.Name()))
+		} else if ith.Width() > config.BandWidth {
+			errors = append(errors, fmt.Errorf("register %s exceeds maximum width (u%d > u%d)",
+				ith.Name(), ith.Width(), config.RegisterWidth))
+		}
+		//
+		for j := i + 1; j < len(targets); j++ {
+			if target == targets[j] {
+				errors = append(errors, fmt.Errorf("conflicting write to register %s", ith.Name()))
+			}
+		}
+	}
+	// check targets fit within bandwidth
+	if sumTargetBits(targets, regs) > config.BandWidth {
+		errors = append(errors, fmt.Errorf("target registers exceed available bandwidth"))
+	}
+	//
+	return errors
+}
+
+// Sum the total number of bits used by the given set of target registers.
+func sumTargetBits(targets []register.Id, regs register.Map) uint {
+	sum := uint(0)
+	//
+	for _, target := range targets {
+		sum += regs.Register(target).Width()
+	}
+	//
+	return sum
 }

@@ -36,7 +36,11 @@ func New[W, N any, M memory.Memory[W], E Executor[W, N, BaseState[W, N, M]]]() B
 	return Base[W, N, M, E]{NewBaseState[W, N, M](), executor}
 }
 
-// Boot this machine by starting the given function with the given inputs.
+// Boot this machine by starting the given function with the given inputs.  This
+// function assumes the given inputs are correctly formed, and will: (1) ingore
+// unknown inputs; (2) initialise empty memories when no input is given for
+// them.  Thus, it is recommended to perform sanity checking on input prior to
+// calling this function.
 func (p Base[W, N, M, E]) Boot(main uint, input map[string][]W) Base[W, N, M, E] {
 	var (
 		base      = p
@@ -44,7 +48,7 @@ func (p Base[W, N, M, E]) Boot(main uint, input map[string][]W) Base[W, N, M, E]
 		bootFrame = NewFrame[W](main, mainFn.Width())
 	)
 	// Initialise memory
-
+	p.state.initialise(input)
 	// Boot the frame
 	base.state.callstack.Push(bootFrame)
 	// Done
@@ -213,4 +217,23 @@ func (p BaseState[W, N, M]) NumOutputs() uint {
 // NumMemories implementation of DynamicState interface
 func (p BaseState[W, N, M]) NumMemories() uint {
 	return uint(len(p.rams))
+}
+
+// ========================================================
+// Helpers
+// =======================================================
+
+func (p BaseState[W, N, M]) initialise(input map[string][]W) {
+	// Initialise stack input memories
+	for _, m := range p.statics {
+		if contents, ok := input[m.Name()]; ok {
+			m.Initialise(contents)
+		}
+	}
+	// Initialise dynamic input memories
+	for _, m := range p.statics {
+		if contents, ok := input[m.Name()]; ok {
+			m.Initialise(contents)
+		}
+	}
 }

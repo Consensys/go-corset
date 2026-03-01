@@ -16,26 +16,32 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/util/collection/stack"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // BootState is the concrete runtime state of a booted   It bundles
 // the function table together with all memory banks (statics, inputs, outputs,
 // RAMs) and the call stack, and is passed by value into each BootExecutor step.
-type BootState = BaseState[big.Int, instruction.Instruction[big.Int], memory.Boot]
+type BootState = BaseState[word.Uint, instruction.Instruction[big.Int], memory.Boot]
 
 // Boot is a fully assembled machine operating over big integers.
-type Boot = Base[big.Int, instruction.Boot, memory.Boot, BootExecutor[BootState]]
+type Boot = Base[word.Uint, instruction.Boot, memory.Boot, BootExecutor[BootState]]
 
 // NewBoot constructs an empty boot machine.
 func NewBoot() Boot {
-	return Base[big.Int, instruction.Boot, memory.Boot, BootExecutor[BootState]]{}
+	var callstack stack.Stack[Frame[word.Uint]]
+	//
+	return Base[word.Uint, instruction.Boot, memory.Boot, BootExecutor[BootState]]{
+		state: BootState{callstack: &callstack},
+	}
 }
 
 // BootExecutor for boot machine(s).
-type BootExecutor[S State[big.Int, instruction.Boot]] struct{}
+type BootExecutor[S State[word.Uint, instruction.Boot]] struct{}
 
 // Execute implementation for the Executor interface
 func (p BootExecutor[S]) Execute(state S) error {
@@ -53,7 +59,7 @@ func (p BootExecutor[S]) Execute(state S) error {
 	)
 	//
 	switch insn := insn.(type) {
-	case *instruction.Add[big.Int]:
+	case *instruction.Add[word.Uint]:
 		panic("todo add")
 	case *instruction.Goto:
 		frame.Goto(insn.Target)

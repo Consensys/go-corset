@@ -10,7 +10,9 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package vm
+package word
+
+import "math/big"
 
 // Word abstracts the data type (a.k.a the "machine word") used for holding
 // values within the machine.  The reason for abstracting this concept is to
@@ -20,4 +22,11 @@ package vm
 // (i.e. because our target field configuration has a maximum register size of
 // 16bits).
 type Word[W any] interface {
+	// Return the value of this word as a big integer.
+	BigInt() *big.Int
+	// Returns value of word as an unsigned integer and will panic if the value
+	// does not fit.
+	Uint64() uint64
+	// Text returns the given word formated in the given base
+	Text(base int) string
 }

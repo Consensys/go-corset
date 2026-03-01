@@ -14,6 +14,7 @@ package instruction
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Return performs an unconditional branch to a given target instructon.
@@ -35,6 +36,6 @@ func (p *Return) String(_ register.Map) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Return) Validate(env register.Map) error {
+func (p *Return) Validate(_ field.Config, _ register.Map) []error {
 	return nil
 }
