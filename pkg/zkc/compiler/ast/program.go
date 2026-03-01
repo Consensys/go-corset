@@ -166,39 +166,39 @@ func (p *Program) MapInputs(input map[string][]byte) (map[string][]word.Uint, []
 
 // BuildMachine attempts to build a fresh (bootable) machine which can be used
 // (for example) to execute this program with some given inputs.
-func (p *Program) BuildMachine() machine.Boot {
+func BuildMachine[W word.Word[W]](p *Program) machine.Boot[W] {
 	var (
-		functions []function.Boot
-		statics   []memory.Boot
-		inputs    []memory.Boot
-		outputs   []memory.Boot
-		rams      []memory.Boot
+		functions []function.Boot[W]
+		statics   []memory.Boot[W]
+		inputs    []memory.Boot[W]
+		outputs   []memory.Boot[W]
+		rams      []memory.Boot[W]
 	)
 	// Initialise components
 	for _, c := range p.declarations {
 		switch c := c.(type) {
 		case *Function:
-			functions = append(functions, compileFunction(*c))
+			functions = append(functions, compileFunction[W](*c))
 		case *Memory:
 			// construct suitable decoder
-			var decoder = memory.NewBootDecoder(c.Address, c.Data)
+			var decoder = memory.NewBootDecoder[W](c.Address, c.Data)
 			//
 			switch c.Kind {
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
-				inputs = append(inputs, memory.NewArray[word.Uint](c.Name(), decoder))
+				inputs = append(inputs, memory.NewArray[W](c.Name(), decoder))
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
-				outputs = append(outputs, memory.NewArray[word.Uint](c.Name(), decoder))
+				outputs = append(outputs, memory.NewArray[W](c.Name(), decoder))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
-				statics = append(statics, memory.NewArray[word.Uint](c.Name(), decoder))
+				statics = append(statics, memory.NewArray[W](c.Name(), decoder))
 			case decl.RANDOM_ACCESS_MEMORY:
-				rams = append(rams, memory.NewArray[word.Uint](c.Name(), decoder))
+				rams = append(rams, memory.NewArray[W](c.Name(), decoder))
 			}
 		default:
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))
 		}
 	}
 	// Construct machine (if no errors)
-	return machine.NewBoot().
+	return machine.NewBoot[W]().
 		WithFunctions(functions...).
 		WithStatics(statics...).
 		WithInputs(inputs...).
@@ -210,11 +210,11 @@ func (p *Program) BuildMachine() machine.Boot {
 // the variable descriptors into register descriptors.  Each variable may
 // expand into one or more registers (e.g. a tuple variable produces one
 // register per element).
-func compileFunction(fn Function) function.Boot {
+func compileFunction[W word.Word[W]](fn Function) function.Boot[W] {
 	var (
 		registers []register.Register
 		padding   big.Int // zero padding
-		bootCode  = make([]instruction.Boot, len(fn.Code))
+		bootCode  = make([]instruction.Instruction[W], len(fn.Code))
 	)
 	//
 	for _, v := range fn.Variables {
@@ -237,14 +237,18 @@ func compileFunction(fn Function) function.Boot {
 	}
 	//
 	for i, stmt := range fn.Code {
-		bootCode[i], registers = compileStatement(stmt, registers)
+		bootCode[i], registers = compileStatement[W](stmt, registers)
 	}
 	//
-	return function.New[instruction.Boot](fn.Name(), registers, bootCode)
+	return function.New[instruction.Instruction[W]](fn.Name(), registers, bootCode)
 }
 
-func compileStatement(s Instruction, registers []register.Register) (instruction.Boot, []register.Register) {
-	switch s.(type) {
+func compileStatement[W word.Word[W]](s Instruction, registers []register.Register,
+) (instruction.Instruction[W], []register.Register) {
+	//
+	switch s := s.(type) {
+	case *stmt.Assign[ResolvedSymbol]:
+		return compileAssignment[W](*s, registers)
 	case *stmt.Fail[ResolvedSymbol]:
 		return &instruction.Fail{}, registers
 	case *stmt.Return[ResolvedSymbol]:
@@ -252,4 +256,10 @@ func compileStatement(s Instruction, registers []register.Register) (instruction
 	default:
 		panic("unknown statement encountered")
 	}
+}
+
+func compileAssignment[W word.Word[W]](s stmt.Assign[ResolvedSymbol], registers []register.Register,
+) (instruction.Instruction[W], []register.Register) {
+	//
+	panic("compile assignment")
 }

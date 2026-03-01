@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -56,16 +57,17 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	//
 	ir := GetFlag(cmd, "ir")
-	ast := GetFlag(cmd, "ast")
+	as := GetFlag(cmd, "ast")
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args)
 	//
-	if ast {
+	if as {
 		writeAbstractSyntaxTree(program)
 	}
 	//
 	if ir {
-		writeIntermediateRepresentation(program.BuildMachine())
+		vm := ast.BuildMachine[word.Uint](&program)
+		writeIntermediateRepresentation[word.Uint](vm)
 	}
 }
 
@@ -203,7 +205,7 @@ func writeFunctionVariables(f *ast.Function) {
 // Intermediate Representation (IR)
 // ============================================================================
 
-func writeIntermediateRepresentation(machine machine.Boot) {
+func writeIntermediateRepresentation[W word.Word[W]](machine machine.Boot[W]) {
 	var (
 		state = machine.State()
 	)
@@ -225,7 +227,7 @@ func writeIntermediateRepresentation(machine machine.Boot) {
 	}
 	// Write functions
 	for i := range state.NumFunctions() {
-		writeIrFunction(state.Function(i))
+		writeIrFunction[W](state.Function(i))
 	}
 }
 
@@ -233,7 +235,7 @@ func writeIrMemory(kind string, name string) {
 	fmt.Printf("%s %s(?) -> (?)\n", kind, name)
 }
 
-func writeIrFunction(f function.Boot) {
+func writeIrFunction[W word.Word[W]](f function.Boot[W]) {
 	var (
 		name   = trace.ModuleName{Name: f.Name(), Multiplier: 1}
 		regMap = register.ArrayMap(name, f.Registers()...)
@@ -255,7 +257,7 @@ func writeIrFunction(f function.Boot) {
 	//
 	fmt.Println(" {")
 	//
-	writeIrFunctionVariables(f)
+	writeIrFunctionVariables[W](f)
 	//
 	for pc, insn := range f.Code() {
 		fmt.Printf("[%d]\t%s\n", pc, insn.String(regMap))
@@ -280,7 +282,7 @@ func writeIrFunctionArgs(kind register.Type, regs []register.Register) {
 	}
 }
 
-func writeIrFunctionVariables(f function.Boot) {
+func writeIrFunctionVariables[W word.Word[W]](f function.Boot[W]) {
 	for _, r := range f.Registers() {
 		if !r.IsInputOutput() {
 			fmt.Printf("\tu%d %s\n", r.Width(), r.Name())

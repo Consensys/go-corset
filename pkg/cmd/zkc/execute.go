@@ -62,14 +62,14 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 
 func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {
 	var (
-		vm        machine.Boot
+		vm        machine.Boot[word.Uint]
 		bigInputs map[string][]word.Uint
 		errors    []error
 	)
 	// Execute machine in chunks of 1K steps
 	if bigInputs, errors = program.MapInputs(input); len(errors) == 0 {
 		// Build our machine
-		vm = program.BuildMachine()
+		vm = ast.BuildMachine[word.Uint](&program)
 		//
 		if main, ok := findFunction(mainFn, vm); ok {
 			// Boot it
@@ -110,7 +110,7 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 	}
 }
 
-func findFunction(fun string, vm machine.Boot) (uint, bool) {
+func findFunction[W word.Word[W]](fun string, vm machine.Boot[W]) (uint, bool) {
 	for i := range vm.State().NumFunctions() {
 		ith := vm.State().Function(i)
 		//

@@ -19,7 +19,7 @@ import (
 
 // Boot is the concrete memory type used by the boot machine: a pointer to a
 // flat Array of big.Int words addressed via an AddressDecoder.
-type Boot = *Array[word.Uint, BootDecoder]
+type Boot[W word.Word[W]] = *Array[W, BootDecoder[W]]
 
 // BootDecoder translates a multi-dimensional logical address into the half-open
 // index range [start, end) within the backing flat slice of a memory.Array.
@@ -27,7 +27,7 @@ type Boot = *Array[word.Uint, BootDecoder]
 // memory's address data type.  addressGeometry records the bit width of each
 // address component; dataGeometry records how many data words make up a single
 // row, so that multi-word rows are addressed contiguously.
-type BootDecoder struct {
+type BootDecoder[W word.Word[W]] struct {
 	addressGeometry []uint
 	dataGeometry    uint
 }
@@ -37,7 +37,9 @@ type BootDecoder struct {
 // addressGeometry is populated by flattening the address type and collecting
 // each leaf's bit width.  dataGeometry is the number of leaves produced by
 // flattening the data type (i.e. the number of data words per row).
-func NewBootDecoder(addressLines []variable.Descriptor, dataLines []variable.Descriptor) BootDecoder {
+func NewBootDecoder[W word.Word[W]](addressLines []variable.Descriptor, dataLines []variable.Descriptor,
+) BootDecoder[W] {
+	//
 	var (
 		addressGeometry []uint
 		dataGeometry    uint
@@ -55,7 +57,7 @@ func NewBootDecoder(addressLines []variable.Descriptor, dataLines []variable.Des
 		})
 	}
 
-	return BootDecoder{addressGeometry, dataGeometry}
+	return BootDecoder[W]{addressGeometry, dataGeometry}
 }
 
 // Decode maps address (a tuple of big.Int values representing a logical memory
@@ -68,7 +70,7 @@ func NewBootDecoder(addressLines []variable.Descriptor, dataLines []variable.Des
 // subsequent components, then OR-ed in.  For a scalar address this reduces to
 // index = address[0]; for a tuple (u8, u16) it gives
 // index = address[0]<<16 | address[1].
-func (p BootDecoder) Decode(address []word.Uint) (uint64, uint64) {
+func (p BootDecoder[W]) Decode(address []W) (uint64, uint64) {
 	var index uint64
 	for i, component := range address {
 		index = (index << p.addressGeometry[i]) | component.Uint64()

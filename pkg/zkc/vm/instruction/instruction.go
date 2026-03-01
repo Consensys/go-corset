@@ -13,14 +13,9 @@
 package instruction
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
-
-// Boot instruction is the type of instruction used within the boot machine.
-type Boot = Instruction[big.Int]
 
 // Instruction provides an abstract notion of a "machine instruction".  That is, a single atomic unit which can be
 type Instruction[W any] interface {

@@ -26,25 +26,25 @@ import (
 // BootState is the concrete runtime state of a booted   It bundles
 // the function table together with all memory banks (statics, inputs, outputs,
 // RAMs) and the call stack, and is passed by value into each BootExecutor step.
-type BootState = BaseState[word.Uint, instruction.Instruction[big.Int], memory.Boot]
+type BootState[W word.Word[W]] = BaseState[W, instruction.Instruction[W], memory.Boot[W]]
 
-// Boot is a fully assembled machine operating over big integers.
-type Boot = Base[word.Uint, instruction.Boot, memory.Boot, BootExecutor[BootState]]
+// Boot is a fully assembled machine operating over arbitrary machine words.
+type Boot[W word.Word[W]] = Base[W, instruction.Instruction[W], memory.Boot[W], BootExecutor[W, BootState[W]]]
 
 // NewBoot constructs an empty boot machine.
-func NewBoot() Boot {
-	var callstack stack.Stack[Frame[word.Uint]]
+func NewBoot[W word.Word[W]]() Boot[W] {
+	var callstack stack.Stack[Frame[W]]
 	//
-	return Base[word.Uint, instruction.Boot, memory.Boot, BootExecutor[BootState]]{
-		state: BootState{callstack: &callstack},
+	return Base[W, instruction.Instruction[W], memory.Boot[W], BootExecutor[W, BootState[W]]]{
+		state: BootState[W]{callstack: &callstack},
 	}
 }
 
 // BootExecutor for boot machine(s).
-type BootExecutor[S State[word.Uint, instruction.Boot]] struct{}
+type BootExecutor[W word.Word[W], S State[W, instruction.Instruction[W]]] struct{}
 
 // Execute implementation for the Executor interface
-func (p BootExecutor[S]) Execute(state S) error {
+func (p BootExecutor[W, S]) Execute(state S) error {
 	var (
 		err       error
 		callstack = state.CallStack()
