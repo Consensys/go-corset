@@ -5,46 +5,38 @@ a C-like syntax with fixed-width unsigned integer types and explicit memory
 declarations. ZkC programs are compiled and executed by the `zkc` toolchain, which
 is part of the `go-corset` repository.
 
-## Program Structure
-
-A ZkC source file is a sequence of top-level declarations:
-
-- **`memory`** — a private read/write memory array
-- **`public input` / `private input`** — a read-only (write-once from the outside) memory
-- **`public output` / `private output`** — a write-once output memory
-- **`function`** — a callable function which may or may not modify one
-  or more declared memories.
-- **`const`** — a named compile-time constant
-- **`include`** — include another source file
-
-The entry point for execution is a function named `main`.
-
 ## Functions
 
 Functions are the fundamental building blocks of ZkC programs:
 
 ```zkc
-function name(u8 param1, u16 param2) -> (u32 result) {
+function max(u16 x, u16 y) -> (u16 res) {
   // body
-  result = param1 + param2
+  if x > y {
+    res = x
+  } else {
+    res = y
+  }
+  //
   return
 }
 ```
 
-- Parameters are immutable; they cannot be assigned to inside the body.
-- Return values are mutable local variables that must be set before `return`.
-- Every execution path must end with `return` (or `fail`).
+In the above, parameters `x` and `y` are declared to be `u16`.  In
+fact, unlike many other languages, ZkC supports unsigned integer types
+of arbitrary bitwidth, such as: `u2`, `u3`, `u11`, `u15`, `u48`,
+`u160`, etc.
 
-## Types
+There are some restrictions imposed upon functions.  For example,
+parameters cannot be assigned and are immutable for the duration of a
+function.  Likewise, return values and local variables must be defined
+being used --- there are no default values in ZkC.
 
-ZkC currently supports unsigned integer types of arbitrary bit-width:
+## Inputs
 
-```
-u1   u2   u4   u8   u16   u32   u64   ...
-```
+## Outputs
 
-The syntax is `u<N>` where `N` is the number of bits.  There are no signed
-integer, floating-point, struct, or array types at this time.
+## Read / Write Memory
 
 ## Constants
 
@@ -60,7 +52,7 @@ const SIZE     = 2^10
 Numeric literals may be written in decimal, hexadecimal (`0x…`), or binary
 (`0b…`), and may use `_` as a visual separator (e.g. `0xFF_FF`).
 
-## Variables
+## Variable Declarations
 
 Local variables are declared inside a function body with an optional initialiser:
 
@@ -70,6 +62,65 @@ u8 y = 42     // declared and initialised
 ```
 
 Only a single variable may carry an initialiser per declaration statement.
+
+### Assignments
+
+```zkc
+target = expression
+```
+
+A single expression result can be split across multiple targets listed on the
+left-hand side.  The result is distributed big-endian across the targets, which
+is useful for capturing carry bits:
+
+```zkc
+carry, lo = lo + 1   // lo gets the low bits; carry gets the overflow bit
+```
+
+### Loops
+
+In addition to `if` conditions (as seen above), ZkC supports `while`
+and `for` loops using a familiar syntax:
+
+```zkc
+u8 i = 0
+
+while i < 10 {
+  i = i + 1
+  // body
+}
+```
+
+The above can be written equivalently using the `for`-loop syntax:
+
+```zkc
+for i = 0; i < 10; i = i + 1 {
+  // body
+}
+```
+
+**NOTE**: loops in a function necessarily force it to be a so-called
+_multi-line function_ (see below).  As such, in many cases, it can be
+more efficient (in terms of generated constraints) to use recursion.
+
+### Exceptions
+
+ZkC supports a `fail` instruction which is similar to a `panic` in
+other languages.  If executed, this immediately terminates the
+machine.  More importantly, however, is that the generated constraints
+cannot hold for any execution which reaches a `fail`.  The following
+illustrates:
+
+```zkc
+function divide(u16 x, u16 y) -> (u16 r) {
+  // sanity check that y != 0
+  if y == 0 { fail }
+  ...
+}
+```
+
+In this case, the `fail` instruction is being used to enforce an
+expected precondition to the function.
 
 ## Expressions
 
@@ -94,57 +145,6 @@ Comparison operators (used in conditions only):
 | `a <= b` | less than or equal    |
 | `a > b`  | greater than          |
 | `a >= b` | greater than or equal |
-
-## Statements
-
-### Assignment
-
-```zkc
-target = expression
-```
-
-A single expression result can be split across multiple targets listed on the
-left-hand side.  The result is distributed big-endian across the targets, which
-is useful for capturing carry bits:
-
-```zkc
-carry, lo = lo + 1   // lo gets the low bits; carry gets the overflow bit
-```
-
-### Conditionals
-
-```zkc
-if x > y {
-  z = x
-} else {
-  z = y
-}
-```
-
-The `else` branch is optional.
-
-### While Loop
-
-```zkc
-while i < 10 {
-  i = i + 1
-}
-```
-
-### For Loop
-
-```zkc
-for i = 0; i < 10; i = i + 1 {
-  // body
-}
-```
-
-### Return and Fail
-
-```zkc
-return   // normal return from the current function
-fail     // signal an exceptional (error) termination
-```
 
 ## Memory Declarations
 
