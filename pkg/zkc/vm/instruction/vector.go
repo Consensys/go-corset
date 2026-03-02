@@ -24,11 +24,49 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-// Vector instructions are instructions which are composed of two or more micro
-// instructions.   The intuition here is that micro instructions can be executed
-// by the underlying machine "in parallel".  This is analoguous to the concept
-// of "Very-Long Instruction Words (VLIW)" but takes this to an extreme ---
-// there is not bound on the width of a vector instruction.
+// Vector instructions are instructions composed of some number of micro
+// instructions which, with restrictions, can be executed by the underlying
+// machine "in parallel".  The approach is analoguous to the concept of
+// "Very-Long Instruction Words (VLIW)" but taken to more of an extreme ---
+// there is no limit on the number of micro-instructions.
+//
+// To better understand vector instructions, consider two instructions executed
+// in sequence (the at pc location 0, the second at pc location 1):
+//
+// (pc=0) x = y + 1 (pc=1) z = 0
+//
+// When executing these instructions, there is an intermediate state after the
+// first instruction is executed but before the second has been where x has been
+// written but z has not.  Alternatively, the two instructions can be composed
+// together to form a vector instruction, written like so:
+//
+// (pc=0) x = y + 1 ; z = 0
+//
+// In this case, both instructions are executed together and there is no
+// intermediate state where x is written but z is not.
+//
+// To ensure easy translation into polynomial constraints, there are
+// restrictions on how vector instructions can be composed.  In particular, no
+// variable can be assigned twice on the same execution path.  Thus, for
+// example, this is an invalid vector instruction:
+//
+// (pc=0) x = 0 ; x = 1
+//
+// These writes are said to be _conflicting_.  In contrast, the following is a
+// valid vector instruction:
+//
+// (pc=0) skip_if x != y 2 ; r = 0 ; ret ; r = 1 ; ret
+//
+// In this case, whilst there are two assignments to register r, neither are on
+// the same path.  These writes are said to be _non-conflicting_.  Finally, we
+// should note that register forwarding is applied within vector instructions.
+// Thus, for example, the following is allowed:
+//
+// (pc=0) x = 0; y = x + 1; ret
+//
+// Here, the value of x written in the instruction is "forwarded" to the
+// assignment for y.  This process is, roughly speaking, analoguous to register
+// forwarding as found in CPU architectures.
 type Vector[W word.Word[W]] struct {
 	codes []MicroInstruction[W]
 }
