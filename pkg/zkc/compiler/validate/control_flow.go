@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package compiler
+package validate
 
 import (
 	"fmt"
@@ -23,21 +23,20 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// Validate checks that a given program is well-formed.  For example, an
-// assignment "x,y = z" must be balanced (i.e. number of bits on lhs must match
-// number on rhs).  Likewise, variables cannot be used before they are defined,
-// and all control-flow paths must reach a "return" instruction, etc. Finally,
-// we cannot assign to an input register under the current calling convention.
-func Validate(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
+// ControlFlow checks for issues related to the control-flow of a function.  For
+// example, where a register is not definitely assigned before being used.  Or,
+// a control-flow path exists which is not terminated with ret.  This is
+// implemented using a straightforward dataflow analysis.  One aspect worth
+// noting is that the dataflow sets hold true for registers which are undefined,
+// and false for registers which are defined.
+func ControlFlow(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
 	var errors []source.SyntaxError
 	//
 	for _, d := range program.Components() {
 		switch d := d.(type) {
 		case *ast.Constant:
-			// TODO: check for cycles
 		case *ast.Function:
-			errors = append(errors, validateInstructions(*d, srcmaps)...)
-			errors = append(errors, validateControlFlow(*d, srcmaps)...)
+			errors = append(errors, validateFunctionFlow(*d, srcmaps)...)
 		case *ast.Memory:
 			// ignore
 		default:
@@ -48,38 +47,7 @@ func Validate(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxErro
 	return errors
 }
 
-// Check that each instruction in the function's body is correctly balanced.
-// Amongst other things, this means ensuring the right number of bits are used
-// on the left-hand side given the right-hand side.  For example, suppose "x :=
-// y + 1" where both x and y are byte registers.  This does not balance because
-// the right-hand side generates 9 bits but the left-hand side can only consume
-// 8bits.
-func validateInstructions(fn ast.Function, srcmaps source.Maps[any]) []source.SyntaxError {
-	//
-	var errors []source.SyntaxError
-
-	for _, stmt := range fn.Code {
-		err := stmt.Validate(&fn)
-		//
-		if err != nil {
-			if !srcmaps.Has(stmt) {
-				panic(err)
-			}
-			//
-			errors = append(errors, *srcmaps.SyntaxError(stmt, err.Error()))
-		}
-	}
-	//
-	return errors
-}
-
-// Check for issues related to the control-flow of a function.  For example,
-// where a register is not definitely assigned before being used.  Or, a
-// control-flow path exists which is not terminated with ret.  This is
-// implemented using a straightforward dataflow analysis.  One aspect worth
-// noting is that the dataflow sets hold true for registers which are undefined,
-// and false for registers which are defined.
-func validateControlFlow(fn ast.Function, srcmaps source.Maps[any]) []source.SyntaxError {
+func validateFunctionFlow(fn ast.Function, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
 		n          = uint(len(fn.Code))
 		errors     []source.SyntaxError

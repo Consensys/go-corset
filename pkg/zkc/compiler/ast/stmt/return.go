@@ -17,32 +17,27 @@ import (
 )
 
 // Return signals a return from the enclosing function.
-type Return[E any] struct {
+type Return[S any] struct {
 	// dummy is included to force Return structs to be stored in the heap.
 	//nolint
 	Dummy uint
 }
 
 // Buses implementation for Instruction interface
-func (p *Return[E]) Buses() []E {
+func (p *Return[S]) Buses() []S {
 	return nil
 }
 
 // Uses implementation for Instruction interface.
-func (p *Return[E]) Uses() []variable.Id {
+func (p *Return[S]) Uses() []variable.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Return[E]) Definitions() []variable.Id {
+func (p *Return[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *Return[E]) String(_ variable.Map) string {
+func (p *Return[S]) String(_ variable.Map) string {
 	return "return"
-}
-
-// Validate implementation for Instruction interface.
-func (p *Return[E]) Validate(env variable.Map) error {
-	return nil
 }

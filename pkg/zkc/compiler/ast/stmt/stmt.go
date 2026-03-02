@@ -30,10 +30,6 @@ type Stmt[S symbol.Symbol[S]] interface {
 	// Definitions returns the set of variables registers defined (i.e. written)
 	// by this instruction.
 	Definitions() []variable.Id
-	// Validate that this instruction is well-formed.  For example, that it is
-	// balanced, that there are no conflicting writes, that all temporaries have
-	// been allocated, etc.
-	Validate(env variable.Map) error
 	// Provide human readable form of instruction
 	String(env variable.Map) string
 }

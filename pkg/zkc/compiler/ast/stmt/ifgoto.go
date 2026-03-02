@@ -41,20 +41,20 @@ type Condition uint8
 
 // IfGoto describes a conditional branch which branches to a given target
 // instruction if the given condition holds.
-type IfGoto[I symbol.Symbol[I]] struct {
+type IfGoto[S symbol.Symbol[S]] struct {
 	// Cond indicates the condition
-	Cond expr.Condition[I]
+	Cond expr.Condition[S]
 	// Target identifies target PC
 	Target uint
 }
 
 // Buses implementation for Instruction interface
-func (p *IfGoto[I]) Buses() []I {
+func (p *IfGoto[S]) Buses() []S {
 	panic("todo")
 }
 
 // Uses implementation for Instruction interface.
-func (p *IfGoto[I]) Uses() []variable.Id {
+func (p *IfGoto[S]) Uses() []variable.Id {
 	var (
 		reads []variable.Id
 		bits  bit.Set = p.Cond.LocalUses()
@@ -70,16 +70,10 @@ func (p *IfGoto[I]) Uses() []variable.Id {
 }
 
 // Definitions implementation for Instruction interface.
-func (p *IfGoto[I]) Definitions() []variable.Id {
+func (p *IfGoto[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *IfGoto[I]) String(env variable.Map) string {
+func (p *IfGoto[S]) String(env variable.Map) string {
 	return fmt.Sprintf("if %s goto %d", p.Cond.String(env), p.Target)
-}
-
-// Validate implementation for Instruction interface.
-func (p *IfGoto[I]) Validate(env variable.Map) error {
-	//
-	return nil
 }

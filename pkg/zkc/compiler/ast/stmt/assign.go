@@ -13,8 +13,6 @@
 package stmt
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
@@ -38,29 +36,29 @@ import (
 // result of r1 + 1 occupies 17bits, of which the first 16 are written to r0
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
-type Assign[I symbol.Symbol[I]] struct {
+type Assign[S symbol.Symbol[S]] struct {
 	// Target registers for assignment
 	Targets []variable.Id
 	// Source expresion for assignment
-	Source expr.Expr[I]
+	Source expr.Expr[S]
 }
 
 // Buses implementation for Instruction interface
-func (p *Assign[I]) Buses() []I {
+func (p *Assign[S]) Buses() []S {
 	panic("todo")
 }
 
 // Uses implementation for Instruction interface.
-func (p *Assign[I]) Uses() []variable.Id {
-	return expr.Uses[I](p.Source)
+func (p *Assign[S]) Uses() []variable.Id {
+	return expr.Uses[S](p.Source)
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Assign[I]) Definitions() []variable.Id {
+func (p *Assign[S]) Definitions() []variable.Id {
 	return p.Targets
 }
 
-func (p *Assign[I]) String(mapping variable.Map) string {
+func (p *Assign[S]) String(mapping variable.Map) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(variablesToString(array.Reverse(p.Targets), mapping))
@@ -68,75 +66,6 @@ func (p *Assign[I]) String(mapping variable.Map) string {
 	builder.WriteString(p.Source.String(mapping))
 	//
 	return builder.String()
-}
-
-// Validate implementation for Instruction interface.
-func (p *Assign[I]) Validate(env variable.Map) error {
-	var (
-		lhs_bits         = sumTargetBits(p.Targets, env)
-		rhs_bits, signed = expr.BitWidth[I](p.Source, env)
-	)
-	// check
-	if lhs_bits < rhs_bits {
-		return fmt.Errorf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits)
-	} else if signed {
-		// Sign bit required, so check there is one.
-		if err := checkSignBit(p.Targets, env); err != nil {
-			return err
-		}
-	}
-	//
-	return checkTargetRegisters(p.Targets, env)
-}
-
-// Sum the total number of bits used by the given set of target registers.
-func sumTargetBits(targets []variable.Id, env variable.Map) uint {
-	sum := uint(0)
-	//
-	for _, target := range targets {
-		sum += env.Variable(target).BitWidth()
-	}
-	//
-	return sum
-}
-
-// the sign bit check is necessary to ensure there is always exactly one sign bit.
-func checkSignBit(targets []variable.Id, env variable.Map) error {
-	var n = len(targets) - 1
-	// Sanity check targets
-	if n < 0 {
-		return errors.New("malformed assignment")
-	}
-	// Determine width of sign bit
-	signBitWidth := env.Variable(targets[n]).BitWidth()
-	// Check it is a single bit
-	if signBitWidth == 1 {
-		return nil
-	}
-	// Problem, no alignment.
-	return fmt.Errorf("missing sign bit (found u%d most significant bits)", signBitWidth)
-}
-
-// CheckTargetRegisters performs some simple checks on a set of target registers
-// being written.  Firstly, they cannot be input registers (as this are always
-// constant).  Secondly, we cannot write to the same register more than once
-// (i.e. a conflicting write).
-func checkTargetRegisters(targets []variable.Id, env variable.Map) error {
-	for i, id := range targets {
-		ith := env.Variable(id)
-		//
-		if ith.IsParameter() {
-			return fmt.Errorf("cannot write parameter %s", ith.Name)
-		}
-		//
-		for j := i + 1; j < len(targets); j++ {
-			if targets[i] == targets[j] {
-				return fmt.Errorf("conflicting write to %s", ith.Name)
-			}
-		}
-	}
-	//
-	return nil
 }
 
 // variablesToString returns a string representation for zero or more registers

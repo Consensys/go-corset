@@ -19,30 +19,25 @@ import (
 )
 
 // Goto performs an unconditional branch to a given target instructon.
-type Goto[E any] struct {
+type Goto[S any] struct {
 	Target uint
 }
 
 // Buses implementation for Instruction interface
-func (p *Goto[E]) Buses() []E {
+func (p *Goto[S]) Buses() []S {
 	return nil
 }
 
 // Uses implementation for Instruction interface.
-func (p *Goto[E]) Uses() []variable.Id {
+func (p *Goto[S]) Uses() []variable.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Goto[E]) Definitions() []variable.Id {
+func (p *Goto[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *Goto[E]) String(_ variable.Map) string {
+func (p *Goto[S]) String(_ variable.Map) string {
 	return fmt.Sprintf("goto %d", p.Target)
-}
-
-// Validate implementation for Instruction interface.
-func (p *Goto[E]) Validate(env variable.Map) error {
-	return nil
 }
