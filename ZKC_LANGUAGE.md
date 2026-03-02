@@ -34,9 +34,49 @@ being used --- there are no default values in ZkC.
 
 ## Inputs
 
+Input memories provide the means for the communicating input data from
+the external environment to be used within an executing ZkC program.
+
+```zkc
+public  input rom(u8 address) -> (u8 value)
+private input cfg(u16 address) -> (u32 value)
+```
+
+Input memories are a form of _read-only memory_ and cannot be written
+during execution.  Inputs can either be `public` or `private` whose
+meaning is determined by the proving system in use.  Intuitively,
+however, `public` inputs are those which are committed to whilst
+`private` inputs form part of the witness.
+
 ## Outputs
 
+Output memories provide the means for the communicating data generated
+whilst executing a ZkC program back to the external environment.
+
+```zkc
+public  output result(u8 address) -> (u8 value)
+private output log(u16 address) -> (u32 value)
+```
+
+Output memories are a form of _write-once memory_ meaning that each
+location must be written exactly once.  Furthermore, output memories
+can be either `public` or `private` with the intended meaning as for
+input memory.
+
 ## Read / Write Memory
+
+Read/Write Memory (a.k.a Random-Access Memory) provides a form of
+unbound internal storage.  Multiple read/write memories can be defined
+with different types as part of a ZkC program.
+
+```zkc
+memory buf(u8 address) -> (u8 value)
+```
+
+Observe that any data written into a read/write memory is not
+available to the external environment once execution has completed.
+As such, any important data needing to be communicated back must be
+written into an output memory before execution terminates.
 
 ## Constants
 
@@ -146,37 +186,6 @@ Comparison operators (used in conditions only):
 | `a > b`  | greater than          |
 | `a >= b` | greater than or equal |
 
-## Memory Declarations
-
-Memories are declared at the top level and accessed inside functions like
-function calls.
-
-### Read/Write RAM
-
-```zkc
-memory buf(u8 address) -> (u8 value)
-```
-
-RAM can be read and written freely from any function.
-
-### Read-Only Input
-
-```zkc
-public  input rom(u8 address) -> (u8 value)
-private input cfg(u16 address) -> (u32 value)
-```
-
-Input memories are provided externally before execution and cannot be written.
-
-### Write-Once Output
-
-```zkc
-public  output result(u8 address) -> (u8 value)
-private output log(u16 address) -> (u32 value)
-```
-
-Output memories can be written at most once per address.
-
 ## File Inclusion
 
 ```zkc
@@ -185,20 +194,6 @@ include "path/to/other.zkc"
 
 Included files are processed as if their declarations appeared at the include
 site.
-
-## A Complete Example
-
-```zkc
-// Return the larger of two 4-bit values.
-function max(u4 x, u4 y) -> (u4 z) {
-  if x > y {
-    z = x
-  } else {
-    z = y
-  }
-  return
-}
-```
 
 ### Constraint Compilation
 
