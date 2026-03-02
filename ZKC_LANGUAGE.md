@@ -9,14 +9,31 @@ is part of the `go-corset` repository.
 
 A ZkC source file is a sequence of top-level declarations:
 
-- **`function`** — a callable subroutine
-- **`memory`** — a private read/write RAM bank
+- **`memory`** — a private read/write memory array
 - **`public input` / `private input`** — a read-only (write-once from the outside) memory
 - **`public output` / `private output`** — a write-once output memory
+- **`function`** — a callable function which may or may not modify one
+  or more declared memories.
 - **`const`** — a named compile-time constant
 - **`include`** — include another source file
 
 The entry point for execution is a function named `main`.
+
+## Functions
+
+Functions are the fundamental building blocks of ZkC programs:
+
+```zkc
+function name(u8 param1, u16 param2) -> (u32 result) {
+  // body
+  result = param1 + param2
+  return
+}
+```
+
+- Parameters are immutable; they cannot be assigned to inside the body.
+- Return values are mutable local variables that must be set before `return`.
+- Every execution path must end with `return` (or `fail`).
 
 ## Types
 
@@ -42,20 +59,6 @@ const SIZE     = 2^10
 
 Numeric literals may be written in decimal, hexadecimal (`0x…`), or binary
 (`0b…`), and may use `_` as a visual separator (e.g. `0xFF_FF`).
-
-## Functions
-
-```zkc
-function name(u8 param1, u16 param2) -> (u32 result) {
-  // body
-  result = param1 + param2
-  return
-}
-```
-
-- Parameters are immutable; they cannot be assigned to inside the body.
-- Return values are mutable local variables that must be set before `return`.
-- Every execution path must end with `return` (or `fail`).
 
 ## Variables
 
@@ -196,6 +199,27 @@ function max(u4 x, u4 y) -> (u4 z) {
   return
 }
 ```
+
+### Constraint Compilation
+
+The ultimate goal of ZkC is to compile programs down to the arithmetic
+constraint systems used by ZK provers which consist of: **vanishing
+constraints**, **lookup arguments**, and **permutation arguments**.
+
+The underlying arithmetic constraint system is broken up into
+_modules_, each of which is composed of one or more columns.
+Polynomial constraints can be enforced on modules, whilst lookup
+arguments can hold between columns either in the same module, or
+between different modules.  Finally, permutation arguments hold
+between columns in the same module.  A trace in this system is
+likewise broken up into modules, where each module contains zero or
+more rows of values (with one for each column).
+
+In the ZkC system, each function body is implemented as a module
+containing polynomial constraints generated from the instructions of
+the function.  Likewise, function calls are implemented as lookups
+between modules and map parameters / returns at the call site to the
+corresponding inputs / outputs of the function being called.
 
 ## CLI Usage
 
