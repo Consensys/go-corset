@@ -20,6 +20,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
 // Validate checks that a given program is well-formed.  For example, an
@@ -32,6 +33,8 @@ func Validate(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxErro
 	//
 	for _, d := range program.Components() {
 		switch d := d.(type) {
+		case *ast.Constant:
+			// TODO: check for cycles
 		case *ast.Function:
 			errors = append(errors, validateInstructions(*d, srcmaps)...)
 			errors = append(errors, validateControlFlow(*d, srcmaps)...)
@@ -120,19 +123,19 @@ func applyInstructionSemantics(worklist *Worklist, fn ast.Function, srcmaps sour
 	state, errors = applyInstructionFlow(insn, state, fn, srcmaps)
 	// Propagate state along branches
 	switch insn := insn.(type) {
-	case *stmt.Goto[ast.ResolvedSymbol]:
+	case *stmt.Goto[symbol.Resolved]:
 		// Unconditional jump target
 		worklist.Join(insn.Target, state)
-	case *stmt.IfGoto[ast.ResolvedSymbol]:
+	case *stmt.IfGoto[symbol.Resolved]:
 		// Conditional jump target
 		worklist.Join(insn.Target, state)
 		// Fall thru
 		worklist.Join(pc+1, state)
-	case *stmt.Return[ast.ResolvedSymbol]:
+	case *stmt.Return[symbol.Resolved]:
 		// Check all outputs are assigned
 		errs := checkOutputsAssigned(insn, state, fn, srcmaps)
 		errors = append(errors, errs...)
-	case *stmt.Fail[ast.ResolvedSymbol]:
+	case *stmt.Fail[symbol.Resolved]:
 		// Nothing to do here
 	default:
 		// Check not falling off the end

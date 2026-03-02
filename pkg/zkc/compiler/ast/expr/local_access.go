@@ -16,43 +16,41 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// VarAccess represents a register access within an expresion.
-type VarAccess struct {
+// LocalAccess represents a register access within an expresion.
+type LocalAccess[I symbol.Symbol[I]] struct {
 	Variable variable.Id
 }
 
-// NewVarAccess constructs an expression representing a register access.
-func NewVarAccess(variable variable.Id) Expr {
-	return &VarAccess{Variable: variable}
+// NewLocalAccess constructs an expression representing a register access.
+func NewLocalAccess[I symbol.Symbol[I]](variable variable.Id) Expr[I] {
+	return &LocalAccess[I]{Variable: variable}
 }
 
-// Equals implementation for the Expr interface.
-func (p *VarAccess) Equals(e Expr) bool {
-	if e, ok := e.(*VarAccess); ok {
-		return p.Variable == e.Variable
-	}
-	//
-	return false
+// NonLocalUses implementation for the Expr interface.
+func (p *LocalAccess[I]) NonLocalUses() set.AnySortedSet[I] {
+	panic("todo")
 }
 
-// Uses implementation for the Expr interface.
-func (p *VarAccess) Uses() bit.Set {
+// LocalUses implementation for the Expr interface.
+func (p *LocalAccess[I]) LocalUses() bit.Set {
 	var read bit.Set
 	read.Insert(p.Variable)
 	//
 	return read
 }
 
-func (p *VarAccess) String(mapping variable.Map) string {
-	return String(p, mapping)
+func (p *LocalAccess[I]) String(mapping variable.Map) string {
+	return String[I](p, mapping)
 }
 
 // ValueRange implementation for the Expr interface.
-func (p *VarAccess) ValueRange(env variable.Map) math.Interval {
+func (p *LocalAccess[I]) ValueRange(env variable.Map) math.Interval {
 	var (
 		bound    = big.NewInt(2)
 		bitwidth = env.Variable(p.Variable).BitWidth()

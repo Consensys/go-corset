@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
@@ -37,29 +38,29 @@ import (
 // result of r1 + 1 occupies 17bits, of which the first 16 are written to r0
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
-type Assign[E any] struct {
+type Assign[I symbol.Symbol[I]] struct {
 	// Target registers for assignment
 	Targets []variable.Id
 	// Source expresion for assignment
-	Source expr.Expr
+	Source expr.Expr[I]
 }
 
 // Buses implementation for Instruction interface
-func (p *Assign[E]) Buses() []E {
+func (p *Assign[I]) Buses() []I {
 	panic("todo")
 }
 
 // Uses implementation for Instruction interface.
-func (p *Assign[E]) Uses() []variable.Id {
-	return expr.Uses(p.Source)
+func (p *Assign[I]) Uses() []variable.Id {
+	return expr.Uses[I](p.Source)
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Assign[E]) Definitions() []variable.Id {
+func (p *Assign[I]) Definitions() []variable.Id {
 	return p.Targets
 }
 
-func (p *Assign[E]) String(mapping variable.Map) string {
+func (p *Assign[I]) String(mapping variable.Map) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(variablesToString(array.Reverse(p.Targets), mapping))
@@ -70,10 +71,10 @@ func (p *Assign[E]) String(mapping variable.Map) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Assign[E]) Validate(env variable.Map) error {
+func (p *Assign[I]) Validate(env variable.Map) error {
 	var (
 		lhs_bits         = sumTargetBits(p.Targets, env)
-		rhs_bits, signed = expr.BitWidth(p.Source, env)
+		rhs_bits, signed = expr.BitWidth[I](p.Source, env)
 	)
 	// check
 	if lhs_bits < rhs_bits {

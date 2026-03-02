@@ -12,13 +12,29 @@
 // SPDX-License-Identifier: Apache-2.0
 package expr
 
-import "github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+)
 
-// Condition describes a logical condition which can be used as branch
-// conditions (e.g. for if/while, etc).
-type Condition[I symbol.Symbol[I]] interface {
-	Expr[I]
-	// Negate a given condition to produce an equivalent (but negated)
-	// condition.
-	Negate() Condition[I]
+func localUses[I symbol.Symbol[I]](es ...Expr[I]) bit.Set {
+	var reads bit.Set
+	//
+	for _, e := range es {
+		reads.Union(e.LocalUses())
+	}
+	//
+	return reads
+}
+
+func nonLocalUses[I symbol.Symbol[I]](es ...Expr[I]) set.AnySortedSet[I] {
+	var res set.AnySortedSet[I]
+	//
+	for _, e := range es {
+		ith := e.NonLocalUses()
+		res.InsertSorted(&ith)
+	}
+	//
+	return res
 }

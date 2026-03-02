@@ -18,7 +18,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 )
 
@@ -64,7 +66,7 @@ func Link(files ...parser.UnlinkedSourceFile) (ast.Program, source.Maps[any], []
 // Linker packages together the various bits of information required for linking
 // the assembly files.
 type Linker struct {
-	busmap     map[string]ast.ResolvedSymbol
+	busmap     map[string]symbol.Resolved
 	components []ast.UnresolvedDeclaration
 	srcmap     source.Maps[any]
 	names      map[string]bool
@@ -74,7 +76,7 @@ type Linker struct {
 func NewLinker() *Linker {
 	return &Linker{
 		srcmap:     *source.NewSourceMaps[any](),
-		busmap:     make(map[string]ast.ResolvedSymbol),
+		busmap:     make(map[string]symbol.Resolved),
 		components: nil,
 		names:      make(map[string]bool),
 	}
@@ -100,7 +102,7 @@ func (p *Linker) Register(component ast.UnresolvedDeclaration) {
 	switch c := component.(type) {
 	case ast.UnresolvedDeclaration:
 		// Allocate bus entry
-		p.busmap[c.Name()] = ast.ResolvedSymbol{Index: uint(len(p.busmap))}
+		p.busmap[c.Name()] = symbol.Resolved{Index: uint(len(p.busmap))}
 		//
 		p.components = append(p.components, c)
 	default:
@@ -135,14 +137,22 @@ func (p *Linker) Link() (ast.Program, []source.SyntaxError) {
 // also allocated regisers for the address/data lines.
 func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxError) {
 	switch d := p.components[index].(type) {
+	case *ast.UnresolvedConstant:
+		return p.linkConstant(*d)
 	case *ast.UnresolvedFunction:
 		return p.linkFunction(*d)
 	case *ast.UnresolvedMemory:
 		// nothing to do here
-		return decl.NewMemory[ast.ResolvedSymbol](d.Name(), d.Kind, d.Address, d.Data, d.Contents), nil
+		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, d.Address, d.Data, d.Contents), nil
 	default:
 		panic("unknown declaration")
 	}
+}
+
+func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []source.SyntaxError) {
+	expr, errors := p.linkExpr(fn.ConstExpr)
+	// FIXME: resolve data type.
+	return decl.NewConstant[symbol.Resolved](fn.Name(), fn.DataType, expr), errors
 }
 
 func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []source.SyntaxError) {
@@ -163,21 +173,29 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 }
 
 func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Instruction, []source.SyntaxError) {
-	var ninsn ast.Instruction
+	var (
+		ninsn  ast.Instruction
+		errors []source.SyntaxError
+	)
 	//
 	switch insn := insn.(type) {
-	case *stmt.Assign[ast.UnresolvedSymbol]:
-		// FIXME: need to link LHS & RHS
-		ninsn = &stmt.Assign[ast.ResolvedSymbol]{Targets: insn.Targets, Source: insn.Source}
-	case *stmt.Fail[ast.UnresolvedSymbol]:
-		ninsn = &stmt.Fail[ast.ResolvedSymbol]{}
-	case *stmt.Goto[ast.UnresolvedSymbol]:
-		ninsn = &stmt.Goto[ast.ResolvedSymbol]{Target: insn.Target}
-	case *stmt.IfGoto[ast.UnresolvedSymbol]:
-		// FIXME: need to link condition
-		ninsn = &stmt.IfGoto[ast.ResolvedSymbol]{Cond: insn.Cond, Target: insn.Target}
-	case *stmt.Return[ast.UnresolvedSymbol]:
-		ninsn = &stmt.Return[ast.ResolvedSymbol]{}
+	case *stmt.Assign[symbol.Unresolved]:
+		var rhs ast.Expr
+		// Link the right-hand side
+		rhs, errors = p.linkExpr(insn.Source)
+		ninsn = &stmt.Assign[symbol.Resolved]{Targets: insn.Targets, Source: rhs}
+	case *stmt.Fail[symbol.Unresolved]:
+		ninsn = &stmt.Fail[symbol.Resolved]{}
+	case *stmt.Goto[symbol.Unresolved]:
+		ninsn = &stmt.Goto[symbol.Resolved]{Target: insn.Target}
+	case *stmt.IfGoto[symbol.Unresolved]:
+		var cond ast.Condition
+		// link the condition
+		cond, errors = p.linkCondition(insn.Cond)
+		//
+		ninsn = &stmt.IfGoto[symbol.Resolved]{Cond: cond, Target: insn.Target}
+	case *stmt.Return[symbol.Unresolved]:
+		ninsn = &stmt.Return[symbol.Resolved]{}
 	default:
 		panic("unknown instruction encountered")
 	}
@@ -186,5 +204,67 @@ func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Instructio
 		p.srcmap.Copy(insn, ninsn)
 	}
 	//
-	return ninsn, nil
+	return ninsn, errors
+}
+
+func (p *Linker) linkCondition(cond ast.UnresolvedCondition) (ast.Condition, []source.SyntaxError) {
+	switch e := cond.(type) {
+	case *expr.Cmp[symbol.Unresolved]:
+		lhs, lerrs := p.linkExpr(e.Left)
+		rhs, rerrs := p.linkExpr(e.Right)
+		//
+		return expr.NewCmp(e.Operator, lhs, rhs), append(lerrs, rerrs...)
+	default:
+		panic("unknown condition encountered")
+	}
+}
+
+func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError) {
+	//
+	switch e := e.(type) {
+	case *expr.Add[symbol.Unresolved]:
+		args, errors := p.linkExprs(e.Exprs)
+		return expr.NewAdd[symbol.Resolved](args...), errors
+	case *expr.Const[symbol.Unresolved]:
+		return expr.NewConstant[symbol.Resolved](e.Constant, e.Base), nil
+	case *expr.Mul[symbol.Unresolved]:
+		args, errors := p.linkExprs(e.Exprs)
+		return expr.NewMul[symbol.Resolved](args...), errors
+	case *expr.LocalAccess[symbol.Unresolved]:
+		return expr.NewLocalAccess[symbol.Resolved](e.Variable), nil
+	case *expr.NonLocalAccess[symbol.Unresolved]:
+		// attempt to resolve this non-local access
+		for i, c := range p.components {
+			nIns, nOuts := c.Arity()
+			// first, check whether name matches
+			if c.Name() == e.Name.Name {
+				// now, check arity
+				if nIns != e.Name.Inputs || nOuts != e.Name.Outputs {
+					return nil, p.srcmap.SyntaxErrors(e, "unknown symbol (incorrect arity)")
+				}
+				// hit
+				return expr.NewNonLocalAccess[symbol.Resolved](symbol.NewResolved(uint(i))), nil
+			}
+		}
+		// fail
+		return nil, p.srcmap.SyntaxErrors(e, "unknown symbol")
+	default:
+		panic("unknown expression encountered")
+	}
+}
+
+func (p *Linker) linkExprs(exprs []ast.UnresolvedExpr) ([]ast.Expr, []source.SyntaxError) {
+	var (
+		nexprs []ast.Expr = make([]ast.Expr, len(exprs))
+		errors []source.SyntaxError
+	)
+	//
+	for i, e := range exprs {
+		ne, errs := p.linkExpr(e)
+		nexprs[i] = ne
+		//
+		errors = append(errors, errs...)
+	}
+	//
+	return nexprs, errors
 }

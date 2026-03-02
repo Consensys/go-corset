@@ -35,6 +35,8 @@ func Compile(p *ast.Program) machine.Boot[word.Uint] {
 	// Initialise components
 	for _, c := range p.Components() {
 		switch c := c.(type) {
+		case *ast.Constant:
+			// ignore
 		case *ast.Function:
 			functions = append(functions, compileFunction(*c))
 		case *ast.Memory:

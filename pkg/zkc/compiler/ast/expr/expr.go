@@ -18,7 +18,9 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
@@ -28,11 +30,12 @@ var (
 )
 
 // Expr represents an arbitrary expression used within an instruction.
-type Expr interface {
-	// Check whether two expressions are equivalent
-	Equals(e Expr) bool
+type Expr[I symbol.Symbol[I]] interface {
+	// NonLocalUses returns the set of non-local declarations accessed by this
+	// expression.  For example, external constants or memories used within.
+	NonLocalUses() set.AnySortedSet[I]
 	// RegistersRead returns the set of variables used (i.e. read) by this expression
-	Uses() bit.Set
+	LocalUses() bit.Set
 	// String returns a string representation of this expression.
 	String(mapping variable.Map) string
 	// ValueRange returns the interval of values that this term can evaluate to.
@@ -41,27 +44,10 @@ type Expr interface {
 	ValueRange(env variable.Map) math.Interval
 }
 
-// EqualsAll determines whether all of the expressions on the left-hand side
-// match those on the right-hand side.  The number of expressions on both sides
-// must also match.
-func EqualsAll(lhs []Expr, rhs []Expr) bool {
-	if len(lhs) == len(rhs) {
-		for i := range len(lhs) {
-			if !lhs[i].Equals(rhs[i]) {
-				return false
-			}
-		}
-		//
-		return true
-	}
-	//
-	return false
-}
-
 // BitWidth returns the minimum number of bits required to store any evaluation
 // of this expression.  In addition, it provides an indicator as to whether or
 // not any evaluation could result in a negative value.
-func BitWidth(e Expr, env variable.Map) (uint, bool) {
+func BitWidth[I symbol.Symbol[I]](e Expr[I], env variable.Map) (uint, bool) {
 	var (
 		// Determine set of all values that right-hand side can evaluate to
 		values = e.ValueRange(env)
@@ -78,14 +64,14 @@ func BitWidth(e Expr, env variable.Map) (uint, bool) {
 
 // Uses determines the (unique) set of registers read by any expression
 // in the given set of expressions.
-func Uses(exprs ...Expr) []variable.Id {
+func Uses[I symbol.Symbol[I]](exprs ...Expr[I]) []variable.Id {
 	var (
 		reads []variable.Id
 		bits  bit.Set
 	)
 	// extract all usages
 	for _, e := range exprs {
-		bits.Union(e.Uses())
+		bits.Union(e.LocalUses())
 	}
 	// Collect them all up
 	for iter := bits.Iter(); iter.HasNext(); {
@@ -99,25 +85,25 @@ func Uses(exprs ...Expr) []variable.Id {
 
 // String provides a generic facility for converting an expression into a
 // suitable string.
-func String(e Expr, mapping variable.Map) string {
+func String[I symbol.Symbol[I]](e Expr[I], mapping variable.Map) string {
 	var (
-		exprs    []Expr
+		exprs    []Expr[I]
 		operator string
 		builder  strings.Builder
 	)
 	//
 	switch e := e.(type) {
-	case *Add:
+	case *Add[I]:
 		operator = "+"
 		exprs = e.Exprs
-	case *Const:
+	case *Const[I]:
 		return stringOfConstant(e.Constant, e.Base)
-	case *Mul:
+	case *Mul[I]:
 		exprs = e.Exprs
 		operator = "*"
-	case *VarAccess:
+	case *LocalAccess[I]:
 		return mapping.Variable(e.Variable).Name
-	case *Sub:
+	case *Sub[I]:
 		exprs = e.Exprs
 		operator = "-"
 	default:
@@ -131,12 +117,12 @@ func String(e Expr, mapping variable.Map) string {
 			builder.WriteString(" ")
 		}
 		//
-		if needsBraces(e) {
+		if needsBraces[I](e) {
 			builder.WriteString("(")
-			builder.WriteString(String(e, mapping))
+			builder.WriteString(String[I](e, mapping))
 			builder.WriteString(")")
 		} else {
-			builder.WriteString(String(e, mapping))
+			builder.WriteString(String[I](e, mapping))
 		}
 	}
 	//
@@ -154,11 +140,11 @@ func stringOfConstant(val big.Int, base uint) string {
 	}
 }
 
-func needsBraces(e Expr) bool {
+func needsBraces[I symbol.Symbol[I]](e Expr[I]) bool {
 	switch e.(type) {
-	case *Const:
+	case *Const[I]:
 		return false
-	case *VarAccess:
+	case *LocalAccess[I]:
 		return false
 	default:
 		return true

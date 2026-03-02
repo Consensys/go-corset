@@ -11,19 +11,26 @@
 package decl
 
 import (
-	"math/big"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
 // Constant represents a named constant at the source level.
-type Constant[I any] struct {
-	name     string
-	constant big.Int
-	base     uint
+type Constant[I symbol.Symbol[I]] struct {
+	name      string
+	DataType  data.Type
+	ConstExpr expr.Expr[I]
 }
 
 // NewConstant creates a new named constant in a given base
-func NewConstant[I any](name string, constant big.Int, base uint) *Constant[I] {
-	return &Constant[I]{name, constant, base}
+func NewConstant[I symbol.Symbol[I]](name string, datatype data.Type, constexpr expr.Expr[I]) *Constant[I] {
+	return &Constant[I]{name, datatype, constexpr}
+}
+
+// Arity implementation for Declaration interface
+func (p *Constant[S]) Arity() (nInputs, nOutputs uint) {
+	return 0, 0
 }
 
 // Name implementation for AssemblyComponent interface

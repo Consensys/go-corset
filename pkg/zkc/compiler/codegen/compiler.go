@@ -18,10 +18,17 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
+
+// Condition is a convenient alias
+type Condition = expr.Condition[symbol.Resolved]
+
+// Expr is a convenient alias
+type Expr = expr.Expr[symbol.Resolved]
 
 // Compiler provides a working environment for compiling individual statements
 // within a given function.  For example, it provides the ability to allocate
@@ -35,16 +42,16 @@ func (p *Compiler) compileStatement(pc uint, s ast.Instruction) Instruction {
 	var insns []MicroInstruction
 	//
 	switch s := s.(type) {
-	case *stmt.Assign[ast.ResolvedSymbol]:
+	case *stmt.Assign[symbol.Resolved]:
 		targets := mapRegisters(s.Targets)
 		insns = p.compileExpr(s.Source, targets...)
-	case *stmt.IfGoto[ast.ResolvedSymbol]:
+	case *stmt.IfGoto[symbol.Resolved]:
 		return p.compileCondition(pc, s.Cond, s.Target)
-	case *stmt.Goto[ast.ResolvedSymbol]:
+	case *stmt.Goto[symbol.Resolved]:
 		return &instruction.Jmp{Target: s.Target}
-	case *stmt.Fail[ast.ResolvedSymbol]:
+	case *stmt.Fail[symbol.Resolved]:
 		return &instruction.Fail{}
-	case *stmt.Return[ast.ResolvedSymbol]:
+	case *stmt.Return[symbol.Resolved]:
 		return &instruction.Return{}
 	default:
 		panic("unknown statement encountered")
@@ -53,14 +60,14 @@ func (p *Compiler) compileStatement(pc uint, s ast.Instruction) Instruction {
 	return instruction.NewVector[word.Uint](insns...)
 }
 
-func (p *Compiler) compileCondition(pc uint, e expr.Condition, target uint) Instruction {
+func (p *Compiler) compileCondition(pc uint, e Condition, target uint) Instruction {
 	var (
 		insns []MicroInstruction
 		args  []register.Id
 	)
 	//
 	switch e := e.(type) {
-	case *expr.Cmp:
+	case *expr.Cmp[symbol.Resolved]:
 		args, insns = p.compileArgs(e.Left, e.Right)
 		insns = append(insns, instruction.NewSkipIf(instruction.Condition(e.Operator), args[0], args[1], 1))
 		insns = append(insns, instruction.NewJmp(pc+1))
@@ -72,7 +79,7 @@ func (p *Compiler) compileCondition(pc uint, e expr.Condition, target uint) Inst
 	return instruction.NewVector[word.Uint](insns...)
 }
 
-func (p *Compiler) compileExpr(e expr.Expr, targets ...register.Id) []MicroInstruction {
+func (p *Compiler) compileExpr(e Expr, targets ...register.Id) []MicroInstruction {
 	var (
 		zero  word.Uint
 		insns []MicroInstruction
@@ -80,15 +87,15 @@ func (p *Compiler) compileExpr(e expr.Expr, targets ...register.Id) []MicroInstr
 	)
 	//
 	switch e := e.(type) {
-	case *expr.Add:
+	case *expr.Add[symbol.Resolved]:
 		insns, insn = p.compileAdd(e.Exprs, targets)
-	case *expr.Const:
+	case *expr.Const[symbol.Resolved]:
 		var c word.Uint
 		//
 		insn = instruction.NewAdd[word.Uint](targets, nil, c.SetBigInt(&e.Constant))
-	case *expr.Mul:
+	case *expr.Mul[symbol.Resolved]:
 		insns, insn = p.compileMul(e.Exprs, targets)
-	case *expr.VarAccess:
+	case *expr.LocalAccess[symbol.Resolved]:
 		var reg = []register.Id{register.NewId(e.Variable)}
 		//
 		insn = instruction.NewAdd[word.Uint](targets, reg, zero)
@@ -97,17 +104,17 @@ func (p *Compiler) compileExpr(e expr.Expr, targets ...register.Id) []MicroInstr
 	return append(insns, insn)
 }
 
-func (p *Compiler) compileAdd(args []expr.Expr, targets []register.Id,
+func (p *Compiler) compileAdd(args []Expr, targets []register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	var (
 		constant word.Uint
-		nargs    []expr.Expr
+		nargs    []Expr
 		w        word.Uint
 	)
 	//
 	for _, e := range args {
-		if c, ok := e.(*expr.Const); ok {
+		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant = constant.Add(w.SetBigInt(&c.Constant))
 		} else {
 			nargs = append(nargs, e)
@@ -119,17 +126,17 @@ func (p *Compiler) compileAdd(args []expr.Expr, targets []register.Id,
 	return insns, instruction.NewAdd[word.Uint](targets, sources, constant)
 }
 
-func (p *Compiler) compileMul(args []expr.Expr, targets []register.Id,
+func (p *Compiler) compileMul(args []Expr, targets []register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	var (
 		constant word.Uint = word.Uint64[word.Uint](1)
-		nargs    []expr.Expr
+		nargs    []Expr
 		w        word.Uint
 	)
 	//
 	for _, e := range args {
-		if c, ok := e.(*expr.Const); ok {
+		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant = constant.Mul(w.SetBigInt(&c.Constant))
 		} else {
 			nargs = append(nargs, e)
@@ -140,7 +147,7 @@ func (p *Compiler) compileMul(args []expr.Expr, targets []register.Id,
 	// Done
 	return insns, instruction.NewMul[word.Uint](targets, sources, constant)
 }
-func (p *Compiler) compileArgs(exprs ...expr.Expr) ([]register.Id, []MicroInstruction) {
+func (p *Compiler) compileArgs(exprs ...Expr) ([]register.Id, []MicroInstruction) {
 	var (
 		insns   []MicroInstruction
 		targets = make([]register.Id, len(exprs))
@@ -148,11 +155,11 @@ func (p *Compiler) compileArgs(exprs ...expr.Expr) ([]register.Id, []MicroInstru
 	//
 	for i, e := range exprs {
 		// Determine width of expression
-		var bitwidth, signed = expr.BitWidth(e, p.variableMap())
+		var bitwidth, signed = expr.BitWidth[symbol.Resolved](e, p.variableMap())
 		//
 		if signed {
 			panic("handle signed expressions")
-		} else if r, ok := e.(*expr.VarAccess); ok {
+		} else if r, ok := e.(*expr.LocalAccess[symbol.Resolved]); ok {
 			targets[i] = register.NewId(r.Variable)
 		} else {
 			// Allocate temporary variable

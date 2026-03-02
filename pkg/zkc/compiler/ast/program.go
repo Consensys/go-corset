@@ -15,70 +15,94 @@ import (
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-// ResolvedSymbol provides linkage information about the given component being
-// referenced.  Each component is referred to by its kind (function, RAM, ROM,
-// etc) and its index of that kind.
-type ResolvedSymbol struct {
-	Index uint
-}
+// Expr represents an expression whose external identifiers are otherwise
+// resolved. As such, it should not be possible that such a declaration refers
+// to unknown (or otherwise incorrect) external components.
+type Expr = expr.Expr[symbol.Resolved]
+
+// Condition represents a condition whose external identifiers are otherwise
+// resolved. As such, it should not be possible that such a declaration refers
+// to unknown (or otherwise incorrect) external components.
+type Condition = expr.Condition[symbol.Resolved]
 
 // Instruction represents a macro instruction  where external identifiers
 // are otherwise resolved. As such, it should not be possible that such a
 // declaration refers to unknown (or otherwise incorrect) external components.
-type Instruction = stmt.Stmt[ResolvedSymbol]
+type Instruction = stmt.Stmt[symbol.Resolved]
 
 // Declaration represents a declaration which can contain macro
 // instructions and where external identifiers are otherwise resolved. As such,
 // it should not be possible that such a declaration refers to unknown (or
 // otherwise incorrect) external components.
-type Declaration = decl.Declaration[ResolvedSymbol]
+type Declaration = decl.Declaration[symbol.Resolved]
+
+// Constant represents a constant whose expression uses only external
+// identifiers which are resolved. As such, it should not be possible that such
+// a declaration refers to unknown (or otherwise incorrect) external components.
+type Constant = decl.Constant[symbol.Resolved]
 
 // Function represents a function which contains instructions whose external
 // identifiers are otherwise resolved. As such, it should not be possible that
 // such a declaration refers to unknown (or otherwise incorrect) external
 // components.
-type Function = decl.Function[ResolvedSymbol]
+type Function = decl.Function[symbol.Resolved]
 
 // Memory represents a memory whose external identifiers are otherwise resolved.
 // As such, it should not be possible that such a declaration refers to unknown
 // (or otherwise incorrect) external components.
-type Memory = decl.Memory[ResolvedSymbol]
+type Memory = decl.Memory[symbol.Resolved]
 
-// UnresolvedSymbol identifies an expect record in the symbol table.  For functions, this
-// includes the number of expected inputs and outputs.
-type UnresolvedSymbol struct {
-	Name            string
-	Inputs, Outputs uint
-}
+// UnresolvedExpr represents an expression whose identifiers for external
+// components are unresolved linkage records.  As such, its possible that such
+// an expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedExpr = expr.Expr[symbol.Unresolved]
+
+// UnresolvedCondition represents a condition whose identifiers for external
+// components are unresolved linkage records.  As such, its possible that such
+// an expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedCondition = expr.Condition[symbol.Unresolved]
 
 // UnresolvedInstruction represents an instruction whose identifiers for external
 // components are unresolved linkage records.  As such, its possible that such a
 // instruction may fail with an error at link time due to an unresolvable
 // reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedInstruction = stmt.Stmt[UnresolvedSymbol]
+type UnresolvedInstruction = stmt.Stmt[symbol.Unresolved]
 
 // UnresolvedDeclaration represents a declaration which contains string identifies
 // for external (i.e. unlinked) components.  As such, its possible that such a
 // declaration may fail with an error at link time due to an unresolvable
 // reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedDeclaration = decl.Declaration[UnresolvedSymbol]
+type UnresolvedDeclaration = decl.Declaration[symbol.Unresolved]
+
+// UnresolvedConstant represents a constant whose expression may  contain string
+// identifiers for external (i.e. unlinked) components.  As such, its possible
+// that such an expression may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedConstant = decl.Constant[symbol.Unresolved]
 
 // UnresolvedFunction represents a function which contains string identifiers
 // for external (i.e. unlinked) components.  As such, its possible that such a
 // function may fail with an error at link time due to an unresolvable
 // reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedFunction = decl.Function[UnresolvedSymbol]
+type UnresolvedFunction = decl.Function[symbol.Unresolved]
 
 // UnresolvedMemory represents a memory which contains string identifiers
 // for external (i.e. unlinked) components.  As such, its possible that such a
 // function may fail with an error at link time due to an unresolvable
 // reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedMemory = decl.Memory[UnresolvedSymbol]
+type UnresolvedMemory = decl.Memory[symbol.Unresolved]
 
 // RawProgram encapsulates one of more functions together, such that one may call
 // another, etc.  Furthermore, it provides an interface between assembly
@@ -102,7 +126,7 @@ func (p *RawProgram[I]) Components() []decl.Declaration[I] {
 // declarations contained within refer to unknown (or otherwise incorrect)
 // external components.
 type Program struct {
-	RawProgram[ResolvedSymbol]
+	RawProgram[symbol.Resolved]
 }
 
 // NewProgram constructs a new program using a given level of instruction.
@@ -111,7 +135,7 @@ func NewProgram(components []Declaration) Program {
 	decls := make([]Declaration, len(components))
 	copy(decls, components)
 
-	return Program{RawProgram[ResolvedSymbol]{decls}}
+	return Program{RawProgram[symbol.Resolved]{decls}}
 }
 
 // MapInputs configures a given set of input bytes appropriately for the boot

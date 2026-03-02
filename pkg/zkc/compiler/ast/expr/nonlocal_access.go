@@ -13,44 +13,41 @@
 package expr
 
 import (
-	"strings"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// ConstAccess represents a named constant value within an expresion.
-type ConstAccess struct {
-	Label string
+// NonLocalAccess represents a reference to a non-local variable, such as a
+// named constant or memory.
+type NonLocalAccess[I symbol.Symbol[I]] struct {
+	Name I
 }
 
-// NewConstantAccess constructs an expression representing a constant value,
-// along with a base (which is used for pretty printing, etc).
-func NewConstantAccess(label string) Expr {
-	return &ConstAccess{label}
+// NewNonLocalAccess constructs an expression representing a non-local access,
+// such as for a named constant or memory.
+func NewNonLocalAccess[I symbol.Symbol[I]](name I) Expr[I] {
+	return &NonLocalAccess[I]{name}
 }
 
-// Equals implementation for the Expr interface.
-func (p *ConstAccess) Equals(e Expr) bool {
-	if e, ok := e.(*Const); ok {
-		return strings.Compare(p.Label, e.Label) == 0
-	}
-	//
-	return false
+// NonLocalUses implementation for the Expr interface.
+func (p *NonLocalAccess[I]) NonLocalUses() set.AnySortedSet[I] {
+	return *set.NewAnySortedSet(p.Name)
 }
 
-// Uses implementation for the Expr interface.
-func (p *ConstAccess) Uses() bit.Set {
+// LocalUses implementation for the Expr interface.
+func (p *NonLocalAccess[I]) LocalUses() bit.Set {
 	var empty bit.Set
 	return empty
 }
 
-func (p *ConstAccess) String(mapping variable.Map) string {
-	return String(p, mapping)
+func (p *NonLocalAccess[I]) String(mapping variable.Map) string {
+	return String[I](p, mapping)
 }
 
 // ValueRange implementation for the Expr interface.
-func (p *ConstAccess) ValueRange(env variable.Map) math.Interval {
+func (p *NonLocalAccess[I]) ValueRange(env variable.Map) math.Interval {
 	panic("todo")
 }

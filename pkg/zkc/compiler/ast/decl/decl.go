@@ -13,6 +13,8 @@ package decl
 // Declaration represents something declared within a source file, such as a
 // function or constant, etc.
 type Declaration[E any] interface {
+	// Arity returns the number of inputs/outputs for this declaration.
+	Arity() (inputs uint, outputs uint)
 	// Return name of this component
 	Name() string
 	// Determine all reference external symbols

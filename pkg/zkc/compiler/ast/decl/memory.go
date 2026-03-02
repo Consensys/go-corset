@@ -46,7 +46,7 @@ const (
 
 // Memory represents a declaration of some form of memory, such as random
 // access, read only, etc.
-type Memory[E any] struct {
+type Memory[S any] struct {
 	// Name given to this memory variable
 	name string
 	// Kind of memory (i.e. read-only, random access, etc)
@@ -61,8 +61,8 @@ type Memory[E any] struct {
 }
 
 // NewMemory constructs a new memory.
-func NewMemory[E any](name string, kind MemoryKind, address []variable.Descriptor, data []variable.Descriptor,
-	contents []big.Int) *Memory[E] {
+func NewMemory[S any](name string, kind MemoryKind, address []variable.Descriptor, data []variable.Descriptor,
+	contents []big.Int) *Memory[S] {
 	// sanity checks
 	if contents != nil && kind != PUBLIC_STATIC_MEMORY && kind != PRIVATE_STATIC_MEMORY {
 		panic("invalid non-static memory")
@@ -70,51 +70,56 @@ func NewMemory[E any](name string, kind MemoryKind, address []variable.Descripto
 		panic("invalid static memory")
 	}
 	//
-	return &Memory[E]{name: name, Kind: kind, Address: address, Data: data, Contents: contents}
+	return &Memory[S]{name: name, Kind: kind, Address: address, Data: data, Contents: contents}
 }
 
 // NewRandomAccessMemory constructs a new random access memory.
-func NewRandomAccessMemory[E any](name string, address []variable.Descriptor, data []variable.Descriptor) *Memory[E] {
-	return &Memory[E]{name: name, Kind: RANDOM_ACCESS_MEMORY, Address: address, Data: data}
+func NewRandomAccessMemory[S any](name string, address []variable.Descriptor, data []variable.Descriptor) *Memory[S] {
+	return &Memory[S]{name: name, Kind: RANDOM_ACCESS_MEMORY, Address: address, Data: data}
 }
 
 // NewReadOnlyMemory constructs a new read-only access memory.
-func NewReadOnlyMemory[E any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
-) *Memory[E] {
+func NewReadOnlyMemory[S any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+) *Memory[S] {
 	if public {
-		return &Memory[E]{name: name, Kind: PUBLIC_READ_ONLY_MEMORY, Address: address, Data: data}
+		return &Memory[S]{name: name, Kind: PUBLIC_READ_ONLY_MEMORY, Address: address, Data: data}
 	}
 	//
-	return &Memory[E]{name: name, Kind: PRIVATE_READ_ONLY_MEMORY, Address: address, Data: data}
+	return &Memory[S]{name: name, Kind: PRIVATE_READ_ONLY_MEMORY, Address: address, Data: data}
 }
 
 // NewWriteOnceMemory constructs a new write-once memory.
-func NewWriteOnceMemory[E any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
-) *Memory[E] {
+func NewWriteOnceMemory[S any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+) *Memory[S] {
 	if public {
-		return &Memory[E]{name: name, Kind: PUBLIC_WRITE_ONCE_MEMORY, Address: address, Data: data}
+		return &Memory[S]{name: name, Kind: PUBLIC_WRITE_ONCE_MEMORY, Address: address, Data: data}
 	}
 	//
-	return &Memory[E]{name: name, Kind: PRIVATE_WRITE_ONCE_MEMORY, Address: address, Data: data}
+	return &Memory[S]{name: name, Kind: PRIVATE_WRITE_ONCE_MEMORY, Address: address, Data: data}
 }
 
 // NewStaticMemory constructs a new static memory.
-func NewStaticMemory[E any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
-	contents []big.Int) *Memory[E] {
+func NewStaticMemory[S any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+	contents []big.Int) *Memory[S] {
 	//
 	if public {
-		return &Memory[E]{name: name, Kind: PUBLIC_STATIC_MEMORY, Address: address, Data: data, Contents: contents}
+		return &Memory[S]{name: name, Kind: PUBLIC_STATIC_MEMORY, Address: address, Data: data, Contents: contents}
 	}
 	//
-	return &Memory[E]{name: name, Kind: PRIVATE_STATIC_MEMORY, Address: address, Data: data, Contents: contents}
+	return &Memory[S]{name: name, Kind: PRIVATE_STATIC_MEMORY, Address: address, Data: data, Contents: contents}
+}
+
+// Arity implementation for Declaration interface
+func (p *Memory[S]) Arity() (nInputs, nOutputs uint) {
+	return uint(len(p.Address)), uint(len(p.Data))
 }
 
 // Name implementation for Declaration interface
-func (p *Memory[E]) Name() string {
+func (p *Memory[S]) Name() string {
 	return p.name
 }
 
 // Externs implementation for Declaration interface
-func (p *Memory[E]) Externs() []E {
+func (p *Memory[S]) Externs() []S {
 	return nil
 }

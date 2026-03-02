@@ -63,8 +63,8 @@ const STRING uint = 13
 // IDENTIFIER signals a column variable
 const IDENTIFIER uint = 20
 
-// KEYWORD_CONST signals a constant declaration
-const KEYWORD_CONST uint = 21
+// KEYWORD_CONSTANT signals a constant declaration
+const KEYWORD_CONSTANT uint = 21
 
 // KEYWORD_INCLUDE signals an include declaration
 const KEYWORD_INCLUDE uint = 22
@@ -224,7 +224,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
-	lex.Rule(lex.String("const"), KEYWORD_CONST),
+	lex.Rule(lex.String("constant"), KEYWORD_CONSTANT),
 	lex.Rule(lex.String("else"), KEYWORD_ELSE),
 	lex.Rule(lex.String("fail"), KEYWORD_FAIL),
 	lex.Rule(lex.String("function"), KEYWORD_FUNCTION),

@@ -16,6 +16,9 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
@@ -38,17 +41,22 @@ const (
 type CmpOp uint8
 
 // Cmp represents a comparison, such as "==", ">=", etc.
-type Cmp struct {
+type Cmp[I symbol.Symbol[I]] struct {
 	// Operator indicates the condition
 	Operator CmpOp
 	// Left-hand side
-	Left Expr
+	Left Expr[I]
 	// Right-hand side
-	Right Expr
+	Right Expr[I]
+}
+
+// NewCmp returns a freshly created comparison condition.
+func NewCmp[I symbol.Symbol[I]](op CmpOp, lhs, rhs Expr[I]) *Cmp[I] {
+	return &Cmp[I]{op, lhs, rhs}
 }
 
 // Negate implementation for Condition interface.
-func (p *Cmp) Negate() Condition {
+func (p *Cmp[I]) Negate() Condition[I] {
 	var op CmpOp
 	//
 	switch p.Operator {
@@ -68,20 +76,25 @@ func (p *Cmp) Negate() Condition {
 		panic("unreachable")
 	}
 	//
-	return &Cmp{op, p.Left, p.Right}
+	return &Cmp[I]{op, p.Left, p.Right}
 }
 
-// Uses implementation for the Expr interface.
-func (p *Cmp) Uses() bit.Set {
+// NonLocalUses implementation for the Condition interface.
+func (p *Cmp[I]) NonLocalUses() set.AnySortedSet[I] {
+	panic("todo")
+}
+
+// LocalUses implementation for the Condition interface.
+func (p *Cmp[I]) LocalUses() bit.Set {
 	var reads bit.Set
 	//
-	reads.Union(p.Left.Uses())
-	reads.Union(p.Right.Uses())
+	reads.Union(p.Left.LocalUses())
+	reads.Union(p.Right.LocalUses())
 	//
 	return reads
 }
 
-func (p *Cmp) String(env variable.Map) string {
+func (p *Cmp[I]) String(env variable.Map) string {
 	var (
 		l  = p.Left.String(env)
 		r  = p.Right.String(env)
@@ -106,4 +119,9 @@ func (p *Cmp) String(env variable.Map) string {
 	}
 	//
 	return fmt.Sprintf("%s%s%s", l, op, r)
+}
+
+// ValueRange implementation for the Expr interface.
+func (p *Cmp[I]) ValueRange(env variable.Map) math.Interval {
+	panic("todo")
 }

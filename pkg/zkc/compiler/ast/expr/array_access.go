@@ -20,46 +20,38 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// Sub represents an expresion which subtracts zero or more terms from a given term.
-type Sub[I symbol.Symbol[I]] struct {
-	Exprs []Expr[I]
+// ArrayAccess represents an index into an array of some kind.
+type ArrayAccess[I symbol.Symbol[I]] struct {
+	Source Expr[I]
+	Index  Expr[I]
 }
 
-// NewSub constructs an expression representing the subtraction of one or more
-// values.
-func NewSub[I symbol.Symbol[I]](exprs ...Expr[I]) Expr[I] {
-	if len(exprs) == 0 {
-		panic("one or more subexpressions required")
-	}
+// NewArrayAccess constructs an expression representing the sum of one or more values.
+func NewArrayAccess[I symbol.Symbol[I]](src, index Expr[I]) Expr[I] {
 	//
-	return &Sub[I]{Exprs: exprs}
+	return &ArrayAccess[I]{src, index}
 }
 
 // NonLocalUses implementation for the Expr interface.
-func (p *Sub[I]) NonLocalUses() set.AnySortedSet[I] {
-	return nonLocalUses(p.Exprs...)
+func (p *ArrayAccess[I]) NonLocalUses() set.AnySortedSet[I] {
+	panic("todo")
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *Sub[I]) LocalUses() bit.Set {
-	return localUses(p.Exprs...)
+func (p *ArrayAccess[I]) LocalUses() bit.Set {
+	var reads bit.Set
+	//
+	reads.Union(p.Source.LocalUses())
+	reads.Union(p.Index.LocalUses())
+	//
+	return reads
 }
 
 // ValueRange implementation for the Expr interface.
-func (p *Sub[I]) ValueRange(env variable.Map) math.Interval {
-	var values math.Interval
-	//
-	for i, e := range p.Exprs {
-		if i == 0 {
-			values = e.ValueRange(env)
-		} else {
-			values.Sub(e.ValueRange(env))
-		}
-	}
-	//
-	return values
+func (p *ArrayAccess[I]) ValueRange(env variable.Map) math.Interval {
+	return p.Source.ValueRange(env)
 }
 
-func (p *Sub[I]) String(mapping variable.Map) string {
+func (p *ArrayAccess[I]) String(mapping variable.Map) string {
 	return String[I](p, mapping)
 }
