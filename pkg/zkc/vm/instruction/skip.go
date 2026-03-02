@@ -19,26 +19,27 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// Goto performs an unconditional branch to a given target instructon.
-type Goto struct {
-	Target uint
+// Skip microcode performs an unconditional skip over a given number of codes.
+type Skip struct {
+	// Skip
+	Skip uint
 }
 
 // Uses implementation for Instruction interface.
-func (p *Goto) Uses() []register.Id {
+func (p *Skip) Uses() []register.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Goto) Definitions() []register.Id {
+func (p *Skip) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Goto) String(_ register.Map) string {
-	return fmt.Sprintf("goto %d", p.Target)
+func (p *Skip) String(_ register.Map) string {
+	return fmt.Sprintf("skip %d", p.Skip)
 }
 
-// Validate implementation for Instruction interface.
-func (p *Goto) Validate(_ field.Config, _ register.Map) []error {
+// MicroValidate implementation for Instruction interface.
+func (p *Skip) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
 	return nil
 }

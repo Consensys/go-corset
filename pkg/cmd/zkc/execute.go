@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
@@ -69,7 +70,7 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 	// Execute machine in chunks of 1K steps
 	if bigInputs, errors = program.MapInputs(input); len(errors) == 0 {
 		// Build our machine
-		vm = ast.BuildMachine[word.Uint](&program)
+		vm = codegen.Compile(&program)
 		//
 		if main, ok := findFunction(mainFn, vm); ok {
 			// Boot it

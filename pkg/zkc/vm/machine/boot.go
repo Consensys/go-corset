@@ -61,7 +61,7 @@ func (p BootExecutor[W, S]) Execute(state S) error {
 	switch insn := insn.(type) {
 	case *instruction.Add[word.Uint]:
 		panic("todo add")
-	case *instruction.Goto:
+	case *instruction.Jmp:
 		frame.Goto(insn.Target)
 	case *instruction.Fail:
 		err = errors.New("machine panic")

@@ -47,6 +47,11 @@ type Mul[W word.Word[W]] struct {
 	Constant W
 }
 
+// NewMul constructs a new addition instruction
+func NewMul[W word.Word[W]](targets []register.Id, sources []register.Id, constant W) *Mul[W] {
+	return &Mul[W]{targets, sources, constant}
+}
+
 // Uses implementation for Instruction interface
 func (p *Mul[W]) Uses() []register.Id {
 	return p.Sources
@@ -79,6 +84,11 @@ func (p *Mul[W]) Validate(config field.Config, env register.Map) []error {
 	}
 	//
 	return errors
+}
+
+// MicroValidate implementation for MicroInstruction interface.
+func (p *Mul[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+	return p.Validate(field, env)
 }
 
 func (p *Mul[W]) rhsBitwidth(env register.Map) uint {

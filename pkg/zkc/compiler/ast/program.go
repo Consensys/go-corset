@@ -12,17 +12,11 @@ package ast
 
 import (
 	"fmt"
-	"math/big"
 
-	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
-	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
@@ -162,104 +156,4 @@ func (p *Program) MapInputs(input map[string][]byte) (map[string][]word.Uint, []
 	}
 	//
 	return output, errors
-}
-
-// BuildMachine attempts to build a fresh (bootable) machine which can be used
-// (for example) to execute this program with some given inputs.
-func BuildMachine[W word.Word[W]](p *Program) machine.Boot[W] {
-	var (
-		functions []function.Boot[W]
-		statics   []memory.Boot[W]
-		inputs    []memory.Boot[W]
-		outputs   []memory.Boot[W]
-		rams      []memory.Boot[W]
-	)
-	// Initialise components
-	for _, c := range p.declarations {
-		switch c := c.(type) {
-		case *Function:
-			functions = append(functions, compileFunction[W](*c))
-		case *Memory:
-			// construct suitable decoder
-			var decoder = memory.NewBootDecoder[W](c.Address, c.Data)
-			//
-			switch c.Kind {
-			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
-				inputs = append(inputs, memory.NewArray[W](c.Name(), decoder))
-			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
-				outputs = append(outputs, memory.NewArray[W](c.Name(), decoder))
-			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
-				statics = append(statics, memory.NewArray[W](c.Name(), decoder))
-			case decl.RANDOM_ACCESS_MEMORY:
-				rams = append(rams, memory.NewArray[W](c.Name(), decoder))
-			}
-		default:
-			panic(fmt.Sprintf("unknown declaration %s", c.Name()))
-		}
-	}
-	// Construct machine (if no errors)
-	return machine.NewBoot[W]().
-		WithFunctions(functions...).
-		WithStatics(statics...).
-		WithInputs(inputs...).
-		WithOutputs(outputs...).
-		WithMemories(rams...)
-}
-
-// Convert a decl.Function instance into a fun.Function instance by flattening
-// the variable descriptors into register descriptors.  Each variable may
-// expand into one or more registers (e.g. a tuple variable produces one
-// register per element).
-func compileFunction[W word.Word[W]](fn Function) function.Boot[W] {
-	var (
-		registers []register.Register
-		padding   big.Int // zero padding
-		bootCode  = make([]instruction.Instruction[W], len(fn.Code))
-	)
-	//
-	for _, v := range fn.Variables {
-		var kind register.Type
-
-		switch v.Kind {
-		case variable.PARAMETER:
-			kind = register.INPUT_REGISTER
-		case variable.RETURN:
-			kind = register.OUTPUT_REGISTER
-		case variable.LOCAL:
-			kind = register.COMPUTED_REGISTER
-		default:
-			panic(fmt.Sprintf("unexpected variable kind %d", v.Kind))
-		}
-
-		v.DataType.Flattern(v.Name, func(name string, bitwidth uint) {
-			registers = append(registers, register.New(kind, name, bitwidth, padding))
-		})
-	}
-	//
-	for i, stmt := range fn.Code {
-		bootCode[i], registers = compileStatement[W](stmt, registers)
-	}
-	//
-	return function.New[instruction.Instruction[W]](fn.Name(), registers, bootCode)
-}
-
-func compileStatement[W word.Word[W]](s Instruction, registers []register.Register,
-) (instruction.Instruction[W], []register.Register) {
-	//
-	switch s := s.(type) {
-	case *stmt.Assign[ResolvedSymbol]:
-		return compileAssignment[W](*s, registers)
-	case *stmt.Fail[ResolvedSymbol]:
-		return &instruction.Fail{}, registers
-	case *stmt.Return[ResolvedSymbol]:
-		return &instruction.Return{}, registers
-	default:
-		panic("unknown statement encountered")
-	}
-}
-
-func compileAssignment[W word.Word[W]](s stmt.Assign[ResolvedSymbol], registers []register.Register,
-) (instruction.Instruction[W], []register.Register) {
-	//
-	panic("compile assignment")
 }

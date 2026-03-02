@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
@@ -66,7 +67,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	//
 	if ir {
-		vm := ast.BuildMachine[word.Uint](&program)
+		vm := codegen.Compile(&program)
 		writeIntermediateRepresentation[word.Uint](vm)
 	}
 }

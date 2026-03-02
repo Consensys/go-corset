@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // RegistersToString returns a string representation for zero or more registers
@@ -38,7 +39,7 @@ func registersToString(regs []register.Id, env register.Map) string {
 	return builder.String()
 }
 
-func expressionToString[W any](op string, regs []register.Id, constant W, env register.Map) string {
+func expressionToString[W word.Word[W]](op string, regs []register.Id, constant W, env register.Map) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(regs); i++ {
@@ -50,7 +51,7 @@ func expressionToString[W any](op string, regs []register.Id, constant W, env re
 		builder.WriteString(" ")
 	}
 	//
-	builder.WriteString(fmt.Sprintf("%v", constant))
+	builder.WriteString(fmt.Sprintf("0x%s", constant.Text(16)))
 	//
 	return builder.String()
 }

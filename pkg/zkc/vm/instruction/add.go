@@ -47,6 +47,11 @@ type Add[W word.Word[W]] struct {
 	Constant W
 }
 
+// NewAdd constructs a new addition instruction
+func NewAdd[W word.Word[W]](targets []register.Id, sources []register.Id, constant W) *Add[W] {
+	return &Add[W]{targets, sources, constant}
+}
+
 // Uses implementation for Instruction interface
 func (p *Add[W]) Uses() []register.Id {
 	return p.Sources
@@ -79,6 +84,11 @@ func (p *Add[W]) Validate(config field.Config, env register.Map) []error {
 	}
 	//
 	return errors
+}
+
+// MicroValidate implementation for MicroInstruction interface.
+func (p *Add[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+	return p.Validate(field, env)
 }
 
 func (p *Add[W]) rhsBitwidth(env register.Map) uint {

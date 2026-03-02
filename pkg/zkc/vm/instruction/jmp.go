@@ -13,34 +13,42 @@
 package instruction
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// Return performs an unconditional branch to a given target instructon.
-type Return struct {
+// Jmp performs an unconditional branch to a given target instructon.
+type Jmp struct {
+	Target uint
+}
+
+// NewJmp constructs a fresh jump instruction to the given PC location.
+func NewJmp(target uint) *Jmp {
+	return &Jmp{target}
 }
 
 // Uses implementation for Instruction interface.
-func (p *Return) Uses() []register.Id {
+func (p *Jmp) Uses() []register.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Return) Definitions() []register.Id {
+func (p *Jmp) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Return) String(_ register.Map) string {
-	return "return"
+func (p *Jmp) String(_ register.Map) string {
+	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate implementation for Instruction interface.
-func (p *Return) Validate(_ field.Config, _ register.Map) []error {
+func (p *Jmp) Validate(_ field.Config, _ register.Map) []error {
 	return nil
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Return) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
+func (p *Jmp) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
 	return nil
 }

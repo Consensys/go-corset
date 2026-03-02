@@ -561,17 +561,18 @@ func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []ast.UnresolvedI
 		_, _ = p.expect(KEYWORD_ELSE)
 		// add branch bypass (if needed)
 		if !trueRet {
-			// update targets
 			falseTarget++
-			endTarget := falseTarget + uint(len(falseBranch))
-			insns = append(insns, &stmt.Goto[ast.UnresolvedSymbol]{Target: endTarget})
 		}
 		// parse false branch
 		if falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env); len(errs) > 0 {
 			return false, nil, errs
 		}
+		// add bypass (if applicablew)
+		if !trueRet {
+			endTarget := falseTarget + uint(len(falseBranch))
+			insns = append(insns, &stmt.Goto[ast.UnresolvedSymbol]{Target: endTarget})
+		}
 		// add false branch (if applicable)
-		//
 		insns = append(insns, falseBranch...)
 	}
 	// Configure initial if-goto

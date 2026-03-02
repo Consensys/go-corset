@@ -39,3 +39,8 @@ func (p *Fail) String(_ register.Map) string {
 func (p *Fail) Validate(_ field.Config, _ register.Map) []error {
 	return nil
 }
+
+// MicroValidate implementation for Instruction interface.
+func (p *Fail) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
+	return nil
+}

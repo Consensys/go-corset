@@ -22,9 +22,25 @@ type Uint struct {
 	value big.Int
 }
 
+// Add implementation for Word interface.
+func (p Uint) Add(w Uint) Uint {
+	var res big.Int
+	res.Add(&p.value, &w.value)
+	//
+	return Uint{res}
+}
+
 // BigInt implementation for Word interface.
 func (p Uint) BigInt() *big.Int {
 	return &p.value
+}
+
+// Mul implementation for Word interface.
+func (p Uint) Mul(w Uint) Uint {
+	var res big.Int
+	res.Mul(&p.value, &w.value)
+	//
+	return Uint{res}
 }
 
 // Uint64 implementation for Word interface.
@@ -34,6 +50,14 @@ func (p Uint) Uint64() uint64 {
 	}
 	//
 	panic(fmt.Sprintf("word cannot be expressed as uint64 (0x%s)", p.value.Text(16)))
+}
+
+// SetUint64 assigns a given big integer to this unsigned integer.
+func (p Uint) SetUint64(val uint64) Uint {
+	var w big.Int
+	w.SetUint64(val)
+	//
+	return Uint{w}
 }
 
 // SetBigInt assigns a given big integer to this unsigned integer; observe that
