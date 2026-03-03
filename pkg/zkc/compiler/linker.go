@@ -220,18 +220,23 @@ func (p *Linker) linkCondition(cond ast.UnresolvedCondition) (ast.Condition, []s
 }
 
 func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError) {
+	var (
+		args   []ast.Expr
+		errors []source.SyntaxError
+		nexpr  ast.Expr
+	)
 	//
 	switch e := e.(type) {
 	case *expr.Add[symbol.Unresolved]:
-		args, errors := p.linkExprs(e.Exprs)
-		return expr.NewAdd[symbol.Resolved](args...), errors
+		args, errors = p.linkExprs(e.Exprs)
+		nexpr = expr.NewAdd[symbol.Resolved](args...)
 	case *expr.Const[symbol.Unresolved]:
-		return expr.NewConstant[symbol.Resolved](e.Constant, e.Base), nil
+		nexpr = expr.NewConstant[symbol.Resolved](e.Constant, e.Base)
 	case *expr.Mul[symbol.Unresolved]:
-		args, errors := p.linkExprs(e.Exprs)
-		return expr.NewMul[symbol.Resolved](args...), errors
+		args, errors = p.linkExprs(e.Exprs)
+		nexpr = expr.NewMul[symbol.Resolved](args...)
 	case *expr.LocalAccess[symbol.Unresolved]:
-		return expr.NewLocalAccess[symbol.Resolved](e.Variable), nil
+		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
 	case *expr.NonLocalAccess[symbol.Unresolved]:
 		// attempt to resolve this non-local access
 		for i, c := range p.components {
@@ -243,14 +248,24 @@ func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError)
 					return nil, p.srcmap.SyntaxErrors(e, "unknown symbol (incorrect arity)")
 				}
 				// hit
-				return expr.NewNonLocalAccess[symbol.Resolved](symbol.NewResolved(uint(i))), nil
+				nexpr = expr.NewNonLocalAccess[symbol.Resolved](symbol.NewResolved(uint(i)))
+				//
+				break
 			}
 		}
 		// fail
-		return nil, p.srcmap.SyntaxErrors(e, "unknown symbol")
+		if nexpr == nil {
+			return nil, p.srcmap.SyntaxErrors(e, "unknown symbol")
+		}
 	default:
 		panic("unknown expression encountered")
 	}
+	//
+	if nexpr != nil {
+		p.srcmap.Copy(e, nexpr)
+	}
+	//
+	return nexpr, errors
 }
 
 func (p *Linker) linkExprs(exprs []ast.UnresolvedExpr) ([]ast.Expr, []source.SyntaxError) {

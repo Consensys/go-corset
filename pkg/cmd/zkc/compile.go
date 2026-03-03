@@ -88,6 +88,8 @@ func writeAbstractSyntaxTree(program ast.Program) {
 
 func writeDeclaration(decl ast.Declaration) {
 	switch decl := decl.(type) {
+	case *ast.Constant:
+		writeConstant(decl)
 	case *ast.Function:
 		writeFunction(decl)
 	case *ast.Memory:
@@ -95,6 +97,18 @@ func writeDeclaration(decl ast.Declaration) {
 	default:
 		panic("unknown declaration encountered")
 	}
+}
+
+func writeConstant(m *ast.Constant) {
+	var mapping = variable.ArrayMap()
+	//
+	fmt.Print("constant ")
+	// type
+	fmt.Printf("%s ", m.DataType.String())
+	// name
+	fmt.Printf("%s = ", m.Name())
+	// contents
+	fmt.Println(m.ConstExpr.String(mapping))
 }
 
 func writeMemory(m *ast.Memory) {
