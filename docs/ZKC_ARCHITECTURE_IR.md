@@ -1,4 +1,4 @@
-# ZkC Architecture: Intermediate Representation
+# Intermediate Representation (IR)
 
 The front end's AST is designed around the source language — it preserves
 structure that is useful for type-checking and linking but is awkward to
@@ -54,62 +54,98 @@ straightforward transformations over a small, well-defined instruction set.
 
 ## Register splitting
 
+(to be completed)
+
 ## Vectorization
 
-Vectorization (`pkg/asm/lower.go`) merges the flat sequence of
-micro-instructions produced for each function into the fewest possible
-`Vector` bundles.  Each bundle corresponds to one row of polynomial
-constraints, so reducing the number of bundles directly reduces the size of
-the generated trace and the cost of proving.
+Vector instructions are instructions composed of some number of micro
+instructions which, with restrictions, can be executed by the
+underlying machine "in parallel".  The approach is analoguous to the
+concept of [Very-Long Instruction Words
+(VLIW)](https://en.wikipedia.org/wiki/Very_long_instruction_word) but
+taken to more of an extreme --- there is no limit on the number of
+micro-instructions.
 
-Two concepts govern what may be placed in the same bundle: **conflicts** and
-**forwarding**.
+To better understand vector instructions, consider two instructions executed
+in sequence:
 
-### Conflicts
+```
+[0] x = y + 1
+[1] z = 0
+```
 
-A _conflicting write_ occurs when two micro-instructions in the same bundle
-both assign to the same register on the same execution path.  This is
-forbidden because each register corresponds to exactly one column in the row,
-and a column can only hold one value.  For example:
+When executing these instructions, an intermediate state exists after
+the first instruction is executed but before the second has been where
+x has been written but z has not.  Alternatively, the two instructions
+can be composed together to form a _vector instruction_
+(`pkg/zkc/vm/instruction/vector.go`), written like so:
+
+```
+[0] x = y + 1 ; z = 0
+```
+
+In this case, both instructions are executed _in parallel_ and there
+is no intermediate state where `x` is written but `z` is not.
+
+### Vector Control-Flow
+
+### Register Conflicts
+
+To ensure easy translation into polynomial constraints, there are
+restrictions on how vector instructions can be composed.  A
+_conflicting write_ occurs when two micro-instructions assign to the
+same register on the same execution path.\[^1\]  For example:
 
 ```
 x = 0 ; x = 1          // INVALID: x written twice on the same path
 ```
 
-Writes on _different_ execution paths (separated by a `SkipIf`) do not
-conflict, because at most one path executes for any given row.  For example:
+Writes on _different_ execution paths do not conflict, because at most
+one path executes for any given row.  For example:
 
 ```
 skip_if x != y 2 ; r = 0 ; ret ; r = 1 ; ret
 ```
 
-Here `r` is assigned on both the taken branch (`r = 0`) and the fall-through
-branch (`r = 1`), but since the branches are mutually exclusive this is
-valid.  The vectorizer uses a DFA that tracks two write sets per program
-point within a bundle — _definitely written_ (written on every path so far)
-and _maybe written_ (written on at least one path) — and rejects any bundle
-where a write targets a register already in the _maybe written_ set.
+Here `r` is assigned on both the taken branch (`r = 0`) and the
+fall-through branch (`r = 1`), but since the branches are mutually
+exclusive this is valid.  The vectorizer uses a data-flow analysis
+that tracks two write sets per position within a vector bundle —
+_definitely written_ (written on every path so far) and _maybe
+written_ (written on at least one path) — and rejects any bundle where
+a write targets a register already in the _maybe written_ set.
 
-### Forwarding
+### Register Forwarding
 
-_Forwarding_ allows a register written by an earlier micro-instruction in a
-bundle to be read by a later one within the same bundle.  This is analogous
-to register forwarding in CPU pipelines.  For example:
+_Forwarding_ allows a register written by an earlier micro-instruction
+in a vector instruction to be read by a later one within the same
+instruction.  This is analogous to [register
+forwarding](https://en.wikipedia.org/wiki/Operand_forwarding) as used
+in CPU pipelines.  For example:
 
 ```
 x = 0 ; y = x + 1 ; ret
 ```
 
-Here `x` is written by the first micro-instruction and immediately read by
-the second.  Because `x` is _definitely written_ before the read, the
-vectorizer considers this valid and the written value is forwarded.
+Here `x` is written by the first micro-instruction and immediately
+read by the second.  Because `x` is _definitely written_ before the
+read, the vectorizer considers this valid and the written value is
+said to be "forwarded".\[^2\]
 
-Forwarding is not permitted if the prior write is only on _some_ paths.  For
-example:
+Forwarding is not permitted if the prior write is only on _some_
+paths.  For example:
 
 ```
 skip_if a != b 1 ; x = 0 ; y = x + 1
 ```
 
-Here `x` is only _maybe written_ (the `SkipIf` may bypass the assignment),
-so reading it in `y = x + 1` would be ambiguous and is rejected.
+Here `x` is said to be _maybe written_ so reading it in `y = x + 1`
+would be ambiguous and is rejected.
+
+\[^1\]: This is forbidden because each register corresponds to exactly
+one column in the corresponding table's row, and a column can only
+hold one value.
+
+\[^2\]: In real terms, this means constraint generated for this
+instruction refers to `x` on the _current row_ of the trace
+(i.e. rather than the previous row).

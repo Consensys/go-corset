@@ -1,6 +1,6 @@
-# ZkC Architecture: Front End
+# Abstract Syntax Tree (AST)
 
-The front end parses ZkC source files and produces an _Abstract Syntax
+The front end parses `zkc` source files and produces an _Abstract Syntax
 Tree_ (AST) — a structured, in-memory representation of the program
 that subsequent compiler phases can analyse and transform.  The AST is
 a tree where each node represents a syntactic construct.  The root of
@@ -60,12 +60,12 @@ fn pow(u4 n, u4 m) -> (u4 r) {
 [6]     return
 ```
 
-Here, the Program Counter (PC) location are given on the left of each
-instruction.  We can see how the original `while` loop was transformed
-into a flat instruction sequence using a conditional `if`/`goto`
-branch and an unconditional `goto`.  Here, for example, `goto 2`
-indicates that control flow branches to instruction `[2]` at this
-point.
+Here, the _Program Counter (PC)_ locations are given on the left of
+each instruction.  We can see how the original `while` loop was
+transformed into a flat instruction sequence using a conditional
+`if`/`goto` branch and an unconditional `goto`.  Here, for example,
+`goto 2` indicates that control flow branches to instruction `[2]` at
+this point.
 
 ## Parsing
 
