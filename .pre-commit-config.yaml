@@ -17,7 +17,7 @@ repos:
     hooks:
       - id: golangci-lint
   - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.17
+    rev: 1.0.0
     hooks:
       - id: mdformat
         additional_dependencies:
