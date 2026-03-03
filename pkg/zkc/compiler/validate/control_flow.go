@@ -35,11 +35,10 @@ func ControlFlow(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxE
 	for _, d := range program.Components() {
 		switch d := d.(type) {
 		case *ast.Constant:
+			// ignore
 		case *ast.Function:
 			errors = append(errors, validateFunctionFlow(*d, srcmaps)...)
 		case *ast.Memory:
-			// ignore
-		case *ast.Constant:
 			// ignore
 		default:
 			panic(fmt.Sprintf("unknown component: %s", reflect.TypeOf(d).String()))
