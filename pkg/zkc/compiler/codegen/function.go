@@ -32,8 +32,9 @@ type MicroInstruction = instruction.MicroInstruction[word.Uint]
 // the variable descriptors into register descriptors.  Each variable may
 // expand into one or more registers (e.g. a tuple variable produces one
 // register per element).
-func compileFunction(fn ast.Function) function.Boot[word.Uint] {
+func compileFunction(id uint, program ast.Program) function.Boot[word.Uint] {
 	var (
+		fn        = program.Component(id).(*ast.Function)
 		registers []register.Register
 		padding   big.Int // zero padding
 		bootCode  = make([]instruction.Instruction[word.Uint], len(fn.Code))
@@ -58,7 +59,7 @@ func compileFunction(fn ast.Function) function.Boot[word.Uint] {
 		})
 	}
 	//
-	compiler := Compiler{fn.Variables, registers}
+	compiler := Compiler{program.Components(), fn.Variables, registers}
 	//
 	for i, stmt := range fn.Code {
 		bootCode[i] = compiler.compileStatement(uint(i), stmt)

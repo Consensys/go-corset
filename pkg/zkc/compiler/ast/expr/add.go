@@ -13,16 +13,18 @@
 package expr
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Add represents an expresion which adds one or more terms together.
 type Add[I symbol.Symbol[I]] struct {
-	Exprs []Expr[I]
+	bitwidth uint
+	Exprs    []Expr[I]
 }
 
 // NewAdd constructs an expression representing the sum of one or more values.
@@ -31,7 +33,21 @@ func NewAdd[I symbol.Symbol[I]](exprs ...Expr[I]) Expr[I] {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &Add[I]{Exprs: exprs}
+	return &Add[I]{Exprs: exprs, bitwidth: math.MaxUint}
+}
+
+// BitWidth implementation for Expr interface
+func (p *Add[I]) BitWidth() uint {
+	if p.bitwidth == math.MaxUint {
+		panic("untyped expression")
+	}
+
+	return p.bitwidth
+}
+
+// SetBitWidth sets the (positive) bitwidth.
+func (p *Add[I]) SetBitWidth(bitwidth uint) {
+	p.bitwidth = bitwidth
 }
 
 // NonLocalUses implementation for the Expr interface.
@@ -42,21 +58,6 @@ func (p *Add[I]) NonLocalUses() set.AnySortedSet[I] {
 // LocalUses implementation for the Expr interface.
 func (p *Add[I]) LocalUses() bit.Set {
 	return localUses(p.Exprs...)
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *Add[I]) ValueRange(env variable.Map) math.Interval {
-	var values math.Interval
-	//
-	for i, e := range p.Exprs {
-		if i == 0 {
-			values = e.ValueRange(env)
-		} else {
-			values.Add(e.ValueRange(env))
-		}
-	}
-	//
-	return values
 }
 
 func (p *Add[I]) String(mapping variable.Map) string {

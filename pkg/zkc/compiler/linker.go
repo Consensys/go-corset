@@ -157,7 +157,7 @@ func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []sou
 
 func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []source.SyntaxError) {
 	var (
-		codes = make([]ast.Instruction, len(fn.Code))
+		codes = make([]ast.Stmt, len(fn.Code))
 		errs  []source.SyntaxError
 	)
 	//
@@ -172,9 +172,9 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 	return decl.NewFunction(fn.Name(), fn.Variables, codes), errs
 }
 
-func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Instruction, []source.SyntaxError) {
+func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Stmt, []source.SyntaxError) {
 	var (
-		ninsn  ast.Instruction
+		ninsn  ast.Stmt
 		errors []source.SyntaxError
 	)
 	//
@@ -248,7 +248,7 @@ func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError)
 					return nil, p.srcmap.SyntaxErrors(e, "unknown symbol (incorrect arity)")
 				}
 				// hit
-				nexpr = expr.NewNonLocalAccess[symbol.Resolved](symbol.NewResolved(uint(i)))
+				nexpr = expr.NewNonLocalAccess[symbol.Resolved](symbol.NewResolved(c.Name(), uint(i)))
 				//
 				break
 			}

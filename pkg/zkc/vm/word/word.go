@@ -44,3 +44,33 @@ func Uint64[W Word[W]](val uint64) W {
 	var w W
 	return w.SetUint64(val)
 }
+
+// Sum a given set of words together.
+func Sum[W Word[W]](values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Add(v)
+		}
+	}
+	//
+	return res
+}
+
+// Product mulitplies a given set of words together.
+func Product[W Word[W]](values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Mul(v)
+		}
+	}
+	//
+	return res
+}

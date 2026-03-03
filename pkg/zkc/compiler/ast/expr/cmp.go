@@ -17,7 +17,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -119,9 +118,4 @@ func (p *Cmp[I]) String(env variable.Map) string {
 	}
 	//
 	return fmt.Sprintf("%s%s%s", l, op, r)
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *Cmp[I]) ValueRange(env variable.Map) math.Interval {
-	panic("todo")
 }

@@ -19,7 +19,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -31,6 +30,9 @@ var (
 
 // Expr represents an arbitrary expression used within an instruction.
 type Expr[I symbol.Symbol[I]] interface {
+	// BitWidth returns the minimum number of bits required to hold any
+	// evaluation of this expression.
+	BitWidth() uint
 	// NonLocalUses returns the set of non-local declarations accessed by this
 	// expression.  For example, external constants or memories used within.
 	NonLocalUses() set.AnySortedSet[I]
@@ -38,28 +40,6 @@ type Expr[I symbol.Symbol[I]] interface {
 	LocalUses() bit.Set
 	// String returns a string representation of this expression.
 	String(mapping variable.Map) string
-	// ValueRange returns the interval of values that this term can evaluate to.
-	// For terms accessing registers, this is determined by the declared width of
-	// the register.
-	ValueRange(env variable.Map) math.Interval
-}
-
-// BitWidth returns the minimum number of bits required to store any evaluation
-// of this expression.  In addition, it provides an indicator as to whether or
-// not any evaluation could result in a negative value.
-func BitWidth[I symbol.Symbol[I]](e Expr[I], env variable.Map) (uint, bool) {
-	var (
-		// Determine set of all values that right-hand side can evaluate to
-		values = e.ValueRange(env)
-		// Determine bitwidth required to contain all values
-		bitwidth, signed = values.BitWidth()
-	)
-	// For signed arithmetic, we need a specific sign bit.
-	if signed {
-		bitwidth++
-	}
-	//
-	return bitwidth, signed
 }
 
 // Uses determines the (unique) set of registers read by any expression
@@ -98,11 +78,13 @@ func String[I symbol.Symbol[I]](e Expr[I], mapping variable.Map) string {
 		exprs = e.Exprs
 	case *Const[I]:
 		return stringOfConstant(e.Constant, e.Base)
+	case *LocalAccess[I]:
+		return mapping.Variable(e.Variable).Name
 	case *Mul[I]:
 		exprs = e.Exprs
 		operator = "*"
-	case *LocalAccess[I]:
-		return mapping.Variable(e.Variable).Name
+	case *NonLocalAccess[I]:
+		return e.Name.String()
 	case *Sub[I]:
 		exprs = e.Exprs
 		operator = "-"
@@ -145,6 +127,8 @@ func needsBraces[I symbol.Symbol[I]](e Expr[I]) bool {
 	case *Const[I]:
 		return false
 	case *LocalAccess[I]:
+		return false
+	case *NonLocalAccess[I]:
 		return false
 	default:
 		return true

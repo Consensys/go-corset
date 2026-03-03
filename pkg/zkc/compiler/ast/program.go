@@ -32,10 +32,10 @@ type Expr = expr.Expr[symbol.Resolved]
 // to unknown (or otherwise incorrect) external components.
 type Condition = expr.Condition[symbol.Resolved]
 
-// Instruction represents a macro instruction  where external identifiers
+// Stmt represents a macro instruction  where external identifiers
 // are otherwise resolved. As such, it should not be possible that such a
 // declaration refers to unknown (or otherwise incorrect) external components.
-type Instruction = stmt.Stmt[symbol.Resolved]
+type Stmt = stmt.Stmt[symbol.Resolved]
 
 // Declaration represents a declaration which can contain macro
 // instructions and where external identifiers are otherwise resolved. As such,

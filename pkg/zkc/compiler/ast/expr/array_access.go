@@ -15,7 +15,6 @@ package expr
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -32,6 +31,13 @@ func NewArrayAccess[I symbol.Symbol[I]](src, index Expr[I]) Expr[I] {
 	return &ArrayAccess[I]{src, index}
 }
 
+// BitWidth implementation for Expr interface
+func (p *ArrayAccess[I]) BitWidth() uint {
+	// This is unsupported because, by the time it is needed, it should aleady
+	// have been compiled out.
+	panic("unsupported operation")
+}
+
 // NonLocalUses implementation for the Expr interface.
 func (p *ArrayAccess[I]) NonLocalUses() set.AnySortedSet[I] {
 	panic("todo")
@@ -45,11 +51,6 @@ func (p *ArrayAccess[I]) LocalUses() bit.Set {
 	reads.Union(p.Index.LocalUses())
 	//
 	return reads
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *ArrayAccess[I]) ValueRange(env variable.Map) math.Interval {
-	return p.Source.ValueRange(env)
 }
 
 func (p *ArrayAccess[I]) String(mapping variable.Map) string {

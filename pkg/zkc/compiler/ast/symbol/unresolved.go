@@ -38,3 +38,7 @@ func (p Unresolved) Cmp(o Unresolved) int {
 	//
 	return cmp.Compare(p.Outputs, o.Outputs)
 }
+
+func (p Unresolved) String() string {
+	return p.Name
+}

@@ -1,3 +1,5 @@
+// Copyright Consensys Software Inc.
+//
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 // the License. You may obtain a copy of the License at
 //
@@ -8,17 +10,12 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package symbol
+package typing
 
-import (
-	"fmt"
-
-	"github.com/consensys/go-corset/pkg/util/collection/set"
-)
-
-// Symbol represents a reference to some declared entity, such as a function,
-// constant or memory.
-type Symbol[I any] interface {
-	fmt.Stringer
-	set.Comparable[I]
+// Type provides an abstraction over the different kinds of type which are
+// possible (e.g. integer types versus struct or array types, etc).
+type Type interface {
+	// AsUint() attempts to convert this type into an unsigned integer type,
+	// whilst returning nil if this fails.
+	AsUint() *Uint
 }

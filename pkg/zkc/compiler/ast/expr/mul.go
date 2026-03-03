@@ -13,16 +13,18 @@
 package expr
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Mul represents an expresion which computes the product of one or more terms.
 type Mul[I symbol.Symbol[I]] struct {
-	Exprs []Expr[I]
+	bitwidth uint
+	Exprs    []Expr[I]
 }
 
 // NewMul constructs an expression representing the product of one or more
@@ -32,7 +34,21 @@ func NewMul[I symbol.Symbol[I]](exprs ...Expr[I]) Expr[I] {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &Mul[I]{Exprs: exprs}
+	return &Mul[I]{Exprs: exprs, bitwidth: math.MaxUint}
+}
+
+// BitWidth implementation for Expr interface
+func (p *Mul[I]) BitWidth() uint {
+	if p.bitwidth == math.MaxUint {
+		panic("untyped expression")
+	}
+	//
+	return p.bitwidth
+}
+
+// SetBitWidth sets the (positive) bitwidth.
+func (p *Mul[I]) SetBitWidth(bitwidth uint) {
+	p.bitwidth = bitwidth
 }
 
 // NonLocalUses implementation for the Expr interface.
@@ -43,21 +59,6 @@ func (p *Mul[I]) NonLocalUses() set.AnySortedSet[I] {
 // LocalUses implementation for the Expr interface.
 func (p *Mul[I]) LocalUses() bit.Set {
 	return localUses(p.Exprs...)
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *Mul[I]) ValueRange(env variable.Map) math.Interval {
-	var values math.Interval
-	//
-	for i, e := range p.Exprs {
-		if i == 0 {
-			values = e.ValueRange(env)
-		} else {
-			values.Mul(e.ValueRange(env))
-		}
-	}
-	//
-	return values
 }
 
 func (p *Mul[I]) String(mapping variable.Map) string {

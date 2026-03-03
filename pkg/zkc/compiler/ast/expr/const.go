@@ -17,7 +17,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -35,6 +34,11 @@ func NewConstant[I symbol.Symbol[I]](constant big.Int, base uint) Expr[I] {
 	return &Const[I]{Constant: constant, Base: base}
 }
 
+// BitWidth implementation for Expr interface
+func (p *Const[I]) BitWidth() uint {
+	return uint(p.Constant.BitLen())
+}
+
 // NonLocalUses implementation for the Expr interface.
 func (p *Const[I]) NonLocalUses() set.AnySortedSet[I] {
 	panic("todo")
@@ -48,10 +52,4 @@ func (p *Const[I]) LocalUses() bit.Set {
 
 func (p *Const[I]) String(mapping variable.Map) string {
 	return String[I](p, mapping)
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *Const[I]) ValueRange(env variable.Map) math.Interval {
-	// Return as interval
-	return math.NewInterval(p.Constant, p.Constant)
 }

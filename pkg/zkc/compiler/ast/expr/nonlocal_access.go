@@ -13,9 +13,10 @@
 package expr
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -23,13 +24,28 @@ import (
 // NonLocalAccess represents a reference to a non-local variable, such as a
 // named constant or memory.
 type NonLocalAccess[I symbol.Symbol[I]] struct {
-	Name I
+	bitwidth uint
+	Name     I
 }
 
 // NewNonLocalAccess constructs an expression representing a non-local access,
 // such as for a named constant or memory.
 func NewNonLocalAccess[I symbol.Symbol[I]](name I) Expr[I] {
-	return &NonLocalAccess[I]{name}
+	return &NonLocalAccess[I]{Name: name, bitwidth: math.MaxUint}
+}
+
+// BitWidth implementation for Expr interface
+func (p *NonLocalAccess[I]) BitWidth() uint {
+	if p.bitwidth == math.MaxUint {
+		panic("untyped expression")
+	}
+	//
+	return p.bitwidth
+}
+
+// SetBitWidth sets the (positive) bitwidth.
+func (p *NonLocalAccess[I]) SetBitWidth(bitwidth uint) {
+	p.bitwidth = bitwidth
 }
 
 // NonLocalUses implementation for the Expr interface.
@@ -45,9 +61,4 @@ func (p *NonLocalAccess[I]) LocalUses() bit.Set {
 
 func (p *NonLocalAccess[I]) String(mapping variable.Map) string {
 	return String[I](p, mapping)
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *NonLocalAccess[I]) ValueRange(env variable.Map) math.Interval {
-	panic("todo")
 }

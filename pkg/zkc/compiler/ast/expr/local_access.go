@@ -13,28 +13,42 @@
 package expr
 
 import (
-	"math/big"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
-	"github.com/consensys/go-corset/pkg/util/math"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // LocalAccess represents a register access within an expresion.
 type LocalAccess[I symbol.Symbol[I]] struct {
+	bitwidth uint
 	Variable variable.Id
 }
 
 // NewLocalAccess constructs an expression representing a register access.
 func NewLocalAccess[I symbol.Symbol[I]](variable variable.Id) Expr[I] {
-	return &LocalAccess[I]{Variable: variable}
+	return &LocalAccess[I]{Variable: variable, bitwidth: math.MaxUint}
+}
+
+// BitWidth implementation for Expr interface
+func (p *LocalAccess[I]) BitWidth() uint {
+	if p.bitwidth == math.MaxUint {
+		panic("untyped expression")
+	}
+	//
+	return p.bitwidth
+}
+
+// SetBitWidth sets the (positive) bitwidth.
+func (p *LocalAccess[I]) SetBitWidth(bitwidth uint) {
+	p.bitwidth = bitwidth
 }
 
 // NonLocalUses implementation for the Expr interface.
 func (p *LocalAccess[I]) NonLocalUses() set.AnySortedSet[I] {
-	panic("todo")
+	return nil
 }
 
 // LocalUses implementation for the Expr interface.
@@ -47,18 +61,4 @@ func (p *LocalAccess[I]) LocalUses() bit.Set {
 
 func (p *LocalAccess[I]) String(mapping variable.Map) string {
 	return String[I](p, mapping)
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *LocalAccess[I]) ValueRange(env variable.Map) math.Interval {
-	var (
-		bound    = big.NewInt(2)
-		bitwidth = env.Variable(p.Variable).BitWidth()
-	)
-	// compute 2^bitwidth
-	bound.Exp(bound, big.NewInt(int64(bitwidth)), nil)
-	// Subtract 1 because interval is inclusive.
-	bound.Sub(bound, &biONE)
-	// Done
-	return math.NewInterval(biZERO, *bound)
 }

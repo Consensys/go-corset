@@ -16,15 +16,20 @@ import "cmp"
 // referenced.  Each component is referred to by its kind (function, RAM, ROM,
 // etc) and its index of that kind.
 type Resolved struct {
+	Name  string
 	Index uint
 }
 
 // NewResolved constructs a new resolved symbol
-func NewResolved(index uint) Resolved {
-	return Resolved{index}
+func NewResolved(name string, index uint) Resolved {
+	return Resolved{name, index}
 }
 
 // Cmp implementation for set.Comparable interface
 func (p Resolved) Cmp(o Resolved) int {
 	return cmp.Compare(p.Index, o.Index)
+}
+
+func (p Resolved) String() string {
+	return p.Name
 }

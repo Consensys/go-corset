@@ -12,13 +12,24 @@
 // SPDX-License-Identifier: Apache-2.0
 package expr
 
-import "github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+import (
+	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+)
 
 // Condition describes a logical condition which can be used as branch
 // conditions (e.g. for if/while, etc).
 type Condition[I symbol.Symbol[I]] interface {
-	Expr[I]
 	// Negate a given condition to produce an equivalent (but negated)
 	// condition.
 	Negate() Condition[I]
+	// NonLocalUses returns the set of non-local declarations accessed by this
+	// condition.  For example, external constants or memories used within.
+	NonLocalUses() set.AnySortedSet[I]
+	// RegistersRead returns the set of variables used (i.e. read) by this condition
+	LocalUses() bit.Set
+	// String returns a string representation of this condition.
+	String(mapping variable.Map) string
 }

@@ -33,12 +33,12 @@ func Compile(p *ast.Program) machine.Boot[word.Uint] {
 		rams      []memory.Boot[word.Uint]
 	)
 	// Initialise components
-	for _, c := range p.Components() {
+	for i, c := range p.Components() {
 		switch c := c.(type) {
 		case *ast.Constant:
 			// ignore
 		case *ast.Function:
-			functions = append(functions, compileFunction(*c))
+			functions = append(functions, compileFunction(uint(i), *p))
 		case *ast.Memory:
 			// construct suitable decoder
 			var decoder = memory.NewBootDecoder[word.Uint](c.Address, c.Data)
