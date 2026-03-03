@@ -1,0 +1,2 @@
+;;error:2:21-24:bit overflow (u9 into u8)
+constant u8 LARGE = 256

@@ -59,13 +59,6 @@ type Function = decl.Function[symbol.Resolved]
 // (or otherwise incorrect) external components.
 type Memory = decl.Memory[symbol.Resolved]
 
-// UnresolvedSymbol identifies an expect record in the symbol table.  For functions, this
-// includes the number of expected inputs and outputs.
-type UnresolvedSymbol struct {
-	Name            string
-	Inputs, Outputs uint
-}
-
 // UnresolvedInstruction represents an instruction whose identifiers for external
 // components are unresolved linkage records.  As such, its possible that such a
 // instruction may fail with an error at link time due to an unresolvable

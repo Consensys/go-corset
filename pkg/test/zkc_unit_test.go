@@ -29,8 +29,13 @@ func Test_ZkcUnit_Basic_01(t *testing.T) {
 // ===================================================================
 // Constant Tests
 // ===================================================================
+
 func Test_ZkcUnit_Constant_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/constant_valid_01")
+}
+
+func Test_ZkcUnit_Constant_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/constant_valid_02")
 }
 
 // ===================================================================
@@ -38,5 +43,5 @@ func Test_ZkcUnit_Constant_01(t *testing.T) {
 // ===================================================================
 
 func checkZkcUnit(t *testing.T, test string) {
-	util.CheckValid(t, test, "zkc", compileZkc)
+	util.CheckValid(t, test, "zkc", util.CompileZkc)
 }
