@@ -16,8 +16,6 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/test/util"
-	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/zkc/compiler"
 )
 
 // ===================================================================
@@ -57,6 +55,28 @@ func Test_ZkcInvalid_Basic_08(t *testing.T) {
 }
 
 // ===================================================================
+// Constant Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Constant_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_invalid_01")
+}
+
+// should fail
+// func Test_ZkcInvalid_Constant_02(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_02")
+// }
+
+func Test_ZkcInvalid_Constant_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_invalid_03")
+}
+
+// should fail
+// func Test_ZkcInvalid_Constant_04(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_04")
+// }
+
+// ===================================================================
 // If Tests
 // ===================================================================
 
@@ -93,11 +113,5 @@ func Test_ZkcInvalid_While_03(t *testing.T) {
 // ===================================================================
 
 func checkZkcInvalid(t *testing.T, test string) {
-	util.CheckInvalid(t, test, "zkc", compileZkc)
-}
-
-func compileZkc(srcfile source.File) []source.SyntaxError {
-	_, _, errors := compiler.Compile(srcfile)
-	//
-	return errors
+	util.CheckInvalid(t, test, "zkc", util.CompileZkc)
 }

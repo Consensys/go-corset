@@ -1,0 +1,2 @@
+;;error:2:25-30:cyclic defintion
+constant u8 LARGE = 1 * LARGE
