@@ -161,7 +161,7 @@ func (p *Program) MapInputs(input map[string][]byte) (map[string][]word.Uint, []
 				if bytes, ok := input[c.Name()]; ok {
 					output[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes)
 				} else {
-					errors = append(errors, fmt.Errorf("unexpected input \"%s\"", c.Name()))
+					errors = append(errors, fmt.Errorf("missing input \"%s\"", c.Name()))
 				}
 			default:
 				if _, ok := input[c.Name()]; ok {
