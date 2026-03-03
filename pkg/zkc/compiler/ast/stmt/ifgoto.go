@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
@@ -40,23 +41,23 @@ type Condition uint8
 
 // IfGoto describes a conditional branch which branches to a given target
 // instruction if the given condition holds.
-type IfGoto[E any] struct {
+type IfGoto[S symbol.Symbol[S]] struct {
 	// Cond indicates the condition
-	Cond expr.Condition
+	Cond expr.Condition[S]
 	// Target identifies target PC
 	Target uint
 }
 
 // Buses implementation for Instruction interface
-func (p *IfGoto[E]) Buses() []E {
+func (p *IfGoto[S]) Buses() []S {
 	panic("todo")
 }
 
 // Uses implementation for Instruction interface.
-func (p *IfGoto[E]) Uses() []variable.Id {
+func (p *IfGoto[S]) Uses() []variable.Id {
 	var (
 		reads []variable.Id
-		bits  bit.Set = p.Cond.Uses()
+		bits  bit.Set = p.Cond.LocalUses()
 	)
 	// Collect them all up
 	for iter := bits.Iter(); iter.HasNext(); {
@@ -69,16 +70,10 @@ func (p *IfGoto[E]) Uses() []variable.Id {
 }
 
 // Definitions implementation for Instruction interface.
-func (p *IfGoto[E]) Definitions() []variable.Id {
+func (p *IfGoto[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *IfGoto[E]) String(env variable.Map) string {
+func (p *IfGoto[S]) String(env variable.Map) string {
 	return fmt.Sprintf("if %s goto %d", p.Cond.String(env), p.Target)
-}
-
-// Validate implementation for Instruction interface.
-func (p *IfGoto[E]) Validate(env variable.Map) error {
-	//
-	return nil
 }

@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
@@ -24,6 +26,10 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -52,15 +58,25 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	//
 	ir := GetFlag(cmd, "ir")
+	as := GetFlag(cmd, "ast")
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args)
 	//
+	if as {
+		writeAbstractSyntaxTree(program)
+	}
+	//
 	if ir {
-		writeIntermediateRepresentation(program)
+		vm := codegen.Compile(&program)
+		writeIntermediateRepresentation[word.Uint](vm)
 	}
 }
 
-func writeIntermediateRepresentation(program ast.Program) {
+// ============================================================================
+// AST
+// ============================================================================
+
+func writeAbstractSyntaxTree(program ast.Program) {
 	for i, d := range program.Components() {
 		if i != 0 {
 			fmt.Println()
@@ -72,6 +88,8 @@ func writeIntermediateRepresentation(program ast.Program) {
 
 func writeDeclaration(decl ast.Declaration) {
 	switch decl := decl.(type) {
+	case *ast.Constant:
+		writeConstant(decl)
 	case *ast.Function:
 		writeFunction(decl)
 	case *ast.Memory:
@@ -79,6 +97,18 @@ func writeDeclaration(decl ast.Declaration) {
 	default:
 		panic("unknown declaration encountered")
 	}
+}
+
+func writeConstant(m *ast.Constant) {
+	var mapping = variable.ArrayMap()
+	//
+	fmt.Print("constant ")
+	// type
+	fmt.Printf("%s ", m.DataType.String())
+	// name
+	fmt.Printf("%s = ", m.Name())
+	// contents
+	fmt.Println(m.ConstExpr.String(mapping))
 }
 
 func writeMemory(m *ast.Memory) {
@@ -186,8 +216,102 @@ func writeFunctionVariables(f *ast.Function) {
 	}
 }
 
+// ============================================================================
+// Intermediate Representation (IR)
+// ============================================================================
+
+func writeIntermediateRepresentation[W word.Word[W]](machine machine.Boot[W]) {
+	var (
+		state = machine.State()
+	)
+	// Write statics
+	for i := range state.NumStatics() {
+		writeIrMemory("static", state.Static(i).Name())
+	}
+	// Write inputs
+	for i := range state.NumInputs() {
+		writeIrMemory("input", state.Input(i).Name())
+	}
+	// Write outputs
+	for i := range state.NumOutputs() {
+		writeIrMemory("output", state.Output(i).Name())
+	}
+	// Write memories
+	for i := range state.NumMemories() {
+		writeIrMemory("memory", state.Memory(i).Name())
+	}
+	// Write functions
+	for i := range state.NumFunctions() {
+		writeIrFunction[W](state.Function(i))
+	}
+}
+
+func writeIrMemory(kind string, name string) {
+	fmt.Printf("%s %s(?) -> (?)\n", kind, name)
+}
+
+func writeIrFunction[W word.Word[W]](f function.Boot[W]) {
+	var (
+		name   = trace.ModuleName{Name: f.Name(), Multiplier: 1}
+		regMap = register.ArrayMap(name, f.Registers()...)
+	)
+	fmt.Printf("fn %s(", f.Name())
+	// parameters
+	writeIrFunctionArgs(register.INPUT_REGISTER, f.Registers())
+	//
+	fmt.Printf(")")
+	//
+	if f.NumOutputs() != 0 {
+		//
+		fmt.Printf(" -> (")
+		// returns
+		writeIrFunctionArgs(register.OUTPUT_REGISTER, f.Registers())
+		//
+		fmt.Printf(")")
+	}
+	//
+	fmt.Println(" {")
+	//
+	writeIrFunctionVariables[W](f)
+	//
+	for pc, insn := range f.Code() {
+		fmt.Printf("[%d]\t%s\n", pc, insn.String(regMap))
+	}
+	// Done
+	fmt.Println("}")
+}
+
+func writeIrFunctionArgs(kind register.Type, regs []register.Register) {
+	var first = true
+	//
+	for _, r := range regs {
+		if r.Kind() == kind {
+			if !first {
+				fmt.Printf(", ")
+			} else {
+				first = false
+			}
+			//
+			fmt.Printf("u%d %s", r.Width(), r.Name())
+		}
+	}
+}
+
+func writeIrFunctionVariables[W word.Word[W]](f function.Boot[W]) {
+	for _, r := range f.Registers() {
+		if !r.IsInputOutput() {
+			fmt.Printf("\tu%d %s\n", r.Width(), r.Name())
+		}
+	}
+}
+
+// ============================================================================
+// Misc
+// ============================================================================
+
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(compileCmd)
+	compileCmd.Flags().Bool("ast", false, "Output abstract syntax tree (AST)")
 	compileCmd.Flags().Bool("ir", false, "Output intermediate representation (IR)")
 }

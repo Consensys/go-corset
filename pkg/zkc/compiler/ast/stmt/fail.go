@@ -17,32 +17,27 @@ import (
 )
 
 // Fail signals an exceptional return from the enclosing function.
-type Fail[E any] struct {
+type Fail[S any] struct {
 	// dummy is included to force Return structs to be stored in the heap.
 	//nolint
 	Dummy uint
 }
 
 // Buses implementation for Instruction interface
-func (p *Fail[E]) Buses() []E {
+func (p *Fail[S]) Buses() []S {
 	return nil
 }
 
 // Uses implementation for Instruction interface.
-func (p *Fail[E]) Uses() []variable.Id {
+func (p *Fail[S]) Uses() []variable.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Fail[E]) Definitions() []variable.Id {
+func (p *Fail[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *Fail[E]) String(_ variable.Map) string {
+func (p *Fail[S]) String(_ variable.Map) string {
 	return "fail"
-}
-
-// Validate implementation for Instruction interface.
-func (p *Fail[E]) Validate(env variable.Map) error {
-	return nil
 }

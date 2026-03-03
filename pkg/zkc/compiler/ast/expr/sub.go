@@ -13,61 +13,65 @@
 package expr
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Sub represents an expresion which subtracts zero or more terms from a given term.
-type Sub struct {
-	Exprs []Expr
+type Sub[I symbol.Symbol[I]] struct {
+	poswidth uint
+	negwidth uint
+	Exprs    []Expr[I]
 }
 
 // NewSub constructs an expression representing the subtraction of one or more
 // values.
-func NewSub(exprs ...Expr) Expr {
+func NewSub[I symbol.Symbol[I]](exprs ...Expr[I]) Expr[I] {
 	if len(exprs) == 0 {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &Sub{Exprs: exprs}
+	return &Sub[I]{Exprs: exprs, poswidth: math.MaxUint, negwidth: math.MaxUint}
 }
 
-// Equals implementation for the Expr interface.
-func (p *Sub) Equals(e Expr) bool {
-	if e, ok := e.(*Sub); ok {
-		return EqualsAll(p.Exprs, e.Exprs)
+// BitWidth implementation for Expr interface
+func (p *Sub[I]) BitWidth() uint {
+	if p.poswidth == math.MaxUint {
+		panic("untyped expression")
 	}
 	//
-	return false
+	return p.poswidth
 }
 
-// Uses implementation for the Expr interface.
-func (p *Sub) Uses() bit.Set {
-	var reads bit.Set
-	//
-	for _, e := range p.Exprs {
-		reads.Union(e.Uses())
+// NegWidth returns the negative bitwidth for this expression.
+func (p *Sub[I]) NegWidth() uint {
+	if p.negwidth == math.MaxUint {
+		panic("untyped expression")
 	}
 	//
-	return reads
+	return p.negwidth
 }
 
-// ValueRange implementation for the Expr interface.
-func (p *Sub) ValueRange(env variable.Map) math.Interval {
-	var values math.Interval
-	//
-	for i, e := range p.Exprs {
-		if i == 0 {
-			values = e.ValueRange(env)
-		} else {
-			values.Sub(e.ValueRange(env))
-		}
-	}
-	//
-	return values
+// SetBitWidths sets the negative and positive bitwidths.
+func (p *Sub[I]) SetBitWidths(negwidth, poswidth uint) {
+	p.poswidth = poswidth
+	p.negwidth = negwidth
 }
 
-func (p *Sub) String(mapping variable.Map) string {
-	return String(p, mapping)
+// NonLocalUses implementation for the Expr interface.
+func (p *Sub[I]) NonLocalUses() set.AnySortedSet[I] {
+	return nonLocalUses(p.Exprs...)
+}
+
+// LocalUses implementation for the Expr interface.
+func (p *Sub[I]) LocalUses() bit.Set {
+	return localUses(p.Exprs...)
+}
+
+func (p *Sub[I]) String(mapping variable.Map) string {
+	return String[I](p, mapping)
 }

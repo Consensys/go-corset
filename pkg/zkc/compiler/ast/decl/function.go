@@ -13,6 +13,7 @@ package decl
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
@@ -27,7 +28,7 @@ import (
 // instructions of an "assembly" level function implement the Instruction
 // interface, which is better suited to analysis and/or translation into
 // constraints.
-type Function[E any] struct {
+type Function[S symbol.Symbol[S]] struct {
 	// Unique name of this function.
 	name string
 	// Registers describes zero or more variables of a given width.  Each
@@ -38,30 +39,35 @@ type Function[E any] struct {
 	// Number of output variables
 	NumOutputs uint
 	// Code defines the body of this function.
-	Code []stmt.Instruction[E]
+	Code []stmt.Stmt[S]
 }
 
 // NewFunction constructs a new function with the given variables and code
-func NewFunction[E any](name string, variables []variable.Descriptor, code []stmt.Instruction[E]) *Function[E] {
+func NewFunction[S symbol.Symbol[S]](name string, variables []variable.Descriptor, code []stmt.Stmt[S]) *Function[S] {
 	var (
 		numInputs  = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsParameter() })
 		numOutputs = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsReturn() })
 	)
 	//
-	return &Function[E]{name, variables, numInputs, numOutputs, code}
+	return &Function[S]{name, variables, numInputs, numOutputs, code}
+}
+
+// Arity implementation for Declaration interface
+func (p *Function[S]) Arity() (nInputs, nOutputs uint) {
+	return p.NumInputs, p.NumOutputs
 }
 
 // Name implementation for Declaration interface
-func (p *Function[E]) Name() string {
+func (p *Function[S]) Name() string {
 	return p.name
 }
 
 // Externs implementation for Declaration interface
-func (p *Function[E]) Externs() []E {
+func (p *Function[S]) Externs() []S {
 	panic("todo")
 }
 
 // Variable implementation for variable.Map interface
-func (p *Function[E]) Variable(id variable.Id) variable.Descriptor {
+func (p *Function[S]) Variable(id variable.Id) variable.Descriptor {
 	return p.Variables[id]
 }

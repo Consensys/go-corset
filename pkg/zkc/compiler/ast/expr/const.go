@@ -16,12 +16,13 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Const represents a constant value within an expresion.
-type Const struct {
+type Const[I symbol.Symbol[I]] struct {
 	Label    string
 	Constant big.Int
 	Base     uint
@@ -29,31 +30,26 @@ type Const struct {
 
 // NewConstant constructs an expression representing a constant value, along with a
 // base (which is used for pretty printing, etc).
-func NewConstant(constant big.Int, base uint) Expr {
-	return &Const{Constant: constant, Base: base}
+func NewConstant[I symbol.Symbol[I]](constant big.Int, base uint) Expr[I] {
+	return &Const[I]{Constant: constant, Base: base}
 }
 
-// Equals implementation for the Expr interface.
-func (p *Const) Equals(e Expr) bool {
-	if e, ok := e.(*Const); ok {
-		return p.Constant.Cmp(&e.Constant) == 0
-	}
-	//
-	return false
+// BitWidth implementation for Expr interface
+func (p *Const[I]) BitWidth() uint {
+	return uint(p.Constant.BitLen())
 }
 
-// Uses implementation for the Expr interface.
-func (p *Const) Uses() bit.Set {
+// NonLocalUses implementation for the Expr interface.
+func (p *Const[I]) NonLocalUses() set.AnySortedSet[I] {
+	panic("todo")
+}
+
+// LocalUses implementation for the Expr interface.
+func (p *Const[I]) LocalUses() bit.Set {
 	var empty bit.Set
 	return empty
 }
 
-func (p *Const) String(mapping variable.Map) string {
-	return String(p, mapping)
-}
-
-// ValueRange implementation for the Expr interface.
-func (p *Const) ValueRange(env variable.Map) math.Interval {
-	// Return as interval
-	return math.NewInterval(p.Constant, p.Constant)
+func (p *Const[I]) String(mapping variable.Map) string {
+	return String[I](p, mapping)
 }

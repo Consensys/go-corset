@@ -14,7 +14,7 @@ package zkc
 
 import (
 	"fmt"
-	"math/big"
+	"math"
 	"os"
 
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -23,7 +23,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -55,20 +57,31 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	program := CompileSourceFiles(args[1:])
 	//
 	if ir {
-		executeIrProgram(program, input)
+		executeIrProgram("main", program, input)
 	}
 }
 
-func executeIrProgram(program ast.Program, input map[string][]byte) {
+func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {
 	var (
-		vm     machine.Core[big.Int, ast.Instruction]
-		errors []error
+		vm        machine.Boot[word.Uint]
+		bigInputs map[string][]word.Uint
+		errors    []error
 	)
 	// Execute machine in chunks of 1K steps
-	if vm, errors = program.BootMachine(input, "main"); len(errors) == 0 {
-		if _, err := machine.ExecuteAll(vm, 1024); err != nil {
-			// NOTE: determine stack trace!
-			errors = append(errors, err)
+	if bigInputs, errors = program.MapInputs(input); len(errors) == 0 {
+		// Build our machine
+		vm = codegen.Compile(&program)
+		//
+		if main, ok := findFunction(mainFn, vm); ok {
+			// Boot it
+			vm = vm.Boot(main, bigInputs)
+			// Execute it
+			if _, err := machine.ExecuteAll(vm, 1024); err != nil {
+				// NOTE: determine stack trace!
+				errors = append(errors, err)
+			}
+		} else {
+			errors = append(errors, fmt.Errorf("unknown function \"%s\"", mainFn))
 		}
 	}
 	// Exit with failure (if errors)
@@ -96,6 +109,18 @@ func executeIrProgram(program ast.Program, input map[string][]byte) {
 		//
 		fmt.Println()
 	}
+}
+
+func findFunction[W word.Word[W]](fun string, vm machine.Boot[W]) (uint, bool) {
+	for i := range vm.State().NumFunctions() {
+		ith := vm.State().Function(i)
+		//
+		if ith.Name() == fun {
+			return i, true
+		}
+	}
+	//
+	return math.MaxUint, false
 }
 
 //nolint:errcheck

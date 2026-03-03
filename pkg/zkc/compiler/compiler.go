@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/validate"
 )
 
 // Compile takes a given set of source files, and parses them into a given set
@@ -68,7 +69,7 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 		return ast.Program{}, srcmaps, errors
 	}
 	// Well-formedness checks (assuming unlimited field width).
-	errors = Validate(program, srcmaps)
+	errors = validateProgram(program, srcmaps)
 	// Done
 	return program, srcmaps, errors
 }
@@ -97,4 +98,18 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 	}
 	//
 	return files, errors
+}
+
+// Validate checks that a given program is well-formed.  For example, an
+// assignment "x,y = z" must be balanced (i.e. number of bits on lhs must match
+// number on rhs).  Likewise, variables cannot be used before they are defined,
+// and all control-flow paths must reach a "return" instruction, etc. Finally,
+// we cannot assign to an input register under the current calling convention.
+func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
+	var errors []source.SyntaxError
+	// Apply various checks
+	errors = append(errors, validate.Typing(program, srcmaps)...)
+	errors = append(errors, validate.ControlFlow(program, srcmaps)...)
+	// Done
+	return errors
 }

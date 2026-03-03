@@ -13,60 +13,53 @@
 package expr
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
-	"github.com/consensys/go-corset/pkg/util/math"
+	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Add represents an expresion which adds one or more terms together.
-type Add struct {
-	Exprs []Expr
+type Add[I symbol.Symbol[I]] struct {
+	bitwidth uint
+	Exprs    []Expr[I]
 }
 
 // NewAdd constructs an expression representing the sum of one or more values.
-func NewAdd(exprs ...Expr) Expr {
+func NewAdd[I symbol.Symbol[I]](exprs ...Expr[I]) Expr[I] {
 	if len(exprs) == 0 {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &Add{Exprs: exprs}
+	return &Add[I]{Exprs: exprs, bitwidth: math.MaxUint}
 }
 
-// Equals implementation for the Expr interface.
-func (p *Add) Equals(e Expr) bool {
-	if e, ok := e.(*Add); ok {
-		return EqualsAll(p.Exprs, e.Exprs)
+// BitWidth implementation for Expr interface
+func (p *Add[I]) BitWidth() uint {
+	if p.bitwidth == math.MaxUint {
+		panic("untyped expression")
 	}
-	//
-	return false
+
+	return p.bitwidth
 }
 
-// Uses implementation for the Expr interface.
-func (p *Add) Uses() bit.Set {
-	var reads bit.Set
-	//
-	for _, e := range p.Exprs {
-		reads.Union(e.Uses())
-	}
-	//
-	return reads
+// SetBitWidth sets the (positive) bitwidth.
+func (p *Add[I]) SetBitWidth(bitwidth uint) {
+	p.bitwidth = bitwidth
 }
 
-// ValueRange implementation for the Expr interface.
-func (p *Add) ValueRange(env variable.Map) math.Interval {
-	var values math.Interval
-	//
-	for i, e := range p.Exprs {
-		if i == 0 {
-			values = e.ValueRange(env)
-		} else {
-			values.Add(e.ValueRange(env))
-		}
-	}
-	//
-	return values
+// NonLocalUses implementation for the Expr interface.
+func (p *Add[I]) NonLocalUses() set.AnySortedSet[I] {
+	return nonLocalUses(p.Exprs...)
 }
 
-func (p *Add) String(mapping variable.Map) string {
-	return String(p, mapping)
+// LocalUses implementation for the Expr interface.
+func (p *Add[I]) LocalUses() bit.Set {
+	return localUses(p.Exprs...)
+}
+
+func (p *Add[I]) String(mapping variable.Map) string {
+	return String[I](p, mapping)
 }

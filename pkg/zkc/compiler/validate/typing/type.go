@@ -10,14 +10,12 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package vm
+package typing
 
-// Word abstracts the data type (a.k.a the "machine word") used for holding
-// values within the machine.  The reason for abstracting this concept is to
-// allow a machine compiled for a larger word size to be automatically lowered
-// to a machine for a smaller word size.  For example, our source program might
-// be written for a 64bit machine and we wish to executed it on 16bit machine
-// (i.e. because our target field configuration has a maximum register size of
-// 16bits).
-type Word[W any] interface {
+// Type provides an abstraction over the different kinds of type which are
+// possible (e.g. integer types versus struct or array types, etc).
+type Type interface {
+	// AsUint() attempts to convert this type into an unsigned integer type,
+	// whilst returning nil if this fails.
+	AsUint() *Uint
 }

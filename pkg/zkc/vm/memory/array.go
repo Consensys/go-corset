@@ -42,6 +42,11 @@ func (p *Array[W, D]) Name() string {
 	return p.name
 }
 
+// Initialise implementation for Memory interface.
+func (p *Array[W, D]) Initialise(contents []W) {
+	p.data = contents
+}
+
 // Read implementation for ReadOnlyMemory interface.
 func (p *Array[W, D]) Read(address []W) []W {
 	var (
