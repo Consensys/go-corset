@@ -108,7 +108,7 @@ the skip is not taken and the machine executes `r = 0 ; ret`; (2) when
 To ensure easy translation into polynomial constraints, there are
 restrictions on how vector instructions can be composed.  A
 _conflicting write_ occurs when two micro-instructions assign to the
-same register on the same execution path.\[^1\]  For example:
+same register on the same execution path\[^1\].  For example:
 
 ```
 x = 0 ; x = 1          // INVALID: x written twice on the same path
@@ -144,7 +144,7 @@ x = 0 ; y = x + 1 ; ret
 Here `x` is written by the first micro-instruction and immediately
 read by the second.  Because `x` is _definitely written_ before the
 read, the vectorizer considers this valid and the written value is
-said to be "forwarded".\[^2\]
+said to be "forwarded"\[^2\].
 
 Forwarding is not permitted if the prior write is only on _some_
 paths.  For example:
