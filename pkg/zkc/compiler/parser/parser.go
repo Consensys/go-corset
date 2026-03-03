@@ -254,17 +254,21 @@ func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.Sy
 		}
 		//
 		first = false
-		// parse type first (C-style)
-		if datatype, errs = p.parseType(); len(errs) > 0 {
-			return errs
-		}
 		// save lookahead here so errors point at the name token
 		lookahead := p.lookahead()
-		// parse name
+		// parse name first (new syntax: name:type)
 		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
 			return errs
 		} else if env.IsVariable(arg) {
 			return p.syntaxErrors(lookahead, "variable already declared")
+		}
+		// parse ':'
+		if _, errs = p.expect(COLON); len(errs) > 0 {
+			return errs
+		}
+		// parse type
+		if datatype, errs = p.parseType(); len(errs) > 0 {
+			return errs
 		}
 		//
 		env.DeclareVariable(kind, arg, datatype)
@@ -386,12 +390,16 @@ func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]variable.Descriptor,
 			}
 		}
 
-		if t, errs = p.parseType(); len(errs) > 0 {
+		var pname string
+		if pname, errs = p.parseIdentifier(); len(errs) > 0 {
 			return nil, errs
 		}
 
-		var pname string
-		if pname, errs = p.parseIdentifier(); len(errs) > 0 {
+		if _, errs = p.expect(COLON); len(errs) > 0 {
+			return nil, errs
+		}
+
+		if t, errs = p.parseType(); len(errs) > 0 {
 			return nil, errs
 		}
 
@@ -487,15 +495,10 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 		returned, insns, errs = p.parseWhile(pc, env)
 	case KEYWORD_RETURN:
 		returned, insn, errs = p.parseReturn(env)
+	case KEYWORD_VAR:
+		insns, errs = p.parseVar(env)
 	default:
-		// A declaration starts with a type identifier followed by a name identifier
-		// (e.g. "u8 x = 0"), while an assignment starts with a known variable.
-		if lookahead.Kind == IDENTIFIER && p.tokens[p.index+1].Kind == IDENTIFIER {
-			insns, errs = p.parseVar(env)
-		} else {
-			// parse assignment
-			insn, errs = p.parseAssignment(env)
-		}
+		insn, errs = p.parseAssignment(env)
 	}
 	// Include unit instruction (if applicable)
 	if insn != nil {
@@ -694,15 +697,15 @@ func (p *Parser) parseFail(env *Environment) (bool, ast.UnresolvedInstruction, [
 }
 func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []source.SyntaxError) {
 	var (
-		errs     []source.SyntaxError
-		names    []string
-		datatype data.Type
+		errs  []source.SyntaxError
+		names []string
+		types []data.Type
 	)
-	// parse type first (C-style)
-	if datatype, errs = p.parseType(); len(errs) > 0 {
+	// Consume 'var' keyword
+	if _, errs = p.expect(KEYWORD_VAR); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse name(s)
+	// Parse one or more name:type pairs (comma-separated)
 	for len(names) == 0 || p.match(COMMA) {
 		// Store lookahead for error reporting
 		lookahead := p.lookahead()
@@ -714,13 +717,23 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 		} else if env.IsVariable(name) {
 			return nil, p.syntaxErrors(lookahead, "variable already declared")
 		}
+		// Parse ':'
+		if _, errs = p.expect(COLON); len(errs) > 0 {
+			return nil, errs
+		}
+		// Parse type
+		dt, errs := p.parseType()
+		if len(errs) > 0 {
+			return nil, errs
+		}
 		//
 		names = append(names, name)
+		types = append(types, dt)
 	}
 	// Declare all variables before parsing any initialiser, so the
 	// initialiser expression can reference other already-declared variables.
-	for _, name := range names {
-		env.DeclareVariable(variable.LOCAL, name, datatype)
+	for i, name := range names {
+		env.DeclareVariable(variable.LOCAL, name, types[i])
 	}
 	// Check for optional initialiser
 	if !p.match(EQUALS) {

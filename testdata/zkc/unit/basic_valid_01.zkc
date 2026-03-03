@@ -1,4 +1,4 @@
-function f(u8 x) -> (u8 r) {
+function f(x:u8) -> (r:u8) {
   r = 0
   return
 }

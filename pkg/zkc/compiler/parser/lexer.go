@@ -108,6 +108,9 @@ const KEYWORD_WHILE uint = 34
 // KEYWORD_FOR signals a for loop
 const KEYWORD_FOR uint = 35
 
+// KEYWORD_VAR signals a local variable declaration
+const KEYWORD_VAR uint = 36
+
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 60
 
@@ -238,6 +241,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.String("static"), KEYWORD_STATIC),
 	lex.Rule(lex.String("memory"), KEYWORD_MEMORY),
 	lex.Rule(lex.String("for"), KEYWORD_FOR),
+	lex.Rule(lex.String("var"), KEYWORD_VAR),
 	lex.Rule(lex.String("while"), KEYWORD_WHILE),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
