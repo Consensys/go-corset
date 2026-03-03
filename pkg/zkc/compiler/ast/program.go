@@ -59,19 +59,12 @@ type Function = decl.Function[symbol.Resolved]
 // (or otherwise incorrect) external components.
 type Memory = decl.Memory[symbol.Resolved]
 
-// UnresolvedExpr represents an expression whose identifiers for external
-// components are unresolved linkage records.  As such, its possible that such
-// an expression instruction may fail with an error at link time due to an
-// unresolvable reference to an external component (e.g. function, RAM, ROM,
-// etc).
-type UnresolvedExpr = expr.Expr[symbol.Unresolved]
-
-// UnresolvedCondition represents a condition whose identifiers for external
-// components are unresolved linkage records.  As such, its possible that such
-// an expression instruction may fail with an error at link time due to an
-// unresolvable reference to an external component (e.g. function, RAM, ROM,
-// etc).
-type UnresolvedCondition = expr.Condition[symbol.Unresolved]
+// UnresolvedSymbol identifies an expect record in the symbol table.  For functions, this
+// includes the number of expected inputs and outputs.
+type UnresolvedSymbol struct {
+	Name            string
+	Inputs, Outputs uint
+}
 
 // UnresolvedInstruction represents an instruction whose identifiers for external
 // components are unresolved linkage records.  As such, its possible that such a
@@ -100,9 +93,23 @@ type UnresolvedFunction = decl.Function[symbol.Unresolved]
 
 // UnresolvedMemory represents a memory which contains string identifiers
 // for external (i.e. unlinked) components.  As such, its possible that such a
-// function may fail with an error at link time due to an unresolvable
+// memory may fail with an error at link time due to an unresolvable
 // reference to an external component (e.g. function, RAM, ROM, etc).
 type UnresolvedMemory = decl.Memory[symbol.Unresolved]
+
+// UnresolvedExpr represents an expression whose identifiers for external
+// components are unresolved linkage records.  As such, its possible that such
+// an expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedExpr = expr.Expr[symbol.Unresolved]
+
+// UnresolvedCondition represents a condition whose identifiers for external
+// components are unresolved linkage records.  As such, its possible that such
+// an expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedCondition = expr.Condition[symbol.Unresolved]
 
 // RawProgram encapsulates one of more functions together, such that one may call
 // another, etc.  Furthermore, it provides an interface between assembly

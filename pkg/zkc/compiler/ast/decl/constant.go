@@ -17,10 +17,17 @@ import (
 )
 
 // Constant represents a named constant at the source level.
+<<<<<<< HEAD
 type Constant[I symbol.Symbol[I]] struct {
 	name      string
 	DataType  data.Type
 	ConstExpr expr.Expr[I]
+=======
+type Constant[I any] struct {
+	name     string
+	Constant big.Int
+	Base     uint
+>>>>>>> 2e7ce2b0 (fix: compilation of constant decl)
 }
 
 // NewConstant creates a new named constant in a given base
