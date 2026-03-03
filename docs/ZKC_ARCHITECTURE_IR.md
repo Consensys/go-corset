@@ -52,6 +52,26 @@ structured control flow, and no symbolic names. This makes the subsequent
 register-splitting, vectorization, and constraint-generation passes
 straightforward transformations over a small, well-defined instruction set.
 
+## Example
+
+The IR for a given `zkc` source file can be generated using the
+command `zkc compile --ir test.zkc`. For example, the following IR
+code might be generated for the `pow()` example from the previous
+section:
+
+```
+fn pow(u4 n, u4 m) -> (u4 r) {
+        u8 i
+[0]     i = 0x0 ; r = 0x1
+[1]     skip i < m 1 ; ret ; r = r * n ; i = i + 0x1 ; jmp 1
+}
+```
+
+Here, we can see the original program has been aggressively
+_vectorized_ (see below for more on this). Doing this reduces the
+number of trace rows required to represent an instance of the
+function.
+
 ## Register splitting
 
 (to be completed)
