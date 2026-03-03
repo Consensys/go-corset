@@ -89,6 +89,20 @@ is no intermediate state where `x` is written but `z` is not.
 
 ### Vector Control-Flow
 
+The `skip` and `skip_if` micro-instructions enable control flow
+_within_ a single bundle by "skipping over" some number of the
+following micro-instructions.  Here, `skip n` always skips over the
+following `n` micro-instructions, whilst `skip_if cond n` does when
+`cond` holds.  For example:
+
+```
+skip_if x != y 2 ; r = 0 ; ret ; r = 1 ; ret
+```
+
+Here the vector instruction has two execution paths: (1) when `x == y`
+the skip is not taken and the machine executes `r = 0 ; ret`; (2) when
+`x != y` the skipt is taken and the machine executes `r = 1 ; ret`.
+
 ### Register Conflicts
 
 To ensure easy translation into polynomial constraints, there are
