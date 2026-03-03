@@ -32,7 +32,7 @@ func (p *Return) Definitions() []register.Id {
 }
 
 func (p *Return) String(_ register.Map) string {
-	return "return"
+	return "ret"
 }
 
 // Validate implementation for Instruction interface.

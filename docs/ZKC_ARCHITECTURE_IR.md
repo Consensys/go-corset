@@ -63,7 +63,7 @@ section:
 fn pow(u4 n, u4 m) -> (u4 r) {
         u8 i
 [0]     i = 0x0 ; r = 0x1
-[1]     skip i < m 1 ; ret ; r = r * n ; i = i + 0x1 ; jmp 1
+[1]     skip_if i < m 1 ; ret ; r = r * n ; i = i + 0x1 ; jmp 1
 }
 ```
 
