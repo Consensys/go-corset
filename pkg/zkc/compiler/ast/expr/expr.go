@@ -23,11 +23,6 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-var (
-	biZERO big.Int = *big.NewInt(0)
-	biONE  big.Int = *big.NewInt(1)
-)
-
 // Expr represents an arbitrary expression used within an instruction.
 type Expr[I symbol.Symbol[I]] interface {
 	// BitWidth returns the minimum number of bits required to hold any
