@@ -1,5 +1,5 @@
 ;;error:4:15-16:braces required
-function f(x:u8) -> (r:u8) {
+fn f(x:u8) -> (r:u8) {
   r = 0
   while x + x * x == 0 {
     r = 1

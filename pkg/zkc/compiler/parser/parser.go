@@ -101,7 +101,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		lookahead := p.lookahead()
 		// Determine type of declaration
 		switch lookahead.Kind {
-		case KEYWORD_CONSTANT:
+		case KEYWORD_CONST:
 			component, errors = p.parseConstant()
 		case KEYWORD_INCLUDE:
 			include, errors = p.parseInclude()
@@ -110,14 +110,12 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			}
 			// Avoid appending to components
 			continue
-		case KEYWORD_FUNCTION:
+		case KEYWORD_FN:
 			component, errors = p.parseFunction()
-		case KEYWORD_PUBLIC, KEYWORD_PRIVATE:
+		case KEYWORD_PUB, KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
 			component, errors = p.parseInputOutputMemory()
 		case KEYWORD_MEMORY:
 			component, errors = p.parseReadWriteMemory()
-		case KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
-			errors = p.syntaxErrors(lookahead, "requires public or private")
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -143,7 +141,7 @@ func (p *Parser) parseConstant() (ast.UnresolvedDeclaration, []source.SyntaxErro
 		env      Environment
 	)
 	// Parse include declaration
-	if _, errs := p.expect(KEYWORD_CONSTANT); len(errs) > 0 {
+	if _, errs := p.expect(KEYWORD_CONST); len(errs) > 0 {
 		return nil, errs
 	} else if datatype, errs = p.parseType(); len(errs) > 0 {
 		return nil, errs
@@ -195,7 +193,7 @@ func (p *Parser) parseFunction() (ast.UnresolvedDeclaration, []source.SyntaxErro
 		returned bool
 	)
 	// Parse function declaration
-	if _, errs := p.expect(KEYWORD_FUNCTION); len(errs) > 0 {
+	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse function name
@@ -288,11 +286,9 @@ func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.S
 		address []variable.Descriptor
 		data    []variable.Descriptor
 	)
-	// Parse pub modifier (if present)
-	if p.match(KEYWORD_PUBLIC) {
+	// Parse optional pub modifier; private by default
+	if p.match(KEYWORD_PUB) {
 		public = true
-	} else if _, errs := p.expect(KEYWORD_PRIVATE); len(errs) > 0 {
-		return nil, errs
 	}
 	//
 	lookahead := p.lookahead()

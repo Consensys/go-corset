@@ -1,2 +1,2 @@
-constant u16 LARGE = 32
-constant u16 LARGEMO = LARGE + 1
+const u16 LARGE = 32
+const u16 LARGEMO = LARGE + 1

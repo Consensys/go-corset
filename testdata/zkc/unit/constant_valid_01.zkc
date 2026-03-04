@@ -1,1 +1,1 @@
-constant u16 MAX_ADDR = 255
+const u16 MAX_ADDR = 255

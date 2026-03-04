@@ -1,5 +1,5 @@
-;;error:2:18-19:variable already declared
-function f(x:u8, x:u8) -> (r:u8) {
+;;error:2:12-13:variable already declared
+fn f(x:u8, x:u8) -> (r:u8) {
   r = x
   return
 }

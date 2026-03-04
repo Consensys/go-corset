@@ -1,5 +1,5 @@
 ;;error:4:16-17:unexpected token
-function f(x:u8) -> (r:u8) {
+fn f(x:u8) -> (r:u8) {
   r = 0
   if x == (x + ) {
     r = 1
