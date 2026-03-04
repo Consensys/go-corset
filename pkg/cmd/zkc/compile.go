@@ -102,7 +102,7 @@ func writeDeclaration(decl ast.Declaration) {
 func writeConstant(m *ast.Constant) {
 	var mapping = variable.ArrayMap()
 	//
-	fmt.Print("constant ")
+	fmt.Print("const ")
 	// type
 	fmt.Printf("%s ", m.DataType.String())
 	// name
@@ -116,15 +116,15 @@ func writeMemory(m *ast.Memory) {
 	case decl.PUBLIC_READ_ONLY_MEMORY:
 		fmt.Printf("public input")
 	case decl.PRIVATE_READ_ONLY_MEMORY:
-		fmt.Printf("private input")
+		fmt.Printf("input")
 	case decl.PUBLIC_WRITE_ONCE_MEMORY:
 		fmt.Printf("public output")
 	case decl.PRIVATE_WRITE_ONCE_MEMORY:
-		fmt.Printf("private output")
+		fmt.Printf("output")
 	case decl.PUBLIC_STATIC_MEMORY:
 		fmt.Printf("public static")
 	case decl.PRIVATE_STATIC_MEMORY:
-		fmt.Printf("private static")
+		fmt.Printf("static")
 	case decl.RANDOM_ACCESS_MEMORY:
 		fmt.Printf("memory")
 	}

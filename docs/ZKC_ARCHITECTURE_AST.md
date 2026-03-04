@@ -45,12 +45,12 @@ fn pow(n:u4, m:u4) -> (r:u4) {
 }
 ```
 
-This can be compiled (using e.g. `zkc compile --ast test.zkc`) into
+This can be compiled (using e.g. `zkc compile --ir test.zkc`) into
 the following AST form:
 
 ```
 fn pow(n:u4, m:u4) -> (r:u4) {
-        var i:u4
+        var i:u8
 [0]     i = 0
 [1]     r = 1
 [2]     if i>=m goto 6

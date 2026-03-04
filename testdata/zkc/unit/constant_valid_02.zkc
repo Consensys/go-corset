@@ -1,2 +1,0 @@
-const u16 LARGE = 32
-const u16 LARGEMO = LARGE + 1

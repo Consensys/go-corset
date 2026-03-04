@@ -140,12 +140,14 @@ func (p *Parser) parseConstant() (ast.UnresolvedDeclaration, []source.SyntaxErro
 		name     string
 		env      Environment
 	)
-	// Parse include declaration
+	// Parse const declaration
 	if _, errs := p.expect(KEYWORD_CONST); len(errs) > 0 {
 		return nil, errs
-	} else if datatype, errs = p.parseType(); len(errs) > 0 {
-		return nil, errs
 	} else if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(COLON); len(errs) > 0 {
+		return nil, errs
+	} else if datatype, errs = p.parseType(); len(errs) > 0 {
 		return nil, errs
 	} else if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs

@@ -82,10 +82,10 @@ written into an output memory before execution terminates.
 Named constants can be declared at the top level and used in expressions:
 
 ```zkc
-const MAX_ADDR = 255
-const MASK     = 0xFF
-const FLAGS    = 0b00001111
-const SIZE     = 2^10
+const MAX_ADDR:u8  = 255
+const MASK:u8      = 0xFF
+const FLAGS:u8     = 0b00001111
+const SIZE:u16     = 2^10
 ```
 
 Numeric literals may be written in decimal, hexadecimal (`0x…`), or binary
