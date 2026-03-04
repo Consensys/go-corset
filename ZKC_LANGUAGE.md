@@ -10,7 +10,7 @@ is part of the `go-corset` repository.
 Functions are the fundamental building blocks of ZkC programs:
 
 ```zkc
-function max(u16 x, u16 y) -> (u16 res) {
+fn max(x:u16, y:u16) -> (res:u16) {
   // body
   if x > y {
     res = x
@@ -22,14 +22,14 @@ function max(u16 x, u16 y) -> (u16 res) {
 }
 ```
 
-In the above, parameters `x` and `y` are declared to be `u16`.  In
+In the above, parameters `x` and `y` are declared to be `u16`. In
 fact, unlike many other languages, ZkC supports unsigned integer types
 of arbitrary bitwidth, such as: `u2`, `u3`, `u11`, `u15`, `u48`,
 `u160`, etc.
 
-There are some restrictions imposed upon functions.  For example,
+There are some restrictions imposed upon functions. For example,
 parameters cannot be assigned and are immutable for the duration of a
-function.  Likewise, return values and local variables must be defined
+function. Likewise, return values and local variables must be defined
 being used --- there are no default values in ZkC.
 
 ## Inputs
@@ -38,15 +38,15 @@ Input memories provide the means for the communicating input data from
 the external environment to be used within an executing ZkC program.
 
 ```zkc
-public  input rom(u8 address) -> (u8 value)
-private input cfg(u16 address) -> (u32 value)
+pub input rom(address:u8) -> (value:u8)
+    input cfg(address:u16) -> (value:u32)
 ```
 
 Input memories are a form of _read-only memory_ and cannot be written
-during execution.  Inputs can either be `public` or `private` whose
-meaning is determined by the proving system in use.  Intuitively,
-however, `public` inputs are those which are committed to whilst
-`private` inputs form part of the witness.
+during execution. Inputs can optionally be marked `pub`; unmarked
+inputs are private by default. The distinction is determined by the
+proving system in use: `pub` inputs are committed to whilst private
+inputs form part of the witness.
 
 ## Outputs
 
@@ -54,23 +54,22 @@ Output memories provide the means for the communicating data generated
 whilst executing a ZkC program back to the external environment.
 
 ```zkc
-public  output result(u8 address) -> (u8 value)
-private output log(u16 address) -> (u32 value)
+pub output result(address:u8) -> (value:u8)
+    output log(address:u16) -> (value:u32)
 ```
 
 Output memories are a form of _write-once memory_ meaning that each
-location must be written exactly once.  Furthermore, output memories
-can be either `public` or `private` with the intended meaning as for
-input memory.
+location must be written exactly once. As with input memories, the
+`pub` modifier makes an output public; outputs are private by default.
 
 ## Read / Write Memory
 
 Read/Write Memory (a.k.a Random-Access Memory) provides a form of
-unbound internal storage.  Multiple read/write memories can be defined
+unbound internal storage. Multiple read/write memories can be defined
 with different types as part of a ZkC program.
 
 ```zkc
-memory buf(u8 address) -> (u8 value)
+memory buf(address:u8) -> (value:u8)
 ```
 
 Observe that any data written into a read/write memory is not
@@ -83,10 +82,10 @@ written into an output memory before execution terminates.
 Named constants can be declared at the top level and used in expressions:
 
 ```zkc
-const MAX_ADDR = 255
-const MASK     = 0xFF
-const FLAGS    = 0b00001111
-const SIZE     = 2^10
+const MAX_ADDR:u8  = 255
+const MASK:u8      = 0xFF
+const FLAGS:u8     = 0b00001111
+const SIZE:u16     = 2^10
 ```
 
 Numeric literals may be written in decimal, hexadecimal (`0x…`), or binary
@@ -97,8 +96,8 @@ Numeric literals may be written in decimal, hexadecimal (`0x…`), or binary
 Local variables are declared inside a function body with an optional initialiser:
 
 ```zkc
-u8 x          // declared, initially undefined
-u8 y = 42     // declared and initialised
+var x:u8          // declared, initially undefined
+var y:u8 = 42     // declared and initialised
 ```
 
 Only a single variable may carry an initialiser per declaration statement.
@@ -110,7 +109,7 @@ target = expression
 ```
 
 A single expression result can be split across multiple targets listed on the
-left-hand side.  The result is distributed big-endian across the targets, which
+left-hand side. The result is distributed big-endian across the targets, which
 is useful for capturing carry bits:
 
 ```zkc
@@ -123,7 +122,7 @@ In addition to `if` conditions (as seen above), ZkC supports `while`
 and `for` loops using a familiar syntax:
 
 ```zkc
-u8 i = 0
+var i:u8 = 0
 
 while i < 10 {
   i = i + 1
@@ -140,19 +139,19 @@ for i = 0; i < 10; i = i + 1 {
 ```
 
 **NOTE**: loops in a function necessarily force it to be a so-called
-_multi-line function_ (see below).  As such, in many cases, it can be
+_multi-line function_ (see below). As such, in many cases, it can be
 more efficient (in terms of generated constraints) to use recursion.
 
 ### Exceptions
 
 ZkC supports a `fail` instruction which is similar to a `panic` in
-other languages.  If executed, this immediately terminates the
-machine.  More importantly, however, is that the generated constraints
-cannot hold for any execution which reaches a `fail`.  The following
+other languages. If executed, this immediately terminates the
+machine. More importantly, however, is that the generated constraints
+cannot hold for any execution which reaches a `fail`. The following
 illustrates:
 
 ```zkc
-function divide(u16 x, u16 y) -> (u16 r) {
+fn divide(x:u16, y:u16) -> (r:u16) {
   // sanity check that y != 0
   if y == 0 { fail }
   ...
@@ -167,18 +166,18 @@ expected precondition to the function.
 ZkC supports the following arithmetic operators:
 
 | Operator | Meaning        |
-|----------|----------------|
+| -------- | -------------- |
 | `a + b`  | addition       |
 | `a - b`  | subtraction    |
 | `a * b`  | multiplication |
 
-**Parentheses are required** when mixing operators.  `a + b * c` is a syntax
+**Parentheses are required** when mixing operators. `a + b * c` is a syntax
 error; write `a + (b * c)` instead.
 
 Comparison operators (used in conditions only):
 
 | Operator | Meaning               |
-|----------|-----------------------|
+| -------- | --------------------- |
 | `a == b` | equal                 |
 | `a != b` | not equal             |
 | `a < b`  | less than             |
@@ -205,14 +204,14 @@ The underlying arithmetic constraint system is broken up into
 _modules_, each of which is composed of one or more columns.
 Polynomial constraints can be enforced on modules, whilst lookup
 arguments can hold between columns either in the same module, or
-between different modules.  Finally, permutation arguments hold
-between columns in the same module.  A trace in this system is
+between different modules. Finally, permutation arguments hold
+between columns in the same module. A trace in this system is
 likewise broken up into modules, where each module contains zero or
 more rows of values (with one for each column).
 
 In the ZkC system, each function body is implemented as a module
 containing polynomial constraints generated from the instructions of
-the function.  Likewise, function calls are implemented as lookups
+the function. Likewise, function calls are implemented as lookups
 between modules and map parameters / returns at the call site to the
 corresponding inputs / outputs of the function being called.
 

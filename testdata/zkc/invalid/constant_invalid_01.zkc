@@ -1,2 +1,2 @@
-;;error:2:21-24:bit overflow (u9 into u8)
-constant u8 LARGE = 256
+;;error:2:18-21:bit overflow (u9 into u8)
+const LARGE:u8 = 256

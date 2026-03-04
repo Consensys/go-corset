@@ -63,14 +63,14 @@ const STRING uint = 13
 // IDENTIFIER signals a column variable
 const IDENTIFIER uint = 20
 
-// KEYWORD_CONSTANT signals a constant declaration
-const KEYWORD_CONSTANT uint = 21
+// KEYWORD_CONST signals a constant declaration
+const KEYWORD_CONST uint = 21
 
 // KEYWORD_INCLUDE signals an include declaration
 const KEYWORD_INCLUDE uint = 22
 
-// KEYWORD_FUNCTION signals a function declaration
-const KEYWORD_FUNCTION uint = 23
+// KEYWORD_FN signals a function declaration
+const KEYWORD_FN uint = 23
 
 // KEYWORD_MEMORY signals a random-access memory declaration
 const KEYWORD_MEMORY uint = 24
@@ -96,17 +96,17 @@ const KEYWORD_IF uint = 30
 // KEYWORD_ELSE signals an else branch
 const KEYWORD_ELSE uint = 31
 
-// KEYWORD_PUBLIC signals a public input / output
-const KEYWORD_PUBLIC uint = 32
-
-// KEYWORD_PRIVATE signals a private input / output
-const KEYWORD_PRIVATE uint = 33
+// KEYWORD_PUB signals a public input / output
+const KEYWORD_PUB uint = 32
 
 // KEYWORD_WHILE signals a while loop
 const KEYWORD_WHILE uint = 34
 
 // KEYWORD_FOR signals a for loop
 const KEYWORD_FOR uint = 35
+
+// KEYWORD_VAR signals a local variable declaration
+const KEYWORD_VAR uint = 36
 
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 60
@@ -224,20 +224,20 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
-	lex.Rule(lex.String("constant"), KEYWORD_CONSTANT),
+	lex.Rule(lex.String("const"), KEYWORD_CONST),
 	lex.Rule(lex.String("else"), KEYWORD_ELSE),
 	lex.Rule(lex.String("fail"), KEYWORD_FAIL),
-	lex.Rule(lex.String("function"), KEYWORD_FUNCTION),
+	lex.Rule(lex.String("fn"), KEYWORD_FN),
 	lex.Rule(lex.String("if"), KEYWORD_IF),
 	lex.Rule(lex.String("include"), KEYWORD_INCLUDE),
 	lex.Rule(lex.String("input"), KEYWORD_INPUT),
 	lex.Rule(lex.String("output"), KEYWORD_OUTPUT),
-	lex.Rule(lex.String("private"), KEYWORD_PRIVATE),
-	lex.Rule(lex.String("public"), KEYWORD_PUBLIC),
+	lex.Rule(lex.String("pub"), KEYWORD_PUB),
 	lex.Rule(lex.String("return"), KEYWORD_RETURN),
 	lex.Rule(lex.String("static"), KEYWORD_STATIC),
 	lex.Rule(lex.String("memory"), KEYWORD_MEMORY),
 	lex.Rule(lex.String("for"), KEYWORD_FOR),
+	lex.Rule(lex.String("var"), KEYWORD_VAR),
 	lex.Rule(lex.String("while"), KEYWORD_WHILE),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),

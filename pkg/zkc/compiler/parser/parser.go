@@ -101,7 +101,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		lookahead := p.lookahead()
 		// Determine type of declaration
 		switch lookahead.Kind {
-		case KEYWORD_CONSTANT:
+		case KEYWORD_CONST:
 			component, errors = p.parseConstant()
 		case KEYWORD_INCLUDE:
 			include, errors = p.parseInclude()
@@ -110,14 +110,12 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			}
 			// Avoid appending to components
 			continue
-		case KEYWORD_FUNCTION:
+		case KEYWORD_FN:
 			component, errors = p.parseFunction()
-		case KEYWORD_PUBLIC, KEYWORD_PRIVATE:
+		case KEYWORD_PUB, KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
 			component, errors = p.parseInputOutputMemory()
 		case KEYWORD_MEMORY:
 			component, errors = p.parseReadWriteMemory()
-		case KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
-			errors = p.syntaxErrors(lookahead, "requires public or private")
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -142,12 +140,14 @@ func (p *Parser) parseConstant() (ast.UnresolvedDeclaration, []source.SyntaxErro
 		name     string
 		env      Environment
 	)
-	// Parse include declaration
-	if _, errs := p.expect(KEYWORD_CONSTANT); len(errs) > 0 {
-		return nil, errs
-	} else if datatype, errs = p.parseType(); len(errs) > 0 {
+	// Parse const declaration
+	if _, errs := p.expect(KEYWORD_CONST); len(errs) > 0 {
 		return nil, errs
 	} else if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(COLON); len(errs) > 0 {
+		return nil, errs
+	} else if datatype, errs = p.parseType(); len(errs) > 0 {
 		return nil, errs
 	} else if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs
@@ -195,7 +195,7 @@ func (p *Parser) parseFunction() (ast.UnresolvedDeclaration, []source.SyntaxErro
 		returned bool
 	)
 	// Parse function declaration
-	if _, errs := p.expect(KEYWORD_FUNCTION); len(errs) > 0 {
+	if _, errs := p.expect(KEYWORD_FN); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse function name
@@ -254,17 +254,21 @@ func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.Sy
 		}
 		//
 		first = false
-		// parse type first (C-style)
-		if datatype, errs = p.parseType(); len(errs) > 0 {
-			return errs
-		}
 		// save lookahead here so errors point at the name token
 		lookahead := p.lookahead()
-		// parse name
+		// parse name first (new syntax: name:type)
 		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
 			return errs
 		} else if env.IsVariable(arg) {
 			return p.syntaxErrors(lookahead, "variable already declared")
+		}
+		// parse ':'
+		if _, errs = p.expect(COLON); len(errs) > 0 {
+			return errs
+		}
+		// parse type
+		if datatype, errs = p.parseType(); len(errs) > 0 {
+			return errs
 		}
 		//
 		env.DeclareVariable(kind, arg, datatype)
@@ -284,11 +288,9 @@ func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.S
 		address []variable.Descriptor
 		data    []variable.Descriptor
 	)
-	// Parse pub modifier (if present)
-	if p.match(KEYWORD_PUBLIC) {
+	// Parse optional pub modifier; private by default
+	if p.match(KEYWORD_PUB) {
 		public = true
-	} else if _, errs := p.expect(KEYWORD_PRIVATE); len(errs) > 0 {
-		return nil, errs
 	}
 	//
 	lookahead := p.lookahead()
@@ -386,12 +388,16 @@ func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]variable.Descriptor,
 			}
 		}
 
-		if t, errs = p.parseType(); len(errs) > 0 {
+		var pname string
+		if pname, errs = p.parseIdentifier(); len(errs) > 0 {
 			return nil, errs
 		}
 
-		var pname string
-		if pname, errs = p.parseIdentifier(); len(errs) > 0 {
+		if _, errs = p.expect(COLON); len(errs) > 0 {
+			return nil, errs
+		}
+
+		if t, errs = p.parseType(); len(errs) > 0 {
 			return nil, errs
 		}
 
@@ -487,15 +493,10 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 		returned, insns, errs = p.parseWhile(pc, env)
 	case KEYWORD_RETURN:
 		returned, insn, errs = p.parseReturn(env)
+	case KEYWORD_VAR:
+		insns, errs = p.parseVar(env)
 	default:
-		// A declaration starts with a type identifier followed by a name identifier
-		// (e.g. "u8 x = 0"), while an assignment starts with a known variable.
-		if lookahead.Kind == IDENTIFIER && p.tokens[p.index+1].Kind == IDENTIFIER {
-			insns, errs = p.parseVar(env)
-		} else {
-			// parse assignment
-			insn, errs = p.parseAssignment(env)
-		}
+		insn, errs = p.parseAssignment(env)
 	}
 	// Include unit instruction (if applicable)
 	if insn != nil {
@@ -694,15 +695,15 @@ func (p *Parser) parseFail(env *Environment) (bool, ast.UnresolvedInstruction, [
 }
 func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []source.SyntaxError) {
 	var (
-		errs     []source.SyntaxError
-		names    []string
-		datatype data.Type
+		errs  []source.SyntaxError
+		names []string
+		types []data.Type
 	)
-	// parse type first (C-style)
-	if datatype, errs = p.parseType(); len(errs) > 0 {
+	// Consume 'var' keyword
+	if _, errs = p.expect(KEYWORD_VAR); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse name(s)
+	// Parse one or more name:type pairs (comma-separated)
 	for len(names) == 0 || p.match(COMMA) {
 		// Store lookahead for error reporting
 		lookahead := p.lookahead()
@@ -714,13 +715,23 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 		} else if env.IsVariable(name) {
 			return nil, p.syntaxErrors(lookahead, "variable already declared")
 		}
+		// Parse ':'
+		if _, errs = p.expect(COLON); len(errs) > 0 {
+			return nil, errs
+		}
+		// Parse type
+		dt, errs := p.parseType()
+		if len(errs) > 0 {
+			return nil, errs
+		}
 		//
 		names = append(names, name)
+		types = append(types, dt)
 	}
 	// Declare all variables before parsing any initialiser, so the
 	// initialiser expression can reference other already-declared variables.
-	for _, name := range names {
-		env.DeclareVariable(variable.LOCAL, name, datatype)
+	for i, name := range names {
+		env.DeclareVariable(variable.LOCAL, name, types[i])
 	}
 	// Check for optional initialiser
 	if !p.match(EQUALS) {

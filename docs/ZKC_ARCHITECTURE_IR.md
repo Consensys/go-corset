@@ -60,8 +60,8 @@ code might be generated for the `pow()` example from the previous
 section:
 
 ```
-fn pow(u4 n, u4 m) -> (u4 r) {
-        u8 i
+fn pow(n:u4, m:u4) -> (r:u4) {
+        var i:u8
 [0]     i = 0x0 ; r = 0x1
 [1]     skip_if i < m 1 ; ret ; r = r * n ; i = i + 0x1 ; jmp 1
 }

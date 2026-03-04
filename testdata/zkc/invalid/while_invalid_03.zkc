@@ -1,5 +1,5 @@
 ;;error:4:19-20:unexpected token
-function f(u8 x) -> (u8 r) {
+fn f(x:u8) -> (r:u8) {
   r = 0
   while x == (x + ) {
     r = 1

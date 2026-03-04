@@ -31,11 +31,11 @@ func Test_ZkcUnit_Basic_01(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Constant_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/constant_valid_01")
+	checkZkcUnit(t, "zkc/unit/const_valid_01")
 }
 
 func Test_ZkcUnit_Constant_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/constant_valid_02")
+	checkZkcUnit(t, "zkc/unit/const_valid_02")
 }
 
 // ===================================================================

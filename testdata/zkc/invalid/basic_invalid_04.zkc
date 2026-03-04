@@ -1,5 +1,5 @@
-;;error:2:12-15:unknown type
-function f(int x) -> (u8 r) {
+;;error:2:8-11:unknown type
+fn f(x:int) -> (r:u8) {
   r = 0
   return
 }
