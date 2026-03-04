@@ -15,8 +15,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
@@ -30,33 +30,27 @@ type Condition = expr.Condition[symbol.Resolved]
 // Expr is a convenient alias
 type Expr = expr.Expr[symbol.Resolved]
 
+// LVal is a convenient alias
+type LVal = lval.LVal[symbol.Resolved]
+
 // Compiler provides a working environment for compiling individual statements
 // within a given function.  For example, it provides the ability to allocate
 // new temporary registers as required.
 type Compiler struct {
-	components []ast.Declaration
+	components []Declaration
 	variables  []variable.Descriptor
 	registers  []register.Register
 }
 
-func (p *Compiler) lookup(id symbol.Resolved) ast.Expr {
-	// Expecting this to be a constant
-	if c, ok := p.components[id.Index].(*ast.Constant); ok {
-		return c.ConstExpr
-	}
-	//
-	panic(fmt.Sprintf("unknown constant %s", id.Name))
-}
-
-func (p *Compiler) compileStatement(pc uint, s ast.Stmt) Instruction {
+func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction {
 	var insns []MicroInstruction
 	//
 	switch s := s.(type) {
 	case *stmt.Assign[symbol.Resolved]:
-		targets := mapRegisters(s.Targets)
-		insns = p.compileExpr(s.Source, targets...)
+		targets := mapLvals(s.Targets)
+		insns = p.compileExpr(s.Source, mapping, targets...)
 	case *stmt.IfGoto[symbol.Resolved]:
-		return p.compileCondition(pc, s.Cond, s.Target)
+		return p.compileCondition(pc, s.Cond, mapping, s.Target)
 	case *stmt.Goto[symbol.Resolved]:
 		return &instruction.Jmp{Target: s.Target}
 	case *stmt.Fail[symbol.Resolved]:
@@ -70,7 +64,7 @@ func (p *Compiler) compileStatement(pc uint, s ast.Stmt) Instruction {
 	return instruction.NewVector[word.Uint](insns...)
 }
 
-func (p *Compiler) compileCondition(pc uint, e Condition, target uint) Instruction {
+func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target uint) Instruction {
 	var (
 		insns []MicroInstruction
 		args  []register.Id
@@ -78,7 +72,7 @@ func (p *Compiler) compileCondition(pc uint, e Condition, target uint) Instructi
 	//
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
-		args, insns = p.compileArgs(e.Left, e.Right)
+		args, insns = p.compileArgs(mapping, e.Left, e.Right)
 		insns = append(insns, instruction.NewSkipIf(instruction.Condition(e.Operator), args[0], args[1], 1))
 		insns = append(insns, instruction.NewJmp(pc+1))
 		insns = append(insns, instruction.NewJmp(target))
@@ -89,7 +83,7 @@ func (p *Compiler) compileCondition(pc uint, e Condition, target uint) Instructi
 	return instruction.NewVector[word.Uint](insns...)
 }
 
-func (p *Compiler) compileExpr(e Expr, targets ...register.Id) []MicroInstruction {
+func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) []MicroInstruction {
 	var (
 		zero  word.Uint
 		insns []MicroInstruction
@@ -98,7 +92,7 @@ func (p *Compiler) compileExpr(e Expr, targets ...register.Id) []MicroInstructio
 	//
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
-		insns, insn = p.compileAdd(e.Exprs, targets)
+		insns, insn = p.compileAdd(e.Exprs, mapping, targets)
 	case *expr.Const[symbol.Resolved]:
 		var c word.Uint
 		//
@@ -108,9 +102,33 @@ func (p *Compiler) compileExpr(e Expr, targets ...register.Id) []MicroInstructio
 		//
 		insn = instruction.NewAdd[word.Uint](targets, reg, zero)
 	case *expr.Mul[symbol.Resolved]:
-		insns, insn = p.compileMul(e.Exprs, targets)
-	case *expr.NonLocalAccess[symbol.Resolved]:
-		insn = instruction.NewAdd[word.Uint](targets, nil, p.evalConstant(e))
+		insns, insn = p.compileMul(e.Exprs, mapping, targets)
+	case *expr.ExternAccess[symbol.Resolved]:
+		//
+		switch ext := p.components[e.Name.Index].(type) {
+		case *Constant:
+			insn = instruction.NewAdd[word.Uint](targets, nil, p.evalConstant(e))
+		case *Memory:
+			if !ext.IsReadable() {
+				panic(fmt.Sprintf("unreadable memory \"%s\" encountered", e.Name.String()))
+			}
+			//
+			insns, insn = p.compileMemoryRead(e, ext, mapping, targets)
+		case *Function:
+			panic(fmt.Sprintf("unknown symbol \"%s\" encountered", e.Name.String()))
+		}
+
+		switch e.Name.Kind {
+		case symbol.CONSTANT:
+
+		case symbol.READABLE_MEMORY:
+			// input, static or ram
+
+		case symbol.WRITEABLE_MEMORY:
+			// output or ram
+			panic("got here")
+		default:
+		}
 	default:
 		panic("unknown expression encountered")
 	}
@@ -118,7 +136,7 @@ func (p *Compiler) compileExpr(e Expr, targets ...register.Id) []MicroInstructio
 	return append(insns, insn)
 }
 
-func (p *Compiler) compileAdd(args []Expr, targets []register.Id,
+func (p *Compiler) compileAdd(args []Expr, mapping []uint, targets []register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	var (
@@ -130,19 +148,29 @@ func (p *Compiler) compileAdd(args []Expr, targets []register.Id,
 	for _, e := range args {
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant = constant.Add(w.SetBigInt(&c.Constant))
-		} else if _, ok := e.(*expr.NonLocalAccess[symbol.Resolved]); ok {
+		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok {
 			constant = constant.Add(p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
 		}
 	}
 	// Compile arguments
-	sources, insns := p.compileArgs(nargs...)
+	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewAdd[word.Uint](targets, sources, constant)
 }
 
-func (p *Compiler) compileMul(args []Expr, targets []register.Id,
+func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem *Memory, mapping []uint,
+	targets []register.Id) ([]MicroInstruction, MicroInstruction) {
+	// Determine vm module identifier
+	var id = mapping[e.Name.Index]
+	// Compile arguments
+	sources, insns := p.compileArgs(mapping, e.Args...)
+	// determine type of read
+	return insns, instruction.NewMemRead(id, targets, sources)
+}
+
+func (p *Compiler) compileMul(args []Expr, mapping []uint, targets []register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	var (
@@ -154,19 +182,19 @@ func (p *Compiler) compileMul(args []Expr, targets []register.Id,
 	for _, e := range args {
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant = constant.Mul(w.SetBigInt(&c.Constant))
-		} else if _, ok := e.(*expr.NonLocalAccess[symbol.Resolved]); ok {
+		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok {
 			constant = constant.Mul(p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
 		}
 	}
 	// Compile arguments
-	sources, insns := p.compileArgs(nargs...)
+	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewMul[word.Uint](targets, sources, constant)
 }
 
-func (p *Compiler) compileArgs(exprs ...Expr) ([]register.Id, []MicroInstruction) {
+func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []MicroInstruction) {
 	var (
 		insns   []MicroInstruction
 		targets = make([]register.Id, len(exprs))
@@ -182,14 +210,14 @@ func (p *Compiler) compileArgs(exprs ...Expr) ([]register.Id, []MicroInstruction
 			// Allocate temporary variable
 			targets[i] = p.allocate(bitwidth)
 			// Compile expression, storing result in temporary
-			insns = append(insns, p.compileExpr(e, targets[i])...)
+			insns = append(insns, p.compileExpr(e, mapping, targets[i])...)
 		}
 	}
 	//
 	return targets, insns
 }
 
-func (p *Compiler) evalConstant(e ast.Expr) word.Uint {
+func (p *Compiler) evalConstant(e Expr) word.Uint {
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
@@ -201,14 +229,15 @@ func (p *Compiler) evalConstant(e ast.Expr) word.Uint {
 	case *expr.Mul[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.Product(args...)
-	case *expr.NonLocalAccess[symbol.Resolved]:
-		return p.evalConstant(p.lookup(e.Name))
+	case *expr.ExternAccess[symbol.Resolved]:
+		var decl = p.components[e.Name.Index].(*Constant)
+		return p.evalConstant(decl.ConstExpr)
 	default:
 		panic("unknown expression encountered")
 	}
 }
 
-func (p *Compiler) evalConstants(es []ast.Expr) []word.Uint {
+func (p *Compiler) evalConstants(es []Expr) []word.Uint {
 	var words = make([]word.Uint, len(es))
 	//
 	for i, e := range es {
@@ -230,11 +259,14 @@ func (p *Compiler) allocate(bitwidth uint) register.Id {
 	return register.NewId(uint(n))
 }
 
-func mapRegisters(variables []variable.Id) []register.Id {
+func mapLvals(variables []LVal) []register.Id {
 	var regs = make([]register.Id, len(variables))
 	//
-	for i, v := range variables {
-		regs[i] = register.NewId(v)
+	for i, lv := range variables {
+		// FIXME: this will need to be fixed.
+		var v = lv.(*lval.Variable[symbol.Resolved])
+		//
+		regs[i] = register.NewId(v.Id)
 	}
 	//
 	return regs

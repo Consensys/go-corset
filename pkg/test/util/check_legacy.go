@@ -116,7 +116,7 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 	// Record how many tests executed.
 	nTests := 0
 	// Iterate possible testfile extensions
-	for _, cfg := range TESTFILE_EXTENSIONS {
+	for _, cfg := range LEGACY_TESTFILE_EXTENSIONS {
 		var traces []lt.TraceFile
 		// Construct test filename
 		testFilename := fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
@@ -138,8 +138,8 @@ func checkWithField[F field.Element[F]](t *testing.T, stdlib bool, test string, 
 	}
 }
 
-func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, maxPadding uint, traces []lt.TraceFile,
-	stack cmd_util.SchemaStacker[F]) {
+func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg LegacyTestConfig, maxPadding uint,
+	traces []lt.TraceFile, stack cmd_util.SchemaStacker[F]) {
 	//
 	if cfg.expand {
 		var errors []error
@@ -164,8 +164,8 @@ func fullCheckTraces[F field.Element[F]](t *testing.T, test string, cfg Config, 
 }
 
 // Sanity check same outcome for all optimisation levels
-func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
-	stack cmd_util.SchemaStacker[F]) {
+func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, cfg LegacyTestConfig,
+	traces []lt.TraceFile, stack cmd_util.SchemaStacker[F]) {
 	// Run checks using schema compiled from source
 	for _, opt := range cfg.optlevels {
 		// Only check optimisation levels other than the default.
@@ -179,7 +179,7 @@ func checkCompilerOptimisations[F field.Element[F]](t *testing.T, test string, c
 }
 
 // Check the binary encoding / decoding.
-func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Config, traces []lt.TraceFile,
+func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg LegacyTestConfig, traces []lt.TraceFile,
 	stack cmd_util.SchemaStacker[F]) {
 	//
 	name := fmt.Sprintf("%s:bin", test)
@@ -200,8 +200,8 @@ func checkBinaryEncoding[F field.Element[F]](t *testing.T, test string, cfg Conf
 
 // Run default optimisation over all fields, and check padding for the primary
 // stack only.
-func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, maxPadding uint, traces []lt.TraceFile,
-	stack cmd_util.SchemaStacker[F]) {
+func checkPadding[F field.Element[F]](t *testing.T, test string, cfg LegacyTestConfig, maxPadding uint,
+	traces []lt.TraceFile, stack cmd_util.SchemaStacker[F]) {
 	//
 	if cfg.field == "" || cfg.field == stack.Field().Name {
 		// Set default optimisation level
@@ -213,7 +213,7 @@ func checkPadding[F field.Element[F]](t *testing.T, test string, cfg Config, max
 
 // Check a given set of tests have an expected outcome (i.e. are
 // either accepted or rejected) by a given set of constraints.
-func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint, opt uint, cfg Config,
+func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint, opt uint, cfg LegacyTestConfig,
 	traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F]) {
 	// For unexpected traces, we never want to explore padding (because that's
 	// the whole point of unexpanded traces --- they are raw).
@@ -302,8 +302,8 @@ func matchSourceFiles(test string) []string {
 	return filenames
 }
 
-// Config provides a simple mechanism for searching for testfiles.
-type Config struct {
+// LegacyTestConfig provides a simple mechanism for searching for testfiles.
+type LegacyTestConfig struct {
 	extension string
 	expected  bool
 	expand    bool
@@ -315,9 +315,9 @@ type Config struct {
 var allOptLevels = []uint{0, 1}
 var defaultOptLevel = []uint{1}
 
-// TESTFILE_EXTENSIONS identifies the possible file extensions used for
+// LEGACY_TESTFILE_EXTENSIONS identifies the possible file extensions used for
 // different test inputs.
-var TESTFILE_EXTENSIONS []Config = []Config{
+var LEGACY_TESTFILE_EXTENSIONS []LegacyTestConfig = []LegacyTestConfig{
 	// should all pass
 	{"accepts", true, true, true, "", allOptLevels},
 	{"accepts.bz2", true, true, true, "", allOptLevels},

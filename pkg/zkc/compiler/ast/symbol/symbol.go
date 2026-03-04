@@ -22,3 +22,19 @@ type Symbol[I any] interface {
 	fmt.Stringer
 	set.Comparable[I]
 }
+
+// Kind determines the symbol kind (e.g. constant, function, input, output,
+// etc).
+type Kind uint8
+
+const (
+	// READABLE_MEMORY identifies a memory which can be read (i.e. an input memory, or a static memory, etc).
+	READABLE_MEMORY = 1
+	// WRITEABLE_MEMORY identifies a memory which can be written (i.e. an
+	// output memory, or a read/write memory, etc).
+	WRITEABLE_MEMORY = 2
+	// FUNCTION identifies a function symbol.
+	FUNCTION = 3
+	// CONSTANT identifies a constant symbol.
+	CONSTANT = 4
+)

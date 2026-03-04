@@ -10,46 +10,43 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package expr
+package lval
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// Const represents a constant value within an expresion.
-type Const[I symbol.Symbol[I]] struct {
-	Label    string
-	Constant big.Int
-	Base     uint
+// Variable represents a register access within an expresion.
+type Variable[I symbol.Symbol[I]] struct {
+	Id variable.Id
 }
 
-// NewConstant constructs an expression representing a constant value, along with a
-// base (which is used for pretty printing, etc).
-func NewConstant[I symbol.Symbol[I]](constant big.Int, base uint) Expr[I] {
-	return &Const[I]{Constant: constant, Base: base}
+// NewVariable constructs an expression representing a register access.
+func NewVariable[I symbol.Symbol[I]](variable variable.Id) LVal[I] {
+	return &Variable[I]{Id: variable}
 }
 
-// BitWidth implementation for Expr interface
-func (p *Const[I]) BitWidth() uint {
-	return uint(p.Constant.BitLen())
+// ExternUses implementation for the LVal interface.
+func (p *Variable[I]) ExternUses() set.AnySortedSet[I] {
+	return nil
 }
 
-// ExternUses implementation for the Expr interface.
-func (p *Const[I]) ExternUses() set.AnySortedSet[I] {
-	panic("todo")
+// LocalUses implementation for the LVal interface.
+func (p *Variable[I]) LocalUses() bit.Set {
+	return bit.Set{}
 }
 
-// LocalUses implementation for the Expr interface.
-func (p *Const[I]) LocalUses() bit.Set {
-	var empty bit.Set
-	return empty
+// LocalDefs implementation for the LVal interface.
+func (p *Variable[I]) LocalDefs() bit.Set {
+	var read bit.Set
+	read.Insert(p.Id)
+	//
+	return read
 }
 
-func (p *Const[I]) String(mapping variable.Map) string {
+func (p *Variable[I]) String(mapping variable.Map) string {
 	return String[I](p, mapping)
 }

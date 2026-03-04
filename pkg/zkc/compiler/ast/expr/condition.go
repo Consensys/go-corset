@@ -25,9 +25,9 @@ type Condition[I symbol.Symbol[I]] interface {
 	// Negate a given condition to produce an equivalent (but negated)
 	// condition.
 	Negate() Condition[I]
-	// NonLocalUses returns the set of non-local declarations accessed by this
+	// ExternUses returns the set of non-local declarations accessed by this
 	// condition.  For example, external constants or memories used within.
-	NonLocalUses() set.AnySortedSet[I]
+	ExternUses() set.AnySortedSet[I]
 	// RegistersRead returns the set of variables used (i.e. read) by this condition
 	LocalUses() bit.Set
 	// String returns a string representation of this condition.

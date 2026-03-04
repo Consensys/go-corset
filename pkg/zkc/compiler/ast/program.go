@@ -16,11 +16,19 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
+
+// LVal represents an lval whose external identifiers are otherwise resolved. As
+// such, it should not be possible that such a declaration refers to unknown (or
+// otherwise incorrect) external components.
+type LVal = lval.LVal[symbol.Resolved]
 
 // Expr represents an expression whose external identifiers are otherwise
 // resolved. As such, it should not be possible that such a declaration refers
@@ -90,6 +98,13 @@ type UnresolvedFunction = decl.Function[symbol.Unresolved]
 // reference to an external component (e.g. function, RAM, ROM, etc).
 type UnresolvedMemory = decl.Memory[symbol.Unresolved]
 
+// UnresolvedLVal represents an expression whose identifiers for external
+// components are unresolved linkage records.  As such, its possible that such
+// an expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedLVal = lval.LVal[symbol.Unresolved]
+
 // UnresolvedExpr represents an expression whose identifiers for external
 // components are unresolved linkage records.  As such, its possible that such
 // an expression instruction may fail with an error at link time due to an
@@ -138,15 +153,15 @@ func NewProgram(components []Declaration) Program {
 	return Program{RawProgram[symbol.Resolved]{decls}}
 }
 
-// MapInputs configures a given set of input bytes appropriately for the boot
-// program.  If there are missing, unknown or conflicting inputs, then errors
-// are returned.
-func (p *Program) MapInputs(input map[string][]byte) (map[string][]word.Uint, []error) {
-	var (
-		output  = make(map[string][]word.Uint)
-		visited = make(map[string]bool)
-		errors  []error
-	)
+// MapInputsOutputs configures a given set of input / output bytes appropriately
+// for the boot program, whilst separating inputs from outputs.  If there are
+// unknown or conflicting inputs / outputs, then errors are returned.
+func (p *Program) MapInputsOutputs(input map[string][]byte) (inputs, outputs map[string][]word.Uint, errs []error) {
+	//
+	var visited = make(map[string]bool)
+	// Initialise inputs / outputs
+	inputs = make(map[string][]word.Uint)
+	outputs = make(map[string][]word.Uint)
 	// Initialise components
 	for _, c := range p.declarations {
 		switch c := c.(type) {
@@ -159,13 +174,15 @@ func (p *Program) MapInputs(input map[string][]byte) (map[string][]word.Uint, []
 			switch c.Kind {
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
 				if bytes, ok := input[c.Name()]; ok {
-					output[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes)
-				} else {
-					errors = append(errors, fmt.Errorf("missing input \"%s\"", c.Name()))
+					inputs[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes)
+				}
+			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
+				if bytes, ok := input[c.Name()]; ok {
+					outputs[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes)
 				}
 			default:
 				if _, ok := input[c.Name()]; ok {
-					errors = append(errors, fmt.Errorf("unexpected input \"%s\"", c.Name()))
+					errs = append(errs, fmt.Errorf("unexpected input \"%s\"", c.Name()))
 				}
 			}
 		default:
@@ -175,9 +192,16 @@ func (p *Program) MapInputs(input map[string][]byte) (map[string][]word.Uint, []
 	// Sanity check for extraneous inputs
 	for k := range input {
 		if _, ok := visited[k]; !ok {
-			errors = append(errors, fmt.Errorf("unknown input \"%s\"", k))
+			errs = append(errs, fmt.Errorf("unknown input/output \"%s\"", k))
 		}
 	}
 	//
-	return output, errors
+	return inputs, outputs, errs
+}
+
+// Compile attempts to compile a given high-level program into a low-level
+// machine which can be used (for example) to execute this program with some
+// given inputs.
+func (p *Program) Compile() *machine.Base[word.Uint] {
+	return codegen.Compile(p.declarations)
 }

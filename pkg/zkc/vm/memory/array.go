@@ -12,6 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package memory
 
+import (
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+)
+
 // Array is a flat-slice implementation of ReadOnlyMemory backed by a []W.
 // Reads are performed by delegating address decoding to a D (an AddressDecoder)
 // which translates the incoming multi-word address tuple into a (start, end)
@@ -21,47 +26,42 @@ package memory
 // The type parameter W is the word type (e.g. a field element or big.Int), and
 // D is the AddressDecoder strategy that encodes the layout of rows within the
 // flat slice.
-type Array[W any, D AddressDecoder[W]] struct {
-	name    string
-	decoder D
-	data    []W
+type Array[W word.Word[W]] struct {
+	geometry Geometry[W]
+	name     string
+	data     []W
 }
 
-// NewArray constructs an Array with the given name and decoder.  The optional
-// init values are used as the initial contents of the backing slice.
-func NewArray[W any, D AddressDecoder[W]](name string, decoder D, init ...W) *Array[W, D] {
-	return &Array[W, D]{
-		name,
-		decoder,
-		init,
-	}
+// newArray constructs a new array initialised with a given set of values.
+func newArray[W word.Word[W]](name string, registers []register.Register, init ...W) Array[W] {
+	var geometry = NewGeometry[W](registers)
+	//
+	return Array[W]{geometry, name, init}
 }
 
 // Name implementation for ReadOnlyMemory interface.
-func (p *Array[W, D]) Name() string {
+func (p *Array[W]) Name() string {
 	return p.name
 }
 
 // Initialise implementation for Memory interface.
-func (p *Array[W, D]) Initialise(contents []W) {
+func (p *Array[W]) Initialise(contents []W) {
 	p.data = contents
 }
 
 // Read implementation for ReadOnlyMemory interface.
-func (p *Array[W, D]) Read(address []W) []W {
-	var (
-		start, end = p.decoder.Decode(address)
-	)
-	// Slice out relevant section
+func (p *Array[W]) Read(address []W) []W {
+	var start, end = p.geometry.Decode(address)
+	//
 	return p.data[start:end]
 }
 
 // Write implementation for ReadOnlyMemory interface.
-func (p *Array[W, D]) Write(address []W, data []W) {
+func (p *Array[W]) Write(address []W, data []W) {
 	panic("todo")
 }
 
 // Contents implementation for Memory interface.
-func (p *Array[W, D]) Contents() []W {
+func (p *Array[W]) Contents() []W {
 	return p.data
 }

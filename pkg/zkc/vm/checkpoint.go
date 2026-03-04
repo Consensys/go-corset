@@ -14,8 +14,6 @@ package vm
 
 import (
 	"encoding"
-
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 )
 
 // CheckPoint represents a captured state of an executing machine, such that
@@ -48,8 +46,6 @@ type CheckPoint[W any] interface {
 	encoding.BinaryMarshaler
 	// Checkpoints must be constructable from bytes
 	encoding.BinaryUnmarshaler
-	// Restore the state of an executing machine from this checkpoint.
-	Restore() machine.DynamicState[W]
 	// ValidFor returns the number of execution steps for which this checkpoint
 	// is valid, or math.MaxUint64 if it is valid for all remaining steps.  We
 	// can expect that executing the machine beyond this number of steps will

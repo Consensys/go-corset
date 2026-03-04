@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
@@ -36,6 +37,9 @@ type Condition = expr.Condition[symbol.Unresolved]
 
 // Expr is a convenient alias
 type Expr = expr.Expr[symbol.Unresolved]
+
+// LVal is a convenient alias
+type LVal = lval.LVal[symbol.Unresolved]
 
 // UnlinkedSourceFile captures a source file has been successfully parsed but
 // which has not yet been linked.   As such, its possible that such a file may
@@ -516,12 +520,12 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 
 func (p *Parser) parseAssignment(env *Environment) (ast.UnresolvedInstruction, []source.SyntaxError) {
 	var (
-		lhs  []variable.Id
+		lhs  []LVal
 		rhs  Expr
 		errs []source.SyntaxError
 	)
 	// parse left-hand side
-	if lhs, errs = p.parseVariableList(env); len(errs) > 0 {
+	if lhs, errs = p.parseLVals(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Reverse items so that least significant comes first.
@@ -749,7 +753,7 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 	// Build the assignment instruction
 	target := env.LookupVariable(names[0])
 	insn := &stmt.Assign[symbol.Unresolved]{
-		Targets: []variable.Id{target},
+		Targets: []LVal{lval.NewVariable[symbol.Unresolved](target)},
 		Source:  rhs,
 	}
 	//
@@ -781,7 +785,7 @@ func (p *Parser) parseCondition(env *Environment) (Condition, []source.SyntaxErr
 func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
 	var (
 		start     = p.index
-		arg, errs = p.parseAccessExpr(env)
+		arg, errs = p.parseUnitExpr(env)
 		args      = []Expr{arg}
 		tmp       Expr
 	)
@@ -796,7 +800,7 @@ func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
 		// Consume connective
 		p.expect(p.lookahead().Kind)
 		//
-		tmp, errs = p.parseAccessExpr(env)
+		tmp, errs = p.parseUnitExpr(env)
 		// Accumulate arguments
 		args = append(args, tmp)
 	}
@@ -819,112 +823,90 @@ func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
 	return arg, nil
 }
 
-// Parse an _access expression_, which has the form:
-//
-// AccessExpr::= PrimaryExpr
-//
-//	| AccessExpr '[' Expr ']'
-//	| AccessExpr '.' Identifier
-//
-// Access expressions are challenging for several reasons. First, they are
-// _left-recursive_, making them more difficult to parse correctly.
-// Secondly, there are several different forms above and, of these, some
-// generate multiple AST nodes as well (see below).
-func (p *Parser) parseAccessExpr(env *Environment) (Expr, []source.SyntaxError) {
-	var (
-		lhs, errs = p.parseUnitExpr(env)
-	)
-	//
-	for len(errs) == 0 && p.match(LSQUARE) {
-		var tmp Expr
-
-		tmp, errs = p.parseUnitExpr(env)
-		lhs = expr.NewArrayAccess[symbol.Unresolved](lhs, tmp)
-
-		p.match(RSQUARE)
-	}
-	//
-	return lhs, errs
-}
-
 func (p *Parser) parseUnitExpr(env *Environment) (Expr, []source.SyntaxError) {
-	var lookahead = p.lookahead()
-
-	switch lookahead.Kind {
-	case IDENTIFIER, NUMBER:
-		return p.parseAtomicExpr(env)
-	case LBRACE:
-		p.match(LBRACE)
-		expr, errs := p.parseExpr(env)
-		//
-		if len(errs) > 0 {
-			return nil, errs
-		} else if _, errs = p.expect(RBRACE); len(errs) > 0 {
-			return nil, errs
-		}
-		// Don't add to source map, since it will already have been added.
-		return expr, nil
-	default:
-		return nil, p.syntaxErrors(lookahead, "unexpected token")
-	}
-}
-
-func (p *Parser) parseAtomicExpr(env *Environment) (Expr, []source.SyntaxError) {
 	var (
-		start     = p.index
 		lookahead = p.lookahead()
-		atom      Expr
-		errs      []source.SyntaxError
+		errors    []source.SyntaxError
+		start     = p.index
+		nexpr     Expr
 	)
 
 	switch lookahead.Kind {
 	case IDENTIFIER:
-		var reg string
-		//
-		reg, errs = p.parseIdentifier()
-		//
-		if len(errs) > 0 {
-			return nil, errs
-		} else if !env.IsVariable(reg) {
-			atom = expr.NewNonLocalAccess(symbol.NewUnresolved(reg, 0, 0))
-		} else {
-			// Register access
-			rid := env.LookupVariable(reg)
-			// Done
-			atom = expr.NewLocalAccess[symbol.Unresolved](rid)
-		}
+		nexpr, errors = p.parseAccessExpr(env)
 	case NUMBER:
 		var val big.Int
 		//
 		p.match(NUMBER)
 		//
-		val, errs = p.number(lookahead)
+		val, errors = p.number(lookahead)
 		base := p.baserOfNumber(lookahead)
 		//
-		atom = expr.NewConstant[symbol.Unresolved](val, base)
+		nexpr = expr.NewConstant[symbol.Unresolved](val, base)
+	case LBRACE:
+		p.match(LBRACE)
+		nexpr, errors = p.parseExpr(env)
+		//
+		if len(errors) == 0 && !p.match(RBRACE) {
+			return nil, p.syntaxErrors(lookahead, "expected )")
+		}
+		// Don't add to source map, since it will already have been added.
+		return nexpr, nil
 	default:
-		return nil, p.syntaxErrors(lookahead, "expected register or constant")
+		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
 	//
-	p.srcmap.Put(atom, p.spanOf(start, p.index-1))
+	if len(errors) == 0 {
+		p.srcmap.Put(nexpr, p.spanOf(start, p.index-1))
+	}
 	//
-	return atom, errs
+	return nexpr, errors
+}
+
+func (p *Parser) parseAccessExpr(env *Environment) (Expr, []source.SyntaxError) {
+	var (
+		nexpr Expr
+		errs  []source.SyntaxError
+		name  string
+	)
+	//
+	name, errs = p.parseIdentifier()
+	// now, check for function call or memory access
+	if len(errs) == 0 && p.match(LSQUARE) {
+		var args []Expr
+		//
+		args, errs = p.parseExprList(RSQUARE, env)
+		//
+		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.READABLE_MEMORY, uint(len(args))), args...)
+	} else if !env.IsVariable(name) {
+		// Constant access
+		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
+	} else {
+		// Register access
+		rid := env.LookupVariable(name)
+		// Done
+		nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
+	}
+	//
+	return nexpr, errs
 }
 
 // Parse sequence of one or more expressions separated by a comma.
 // nolint
-func (p *Parser) parseExprList(env *Environment) ([]Expr, []source.SyntaxError) {
+func (p *Parser) parseExprList(terminator uint, env *Environment) ([]Expr, []source.SyntaxError) {
 	var (
-		lhs  = make([]Expr, 1)
+		lhs  = make([]Expr, 0)
 		errs []source.SyntaxError
 		expr Expr
 	)
-	// lhs always starts with a register
-	if lhs[0], errs = p.parseExpr(env); len(errs) > 0 {
-		return nil, errs
-	}
 	// lhs may have additional registers
-	for p.match(COMMA) {
+	for !p.match(terminator) {
+		lookahead := p.lookahead()
+		// match ",""
+		if len(lhs) != 0 && !p.match(COMMA) {
+			return nil, p.syntaxErrors(lookahead, "expected ,")
+		}
+		//
 		if expr, errs = p.parseExpr(env); len(errs) > 0 {
 			return nil, errs
 		}
@@ -935,20 +917,19 @@ func (p *Parser) parseExprList(env *Environment) ([]Expr, []source.SyntaxError) 
 	return lhs, nil
 }
 
-// Parse sequence of one or more registers separated by a comma.
-func (p *Parser) parseVariableList(env *Environment) ([]variable.Id, []source.SyntaxError) {
+func (p *Parser) parseLVals(env *Environment) ([]LVal, []source.SyntaxError) {
 	var (
-		lhs  []variable.Id = make([]variable.Id, 1)
+		lhs  []LVal = make([]LVal, 1)
 		errs []source.SyntaxError
-		reg  variable.Id
+		reg  LVal
 	)
 	// lhs always starts with a register
-	if lhs[0], errs = p.parseVariable(env); len(errs) > 0 {
+	if lhs[0], errs = p.parseLVal(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// lhs may have additional registers
 	for p.match(COMMA) {
-		if reg, errs = p.parseVariable(env); len(errs) > 0 {
+		if reg, errs = p.parseLVal(env); len(errs) > 0 {
 			return nil, errs
 		}
 		// Add register to lhs
@@ -958,20 +939,35 @@ func (p *Parser) parseVariableList(env *Environment) ([]variable.Id, []source.Sy
 	return lhs, nil
 }
 
-func (p *Parser) parseVariable(env *Environment) (variable.Id, []source.SyntaxError) {
+func (p *Parser) parseLVal(env *Environment) (LVal, []source.SyntaxError) {
 	var (
-		empty     uint
+		lv        LVal
+		start     = p.index
 		lookahead = p.lookahead()
 		reg, errs = p.parseIdentifier()
+		index     Expr
 	)
 	//
 	if len(errs) > 0 {
-		return empty, errs
-	} else if !env.IsVariable(reg) {
-		return empty, p.syntaxErrors(lookahead, "unknown register")
+		return lv, errs
+	} else if env.IsVariable(reg) {
+		lv = lval.NewVariable[symbol.Unresolved](env.LookupVariable(reg))
+	} else if !p.match(LSQUARE) {
+		return lv, p.syntaxErrors(lookahead, "unknown register")
+	} else if index, errs = p.parseExpr(env); len(errs) > 0 {
+		return lv, errs
+	} else if _, errs = p.expect(RSQUARE); len(errs) > 0 {
+		return lv, errs
+	} else {
+		// construct name symbol
+		var name = symbol.NewUnresolved(reg, symbol.WRITEABLE_MEMORY, 1)
+		// Done
+		lv = lval.NewMemAccess(name, index)
 	}
-	// Done
-	return env.LookupVariable(reg), nil
+	// update source mapping
+	p.srcmap.Put(lv, p.spanOf(start, p.index-1))
+	//
+	return lv, nil
 }
 
 func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {

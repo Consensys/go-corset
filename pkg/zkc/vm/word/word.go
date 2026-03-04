@@ -26,8 +26,14 @@ type Word[W any] interface {
 	Add(W) W
 	// Return the value of this word as a big integer.
 	BigInt() *big.Int
+	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
+	Cmp(y W) int
 	// Multiply two words together, producing another
 	Mul(W) W
+	// Shift right word by a given number of bits.
+	Shr64(uint64) W
+	// Slice number of bits from this word.
+	Slice(uint) W
 	// Construct a fresh word with the given uint64 value, or panic (if the
 	// value does not fit).
 	SetUint64(uint64) W

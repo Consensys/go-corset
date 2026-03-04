@@ -50,7 +50,7 @@ type Function[I any] struct {
 }
 
 // New constructs a new function with the given components.
-func New[I any](name string, registers []register.Register, code []I) Function[I] {
+func New[I any](name string, registers []register.Register, code []I) *Function[I] {
 	//
 	var (
 		numInputs  = array.CountMatching(registers, func(r register.Register) bool { return r.IsInput() })
@@ -61,7 +61,7 @@ func New[I any](name string, registers []register.Register, code []I) Function[I
 		panic("function registers ordered incorrectly")
 	}
 	// All good
-	return Function[I]{name, registers, numInputs, numOutputs, code}
+	return &Function[I]{name, registers, numInputs, numOutputs, code}
 }
 
 // CodeAt returns the ith instruction making up the body of this function.

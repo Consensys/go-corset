@@ -28,9 +28,9 @@ type Expr[I symbol.Symbol[I]] interface {
 	// BitWidth returns the minimum number of bits required to hold any
 	// evaluation of this expression.
 	BitWidth() uint
-	// NonLocalUses returns the set of non-local declarations accessed by this
+	// ExternUses returns the set of non-local declarations accessed by this
 	// expression.  For example, external constants or memories used within.
-	NonLocalUses() set.AnySortedSet[I]
+	ExternUses() set.AnySortedSet[I]
 	// RegistersRead returns the set of variables used (i.e. read) by this expression
 	LocalUses() bit.Set
 	// String returns a string representation of this expression.
@@ -78,7 +78,7 @@ func String[I symbol.Symbol[I]](e Expr[I], mapping variable.Map) string {
 	case *Mul[I]:
 		exprs = e.Exprs
 		operator = "*"
-	case *NonLocalAccess[I]:
+	case *ExternAccess[I]:
 		return e.Name.String()
 	case *Sub[I]:
 		exprs = e.Exprs
@@ -123,7 +123,7 @@ func needsBraces[I symbol.Symbol[I]](e Expr[I]) bool {
 		return false
 	case *LocalAccess[I]:
 		return false
-	case *NonLocalAccess[I]:
+	case *ExternAccess[I]:
 		return false
 	default:
 		return true

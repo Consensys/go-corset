@@ -26,9 +26,9 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -60,14 +60,14 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	ir := GetFlag(cmd, "ir")
 	as := GetFlag(cmd, "ast")
 	// Compile source files, or print errors
-	program := CompileSourceFiles(args)
+	program := CompileSourceFiles(args...)
 	//
 	if as {
 		writeAbstractSyntaxTree(program)
 	}
 	//
 	if ir {
-		vm := codegen.Compile(&program)
+		vm := program.Compile()
 		writeIntermediateRepresentation[word.Uint](vm)
 	}
 }
@@ -220,37 +220,23 @@ func writeFunctionVariables(f *ast.Function) {
 // Intermediate Representation (IR)
 // ============================================================================
 
-func writeIntermediateRepresentation[W word.Word[W]](machine machine.Boot[W]) {
-	var (
-		state = machine.State()
-	)
-	// Write statics
-	for i := range state.NumStatics() {
-		writeIrMemory("static", state.Static(i).Name())
-	}
-	// Write inputs
-	for i := range state.NumInputs() {
-		writeIrMemory("input", state.Input(i).Name())
-	}
-	// Write outputs
-	for i := range state.NumOutputs() {
-		writeIrMemory("output", state.Output(i).Name())
-	}
+func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Base[W]) {
 	// Write memories
-	for i := range state.NumMemories() {
-		writeIrMemory("memory", state.Memory(i).Name())
-	}
-	// Write functions
-	for i := range state.NumFunctions() {
-		writeIrFunction[W](state.Function(i))
+	for _, m := range machine.Modules() {
+		switch m := m.(type) {
+		case memory.Memory[W]:
+			writeIrMemory(m)
+		case *function.Boot[W]:
+			writeIrFunction[W](m)
+		}
 	}
 }
 
-func writeIrMemory(kind string, name string) {
-	fmt.Printf("%s %s(?) -> (?)\n", kind, name)
+func writeIrMemory[W word.Word[W]](m memory.Memory[W]) {
+	fmt.Printf("memory? %s(?) -> (?)\n", m.Name())
 }
 
-func writeIrFunction[W word.Word[W]](f function.Boot[W]) {
+func writeIrFunction[W word.Word[W]](f *function.Boot[W]) {
 	var (
 		name   = trace.ModuleName{Name: f.Name(), Multiplier: 1}
 		regMap = register.ArrayMap(name, f.Registers()...)
@@ -297,7 +283,7 @@ func writeIrFunctionArgs(kind register.Type, regs []register.Register) {
 	}
 }
 
-func writeIrFunctionVariables[W word.Word[W]](f function.Boot[W]) {
+func writeIrFunctionVariables[W word.Word[W]](f *function.Boot[W]) {
 	for _, r := range f.Registers() {
 		if !r.IsInputOutput() {
 			fmt.Printf("\tu%d %s\n", r.Width(), r.Name())

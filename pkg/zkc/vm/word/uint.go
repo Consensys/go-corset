@@ -30,6 +30,11 @@ func (p Uint) Add(w Uint) Uint {
 	return Uint{res}
 }
 
+// Cmp implementation for Word interface.
+func (p Uint) Cmp(o Uint) int {
+	return p.value.Cmp(&o.value)
+}
+
 // BigInt implementation for Word interface.
 func (p Uint) BigInt() *big.Int {
 	return &p.value
@@ -41,6 +46,20 @@ func (p Uint) Mul(w Uint) Uint {
 	res.Mul(&p.value, &w.value)
 	//
 	return Uint{res}
+}
+
+// Shr64 implementation for Word interface.
+func (p Uint) Shr64(n uint64) Uint {
+	var val big.Int
+	val.Rsh(&p.value, uint(n))
+	//
+	return Uint{val}
+}
+
+// Slice implementation for Word interface.
+func (p Uint) Slice(width uint) Uint {
+	val := readBitSlice(0, width, p.value, true)
+	return Uint{val}
 }
 
 // Uint64 implementation for Word interface.
@@ -76,4 +95,35 @@ func (p Uint) SetBigInt(val *big.Int) Uint {
 // Text implementation for Word interface
 func (p Uint) Text(base int) string {
 	return p.value.Text(base)
+}
+
+// ReadBitSlice reads a slice of bits starting at a given offset in a give
+// value.  For example, consider the value is 10111000 and we have offset=1 and
+// width=4, then the result is 1100.
+func readBitSlice(offset uint, width uint, value big.Int, sign bool) big.Int {
+	var (
+		slice big.Int
+		bit   uint
+		n     = int(offset + width)
+		m     = value.BitLen()
+		i     = int(offset)
+		j     = 0
+	)
+	// Read bits upto end
+	for ; i < min(n, m); i, j = i+1, j+1 {
+		// Read appropriate bit
+		bit = value.Bit(i)
+		// set appropriate bit
+		slice.SetBit(&slice, j, bit)
+	}
+	// Sign extend (negative values)
+	if !sign {
+		// Negative value
+		for ; i < n; i, j = i+1, j+1 {
+			// set appropriate bit
+			slice.SetBit(&slice, j, 1)
+		}
+	}
+	//
+	return slice
 }

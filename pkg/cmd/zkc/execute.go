@@ -14,7 +14,6 @@ package zkc
 
 import (
 	"fmt"
-	"math"
 	"os"
 
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -23,7 +22,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
@@ -54,7 +52,7 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
-	program := CompileSourceFiles(args[1:])
+	program := CompileSourceFiles(args[1:]...)
 	//
 	if ir {
 		executeIrProgram("main", program, input)
@@ -63,25 +61,23 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 
 func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {
 	var (
-		vm        machine.Boot[word.Uint]
+		vm        *machine.Base[word.Uint]
 		bigInputs map[string][]word.Uint
 		errors    []error
 	)
 	// Execute machine in chunks of 1K steps
-	if bigInputs, errors = program.MapInputs(input); len(errors) == 0 {
+	if bigInputs, _, errors = program.MapInputsOutputs(input); len(errors) == 0 {
 		// Build our machine
-		vm = codegen.Compile(&program)
+		vm = program.Compile()
 		//
-		if main, ok := findFunction(mainFn, vm); ok {
-			// Boot it
-			vm = vm.Boot(main, bigInputs)
+		if err := vm.Boot(mainFn, bigInputs); err == nil {
 			// Execute it
 			if _, err := machine.ExecuteAll(vm, 1024); err != nil {
 				// NOTE: determine stack trace!
 				errors = append(errors, err)
 			}
 		} else {
-			errors = append(errors, fmt.Errorf("unknown function \"%s\"", mainFn))
+			errors = append(errors, err)
 		}
 	}
 	// Exit with failure (if errors)
@@ -94,33 +90,21 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 		os.Exit(4)
 	}
 	// write output
-	for i := range vm.State().NumOutputs() {
-		var output = vm.State().Output(i)
-		//
-		fmt.Printf("%s", output.Name())
-		//
-		for i, val := range output.Contents() {
-			if i != 0 {
-				fmt.Printf(", ")
-			}
-			//
-			fmt.Printf("0x%s", val.Text(16))
-		}
-		//
-		fmt.Println()
-	}
-}
-
-func findFunction[W word.Word[W]](fun string, vm machine.Boot[W]) (uint, bool) {
-	for i := range vm.State().NumFunctions() {
-		ith := vm.State().Function(i)
-		//
-		if ith.Name() == fun {
-			return i, true
-		}
-	}
-	//
-	return math.MaxUint, false
+	// for i := range vm.State().NumOutputs() {
+	// 	var output = vm.State().Output(i)
+	// 	//
+	// 	fmt.Printf("%s", output.Name())
+	// 	//
+	// 	for i, val := range output.Contents() {
+	// 		if i != 0 {
+	// 			fmt.Printf(", ")
+	// 		}
+	// 		//
+	// 		fmt.Printf("0x%s", val.Text(16))
+	// 	}
+	// 	//
+	// 	fmt.Println()
+	// }
 }
 
 //nolint:errcheck

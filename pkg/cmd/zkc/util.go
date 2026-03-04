@@ -13,10 +13,7 @@
 package zkc
 
 import (
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"math/big"
 	"os"
 	"path"
 	"strings"
@@ -25,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -32,66 +30,34 @@ import (
 // JSON).  An input file contains the input bytes for each ROM in the given
 // program.
 func ParseInputFile(filename string) map[string][]byte {
-	// Read input file
-	filename, fileBytes, err := file.ReadAndUncompress(filename)
+	var (
+		inputFile map[string][]byte
+		// Read input file
+		fn, fileBytes, err = file.ReadAndUncompress(filename)
+	)
 	//
 	if err == nil {
-		ext := path.Ext(filename)
+		ext := path.Ext(fn)
 		//
 		switch ext {
 		case ".json":
-			return parseJsonInputFile(fileBytes)
+			inputFile, err = util.ParseJsonInputFile(fileBytes)
 		default:
 			err = fmt.Errorf("unknown trace file format: %s", ext)
 		}
 	}
-	// Handle error
-	fmt.Println(err)
-	os.Exit(2)
-	// unreachable
-	return nil
-}
-
-func parseJsonInputFile(bytes []byte) map[string][]byte {
-	var (
-		rawData map[string]string
-		data    map[string][]byte
-		err     error
-	)
-	// Unmarshall data
-	if err = json.Unmarshal(bytes, &rawData); err == nil {
-		// Parse data
-		data = make(map[string][]byte)
-		// Initialise data
-		for k, v := range rawData {
-			if strings.HasPrefix(v, "0x") {
-				data[k], err = hex.DecodeString(v[2:])
-			} else {
-				var val big.Int
-				val.SetString(v, 10)
-				data[k] = val.Bytes()
-			}
-			//
-			if err != nil {
-				break
-			}
-		}
+	// Handle error (if applicable)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(2)
 	}
-	//
-	//
-	if err == nil {
-		return data
-	}
-	// Handle error
-	fmt.Println(err)
-	os.Exit(2)
-	// unreachable
-	return nil
+	// Done
+	return inputFile
 }
 
 // CompileSourceFiles accepts a set of source files and compiles them into a
 // program.  This can result, for example, in one or more syntax errors, etc.
-func CompileSourceFiles(filenames []string) ast.Program {
+func CompileSourceFiles(filenames ...string) ast.Program {
 	//
 	var (
 		errors   []source.SyntaxError

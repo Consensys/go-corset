@@ -17,12 +17,13 @@ import "cmp"
 // etc) and its index of that kind.
 type Resolved struct {
 	Name  string
+	Kind  Kind
 	Index uint
 }
 
 // NewResolved constructs a new resolved symbol
-func NewResolved(name string, index uint) Resolved {
-	return Resolved{name, index}
+func NewResolved(name string, kind Kind, index uint) Resolved {
+	return Resolved{name, kind, index}
 }
 
 // Cmp implementation for set.Comparable interface

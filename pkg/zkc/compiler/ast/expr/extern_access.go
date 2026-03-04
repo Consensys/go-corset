@@ -21,21 +21,22 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// NonLocalAccess represents a reference to a non-local variable, such as a
+// ExternAccess represents a reference to an external declaration, such as a
 // named constant or memory.
-type NonLocalAccess[I symbol.Symbol[I]] struct {
+type ExternAccess[I symbol.Symbol[I]] struct {
 	bitwidth uint
 	Name     I
+	Args     []Expr[I]
 }
 
-// NewNonLocalAccess constructs an expression representing a non-local access,
+// NewExternAccess constructs an expression representing a non-local access,
 // such as for a named constant or memory.
-func NewNonLocalAccess[I symbol.Symbol[I]](name I) Expr[I] {
-	return &NonLocalAccess[I]{Name: name, bitwidth: math.MaxUint}
+func NewExternAccess[I symbol.Symbol[I]](name I, args ...Expr[I]) Expr[I] {
+	return &ExternAccess[I]{Name: name, Args: args, bitwidth: math.MaxUint}
 }
 
 // BitWidth implementation for Expr interface
-func (p *NonLocalAccess[I]) BitWidth() uint {
+func (p *ExternAccess[I]) BitWidth() uint {
 	if p.bitwidth == math.MaxUint {
 		panic("untyped expression")
 	}
@@ -44,21 +45,24 @@ func (p *NonLocalAccess[I]) BitWidth() uint {
 }
 
 // SetBitWidth sets the (positive) bitwidth.
-func (p *NonLocalAccess[I]) SetBitWidth(bitwidth uint) {
+func (p *ExternAccess[I]) SetBitWidth(bitwidth uint) {
 	p.bitwidth = bitwidth
 }
 
-// NonLocalUses implementation for the Expr interface.
-func (p *NonLocalAccess[I]) NonLocalUses() set.AnySortedSet[I] {
-	return *set.NewAnySortedSet(p.Name)
+// ExternUses implementation for the Expr interface.
+func (p *ExternAccess[I]) ExternUses() set.AnySortedSet[I] {
+	var uses = externUses(p.Args...)
+	//
+	uses.Insert(p.Name)
+	//
+	return uses
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *NonLocalAccess[I]) LocalUses() bit.Set {
-	var empty bit.Set
-	return empty
+func (p *ExternAccess[I]) LocalUses() bit.Set {
+	return localUses(p.Args...)
 }
 
-func (p *NonLocalAccess[I]) String(mapping variable.Map) string {
+func (p *ExternAccess[I]) String(mapping variable.Map) string {
 	return String[I](p, mapping)
 }

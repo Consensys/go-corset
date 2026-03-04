@@ -78,8 +78,8 @@ func (p *Cmp[I]) Negate() Condition[I] {
 	return &Cmp[I]{op, p.Left, p.Right}
 }
 
-// NonLocalUses implementation for the Condition interface.
-func (p *Cmp[I]) NonLocalUses() set.AnySortedSet[I] {
+// ExternUses implementation for the Condition interface.
+func (p *Cmp[I]) ExternUses() set.AnySortedSet[I] {
 	panic("todo")
 }
 
