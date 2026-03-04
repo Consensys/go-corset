@@ -99,7 +99,6 @@ const KEYWORD_ELSE uint = 31
 // KEYWORD_PUB signals a public input / output
 const KEYWORD_PUB uint = 32
 
-
 // KEYWORD_WHILE signals a while loop
 const KEYWORD_WHILE uint = 34
 
