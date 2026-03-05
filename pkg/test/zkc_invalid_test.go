@@ -50,10 +50,6 @@ func Test_ZkcInvalid_Basic_07(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_invalid_07")
 }
 
-func Test_ZkcInvalid_Basic_08(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/basic_invalid_08")
-}
-
 // ===================================================================
 // Constant Tests
 // ===================================================================
@@ -106,6 +102,22 @@ func Test_ZkcInvalid_While_02(t *testing.T) {
 
 func Test_ZkcInvalid_While_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/while_invalid_03")
+}
+
+// ===================================================================
+// Type Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Type_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_invalid_01")
+}
+
+func Test_ZkcInvalid_Type_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_invalid_02")
+}
+
+func Test_ZkcInvalid_Type_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_invalid_03")
 }
 
 // ===================================================================

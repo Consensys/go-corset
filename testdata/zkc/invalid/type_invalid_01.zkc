@@ -1,0 +1,2 @@
+;;error:2:1-5:cyclic definition
+type bool = bool

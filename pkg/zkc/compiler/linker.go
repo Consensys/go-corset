@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
@@ -144,6 +145,9 @@ func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxEr
 	case *ast.UnresolvedMemory:
 		// nothing to do here
 		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, d.Address, d.Data, d.Contents), nil
+	case *ast.UnresolvedTypeAlias:
+		// nothing to do here
+		return decl.NewTypeAlias[symbol.Resolved](d.Name(), d.DataType), nil
 	default:
 		panic("unknown declaration")
 	}
@@ -151,8 +155,13 @@ func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxEr
 
 func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []source.SyntaxError) {
 	expr, errors := p.linkExpr(fn.ConstExpr)
-	// FIXME: resolve data type.
-	return decl.NewConstant[symbol.Resolved](fn.Name(), fn.DataType, expr), errors
+	// resolve datatype
+	datatype := fn.DataType
+	if d, ok := fn.DataType.(*ast.UnresolvedAlias); ok {
+		datatype = p.resolveAlias(d)
+	}
+	//
+	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), errors
 }
 
 func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []source.SyntaxError) {
@@ -160,6 +169,12 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 		codes = make([]ast.Stmt, len(fn.Code))
 		errs  []source.SyntaxError
 	)
+	// resolve datatype of variables
+	for i, v := range fn.Variables {
+		if d, ok := v.DataType.(*ast.UnresolvedAlias); ok {
+			fn.Variables[i].DataType = p.resolveAlias(d)
+		}
+	}
 	//
 	for i, c := range fn.Code {
 		var es []source.SyntaxError
@@ -170,6 +185,19 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 	}
 	//
 	return decl.NewFunction(fn.Name(), fn.Variables, codes), errs
+}
+
+func (p *Linker) resolveAlias(d *ast.UnresolvedAlias) *ast.Alias {
+	s, okBus := p.busmap[d.Name]
+	index := s.Index
+	component := p.components[index]
+
+	c, okType := component.(*ast.UnresolvedTypeAlias)
+	if !okBus || !okType {
+		panic("unknown type alias")
+	}
+
+	return data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 }
 
 func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Stmt, []source.SyntaxError) {

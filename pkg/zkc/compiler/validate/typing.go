@@ -58,6 +58,8 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 			errors = append(errors, typer.typeConstant(*d)...)
 		case *ast.Function:
 			errors = append(errors, typer.typeFunction(*d)...)
+		case *ast.TypeAlias:
+			// ignore
 		case *ast.Memory:
 			// ignore
 		default:

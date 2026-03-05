@@ -37,6 +37,8 @@ func Compile(p *ast.Program) machine.Boot[word.Uint] {
 		switch c := c.(type) {
 		case *ast.Constant:
 			// ignore
+		case *ast.TypeAlias:
+			// ignore
 		case *ast.Function:
 			functions = append(functions, compileFunction(uint(i), *p))
 		case *ast.Memory:
