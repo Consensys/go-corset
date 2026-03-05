@@ -15,14 +15,14 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// Constant represents an alias for a DataType at the source level.
+// TypeAlias represents an alias for a DataType at the source level.
 type TypeAlias[I symbol.Symbol[I]] struct {
 	name     string
 	DataType data.Type
 }
 
 // NewConstant creates a new named constant in a given base
-func NewAlias[I symbol.Symbol[I]](name string, datatype data.Type) *TypeAlias[I] {
+func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type) *TypeAlias[I] {
 	return &TypeAlias[I]{name, datatype}
 }
 

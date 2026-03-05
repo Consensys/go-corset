@@ -117,6 +117,9 @@ const KEYWORD_CONTINUE uint = 38
 // KEYWORD_AS signals a type cast expression (e.g. "x as u8")
 const KEYWORD_AS uint = 39
 
+// KEYWORD_TYPE_ALIAS signals a type alias declaration
+const KEYWORD_TYPE_ALIAS uint = 40
+
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 60
 
@@ -277,6 +280,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.String("var"), KEYWORD_VAR),
 	lex.Rule(lex.String("while"), KEYWORD_WHILE),
 	lex.Rule(lex.String("as"), KEYWORD_AS),
+	lex.Rule(lex.String("type"), KEYWORD_TYPE_ALIAS),
 	lex.Rule(lex.String("break"), KEYWORD_BREAK),
 	lex.Rule(lex.String("continue"), KEYWORD_CONTINUE),
 	lex.Rule(identifier, IDENTIFIER),
