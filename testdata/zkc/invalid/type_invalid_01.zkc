@@ -1,6 +1,2 @@
-;;error:4:3-8:bit overflow (u2 into u1)
-type bool = u1
-fn f(x:bool) -> (r:bool) {
-  r = 2
-  return
-}
+;;error:2:1-5:cyclic definition
+type bool = bool

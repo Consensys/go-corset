@@ -371,6 +371,7 @@ func (p *Parser) parseReadWriteMemory() (ast.UnresolvedDeclaration, []source.Syn
 
 func (p *Parser) parseTypeAlias() (ast.UnresolvedDeclaration, []source.SyntaxError) {
 	var (
+		lookahead = p.lookahead()
 		start    = p.index
 		errs     []source.SyntaxError
 		datatype data.Type
@@ -385,6 +386,11 @@ func (p *Parser) parseTypeAlias() (ast.UnresolvedDeclaration, []source.SyntaxErr
 		return nil, errs
 	} else if datatype, errs = p.parseType(); len(errs) > 0 {
 		return nil, errs
+	}
+	// check for cyclic definition
+	switch datatype.(type) {
+	case *data.Alias[symbol.Unresolved]:
+		return nil, p.syntaxErrors(lookahead, "cyclic definition")
 	}
 	// Save for source map
 	end := p.index
@@ -461,8 +467,8 @@ func (p *Parser) parseType() (data.Type, []source.SyntaxError) {
 	// we assume that if not a fundamental type, it is an alias
 	default:
 		return data.NewAlias[symbol.Unresolved](name, uint(0)), nil
-/*	default:
-		return nil, p.syntaxErrors(lookahead, "unknown type")*/
+		/*	default:
+			return nil, p.syntaxErrors(lookahead, "unknown type")*/
 	}
 }
 

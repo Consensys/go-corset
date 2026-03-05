@@ -112,6 +112,10 @@ func Test_ZkcInvalid_While_03(t *testing.T) {
 // Type Tests
 // ===================================================================
 
+func Test_ZkcInvalid_Type_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_invalid_01")
+}
+
 func Test_ZkcInvalid_Type_02(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_invalid_02")
 }
