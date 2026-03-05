@@ -98,7 +98,7 @@ func (p *Linker) Join(srcmap source.Map[any]) {
 }
 
 // Register a new components with this linker.
-func (p *Linker) Register(component ast.UnresolvedDeclaration) {
+func (p *Linker) Register(component decl.Unresolved) {
 	// First, record name
 	p.names[component.Name()] = true
 	// Second, act on component type
@@ -149,7 +149,7 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 		data, errs2 := p.linkVariableDeclarations(d.Data)
 		// nothing to do here
 		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), nil
-	case *ast.UnresolvedTypeAlias:
+	case *decl.UnresolvedTypeAlias:
 		// nothing to do here
 		return decl.NewTypeAlias[symbol.Resolved](d.Name(), d.DataType), nil
 	default:
@@ -162,11 +162,11 @@ func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []sour
 	datatype, errs2 := p.linkType(fn.DataType)
 	// resolve datatype
 	datatype := fn.DataType
-	if d, ok := fn.DataType.(*ast.UnresolvedAlias); ok {
+	if d, ok := fn.DataType.(*decl.UnresolvedTypeAlias); ok {
 		datatype = p.resolveAlias(d)
 	}
 	//
-	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), errors
+	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), append(errs1, errs2...)
 }
 
 func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []source.SyntaxError) {
@@ -176,7 +176,7 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	)
 	// resolve datatype of variables
 	for i, v := range fn.Variables {
-		if d, ok := v.DataType.(*ast.UnresolvedAlias); ok {
+		if d, ok := v.DataType.(*decl.UnresolvedTypeAlias); ok {
 			fn.Variables[i].DataType = p.resolveAlias(d)
 		}
 	}

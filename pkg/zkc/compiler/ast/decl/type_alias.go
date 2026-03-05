@@ -34,7 +34,7 @@ type TypeAlias[I symbol.Symbol[I]] struct {
 }
 
 // NewTypeAlias creates a new type alias for a fundamental type
-func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type) *TypeAlias[I] {
+func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type[I]) *TypeAlias[I] {
 	return &TypeAlias[I]{name, datatype}
 }
 
