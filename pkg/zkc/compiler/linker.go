@@ -165,7 +165,8 @@ func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []sour
 	if d, ok := fn.DataType.(*ast.UnresolvedAlias); ok {
 		datatype = p.resolveAlias(d)
 	}
-	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), append(errs1, errs2...)
+	//
+	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), errors
 }
 
 func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []source.SyntaxError) {
@@ -311,7 +312,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	var (
 		args   []expr.Resolved
 		errors []source.SyntaxError
-		nexpr  expr.Resolved
+		nexpr  ast.Expr
 	)
 	//
 	switch e := e.(type) {

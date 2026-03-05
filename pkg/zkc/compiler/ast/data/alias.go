@@ -18,13 +18,13 @@ import (
 
 // Alias captures the alias of a language type.
 type Alias[I symbol.Symbol[I]] struct {
-	Name string
+	Name     string
 	bitwidth uint
 }
 
 // NewAlias constructs an alias for a given type.
 func NewAlias[I symbol.Symbol[I]](name string, bitwidth uint) *Alias[I] {
-	return &Alias[I]{name,bitwidth}
+	return &Alias[I]{name, bitwidth}
 }
 
 // BitWidth implementation for Type interface
