@@ -33,8 +33,8 @@ type TypeAlias[I symbol.Symbol[I]] struct {
 	DataType data.Type[I]
 }
 
-// NewConstant creates a new named constant in a given base
-func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type[I]) *TypeAlias[I] {
+// NewTypeAlias creates a new type alias for a fundamental type
+func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type) *TypeAlias[I] {
 	return &TypeAlias[I]{name, datatype}
 }
 

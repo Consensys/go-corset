@@ -428,10 +428,10 @@ func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) 
 func (p *Parser) parseTypeAlias() (ast.UnresolvedDeclaration, []source.SyntaxError) {
 	var (
 		lookahead = p.lookahead()
-		start    = p.index
-		errs     []source.SyntaxError
-		datatype data.Type
-		name     string
+		start     = p.index
+		errs      []source.SyntaxError
+		datatype  data.Type
+		name      string
 	)
 	// Parse type declaration
 	if _, errs := p.expect(KEYWORD_TYPE_ALIAS); len(errs) > 0 {
@@ -444,8 +444,7 @@ func (p *Parser) parseTypeAlias() (ast.UnresolvedDeclaration, []source.SyntaxErr
 		return nil, errs
 	}
 	// check for cyclic definition
-	switch datatype.(type) {
-	case *data.Alias[symbol.Unresolved]:
+	if _, ok := datatype.(*ast.UnresolvedAlias); ok {
 		return nil, p.syntaxErrors(lookahead, "cyclic definition")
 	}
 	// Save for source map
@@ -501,8 +500,8 @@ func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]VariableDescriptor, 
 
 func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	var (
-		name      string
-		errs      []source.SyntaxError
+		name string
+		errs []source.SyntaxError
 	)
 	//
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
@@ -512,7 +511,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	bw, err := strconv.Atoi(name[1:])
 	//
 	switch {
-	case strings.HasPrefix(name, "u") && err == nil :
+	case strings.HasPrefix(name, "u") && err == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw)), nil
 	// we assume that if not a fundamental type, it is an alias
