@@ -501,7 +501,6 @@ func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]VariableDescriptor, 
 
 func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	var (
-		lookahead = p.lookahead()
 		name      string
 		errs      []source.SyntaxError
 	)
@@ -509,22 +508,16 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
+	// Parse to check if bitwidth is present
+	bw, err := strconv.Atoi(name[1:])
 	//
 	switch {
-	case strings.HasPrefix(name, "u"):
-		// Parse bitwidth
-		bw, err := strconv.Atoi(name[1:])
-		//
-		if err != nil {
-			return nil, p.syntaxErrors(lookahead, err.Error())
-		}
+	case strings.HasPrefix(name, "u") && err == nil :
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw)), nil
 	// we assume that if not a fundamental type, it is an alias
 	default:
 		return data.NewAlias[symbol.Unresolved](name, uint(0)), nil
-		/*	default:
-			return nil, p.syntaxErrors(lookahead, "unknown type")*/
 	}
 }
 
