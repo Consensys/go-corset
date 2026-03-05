@@ -148,7 +148,10 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 		address, errs1 := p.linkVariableDeclarations(d.Address)
 		data, errs2 := p.linkVariableDeclarations(d.Data)
 		// nothing to do here
-		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), append(errs1, errs2...)
+		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), nil
+	case *ast.UnresolvedTypeAlias:
+		// nothing to do here
+		return decl.NewTypeAlias[symbol.Resolved](d.Name(), d.DataType), nil
 	default:
 		panic("unknown declaration")
 	}
