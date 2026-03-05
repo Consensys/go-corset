@@ -1,1 +1,2 @@
 type address = u160
+type uniform = u32
