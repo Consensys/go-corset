@@ -133,6 +133,8 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			component, errors = p.parseInputOutputMemory()
 		case KEYWORD_MEMORY:
 			component, errors = p.parseReadWriteMemory()
+		case KEYWORD_TYPE_ALIAS:
+			component, errors = p.parseTypeAlias()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -421,6 +423,32 @@ func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) 
 	mem := decl.NewRandomAccessMemory[symbol.Unresolved](name, address, data)
 
 	return mem, nil
+}
+
+func (p *Parser) parseTypeAlias() (ast.UnresolvedDeclaration, []source.SyntaxError) {
+	var (
+		start    = p.index
+		errs     []source.SyntaxError
+		datatype data.Type
+		name     string
+	)
+	// Parse type declaration
+	if _, errs := p.expect(KEYWORD_TYPE_ALIAS); len(errs) > 0 {
+		return nil, errs
+	} else if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(EQUALS); len(errs) > 0 {
+		return nil, errs
+	} else if datatype, errs = p.parseType(); len(errs) > 0 {
+		return nil, errs
+	}
+	// Save for source map
+	end := p.index
+	component := decl.NewTypeAlias[symbol.Unresolved](name, datatype)
+	//
+	p.srcmap.Put(component, p.spanOf(start, end-1))
+	//
+	return component, errs
 }
 
 // parseMemoryArgsList parses a function-style typed parameter list for memory
