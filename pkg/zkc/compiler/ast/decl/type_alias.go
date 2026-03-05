@@ -15,14 +15,26 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
+// ResolvedTypeAlias represents a type alias whose contents uses only external
+// identifiers which are resolved. As such, it should not be possible that such
+// a declaration refers to unknown (or otherwise incorrect) external components.
+type ResolvedTypeAlias = Type[symbol.Resolved]
+
+// UnresolvedTypeAlias represents a type alias whose contents may contain string
+// identifiers for external (i.e. unlinked) components.  As such, its possible
+// that such an expression may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedTypeAlias = Type[symbol.Unresolved]
+
 // TypeAlias represents an alias for a DataType at the source level.
 type TypeAlias[I symbol.Symbol[I]] struct {
 	name     string
-	DataType data.Type
+	DataType data.Type[I]
 }
 
 // NewConstant creates a new named constant in a given base
-func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type) *TypeAlias[I] {
+func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type[I]) *TypeAlias[I] {
 	return &TypeAlias[I]{name, datatype}
 }
 

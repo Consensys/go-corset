@@ -70,6 +70,8 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 			errors = append(errors, typer.typeFunction(*d)...)
 		case *decl.ResolvedMemory:
 			errors = append(errors, typer.typeMemory(*d)...)
+		case *decl.ResolvedTypeAlias:
+			// TODO
 		default:
 			panic(fmt.Sprintf("unknown component: %s", reflect.TypeOf(d).String()))
 		}

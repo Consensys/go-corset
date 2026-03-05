@@ -98,7 +98,7 @@ func (p *Linker) Join(srcmap source.Map[any]) {
 }
 
 // Register a new components with this linker.
-func (p *Linker) Register(component decl.Unresolved) {
+func (p *Linker) Register(component ast.UnresolvedDeclaration) {
 	// First, record name
 	p.names[component.Name()] = true
 	// Second, act on component type
@@ -169,7 +169,7 @@ func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []sour
 		index := p.busmap[d.Name].Index
 		switch c :=p.components[index].(type) {
 		case *ast.UnresolvedTypeAlias:
-			datatype = c.DataType
+			datatype = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 		default:
 			panic("unknown type")
 		}
@@ -182,6 +182,17 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 		codes = make([]stmt.Resolved, len(fn.Code))
 		errs1 []source.SyntaxError
 	)
+	// resolve datatype of variables
+	for i, v := range fn.Variables {
+		switch v.DataType.(type) {
+		case *ast.UnresolvedAlias:
+			index := p.busmap[v.Name].Index
+			switch c :=p.components[index].(type) {
+			case *ast.UnresolvedTypeAlias:
+				fn.Variables[i].DataType = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
+			}
+		}
+	}
 	//
 	for i, c := range fn.Code {
 		var es []source.SyntaxError
