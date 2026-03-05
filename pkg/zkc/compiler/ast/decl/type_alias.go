@@ -27,7 +27,7 @@ func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type) *TypeAlia
 }
 
 // Arity implementation for Declaration interface
-func (p *TypeAlias[S]) Arity() (nInputs, nOutputs uint) {
+func (p *TypeAlias[I]) Arity() (nInputs, nOutputs uint) {
 	return 0, 0
 }
 
