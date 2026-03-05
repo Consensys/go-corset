@@ -51,6 +51,10 @@ func Test_ZkcUnit_Type_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/type_valid_02")
 }
 
+func Test_ZkcUnit_Type_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/type_valid_03")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

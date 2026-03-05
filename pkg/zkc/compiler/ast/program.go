@@ -59,6 +59,11 @@ type Function = decl.Function[symbol.Resolved]
 // (or otherwise incorrect) external components.
 type Memory = decl.Memory[symbol.Resolved]
 
+// TypeAlias represents an alias whose external identifiers are otherwise resolved.
+// As such, it should not be possible that such a declaration refers to unknown
+// (or otherwise incorrect) external components.
+type TypeAlias = decl.TypeAlias[symbol.Resolved]
+
 // UnresolvedInstruction represents an instruction whose identifiers for external
 // components are unresolved linkage records.  As such, its possible that such a
 // instruction may fail with an error at link time due to an unresolvable

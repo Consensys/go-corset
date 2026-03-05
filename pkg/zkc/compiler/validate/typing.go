@@ -58,6 +58,8 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 			errors = append(errors, typer.typeConstant(*d)...)
 		case *ast.Function:
 			errors = append(errors, typer.typeFunction(*d)...)
+		case *ast.TypeAlias:
+			// TODO
 		case *ast.Memory:
 			// ignore
 		default:
@@ -106,6 +108,11 @@ func (p *TypeChecker) typeFunction(fn ast.Function) []source.SyntaxError {
 	}
 	//
 	return errors
+}
+
+func (p *TypeChecker) typeAlias(c ast.TypeAlias) []source.SyntaxError {
+	//
+	return nil
 }
 
 func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env variable.Map) []source.SyntaxError {

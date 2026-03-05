@@ -155,7 +155,7 @@ func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxEr
 
 func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []source.SyntaxError) {
 	expr, errors := p.linkExpr(fn.ConstExpr)
-	// FIXME: resolve data type.
+	// resolve datatype
 	var datatype data.Type
 	switch d :=  fn.DataType.(type) {
 	case *data.UnsignedInt:
@@ -164,7 +164,7 @@ func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []sou
 		index := p.busmap[d.Name].Index
 		switch c :=p.components[index].(type) {
 		case *ast.UnresolvedTypeAlias:
-			datatype = c.DataType
+			datatype = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 		default:
 			panic("unknown type")
 		}
@@ -177,6 +177,17 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 		codes = make([]ast.Stmt, len(fn.Code))
 		errs  []source.SyntaxError
 	)
+	// resolve datatype of variables
+	for i, v := range fn.Variables {
+		switch v.DataType.(type) {
+		case *ast.UnresolvedAlias:
+			index := p.busmap[v.Name].Index
+			switch c :=p.components[index].(type) {
+			case *ast.UnresolvedTypeAlias:
+				fn.Variables[i].DataType = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
+			}
+		}
+	}
 	//
 	for i, c := range fn.Code {
 		var es []source.SyntaxError
