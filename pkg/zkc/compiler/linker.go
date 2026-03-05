@@ -161,6 +161,19 @@ func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []sour
 	expr, errs1 := p.linkExpr(fn.ConstExpr)
 	datatype, errs2 := p.linkType(fn.DataType)
 	// FIXME: resolve data type.
+	var datatype data.Type
+	switch d :=  fn.DataType.(type) {
+	case *data.UnsignedInt:
+		datatype = d
+	case *ast.UnresolvedAlias:
+		index := p.busmap[d.Name].Index
+		switch c :=p.components[index].(type) {
+		case *ast.UnresolvedTypeAlias:
+			datatype = c.DataType
+		default:
+			panic("unknown type")
+		}
+	}
 	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), append(errs1, errs2...)
 }
 

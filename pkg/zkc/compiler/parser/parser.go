@@ -513,9 +513,12 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 			return nil, p.syntaxErrors(lookahead, err.Error())
 		}
 		//
-		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
+		return data.NewUnsignedInt[symbol.Unresolved](uint(bw)), nil
+	// we assume that if not a fundamental type, it is an alias
 	default:
-		return nil, p.syntaxErrors(lookahead, "unknown type")
+		return data.NewAlias[symbol.Unresolved](name, uint(0)), nil
+/*	default:
+		return nil, p.syntaxErrors(lookahead, "unknown type")*/
 	}
 }
 
