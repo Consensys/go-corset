@@ -160,19 +160,10 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []source.SyntaxError) {
 	expr, errs1 := p.linkExpr(fn.ConstExpr)
 	datatype, errs2 := p.linkType(fn.DataType)
-	// FIXME: resolve data type.
-	var datatype data.Type
-	switch d :=  fn.DataType.(type) {
-	case *ast.UnresolvedAlias:
-		index := p.busmap[d.Name].Index
-		switch c :=p.components[index].(type) {
-		case *ast.UnresolvedTypeAlias:
-			datatype = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
-		default:
-			panic("unknown type alias in const declaration")
-		}
-	default:
-		datatype = d
+	// resolve datatype
+	datatype := fn.DataType
+	if d, ok := fn.DataType.(*ast.UnresolvedAlias); ok {
+		datatype = p.resolveAlias(d)
 	}
 	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), append(errs1, errs2...)
 }
@@ -184,15 +175,8 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	)
 	// resolve datatype of variables
 	for i, v := range fn.Variables {
-		switch v.DataType.(type) {
-		case *ast.UnresolvedAlias:
-			index := p.busmap[v.Name].Index
-			switch c :=p.components[index].(type) {
-			case *ast.UnresolvedTypeAlias:
-				fn.Variables[i].DataType = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
-			default:
-				panic("unknown type alias in function variable")
-			}
+		if d, ok := v.DataType.(*ast.UnresolvedAlias); ok {
+			fn.Variables[i].DataType = p.resolveAlias(d)
 		}
 	}
 	//
@@ -225,6 +209,18 @@ func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
 	}
 	//
 	return ndecls, errors
+}
+
+func (p *Linker) resolveAlias(d *ast.UnresolvedAlias) *ast.Alias {
+	index := p.busmap[d.Name].Index
+	component := p.components[index]
+
+	c, ok := component.(*ast.UnresolvedTypeAlias)
+	if !ok {
+		panic("unknown type alias")
+	}
+
+	return data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 }
 
 func (p *Linker) linkInstruction(insn stmt.Unresolved) (stmt.Resolved, []source.SyntaxError) {
