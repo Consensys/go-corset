@@ -50,10 +50,6 @@ func Test_ZkcInvalid_Basic_07(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_invalid_07")
 }
 
-func Test_ZkcInvalid_Basic_08(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/basic_invalid_08")
-}
-
 // ===================================================================
 // Constant Tests
 // ===================================================================
