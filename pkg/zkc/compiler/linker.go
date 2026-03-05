@@ -213,12 +213,11 @@ func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
 }
 
 func (p *Linker) resolveAlias(d *ast.UnresolvedAlias) *ast.Alias {
-	s, okBus := p.busmap[d.Name]
-	index := s.Index
+	index := p.busmap[d.Name].Index
 	component := p.components[index]
 
-	c, okType := component.(*ast.UnresolvedTypeAlias)
-	if !okBus || !okType {
+	c, ok := component.(*ast.UnresolvedTypeAlias)
+	if !ok {
 		panic("unknown type alias")
 	}
 
