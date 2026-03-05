@@ -188,11 +188,12 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 }
 
 func (p *Linker) resolveAlias(d *ast.UnresolvedAlias) *ast.Alias {
-	index := p.busmap[d.Name].Index
+	s, okBus := p.busmap[d.Name]
+	index := s.Index
 	component := p.components[index]
 
-	c, ok := component.(*ast.UnresolvedTypeAlias)
-	if !ok {
+	c, okType := component.(*ast.UnresolvedTypeAlias)
+	if !okBus || !okType {
 		panic("unknown type alias")
 	}
 
