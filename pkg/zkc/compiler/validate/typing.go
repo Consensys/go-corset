@@ -110,11 +110,6 @@ func (p *TypeChecker) typeFunction(fn ast.Function) []source.SyntaxError {
 	return errors
 }
 
-func (p *TypeChecker) typeAlias(c ast.TypeAlias) []source.SyntaxError {
-	//
-	return nil
-}
-
 func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env variable.Map) []source.SyntaxError {
 	var (
 		lhs_bits  = sumTargetBits(s.Targets, env)

@@ -160,6 +160,7 @@ func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []sou
 	if d, ok := fn.DataType.(*ast.UnresolvedAlias); ok {
 		datatype = p.resolveAlias(d)
 	}
+	//
 	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), errors
 }
 
