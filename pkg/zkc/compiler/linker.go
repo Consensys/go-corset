@@ -158,16 +158,16 @@ func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []sou
 	// resolve datatype
 	var datatype data.Type
 	switch d :=  fn.DataType.(type) {
-	case *data.UnsignedInt:
-		datatype = d
 	case *ast.UnresolvedAlias:
 		index := p.busmap[d.Name].Index
 		switch c :=p.components[index].(type) {
 		case *ast.UnresolvedTypeAlias:
 			datatype = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 		default:
-			panic("unknown type")
+			panic("unknown type alias")
 		}
+	default:
+		datatype = d
 	}
 	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), errors
 }
