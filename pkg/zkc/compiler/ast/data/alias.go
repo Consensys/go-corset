@@ -12,28 +12,32 @@ package data
 
 import (
 	"fmt"
+
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// UnsignedInt captures the fundamental data type of the language.
-type UnsignedInt struct {
+// Alias captures the alias of a language type.
+type Alias[I symbol.Symbol[I]] struct {
+	Name string
 	bitwidth uint
 }
 
-// NewUnsignedInt constructs an unsigned int type of a given width.
-func NewUnsignedInt(bitwidth uint) *UnsignedInt {
-	return &UnsignedInt{bitwidth}
+// NewAlias constructs an alias for a given type.
+func NewAlias[I symbol.Symbol[I]](name string, bitwidth uint) *Alias[I] {
+	return &Alias[I]{name,bitwidth}
 }
 
 // BitWidth implementation for Type interface
-func (p *UnsignedInt) BitWidth() uint {
+func (p *Alias[I]) BitWidth() uint {
 	return p.bitwidth
 }
 
 // Flattern implementation for Type interface
-func (p *UnsignedInt) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
+func (p *Alias[I]) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
 	constructor(prefix, p.bitwidth)
 }
 
-func (p *UnsignedInt) String() string {
+// TODO
+func (p *Alias[I]) String() string {
 	return fmt.Sprintf("u%d", p.bitwidth)
 }

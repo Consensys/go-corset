@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
@@ -155,7 +156,20 @@ func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxEr
 func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []source.SyntaxError) {
 	expr, errors := p.linkExpr(fn.ConstExpr)
 	// FIXME: resolve data type.
-	return decl.NewConstant[symbol.Resolved](fn.Name(), fn.DataType, expr), errors
+	var datatype data.Type
+	switch d :=  fn.DataType.(type) {
+	case *data.UnsignedInt:
+		datatype = d
+	case *ast.UnresolvedAlias:
+		index := p.busmap[d.Name].Index
+		switch c :=p.components[index].(type) {
+		case *ast.UnresolvedTypeAlias:
+			datatype = c.DataType
+		default:
+			panic("unknown type")
+		}
+	}
+	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), errors
 }
 
 func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []source.SyntaxError) {

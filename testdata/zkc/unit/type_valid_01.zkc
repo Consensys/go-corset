@@ -1,1 +1,2 @@
 type address = u160
+const MASK:address = 0

@@ -110,6 +110,12 @@ type UnresolvedExpr = expr.Expr[symbol.Unresolved]
 // etc).
 type UnresolvedCondition = expr.Condition[symbol.Unresolved]
 
+// UnresolvedAlias represents a data alias which contains string identifies
+// for external (i.e. unlinked) components.  As such, its possible that such a
+// declaration may fail with an error at link time due to an unresolvable
+// reference to an external component (e.g. function, RAM, ROM, etc).
+type UnresolvedAlias = data.Alias[symbol.Unresolved]
+
 // RawProgram encapsulates one of more functions together, such that one may call
 // another, etc.  Furthermore, it provides an interface between assembly
 // components and the notion of a Schema.
