@@ -169,7 +169,7 @@ func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []sour
 		case *ast.UnresolvedTypeAlias:
 			datatype = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 		default:
-			panic("unknown type alias")
+			panic("unknown type alias in const declaration")
 		}
 	default:
 		datatype = d
@@ -190,6 +190,8 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 			switch c :=p.components[index].(type) {
 			case *ast.UnresolvedTypeAlias:
 				fn.Variables[i].DataType = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
+			default:
+				panic("unknown type alias in function variable")
 			}
 		}
 	}
