@@ -10,28 +10,32 @@
 // SPDX-License-Identifier: Apache-2.0
 package data
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+)
 
 // UnsignedInt captures the fundamental data type of the language.
-type UnsignedInt struct {
+type UnsignedInt[I symbol.Symbol[I]] struct {
 	bitwidth uint
 }
 
 // NewUnsignedInt constructs an unsigned int type of a given width.
-func NewUnsignedInt(bitwidth uint) *UnsignedInt {
-	return &UnsignedInt{bitwidth}
+func NewUnsignedInt[I symbol.Symbol[I]](bitwidth uint) *UnsignedInt[I] {
+	return &UnsignedInt[I]{bitwidth}
 }
 
 // BitWidth implementation for Type interface
-func (p *UnsignedInt) BitWidth() uint {
+func (p *UnsignedInt[I]) BitWidth() uint {
 	return p.bitwidth
 }
 
 // Flattern implementation for Type interface
-func (p *UnsignedInt) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
+func (p *UnsignedInt[I]) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
 	constructor(prefix, p.bitwidth)
 }
 
-func (p *UnsignedInt) String() string {
+func (p *UnsignedInt[I]) String() string {
 	return fmt.Sprintf("u%d", p.bitwidth)
 }

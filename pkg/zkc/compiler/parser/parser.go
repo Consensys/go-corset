@@ -457,7 +457,7 @@ func (p *Parser) parseType() (data.Type, []source.SyntaxError) {
 			return nil, p.syntaxErrors(lookahead, err.Error())
 		}
 		//
-		return data.NewUnsignedInt(uint(bw)), nil
+		return data.NewUnsignedInt[symbol.Unresolved](uint(bw)), nil
 	default:
 		return nil, p.syntaxErrors(lookahead, "unknown type")
 	}

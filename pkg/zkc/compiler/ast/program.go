@@ -90,6 +90,12 @@ type UnresolvedFunction = decl.Function[symbol.Unresolved]
 // reference to an external component (e.g. function, RAM, ROM, etc).
 type UnresolvedMemory = decl.Memory[symbol.Unresolved]
 
+// UnresolvedTypeAlias represents a type alias which contains string identifiers
+// for external (i.e. unlinked) components.  As such, its possible that such a
+// memory may fail with an error at link time due to an unresolvable
+// reference to an external component (e.g. function, RAM, ROM, etc).
+type UnresolvedTypeAlias = decl.TypeAlias[symbol.Unresolved]
+
 // UnresolvedExpr represents an expression whose identifiers for external
 // components are unresolved linkage records.  As such, its possible that such
 // an expression instruction may fail with an error at link time due to an

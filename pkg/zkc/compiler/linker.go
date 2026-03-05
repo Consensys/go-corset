@@ -144,6 +144,9 @@ func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxEr
 	case *ast.UnresolvedMemory:
 		// nothing to do here
 		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, d.Address, d.Data, d.Contents), nil
+	case *ast.UnresolvedTypeAlias:
+		// nothing to do here
+		return decl.NewTypeAlias[symbol.Resolved](d.Name(), d.DataType), nil
 	default:
 		panic("unknown declaration")
 	}
