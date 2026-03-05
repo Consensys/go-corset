@@ -108,6 +108,9 @@ const KEYWORD_FOR uint = 35
 // KEYWORD_VAR signals a local variable declaration
 const KEYWORD_VAR uint = 36
 
+// KEYWORD_TYPE_ALIAS signals a type alias declaration
+const KEYWORD_TYPE_ALIAS uint = 37
+
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 60
 
@@ -239,6 +242,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.String("for"), KEYWORD_FOR),
 	lex.Rule(lex.String("var"), KEYWORD_VAR),
 	lex.Rule(lex.String("while"), KEYWORD_WHILE),
+	lex.Rule(lex.String("type"), KEYWORD_TYPE_ALIAS),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
 }
