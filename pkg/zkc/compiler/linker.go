@@ -156,18 +156,9 @@ func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxEr
 func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []source.SyntaxError) {
 	expr, errors := p.linkExpr(fn.ConstExpr)
 	// resolve datatype
-	var datatype data.Type
-	switch d :=  fn.DataType.(type) {
-	case *ast.UnresolvedAlias:
-		index := p.busmap[d.Name].Index
-		switch c :=p.components[index].(type) {
-		case *ast.UnresolvedTypeAlias:
-			datatype = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
-		default:
-			panic("unknown type alias in const declaration")
-		}
-	default:
-		datatype = d
+	datatype := fn.DataType
+	if d, ok := fn.DataType.(*ast.UnresolvedAlias); ok {
+		datatype = p.resolveAlias(d)
 	}
 	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), errors
 }
@@ -179,15 +170,8 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 	)
 	// resolve datatype of variables
 	for i, v := range fn.Variables {
-		switch v.DataType.(type) {
-		case *ast.UnresolvedAlias:
-			index := p.busmap[v.Name].Index
-			switch c :=p.components[index].(type) {
-			case *ast.UnresolvedTypeAlias:
-				fn.Variables[i].DataType = data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
-			default:
-				panic("unknown type alias in function variable")
-			}
+		if d, ok := v.DataType.(*ast.UnresolvedAlias); ok {
+			fn.Variables[i].DataType = p.resolveAlias(d)
 		}
 	}
 	//
@@ -200,6 +184,18 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 	}
 	//
 	return decl.NewFunction(fn.Name(), fn.Variables, codes), errs
+}
+
+func (p *Linker) resolveAlias(d *ast.UnresolvedAlias) *ast.Alias {
+	index := p.busmap[d.Name].Index
+	component := p.components[index]
+
+	c, ok := component.(*ast.UnresolvedTypeAlias)
+	if !ok {
+		panic("unknown type alias")
+	}
+
+	return data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 }
 
 func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Stmt, []source.SyntaxError) {

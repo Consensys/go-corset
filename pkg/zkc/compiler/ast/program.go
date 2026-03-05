@@ -121,6 +121,11 @@ type UnresolvedCondition = expr.Condition[symbol.Unresolved]
 // reference to an external component (e.g. function, RAM, ROM, etc).
 type UnresolvedAlias = data.Alias[symbol.Unresolved]
 
+// Alias represents an alias whose external identifiers are otherwise resolved.
+// As such, it should not be possible that such a type refers to unknown
+// (or otherwise incorrect) type.
+type Alias = data.Alias[symbol.Resolved]
+
 // RawProgram encapsulates one of more functions together, such that one may call
 // another, etc.  Furthermore, it provides an interface between assembly
 // components and the notion of a Schema.
