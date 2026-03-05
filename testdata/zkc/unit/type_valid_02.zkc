@@ -1,2 +1,2 @@
-type address = u160
-const ADD:address = 0
+type bool = u1
+const TRUE:bool = 2
