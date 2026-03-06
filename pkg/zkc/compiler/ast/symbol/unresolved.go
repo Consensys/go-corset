@@ -19,13 +19,14 @@ import (
 // functions, this includes their "arity" --- that is, the number of expected
 // inputs and outputs.
 type Unresolved struct {
-	Name            string
-	Inputs, Outputs uint
+	Name   string
+	Kind   Kind
+	Inputs uint
 }
 
 // NewUnresolved constructs a new unresolved symbol with a given arity.
-func NewUnresolved(name string, inputs, outputs uint) Unresolved {
-	return Unresolved{name, inputs, outputs}
+func NewUnresolved(name string, kind Kind, inputs uint) Unresolved {
+	return Unresolved{name, kind, inputs}
 }
 
 // Cmp implementation for set.Comparable interface
@@ -36,7 +37,7 @@ func (p Unresolved) Cmp(o Unresolved) int {
 		return c
 	}
 	//
-	return cmp.Compare(p.Outputs, o.Outputs)
+	return cmp.Compare(p.Kind, o.Kind)
 }
 
 func (p Unresolved) String() string {

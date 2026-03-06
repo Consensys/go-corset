@@ -123,3 +123,44 @@ func (p *Memory[S]) Name() string {
 func (p *Memory[S]) Externs() []S {
 	return nil
 }
+
+// IsInput determines whether or not this is an input memory
+func (p *Memory[S]) IsInput() bool {
+	return p.Kind == PRIVATE_READ_ONLY_MEMORY || p.Kind == PUBLIC_READ_ONLY_MEMORY
+}
+
+// IsOutput determines whether or not this is an output memory
+func (p *Memory[S]) IsOutput() bool {
+	return p.Kind == PRIVATE_WRITE_ONCE_MEMORY || p.Kind == PUBLIC_WRITE_ONCE_MEMORY
+}
+
+// IsStatic determines whether or not this is a static input memory
+func (p *Memory[S]) IsStatic() bool {
+	return p.Kind == PRIVATE_STATIC_MEMORY || p.Kind == PUBLIC_STATIC_MEMORY
+}
+
+// IsReadable checks whether this memory can be read or not.
+func (p *Memory[S]) IsReadable() bool {
+	switch p.Kind {
+	case PRIVATE_READ_ONLY_MEMORY, PUBLIC_READ_ONLY_MEMORY:
+		return true
+	case PRIVATE_STATIC_MEMORY, PUBLIC_STATIC_MEMORY:
+		return true
+	case RANDOM_ACCESS_MEMORY:
+		return true
+	default:
+		return false
+	}
+}
+
+// IsWriteable checks whether this memory can be written or not.
+func (p *Memory[S]) IsWriteable() bool {
+	switch p.Kind {
+	case PRIVATE_WRITE_ONCE_MEMORY, PUBLIC_WRITE_ONCE_MEMORY:
+		return true
+	case RANDOM_ACCESS_MEMORY:
+		return true
+	default:
+		return false
+	}
+}

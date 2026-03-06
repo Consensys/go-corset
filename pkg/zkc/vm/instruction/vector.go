@@ -68,7 +68,7 @@ import (
 // assignment for y.  This process is, roughly speaking, analoguous to register
 // forwarding as found in CPU architectures.
 type Vector[W word.Word[W]] struct {
-	codes []MicroInstruction[W]
+	Codes []MicroInstruction[W]
 }
 
 // MicroInstruction characterises the kinds of instructions which can be
@@ -106,7 +106,7 @@ func (p *Vector[W]) Uses() []register.Id {
 		read []register.Id
 	)
 	//
-	for _, c := range p.codes {
+	for _, c := range p.Codes {
 		for _, id := range c.Uses() {
 			if !regs.Contains(id.Unwrap()) {
 				regs.Insert(id.Unwrap())
@@ -125,7 +125,7 @@ func (p *Vector[W]) Definitions() []register.Id {
 		written []register.Id
 	)
 	//
-	for _, c := range p.codes {
+	for _, c := range p.Codes {
 		for _, id := range c.Definitions() {
 			if !regs.Contains(id.Unwrap()) {
 				regs.Insert(id.Unwrap())
@@ -144,11 +144,11 @@ func (p *Vector[W]) Validate(field field.Config, mapping register.Map) []error {
 	// Construct write map
 	var (
 		errors   []error
-		nCodes   = uint(len(p.codes))
+		nCodes   = uint(len(p.Codes))
 		writeMap = p.Writes()
 	)
 	// Validate individual instructions
-	for _, r := range p.codes {
+	for _, r := range p.Codes {
 		errs := r.MicroValidate(nCodes, field, mapping)
 		errors = append(errors, errs...)
 	}
@@ -156,7 +156,7 @@ func (p *Vector[W]) Validate(field field.Config, mapping register.Map) []error {
 	for i := range nCodes {
 		var (
 			ithState = writeMap.StateOf(i)
-			ith      = p.codes[i]
+			ith      = p.Codes[i]
 		)
 		// Sanity check for conflicting reads
 		for _, r := range ith.Uses() {
@@ -183,7 +183,7 @@ func (p *Vector[W]) Validate(field field.Config, mapping register.Map) []error {
 func (p *Vector[W]) String(env register.Map) string {
 	var builder strings.Builder
 	//
-	for i, code := range p.codes {
+	for i, code := range p.Codes {
 		if i != 0 {
 			builder.WriteString(" ; ")
 		}
@@ -196,7 +196,7 @@ func (p *Vector[W]) String(env register.Map) string {
 
 // Writes constructs the write map for this micro instruction.
 func (p *Vector[W]) Writes() dfa.Result[dfa.Writes] {
-	return dfa.Construct(dfa.Writes{}, p.codes, writeDfaTransfer[W])
+	return dfa.Construct(dfa.Writes{}, p.Codes, writeDfaTransfer[W])
 }
 
 // Data-flow transfer function for the writes analysis

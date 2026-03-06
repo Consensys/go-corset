@@ -13,9 +13,14 @@
 package machine
 
 import (
-	"github.com/consensys/go-corset/pkg/util/collection/stack"
+	"errors"
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // ============================================================================
@@ -24,16 +29,17 @@ import (
 
 // Base provides a fundamental implementation of a machine.  The intention is
 // that other machine variations would build off this.
-type Base[W any, N any, M memory.Memory[W], E Executor[W, N, BaseState[W, N, M]]] struct {
-	state    BaseState[W, N, M]
-	executor E
+type Base[W word.Word[W]] struct {
+	modules   []Module[W]
+	callstack []Frame[W]
 }
 
 // New constructs a new empty base machine
-func New[W, N any, M memory.Memory[W], E Executor[W, N, BaseState[W, N, M]]]() Base[W, N, M, E] {
-	var executor E
-	//
-	return Base[W, N, M, E]{NewBaseState[W, N, M](), executor}
+func New[W word.Word[W]](modules ...Module[W]) *Base[W] {
+	return &Base[W]{
+		modules:   modules,
+		callstack: nil,
+	}
 }
 
 // Boot this machine by starting the given function with the given inputs.  This
@@ -41,80 +47,34 @@ func New[W, N any, M memory.Memory[W], E Executor[W, N, BaseState[W, N, M]]]() B
 // unknown inputs; (2) initialise empty memories when no input is given for
 // them.  Thus, it is recommended to perform sanity checking on input prior to
 // calling this function.
-func (p Base[W, N, M, E]) Boot(main uint, input map[string][]W) Base[W, N, M, E] {
-	var (
-		base      = p
-		mainFn    = p.state.functions[main]
-		bootFrame = NewFrame[W](main, mainFn.Width())
-	)
-	// Initialise memory
-	p.state.initialise(input)
-	// Boot the frame
-	base.state.callstack.Push(bootFrame)
-	// Done
-	return base
-}
-
-// WithFunctions returns a base machine updated with the given set of functions,
-// but which is otherwise identical to before.
-func (p Base[W, N, M, E]) WithFunctions(fns ...function.Function[N]) Base[W, N, M, E] {
-	var base = p
-	//
-	base.state.functions = fns
-	//
-	return base
-}
-
-// WithInputs returns a base machine updated with the given set of inputs but
-// which is otherwise identical to before.
-func (p Base[W, N, M, E]) WithInputs(inputs ...M) Base[W, N, M, E] {
-	var base = p
-	//
-	base.state.inputs = inputs
-	//
-	return base
-}
-
-// WithOutputs returns a base machine updated with the given set of outputs but
-// which is otherwise identical to before.
-func (p Base[W, N, M, E]) WithOutputs(outputs ...M) Base[W, N, M, E] {
-	var base = p
-	//
-	base.state.outputs = outputs
-	//
-	return base
-}
-
-// WithMemories returns a base machine updated with the given set of random
-// access memories but which is otherwise identical to before.
-func (p Base[W, N, M, E]) WithMemories(rams ...M) Base[W, N, M, E] {
-	var base = p
-	//
-	base.state.rams = rams
-	//
-	return base
-}
-
-// WithStatics returns a base machine updated with the given set of inputs but
-// which is otherwise identical to before.
-func (p Base[W, N, M, E]) WithStatics(statics ...M) Base[W, N, M, E] {
-	var base = p
-	//
-	base.state.statics = statics
-	//
-	return base
+func (p *Base[W]) Boot(fun string, input map[string][]W) error {
+	// Look for function with the machine name
+	for i, m := range p.modules {
+		if _, ok := m.(*function.Boot[W]); ok {
+			if m.Name() == fun {
+				// Initialise memory
+				p.initialise(input)
+				// Boot the frame
+				p.Enter(uint(i))
+				//
+				return nil
+			}
+		}
+	}
+	// No function found
+	return fmt.Errorf("missing boot function \"%s\"", fun)
 }
 
 // Execute the machine for the given number of steps, returning the actual
 // number of steps executed and an error (if execution failed).
-func (p Base[W, N, M, E]) Execute(steps uint) (uint, error) {
+func (p *Base[W]) Execute(steps uint) (uint, error) {
 	var (
 		nsteps uint
 		err    error
 	)
 	//
-	for !p.state.callstack.IsEmpty() {
-		if err = p.executor.Execute(p.state); err != nil {
+	for len(p.callstack) > 0 && nsteps < steps {
+		if err = p.execute(); err != nil {
 			return nsteps, err
 		}
 		//
@@ -124,116 +84,207 @@ func (p Base[W, N, M, E]) Execute(steps uint) (uint, error) {
 	return nsteps, nil
 }
 
-// State implementation for the Machine interface.
-func (p Base[W, N, M, E]) State() State[W, N] {
-	return p.state
+// Enter implementation for the machine.Core interface.
+func (p *Base[W]) Enter(id uint, args ...W) {
+	var (
+		mainFn    = p.modules[id].(*function.Boot[W])
+		bootFrame = NewFrame[W](id, mainFn.Width())
+	)
+	//
+	p.callstack = append(p.callstack, bootFrame)
 }
 
-// ============================================================================
-// Base State
-// ============================================================================
-
-// BaseState provides the base implementation of the StaticState
-// interface.
-type BaseState[W any, N any, M memory.Memory[W]] struct {
-	functions []function.Function[N]
-	statics   []M
-	inputs    []M
-	outputs   []M
-	rams      []M
-	callstack *stack.Stack[Frame[W]]
+// Leave implementation for the machine.Core interface.
+func (p *Base[W]) Leave() {
+	var n = len(p.callstack)
+	//
+	p.callstack = p.callstack[:n-1]
 }
 
-// NewBaseState creates an empty base state.
-func NewBaseState[W any, N any, M memory.Memory[W]]() BaseState[W, N, M] {
-	return BaseState[W, N, M]{
-		functions: nil,
-		statics:   nil,
-		inputs:    nil,
-		outputs:   nil,
-		rams:      nil,
-		callstack: stack.NewStack[Frame[W]](),
-	}
+// Module implementation for the machine.Core interface.
+func (p *Base[W]) Module(id uint) Module[W] {
+	return p.modules[id]
 }
 
-// ========================================================
-// Static State
-// ========================================================
-
-// Function implementation of StaticState interface
-func (p BaseState[W, N, M]) Function(id uint) function.Function[N] {
-	return p.functions[id]
+// Modules implementation for the machine.Core interface.
+func (p *Base[W]) Modules() []Module[W] {
+	return p.modules
 }
 
-// NumFunctions implementation of StaticState interface
-func (p BaseState[W, N, M]) NumFunctions() uint {
-	return uint(len(p.functions))
+// Read implementation of machine.Core interface
+func (p *Base[W]) Read(id uint, address []W) (data []W) {
+	var rm = p.modules[id].(memory.Memory[W])
+	// Perform read
+	return rm.Read(address)
 }
 
-// NumStatics implementation of StaticState interface
-func (p BaseState[W, N, M]) NumStatics() uint {
-	return uint(len(p.statics))
-}
-
-// Static implementation of StaticState interface
-func (p BaseState[W, N, M]) Static(id uint) memory.ReadOnlyMemory[W] {
-	return p.statics[id]
-}
-
-// ========================================================
-// Dynamic State
-// ========================================================
-
-// CallStack implementation of DynamicState interface
-func (p BaseState[W, N, M]) CallStack() *stack.Stack[Frame[W]] {
-	return p.callstack
-}
-
-// Input implementation of DynamicState interface
-func (p BaseState[W, N, M]) Input(id uint) memory.ReadOnlyMemory[W] {
-	return p.inputs[id]
-}
-
-// Output implementation of DynamicState interface
-func (p BaseState[W, N, M]) Output(id uint) memory.WriteOnceMemory[W] {
-	return p.outputs[id]
-}
-
-// Memory implementation of DynamicState interface
-func (p BaseState[W, N, M]) Memory(id uint) memory.Memory[W] {
-	return p.rams[id]
-}
-
-// NumInputs implementation of DynamicState interface
-func (p BaseState[W, N, M]) NumInputs() uint {
-	return uint(len(p.inputs))
-}
-
-// NumOutputs implementation of DynamicState interface
-func (p BaseState[W, N, M]) NumOutputs() uint {
-	return uint(len(p.outputs))
-}
-
-// NumMemories implementation of DynamicState interface
-func (p BaseState[W, N, M]) NumMemories() uint {
-	return uint(len(p.rams))
+// Write implementation of machine.Core interface
+func (p *Base[W]) Write(id uint, address []W, data []W) {
+	var wm = p.modules[id].(memory.Memory[W])
+	// Perform write
+	wm.Write(address, data)
 }
 
 // ========================================================
 // Helpers
 // =======================================================
 
-func (p BaseState[W, N, M]) initialise(input map[string][]W) {
+func (p *Base[W]) initialise(input map[string][]W) {
 	// Initialise stack input memories
-	for _, m := range p.statics {
-		if contents, ok := input[m.Name()]; ok {
-			m.Initialise(contents)
+	for _, m := range p.modules {
+		// Check module name
+		contents, ok1 := input[m.Name()]
+		// Check module is a memory
+		memory, ok2 := m.(memory.Memory[W])
+		//
+		if ok1 && ok2 {
+			memory.Initialise(contents)
 		}
 	}
-	// Initialise dynamic input memories
-	for _, m := range p.statics {
-		if contents, ok := input[m.Name()]; ok {
-			m.Initialise(contents)
+}
+
+// Execute implementation for the Executor interface
+func (p *Base[W]) execute() error {
+	// Decode
+	var insn, state, regs = p.decode()
+	// Execute
+	fallThru, err := p.executeInstruction(insn, state, regs)
+	// Fall through to next instruction (if applicable)
+	if fallThru && len(p.callstack) > 0 {
+		var n = len(p.callstack) - 1
+		p.callstack[n].FallThru()
+	}
+	//
+	return err
+}
+
+func (p *Base[W]) decode() (instruction.Instruction[W], []W, []register.Register) {
+	var (
+		n = len(p.callstack) - 1
+		// Extract executing frame
+		frame = p.callstack[n]
+		// Identify enclosing function
+		fn = p.modules[frame.Function()].(*function.Boot[W])
+		// Determine current PC position
+		pc = frame.PC()
+		// Lookup instruction to execute
+		insn = fn.CodeAt(pc)
+	)
+	//
+	return insn, frame.registers, fn.Registers()
+}
+
+func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W, regs []register.Register,
+) (bool, error) {
+	//
+	switch insn := insn.(type) {
+	case *instruction.Add[W]:
+		var val W = insn.Constant
+		//
+		for _, arg := range insn.Sources {
+			val = val.Add(frame[arg.Unwrap()])
 		}
+		//
+		storeAcross(frame, regs, insn.Targets, val)
+		//
+		return true, nil
+
+	case *instruction.Fail:
+		return false, errors.New("machine panic")
+
+	case *instruction.Jmp:
+		n := len(p.callstack) - 1
+		// Goto target instruction in current frame
+		p.callstack[n].Goto(insn.Target)
+		// Don't fall through to next instruction
+		return false, nil
+
+	case *instruction.MemRead:
+		var address = make([]W, len(insn.Sources))
+		// Read source registers
+		for i, arg := range insn.Sources {
+			address[i] = frame[arg.Unwrap()]
+		}
+		// Check for ram versus rom read
+		data := p.Read(insn.Id, address)
+		// What is supposed to happen here??
+		if len(data) != 1 {
+			panic("todo")
+		}
+		//
+		storeAcross(frame, regs, insn.Targets, data[0])
+		//
+		return true, nil
+
+	case *instruction.Return:
+		p.Leave()
+		// Fall through to next instruction in the callee frame.
+		return true, nil
+
+	case *instruction.Vector[W]:
+		var (
+			err      error
+			fallThru = true
+			codes    = insn.Codes
+			nCodes   = uint(len(codes))
+		)
+		// Execute vector instructions in turn, whilst applying skips.
+		for cc := uint(0); cc < nCodes && fallThru; cc++ {
+			switch c := codes[cc].(type) {
+			case *instruction.Skip:
+				cc += c.Skip
+			case *instruction.SkipIf:
+				//
+				if executeCondition(frame, c.Cond, c.Left, c.Right) {
+					cc += c.Skip
+				}
+			case instruction.Instruction[W]:
+				fallThru, err = p.executeInstruction(c, frame, regs)
+			default:
+				panic("unreachable")
+			}
+		}
+		//
+		return fallThru, err
+
+	default:
+		panic("unknown instruction encountered")
+	}
+}
+
+// Store a given value across a set of registers, splitting its bits as
+// necessary.  The target registers are given with the least significant first.
+// For example, consider writing 01100010 to registers [R1, R2] of type u4.
+// Then, after the write, we have R1=0010 and R2=0110.
+func storeAcross[W word.Word[W]](frame []W, regs []register.Register, targets []register.Id, value W) {
+	for _, r := range targets {
+		var width = regs[r.Unwrap()].Width()
+		//
+		frame[r.Unwrap()] = value.Slice(width)
+		value = value.Shr64(uint64(width))
+	}
+}
+
+func executeCondition[W word.Word[W]](frame []W, cond instruction.Condition, left, right register.Id) bool {
+	var (
+		lhs = frame[left.Unwrap()]
+		rhs = frame[right.Unwrap()]
+	)
+	//
+	switch cond {
+	case instruction.EQ:
+		return lhs.Cmp(rhs) == 0
+	case instruction.NEQ:
+		return lhs.Cmp(rhs) != 0
+	case instruction.LT:
+		return lhs.Cmp(rhs) < 0
+	case instruction.LTEQ:
+		return lhs.Cmp(rhs) <= 0
+	case instruction.GT:
+		return lhs.Cmp(rhs) > 0
+	case instruction.GTEQ:
+		return lhs.Cmp(rhs) >= 0
+	default:
+		panic("unreachable")
 	}
 }

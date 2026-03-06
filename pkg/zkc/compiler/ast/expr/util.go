@@ -28,11 +28,11 @@ func localUses[I symbol.Symbol[I]](es ...Expr[I]) bit.Set {
 	return reads
 }
 
-func nonLocalUses[I symbol.Symbol[I]](es ...Expr[I]) set.AnySortedSet[I] {
+func externUses[I symbol.Symbol[I]](es ...Expr[I]) set.AnySortedSet[I] {
 	var res set.AnySortedSet[I]
 	//
 	for _, e := range es {
-		ith := e.NonLocalUses()
+		ith := e.ExternUses()
 		res.InsertSorted(&ith)
 	}
 	//

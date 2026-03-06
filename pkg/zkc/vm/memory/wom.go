@@ -12,19 +12,27 @@
 // SPDX-License-Identifier: Apache-2.0
 package memory
 
+import (
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+)
+
 // WriteOnceMemory (WOM) represents a form of memory where each cell can be
 // written exactly once and, furthermore, cells must be written consecutively
 // starting from zero.  Thus, a WOM can be viewed as an output stream (which is
 // exactly what they are typically used for).
-type WriteOnceMemory[W any] interface {
-	// Name returns the name of this WOM
-	Name() string
-	// Write a given data-tuple to a given address-tuple.  Observe some
-	// constraints around this:  firstly, no address can be written more than
-	// once; secondly, addresses must be written consecutively starting from 0.
-	// If these requirements are not met, then this will panic.
-	Write(address []W, value []W)
-	// Return the contents of this WOM as a sequence of words, where all rows
-	// are simply appended together.
-	Contents() []W
+type WriteOnceMemory[W word.Word[W]] struct {
+	Array[W]
+}
+
+// NewWriteOnce constructs an empty write-once memory.
+func NewWriteOnce[W word.Word[W]](name string, registers []register.Register) *WriteOnceMemory[W] {
+	return &WriteOnceMemory[W]{
+		newArray[W](name, registers),
+	}
+}
+
+// Read implementation for Memory interface.
+func (p *WriteOnceMemory[W]) Read(address []W, data []W) {
+	panic("unsupported operation for read-only memory")
 }

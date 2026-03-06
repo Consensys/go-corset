@@ -55,28 +55,6 @@ func Test_ZkcInvalid_Basic_08(t *testing.T) {
 }
 
 // ===================================================================
-// Constant Tests
-// ===================================================================
-
-func Test_ZkcInvalid_Constant_01(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/constant_invalid_01")
-}
-
-// should fail
-// func Test_ZkcInvalid_Constant_02(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_02")
-// }
-
-func Test_ZkcInvalid_Constant_03(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/constant_invalid_03")
-}
-
-// should fail
-// func Test_ZkcInvalid_Constant_04(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_04")
-// }
-
-// ===================================================================
 // If Tests
 // ===================================================================
 
@@ -107,6 +85,52 @@ func Test_ZkcInvalid_While_02(t *testing.T) {
 func Test_ZkcInvalid_While_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/while_invalid_03")
 }
+
+// ===================================================================
+// Constant Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Constant_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_invalid_01")
+}
+
+// should fail
+// func Test_ZkcInvalid_Constant_02(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_02")
+// }
+
+func Test_ZkcInvalid_Constant_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_invalid_03")
+}
+
+// should fail
+// func Test_ZkcInvalid_Constant_04(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_04")
+// }
+
+// ===================================================================
+// Memory Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Memory_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_01")
+}
+
+func Test_ZkcInvalid_Memory_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_02")
+}
+
+func Test_ZkcInvalid_Memory_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_03")
+}
+
+// func Test_ZkcInvalid_Memory_04(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_04")
+// }
+
+// func Test_ZkcInvalid_Memory_05(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_05")
+// }
 
 // ===================================================================
 // Test Helpers

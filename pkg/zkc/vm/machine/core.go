@@ -12,15 +12,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package machine
 
-import (
-	"github.com/consensys/go-corset/pkg/util/collection/stack"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
-	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
-)
-
 // ExecuteAll executes a given machine to completion in chunks of n steps,
 // returning the number of steps executed and/or any error arising.
-func ExecuteAll[W any, I any, M Core[W, I]](machine M, n uint) (uint, error) {
+func ExecuteAll[W any, M Core[W]](machine M, n uint) (uint, error) {
 	var nsteps uint
 	//
 	for {
@@ -35,13 +29,6 @@ func ExecuteAll[W any, I any, M Core[W, I]](machine M, n uint) (uint, error) {
 	}
 }
 
-// Executor captures a function which can execute a single instruction within
-// the context of a given machine's state.  This may produce an error, such as
-// when a fail instruction is encountered.
-type Executor[W, N any, S State[W, N]] interface {
-	Execute(state S) error
-}
-
 // Core represents the state of an executing machine, including the state of
 // all registers, memories and functions.  A machine may be executing or
 // terminated.  Machines are abstracted over a given type of word W, and
@@ -50,72 +37,30 @@ type Executor[W, N any, S State[W, N]] interface {
 // machine may be operating over instructions compiled into bytes (for efficient
 // execution), or instructions represented at a higher level (e.g. for analysis
 // or compilation).
-type Core[W any, N any] interface {
+type Core[W any] interface {
 	// Execute the machine for the given number of steps, returning the actual
 	// number of steps executed and an error (if execution failed).
 	Execute(steps uint) (uint, error)
-	// Return the dynamic state of this machine.  That is, the state which can
-	// differ between executions of the same machine (e.g. ROM) and/or within a
-	// single execution of the machine (e.g. RAM).
-	State() State[W, N]
+	// Return ith module in this machine (either a function or some form of memory).
+	Module(id uint) Module[W]
+	// Return set of modules in this machine.
+	Modules() []Module[W]
+	// Enter a new function on the call-stack
+	Enter(id uint, args ...W)
+	// Leave
+	Leave()
+	// Read location from ith module.  This must be a readable memory, otherwise
+	// this will panic.
+	Read(id uint, address []W) (data []W)
+	// Write location in ith module.  This must be a writeable memory, otherwise
+	// this will panic.
+	Write(id uint, address []W, data []W)
 }
 
-// StaticState captures the static state of an executing machine, such as the
-// functions and any static ROMs (e.g. for static reference tables which do not
-// change between different executions of a given machine).
-type StaticState[W any, N any] interface {
-	// Return the ith function in this machine in order, for example, to access
-	// its compiled bytecode.
-	Function(id uint) function.Function[N]
-	// Return the number of functions in this machine.
-	NumFunctions() uint
-	// Return the number of (static) Read-Only Memory's of this machine.
-	NumStatics() uint
-	// Return the ith (static) Read-Only Memory' (ROM) of this machine.  Static
-	// ROMs are inputs which are fixed across all executions of the given
-	// machine.  For example, they might correspond with a static reference
-	// table declared in the source program.
-	Static(id uint) memory.ReadOnlyMemory[W]
-}
-
-// DynamicState captures the non-static state of an executing machine, including
-// the call stack, all RAMs, WOMs and (non-static) ROMs.  It does not, however,
-// include the functions (which are static by definition) and any static ROMs
-// (e.g. for static reference tables), as these do not change between different
-// executions of a given machine.
-type DynamicState[W any] interface {
-	// Current call stack of the machine.  This consists of zero or more stack
-	// frames, where that with highest index is currently executing.  If the
-	// call stack is empty, then the machine has terminated.
-	CallStack() *stack.Stack[Frame[W]]
-	// Return the ith Read-Only Memory (ROMS) in this machine. Non-Static ROMs are
-	// used as inputs to a given execution of the machine (i.e. they can change
-	// between different executions of the same machine).
-	Input(id uint) memory.ReadOnlyMemory[W]
-	// Return the ith Write-Once Memory (WOM) in this machine which are used for
-	// writing the outputs of the machine, Roughly speaking, they can be thought
-	// of as output streams.  All WOMs are empty at the start of execution, and
-	// may be written values as the program executes.
-	Output(id uint) memory.WriteOnceMemory[W]
-	// Return the ith Random-Access Memory in this machine.  Such memories are
-	// the workhorse of execution, providing unbounded storage.  Initially, all
-	// RAMs are empty and maybe assigned values during machine execution.  The
-	// size of a RAM expands dynamically as it is written, with all locations
-	// initially holding zero.
-	Memory(id uint) memory.Memory[W]
-	// Return the number of input memories in this machine.
-	NumInputs() uint
-	// Return the number of output memories in this machine.
-	NumOutputs() uint
-	// Return the number of random-access memories in this machine.
-	NumMemories() uint
-}
-
-// State combines the static and dynamic state of a machine into a single
-// abstraction.
-type State[W any, N any] interface {
-	StaticState[W, N]
-	DynamicState[W]
+// Module represents an either a function or memory within the machine.
+type Module[W any] interface {
+	// Name of this module
+	Name() string
 }
 
 // Frame represents an executing function on the call stack.  Specifically,
@@ -153,6 +98,11 @@ func (p *Frame[W]) PC() uint {
 // Goto sets the Program Counter to a given position.
 func (p *Frame[W]) Goto(pc uint) {
 	p.pc = pc
+}
+
+// FallThru to the next instruction in the frame.
+func (p *Frame[W]) FallThru() {
+	p.pc++
 }
 
 // Load the value of the ith register from this stack frame.

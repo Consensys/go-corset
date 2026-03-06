@@ -46,25 +46,25 @@ type Condition uint
 type SkipIf struct {
 	Cond Condition
 	// Left and right comparisons
-	Left register.Vector
+	Left register.Id
 	//
-	Right register.Vector
+	Right register.Id
 	// Skip
 	Skip uint
 }
 
 // NewSkipIf constructs a fresh conditional skip instruction.
 func NewSkipIf(condition Condition, left, right register.Id, skip uint) *SkipIf {
-	return &SkipIf{condition, register.NewVector(left), register.NewVector(right), skip}
+	return &SkipIf{condition, left, right, skip}
 }
 
 // Uses implementation for Instruction interface
 func (p *SkipIf) Uses() []register.Id {
 	var regs []io.RegisterId
 	// Add all registers on the left-hand side
-	regs = append(regs, p.Left.Registers()...)
+	regs = append(regs, p.Left)
 	// Add all registers on the right-hand side (if applicable)
-	regs = append(regs, p.Right.Registers()...)
+	regs = append(regs, p.Right)
 	//
 	return regs
 }
@@ -74,10 +74,10 @@ func (p *SkipIf) Definitions() []io.RegisterId {
 	return nil
 }
 
-func (p *SkipIf) String(fn register.Map) string {
+func (p *SkipIf) String(env register.Map) string {
 	var (
-		l = p.Left.String(fn)
-		r = p.Right.String(fn)
+		l = env.Register(p.Left).Name()
+		r = env.Register(p.Right).Name()
 		o string
 	)
 	//
@@ -105,8 +105,8 @@ func (p *SkipIf) String(fn register.Map) string {
 func (p *SkipIf) MicroValidate(n uint, _ field.Config, fn register.Map) []error {
 	var (
 		errors []error
-		lw     = p.Left.BitWidth(fn)
-		rw     = p.Right.BitWidth(fn)
+		lw     = fn.Register(p.Left).Width()
+		rw     = fn.Register(p.Right).Width()
 	)
 	//
 	if lw < rw {

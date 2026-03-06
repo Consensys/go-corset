@@ -15,7 +15,6 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
@@ -32,9 +31,9 @@ type MicroInstruction = instruction.MicroInstruction[word.Uint]
 // the variable descriptors into register descriptors.  Each variable may
 // expand into one or more registers (e.g. a tuple variable produces one
 // register per element).
-func compileFunction(id uint, program ast.Program) function.Boot[word.Uint] {
+func compileFunction(id uint, mapping []uint, program []Declaration) *function.Boot[word.Uint] {
 	var (
-		fn        = program.Component(id).(*ast.Function)
+		fn        = program[id].(*Function)
 		registers []register.Register
 		padding   big.Int // zero padding
 		bootCode  = make([]instruction.Instruction[word.Uint], len(fn.Code))
@@ -59,10 +58,10 @@ func compileFunction(id uint, program ast.Program) function.Boot[word.Uint] {
 		})
 	}
 	//
-	compiler := Compiler{program.Components(), fn.Variables, registers}
+	compiler := Compiler{program, fn.Variables, registers}
 	//
 	for i, stmt := range fn.Code {
-		bootCode[i] = compiler.compileStatement(uint(i), stmt)
+		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
 	}
 	//
 	return function.New[Instruction](fn.Name(), compiler.registers, bootCode)

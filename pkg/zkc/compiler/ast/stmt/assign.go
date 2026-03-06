@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -38,7 +39,7 @@ import (
 // particular example, c represents a carry flag.
 type Assign[S symbol.Symbol[S]] struct {
 	// Target registers for assignment
-	Targets []variable.Id
+	Targets []lval.LVal[S]
 	// Source expresion for assignment
 	Source expr.Expr[S]
 }
@@ -55,32 +56,32 @@ func (p *Assign[S]) Uses() []variable.Id {
 
 // Definitions implementation for Instruction interface.
 func (p *Assign[S]) Definitions() []variable.Id {
-	return p.Targets
+	return lval.Definitions(p.Targets...)
 }
 
 func (p *Assign[S]) String(mapping variable.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(variablesToString(array.Reverse(p.Targets), mapping))
+	builder.WriteString(lvalsToString[S](array.Reverse(p.Targets), mapping))
 	builder.WriteString(" = ")
 	builder.WriteString(p.Source.String(mapping))
 	//
 	return builder.String()
 }
 
-// variablesToString returns a string representation for zero or more registers
+// lvalsToString returns a string representation for zero or more registers
 // separated by a comma.
-func variablesToString(rids []variable.Id, env variable.Map) string {
+func lvalsToString[S symbol.Symbol[S]](rids []lval.LVal[S], env variable.Map) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(rids); i++ {
-		var rid = rids[i]
+		var lv = rids[i]
 		//
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 		//
-		builder.WriteString(env.Variable(rid).Name)
+		builder.WriteString(lv.String(env))
 	}
 	//
 	return builder.String()

@@ -62,9 +62,9 @@ func (p *Sub[I]) SetBitWidths(negwidth, poswidth uint) {
 	p.negwidth = negwidth
 }
 
-// NonLocalUses implementation for the Expr interface.
-func (p *Sub[I]) NonLocalUses() set.AnySortedSet[I] {
-	return nonLocalUses(p.Exprs...)
+// ExternUses implementation for the Expr interface.
+func (p *Sub[I]) ExternUses() set.AnySortedSet[I] {
+	return externUses(p.Exprs...)
 }
 
 // LocalUses implementation for the Expr interface.

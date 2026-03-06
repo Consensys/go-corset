@@ -50,9 +50,9 @@ func (p *Add[I]) SetBitWidth(bitwidth uint) {
 	p.bitwidth = bitwidth
 }
 
-// NonLocalUses implementation for the Expr interface.
-func (p *Add[I]) NonLocalUses() set.AnySortedSet[I] {
-	return nonLocalUses(p.Exprs...)
+// ExternUses implementation for the Expr interface.
+func (p *Add[I]) ExternUses() set.AnySortedSet[I] {
+	return externUses(p.Exprs...)
 }
 
 // LocalUses implementation for the Expr interface.

@@ -10,46 +10,44 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package expr
+package lval
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// Const represents a constant value within an expresion.
-type Const[I symbol.Symbol[I]] struct {
-	Label    string
-	Constant big.Int
-	Base     uint
+// MemAccess represents a memory write within an assignment.
+type MemAccess[I symbol.Symbol[I]] struct {
+	// name of the memory being written
+	Name I
+	// index of location being written
+	Index expr.Expr[I]
 }
 
-// NewConstant constructs an expression representing a constant value, along with a
-// base (which is used for pretty printing, etc).
-func NewConstant[I symbol.Symbol[I]](constant big.Int, base uint) Expr[I] {
-	return &Const[I]{Constant: constant, Base: base}
+// NewMemAccess constructs an expression representing a register access.
+func NewMemAccess[I symbol.Symbol[I]](name I, index expr.Expr[I]) LVal[I] {
+	return &MemAccess[I]{name, index}
 }
 
-// BitWidth implementation for Expr interface
-func (p *Const[I]) BitWidth() uint {
-	return uint(p.Constant.BitLen())
+// ExternUses implementation for the LVal interface.
+func (p *MemAccess[I]) ExternUses() set.AnySortedSet[I] {
+	return p.Index.ExternUses()
 }
 
-// ExternUses implementation for the Expr interface.
-func (p *Const[I]) ExternUses() set.AnySortedSet[I] {
-	panic("todo")
+// LocalUses implementation for the LVal interface.
+func (p *MemAccess[I]) LocalUses() bit.Set {
+	return p.Index.LocalUses()
 }
 
-// LocalUses implementation for the Expr interface.
-func (p *Const[I]) LocalUses() bit.Set {
-	var empty bit.Set
-	return empty
+// LocalDefs implementation for the LVal interface.
+func (p *MemAccess[I]) LocalDefs() bit.Set {
+	return bit.Set{}
 }
 
-func (p *Const[I]) String(mapping variable.Map) string {
+func (p *MemAccess[I]) String(mapping variable.Map) string {
 	return String[I](p, mapping)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
@@ -180,10 +181,14 @@ func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Stmt, []so
 	//
 	switch insn := insn.(type) {
 	case *stmt.Assign[symbol.Unresolved]:
-		var rhs ast.Expr
+		// Link the left-hand side
+		lhs, errs1 := p.linkLVals(insn.Targets)
 		// Link the right-hand side
-		rhs, errors = p.linkExpr(insn.Source)
-		ninsn = &stmt.Assign[symbol.Resolved]{Targets: insn.Targets, Source: rhs}
+		rhs, errs2 := p.linkExpr(insn.Source)
+		//
+		ninsn = &stmt.Assign[symbol.Resolved]{Targets: lhs, Source: rhs}
+		//
+		errors = append(errs1, errs2...)
 	case *stmt.Fail[symbol.Unresolved]:
 		ninsn = &stmt.Fail[symbol.Resolved]{}
 	case *stmt.Goto[symbol.Unresolved]:
@@ -207,6 +212,39 @@ func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Stmt, []so
 	return ninsn, errors
 }
 
+func (p *Linker) linkLVals(lvals []ast.UnresolvedLVal) ([]ast.LVal, []source.SyntaxError) {
+	var (
+		llvals = make([]ast.LVal, len(lvals))
+		errors []source.SyntaxError
+	)
+	//
+	for i, lval := range lvals {
+		var errs []source.SyntaxError
+		//
+		llvals[i], errs = p.linkLVal(lval)
+		//
+		errors = append(errors, errs...)
+	}
+	//
+	return llvals, errors
+}
+
+func (p *Linker) linkLVal(lv ast.UnresolvedLVal) (ast.LVal, []source.SyntaxError) {
+	switch lv := lv.(type) {
+	case *lval.Variable[symbol.Unresolved]:
+		return lval.NewVariable[symbol.Resolved](lv.Id), nil
+	case *lval.MemAccess[symbol.Unresolved]:
+		// resolve symbols in memory name
+		name, errs1 := p.resolve(lv.Name, lv)
+		// resolve symbols in index expression
+		index, errs2 := p.linkExpr(lv.Index)
+		//
+		return lval.NewMemAccess(name, index), append(errs1, errs2...)
+	default:
+		return nil, p.srcmap.SyntaxErrors(lv, "unknown lval encountered")
+	}
+}
+
 func (p *Linker) linkCondition(cond ast.UnresolvedCondition) (ast.Condition, []source.SyntaxError) {
 	switch e := cond.(type) {
 	case *expr.Cmp[symbol.Unresolved]:
@@ -228,35 +266,24 @@ func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError)
 	//
 	switch e := e.(type) {
 	case *expr.Add[symbol.Unresolved]:
-		args, errors = p.linkExprs(e.Exprs)
+		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewAdd[symbol.Resolved](args...)
 	case *expr.Const[symbol.Unresolved]:
 		nexpr = expr.NewConstant[symbol.Resolved](e.Constant, e.Base)
 	case *expr.Mul[symbol.Unresolved]:
-		args, errors = p.linkExprs(e.Exprs)
+		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewMul[symbol.Resolved](args...)
 	case *expr.LocalAccess[symbol.Unresolved]:
 		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
-	case *expr.NonLocalAccess[symbol.Unresolved]:
+	case *expr.ExternAccess[symbol.Unresolved]:
+		// resolve arguments
+		args, errors = p.linkExprs(e.Args...)
 		// attempt to resolve this non-local access
-		for i, c := range p.components {
-			nIns, nOuts := c.Arity()
-			// first, check whether name matches
-			if c.Name() == e.Name.Name {
-				// now, check arity
-				if nIns != e.Name.Inputs || nOuts != e.Name.Outputs {
-					return nil, p.srcmap.SyntaxErrors(e, "unknown symbol (incorrect arity)")
-				}
-				// hit
-				nexpr = expr.NewNonLocalAccess[symbol.Resolved](symbol.NewResolved(c.Name(), uint(i)))
-				//
-				break
-			}
-		}
-		// fail
-		if nexpr == nil {
-			return nil, p.srcmap.SyntaxErrors(e, "unknown symbol")
-		}
+		sym, errs := p.resolve(e.Name, e)
+		// combine errors
+		errors = append(errors, errs...)
+		//
+		nexpr = expr.NewExternAccess(sym, args...)
 	default:
 		panic("unknown expression encountered")
 	}
@@ -268,7 +295,7 @@ func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError)
 	return nexpr, errors
 }
 
-func (p *Linker) linkExprs(exprs []ast.UnresolvedExpr) ([]ast.Expr, []source.SyntaxError) {
+func (p *Linker) linkExprs(exprs ...ast.UnresolvedExpr) ([]ast.Expr, []source.SyntaxError) {
 	var (
 		nexprs []ast.Expr = make([]ast.Expr, len(exprs))
 		errors []source.SyntaxError
@@ -282,4 +309,56 @@ func (p *Linker) linkExprs(exprs []ast.UnresolvedExpr) ([]ast.Expr, []source.Syn
 	}
 	//
 	return nexprs, errors
+}
+
+// Resolve the symbol referred to by an external access into a resolved symbol,
+// or return an error if there is some issue matching the symbol.
+func (p *Linker) resolve(name symbol.Unresolved, node any) (symbol.Resolved, []source.SyntaxError) {
+	var sym symbol.Resolved
+	//
+	for i, c := range p.components {
+		nIns, _ := c.Arity()
+		// first, check whether name matches
+		if c.Name() == name.Name {
+			// now, check arity
+			if nIns != name.Inputs {
+				return sym, p.srcmap.SyntaxErrors(node, fmt.Sprintf("incorrect number of arguments (expected %d)", nIns))
+			} else if msg, err := checkSymbolKind(c, name); err {
+				return sym, p.srcmap.SyntaxErrors(node, msg)
+			}
+			// hit
+			return symbol.NewResolved(c.Name(), name.Kind, uint(i)), nil
+		}
+	}
+	// fail
+	return sym, p.srcmap.SyntaxErrors(node, "unknown symbol")
+}
+
+// Attempt to determine whether or not the given symbol kind matches the
+// declaration.
+func checkSymbolKind(decl ast.UnresolvedDeclaration, sym symbol.Unresolved) (msg string, err bool) {
+	var nIns, _ = decl.Arity()
+	//
+	switch sym.Kind {
+	case symbol.READABLE_MEMORY:
+		if mem, ok := decl.(*ast.UnresolvedMemory); ok && mem.IsReadable() {
+			return "", false
+		}
+		//
+		return "invalid memory read", true
+	case symbol.WRITEABLE_MEMORY:
+		if mem, ok := decl.(*ast.UnresolvedMemory); ok && mem.IsWriteable() {
+			return "", false
+		}
+		//
+		return "invalid memory write", true
+	case symbol.FUNCTION:
+	case symbol.CONSTANT:
+	}
+	// Final arity check
+	if nIns != sym.Inputs {
+		return fmt.Sprintf("incorrect number of arguments (expected %d)", nIns), true
+	}
+	// No mismatch
+	return "", false
 }
