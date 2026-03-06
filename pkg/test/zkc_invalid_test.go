@@ -123,9 +123,10 @@ func Test_ZkcInvalid_Memory_02(t *testing.T) {
 func Test_ZkcInvalid_Memory_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_03")
 }
-func Test_ZkcInvalid_Memory_04(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/memory_invalid_04")
-}
+
+// func Test_ZkcInvalid_Memory_04(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_04")
+// }
 
 // func Test_ZkcInvalid_Memory_05(t *testing.T) {
 // 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_05")

@@ -73,7 +73,7 @@ func (p *Base[W]) Execute(steps uint) (uint, error) {
 		err    error
 	)
 	//
-	for len(p.callstack) > 0 {
+	for len(p.callstack) > 0 && nsteps < steps {
 		if err = p.execute(); err != nil {
 			return nsteps, err
 		}
