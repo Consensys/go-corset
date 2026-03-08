@@ -636,8 +636,8 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []ast.UnresolvedInst
 	if _, errs = p.expect(KEYWORD_FOR); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// Parse init assignment
-	if init, errs = p.parseAssignment(env); len(errs) > 0 {
+	// Parse init: either an inline variable declaration (name:type = expr) or a plain assignment
+	if init, errs = p.parseForInit(env); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// Parse ';'
@@ -680,6 +680,52 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []ast.UnresolvedInst
 	insns[1] = &stmt.IfGoto[symbol.Unresolved]{Cond: cond.Negate(), Target: exitTarget}
 	// A for loop never guarantees a return
 	return false, insns, nil
+}
+
+// parseForInit parses the initialiser of a for loop.  It accepts either an
+// inline variable declaration of the form "name:type = expr" or a plain
+// assignment to an already-declared variable.
+func (p *Parser) parseForInit(env *Environment) (ast.UnresolvedInstruction, []source.SyntaxError) {
+	// Detect "name:type = expr" by peeking one token ahead.
+	if p.index+1 < len(p.tokens) &&
+		p.tokens[p.index].Kind == IDENTIFIER &&
+		p.tokens[p.index+1].Kind == COLON {
+		// Inline variable declaration
+		lookahead := p.lookahead()
+
+		name, errs := p.parseIdentifier()
+		if len(errs) > 0 {
+			return nil, errs
+		} else if env.IsVariable(name) {
+			return nil, p.syntaxErrors(lookahead, "variable already declared")
+		}
+
+		if _, errs = p.expect(COLON); len(errs) > 0 {
+			return nil, errs
+		}
+
+		dt, errs := p.parseType()
+		if len(errs) > 0 {
+			return nil, errs
+		}
+
+		env.DeclareVariable(variable.LOCAL, name, dt)
+
+		if _, errs = p.expect(EQUALS); len(errs) > 0 {
+			return nil, errs
+		}
+
+		rhs, errs := p.parseExpr(env)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+
+		target := lval.NewVariable[symbol.Unresolved](env.LookupVariable(name))
+
+		return &stmt.Assign[symbol.Unresolved]{Targets: []LVal{target}, Source: rhs}, nil
+	}
+	// Fall back to a plain assignment to an already-declared variable.
+	return p.parseAssignment(env)
 }
 
 func (p *Parser) parseReturn(env *Environment) (bool, ast.UnresolvedInstruction, []source.SyntaxError) {

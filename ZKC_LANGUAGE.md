@@ -133,7 +133,7 @@ while i < 10 {
 The above can be written equivalently using the `for`-loop syntax:
 
 ```zkc
-for i = 0; i < 10; i = i + 1 {
+for i:u8 = 0; i < 10; i = i + 1 {
   // body
 }
 ```
