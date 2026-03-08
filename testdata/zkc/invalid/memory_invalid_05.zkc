@@ -1,9 +1,9 @@
-;;error:6:7-8:unknown symbol
+//error:6:7-8:unknown symbol
 pub input data(address:u16) -> (word:u16)
 
 fn test(index:u32) -> (r:u16) {
-  ;; write output
+  // write output
   r = data[index]
-  ;; done
+  // done
   return
 }

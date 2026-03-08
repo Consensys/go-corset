@@ -1,4 +1,4 @@
-;;error:4:8-9:unknown comparator
+//error:4:8-9:unknown comparator
 fn f(x:u8) -> (r:u8) {
   r = 0
   if x = 0 {

@@ -1,4 +1,4 @@
-;;error:4:9-12:unknown type
+//error:4:9-12:unknown type
 fn f(x:u8) -> (r:u8) {
   r = 0
   for i:int = 0; i < x; i = i + 1 {

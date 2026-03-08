@@ -1,4 +1,4 @@
-;;error:5:7-14:invalid memory read
+//error:5:7-14:invalid memory read
 pub output data(address:u16) -> (byte:u8)
 
 fn check() -> (y:u16) {

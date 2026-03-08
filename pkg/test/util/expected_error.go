@@ -28,7 +28,7 @@ func extractSyntaxError(lineno int, lines []source.Line, srcfile *source.File) (
 		contents = line.String()
 	)
 	//
-	if strings.HasPrefix(contents, ";;error") {
+	if strings.HasPrefix(contents, "//error") {
 		line, start, end, msg, err := parseExpectedErrorLine(contents)
 		//
 		if err == nil {
@@ -47,7 +47,7 @@ func parseExpectedErrorLine(contents string) (line, start, end int, msg string, 
 	var splits = strings.Split(contents, ":")
 	//
 	if len(splits) < 4 {
-		return 0, 0, 0, "", fmt.Errorf("malformed expected error \"%s\", should be e.g. \";;error:X:Y-Z:msg\"", contents)
+		return 0, 0, 0, "", fmt.Errorf("malformed expected error \"%s\", should be e.g. \"//error:X:Y-Z:msg\"", contents)
 	}
 	// Parse line number
 	if line, err = strconv.Atoi(splits[1]); err != nil {

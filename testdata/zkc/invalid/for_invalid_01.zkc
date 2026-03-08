@@ -1,4 +1,4 @@
-;;error:4:7-8:variable already declared
+//error:4:7-8:variable already declared
 fn f(x:u8) -> (r:u8) {
   var i:u8 = 0
   for i:u8 = 0; i < x; i = i + 1 {
