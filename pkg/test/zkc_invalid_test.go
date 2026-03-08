@@ -153,5 +153,5 @@ func Test_ZkcInvalid_Memory_03(t *testing.T) {
 // ===================================================================
 
 func checkZkcInvalid(t *testing.T, test string) {
-	util.CheckInvalid(t, test, "zkc", util.CompileZkc)
+	util.CheckInvalid(t, test, "zkc", "//error", util.CompileZkc)
 }
