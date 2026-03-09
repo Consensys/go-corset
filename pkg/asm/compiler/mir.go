@@ -140,7 +140,9 @@ func (p MirModule[F]) String() string {
 }
 
 func (p MirModule[F]) addConstantConstraint(value uint64, rid register.Id, bitwidth uint) {
-	p.Module.AddConstraint(mir.NewVanishingConstraint("0", p.Module.Id(), util.None[int](),
+	name := fmt.Sprintf("%d", value)
+	//
+	p.Module.AddConstraint(mir.NewVanishingConstraint(name, p.Module.Id(), util.None[int](),
 		term.Equals[F, mir.LogicalTerm[F], mir.Term[F]](
 			term.NewRegisterAccess[F, mir.Term[F]](rid, bitwidth, 0),
 			term.Const64[F, mir.Term[F]](value))))
