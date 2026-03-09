@@ -160,7 +160,7 @@ func validateColumnBitWidth[F field.Element[F]](bitwidth uint, col tr.Column[F],
 		// column.
 		return nil
 	} else if col.Data() == nil {
-		panic(fmt.Sprintf("column %s is unassigned", col.Name()))
+		panic(fmt.Sprintf("column %s is unassigned in module %s", col.Name(), mod.Name()))
 	}
 	// FIXME: this will fail for small fields!!!!!
 	var bound = field.TwoPowN[F](bitwidth)
