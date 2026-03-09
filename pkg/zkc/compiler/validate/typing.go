@@ -142,7 +142,8 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 			errors = append(errors, lhsErrs...)
 			errors = append(errors, rhsErrs...)
 		} else if !data.SubtypeOf(rhs_t, lval_t, p.env) {
-			err := *p.srcmaps.SyntaxError(rhs, fmt.Sprintf("cannot use %s as %s in assignment", rhs_t, lval_t))
+			err := *p.srcmaps.SyntaxError(rhs,
+				fmt.Sprintf("cannot use %s as %s in assignment", rhs_t.String(p.env), lval_t.String(p.env)))
 			errors = append(errors, err)
 		}
 	}

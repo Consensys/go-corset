@@ -43,7 +43,7 @@ type LVal = lval.LVal[symbol.Unresolved]
 // Type is a convenient alias
 type Type = data.Type[symbol.Unresolved]
 
-// VariableDecriptor is a convenient alias
+// VariableDescriptor is a convenient alias
 type VariableDescriptor = variable.Descriptor[symbol.Unresolved]
 
 // UnlinkedSourceFile captures a source file has been successfully parsed but

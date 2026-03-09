@@ -13,7 +13,6 @@
 package instruction
 
 import (
-	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -73,17 +72,4 @@ func (p *Add[W]) String(mapping register.Map) string {
 // MicroValidate implementation for MicroInstruction interface.
 func (p *Add[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
 	return nil
-}
-
-func (p *Add[W]) rhsBitwidth(env register.Map) uint {
-	var rhs big.Int
-	//
-	for _, source := range p.Sources {
-		ith := env.Register(source)
-		rhs.Add(&rhs, ith.MaxValue())
-	}
-	// Include constant
-	rhs.Add(&rhs, p.Constant.BigInt())
-	//
-	return uint(rhs.BitLen())
 }

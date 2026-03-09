@@ -37,7 +37,7 @@ func (p *UnsignedInt[S]) IsOpen() bool {
 	return p.open
 }
 
-// Width returns the width of this unsigned int type (e.g. 8 for u8, etc)
+// BitWidth returns the width of this unsigned int type (e.g. 8 for u8, etc)
 func (p *UnsignedInt[S]) BitWidth() uint {
 	return p.bitwidth
 }
