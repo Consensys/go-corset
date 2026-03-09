@@ -23,13 +23,13 @@ import "math/big"
 // 16bits).
 type Word[W any] interface {
 	// Add two words together, producing another
-	Add(W) W
+	Add(uint, W) W
 	// Return the value of this word as a big integer.
 	BigInt() *big.Int
 	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
 	Cmp(y W) int
 	// Multiply two words together, producing another
-	Mul(W) W
+	Mul(uint, W) W
 	// Shift right word by a given number of bits.
 	Shr64(uint64) W
 	// Slice number of bits from this word.
@@ -54,14 +54,14 @@ func Uint64[W Word[W]](val uint64) W {
 }
 
 // Sum a given set of words together.
-func Sum[W Word[W]](values ...W) W {
+func Sum[W Word[W]](bitwidth uint, values ...W) W {
 	var res W
 	//
 	for i, v := range values {
 		if i == 0 {
 			res = v
 		} else {
-			res = res.Add(v)
+			res = res.Add(bitwidth, v)
 		}
 	}
 	//
@@ -69,14 +69,14 @@ func Sum[W Word[W]](values ...W) W {
 }
 
 // Product mulitplies a given set of words together.
-func Product[W Word[W]](values ...W) W {
+func Product[W Word[W]](bitwidth uint, values ...W) W {
 	var res W
 	//
 	for i, v := range values {
 		if i == 0 {
 			res = v
 		} else {
-			res = res.Mul(v)
+			res = res.Mul(bitwidth, v)
 		}
 	}
 	//

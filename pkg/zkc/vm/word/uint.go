@@ -25,9 +25,14 @@ type Uint struct {
 }
 
 // Add implementation for Word interface.
-func (p Uint) Add(w Uint) Uint {
+func (p Uint) Add(width uint, w Uint) Uint {
 	var res big.Int
 	res.Add(&p.value, &w.value)
+	//
+	for uint(res.BitLen()) > width {
+		// Normalise negative value
+		res.Sub(&res, util_math.Pow2(width))
+	}
 	//
 	return Uint{res}
 }
@@ -43,9 +48,14 @@ func (p Uint) BigInt() *big.Int {
 }
 
 // Mul implementation for Word interface.
-func (p Uint) Mul(w Uint) Uint {
+func (p Uint) Mul(width uint, w Uint) Uint {
 	var res big.Int
 	res.Mul(&p.value, &w.value)
+	//
+	for uint(res.BitLen()) > width {
+		// Normalise negative value
+		res.Sub(&res, util_math.Pow2(width))
+	}
 	//
 	return Uint{res}
 }

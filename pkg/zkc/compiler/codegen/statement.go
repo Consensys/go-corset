@@ -144,13 +144,14 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) (
 		constant word.Uint
 		nargs    []Expr
 		w        word.Uint
+		bitwidth = p.registers[target.Unwrap()].Width()
 	)
 	//
 	for _, e := range args {
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
-			constant = constant.Add(w.SetBigInt(&c.Constant))
+			constant = constant.Add(bitwidth, w.SetBigInt(&c.Constant))
 		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok {
-			constant = constant.Add(p.evalConstant(e))
+			constant = constant.Add(bitwidth, p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -177,13 +178,14 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 		constant word.Uint = word.Uint64[word.Uint](1)
 		nargs    []Expr
 		w        word.Uint
+		bitwidth = p.registers[target.Unwrap()].Width()
 	)
 	//
 	for _, e := range args {
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
-			constant = constant.Mul(w.SetBigInt(&c.Constant))
+			constant = constant.Mul(bitwidth, w.SetBigInt(&c.Constant))
 		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok {
-			constant = constant.Mul(p.evalConstant(e))
+			constant = constant.Mul(bitwidth, p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -200,13 +202,14 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) (
 		constant word.Uint
 		nargs    []Expr
 		w        word.Uint
+		bitwidth = p.registers[target.Unwrap()].Width()
 	)
 	//
-	for _, e := range args {
-		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
-			constant = constant.Add(w.SetBigInt(&c.Constant))
-		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok {
-			constant = constant.Add(p.evalConstant(e))
+	for i, e := range args {
+		if c, ok := e.(*expr.Const[symbol.Resolved]); ok && i > 0 {
+			constant = constant.Add(bitwidth, w.SetBigInt(&c.Constant))
+		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok && i > 0 {
+			constant = constant.Add(bitwidth, p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -240,17 +243,19 @@ func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []
 }
 
 func (p *Compiler) evalConstant(e Expr) word.Uint {
+	bitwidth := data.BitWidthOf(e.Type(), p.environment)
+	//
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
-		return word.Sum(args...)
+		return word.Sum(bitwidth, args...)
 	case *expr.Const[symbol.Resolved]:
 		var c word.Uint
 		//
 		return c.SetBigInt(&e.Constant)
 	case *expr.Mul[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
-		return word.Product(args...)
+		return word.Product(bitwidth, args...)
 	case *expr.ExternAccess[symbol.Resolved]:
 		var decl = p.components[e.Name.Index].(*Constant)
 		return p.evalConstant(decl.ConstExpr)

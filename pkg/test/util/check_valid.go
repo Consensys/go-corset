@@ -55,7 +55,7 @@ func runTestCase(t *testing.T, program ast.Program, vm *machine.Base[word.Uint],
 		inputs, outputs, errs = program.MapInputsOutputs(test.data)
 	)
 	// Execute machine
-	if err = vm.Boot("test", inputs); err == nil {
+	if err = vm.Boot("main", inputs); err == nil {
 		// Execute it
 		if _, err = machine.ExecuteAll(vm, 1024); err == nil && test.expected {
 			// Check outputs match

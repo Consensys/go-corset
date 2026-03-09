@@ -179,10 +179,13 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 	//
 	switch insn := insn.(type) {
 	case *instruction.Add[W]:
-		var val W = insn.Constant
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
 		//
 		for _, arg := range insn.Sources {
-			val = val.Add(frame[arg.Unwrap()])
+			val = val.Add(bitwidth, frame[arg.Unwrap()])
 		}
 		//
 		frame[insn.Target.Unwrap()] = val
@@ -200,10 +203,13 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 		return false, nil
 
 	case *instruction.Mul[W]:
-		var val W = insn.Constant
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
 		//
 		for _, arg := range insn.Sources {
-			val = val.Mul(frame[arg.Unwrap()])
+			val = val.Mul(bitwidth, frame[arg.Unwrap()])
 		}
 		//
 		frame[insn.Target.Unwrap()] = val

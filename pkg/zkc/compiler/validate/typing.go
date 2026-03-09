@@ -97,7 +97,7 @@ func (p *TypeChecker) typeConstant(c ast.Constant) []source.SyntaxError {
 	if len(errors) != 0 {
 		return errors
 	} else if !data.SubtypeOf(rhs, c.DataType, p.env) {
-		return p.srcmaps.SyntaxErrors(c.ConstExpr, fmt.Sprintf("%s not subtype of %s", rhs.String(), c.DataType.String()))
+		return p.srcmaps.SyntaxErrors(c.ConstExpr, fmt.Sprintf("expected %s (found %s)", c.DataType.String(), rhs.String()))
 	}
 	//
 	return nil
