@@ -45,7 +45,7 @@ func (p MirModule[F]) Initialise(mid uint, fn MicroComponent) MirModule[F] {
 	switch fn := fn.(type) {
 	case *MicroFunction:
 		// Add corresponding assignment for this function.
-		builder.AddAssignment(program.NewAssignment[F](mid, *fn))
+		builder.AddAssignment(program.NewAssignment[F](mid, fn))
 	default:
 		panic("unknown component encountered")
 	}
