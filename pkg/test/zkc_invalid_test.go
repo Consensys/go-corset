@@ -87,6 +87,22 @@ func Test_ZkcInvalid_While_03(t *testing.T) {
 }
 
 // ===================================================================
+// For Tests
+// ===================================================================
+
+func Test_ZkcInvalid_For_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/for_invalid_01")
+}
+
+func Test_ZkcInvalid_For_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/for_invalid_02")
+}
+
+func Test_ZkcInvalid_For_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/for_invalid_03")
+}
+
+// ===================================================================
 // Constant Tests
 // ===================================================================
 
@@ -137,5 +153,5 @@ func Test_ZkcInvalid_Memory_03(t *testing.T) {
 // ===================================================================
 
 func checkZkcInvalid(t *testing.T, test string) {
-	util.CheckInvalid(t, test, "zkc", util.CompileZkc)
+	util.CheckInvalid(t, test, "zkc", "//error", util.CompileZkc)
 }

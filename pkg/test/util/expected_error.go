@@ -22,32 +22,35 @@ import (
 
 // Extract the syntax error from a given line in the source file, or return nil
 // if it does not describe an error.
-func extractSyntaxError(lineno int, lines []source.Line, srcfile *source.File) (bool, source.SyntaxError, error) {
-	var (
-		line     = lines[lineno]
-		contents = line.String()
-	)
-	//
-	if strings.HasPrefix(contents, ";;error") {
-		line, start, end, msg, err := parseExpectedErrorLine(contents)
+func extractSyntaxError(prefix string) Attribute[source.SyntaxError] {
+	return func(lineno int, lines []source.Line, srcfile *source.File) (bool, source.SyntaxError, error) {
+		var (
+			line     = lines[lineno]
+			contents = line.String()
+		)
 		//
-		if err == nil {
-			span, err := determineFileSpan(line, start, end, lines)
-			// Done
-			return true, *srcfile.SyntaxError(span, msg), err
+		if strings.HasPrefix(contents, prefix) {
+			line, start, end, msg, err := parseExpectedErrorLine(contents, prefix)
+			//
+			if err == nil {
+				span, err := determineFileSpan(line, start, end, lines)
+				// Done
+				return true, *srcfile.SyntaxError(span, msg), err
+			}
+			//
+			return true, source.SyntaxError{}, err
 		}
-		//
-		return true, source.SyntaxError{}, err
+		// No error
+		return false, source.SyntaxError{}, nil
 	}
-	// No error
-	return false, source.SyntaxError{}, nil
 }
 
-func parseExpectedErrorLine(contents string) (line, start, end int, msg string, err error) {
+func parseExpectedErrorLine(contents, prefix string) (line, start, end int, msg string, err error) {
 	var splits = strings.Split(contents, ":")
 	//
 	if len(splits) < 4 {
-		return 0, 0, 0, "", fmt.Errorf("malformed expected error \"%s\", should be e.g. \";;error:X:Y-Z:msg\"", contents)
+		return 0, 0, 0, "",
+			fmt.Errorf("malformed expected error \"%s\", should be e.g. \"%s:X:Y-Z:msg\"", contents, prefix)
 	}
 	// Parse line number
 	if line, err = strconv.Atoi(splits[1]); err != nil {

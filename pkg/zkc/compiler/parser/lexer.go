@@ -24,7 +24,7 @@ const END_OF uint = 0
 // WHITESPACE signals whitespace
 const WHITESPACE uint = 1
 
-// COMMENT signals ";; ... \n"
+// COMMENT signals "// ... \n"
 const COMMENT uint = 2
 
 // LBRACE signals "("
@@ -188,8 +188,8 @@ var identifier lex.Scanner[rune] = lex.And(identifierStart, identifierRest)
 // Rule for describing strings in quotes
 var strung lex.Scanner[rune] = lex.Sequence(lex.Unit('"'), lex.Many(lex.Not('"')), lex.Unit('"'))
 
-// Comments start with ';;'
-var commentStart lex.Scanner[rune] = lex.Unit(';', ';')
+// Comments start with '//'
+var commentStart lex.Scanner[rune] = lex.Unit('/', '/')
 
 // Comments continue until a newline or EOF.
 var commentRest lex.Scanner[rune] = lex.Until('\n')

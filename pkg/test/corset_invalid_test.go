@@ -909,7 +909,7 @@ func Test_Invalid_FnCall_04(t *testing.T) {
 // ===================================================================
 
 func checkCorsetInvalid(t *testing.T, test string) {
-	util.CheckInvalid(t, test, "lisp", compileCorsetFile)
+	util.CheckInvalid(t, test, "lisp", ";;error", compileCorsetFile)
 }
 
 func compileCorsetFile(srcfile source.File) []source.SyntaxError {
