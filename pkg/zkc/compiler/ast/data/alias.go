@@ -38,5 +38,5 @@ func (p *Alias[I]) Flattern(prefix string, constructor func(name string, bitwidt
 }
 
 func (p *Alias[I]) String() string {
-	return fmt.Sprintf("u%d", p.bitwidth)
+	return fmt.Sprintf("%s", p.Name)
 }
