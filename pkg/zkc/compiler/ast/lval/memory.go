@@ -24,23 +24,36 @@ import (
 type MemAccess[S symbol.Symbol[S]] struct {
 	// name of the memory being written
 	Name S
-	// index of location being written
-	Index expr.Expr[S]
+	// identifies location being written
+	Args []expr.Expr[S]
 }
 
 // NewMemAccess constructs an expression representing a register access.
-func NewMemAccess[S symbol.Symbol[S]](name S, index expr.Expr[S]) LVal[S] {
-	return &MemAccess[S]{name, index}
+func NewMemAccess[S symbol.Symbol[S]](name S, args []expr.Expr[S]) LVal[S] {
+	return &MemAccess[S]{name, args}
 }
 
 // ExternUses implementation for the LVal interface.
 func (p *MemAccess[S]) ExternUses() set.AnySortedSet[S] {
-	return p.Index.ExternUses()
+	var res set.AnySortedSet[S]
+	//
+	for _, e := range p.Args {
+		ith := e.ExternUses()
+		res.InsertSorted(&ith)
+	}
+	//
+	return res
 }
 
 // LocalUses implementation for the LVal interface.
 func (p *MemAccess[S]) LocalUses() bit.Set {
-	return p.Index.LocalUses()
+	var reads bit.Set
+	//
+	for _, e := range p.Args {
+		reads.Union(e.LocalUses())
+	}
+	//
+	return reads
 }
 
 // LocalDefs implementation for the LVal interface.

@@ -82,7 +82,7 @@ func checkExpectedOutputs(outputs map[string][]word.Uint, vm *machine.Base[word.
 	//
 	for _, m := range vm.Modules() {
 		// Check whether this is an output memory or not.
-		if m, ok := m.(*memory.WriteOnceMemory[word.Uint]); ok {
+		if m, ok := m.(*memory.WriteOnce[word.Uint]); ok {
 			if output, ok := outputs[m.Name()]; ok {
 				if c := array.Compare(output, m.Contents()); c != 0 {
 					errors = append(errors, fmt.Errorf("incorrect output (expected %v, actual %v)", output, m.Contents()))

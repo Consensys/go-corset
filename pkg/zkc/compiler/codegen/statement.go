@@ -48,8 +48,12 @@ func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction
 	//
 	switch s := s.(type) {
 	case *stmt.Assign[symbol.Resolved]:
-		targets := mapLvals(s.Targets)
+		targets, pre, post := p.mapLVals(mapping, s.Targets)
+		//
 		insns = p.compileExpr(s.Source, mapping, targets...)
+		// Configure pre/post instructions
+		insns = append(pre, insns...)
+		insns = append(insns, post...)
 	case *stmt.IfGoto[symbol.Resolved]:
 		return p.compileCondition(pc, s.Cond, mapping, s.Target)
 	case *stmt.Goto[symbol.Resolved]:
@@ -63,6 +67,48 @@ func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction
 	}
 	//
 	return instruction.NewVector[word.Uint](insns...)
+}
+
+func (p *Compiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []MicroInstruction, []MicroInstruction) {
+	var (
+		regs                = make([]register.Id, len(lvals))
+		preInsns, postInsns []MicroInstruction
+	)
+	//
+	for i, lv := range lvals {
+		switch lv := lv.(type) {
+		case *lval.Variable[symbol.Resolved]:
+			regs[i] = register.NewId(lv.Id)
+		case *lval.MemAccess[symbol.Resolved]:
+			var (
+				ext = p.components[lv.Name.Index].(*Memory)
+				// Determine vm module identifier
+				id = mapping[lv.Name.Index]
+			)
+			if !ext.IsWriteable() {
+				panic(fmt.Sprintf("unreadable memory \"%s\" encountered", ext.Name()))
+			}
+			//
+			sources := make([]register.Id, len(ext.Data))
+			targets, pre := p.compileArgs(mapping, lv.Args...)
+			// Sanity check (for now)
+			if len(ext.Data) > 1 {
+				panic("multiple data lines not (currently) supported")
+			}
+			// Allocate data lines as needed
+			for j, t := range ext.Data {
+				bitwidth := data.BitWidthOf(t.DataType, p.environment)
+				sources[j] = p.allocate(bitwidth)
+				// FIXME: broken when len(ext.Data) > 1
+				regs[i+j] = sources[j]
+			}
+			//
+			preInsns = append(preInsns, pre...)
+			postInsns = append(postInsns, instruction.NewMemWrite(id, targets, sources))
+		}
+	}
+	//
+	return regs, preInsns, postInsns
 }
 
 func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target uint) Instruction {
@@ -150,7 +196,7 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) (
 	for _, e := range args {
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant = constant.Add(bitwidth, w.SetBigInt(&c.Constant))
-		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok {
+		} else if p.isConstantAccess(e) {
 			constant = constant.Add(bitwidth, p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
@@ -184,7 +230,7 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 	for _, e := range args {
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant = constant.Mul(bitwidth, w.SetBigInt(&c.Constant))
-		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok {
+		} else if p.isConstantAccess(e) {
 			constant = constant.Mul(bitwidth, p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
@@ -208,7 +254,7 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) (
 	for i, e := range args {
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok && i > 0 {
 			constant = constant.Add(bitwidth, w.SetBigInt(&c.Constant))
-		} else if _, ok := e.(*expr.ExternAccess[symbol.Resolved]); ok && i > 0 {
+		} else if p.isConstantAccess(e) && i > 0 {
 			constant = constant.Add(bitwidth, p.evalConstant(e))
 		} else {
 			nargs = append(nargs, e)
@@ -286,14 +332,14 @@ func (p *Compiler) allocate(bitwidth uint) register.Id {
 	return register.NewId(uint(n))
 }
 
-func mapLvals(lvals []LVal) []register.Id {
-	var regs = make([]register.Id, len(lvals))
-	// FIXME: this will need to be fixed so support e.g. memory writes.
-	for i, lv := range lvals {
-		var v = lv.(*lval.Variable[symbol.Resolved])
-		//
-		regs[i] = register.NewId(v.Id)
-	}
+func (p *Compiler) isConstantAccess(e Expr) bool {
+	ne, ok := e.(*expr.ExternAccess[symbol.Resolved])
 	//
-	return regs
+	if !ok {
+		return false
+	}
+	// Check whethe ris constant
+	_, ok = p.components[ne.Name.Index].(*Constant)
+	//
+	return ok
 }

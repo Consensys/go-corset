@@ -231,7 +231,23 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 		}
 		//
 		return true, nil
-
+	case *instruction.MemWrite:
+		var (
+			address = make([]W, len(insn.Targets))
+			data    = make([]W, len(insn.Sources))
+		)
+		// Read address lines
+		for i, arg := range insn.Targets {
+			address[i] = frame[arg.Unwrap()]
+		}
+		// Read data lines
+		for i, arg := range insn.Sources {
+			data[i] = frame[arg.Unwrap()]
+		}
+		// Write data words at given address
+		p.Write(insn.Id, address, data)
+		//
+		return true, nil
 	case *instruction.Return:
 		p.Leave()
 		// Fall through to next instruction in the callee frame.

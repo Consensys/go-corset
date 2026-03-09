@@ -95,11 +95,12 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
 				modules = append(modules, memory.NewReadOnly[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
-				//modules = append(modules, memory.NewArray[word.Uint](c.Name()))
+				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				//modules = append(modules, memory.NewArray[word.Uint](c.Name()))
+				panic("todo")
 			case decl.RANDOM_ACCESS_MEMORY:
-				//modules = append(modules, memory.NewArray[word.Uint](c.Name()))
+				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
 			}
 		default:
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))

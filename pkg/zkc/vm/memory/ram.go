@@ -17,22 +17,17 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-// WriteOnce (WOM) represents a form of memory where each cell can be
-// written exactly once and, furthermore, cells must be written consecutively
-// starting from zero.  Thus, a WOM can be viewed as an output stream (which is
-// exactly what they are typically used for).
-type WriteOnce[W word.Word[W]] struct {
+// RandomAccess represents  a form of memory where each cell can be read &
+// written multiple times without restrictions.  The size of the memory expands
+// dynamically to include any cell which is written, where cells are initialised
+// with zero.
+type RandomAccess[W word.Word[W]] struct {
 	Array[W]
 }
 
-// NewWriteOnce constructs an empty write-once memory.
-func NewWriteOnce[W word.Word[W]](name string, registers []register.Register) *WriteOnce[W] {
-	return &WriteOnce[W]{
+// NewRandomAccess constructs an empty random-access memory.
+func NewRandomAccess[W word.Word[W]](name string, registers []register.Register) *RandomAccess[W] {
+	return &RandomAccess[W]{
 		newArray[W](name, registers),
 	}
-}
-
-// Read implementation for Memory interface.
-func (p *WriteOnce[W]) Read(address []W) []W {
-	panic("unsupported operation for read-only memory")
 }

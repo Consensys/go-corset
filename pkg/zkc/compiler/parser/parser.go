@@ -996,7 +996,7 @@ func (p *Parser) parseLVal(env *Environment) (LVal, []source.SyntaxError) {
 		start     = p.index
 		lookahead = p.lookahead()
 		reg, errs = p.parseIdentifier()
-		index     Expr
+		index     []Expr
 	)
 	//
 	if len(errs) > 0 {
@@ -1005,9 +1005,7 @@ func (p *Parser) parseLVal(env *Environment) (LVal, []source.SyntaxError) {
 		lv = lval.NewVariable[symbol.Unresolved](env.LookupVariable(reg))
 	} else if !p.match(LSQUARE) {
 		return lv, p.syntaxErrors(lookahead, "unknown register")
-	} else if index, errs = p.parseExpr(env); len(errs) > 0 {
-		return lv, errs
-	} else if _, errs = p.expect(RSQUARE); len(errs) > 0 {
+	} else if index, errs = p.parseExprList(RSQUARE, env); len(errs) > 0 {
 		return lv, errs
 	} else {
 		// construct name symbol

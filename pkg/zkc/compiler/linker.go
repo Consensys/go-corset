@@ -262,7 +262,7 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 		// resolve symbols in memory name
 		name, errs1 := p.resolve(lv.Name, lv)
 		// resolve symbols in index expression
-		index, errs2 := p.linkExpr(lv.Index)
+		index, errs2 := p.linkExprs(lv.Args...)
 		//
 		return lval.NewMemAccess(name, index), append(errs1, errs2...)
 	default:

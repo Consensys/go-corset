@@ -17,7 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-// ReadOnlyMemory (ROM) represents a form of memory that can only be read during
+// ReadOnly (ROM) represents a form of memory that can only be read during
 // a given execution, but never written.  Thus, its contents are unchanged
 // across a given execution.  ROMs can be static or dynamic.  The latter
 // represents those which are fixed across all executions of a given machine,
@@ -28,18 +28,18 @@ import (
 // same program with different input data.  In constrast, static ROMs correspond
 // to fixed tables used within the program (e.g. in a hash function such as
 // BLAKE or KECCAK, there are fixed lookup tables used as part of the program).
-type ReadOnlyMemory[W word.Word[W]] struct {
+type ReadOnly[W word.Word[W]] struct {
 	Array[W]
 }
 
 // NewReadOnly constructs a new read-only memory initialised with a given set of values.
-func NewReadOnly[W word.Word[W]](name string, registers []register.Register, init ...W) *ReadOnlyMemory[W] {
-	return &ReadOnlyMemory[W]{
+func NewReadOnly[W word.Word[W]](name string, registers []register.Register, init ...W) *ReadOnly[W] {
+	return &ReadOnly[W]{
 		newArray[W](name, registers, init...),
 	}
 }
 
 // Write implementation for Memory interface.
-func (p *ReadOnlyMemory[W]) Write(address []W, data []W) {
+func (p *ReadOnly[W]) Write(address []W, data []W) {
 	panic("unsupported operation for read-only memory")
 }

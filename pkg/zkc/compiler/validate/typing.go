@@ -156,10 +156,41 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap) (Type, []source.Syn
 	case *lval.Variable[symbol.Resolved]:
 		return env.Variable(t.Id).DataType, nil
 	case *lval.MemAccess[symbol.Resolved]:
-		panic("todo")
-	default:
-		return nil, p.srcmaps.SyntaxErrors(target, "unknown lval")
+		// Lookup the symbol
+		var extern = p.lookup(t.Name)
+		//
+		switch e := extern.(type) {
+		case *decl.ResolvedConstant:
+			return nil, p.srcmaps.SyntaxErrors(target, "cannot assign constant")
+		case *decl.ResolvedMemory:
+			return p.typeMemoryLVal(e, t, env)
+		case *decl.ResolvedFunction:
+			return nil, p.srcmaps.SyntaxErrors(target, "cannot assign function")
+		}
 	}
+	//
+	return nil, p.srcmaps.SyntaxErrors(target, "unknown lval")
+}
+
+func (p *TypeChecker) typeMemoryLVal(c *decl.ResolvedMemory, e *lval.MemAccess[symbol.Resolved],
+	env VariableMap) (Type, []source.SyntaxError) {
+	var args, errs = p.typeExpressions(e.Args, env)
+	//
+	if len(args) != len(c.Address) {
+		return nil, p.srcmaps.SyntaxErrors(e,
+			fmt.Sprintf("mismatched arguments (expected %d, found %d)", len(c.Address), len(args)))
+	} else if len(errs) == 0 {
+		// check argument types
+		for i := range args {
+			ith := c.Address[i].DataType
+			if !data.SubtypeOf(args[i], ith, p.env) {
+				errs = append(errs, *p.srcmaps.SyntaxError(e.Args[i],
+					fmt.Sprintf("expected type %s", ith.String(p.env))))
+			}
+		}
+	}
+	// Done
+	return variable.DescriptorsToType(c.Data...), errs
 }
 
 // CheckTargetRegisters performs some simple checks on a set of target registers
