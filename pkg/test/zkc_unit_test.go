@@ -33,6 +33,9 @@ func Test_ZkcUnit_Basic_02(t *testing.T) {
 func Test_ZkcUnit_Basic_03(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_valid_03")
 }
+func Test_ZkcUnit_Basic_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_valid_04")
+}
 
 // ===================================================================
 // Constant Tests
@@ -52,6 +55,10 @@ func Test_ZkcUnit_Constant_02(t *testing.T) {
 
 func Test_ZkcUnit_While_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/while_valid_01")
+}
+
+func Test_ZkcUnit_While_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/while_valid_02")
 }
 
 func Test_ZkcUnit_For_01(t *testing.T) {

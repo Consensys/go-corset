@@ -55,7 +55,7 @@ func runTestCase(t *testing.T, program ast.Program, vm *machine.Base[word.Uint],
 		inputs, outputs, errs = program.MapInputsOutputs(test.data)
 	)
 	// Execute machine
-	if err = vm.Boot("test", inputs); err == nil {
+	if err = vm.Boot("main", inputs); err == nil {
 		// Execute it
 		if _, err = machine.ExecuteAll(vm, 1024); err == nil && test.expected {
 			// Check outputs match
@@ -82,7 +82,7 @@ func checkExpectedOutputs(outputs map[string][]word.Uint, vm *machine.Base[word.
 	//
 	for _, m := range vm.Modules() {
 		// Check whether this is an output memory or not.
-		if m, ok := m.(*memory.WriteOnceMemory[word.Uint]); ok {
+		if m, ok := m.(*memory.WriteOnce[word.Uint]); ok {
 			if output, ok := outputs[m.Name()]; ok {
 				if c := array.Compare(output, m.Contents()); c != 0 {
 					errors = append(errors, fmt.Errorf("incorrect output (expected %v, actual %v)", output, m.Contents()))

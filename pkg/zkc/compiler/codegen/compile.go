@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -52,10 +53,15 @@ type Stmt = stmt.Stmt[symbol.Resolved]
 // (or otherwise incorrect) external components.
 type Memory = decl.Memory[symbol.Resolved]
 
+// VariableDescriptor represents a descriptor whose external identifiers are
+// otherwise resolved. As such, it should not be possible that such a
+// declaration refers to unknown (or otherwise incorrect) external components.
+type VariableDescriptor = variable.Descriptor[symbol.Resolved]
+
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func Compile(declarations []Declaration) *machine.Base[word.Uint] {
+func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.Base[word.Uint] {
 	var (
 		modules []machine.Module[word.Uint]
 		mapping = make([]uint, len(declarations))
@@ -83,17 +89,18 @@ func Compile(declarations []Declaration) *machine.Base[word.Uint] {
 		case *Function:
 			modules = append(modules, compileFunction(uint(i), mapping, declarations))
 		case *Memory:
-			var regs = toMemoryRegisters(c.Address, c.Data)
+			var regs = toMemoryRegisters(c.Address, c.Data, env)
 			//
 			switch c.Kind {
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
 				modules = append(modules, memory.NewReadOnly[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
-				//modules = append(modules, memory.NewArray[word.Uint](c.Name()))
+				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				//modules = append(modules, memory.NewArray[word.Uint](c.Name()))
+				panic("todo")
 			case decl.RANDOM_ACCESS_MEMORY:
-				//modules = append(modules, memory.NewArray[word.Uint](c.Name()))
+				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
 			}
 		default:
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))
@@ -103,20 +110,21 @@ func Compile(declarations []Declaration) *machine.Base[word.Uint] {
 	return machine.New[word.Uint](modules...)
 }
 
-func toMemoryRegisters(address []variable.Descriptor, data []variable.Descriptor) []register.Register {
+func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,
+) []register.Register {
 	var (
 		registers []register.Register
 		padding   big.Int
 	)
 	// Flattern address lines
 	for _, v := range address {
-		v.DataType.Flattern(v.Name, func(name string, bitwidth uint) {
+		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewInput(name, bitwidth, padding))
 		})
 	}
 	// Flattern data lines
-	for _, v := range data {
-		v.DataType.Flattern(v.Name, func(name string, bitwidth uint) {
+	for _, v := range datas {
+		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewOutput(name, bitwidth, padding))
 		})
 	}

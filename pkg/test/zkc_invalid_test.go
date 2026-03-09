@@ -140,13 +140,17 @@ func Test_ZkcInvalid_Memory_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_03")
 }
 
-// func Test_ZkcInvalid_Memory_04(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_04")
-// }
+func Test_ZkcInvalid_Memory_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_04")
+}
 
-// func Test_ZkcInvalid_Memory_05(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_05")
-// }
+func Test_ZkcInvalid_Memory_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_05")
+}
+
+func Test_ZkcInvalid_Memory_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_06")
+}
 
 // ===================================================================
 // Test Helpers

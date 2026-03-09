@@ -74,6 +74,6 @@ func (p *IfGoto[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *IfGoto[S]) String(env variable.Map) string {
+func (p *IfGoto[S]) String(env variable.Map[S]) string {
 	return fmt.Sprintf("if %s goto %d", p.Cond.String(env), p.Target)
 }

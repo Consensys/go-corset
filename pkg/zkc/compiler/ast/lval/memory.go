@@ -21,33 +21,46 @@ import (
 )
 
 // MemAccess represents a memory write within an assignment.
-type MemAccess[I symbol.Symbol[I]] struct {
+type MemAccess[S symbol.Symbol[S]] struct {
 	// name of the memory being written
-	Name I
-	// index of location being written
-	Index expr.Expr[I]
+	Name S
+	// identifies location being written
+	Args []expr.Expr[S]
 }
 
 // NewMemAccess constructs an expression representing a register access.
-func NewMemAccess[I symbol.Symbol[I]](name I, index expr.Expr[I]) LVal[I] {
-	return &MemAccess[I]{name, index}
+func NewMemAccess[S symbol.Symbol[S]](name S, args []expr.Expr[S]) LVal[S] {
+	return &MemAccess[S]{name, args}
 }
 
 // ExternUses implementation for the LVal interface.
-func (p *MemAccess[I]) ExternUses() set.AnySortedSet[I] {
-	return p.Index.ExternUses()
+func (p *MemAccess[S]) ExternUses() set.AnySortedSet[S] {
+	var res set.AnySortedSet[S]
+	//
+	for _, e := range p.Args {
+		ith := e.ExternUses()
+		res.InsertSorted(&ith)
+	}
+	//
+	return res
 }
 
 // LocalUses implementation for the LVal interface.
-func (p *MemAccess[I]) LocalUses() bit.Set {
-	return p.Index.LocalUses()
+func (p *MemAccess[S]) LocalUses() bit.Set {
+	var reads bit.Set
+	//
+	for _, e := range p.Args {
+		reads.Union(e.LocalUses())
+	}
+	//
+	return reads
 }
 
 // LocalDefs implementation for the LVal interface.
-func (p *MemAccess[I]) LocalDefs() bit.Set {
+func (p *MemAccess[S]) LocalDefs() bit.Set {
 	return bit.Set{}
 }
 
-func (p *MemAccess[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *MemAccess[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
 }

@@ -8,25 +8,28 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package variable
+package data
 
 import (
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// DescriptorsToType construct a single type representing a given set of
-// variable descriptors.
-func DescriptorsToType[S symbol.Symbol[S]](vars ...Descriptor[S]) data.Type[S] {
-	var types []data.Type[S] = make([]data.Type[S], len(vars))
-	//
-	for i, vd := range vars {
-		types[i] = vd.DataType
+// BitWidthOf determines the bitwidth of the given type in the given
+// envirinment.  NOTE: should a typing cycle exist involving the given type,
+// then this will enter an infinite loop.
+func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
+	switch t := t.(type) {
+	case *UnsignedInt[S]:
+		return t.bitwidth
+	case *Tuple[S]:
+		var bitwidth uint
+		//
+		for _, f := range t.elements {
+			bitwidth += BitWidthOf(f, env)
+		}
+		//
+		return bitwidth
 	}
 	//
-	if len(types) == 1 {
-		return types[0]
-	}
-	// construct tuple type
-	return data.NewTuple(types...)
+	panic("unknown type encountered")
 }

@@ -8,25 +8,34 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package variable
+package data
 
 import (
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// DescriptorsToType construct a single type representing a given set of
-// variable descriptors.
-func DescriptorsToType[S symbol.Symbol[S]](vars ...Descriptor[S]) data.Type[S] {
-	var types []data.Type[S] = make([]data.Type[S], len(vars))
-	//
-	for i, vd := range vars {
-		types[i] = vd.DataType
+// SubtypeOf performs a subtype check, reporting whether or not t1 <: t2.
+func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
+	switch t1 := t1.(type) {
+	case *UnsignedInt[S]:
+		if t := t2.AsUint(env); t != nil {
+			return t1.BitWidth() == t.BitWidth() || (t1.IsOpen() && t1.BitWidth() < t.BitWidth())
+		}
+	case *Tuple[S]:
+		if t := t2.AsTuple(env); t != nil {
+			if t1.Width() != t.Width() {
+				return false
+			}
+			//
+			for i := range t1.Width() {
+				if !SubtypeOf(t1.Ith(i), t.Ith(i), env) {
+					return false
+				}
+			}
+			//
+			return true
+		}
 	}
 	//
-	if len(types) == 1 {
-		return types[0]
-	}
-	// construct tuple type
-	return data.NewTuple(types...)
+	return false
 }

@@ -19,23 +19,35 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
+// Resolved represents an lval whose external identifiers are otherwise
+// resolved. As such, it should not be possible that such a declaration refers
+// to unknown (or otherwise incorrect) external components.
+type Resolved = LVal[symbol.Resolved]
+
+// Unresolved represents an expression whose identifiers for external components
+// are unresolved linkage records.  As such, its possible that such an
+// expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type Unresolved = LVal[symbol.Unresolved]
+
 // LVal represents an arbitrary expression used within an instruction.
-type LVal[I symbol.Symbol[I]] interface {
+type LVal[S symbol.Symbol[S]] interface {
 	// ExternUses returns the set of non-local declarations accessed by this
 	// expression.  For example, external constants or memories used within.
-	ExternUses() set.AnySortedSet[I]
+	ExternUses() set.AnySortedSet[S]
 	// RegistersRead returns the set of variables used (i.e. read) by this expression
 	LocalUses() bit.Set
 	// LocalDefs returns the set of local variables which assigned (either
 	// fully or in part) by this expression.
 	LocalDefs() bit.Set
 	// String returns a string representation of this expression.
-	String(mapping variable.Map) string
+	String(mapping variable.Map[S]) string
 }
 
 // Uses determines the (unique) set of registers read by any expression
 // in the given set of expressions.
-func Uses[I symbol.Symbol[I]](exprs ...LVal[I]) []variable.Id {
+func Uses[S symbol.Symbol[S]](exprs ...LVal[S]) []variable.Id {
 	var (
 		reads []variable.Id
 		bits  bit.Set
@@ -56,7 +68,7 @@ func Uses[I symbol.Symbol[I]](exprs ...LVal[I]) []variable.Id {
 
 // Definitions determines the (unique) set of registers written by a given set
 // of lvals.
-func Definitions[I symbol.Symbol[I]](lvals ...LVal[I]) []variable.Id {
+func Definitions[S symbol.Symbol[S]](lvals ...LVal[S]) []variable.Id {
 	var (
 		reads []variable.Id
 		bits  bit.Set
@@ -77,6 +89,6 @@ func Definitions[I symbol.Symbol[I]](lvals ...LVal[I]) []variable.Id {
 
 // String provides a generic facility for converting an expression into a
 // suitable string.
-func String[I symbol.Symbol[I]](e LVal[I], mapping variable.Map) string {
+func String[S symbol.Symbol[S]](e LVal[S], mapping variable.Map[S]) string {
 	panic("todo")
 }

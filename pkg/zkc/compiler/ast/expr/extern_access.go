@@ -13,44 +13,29 @@
 package expr
 
 import (
-	"math"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // ExternAccess represents a reference to an external declaration, such as a
 // named constant or memory.
-type ExternAccess[I symbol.Symbol[I]] struct {
-	bitwidth uint
-	Name     I
-	Args     []Expr[I]
+type ExternAccess[S symbol.Symbol[S]] struct {
+	Name     S
+	Args     []Expr[S]
+	datatype data.Type[S]
 }
 
 // NewExternAccess constructs an expression representing a non-local access,
 // such as for a named constant or memory.
-func NewExternAccess[I symbol.Symbol[I]](name I, args ...Expr[I]) Expr[I] {
-	return &ExternAccess[I]{Name: name, Args: args, bitwidth: math.MaxUint}
-}
-
-// BitWidth implementation for Expr interface
-func (p *ExternAccess[I]) BitWidth() uint {
-	if p.bitwidth == math.MaxUint {
-		panic("untyped expression")
-	}
-	//
-	return p.bitwidth
-}
-
-// SetBitWidth sets the (positive) bitwidth.
-func (p *ExternAccess[I]) SetBitWidth(bitwidth uint) {
-	p.bitwidth = bitwidth
+func NewExternAccess[S symbol.Symbol[S]](name S, args ...Expr[S]) Expr[S] {
+	return &ExternAccess[S]{Name: name, Args: args}
 }
 
 // ExternUses implementation for the Expr interface.
-func (p *ExternAccess[I]) ExternUses() set.AnySortedSet[I] {
+func (p *ExternAccess[S]) ExternUses() set.AnySortedSet[S] {
 	var uses = externUses(p.Args...)
 	//
 	uses.Insert(p.Name)
@@ -59,10 +44,20 @@ func (p *ExternAccess[I]) ExternUses() set.AnySortedSet[I] {
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *ExternAccess[I]) LocalUses() bit.Set {
+func (p *ExternAccess[S]) LocalUses() bit.Set {
 	return localUses(p.Args...)
 }
 
-func (p *ExternAccess[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *ExternAccess[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
+}
+
+// SetType implementation for Expr interface
+func (p *ExternAccess[S]) SetType(t data.Type[S]) {
+	p.datatype = t
+}
+
+// Type implementation for Expr interface
+func (p *ExternAccess[S]) Type() data.Type[S] {
+	return p.datatype
 }

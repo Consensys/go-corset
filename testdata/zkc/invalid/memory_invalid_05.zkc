@@ -1,4 +1,4 @@
-//error:6:7-8:unknown symbol
+//error:6:12-17:expected type u16
 pub input data(address:u16) -> (word:u16)
 
 fn test(index:u32) -> (r:u16) {

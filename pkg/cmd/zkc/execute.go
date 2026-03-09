@@ -23,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -89,22 +90,23 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 		//
 		os.Exit(4)
 	}
-	// write output
-	// for i := range vm.State().NumOutputs() {
-	// 	var output = vm.State().Output(i)
-	// 	//
-	// 	fmt.Printf("%s", output.Name())
-	// 	//
-	// 	for i, val := range output.Contents() {
-	// 		if i != 0 {
-	// 			fmt.Printf(", ")
-	// 		}
-	// 		//
-	// 		fmt.Printf("0x%s", val.Text(16))
-	// 	}
-	// 	//
-	// 	fmt.Println()
-	// }
+	// Write output
+	for _, m := range vm.Modules() {
+		if output, ok := m.(*memory.WriteOnce[word.Uint]); ok {
+			//
+			fmt.Printf("%s = {", output.Name())
+			//
+			for i, val := range output.Contents() {
+				if i != 0 {
+					fmt.Printf(", ")
+				}
+				//
+				fmt.Printf("0x%s", val.Text(16))
+			}
+			//
+			fmt.Println("}")
+		}
+	}
 }
 
 //nolint:errcheck

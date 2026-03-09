@@ -58,7 +58,18 @@ func (p *Array[W]) Read(address []W) []W {
 
 // Write implementation for ReadOnlyMemory interface.
 func (p *Array[W]) Write(address []W, data []W) {
-	panic("todo")
+	var (
+		n          = uint64(len(p.data))
+		start, end = p.geometry.Decode(address)
+	)
+	// expand memory if needed
+	if n <= end {
+		ndata := make([]W, end)
+		copy(ndata, p.data)
+		p.data = ndata
+	}
+	//
+	copy(p.data[start:end], data)
 }
 
 // Contents implementation for Memory interface.

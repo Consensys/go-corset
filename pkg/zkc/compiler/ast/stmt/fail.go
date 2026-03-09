@@ -13,11 +13,12 @@
 package stmt
 
 import (
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Fail signals an exceptional return from the enclosing function.
-type Fail[S any] struct {
+type Fail[S symbol.Symbol[S]] struct {
 	// dummy is included to force Return structs to be stored in the heap.
 	//nolint
 	Dummy uint
@@ -38,6 +39,6 @@ func (p *Fail[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *Fail[S]) String(_ variable.Map) string {
+func (p *Fail[S]) String(_ variable.Map[S]) string {
 	return "fail"
 }
