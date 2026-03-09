@@ -15,13 +15,15 @@ package expr
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Sub represents an expresion which subtracts zero or more terms from a given term.
 type Sub[S symbol.Symbol[S]] struct {
-	Exprs []Expr[S]
+	Exprs    []Expr[S]
+	datatype data.Type[S]
 }
 
 // NewSub constructs an expression representing the subtraction of one or more
@@ -46,4 +48,14 @@ func (p *Sub[S]) LocalUses() bit.Set {
 
 func (p *Sub[S]) String(mapping variable.Map[S]) string {
 	return String[S](p, mapping)
+}
+
+// SetType implementation for Expr interface
+func (p *Sub[S]) SetType(t data.Type[S]) {
+	p.datatype = t
+}
+
+// Type implementation for Expr interface
+func (p *Sub[S]) Type() data.Type[S] {
+	return p.datatype
 }

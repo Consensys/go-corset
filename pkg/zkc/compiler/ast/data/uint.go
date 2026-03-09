@@ -49,7 +49,7 @@ func (p *UnsignedInt[S]) BitWidth(Environment[S]) uint {
 
 // Flattern implementation for Type interface
 func (p *UnsignedInt[S]) Flattern(prefix string, env Environment[S], constructor func(name string, bitwidth uint)) {
-	constructor(prefix, p.bitwidth)
+
 }
 
 func (p *UnsignedInt[S]) String() string {

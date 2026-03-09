@@ -13,18 +13,17 @@
 package expr
 
 import (
-	"math"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Mul represents an expresion which computes the product of one or more terms.
 type Mul[S symbol.Symbol[S]] struct {
-	bitwidth uint
 	Exprs    []Expr[S]
+	datatype data.Type[S]
 }
 
 // NewMul constructs an expression representing the product of one or more
@@ -34,21 +33,7 @@ func NewMul[S symbol.Symbol[S]](exprs ...Expr[S]) Expr[S] {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &Mul[S]{Exprs: exprs, bitwidth: math.MaxUint}
-}
-
-// BitWidth implementation for Expr interface
-func (p *Mul[S]) BitWidth() uint {
-	if p.bitwidth == math.MaxUint {
-		panic("untyped expression")
-	}
-	//
-	return p.bitwidth
-}
-
-// SetBitWidth sets the (positive) bitwidth.
-func (p *Mul[S]) SetBitWidth(bitwidth uint) {
-	p.bitwidth = bitwidth
+	return &Mul[S]{Exprs: exprs}
 }
 
 // ExternUses implementation for the Expr interface.
@@ -63,4 +48,14 @@ func (p *Mul[S]) LocalUses() bit.Set {
 
 func (p *Mul[S]) String(mapping variable.Map[S]) string {
 	return String[S](p, mapping)
+}
+
+// SetType implementation for Expr interface
+func (p *Mul[S]) SetType(t data.Type[S]) {
+	p.datatype = t
+}
+
+// Type implementation for Expr interface
+func (p *Mul[S]) Type() data.Type[S] {
+	return p.datatype
 }

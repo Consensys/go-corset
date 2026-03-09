@@ -199,6 +199,17 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 		// Don't fall through to next instruction
 		return false, nil
 
+	case *instruction.Mul[W]:
+		var val W = insn.Constant
+		//
+		for _, arg := range insn.Sources {
+			val = val.Mul(frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+
 	case *instruction.MemRead:
 		var address = make([]W, len(insn.Sources))
 		// Read source registers
@@ -220,6 +231,25 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 		// Fall through to next instruction in the callee frame.
 		return true, nil
 
+	case *instruction.Sub[W]:
+		var (
+			val      W
+			bitwidth = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for i, arg := range insn.Sources {
+			if i == 0 {
+				val = frame[arg.Unwrap()]
+			} else {
+				val = val.Sub(bitwidth, frame[arg.Unwrap()])
+			}
+		}
+		// Subtract constant
+		val = val.Sub(bitwidth, insn.Constant)
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
 	case *instruction.Vector[W]:
 		var (
 			err      error

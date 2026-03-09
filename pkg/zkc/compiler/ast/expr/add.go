@@ -15,13 +15,15 @@ package expr
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Add represents an expresion which adds one or more terms together.
 type Add[S symbol.Symbol[S]] struct {
-	Exprs []Expr[S]
+	Exprs    []Expr[S]
+	datatype data.Type[S]
 }
 
 // NewAdd constructs an expression representing the sum of one or more values.
@@ -45,4 +47,14 @@ func (p *Add[S]) LocalUses() bit.Set {
 
 func (p *Add[S]) String(mapping variable.Map[S]) string {
 	return String[S](p, mapping)
+}
+
+// SetType implementation for Expr interface
+func (p *Add[S]) SetType(t data.Type[S]) {
+	p.datatype = t
+}
+
+// Type implementation for Expr interface
+func (p *Add[S]) Type() data.Type[S] {
+	return p.datatype
 }

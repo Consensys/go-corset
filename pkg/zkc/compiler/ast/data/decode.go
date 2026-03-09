@@ -37,7 +37,7 @@ import (
 // If the input array is not a multiple of the bitwidth
 func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environment[S]) []word.Uint {
 	var (
-		bitwidth = datatype.BitWidth(env)
+		bitwidth = BitWidthOf(datatype, env)
 		// Initially empty buffer which is expanded as necessary to accommodate
 		// reading bits of the given data types.
 		buffer []byte

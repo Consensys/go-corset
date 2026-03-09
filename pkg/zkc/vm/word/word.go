@@ -37,6 +37,8 @@ type Word[W any] interface {
 	// Construct a fresh word with the given uint64 value, or panic (if the
 	// value does not fit).
 	SetUint64(uint64) W
+	// Sub two words together, producing another
+	Sub(uint, W) W
 	// Returns value of word as an unsigned integer and will panic if the value
 	// does not fit.
 	Uint64() uint64

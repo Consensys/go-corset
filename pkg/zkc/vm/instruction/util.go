@@ -24,7 +24,10 @@ import (
 // RegistersToString returns a string representation for zero or more registers
 // separated by a comma.
 func registersToString(env register.Map, regs ...register.Id) string {
-	var builder strings.Builder
+	var (
+		builder strings.Builder
+		n       = uint(len(env.Registers()))
+	)
 	//
 	for i := 0; i < len(regs); i++ {
 		var rid = regs[i]
@@ -33,7 +36,11 @@ func registersToString(env register.Map, regs ...register.Id) string {
 			builder.WriteString(", ")
 		}
 		//
-		builder.WriteString(env.Register(rid).Name())
+		if rid.Unwrap() < n {
+			builder.WriteString(env.Register(rid).Name())
+		} else {
+			builder.WriteString("??")
+		}
 	}
 	//
 	return builder.String()

@@ -48,5 +48,5 @@ func (p *Variable[S]) LocalDefs() bit.Set {
 }
 
 func (p *Variable[S]) String(mapping variable.Map[S]) string {
-	return String[S](p, mapping)
+	return mapping.Variable(p.Id).Name
 }

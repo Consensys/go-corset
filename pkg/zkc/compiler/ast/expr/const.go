@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -47,4 +48,15 @@ func (p *Const[S]) LocalUses() bit.Set {
 
 func (p *Const[S]) String(mapping variable.Map[S]) string {
 	return String[S](p, mapping)
+}
+
+// SetType implementation for Expr interface
+func (p *Const[S]) SetType(t data.Type[S]) {
+
+}
+
+// Type implementation for Expr interface
+func (p *Const[S]) Type() data.Type[S] {
+	bitwidth := uint(p.Constant.BitLen())
+	return data.NewUnsignedInt[S](bitwidth, true)
 }

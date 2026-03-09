@@ -15,6 +15,7 @@ package expr
 import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -22,8 +23,9 @@ import (
 // ExternAccess represents a reference to an external declaration, such as a
 // named constant or memory.
 type ExternAccess[S symbol.Symbol[S]] struct {
-	Name S
-	Args []Expr[S]
+	Name     S
+	Args     []Expr[S]
+	datatype data.Type[S]
 }
 
 // NewExternAccess constructs an expression representing a non-local access,
@@ -48,4 +50,14 @@ func (p *ExternAccess[S]) LocalUses() bit.Set {
 
 func (p *ExternAccess[S]) String(mapping variable.Map[S]) string {
 	return String[S](p, mapping)
+}
+
+// SetType implementation for Expr interface
+func (p *ExternAccess[S]) SetType(t data.Type[S]) {
+	p.datatype = t
+}
+
+// Type implementation for Expr interface
+func (p *ExternAccess[S]) Type() data.Type[S] {
+	return p.datatype
 }

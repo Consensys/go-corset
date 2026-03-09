@@ -15,6 +15,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
@@ -36,9 +37,10 @@ type LVal = lval.LVal[symbol.Resolved]
 // within a given function.  For example, it provides the ability to allocate
 // new temporary registers as required.
 type Compiler struct {
-	components []Declaration
-	variables  []VariableDescriptor
-	registers  []register.Register
+	components  []Declaration
+	variables   []VariableDescriptor
+	registers   []register.Register
+	environment data.Environment[symbol.Resolved]
 }
 
 func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction {
@@ -142,7 +144,6 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) (
 		constant word.Uint
 		nargs    []Expr
 		w        word.Uint
-		bitwidth = p.registers[target.Unwrap()].Width()
 	)
 	//
 	for _, e := range args {
@@ -155,7 +156,7 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) (
 		}
 	}
 	// Compile arguments
-	sources, insns := p.compileArgs(mapping, bitwidth, nargs...)
+	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewAdd[word.Uint](target, sources, constant)
 }
@@ -176,7 +177,6 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 		constant word.Uint = word.Uint64[word.Uint](1)
 		nargs    []Expr
 		w        word.Uint
-		bitwidth = p.registers[target.Unwrap()].Width()
 	)
 	//
 	for _, e := range args {
@@ -189,7 +189,7 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 		}
 	}
 	// Compile arguments
-	sources, insns := p.compileArgs(mapping, bitwidth, nargs...)
+	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewMul[word.Uint](target, sources, constant)
 }
@@ -200,7 +200,6 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) (
 		constant word.Uint
 		nargs    []Expr
 		w        word.Uint
-		bitwidth = p.registers[target.Unwrap()].Width()
 	)
 	//
 	for _, e := range args {
@@ -213,12 +212,12 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) (
 		}
 	}
 	// Compile arguments
-	sources, insns := p.compileArgs(mapping, bitwidth, nargs...)
+	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewSub[word.Uint](target, sources, constant)
 }
 
-func (p *Compiler) compileArgs(mapping []uint, bitwidth uint, exprs ...Expr) ([]register.Id, []MicroInstruction) {
+func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []MicroInstruction) {
 	var (
 		insns   []MicroInstruction
 		targets = make([]register.Id, len(exprs))
@@ -229,6 +228,7 @@ func (p *Compiler) compileArgs(mapping []uint, bitwidth uint, exprs ...Expr) ([]
 		if r, ok := e.(*expr.LocalAccess[symbol.Resolved]); ok {
 			targets[i] = register.NewId(r.Variable)
 		} else {
+			bitwidth := data.BitWidthOf(e.Type(), p.environment)
 			// Allocate temporary variable
 			targets[i] = p.allocate(bitwidth)
 			// Compile expression, storing result in temporary

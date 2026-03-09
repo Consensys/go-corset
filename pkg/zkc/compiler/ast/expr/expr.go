@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -32,6 +33,11 @@ type Expr[S symbol.Symbol[S]] interface {
 	LocalUses() bit.Set
 	// String returns a string representation of this expression.
 	String(mapping variable.Map[S]) string
+	// Type returns the type associated with this expression (or nil if that has
+	// not yet been determined).
+	Type() data.Type[S]
+	// SetType sets the type associated with this expression.
+	SetType(data.Type[S])
 }
 
 // Uses determines the (unique) set of registers read by any expression

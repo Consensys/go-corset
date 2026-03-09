@@ -11,21 +11,25 @@
 package data
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// ResolvedType represents a type which contains only resolved identifiers.
-type ResolvedType = Type[symbol.Resolved]
-
-// UnresolvedType represents a type which may contain unresolved identifiers.
-type UnresolvedType = Type[symbol.Unresolved]
-
-// Type provides an abstraction over raw words which, in principle, can be used
-// to support richer forms of type (e.g. structs).
-type Type[S symbol.Symbol[S]] interface {
-	fmt.Stringer
-	// AsUint determines whether or not this is an unsigned int.
-	AsUint() *UnsignedInt[S]
+// BitWidthOf determines the bitwidth of the given type in the given
+// envirinment.  NOTE: should a typing cycle exist involving the given type,
+// then this will enter an infinite loop.
+func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
+	switch t := t.(type) {
+	case *UnsignedInt[S]:
+		return t.bitwidth
+	case *Tuple[S]:
+		var bitwidth uint
+		//
+		for _, f := range t.elements {
+			bitwidth += BitWidthOf(f, env)
+		}
+		//
+		return bitwidth
+	}
+	//
+	panic("unknown type encountered")
 }

@@ -110,20 +110,21 @@ func Compile(declarations []Declaration) *machine.Base[word.Uint] {
 	return machine.New[word.Uint](modules...)
 }
 
-func toMemoryRegisters(address []VariableDescriptor, data []VariableDescriptor, env data.Environment[symbol.Resolved]) []register.Register {
+func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.Environment[symbol.Resolved],
+) []register.Register {
 	var (
 		registers []register.Register
 		padding   big.Int
 	)
 	// Flattern address lines
 	for _, v := range address {
-		v.DataType.Flattern(v.Name, env, func(name string, bitwidth uint) {
+		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewInput(name, bitwidth, padding))
 		})
 	}
 	// Flattern data lines
-	for _, v := range data {
-		v.DataType.Flattern(v.Name, env, func(name string, bitwidth uint) {
+	for _, v := range datas {
+		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewOutput(name, bitwidth, padding))
 		})
 	}

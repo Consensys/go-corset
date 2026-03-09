@@ -11,7 +11,6 @@
 package data
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -35,23 +34,9 @@ func (p *Tuple[S]) AsUint() *UnsignedInt[S] {
 	return nil
 }
 
-// BitWidth implementation for Type interface
-func (p *Tuple[S]) BitWidth(env Environment[S]) uint {
-	var sum uint
-	//
-	for _, element := range p.elements {
-		sum += element.BitWidth(env)
-	}
-	//
-	return sum
-}
-
 // Flattern implementation for Type interface
 func (p *Tuple[S]) Flattern(prefix string, env Environment[S], constructor func(name string, bitwidth uint)) {
-	for i, element := range p.elements {
-		ith := fmt.Sprintf("%s$%d", prefix, i)
-		element.Flattern(ith, env, constructor)
-	}
+
 }
 
 func (p *Tuple[S]) String() string {
