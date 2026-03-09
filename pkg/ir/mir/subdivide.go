@@ -262,20 +262,20 @@ func SubdivideRegisterRefs[F field.Element[F]](mapping module.LimbsMap, refs ...
 
 func (p *Subdivider[F]) subdivideConstraint(c Constraint[F]) Constraint[F] {
 	var constraint schema.Constraint[F]
-	switch c := c.constraint.(type) {
-	case Assertion[F]:
+	switch c := c.Constraint.(type) {
+	case *Assertion[F]:
 		constraint = p.subdivideAssertion(c)
-	case InterleavingConstraint[F]:
+	case *InterleavingConstraint[F]:
 		constraint = p.subdivideInterleaving(c)
-	case LookupConstraint[F]:
+	case *LookupConstraint[F]:
 		constraint = p.subdivideLookup(c)
-	case PermutationConstraint[F]:
+	case *PermutationConstraint[F]:
 		constraint = p.subdividePermutation(c)
-	case RangeConstraint[F]:
+	case *RangeConstraint[F]:
 		constraint = p.subdivideRange(c)
 	case SortedConstraint[F]:
 		constraint = p.subdivideSorted(c)
-	case VanishingConstraint[F]:
+	case *VanishingConstraint[F]:
 		constraint = p.subdivideVanishing(c)
 	default:
 		panic("unreachable")
@@ -285,7 +285,7 @@ func (p *Subdivider[F]) subdivideConstraint(c Constraint[F]) Constraint[F] {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Subdivider[F]) subdivideAssertion(c Assertion[F]) Assertion[F] {
+func (p *Subdivider[F]) subdivideAssertion(c *Assertion[F]) *Assertion[F] {
 	var (
 		module = p.mapping.Module(c.Context)
 		prop   = term.SubdivideLogical[word.BigEndian, constraint.Property, term.Computation[word.BigEndian]](
@@ -296,7 +296,7 @@ func (p *Subdivider[F]) subdivideAssertion(c Assertion[F]) Assertion[F] {
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Subdivider[F]) subdivideInterleaving(c InterleavingConstraint[F]) InterleavingConstraint[F] {
+func (p *Subdivider[F]) subdivideInterleaving(c *InterleavingConstraint[F]) *InterleavingConstraint[F] {
 	var (
 		targetModule = p.mapping.Module(c.TargetContext)
 		sourceModule = p.mapping.Module(c.SourceContext)
@@ -308,7 +308,7 @@ func (p *Subdivider[F]) subdivideInterleaving(c InterleavingConstraint[F]) Inter
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Subdivider[F]) subdividePermutation(c PermutationConstraint[F]) PermutationConstraint[F] {
+func (p *Subdivider[F]) subdividePermutation(c *PermutationConstraint[F]) *PermutationConstraint[F] {
 	var (
 		module  = p.mapping.Module(c.Context)
 		sources []register.Id
@@ -333,7 +333,7 @@ func (p *Subdivider[F]) subdividePermutation(c PermutationConstraint[F]) Permuta
 }
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Subdivider[F]) subdivideRange(c RangeConstraint[F]) RangeConstraint[F] {
+func (p *Subdivider[F]) subdivideRange(c *RangeConstraint[F]) *RangeConstraint[F] {
 	var (
 		modmap    = p.mapping.Module(c.Context)
 		terms     []*RegisterAccess[F]

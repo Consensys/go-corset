@@ -13,6 +13,8 @@
 package mir
 
 import (
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -24,6 +26,10 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/constraint/sorted"
 	"github.com/consensys/go-corset/pkg/schema/constraint/vanishing"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
@@ -128,4 +134,34 @@ func SubstituteConstants[F field.Element[F]](schema schema.AnySchema[F], mapping
 		module := iter.Next()
 		module.Substitute(mapping)
 	}
+}
+
+func init() {
+	initForField[bls12_377.Element]()
+	initForField[koalabear.Element]()
+	initForField[gf8209.Element]()
+	initForField[gf251.Element]()
+}
+
+func initForField[F field.Element[F]]() {
+	gob.Register(schema.AnySchema[F](Schema[F]{}))
+	//
+	gob.Register(schema.Constraint[F](&Assertion[F]{}))
+	gob.Register(schema.Constraint[F](&VanishingConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&InterleavingConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&RangeConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&PermutationConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&LookupConstraint[F]{}))
+	//
+	gob.Register(LogicalTerm[F](&Conjunct[F]{}))
+	gob.Register(LogicalTerm[F](&Disjunct[F]{}))
+	gob.Register(LogicalTerm[F](&Equal[F]{}))
+	gob.Register(LogicalTerm[F](&NotEqual[F]{}))
+	//
+	gob.Register(Term[F](&Add[F]{}))
+	gob.Register(Term[F](&Mul[F]{}))
+	gob.Register(Term[F](&Sub[F]{}))
+	gob.Register(Term[F](&Constant[F]{}))
+	gob.Register(Term[F](&RegisterAccess[F]{}))
+	gob.Register(Term[F](&VectorAccess[F]{}))
 }

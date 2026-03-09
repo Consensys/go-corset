@@ -58,14 +58,11 @@ func (p *SchemaStack[F]) BinaryFile() *binfile.BinaryFile {
 	return &bf
 }
 
-<<<<<<< HEAD:pkg/cmd/corset/util/schema_stack.go
 // HasConcreteSchema returns true if there is at least one concrete schema..
 func (p *SchemaStack[F]) HasConcreteSchema() bool {
 	return len(p.concreteSchemas) > 0
 }
 
-// ConcreteSchema returns the stack of concrete schemas according to the selected
-=======
 // Clone this stack producing a physically disjoint but otherwise identical
 // stack.  The purpose of this is to ensure not interference between runs.
 func (p *SchemaStack[F]) Clone() SchemaStack[F] {
@@ -89,8 +86,7 @@ func (p *SchemaStack[F]) Clone() SchemaStack[F] {
 	}
 }
 
-// ConcreteSchemas returns the stack of concrete schemas according to the selected
->>>>>>> 4d1b4745 (support SchemaStack.Clone()):pkg/cmd/util/schema_stack.go
+// ConcreteSchema returns the stack of concrete schemas according to the selected
 // layers, where higher-level layers come first.
 func (p *SchemaStack[F]) ConcreteSchema() schema.AnySchema[F] {
 	var n = len(p.concreteSchemas) - 1
