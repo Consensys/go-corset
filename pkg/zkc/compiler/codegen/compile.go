@@ -53,7 +53,7 @@ type Stmt = stmt.Stmt[symbol.Resolved]
 // (or otherwise incorrect) external components.
 type Memory = decl.Memory[symbol.Resolved]
 
-// VariableDescription represents a descriptor whose external identifiers are
+// VariableDescriptor represents a descriptor whose external identifiers are
 // otherwise resolved. As such, it should not be possible that such a
 // declaration refers to unknown (or otherwise incorrect) external components.
 type VariableDescriptor = variable.Descriptor[symbol.Resolved]
@@ -61,9 +61,8 @@ type VariableDescriptor = variable.Descriptor[symbol.Resolved]
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func Compile(declarations []Declaration) *machine.Base[word.Uint] {
+func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.Base[word.Uint] {
 	var (
-		env     data.Environment[symbol.Resolved]
 		modules []machine.Module[word.Uint]
 		mapping = make([]uint, len(declarations))
 		index   = uint(0)
@@ -110,7 +109,7 @@ func Compile(declarations []Declaration) *machine.Base[word.Uint] {
 	return machine.New[word.Uint](modules...)
 }
 
-func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.Environment[symbol.Resolved],
+func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,
 ) []register.Register {
 	var (
 		registers []register.Register

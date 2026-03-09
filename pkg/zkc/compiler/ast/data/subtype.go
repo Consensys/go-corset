@@ -18,8 +18,22 @@ import (
 func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	switch t1 := t1.(type) {
 	case *UnsignedInt[S]:
-		if t := t2.AsUint(); t != nil {
-			return t1.Width() == t.Width() || (t1.IsOpen() && t1.Width() < t.Width())
+		if t := t2.AsUint(env); t != nil {
+			return t1.BitWidth() == t.BitWidth() || (t1.IsOpen() && t1.BitWidth() < t.BitWidth())
+		}
+	case *Tuple[S]:
+		if t := t2.AsTuple(env); t != nil {
+			if t1.Width() != t.Width() {
+				return false
+			}
+			//
+			for i := range t1.Width() {
+				if !SubtypeOf(t1.Ith(i), t.Ith(i), env) {
+					return false
+				}
+			}
+			//
+			return true
 		}
 	}
 	//

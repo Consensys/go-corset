@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
@@ -57,18 +58,17 @@ type VariableMap = variable.Map[symbol.Resolved]
 // make sense.
 func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
-		env    data.Environment[symbol.Resolved]
 		errors []source.SyntaxError
-		typer  = TypeChecker{program, env, srcmaps}
+		typer  = TypeChecker{program, program.Environment(), srcmaps}
 	)
 	//
 	for _, d := range program.Components() {
 		switch d := d.(type) {
-		case *ast.Constant:
+		case *decl.ResolvedConstant:
 			errors = append(errors, typer.typeConstant(*d)...)
-		case *ast.Function:
+		case *decl.ResolvedFunction:
 			errors = append(errors, typer.typeFunction(*d)...)
-		case *ast.Memory:
+		case *decl.ResolvedMemory:
 			// ignore
 		default:
 			panic(fmt.Sprintf("unknown component: %s", reflect.TypeOf(d).String()))
@@ -81,15 +81,15 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 // TypeChecker embodies information needed for type checking a given program.
 type TypeChecker struct {
 	program ast.Program
-	env     data.Environment[symbol.Resolved]
+	env     data.ResolvedEnvironment
 	srcmaps source.Maps[any]
 }
 
-func (p *TypeChecker) lookup(id symbol.Resolved) ast.Declaration {
+func (p *TypeChecker) lookup(id symbol.Resolved) decl.Resolved {
 	return p.program.Component(id.Index)
 }
 
-func (p *TypeChecker) typeConstant(c ast.Constant) []source.SyntaxError {
+func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError {
 	var (
 		rhs, errors = p.typeExpression(c.ConstExpr, variable.ArrayMap[symbol.Resolved]())
 	)
@@ -97,13 +97,14 @@ func (p *TypeChecker) typeConstant(c ast.Constant) []source.SyntaxError {
 	if len(errors) != 0 {
 		return errors
 	} else if !data.SubtypeOf(rhs, c.DataType, p.env) {
-		return p.srcmaps.SyntaxErrors(c.ConstExpr, fmt.Sprintf("expected %s (found %s)", c.DataType.String(), rhs.String()))
+		return p.srcmaps.SyntaxErrors(c.ConstExpr,
+			fmt.Sprintf("expected %s (found %s)", c.DataType.String(p.env), rhs.String(p.env)))
 	}
 	//
 	return nil
 }
 
-func (p *TypeChecker) typeFunction(fn ast.Function) []source.SyntaxError {
+func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxError {
 	var errors []source.SyntaxError
 
 	for _, s := range fn.Code {
@@ -193,7 +194,7 @@ func (p *TypeChecker) typeIfGoto(s *stmt.IfGoto[symbol.Resolved], env VariableMa
 	return p.typeCondition(s.Cond, env)
 }
 
-func (p *TypeChecker) typeCondition(e ast.Condition, env VariableMap) []source.SyntaxError {
+func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap) []source.SyntaxError {
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
 		return p.typeCmp(e, env)
@@ -208,22 +209,22 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap) []s
 		rhs, rerrs = p.typeExpression(e.Right, env)
 	)
 	// Check left-hand side
-	if len(lerrs) == 0 && lhs.AsUint() == nil {
+	if len(lerrs) == 0 && lhs.AsUint(p.env) == nil {
 		lerrs = p.srcmaps.SyntaxErrors(e.Left, "expected uint")
 	}
 	// Check right-hand side
-	if len(rerrs) == 0 && rhs.AsUint() == nil {
+	if len(rerrs) == 0 && rhs.AsUint(p.env) == nil {
 		rerrs = p.srcmaps.SyntaxErrors(e.Right, "expected uint")
 	}
 	// Check matching types
 	if len(lerrs)+len(rerrs) == 0 && !data.SubtypeOf(lhs, rhs, p.env) && !data.SubtypeOf(rhs, lhs, p.env) {
-		return p.srcmaps.SyntaxErrors(e.Right, fmt.Sprintf("expected type %s", lhs.String()))
+		return p.srcmaps.SyntaxErrors(e.Right, fmt.Sprintf("expected type %s", lhs.String(p.env)))
 	}
 	//
 	return append(lerrs, rerrs...)
 }
 
-func (p *TypeChecker) typeExpression(e ast.Expr, env VariableMap) (t Type, errs []source.SyntaxError) {
+func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, errs []source.SyntaxError) {
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
@@ -246,7 +247,7 @@ func (p *TypeChecker) typeExpression(e ast.Expr, env VariableMap) (t Type, errs 
 	return t, errs
 }
 
-func (p *TypeChecker) typeExpressions(exprs []ast.Expr, env VariableMap) ([]Type, []source.SyntaxError) {
+func (p *TypeChecker) typeExpressions(exprs []expr.Resolved, env VariableMap) ([]Type, []source.SyntaxError) {
 	var (
 		types  = make([]Type, len(exprs))
 		errors []source.SyntaxError
@@ -263,7 +264,7 @@ func (p *TypeChecker) typeExpressions(exprs []ast.Expr, env VariableMap) ([]Type
 	return types, errors
 }
 
-func (p *TypeChecker) typeArithmeticExpression(exprs []ast.Expr, env VariableMap) (Type, []source.SyntaxError) {
+func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env VariableMap) (Type, []source.SyntaxError) {
 	var (
 		args, errs = p.typeExpressions(exprs, env)
 		res        Type
@@ -274,12 +275,13 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []ast.Expr, env VariableMap
 	}
 	//
 	for i, t := range args {
-		if i == 0 && t.AsUint() == nil {
+		if i == 0 && t.AsUint(p.env) == nil {
 			return nil, p.srcmaps.SyntaxErrors(exprs[i], "expected uint")
 		} else if i == 0 {
 			res = t
 		} else if !data.SubtypeOf(res, t, p.env) && !data.SubtypeOf(t, res, p.env) {
-			return nil, p.srcmaps.SyntaxErrors(exprs[i], fmt.Sprintf("expected type %s", res.String()))
+			return nil, p.srcmaps.SyntaxErrors(exprs[i],
+				fmt.Sprintf("expected type %s", res.String(p.env)))
 		}
 	}
 	//
@@ -306,23 +308,23 @@ func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], en
 	var extern = p.lookup(e.Name)
 	// Decide what kind of symbol it is
 	switch t := extern.(type) {
-	case *ast.Constant:
+	case *decl.ResolvedConstant:
 		return p.typeConstantAccess(t, e, env)
-	case *ast.Memory:
+	case *decl.ResolvedMemory:
 		return p.typeMemoryAccess(t, e, env)
-	case *ast.Function:
+	case *decl.ResolvedFunction:
 		return p.typeFunctionAccess(t, e, env)
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown symbol type")
 	}
 }
-func (p *TypeChecker) typeConstantAccess(c *ast.Constant, e *expr.ExternAccess[symbol.Resolved], env VariableMap,
-) (Type, []source.SyntaxError) {
+func (p *TypeChecker) typeConstantAccess(c *decl.ResolvedConstant, e *expr.ExternAccess[symbol.Resolved],
+	env VariableMap) (Type, []source.SyntaxError) {
 	return c.DataType, nil
 }
 
-func (p *TypeChecker) typeMemoryAccess(c *ast.Memory, e *expr.ExternAccess[symbol.Resolved], env VariableMap,
-) (Type, []source.SyntaxError) {
+func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAccess[symbol.Resolved],
+	env VariableMap) (Type, []source.SyntaxError) {
 	var args, errs = p.typeExpressions(e.Args, env)
 	//
 	if len(args) != len(c.Address) {
@@ -333,7 +335,8 @@ func (p *TypeChecker) typeMemoryAccess(c *ast.Memory, e *expr.ExternAccess[symbo
 		for i := range args {
 			ith := c.Address[i].DataType
 			if !data.SubtypeOf(args[i], ith, p.env) {
-				errs = append(errs, *p.srcmaps.SyntaxError(e.Args[i], fmt.Sprintf("expected type %s", ith.String())))
+				errs = append(errs, *p.srcmaps.SyntaxError(e.Args[i],
+					fmt.Sprintf("expected type %s", ith.String(p.env))))
 			}
 		}
 	}
@@ -341,7 +344,7 @@ func (p *TypeChecker) typeMemoryAccess(c *ast.Memory, e *expr.ExternAccess[symbo
 	return variable.DescriptorsToType(c.Data...), errs
 }
 
-func (p *TypeChecker) typeFunctionAccess(c *ast.Function, e *expr.ExternAccess[symbol.Resolved], env VariableMap,
-) (Type, []source.SyntaxError) {
+func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.ExternAccess[symbol.Resolved],
+	env VariableMap) (Type, []source.SyntaxError) {
 	panic("todo --- function accesses")
 }

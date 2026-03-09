@@ -33,6 +33,6 @@ func Flattern[S symbol.Symbol[S]](t Type[S], prefix string, env Environment[S],
 		}
 	default:
 		//
-		panic(fmt.Sprintf("unknown type encountered: %s", t.String()))
+		panic(fmt.Sprintf("unknown type encountered: %s", t.String(env)))
 	}
 }

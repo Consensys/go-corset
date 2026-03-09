@@ -12,45 +12,43 @@ package decl
 
 import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// ResolvedConstant represents a constant whose expression uses only external
+// ResolvedType represents a type whose contents uses only external
 // identifiers which are resolved. As such, it should not be possible that such
 // a declaration refers to unknown (or otherwise incorrect) external components.
-type ResolvedConstant = Constant[symbol.Resolved]
+type ResolvedType = Type[symbol.Resolved]
 
-// UnresolvedConstant represents a constant whose expression may  contain string
+// UnresolvedType represents a type whose contents may contain string
 // identifiers for external (i.e. unlinked) components.  As such, its possible
 // that such an expression may fail with an error at link time due to an
 // unresolvable reference to an external component (e.g. function, RAM, ROM,
 // etc).
-type UnresolvedConstant = Constant[symbol.Unresolved]
+type UnresolvedType = Type[symbol.Unresolved]
 
-// Constant represents a named constant at the source level.
-type Constant[S symbol.Symbol[S]] struct {
-	name      string
-	DataType  data.Type[S]
-	ConstExpr expr.Expr[S]
+// Type represents a type alias at the source level.
+type Type[S symbol.Symbol[S]] struct {
+	name     string
+	DataType data.Type[S]
 }
 
-// NewConstant creates a new named constant in a given base
-func NewConstant[S symbol.Symbol[S]](name string, datatype data.Type[S], constexpr expr.Expr[S]) *Constant[S] {
-	return &Constant[S]{name, datatype, constexpr}
+// NewType creates a new named type over arbitrary symbol identifiers.
+func NewType[S symbol.Symbol[S]](name string, datatype data.Type[S]) *Type[S] {
+	return &Type[S]{name, datatype}
 }
 
 // Arity implementation for Declaration interface
-func (p *Constant[S]) Arity() (nInputs, nOutputs uint) {
+func (p *Type[S]) Arity() (nInputs, nOutputs uint) {
 	return 0, 0
 }
 
 // Name implementation for AssemblyComponent interface
-func (p *Constant[I]) Name() string {
+func (p *Type[I]) Name() string {
 	return p.name
 }
 
 // Externs implementation for Declaration interface.
-func (p *Constant[I]) Externs() []I {
+func (p *Type[I]) Externs() []I {
 	return nil
 }

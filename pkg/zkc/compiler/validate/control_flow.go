@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
@@ -34,11 +35,11 @@ func ControlFlow(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxE
 	//
 	for _, d := range program.Components() {
 		switch d := d.(type) {
-		case *ast.Constant:
+		case *decl.ResolvedConstant:
 			// ignore
-		case *ast.Function:
+		case *decl.ResolvedFunction:
 			errors = append(errors, validateFunctionFlow(*d, srcmaps)...)
-		case *ast.Memory:
+		case *decl.ResolvedMemory:
 			// ignore
 		default:
 			panic(fmt.Sprintf("unknown component: %s", reflect.TypeOf(d).String()))
@@ -48,7 +49,7 @@ func ControlFlow(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxE
 	return errors
 }
 
-func validateFunctionFlow(fn ast.Function, srcmaps source.Maps[any]) []source.SyntaxError {
+func validateFunctionFlow(fn decl.ResolvedFunction, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
 		n          = uint(len(fn.Code))
 		errors     []source.SyntaxError
@@ -81,7 +82,7 @@ func validateFunctionFlow(fn ast.Function, srcmaps source.Maps[any]) []source.Sy
 
 // Abstractly execute a given vector instruction with respect to a given state
 // at the beginning of the instruction.
-func applyInstructionSemantics(worklist *Worklist, fn ast.Function, srcmaps source.Maps[any],
+func applyInstructionSemantics(worklist *Worklist, fn decl.ResolvedFunction, srcmaps source.Maps[any],
 ) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError
@@ -121,7 +122,7 @@ func applyInstructionSemantics(worklist *Worklist, fn ast.Function, srcmaps sour
 
 // Apply the dataflow transfer function (i.e. the effects of given instruction
 // on the record of which registesr are definitely assigned).
-func applyInstructionFlow(stmt ast.Stmt, state bit.Set, fn ast.Function,
+func applyInstructionFlow(stmt stmt.Resolved, state bit.Set, fn decl.ResolvedFunction,
 	srcmaps source.Maps[any]) (bit.Set, []source.SyntaxError) {
 	//
 	var errors []source.SyntaxError
@@ -144,7 +145,7 @@ func applyInstructionFlow(stmt ast.Stmt, state bit.Set, fn ast.Function,
 
 // Check that all output registers have been definitely assigned at the point of
 // a return.
-func checkOutputsAssigned(stmt ast.Stmt, state bit.Set, fn ast.Function,
+func checkOutputsAssigned(stmt stmt.Resolved, state bit.Set, fn decl.ResolvedFunction,
 	srcmaps source.Maps[any]) []source.SyntaxError {
 	//
 	var errors []source.SyntaxError

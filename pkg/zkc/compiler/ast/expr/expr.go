@@ -24,6 +24,18 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
+// Resolved represents an expression whose external identifiers are otherwise
+// resolved. As such, it should not be possible that such a declaration refers
+// to unknown (or otherwise incorrect) external components.
+type Resolved = Expr[symbol.Resolved]
+
+// Unresolved represents an expression whose identifiers for external components
+// are unresolved linkage records.  As such, its possible that such an
+// expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type Unresolved = Expr[symbol.Unresolved]
+
 // Expr represents an arbitrary expression used within an instruction.
 type Expr[S symbol.Symbol[S]] interface {
 	// ExternUses returns the set of non-local declarations accessed by this

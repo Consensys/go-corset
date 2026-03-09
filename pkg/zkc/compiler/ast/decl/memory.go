@@ -45,6 +45,17 @@ const (
 	RANDOM_ACCESS_MEMORY = 6
 )
 
+// ResolvedMemory represents a memory whose external identifiers are otherwise resolved.
+// As such, it should not be possible that such a declaration refers to unknown
+// (or otherwise incorrect) external components.
+type ResolvedMemory = Memory[symbol.Resolved]
+
+// UnresolvedMemory represents a memory which contains string identifiers
+// for external (i.e. unlinked) components.  As such, its possible that such a
+// memory may fail with an error at link time due to an unresolvable
+// reference to an external component (e.g. function, RAM, ROM, etc).
+type UnresolvedMemory = Memory[symbol.Unresolved]
+
 // Memory represents a declaration of some form of memory, such as random
 // access, read only, etc.
 type Memory[S symbol.Symbol[S]] struct {
@@ -75,13 +86,15 @@ func NewMemory[S symbol.Symbol[S]](name string, kind MemoryKind, address []varia
 }
 
 // NewRandomAccessMemory constructs a new random access memory.
-func NewRandomAccessMemory[S symbol.Symbol[S]](name string, address []variable.Descriptor[S], data []variable.Descriptor[S]) *Memory[S] {
+func NewRandomAccessMemory[S symbol.Symbol[S]](name string, address []variable.Descriptor[S],
+	data []variable.Descriptor[S]) *Memory[S] {
+	//
 	return &Memory[S]{name: name, Kind: RANDOM_ACCESS_MEMORY, Address: address, Data: data}
 }
 
 // NewReadOnlyMemory constructs a new read-only access memory.
-func NewReadOnlyMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S], data []variable.Descriptor[S],
-) *Memory[S] {
+func NewReadOnlyMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S],
+	data []variable.Descriptor[S]) *Memory[S] {
 	if public {
 		return &Memory[S]{name: name, Kind: PUBLIC_READ_ONLY_MEMORY, Address: address, Data: data}
 	}
@@ -90,8 +103,8 @@ func NewReadOnlyMemory[S symbol.Symbol[S]](public bool, name string, address []v
 }
 
 // NewWriteOnceMemory constructs a new write-once memory.
-func NewWriteOnceMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S], data []variable.Descriptor[S],
-) *Memory[S] {
+func NewWriteOnceMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S],
+	data []variable.Descriptor[S]) *Memory[S] {
 	if public {
 		return &Memory[S]{name: name, Kind: PUBLIC_WRITE_ONCE_MEMORY, Address: address, Data: data}
 	}
@@ -100,8 +113,8 @@ func NewWriteOnceMemory[S symbol.Symbol[S]](public bool, name string, address []
 }
 
 // NewStaticMemory constructs a new static memory.
-func NewStaticMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S], data []variable.Descriptor[S],
-	contents []big.Int) *Memory[S] {
+func NewStaticMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S],
+	data []variable.Descriptor[S], contents []big.Int) *Memory[S] {
 	//
 	if public {
 		return &Memory[S]{name: name, Kind: PUBLIC_STATIC_MEMORY, Address: address, Data: data, Contents: contents}

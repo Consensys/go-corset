@@ -28,7 +28,7 @@ func NewUnsignedInt[S symbol.Symbol[S]](bitwidth uint, open bool) *UnsignedInt[S
 }
 
 // AsUint implementation for Type interface
-func (p *UnsignedInt[S]) AsUint() *UnsignedInt[S] {
+func (p *UnsignedInt[S]) AsUint(Environment[S]) *UnsignedInt[S] {
 	return p
 }
 
@@ -38,12 +38,7 @@ func (p *UnsignedInt[S]) IsOpen() bool {
 }
 
 // Width returns the width of this unsigned int type (e.g. 8 for u8, etc)
-func (p *UnsignedInt[S]) Width() uint {
-	return p.bitwidth
-}
-
-// BitWidth implementation for Type interface
-func (p *UnsignedInt[S]) BitWidth(Environment[S]) uint {
+func (p *UnsignedInt[S]) BitWidth() uint {
 	return p.bitwidth
 }
 
@@ -52,7 +47,12 @@ func (p *UnsignedInt[S]) Flattern(prefix string, env Environment[S], constructor
 
 }
 
-func (p *UnsignedInt[S]) String() string {
+// AsTuple implementation for Type interface
+func (p *UnsignedInt[S]) AsTuple(Environment[S]) *Tuple[S] {
+	return nil
+}
+
+func (p *UnsignedInt[S]) String(_ Environment[S]) string {
 	if p.open {
 		return fmt.Sprintf("u%d+", p.bitwidth)
 	}

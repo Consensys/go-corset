@@ -17,6 +17,18 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
+// ResolvedFunction represents a function which contains instructions whose
+// external identifiers are otherwise resolved. As such, it should not be
+// possible that such a declaration refers to unknown (or otherwise incorrect)
+// external components.
+type ResolvedFunction = Function[symbol.Resolved]
+
+// UnresolvedFunction represents a function which contains string identifiers
+// for external (i.e. unlinked) components.  As such, its possible that such a
+// function may fail with an error at link time due to an unresolvable
+// reference to an external component (e.g. function, RAM, ROM, etc).
+type UnresolvedFunction = Function[symbol.Unresolved]
+
 // Function contains information about an executable function in the system.  A
 // function has one or more variables where: the first n are the parameters; the
 // next m are the returns; and all remaining registers are internal.
@@ -43,13 +55,13 @@ type Function[S symbol.Symbol[S]] struct {
 }
 
 // NewFunction constructs a new function with the given variables and code
-func NewFunction[S symbol.Symbol[S]](name string, variables []variable.Descriptor[S], code []stmt.Stmt[S]) *Function[S] {
+func NewFunction[S symbol.Symbol[S]](name string, vars []variable.Descriptor[S], code []stmt.Stmt[S]) *Function[S] {
 	var (
-		numInputs  = array.CountMatching(variables, func(r variable.Descriptor[S]) bool { return r.IsParameter() })
-		numOutputs = array.CountMatching(variables, func(r variable.Descriptor[S]) bool { return r.IsReturn() })
+		numInputs  = array.CountMatching(vars, func(r variable.Descriptor[S]) bool { return r.IsParameter() })
+		numOutputs = array.CountMatching(vars, func(r variable.Descriptor[S]) bool { return r.IsReturn() })
 	)
 	//
-	return &Function[S]{name, variables, numInputs, numOutputs, code}
+	return &Function[S]{name, vars, numInputs, numOutputs, code}
 }
 
 // Arity implementation for Declaration interface

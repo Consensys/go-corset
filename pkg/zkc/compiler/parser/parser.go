@@ -22,7 +22,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
@@ -54,7 +53,7 @@ type VariableDescriptor = variable.Descriptor[symbol.Unresolved]
 type UnlinkedSourceFile struct {
 	Includes []*string
 	// Components making up this assembly item.
-	Components []ast.UnresolvedDeclaration
+	Components []decl.Unresolved
 	// Mapping of instructions back to the source file.
 	SourceMap source.Map[any]
 }
@@ -100,7 +99,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		item      UnlinkedSourceFile
 		include   *string
 		errors    []source.SyntaxError
-		component ast.UnresolvedDeclaration
+		component decl.Unresolved
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
@@ -142,7 +141,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 	return item, nil
 }
 
-func (p *Parser) parseConstant() (ast.UnresolvedDeclaration, []source.SyntaxError) {
+func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
 	var (
 		start    = p.index
 		errs     []source.SyntaxError
@@ -195,12 +194,12 @@ func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 	return pStr, errs
 }
 
-func (p *Parser) parseFunction() (ast.UnresolvedDeclaration, []source.SyntaxError) {
+func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 	var (
 		start    = p.index
 		env      Environment
 		name     string
-		code     []ast.UnresolvedInstruction
+		code     []stmt.Unresolved
 		errs     []source.SyntaxError
 		returned bool
 	)
@@ -289,7 +288,7 @@ func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.Sy
 	return nil
 }
 
-func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.SyntaxError) {
+func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError) {
 	var (
 		public  bool
 		input   bool
@@ -344,7 +343,7 @@ func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.S
 	return mem, nil
 }
 
-func (p *Parser) parseReadWriteMemory() (ast.UnresolvedDeclaration, []source.SyntaxError) {
+func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) {
 	var (
 		name    string
 		errs    []source.SyntaxError
@@ -446,11 +445,11 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 }
 
 func (p *Parser) parseStatementBlock(pc uint, env *Environment,
-) (bool, []ast.UnresolvedInstruction, []source.SyntaxError) {
+) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	//
 	var (
 		errs     []source.SyntaxError
-		insns    []ast.UnresolvedInstruction
+		insns    []stmt.Unresolved
 		returned bool
 	)
 	// Parse start of block
@@ -460,7 +459,7 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment,
 	// Parse instructions until end of block
 	for p.lookahead().Kind != RCURLY {
 		var (
-			ith []ast.UnresolvedInstruction
+			ith []stmt.Unresolved
 			ret bool
 		)
 		//
@@ -480,13 +479,13 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment,
 	return returned, insns, errs
 }
 
-func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
 		// Save current position for backtracking
 		start    = p.index
 		errs     []source.SyntaxError
-		insns    []ast.UnresolvedInstruction
-		insn     ast.UnresolvedInstruction
+		insns    []stmt.Unresolved
+		insn     stmt.Unresolved
 		returned bool
 	)
 	//
@@ -524,7 +523,7 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []ast.Unresolv
 	return returned, insns, errs
 }
 
-func (p *Parser) parseAssignment(env *Environment) (ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseAssignment(env *Environment) (stmt.Unresolved, []source.SyntaxError) {
 	var (
 		lhs  []LVal
 		rhs  Expr
@@ -548,13 +547,13 @@ func (p *Parser) parseAssignment(env *Environment) (ast.UnresolvedInstruction, [
 	return &stmt.Assign[symbol.Unresolved]{Targets: lhs, Source: rhs}, nil
 }
 
-func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs              []source.SyntaxError
 		cond              Condition
-		insns             = []ast.UnresolvedInstruction{nil}
-		trueBranch        []ast.UnresolvedInstruction
-		falseBranch       []ast.UnresolvedInstruction
+		insns             = []stmt.Unresolved{nil}
+		trueBranch        []stmt.Unresolved
+		falseBranch       []stmt.Unresolved
 		trueRet, falseRet bool
 	)
 	// Match if
@@ -601,12 +600,12 @@ func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []ast.UnresolvedI
 	return trueRet && falseRet, insns, nil
 }
 
-func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs  []source.SyntaxError
 		cond  Condition
-		insns = []ast.UnresolvedInstruction{nil}
-		body  []ast.UnresolvedInstruction
+		insns = []stmt.Unresolved{nil}
+		body  []stmt.Unresolved
 	)
 	// Match while
 	if _, errs = p.expect(KEYWORD_WHILE); len(errs) > 0 {
@@ -630,13 +629,13 @@ func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []ast.UnresolvedIn
 	return false, insns, nil
 }
 
-func (p *Parser) parseFor(pc uint, env *Environment) (bool, []ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseFor(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs []source.SyntaxError
-		init ast.UnresolvedInstruction
+		init stmt.Unresolved
 		cond Condition
-		post ast.UnresolvedInstruction
-		body []ast.UnresolvedInstruction
+		post stmt.Unresolved
+		body []stmt.Unresolved
 	)
 	// Match 'for'
 	if _, errs = p.expect(KEYWORD_FOR); len(errs) > 0 {
@@ -675,7 +674,7 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []ast.UnresolvedInst
 		return false, nil, errs
 	}
 	// Build the instruction sequence
-	insns := make([]ast.UnresolvedInstruction, 0, len(body)+4)
+	insns := make([]stmt.Unresolved, 0, len(body)+4)
 	insns = append(insns, init)
 	insns = append(insns, nil) // placeholder for if-goto at condPC
 	insns = append(insns, body...)
@@ -691,7 +690,7 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []ast.UnresolvedInst
 // parseForInit parses the initialiser of a for loop.  It accepts either an
 // inline variable declaration of the form "name:type = expr" or a plain
 // assignment to an already-declared variable.
-func (p *Parser) parseForInit(env *Environment) (ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseForInit(env *Environment) (stmt.Unresolved, []source.SyntaxError) {
 	// Detect "name:type = expr" by peeking one token ahead.
 	if p.index+1 < len(p.tokens) &&
 		p.tokens[p.index].Kind == IDENTIFIER &&
@@ -734,7 +733,7 @@ func (p *Parser) parseForInit(env *Environment) (ast.UnresolvedInstruction, []so
 	return p.parseAssignment(env)
 }
 
-func (p *Parser) parseReturn(env *Environment) (bool, ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseReturn(env *Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	if _, errs := p.expect(KEYWORD_RETURN); len(errs) > 0 {
 		return true, nil, errs
 	}
@@ -742,14 +741,14 @@ func (p *Parser) parseReturn(env *Environment) (bool, ast.UnresolvedInstruction,
 	return true, &stmt.Return[symbol.Unresolved]{}, nil
 }
 
-func (p *Parser) parseFail(env *Environment) (bool, ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseFail(env *Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	if _, errs := p.expect(KEYWORD_FAIL); len(errs) > 0 {
 		return true, nil, errs
 	}
 	//
 	return true, &stmt.Fail[symbol.Unresolved]{}, nil
 }
-func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []source.SyntaxError) {
+func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs  []source.SyntaxError
 		names []string
@@ -809,7 +808,7 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 		Source:  rhs,
 	}
 	//
-	return []ast.UnresolvedInstruction{insn}, nil
+	return []stmt.Unresolved{insn}, nil
 }
 
 func (p *Parser) parseCondition(env *Environment) (Condition, []source.SyntaxError) {

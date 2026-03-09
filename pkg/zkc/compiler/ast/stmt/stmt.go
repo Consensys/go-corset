@@ -17,6 +17,17 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
+// Resolved represents a macro instruction  where external identifiers
+// are otherwise resolved. As such, it should not be possible that such a
+// declaration refers to unknown (or otherwise incorrect) external components.
+type Resolved = Stmt[symbol.Resolved]
+
+// Unresolved represents a statement whose identifiers for external components
+// are unresolved linkage records.  As such, its possible that such a
+// instruction may fail with an error at link time due to an unresolvable
+// reference to an external component (e.g. function, RAM, ROM, etc).
+type Unresolved = Stmt[symbol.Unresolved]
+
 // Stmt provides an abstract notion of a macro "machine instruction".
 // Here, macro is intended to imply that the instruction may break down into
 // multiple underlying "micro instructions".

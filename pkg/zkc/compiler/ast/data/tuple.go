@@ -29,9 +29,24 @@ func NewTuple[S symbol.Symbol[S]](elements ...Type[S]) *Tuple[S] {
 	return &Tuple[S]{elements}
 }
 
+// AsTuple implementation for Type interface
+func (p *Tuple[S]) AsTuple(Environment[S]) *Tuple[S] {
+	return p
+}
+
 // AsUint implementation for Type interface
-func (p *Tuple[S]) AsUint() *UnsignedInt[S] {
+func (p *Tuple[S]) AsUint(Environment[S]) *UnsignedInt[S] {
 	return nil
+}
+
+// Ith returns the ith element in this tuple
+func (p *Tuple[S]) Ith(index uint) Type[S] {
+	return p.elements[index]
+}
+
+// Width returns the number of elements in this tuple.
+func (p *Tuple[S]) Width() uint {
+	return uint(len(p.elements))
 }
 
 // Flattern implementation for Type interface
@@ -39,7 +54,7 @@ func (p *Tuple[S]) Flattern(prefix string, env Environment[S], constructor func(
 
 }
 
-func (p *Tuple[S]) String() string {
+func (p *Tuple[S]) String(env Environment[S]) string {
 	var builder strings.Builder
 	//
 	builder.WriteString("(")
@@ -49,7 +64,7 @@ func (p *Tuple[S]) String() string {
 			builder.WriteString(",")
 		}
 		//
-		builder.WriteString(element.String())
+		builder.WriteString(element.String(env))
 	}
 	//
 	builder.WriteString(")")

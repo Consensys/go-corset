@@ -19,6 +19,18 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
+// ResolvedCondition represents a condition whose external identifiers are otherwise
+// resolved. As such, it should not be possible that such a declaration refers
+// to unknown (or otherwise incorrect) external components.
+type ResolvedCondition = Condition[symbol.Resolved]
+
+// UnresolvedCondition represents a condition whose identifiers for external
+// components are unresolved linkage records.  As such, its possible that such
+// an expression instruction may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedCondition = Condition[symbol.Unresolved]
+
 // Condition describes a logical condition which can be used as branch
 // conditions (e.g. for if/while, etc).
 type Condition[S symbol.Symbol[S]] interface {

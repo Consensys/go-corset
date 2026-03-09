@@ -11,8 +11,6 @@
 package data
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
@@ -25,7 +23,10 @@ type UnresolvedType = Type[symbol.Unresolved]
 // Type provides an abstraction over raw words which, in principle, can be used
 // to support richer forms of type (e.g. structs).
 type Type[S symbol.Symbol[S]] interface {
-	fmt.Stringer
 	// AsUint determines whether or not this is an unsigned int.
-	AsUint() *UnsignedInt[S]
+	AsUint(Environment[S]) *UnsignedInt[S]
+	// AsTuple determines whether or not this is a tuple
+	AsTuple(Environment[S]) *Tuple[S]
+	// String returns a string representation of this type.
+	String(Environment[S]) string
 }

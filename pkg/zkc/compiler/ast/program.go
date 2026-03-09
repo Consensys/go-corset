@@ -15,109 +15,12 @@ import (
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
-
-// LVal represents an lval whose external identifiers are otherwise resolved. As
-// such, it should not be possible that such a declaration refers to unknown (or
-// otherwise incorrect) external components.
-type LVal = lval.LVal[symbol.Resolved]
-
-// Expr represents an expression whose external identifiers are otherwise
-// resolved. As such, it should not be possible that such a declaration refers
-// to unknown (or otherwise incorrect) external components.
-type Expr = expr.Expr[symbol.Resolved]
-
-// Condition represents a condition whose external identifiers are otherwise
-// resolved. As such, it should not be possible that such a declaration refers
-// to unknown (or otherwise incorrect) external components.
-type Condition = expr.Condition[symbol.Resolved]
-
-// Stmt represents a macro instruction  where external identifiers
-// are otherwise resolved. As such, it should not be possible that such a
-// declaration refers to unknown (or otherwise incorrect) external components.
-type Stmt = stmt.Stmt[symbol.Resolved]
-
-// Declaration represents a declaration which can contain macro
-// instructions and where external identifiers are otherwise resolved. As such,
-// it should not be possible that such a declaration refers to unknown (or
-// otherwise incorrect) external components.
-type Declaration = decl.Declaration[symbol.Resolved]
-
-// Constant represents a constant whose expression uses only external
-// identifiers which are resolved. As such, it should not be possible that such
-// a declaration refers to unknown (or otherwise incorrect) external components.
-type Constant = decl.Constant[symbol.Resolved]
-
-// Function represents a function which contains instructions whose external
-// identifiers are otherwise resolved. As such, it should not be possible that
-// such a declaration refers to unknown (or otherwise incorrect) external
-// components.
-type Function = decl.Function[symbol.Resolved]
-
-// Memory represents a memory whose external identifiers are otherwise resolved.
-// As such, it should not be possible that such a declaration refers to unknown
-// (or otherwise incorrect) external components.
-type Memory = decl.Memory[symbol.Resolved]
-
-// UnresolvedInstruction represents an instruction whose identifiers for external
-// components are unresolved linkage records.  As such, its possible that such a
-// instruction may fail with an error at link time due to an unresolvable
-// reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedInstruction = stmt.Stmt[symbol.Unresolved]
-
-// UnresolvedDeclaration represents a declaration which contains string identifies
-// for external (i.e. unlinked) components.  As such, its possible that such a
-// declaration may fail with an error at link time due to an unresolvable
-// reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedDeclaration = decl.Declaration[symbol.Unresolved]
-
-// UnresolvedConstant represents a constant whose expression may  contain string
-// identifiers for external (i.e. unlinked) components.  As such, its possible
-// that such an expression may fail with an error at link time due to an
-// unresolvable reference to an external component (e.g. function, RAM, ROM,
-// etc).
-type UnresolvedConstant = decl.Constant[symbol.Unresolved]
-
-// UnresolvedFunction represents a function which contains string identifiers
-// for external (i.e. unlinked) components.  As such, its possible that such a
-// function may fail with an error at link time due to an unresolvable
-// reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedFunction = decl.Function[symbol.Unresolved]
-
-// UnresolvedMemory represents a memory which contains string identifiers
-// for external (i.e. unlinked) components.  As such, its possible that such a
-// memory may fail with an error at link time due to an unresolvable
-// reference to an external component (e.g. function, RAM, ROM, etc).
-type UnresolvedMemory = decl.Memory[symbol.Unresolved]
-
-// UnresolvedLVal represents an expression whose identifiers for external
-// components are unresolved linkage records.  As such, its possible that such
-// an expression instruction may fail with an error at link time due to an
-// unresolvable reference to an external component (e.g. function, RAM, ROM,
-// etc).
-type UnresolvedLVal = lval.LVal[symbol.Unresolved]
-
-// UnresolvedExpr represents an expression whose identifiers for external
-// components are unresolved linkage records.  As such, its possible that such
-// an expression instruction may fail with an error at link time due to an
-// unresolvable reference to an external component (e.g. function, RAM, ROM,
-// etc).
-type UnresolvedExpr = expr.Expr[symbol.Unresolved]
-
-// UnresolvedCondition represents a condition whose identifiers for external
-// components are unresolved linkage records.  As such, its possible that such
-// an expression instruction may fail with an error at link time due to an
-// unresolvable reference to an external component (e.g. function, RAM, ROM,
-// etc).
-type UnresolvedCondition = expr.Condition[symbol.Unresolved]
 
 // RawProgram encapsulates one of more functions together, such that one may call
 // another, etc.  Furthermore, it provides an interface between assembly
@@ -145,12 +48,20 @@ type Program struct {
 }
 
 // NewProgram constructs a new program using a given level of instruction.
-func NewProgram(components []Declaration) Program {
+func NewProgram(components []decl.Resolved) Program {
 	//
-	decls := make([]Declaration, len(components))
+	decls := make([]decl.Resolved, len(components))
 	copy(decls, components)
 
 	return Program{RawProgram[symbol.Resolved]{decls}}
+}
+
+// Environment creates a fresh environment for this program
+func (p *Program) Environment() data.ResolvedEnvironment {
+	return data.NewEnvironment(func(id symbol.Resolved) data.ResolvedType {
+		decl := p.declarations[id.Index].(*decl.ResolvedType)
+		return decl.DataType
+	})
 }
 
 // MapInputsOutputs configures a given set of input / output bytes appropriately
@@ -168,9 +79,9 @@ func (p *Program) MapInputsOutputs(input map[string][]byte) (inputs, outputs map
 	// Initialise components
 	for _, c := range p.declarations {
 		switch c := c.(type) {
-		case *Function:
+		case *decl.ResolvedFunction:
 			// ignore
-		case *Memory:
+		case *decl.ResolvedMemory:
 			// Record this memory has seen
 			visited[c.Name()] = true
 			//
@@ -206,5 +117,5 @@ func (p *Program) MapInputsOutputs(input map[string][]byte) (inputs, outputs map
 // machine which can be used (for example) to execute this program with some
 // given inputs.
 func (p *Program) Compile() *machine.Base[word.Uint] {
-	return codegen.Compile(p.declarations)
+	return codegen.Compile(p.Environment(), p.declarations)
 }

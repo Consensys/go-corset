@@ -46,7 +46,7 @@ func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environme
 	values, _ := bit.DecodeArray[[]big.Int](bitwidth, bytes, func(bytes []byte) (ints []big.Int) {
 		var reader = bit.NewReader(bytes)
 		// Decode the type using the given buffer
-		ints, buffer = decodeType(datatype, &reader, buffer)
+		ints, buffer = decodeType(datatype, &reader, buffer, env)
 		// Done
 		return ints
 	})
@@ -64,12 +64,14 @@ func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environme
 	})
 }
 
-func decodeType[S symbol.Symbol[S]](datatype Type[S], reader *bit.Reader, buffer []byte) ([]big.Int, []byte) {
+func decodeType[S symbol.Symbol[S]](datatype Type[S], reader *bit.Reader, buffer []byte,
+	env Environment[S]) ([]big.Int, []byte) {
+	//
 	switch t := datatype.(type) {
 	case *UnsignedInt[S]:
 		return decodeUnsignedInt(t.bitwidth, reader, buffer)
 	default:
-		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String()))
+		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String(env)))
 	}
 }
 
