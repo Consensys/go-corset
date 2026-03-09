@@ -72,8 +72,17 @@ func (p MirModule[F]) NewColumn(kind register.Type, name string, bitwidth uint, 
 	//
 	terms := []*term.RegisterAccess[F, mir.Term[F]]{term.RawRegisterAccess[F, mir.Term[F]](rid, bitwidth, 0)}
 	// Add corresponding range constraint to enforce bitwidth
-	p.Module.AddConstraint(
-		mir.NewRangeConstraint(name, p.Module.Id(), terms, []uint{bitwidth}))
+	switch kind {
+	case register.INPUT_REGISTER, register.OUTPUT_REGISTER, register.COMPUTED_REGISTER:
+		p.Module.AddConstraint(
+			mir.NewRangeConstraint(name, p.Module.Id(), terms, []uint{bitwidth}))
+	case register.ONE_REGISTER:
+		p.addConstantConstraint(1, rid, bitwidth)
+	case register.ZERO_REGISTER:
+		p.addConstantConstraint(0, rid, bitwidth)
+	default:
+		panic("unknown register kind encountered")
+	}
 	// Done
 	return rid
 }
@@ -128,6 +137,13 @@ func (p MirModule[F]) String() string {
 	}
 	//
 	return builder.String()
+}
+
+func (p MirModule[F]) addConstantConstraint(value uint64, rid register.Id, bitwidth uint) {
+	p.Module.AddConstraint(mir.NewVanishingConstraint("0", p.Module.Id(), util.None[int](),
+		term.Equals[F, mir.LogicalTerm[F], mir.Term[F]](
+			term.NewRegisterAccess[F, mir.Term[F]](rid, bitwidth, 0),
+			term.Const64[F, mir.Term[F]](value))))
 }
 
 // MirExpr is a wrapper around a corset expression which provides the
