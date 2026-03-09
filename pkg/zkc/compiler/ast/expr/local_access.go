@@ -13,8 +13,6 @@
 package expr
 
 import (
-	"math"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -22,43 +20,28 @@ import (
 )
 
 // LocalAccess represents a register access within an expresion.
-type LocalAccess[I symbol.Symbol[I]] struct {
-	bitwidth uint
+type LocalAccess[S symbol.Symbol[S]] struct {
 	Variable variable.Id
 }
 
 // NewLocalAccess constructs an expression representing a register access.
-func NewLocalAccess[I symbol.Symbol[I]](variable variable.Id) Expr[I] {
-	return &LocalAccess[I]{Variable: variable, bitwidth: math.MaxUint}
-}
-
-// BitWidth implementation for Expr interface
-func (p *LocalAccess[I]) BitWidth() uint {
-	if p.bitwidth == math.MaxUint {
-		panic("untyped expression")
-	}
-	//
-	return p.bitwidth
-}
-
-// SetBitWidth sets the (positive) bitwidth.
-func (p *LocalAccess[I]) SetBitWidth(bitwidth uint) {
-	p.bitwidth = bitwidth
+func NewLocalAccess[S symbol.Symbol[S]](variable variable.Id) Expr[S] {
+	return &LocalAccess[S]{Variable: variable}
 }
 
 // ExternUses implementation for the Expr interface.
-func (p *LocalAccess[I]) ExternUses() set.AnySortedSet[I] {
+func (p *LocalAccess[S]) ExternUses() set.AnySortedSet[S] {
 	return nil
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *LocalAccess[I]) LocalUses() bit.Set {
+func (p *LocalAccess[S]) LocalUses() bit.Set {
 	var read bit.Set
 	read.Insert(p.Variable)
 	//
 	return read
 }
 
-func (p *LocalAccess[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *LocalAccess[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
 }

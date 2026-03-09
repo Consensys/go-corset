@@ -20,33 +20,33 @@ import (
 )
 
 // Variable represents a register access within an expresion.
-type Variable[I symbol.Symbol[I]] struct {
+type Variable[S symbol.Symbol[S]] struct {
 	Id variable.Id
 }
 
 // NewVariable constructs an expression representing a register access.
-func NewVariable[I symbol.Symbol[I]](variable variable.Id) LVal[I] {
-	return &Variable[I]{Id: variable}
+func NewVariable[S symbol.Symbol[S]](variable variable.Id) LVal[S] {
+	return &Variable[S]{Id: variable}
 }
 
 // ExternUses implementation for the LVal interface.
-func (p *Variable[I]) ExternUses() set.AnySortedSet[I] {
+func (p *Variable[S]) ExternUses() set.AnySortedSet[S] {
 	return nil
 }
 
 // LocalUses implementation for the LVal interface.
-func (p *Variable[I]) LocalUses() bit.Set {
+func (p *Variable[S]) LocalUses() bit.Set {
 	return bit.Set{}
 }
 
 // LocalDefs implementation for the LVal interface.
-func (p *Variable[I]) LocalDefs() bit.Set {
+func (p *Variable[S]) LocalDefs() bit.Set {
 	var read bit.Set
 	read.Insert(p.Id)
 	//
 	return read
 }
 
-func (p *Variable[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *Variable[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
 }

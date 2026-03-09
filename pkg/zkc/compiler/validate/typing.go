@@ -14,17 +14,16 @@ package validate
 
 import (
 	"fmt"
-	"math/big"
 	"reflect"
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/validate/typing"
 )
 
 // Stmt is a convenient alias.
@@ -32,6 +31,12 @@ type Stmt = stmt.Stmt[symbol.Resolved]
 
 // LVal is a convenient alias.
 type LVal = lval.LVal[symbol.Resolved]
+
+// Type is a convenient alias.
+type Type = data.Type[symbol.Resolved]
+
+// VariableMap is a convenient alias.
+type VariableMap = variable.Map[symbol.Resolved]
 
 // Typing validates that each declaration in a program is "correctly typed". For
 // example, the following constant declaration is ill-typed:
@@ -52,8 +57,9 @@ type LVal = lval.LVal[symbol.Resolved]
 // make sense.
 func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
+		env    data.Environment[symbol.Resolved]
 		errors []source.SyntaxError
-		typer  = TypeChecker{program, srcmaps}
+		typer  = TypeChecker{program, env, srcmaps}
 	)
 	//
 	for _, d := range program.Components() {
@@ -75,6 +81,7 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 // TypeChecker embodies information needed for type checking a given program.
 type TypeChecker struct {
 	program ast.Program
+	env     data.Environment[symbol.Resolved]
 	srcmaps source.Maps[any]
 }
 
@@ -84,14 +91,13 @@ func (p *TypeChecker) lookup(id symbol.Resolved) ast.Declaration {
 
 func (p *TypeChecker) typeConstant(c ast.Constant) []source.SyntaxError {
 	var (
-		lhs_bits    = c.DataType.BitWidth()
-		rhs, errors = p.typeExpression(c.ConstExpr, variable.ArrayMap())
+		rhs, errors = p.typeExpression(c.ConstExpr, variable.ArrayMap[symbol.Resolved]())
 	)
 	// Sanity check
 	if len(errors) != 0 {
 		return errors
-	} else if rhs_bits := rhs.AsUint().BitWidth(); lhs_bits < rhs_bits {
-		return p.srcmaps.SyntaxErrors(c.ConstExpr, fmt.Sprintf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits))
+	} else if !data.SubtypeOf(rhs, c.DataType, p.env) {
+		return p.srcmaps.SyntaxErrors(c.ConstExpr, fmt.Sprintf("%s not subtype of %s", rhs.String(), c.DataType.String()))
 	}
 	//
 	return nil
@@ -112,37 +118,54 @@ func (p *TypeChecker) typeFunction(fn ast.Function) []source.SyntaxError {
 	return errors
 }
 
-func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env variable.Map) []source.SyntaxError {
+func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env VariableMap) []source.SyntaxError {
 	var (
-		lhs_bits    uint
-		rhs, errors = p.typeExpression(s.Source, env)
+		errors  []source.SyntaxError
+		sources = []expr.Expr[symbol.Resolved]{s.Source}
 	)
-	// determine lhs width
-	for _, target := range s.Targets {
-		switch t := target.(type) {
-		case *lval.Variable[symbol.Resolved]:
-			lhs_bits += env.Variable(t.Id).BitWidth()
-		case *lval.MemAccess[symbol.Resolved]:
-			panic("todo")
-		default:
-			panic("unknown lval encountered")
+	// Sanity check assignment arity
+	if len(s.Targets) < len(sources) {
+		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("insufficient target variables (expected %d)", len(sources)))
+	} else if len(s.Targets) > len(sources) {
+		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("too many target variables (expected %d)", len(sources)))
+	}
+	// Check each in turn
+	for i, lval := range s.Targets {
+		var (
+			rhs             = sources[i]
+			lval_t, lhsErrs = p.typeLval(lval, env)
+			rhs_t, rhsErrs  = p.typeExpression(rhs, env)
+		)
+		//
+		if len(lhsErrs) != 0 || len(rhsErrs) != 0 {
+			errors = append(errors, lhsErrs...)
+			errors = append(errors, rhsErrs...)
+		} else if !data.SubtypeOf(rhs_t, lval_t, p.env) {
+			err := *p.srcmaps.SyntaxError(rhs, fmt.Sprintf("cannot use %s as %s in assignment", rhs_t, lval_t))
+			errors = append(errors, err)
 		}
 	}
-	// check
-	if len(errors) != 0 {
-		return errors
-	} else if rhs_bits := rhs.AsUint().BitWidth(); lhs_bits < rhs_bits {
-		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("bit overflow (u%d into u%d)", rhs_bits, lhs_bits))
-	}
 	//
-	return checkTargets(s, env, p.srcmaps)
+	return append(errors, checkTargets(s, env, p.srcmaps)...)
+}
+
+func (p *TypeChecker) typeLval(target LVal, env VariableMap) (Type, []source.SyntaxError) {
+	// determine lhs width
+	switch t := target.(type) {
+	case *lval.Variable[symbol.Resolved]:
+		return env.Variable(t.Id).DataType, nil
+	case *lval.MemAccess[symbol.Resolved]:
+		panic("todo")
+	default:
+		return nil, p.srcmaps.SyntaxErrors(target, "unknown lval")
+	}
 }
 
 // CheckTargetRegisters performs some simple checks on a set of target registers
 // being written.  Firstly, they cannot be input registers (as this are always
 // constant).  Secondly, we cannot write to the same register more than once
 // (i.e. a conflicting write).
-func checkTargets(s *stmt.Assign[symbol.Resolved], env variable.Map, srcmaps source.Maps[any]) []source.SyntaxError {
+func checkTargets(s *stmt.Assign[symbol.Resolved], env VariableMap, srcmaps source.Maps[any]) []source.SyntaxError {
 	var targets []variable.Id
 	//
 	for _, id := range s.Targets {
@@ -166,11 +189,11 @@ func checkTargets(s *stmt.Assign[symbol.Resolved], env variable.Map, srcmaps sou
 	return nil
 }
 
-func (p *TypeChecker) typeIfGoto(s *stmt.IfGoto[symbol.Resolved], env variable.Map) []source.SyntaxError {
+func (p *TypeChecker) typeIfGoto(s *stmt.IfGoto[symbol.Resolved], env VariableMap) []source.SyntaxError {
 	return p.typeCondition(s.Cond, env)
 }
 
-func (p *TypeChecker) typeCondition(e ast.Condition, env variable.Map) []source.SyntaxError {
+func (p *TypeChecker) typeCondition(e ast.Condition, env VariableMap) []source.SyntaxError {
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
 		return p.typeCmp(e, env)
@@ -179,7 +202,7 @@ func (p *TypeChecker) typeCondition(e ast.Condition, env variable.Map) []source.
 	}
 }
 
-func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env variable.Map) []source.SyntaxError {
+func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap) []source.SyntaxError {
 	var (
 		lhs, lerrs = p.typeExpression(e.Left, env)
 		rhs, rerrs = p.typeExpression(e.Right, env)
@@ -196,28 +219,28 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env variable.Map) []
 	return append(lerrs, rerrs...)
 }
 
-func (p *TypeChecker) typeExpression(e ast.Expr, env variable.Map) (typing.Type, []source.SyntaxError) {
+func (p *TypeChecker) typeExpression(e ast.Expr, env VariableMap) (Type, []source.SyntaxError) {
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
-		return p.typeAdd(e, env)
+		return p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.Const[symbol.Resolved]:
 		return p.typeConst(e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
 		return p.typeLocalAccess(e, env)
 	case *expr.Mul[symbol.Resolved]:
-		return p.typeMul(e, env)
+		return p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.ExternAccess[symbol.Resolved]:
 		return p.typeExternAccess(e, env)
 	case *expr.Sub[symbol.Resolved]:
-		return p.typeSub(e, env)
+		return p.typeArithmeticExpression(e.Exprs, env)
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown expression")
 	}
 }
 
-func (p *TypeChecker) typeExpressions(exprs []ast.Expr, env variable.Map) ([]typing.Type, []source.SyntaxError) {
+func (p *TypeChecker) typeExpressions(exprs []ast.Expr, env VariableMap) ([]Type, []source.SyntaxError) {
 	var (
-		types  = make([]typing.Type, len(exprs))
+		types  = make([]Type, len(exprs))
 		errors []source.SyntaxError
 	)
 	//
@@ -232,10 +255,10 @@ func (p *TypeChecker) typeExpressions(exprs []ast.Expr, env variable.Map) ([]typ
 	return types, errors
 }
 
-func (p *TypeChecker) typeAdd(e *expr.Add[symbol.Resolved], env variable.Map) (typing.Type, []source.SyntaxError) {
+func (p *TypeChecker) typeArithmeticExpression(exprs []ast.Expr, env VariableMap) (Type, []source.SyntaxError) {
 	var (
-		args, errs = p.typeExpressions(e.Exprs, env)
-		max        *typing.Uint
+		args, errs = p.typeExpressions(exprs, env)
+		res        Type
 	)
 	//
 	if len(errs) > 0 {
@@ -243,68 +266,34 @@ func (p *TypeChecker) typeAdd(e *expr.Add[symbol.Resolved], env variable.Map) (t
 	}
 	//
 	for i, t := range args {
-		if ut := t.AsUint(); ut == nil {
-			return nil, p.srcmaps.SyntaxErrors(e.Exprs[i], "expected uint")
+		if i == 0 && t.AsUint() == nil {
+			return nil, p.srcmaps.SyntaxErrors(exprs[i], "expected uint")
 		} else if i == 0 {
-			max = ut
-		} else {
-			max.Add(ut)
+			res = t
+		} else if !data.SubtypeOf(res, t, p.env) && !data.SubtypeOf(t, res, p.env) {
+			return nil, p.srcmaps.SyntaxErrors(exprs[i], fmt.Sprintf("expected type %s", res.String()))
 		}
 	}
 	//
-	e.SetBitWidth(max.BitWidth())
-	//
-	return max, nil
+	return res, nil
 }
 
-func (p *TypeChecker) typeConst(e *expr.Const[symbol.Resolved], env variable.Map) (typing.Type, []source.SyntaxError) {
-	return &typing.Uint{MaxValue: e.Constant}, nil
-}
-
-func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env variable.Map,
-) (typing.Type, []source.SyntaxError) {
-	//
+func (p *TypeChecker) typeConst(e *expr.Const[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {
 	var (
-		bound    = big.NewInt(2)
-		bitwidth = env.Variable(e.Variable).BitWidth()
-	)
-	// compute 2^bitwidth
-	bound.Exp(bound, big.NewInt(int64(bitwidth)), nil)
-	// Subtract 1 because interval is inclusive.
-	bound.Sub(bound, big.NewInt(1))
-	//
-	e.SetBitWidth(bitwidth)
-	//
-	return &typing.Uint{MaxValue: *bound}, nil
-}
-
-func (p *TypeChecker) typeMul(e *expr.Mul[symbol.Resolved], env variable.Map) (typing.Type, []source.SyntaxError) {
-	var (
-		args, errs = p.typeExpressions(e.Exprs, env)
-		max        *typing.Uint
+		bitwidth = uint(e.Constant.BitLen())
 	)
 	//
-	if len(errs) > 0 {
-		return nil, errs
-	}
-	//
-	for i, t := range args {
-		if ut := t.AsUint(); ut == nil {
-			return nil, p.srcmaps.SyntaxErrors(e.Exprs[i], "expected uint")
-		} else if i == 0 {
-			max = ut
-		} else {
-			max.Mul(ut)
-		}
-	}
-	//
-	e.SetBitWidth(max.BitWidth())
-	//
-	return max, nil
+	return data.NewUnsignedInt[symbol.Resolved](bitwidth, true), nil
 }
 
-func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env variable.Map,
-) (typing.Type, []source.SyntaxError) {
+func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
+	//
+	return env.Variable(e.Variable).DataType, nil
+}
+
+func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
 	// Lookup the symbol
 	var extern = p.lookup(e.Name)
 	// Decide what kind of symbol it is
@@ -319,59 +308,17 @@ func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], en
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown symbol type")
 	}
 }
-func (p *TypeChecker) typeConstantAccess(c *ast.Constant, e *expr.ExternAccess[symbol.Resolved], env variable.Map,
-) (typing.Type, []source.SyntaxError) {
-	var bound = big.NewInt(2)
-	// NOTE: no need to sanity check expected number of arguments, as this is
-	// done during linking.
-	bitwidth := c.DataType.BitWidth()
-	// compute 2^bitwidth
-	bound.Exp(bound, big.NewInt(int64(bitwidth)), nil)
-	// Subtract 1 because interval is inclusive.
-	bound.Sub(bound, big.NewInt(1))
-	//
-	e.SetBitWidth(bitwidth)
-	//
-	return &typing.Uint{MaxValue: *bound}, nil
+func (p *TypeChecker) typeConstantAccess(c *ast.Constant, e *expr.ExternAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
+	return c.DataType, nil
 }
 
-func (p *TypeChecker) typeMemoryAccess(c *ast.Memory, e *expr.ExternAccess[symbol.Resolved], env variable.Map,
-) (typing.Type, []source.SyntaxError) {
-	// type arguments
-	_, errors := p.typeExpressions(e.Args, env)
-	// TODO: type check returns
-	return typing.FromVariables(c.Data...), errors
+func (p *TypeChecker) typeMemoryAccess(c *ast.Memory, e *expr.ExternAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
+	panic("todo")
 }
 
-func (p *TypeChecker) typeFunctionAccess(c *ast.Function, e *expr.ExternAccess[symbol.Resolved], env variable.Map,
-) (typing.Type, []source.SyntaxError) {
+func (p *TypeChecker) typeFunctionAccess(c *ast.Function, e *expr.ExternAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
 	panic("todo --- function accesses")
-}
-
-func (p *TypeChecker) typeSub(e *expr.Sub[symbol.Resolved], env variable.Map) (typing.Type, []source.SyntaxError) {
-	var (
-		args, errs = p.typeExpressions(e.Exprs, env)
-		max        *typing.Uint
-		min        *typing.Uint
-	)
-	//
-	if len(errs) > 0 {
-		return nil, errs
-	}
-	//
-	for i, t := range args {
-		if ut := t.AsUint(); ut == nil {
-			return nil, p.srcmaps.SyntaxErrors(e.Exprs[i], "expected uint")
-		} else if i == 0 {
-			max = ut
-		} else if i == 1 {
-			min = ut
-		} else {
-			min.Add(ut)
-		}
-	}
-	//
-	e.SetBitWidths(min.BitWidth(), max.BitWidth())
-	//
-	return max, nil
 }

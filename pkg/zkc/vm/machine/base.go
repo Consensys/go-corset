@@ -185,7 +185,7 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 			val = val.Add(frame[arg.Unwrap()])
 		}
 		//
-		storeAcross(frame, regs, insn.Targets, val)
+		frame[insn.Target.Unwrap()] = val
 		//
 		return true, nil
 
@@ -205,14 +205,13 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 		for i, arg := range insn.Sources {
 			address[i] = frame[arg.Unwrap()]
 		}
-		// Check for ram versus rom read
+		// Read data words from tiven address
 		data := p.Read(insn.Id, address)
-		// What is supposed to happen here??
-		if len(data) != 1 {
-			panic("todo")
+		// Write into target registers
+		for i := range data {
+			target := insn.Targets[i].Unwrap()
+			frame[target] = data[i]
 		}
-		//
-		storeAcross(frame, regs, insn.Targets, data[0])
 		//
 		return true, nil
 
@@ -249,19 +248,6 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 
 	default:
 		panic("unknown instruction encountered")
-	}
-}
-
-// Store a given value across a set of registers, splitting its bits as
-// necessary.  The target registers are given with the least significant first.
-// For example, consider writing 01100010 to registers [R1, R2] of type u4.
-// Then, after the write, we have R1=0010 and R2=0110.
-func storeAcross[W word.Word[W]](frame []W, regs []register.Register, targets []register.Id, value W) {
-	for _, r := range targets {
-		var width = regs[r.Unwrap()].Width()
-		//
-		frame[r.Unwrap()] = value.Slice(width)
-		value = value.Shr64(uint64(width))
 	}
 }
 

@@ -15,7 +15,6 @@ package stmt
 import (
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -59,23 +58,23 @@ func (p *Assign[S]) Definitions() []variable.Id {
 	return lval.Definitions(p.Targets...)
 }
 
-func (p *Assign[S]) String(mapping variable.Map) string {
+func (p *Assign[S]) String(env variable.Map[S]) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(lvalsToString[S](array.Reverse(p.Targets), mapping))
+	builder.WriteString(lvalsToString[S](env, p.Targets...))
 	builder.WriteString(" = ")
-	builder.WriteString(p.Source.String(mapping))
+	builder.WriteString(p.Source.String(env))
 	//
 	return builder.String()
 }
 
 // lvalsToString returns a string representation for zero or more registers
 // separated by a comma.
-func lvalsToString[S symbol.Symbol[S]](rids []lval.LVal[S], env variable.Map) string {
+func lvalsToString[S symbol.Symbol[S]](env variable.Map[S], lvals ...lval.LVal[S]) string {
 	var builder strings.Builder
 	//
-	for i := 0; i < len(rids); i++ {
-		var lv = rids[i]
+	for i := 0; i < len(lvals); i++ {
+		var lv = lvals[i]
 		//
 		if i != 0 {
 			builder.WriteString(", ")

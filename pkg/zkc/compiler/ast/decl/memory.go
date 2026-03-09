@@ -13,6 +13,7 @@ package decl
 import (
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
@@ -46,23 +47,23 @@ const (
 
 // Memory represents a declaration of some form of memory, such as random
 // access, read only, etc.
-type Memory[S any] struct {
+type Memory[S symbol.Symbol[S]] struct {
 	// Name given to this memory variable
 	name string
 	// Kind of memory (i.e. read-only, random access, etc)
 	Kind MemoryKind
 	// Address bus for memory (where, for random access, the first line always
 	// denotes the index type used).
-	Address []variable.Descriptor
+	Address []variable.Descriptor[S]
 	// Data bus for memory.
-	Data []variable.Descriptor
+	Data []variable.Descriptor[S]
 	// Contents (for static memory only)
 	Contents []big.Int
 }
 
 // NewMemory constructs a new memory.
-func NewMemory[S any](name string, kind MemoryKind, address []variable.Descriptor, data []variable.Descriptor,
-	contents []big.Int) *Memory[S] {
+func NewMemory[S symbol.Symbol[S]](name string, kind MemoryKind, address []variable.Descriptor[S],
+	data []variable.Descriptor[S], contents []big.Int) *Memory[S] {
 	// sanity checks
 	if contents != nil && kind != PUBLIC_STATIC_MEMORY && kind != PRIVATE_STATIC_MEMORY {
 		panic("invalid non-static memory")
@@ -74,12 +75,12 @@ func NewMemory[S any](name string, kind MemoryKind, address []variable.Descripto
 }
 
 // NewRandomAccessMemory constructs a new random access memory.
-func NewRandomAccessMemory[S any](name string, address []variable.Descriptor, data []variable.Descriptor) *Memory[S] {
+func NewRandomAccessMemory[S symbol.Symbol[S]](name string, address []variable.Descriptor[S], data []variable.Descriptor[S]) *Memory[S] {
 	return &Memory[S]{name: name, Kind: RANDOM_ACCESS_MEMORY, Address: address, Data: data}
 }
 
 // NewReadOnlyMemory constructs a new read-only access memory.
-func NewReadOnlyMemory[S any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+func NewReadOnlyMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S], data []variable.Descriptor[S],
 ) *Memory[S] {
 	if public {
 		return &Memory[S]{name: name, Kind: PUBLIC_READ_ONLY_MEMORY, Address: address, Data: data}
@@ -89,7 +90,7 @@ func NewReadOnlyMemory[S any](public bool, name string, address []variable.Descr
 }
 
 // NewWriteOnceMemory constructs a new write-once memory.
-func NewWriteOnceMemory[S any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+func NewWriteOnceMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S], data []variable.Descriptor[S],
 ) *Memory[S] {
 	if public {
 		return &Memory[S]{name: name, Kind: PUBLIC_WRITE_ONCE_MEMORY, Address: address, Data: data}
@@ -99,7 +100,7 @@ func NewWriteOnceMemory[S any](public bool, name string, address []variable.Desc
 }
 
 // NewStaticMemory constructs a new static memory.
-func NewStaticMemory[S any](public bool, name string, address []variable.Descriptor, data []variable.Descriptor,
+func NewStaticMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S], data []variable.Descriptor[S],
 	contents []big.Int) *Memory[S] {
 	//
 	if public {

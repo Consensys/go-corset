@@ -13,44 +13,23 @@ package data
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
+
+type ResolvedType = Type[symbol.Resolved]
+
+type UnresolvedType = Type[symbol.Unresolved]
 
 // Type provides an abstraction over raw words which, in principle, can be used
 // to support richer forms of type (e.g. structs).
-type Type interface {
+type Type[S symbol.Symbol[S]] interface {
 	fmt.Stringer
+	// AsUint determines whether or not this is an unsigned int.
+	AsUint() *UnsignedInt[S]
 	// Return the number of bits to represent an element of this type.
-	BitWidth() uint
+	BitWidth(Environment[S]) uint
 	// Flattern this type into a set of one or more registers, using a given
 	// prefix.  For example, a variable "x [2]u8" is flatterned into "x$0 u8"
 	// and "x$1 u8", etc.
-	Flattern(prefix string, constructor func(name string, bitwidth uint))
-}
-
-// Struct represents a (non-recursive) data structure composed of one or more
-// named fields, each of which has a declared type.
-type Struct struct {
-	Fields []util.Pair[string, Type]
-}
-
-// Flattern implementation for Type interface
-func (p *Struct) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
-	panic("todo")
-}
-
-// Array represents a fixed-size array of a given type.
-type Array struct {
-	Width   uint
-	Element Type
-}
-
-// Flattern implementation for Type interface
-func (p *Array) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
-	panic("todo")
-}
-
-// BitWidth implementation for Type interface
-func (p *Array) BitWidth() uint {
-	return p.Width * p.Element.BitWidth()
+	Flattern(prefix string, env Environment[S], constructor func(name string, bitwidth uint))
 }

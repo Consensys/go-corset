@@ -25,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -100,7 +101,7 @@ func writeDeclaration(decl ast.Declaration) {
 }
 
 func writeConstant(m *ast.Constant) {
-	var mapping = variable.ArrayMap()
+	var mapping = variable.ArrayMap[symbol.Resolved]()
 	//
 	fmt.Print("const ")
 	// type
@@ -144,7 +145,7 @@ func writeMemory(m *ast.Memory) {
 	fmt.Println()
 }
 
-func writeMemoryParams(params []variable.Descriptor) {
+func writeMemoryParams(params []variable.ResolvedDescriptor) {
 	for i, p := range params {
 		if i > 0 {
 			fmt.Printf(", ")
@@ -192,7 +193,7 @@ func writeFunction(f *ast.Function) {
 	fmt.Println("}")
 }
 
-func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
+func writeFunctionArgs(kind variable.Kind, variables []variable.ResolvedDescriptor) {
 	var first = true
 	//
 	for _, r := range variables {

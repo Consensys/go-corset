@@ -158,7 +158,10 @@ func NewProgram(components []Declaration) Program {
 // unknown or conflicting inputs / outputs, then errors are returned.
 func (p *Program) MapInputsOutputs(input map[string][]byte) (inputs, outputs map[string][]word.Uint, errs []error) {
 	//
-	var visited = make(map[string]bool)
+	var (
+		visited = make(map[string]bool)
+		env     data.Environment[symbol.Resolved]
+	)
 	// Initialise inputs / outputs
 	inputs = make(map[string][]word.Uint)
 	outputs = make(map[string][]word.Uint)
@@ -174,11 +177,11 @@ func (p *Program) MapInputsOutputs(input map[string][]byte) (inputs, outputs map
 			switch c.Kind {
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
 				if bytes, ok := input[c.Name()]; ok {
-					inputs[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes)
+					inputs[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes, env)
 				}
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
 				if bytes, ok := input[c.Name()]; ok {
-					outputs[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes)
+					outputs[c.Name()] = data.DecodeAll(variable.DescriptorsToType(c.Data...), bytes, env)
 				}
 			default:
 				if _, ok := input[c.Name()]; ok {

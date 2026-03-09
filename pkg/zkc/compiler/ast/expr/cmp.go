@@ -40,22 +40,22 @@ const (
 type CmpOp uint8
 
 // Cmp represents a comparison, such as "==", ">=", etc.
-type Cmp[I symbol.Symbol[I]] struct {
+type Cmp[S symbol.Symbol[S]] struct {
 	// Operator indicates the condition
 	Operator CmpOp
 	// Left-hand side
-	Left Expr[I]
+	Left Expr[S]
 	// Right-hand side
-	Right Expr[I]
+	Right Expr[S]
 }
 
 // NewCmp returns a freshly created comparison condition.
-func NewCmp[I symbol.Symbol[I]](op CmpOp, lhs, rhs Expr[I]) *Cmp[I] {
-	return &Cmp[I]{op, lhs, rhs}
+func NewCmp[S symbol.Symbol[S]](op CmpOp, lhs, rhs Expr[S]) *Cmp[S] {
+	return &Cmp[S]{op, lhs, rhs}
 }
 
 // Negate implementation for Condition interface.
-func (p *Cmp[I]) Negate() Condition[I] {
+func (p *Cmp[S]) Negate() Condition[S] {
 	var op CmpOp
 	//
 	switch p.Operator {
@@ -75,16 +75,16 @@ func (p *Cmp[I]) Negate() Condition[I] {
 		panic("unreachable")
 	}
 	//
-	return &Cmp[I]{op, p.Left, p.Right}
+	return &Cmp[S]{op, p.Left, p.Right}
 }
 
 // ExternUses implementation for the Condition interface.
-func (p *Cmp[I]) ExternUses() set.AnySortedSet[I] {
+func (p *Cmp[S]) ExternUses() set.AnySortedSet[S] {
 	panic("todo")
 }
 
 // LocalUses implementation for the Condition interface.
-func (p *Cmp[I]) LocalUses() bit.Set {
+func (p *Cmp[S]) LocalUses() bit.Set {
 	var reads bit.Set
 	//
 	reads.Union(p.Left.LocalUses())
@@ -93,7 +93,7 @@ func (p *Cmp[I]) LocalUses() bit.Set {
 	return reads
 }
 
-func (p *Cmp[I]) String(env variable.Map) string {
+func (p *Cmp[S]) String(env variable.Map[S]) string {
 	var (
 		l  = p.Left.String(env)
 		r  = p.Right.String(env)

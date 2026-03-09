@@ -13,8 +13,6 @@
 package expr
 
 import (
-	"math"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -22,56 +20,30 @@ import (
 )
 
 // Sub represents an expresion which subtracts zero or more terms from a given term.
-type Sub[I symbol.Symbol[I]] struct {
-	poswidth uint
-	negwidth uint
-	Exprs    []Expr[I]
+type Sub[S symbol.Symbol[S]] struct {
+	Exprs []Expr[S]
 }
 
 // NewSub constructs an expression representing the subtraction of one or more
 // values.
-func NewSub[I symbol.Symbol[I]](exprs ...Expr[I]) Expr[I] {
+func NewSub[S symbol.Symbol[S]](exprs ...Expr[S]) Expr[S] {
 	if len(exprs) == 0 {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &Sub[I]{Exprs: exprs, poswidth: math.MaxUint, negwidth: math.MaxUint}
-}
-
-// BitWidth implementation for Expr interface
-func (p *Sub[I]) BitWidth() uint {
-	if p.poswidth == math.MaxUint {
-		panic("untyped expression")
-	}
-	//
-	return p.poswidth
-}
-
-// NegWidth returns the negative bitwidth for this expression.
-func (p *Sub[I]) NegWidth() uint {
-	if p.negwidth == math.MaxUint {
-		panic("untyped expression")
-	}
-	//
-	return p.negwidth
-}
-
-// SetBitWidths sets the negative and positive bitwidths.
-func (p *Sub[I]) SetBitWidths(negwidth, poswidth uint) {
-	p.poswidth = poswidth
-	p.negwidth = negwidth
+	return &Sub[S]{Exprs: exprs}
 }
 
 // ExternUses implementation for the Expr interface.
-func (p *Sub[I]) ExternUses() set.AnySortedSet[I] {
+func (p *Sub[S]) ExternUses() set.AnySortedSet[S] {
 	return externUses(p.Exprs...)
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *Sub[I]) LocalUses() bit.Set {
+func (p *Sub[S]) LocalUses() bit.Set {
 	return localUses(p.Exprs...)
 }
 
-func (p *Sub[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *Sub[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
 }

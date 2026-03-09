@@ -10,7 +10,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package variable
 
-import "github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+import (
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+)
 
 // Kind determines the type of a given variable (e.g. a parameter,
 // return, etc).
@@ -31,40 +34,43 @@ var (
 	LOCAL = Kind(4)
 )
 
+// ResolvedDescriptor represents a resolved variable descriptor.  That is, one
+// whose types contains only resolved symbols.
+type ResolvedDescriptor = Descriptor[symbol.Resolved]
+
+// UnresolvedDescriptor represents am unresolved variable descriptor.  That is,
+// one whose type may contain unresolved symbols.
+type UnresolvedDescriptor = Descriptor[symbol.Unresolved]
+
 // Descriptor describes a variable used within a function (or other component),
 // such as a parameter, return or local variable.  A descriptor contains all the
 // key information about a variable, such as its name, type, etc.
-type Descriptor struct {
+type Descriptor[S symbol.Symbol[S]] struct {
 	// Kind of variable (parameter, return, local, external)
 	Kind Kind
 	// Name of the variable
 	Name string
 	// Type of the variable
-	DataType data.Type
+	DataType data.Type[S]
 }
 
 // New constructs a new variable declaration for a given kind of
 // variable.
-func New(kind Kind, name string, datatype data.Type) Descriptor {
-	return Descriptor{kind, name, datatype}
+func New[S symbol.Symbol[S]](kind Kind, name string, datatype data.Type[S]) Descriptor[S] {
+	return Descriptor[S]{kind, name, datatype}
 }
 
 // IsParameter indicates whether or not this variable is function parameter.
-func (p Descriptor) IsParameter() bool {
+func (p Descriptor[S]) IsParameter() bool {
 	return p.Kind == PARAMETER
 }
 
 // IsReturn indicates whether or not this variable is function return.
-func (p Descriptor) IsReturn() bool {
+func (p Descriptor[S]) IsReturn() bool {
 	return p.Kind == RETURN
 }
 
 // IsLocal indicates whether or not this is a local variable.
-func (p Descriptor) IsLocal() bool {
+func (p Descriptor[S]) IsLocal() bool {
 	return p.Kind == LOCAL
-}
-
-// BitWidth returns the required bitwidth of this data type.
-func (p Descriptor) BitWidth() uint {
-	return p.DataType.BitWidth()
 }

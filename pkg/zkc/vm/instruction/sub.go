@@ -13,7 +13,6 @@
 package instruction
 
 import (
-	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -21,22 +20,22 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-// Add represents an instruction of the following form:
+// Sub represents an instruction of the following form:
 //
-// tn, .., t0 := r0 + ... + rn + c
+// tn, .., t0 := r0 - ... - rn - c
 //
 // Here, t0 .. tn are the *target registers*, of which tn is the *most
 // significant*.  These must be disjoint as we cannot assign simultaneously to
 // the same register.  Likewise, r0 .. rn are the source registers and c is a
 // constant (which can be 0).  For example, consider this case:
 //
-// c, r0 := r1 + 1
+// b, r0 := r1 - 1
 //
-// Suppose that r0 and r1 are 16bit registers, whilst c is a 1bit register. The
-// result of r1 + 1 occupies 17bits, of which the first 16 are written to r0
-// with the most significant (i.e. 16th) bit written to c.  Thus, in this
-// particular example, c represents a carry flag.
-type Add[W word.Word[W]] struct {
+// Suppose that r0 and r1 are 16bit registers, whilst b is a 1bit register. The
+// result of r1 - 1 occupies 17bits, of which the first 16 are written to r0
+// with the most significant (i.e. 16th) bit written to b.  Thus, in this
+// particular example, b represents a borrow flag.
+type Sub[W word.Word[W]] struct {
 	// Target register for assignment
 	Target register.Id
 	// Source registers for assignment
@@ -45,45 +44,32 @@ type Add[W word.Word[W]] struct {
 	Constant W
 }
 
-// NewAdd constructs a new addition instruction
-func NewAdd[W word.Word[W]](target register.Id, sources []register.Id, constant W) *Add[W] {
-	return &Add[W]{target, sources, constant}
+// NewSub constructs a new Subition instruction
+func NewSub[W word.Word[W]](target register.Id, sources []register.Id, constant W) *Sub[W] {
+	return &Sub[W]{target, sources, constant}
 }
 
 // Uses implementation for Instruction interface
-func (p *Add[W]) Uses() []register.Id {
+func (p *Sub[W]) Uses() []register.Id {
 	return p.Sources
 }
 
 // Definitions implementation for Instruction interface
-func (p *Add[W]) Definitions() []register.Id {
+func (p *Sub[W]) Definitions() []register.Id {
 	return []register.Id{p.Target}
 }
 
-func (p *Add[W]) String(mapping register.Map) string {
+func (p *Sub[W]) String(mapping register.Map) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(registersToString(mapping, p.Target))
 	builder.WriteString(" = ")
-	builder.WriteString(expressionToString("+", p.Sources, p.Constant, mapping))
+	builder.WriteString(expressionToString("-", p.Sources, p.Constant, mapping))
 	//
 	return builder.String()
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Add[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *Sub[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
 	return nil
-}
-
-func (p *Add[W]) rhsBitwidth(env register.Map) uint {
-	var rhs big.Int
-	//
-	for _, source := range p.Sources {
-		ith := env.Register(source)
-		rhs.Add(&rhs, ith.MaxValue())
-	}
-	// Include constant
-	rhs.Add(&rhs, p.Constant.BigInt())
-	//
-	return uint(rhs.BitLen())
 }

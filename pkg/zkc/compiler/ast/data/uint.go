@@ -10,28 +10,52 @@
 // SPDX-License-Identifier: Apache-2.0
 package data
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+)
 
 // UnsignedInt captures the fundamental data type of the language.
-type UnsignedInt struct {
+type UnsignedInt[S symbol.Symbol[S]] struct {
 	bitwidth uint
+	open     bool
 }
 
 // NewUnsignedInt constructs an unsigned int type of a given width.
-func NewUnsignedInt(bitwidth uint) *UnsignedInt {
-	return &UnsignedInt{bitwidth}
+func NewUnsignedInt[S symbol.Symbol[S]](bitwidth uint, open bool) *UnsignedInt[S] {
+	return &UnsignedInt[S]{bitwidth, open}
+}
+
+// AsUint implementation for Type interface
+func (p *UnsignedInt[S]) AsUint() *UnsignedInt[S] {
+	return p
+}
+
+// IsOpen determines whether or not this is an "open type" or not.
+func (p *UnsignedInt[S]) IsOpen() bool {
+	return p.open
+}
+
+// Width returns the width of this unsigned int type (e.g. 8 for u8, etc)
+func (p *UnsignedInt[S]) Width() uint {
+	return p.bitwidth
 }
 
 // BitWidth implementation for Type interface
-func (p *UnsignedInt) BitWidth() uint {
+func (p *UnsignedInt[S]) BitWidth(Environment[S]) uint {
 	return p.bitwidth
 }
 
 // Flattern implementation for Type interface
-func (p *UnsignedInt) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
+func (p *UnsignedInt[S]) Flattern(prefix string, env Environment[S], constructor func(name string, bitwidth uint)) {
 	constructor(prefix, p.bitwidth)
 }
 
-func (p *UnsignedInt) String() string {
+func (p *UnsignedInt[S]) String() string {
+	if p.open {
+		return fmt.Sprintf("u%d+", p.bitwidth)
+	}
+	//
 	return fmt.Sprintf("u%d", p.bitwidth)
 }

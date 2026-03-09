@@ -17,11 +17,13 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 )
 
@@ -143,23 +145,26 @@ func (p *Linker) linkDeclaration(index uint) (ast.Declaration, []source.SyntaxEr
 	case *ast.UnresolvedFunction:
 		return p.linkFunction(*d)
 	case *ast.UnresolvedMemory:
+		address, errs1 := p.linkVariableDeclarations(d.Address)
+		data, errs2 := p.linkVariableDeclarations(d.Data)
 		// nothing to do here
-		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, d.Address, d.Data, d.Contents), nil
+		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), append(errs1, errs2...)
 	default:
 		panic("unknown declaration")
 	}
 }
 
 func (p *Linker) linkConstant(fn ast.UnresolvedConstant) (ast.Declaration, []source.SyntaxError) {
-	expr, errors := p.linkExpr(fn.ConstExpr)
+	expr, errs1 := p.linkExpr(fn.ConstExpr)
+	datatype, errs2 := p.linkType(fn.DataType)
 	// FIXME: resolve data type.
-	return decl.NewConstant[symbol.Resolved](fn.Name(), fn.DataType, expr), errors
+	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), append(errs1, errs2...)
 }
 
 func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []source.SyntaxError) {
 	var (
 		codes = make([]ast.Stmt, len(fn.Code))
-		errs  []source.SyntaxError
+		errs1 []source.SyntaxError
 	)
 	//
 	for i, c := range fn.Code {
@@ -167,10 +172,30 @@ func (p *Linker) linkFunction(fn ast.UnresolvedFunction) (ast.Declaration, []sou
 		//
 		codes[i], es = p.linkInstruction(c)
 		//
-		errs = append(errs, es...)
+		errs1 = append(errs1, es...)
 	}
 	//
-	return decl.NewFunction(fn.Name(), fn.Variables, codes), errs
+	vars, errs2 := p.linkVariableDeclarations(fn.Variables)
+	//
+	return decl.NewFunction(fn.Name(), vars, codes), append(errs1, errs2...)
+}
+
+func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
+) ([]variable.ResolvedDescriptor, []source.SyntaxError) {
+	var (
+		ndecls = make([]variable.ResolvedDescriptor, len(decls))
+		errors []source.SyntaxError
+	)
+	//
+	for i, d := range decls {
+		var datatype, errs = p.linkType(d.DataType)
+		//
+		ndecls[i] = variable.New(d.Kind, d.Name, datatype)
+		//
+		errors = append(errors, errs...)
+	}
+	//
+	return ndecls, errors
 }
 
 func (p *Linker) linkInstruction(insn ast.UnresolvedInstruction) (ast.Stmt, []source.SyntaxError) {
@@ -270,11 +295,6 @@ func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError)
 		nexpr = expr.NewAdd[symbol.Resolved](args...)
 	case *expr.Const[symbol.Unresolved]:
 		nexpr = expr.NewConstant[symbol.Resolved](e.Constant, e.Base)
-	case *expr.Mul[symbol.Unresolved]:
-		args, errors = p.linkExprs(e.Exprs...)
-		nexpr = expr.NewMul[symbol.Resolved](args...)
-	case *expr.LocalAccess[symbol.Unresolved]:
-		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
 	case *expr.ExternAccess[symbol.Unresolved]:
 		// resolve arguments
 		args, errors = p.linkExprs(e.Args...)
@@ -284,6 +304,14 @@ func (p *Linker) linkExpr(e ast.UnresolvedExpr) (ast.Expr, []source.SyntaxError)
 		errors = append(errors, errs...)
 		//
 		nexpr = expr.NewExternAccess(sym, args...)
+	case *expr.Mul[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewMul[symbol.Resolved](args...)
+	case *expr.LocalAccess[symbol.Unresolved]:
+		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
+	case *expr.Sub[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewSub[symbol.Resolved](args...)
 	default:
 		panic("unknown expression encountered")
 	}
@@ -309,6 +337,15 @@ func (p *Linker) linkExprs(exprs ...ast.UnresolvedExpr) ([]ast.Expr, []source.Sy
 	}
 	//
 	return nexprs, errors
+}
+
+func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []source.SyntaxError) {
+	switch t := datatype.(type) {
+	case *data.UnsignedInt[symbol.Unresolved]:
+		return data.NewUnsignedInt[symbol.Resolved](t.Width(), t.IsOpen()), nil
+	default:
+		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
+	}
 }
 
 // Resolve the symbol referred to by an external access into a resolved symbol,

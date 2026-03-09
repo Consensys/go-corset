@@ -18,9 +18,9 @@ import (
 
 // Symbol represents a reference to some declared entity, such as a function,
 // constant or memory.
-type Symbol[I any] interface {
+type Symbol[S any] interface {
 	fmt.Stringer
-	set.Comparable[I]
+	set.Comparable[S]
 }
 
 // Kind determines the symbol kind (e.g. constant, function, input, output,

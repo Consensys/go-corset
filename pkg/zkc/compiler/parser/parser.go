@@ -41,6 +41,12 @@ type Expr = expr.Expr[symbol.Unresolved]
 // LVal is a convenient alias
 type LVal = lval.LVal[symbol.Unresolved]
 
+// Type is a convenient alias
+type Type = data.Type[symbol.Unresolved]
+
+// VariableDecriptor is a convenient alias
+type VariableDescriptor = variable.Descriptor[symbol.Unresolved]
+
 // UnlinkedSourceFile captures a source file has been successfully parsed but
 // which has not yet been linked.   As such, its possible that such a file may
 // fail with an error at link time due to an unresolvable reference to an
@@ -140,7 +146,7 @@ func (p *Parser) parseConstant() (ast.UnresolvedDeclaration, []source.SyntaxErro
 	var (
 		start    = p.index
 		errs     []source.SyntaxError
-		datatype data.Type
+		datatype Type
 		name     string
 		env      Environment
 	)
@@ -240,7 +246,7 @@ func (p *Parser) parseFunction() (ast.UnresolvedDeclaration, []source.SyntaxErro
 func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.SyntaxError {
 	var (
 		arg      string
-		datatype data.Type
+		datatype Type
 		errs     []source.SyntaxError
 		first    = true
 	)
@@ -289,8 +295,8 @@ func (p *Parser) parseInputOutputMemory() (ast.UnresolvedDeclaration, []source.S
 		input   bool
 		name    string
 		errs    []source.SyntaxError
-		address []variable.Descriptor
-		data    []variable.Descriptor
+		address []VariableDescriptor
+		data    []VariableDescriptor
 	)
 	// Parse optional pub modifier; private by default
 	if p.match(KEYWORD_PUB) {
@@ -342,8 +348,8 @@ func (p *Parser) parseReadWriteMemory() (ast.UnresolvedDeclaration, []source.Syn
 	var (
 		name    string
 		errs    []source.SyntaxError
-		address []variable.Descriptor
-		data    []variable.Descriptor
+		address []VariableDescriptor
+		data    []VariableDescriptor
 	)
 	//
 	if _, errs := p.expect(KEYWORD_MEMORY); len(errs) > 0 {
@@ -374,9 +380,9 @@ func (p *Parser) parseReadWriteMemory() (ast.UnresolvedDeclaration, []source.Syn
 // parseMemoryArgsList parses a function-style typed parameter list for memory
 // declarations: (type name, type name, ...).  Returns both the combined type
 // (for the address/data bus) and the individual named descriptors.
-func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]variable.Descriptor, []source.SyntaxError) {
+func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]VariableDescriptor, []source.SyntaxError) {
 	var (
-		params []variable.Descriptor
+		params []VariableDescriptor
 		errs   []source.SyntaxError
 	)
 	if _, errs = p.expect(LBRACE); len(errs) > 0 {
@@ -384,7 +390,7 @@ func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]variable.Descriptor,
 	}
 
 	for p.lookahead().Kind != RBRACE {
-		var t data.Type
+		var t Type
 
 		if len(params) > 0 {
 			if _, errs = p.expect(COMMA); len(errs) > 0 {
@@ -413,7 +419,7 @@ func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]variable.Descriptor,
 	return params, nil
 }
 
-func (p *Parser) parseType() (data.Type, []source.SyntaxError) {
+func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	var (
 		lookahead = p.lookahead()
 		name      string
@@ -433,7 +439,7 @@ func (p *Parser) parseType() (data.Type, []source.SyntaxError) {
 			return nil, p.syntaxErrors(lookahead, err.Error())
 		}
 		//
-		return data.NewUnsignedInt(uint(bw)), nil
+		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
 	default:
 		return nil, p.syntaxErrors(lookahead, "unknown type")
 	}
@@ -747,7 +753,7 @@ func (p *Parser) parseVar(env *Environment) ([]ast.UnresolvedInstruction, []sour
 	var (
 		errs  []source.SyntaxError
 		names []string
-		types []data.Type
+		types []Type
 	)
 	// Consume 'var' keyword
 	if _, errs = p.expect(KEYWORD_VAR); len(errs) > 0 {

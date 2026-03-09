@@ -21,33 +21,33 @@ import (
 )
 
 // MemAccess represents a memory write within an assignment.
-type MemAccess[I symbol.Symbol[I]] struct {
+type MemAccess[S symbol.Symbol[S]] struct {
 	// name of the memory being written
-	Name I
+	Name S
 	// index of location being written
-	Index expr.Expr[I]
+	Index expr.Expr[S]
 }
 
 // NewMemAccess constructs an expression representing a register access.
-func NewMemAccess[I symbol.Symbol[I]](name I, index expr.Expr[I]) LVal[I] {
-	return &MemAccess[I]{name, index}
+func NewMemAccess[S symbol.Symbol[S]](name S, index expr.Expr[S]) LVal[S] {
+	return &MemAccess[S]{name, index}
 }
 
 // ExternUses implementation for the LVal interface.
-func (p *MemAccess[I]) ExternUses() set.AnySortedSet[I] {
+func (p *MemAccess[S]) ExternUses() set.AnySortedSet[S] {
 	return p.Index.ExternUses()
 }
 
 // LocalUses implementation for the LVal interface.
-func (p *MemAccess[I]) LocalUses() bit.Set {
+func (p *MemAccess[S]) LocalUses() bit.Set {
 	return p.Index.LocalUses()
 }
 
 // LocalDefs implementation for the LVal interface.
-func (p *MemAccess[I]) LocalDefs() bit.Set {
+func (p *MemAccess[S]) LocalDefs() bit.Set {
 	return bit.Set{}
 }
 
-func (p *MemAccess[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *MemAccess[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
 }

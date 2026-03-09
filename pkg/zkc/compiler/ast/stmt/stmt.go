@@ -31,5 +31,5 @@ type Stmt[S symbol.Symbol[S]] interface {
 	// by this instruction.
 	Definitions() []variable.Id
 	// Provide human readable form of instruction
-	String(env variable.Map) string
+	String(env variable.Map[S]) string
 }

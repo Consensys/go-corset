@@ -21,15 +21,15 @@ import (
 
 // Condition describes a logical condition which can be used as branch
 // conditions (e.g. for if/while, etc).
-type Condition[I symbol.Symbol[I]] interface {
+type Condition[S symbol.Symbol[S]] interface {
 	// Negate a given condition to produce an equivalent (but negated)
 	// condition.
-	Negate() Condition[I]
+	Negate() Condition[S]
 	// ExternUses returns the set of non-local declarations accessed by this
 	// condition.  For example, external constants or memories used within.
-	ExternUses() set.AnySortedSet[I]
+	ExternUses() set.AnySortedSet[S]
 	// RegistersRead returns the set of variables used (i.e. read) by this condition
 	LocalUses() bit.Set
 	// String returns a string representation of this condition.
-	String(mapping variable.Map) string
+	String(mapping variable.Map[S]) string
 }

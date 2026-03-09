@@ -51,10 +51,10 @@ func (p *MemRead) Definitions() []register.Id {
 func (p *MemRead) String(env register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(array.Reverse(p.Targets), env))
+	builder.WriteString(registersToString(env, array.Reverse(p.Targets)...))
 	builder.WriteString(" = ")
 	//
-	builder.WriteString(fmt.Sprintf("read[%d] ", p.Id))
+	builder.WriteString(fmt.Sprintf("%d[", p.Id))
 	//
 	for i, rid := range p.Sources {
 		if i != 0 {
@@ -64,15 +64,12 @@ func (p *MemRead) String(env register.Map) string {
 		builder.WriteString(env.Register(rid).Name())
 	}
 	//
+	builder.WriteString("]")
+	//
 	return builder.String()
-}
-
-// Validate implementation for Instruction interface.
-func (p *MemRead) Validate(config field.Config, env register.Map) []error {
-	panic("todo")
 }
 
 // MicroValidate implementation for MicroInstruction interface.
 func (p *MemRead) MicroValidate(_ uint, field field.Config, env register.Map) []error {
-	return p.Validate(field, env)
+	return nil
 }

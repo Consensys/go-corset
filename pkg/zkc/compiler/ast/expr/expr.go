@@ -24,22 +24,19 @@ import (
 )
 
 // Expr represents an arbitrary expression used within an instruction.
-type Expr[I symbol.Symbol[I]] interface {
-	// BitWidth returns the minimum number of bits required to hold any
-	// evaluation of this expression.
-	BitWidth() uint
+type Expr[S symbol.Symbol[S]] interface {
 	// ExternUses returns the set of non-local declarations accessed by this
 	// expression.  For example, external constants or memories used within.
-	ExternUses() set.AnySortedSet[I]
+	ExternUses() set.AnySortedSet[S]
 	// RegistersRead returns the set of variables used (i.e. read) by this expression
 	LocalUses() bit.Set
 	// String returns a string representation of this expression.
-	String(mapping variable.Map) string
+	String(mapping variable.Map[S]) string
 }
 
 // Uses determines the (unique) set of registers read by any expression
 // in the given set of expressions.
-func Uses[I symbol.Symbol[I]](exprs ...Expr[I]) []variable.Id {
+func Uses[S symbol.Symbol[S]](exprs ...Expr[S]) []variable.Id {
 	var (
 		reads []variable.Id
 		bits  bit.Set
@@ -60,27 +57,27 @@ func Uses[I symbol.Symbol[I]](exprs ...Expr[I]) []variable.Id {
 
 // String provides a generic facility for converting an expression into a
 // suitable string.
-func String[I symbol.Symbol[I]](e Expr[I], mapping variable.Map) string {
+func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	var (
-		exprs    []Expr[I]
+		exprs    []Expr[S]
 		operator string
 		builder  strings.Builder
 	)
 	//
 	switch e := e.(type) {
-	case *Add[I]:
+	case *Add[S]:
 		operator = "+"
 		exprs = e.Exprs
-	case *Const[I]:
+	case *Const[S]:
 		return stringOfConstant(e.Constant, e.Base)
-	case *LocalAccess[I]:
+	case *LocalAccess[S]:
 		return mapping.Variable(e.Variable).Name
-	case *Mul[I]:
+	case *Mul[S]:
 		exprs = e.Exprs
 		operator = "*"
-	case *ExternAccess[I]:
+	case *ExternAccess[S]:
 		return e.Name.String()
-	case *Sub[I]:
+	case *Sub[S]:
 		exprs = e.Exprs
 		operator = "-"
 	default:
@@ -94,12 +91,12 @@ func String[I symbol.Symbol[I]](e Expr[I], mapping variable.Map) string {
 			builder.WriteString(" ")
 		}
 		//
-		if needsBraces[I](e) {
+		if needsBraces[S](e) {
 			builder.WriteString("(")
-			builder.WriteString(String[I](e, mapping))
+			builder.WriteString(String[S](e, mapping))
 			builder.WriteString(")")
 		} else {
-			builder.WriteString(String[I](e, mapping))
+			builder.WriteString(String[S](e, mapping))
 		}
 	}
 	//
@@ -117,13 +114,13 @@ func stringOfConstant(val big.Int, base uint) string {
 	}
 }
 
-func needsBraces[I symbol.Symbol[I]](e Expr[I]) bool {
+func needsBraces[S symbol.Symbol[S]](e Expr[S]) bool {
 	switch e.(type) {
-	case *Const[I]:
+	case *Const[S]:
 		return false
-	case *LocalAccess[I]:
+	case *LocalAccess[S]:
 		return false
-	case *ExternAccess[I]:
+	case *ExternAccess[S]:
 		return false
 	default:
 		return true

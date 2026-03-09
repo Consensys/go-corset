@@ -18,7 +18,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
@@ -39,8 +38,8 @@ import (
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
 type Mul[W word.Word[W]] struct {
-	// Target registers for assignment
-	Targets []register.Id
+	// Target register for assignment
+	Target register.Id
 	// Source registers for assignment
 	Sources []register.Id
 	// Constant for assignment
@@ -48,8 +47,8 @@ type Mul[W word.Word[W]] struct {
 }
 
 // NewMul constructs a new addition instruction
-func NewMul[W word.Word[W]](targets []register.Id, sources []register.Id, constant W) *Mul[W] {
-	return &Mul[W]{targets, sources, constant}
+func NewMul[W word.Word[W]](target register.Id, sources []register.Id, constant W) *Mul[W] {
+	return &Mul[W]{target, sources, constant}
 }
 
 // Uses implementation for Instruction interface
@@ -59,13 +58,13 @@ func (p *Mul[W]) Uses() []register.Id {
 
 // Definitions implementation for Instruction interface
 func (p *Mul[W]) Definitions() []register.Id {
-	return p.Targets
+	return []register.Id{p.Target}
 }
 
 func (p *Mul[W]) String(mapping register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(array.Reverse(p.Targets), mapping))
+	builder.WriteString(registersToString(mapping, p.Target))
 	builder.WriteString(" = ")
 	builder.WriteString(expressionToString("*", p.Sources, p.Constant, mapping))
 	//
@@ -77,7 +76,7 @@ func (p *Mul[W]) Validate(config field.Config, env register.Map) []error {
 	var errors []error
 	// (1) validate left-hand side fits within bandwidth; target registers fit
 	// within register width; target registers have valid identifiers;
-	errors = append(errors, checkTargetRegisters(config, p.Targets, env)...)
+	errors = append(errors, checkTargetRegisters(config, env, p.Target)...)
 	// (2) validate right-hand side within bandwidth;
 	if width := p.rhsBitwidth(env); width > config.BandWidth {
 		errors = append(errors, fmt.Errorf("right-hand side exceeds target bandwidth (u%d > u%d)", width, config.BandWidth))

@@ -17,15 +17,15 @@ import (
 )
 
 // Constant represents a named constant at the source level.
-type Constant[I symbol.Symbol[I]] struct {
+type Constant[S symbol.Symbol[S]] struct {
 	name      string
-	DataType  data.Type
-	ConstExpr expr.Expr[I]
+	DataType  data.Type[S]
+	ConstExpr expr.Expr[S]
 }
 
 // NewConstant creates a new named constant in a given base
-func NewConstant[I symbol.Symbol[I]](name string, datatype data.Type, constexpr expr.Expr[I]) *Constant[I] {
-	return &Constant[I]{name, datatype, constexpr}
+func NewConstant[S symbol.Symbol[S]](name string, datatype data.Type[S], constexpr expr.Expr[S]) *Constant[S] {
+	return &Constant[S]{name, datatype, constexpr}
 }
 
 // Arity implementation for Declaration interface

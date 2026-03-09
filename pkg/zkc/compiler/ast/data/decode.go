@@ -16,6 +16,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
@@ -34,9 +35,9 @@ import (
 // | 0x3 | 0x1 | 0xf | 0x0 | 0x0 | 0xe | 0x1 | 0xd |
 //
 // If the input array is not a multiple of the bitwidth
-func DecodeAll(datatype Type, bytes []byte) []word.Uint {
+func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environment[S]) []word.Uint {
 	var (
-		bitwidth = datatype.BitWidth()
+		bitwidth = datatype.BitWidth(env)
 		// Initially empty buffer which is expanded as necessary to accommodate
 		// reading bits of the given data types.
 		buffer []byte
@@ -63,9 +64,9 @@ func DecodeAll(datatype Type, bytes []byte) []word.Uint {
 	})
 }
 
-func decodeType(datatype Type, reader *bit.Reader, buffer []byte) ([]big.Int, []byte) {
+func decodeType[S symbol.Symbol[S]](datatype Type[S], reader *bit.Reader, buffer []byte) ([]big.Int, []byte) {
 	switch t := datatype.(type) {
-	case *UnsignedInt:
+	case *UnsignedInt[S]:
 		return decodeUnsignedInt(t.bitwidth, reader, buffer)
 	default:
 		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String()))

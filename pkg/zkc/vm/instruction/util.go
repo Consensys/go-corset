@@ -23,7 +23,7 @@ import (
 
 // RegistersToString returns a string representation for zero or more registers
 // separated by a comma.
-func registersToString(regs []register.Id, env register.Map) string {
+func registersToString(env register.Map, regs ...register.Id) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(regs); i++ {
@@ -60,7 +60,7 @@ func expressionToString[W word.Word[W]](op string, regs []register.Id, constant 
 // being written.  Firstly, they cannot be input registers (as this are always
 // constant).  Secondly, we cannot write to the same register more than once
 // (i.e. a conflicting write).
-func checkTargetRegisters(config field.Config, targets []register.Id, regs register.Map) []error {
+func checkTargetRegisters(config field.Config, regs register.Map, targets ...register.Id) []error {
 	var errors []error
 	//
 	for i, target := range targets {

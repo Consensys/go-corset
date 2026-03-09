@@ -22,7 +22,7 @@ import (
 )
 
 // Const represents a constant value within an expresion.
-type Const[I symbol.Symbol[I]] struct {
+type Const[S symbol.Symbol[S]] struct {
 	Label    string
 	Constant big.Int
 	Base     uint
@@ -30,26 +30,21 @@ type Const[I symbol.Symbol[I]] struct {
 
 // NewConstant constructs an expression representing a constant value, along with a
 // base (which is used for pretty printing, etc).
-func NewConstant[I symbol.Symbol[I]](constant big.Int, base uint) Expr[I] {
-	return &Const[I]{Constant: constant, Base: base}
-}
-
-// BitWidth implementation for Expr interface
-func (p *Const[I]) BitWidth() uint {
-	return uint(p.Constant.BitLen())
+func NewConstant[S symbol.Symbol[S]](constant big.Int, base uint) Expr[S] {
+	return &Const[S]{Constant: constant, Base: base}
 }
 
 // ExternUses implementation for the Expr interface.
-func (p *Const[I]) ExternUses() set.AnySortedSet[I] {
+func (p *Const[S]) ExternUses() set.AnySortedSet[S] {
 	panic("todo")
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *Const[I]) LocalUses() bit.Set {
+func (p *Const[S]) LocalUses() bit.Set {
 	var empty bit.Set
 	return empty
 }
 
-func (p *Const[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *Const[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
 }

@@ -33,7 +33,7 @@ type Function[S symbol.Symbol[S]] struct {
 	name string
 	// Registers describes zero or more variables of a given width.  Each
 	// register can be designated as an input / output or temporary.
-	Variables []variable.Descriptor
+	Variables []variable.Descriptor[S]
 	// Number of input variables
 	NumInputs uint
 	// Number of output variables
@@ -43,10 +43,10 @@ type Function[S symbol.Symbol[S]] struct {
 }
 
 // NewFunction constructs a new function with the given variables and code
-func NewFunction[S symbol.Symbol[S]](name string, variables []variable.Descriptor, code []stmt.Stmt[S]) *Function[S] {
+func NewFunction[S symbol.Symbol[S]](name string, variables []variable.Descriptor[S], code []stmt.Stmt[S]) *Function[S] {
 	var (
-		numInputs  = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsParameter() })
-		numOutputs = array.CountMatching(variables, func(r variable.Descriptor) bool { return r.IsReturn() })
+		numInputs  = array.CountMatching(variables, func(r variable.Descriptor[S]) bool { return r.IsParameter() })
+		numOutputs = array.CountMatching(variables, func(r variable.Descriptor[S]) bool { return r.IsReturn() })
 	)
 	//
 	return &Function[S]{name, variables, numInputs, numOutputs, code}
@@ -68,6 +68,6 @@ func (p *Function[S]) Externs() []S {
 }
 
 // Variable implementation for variable.Map interface
-func (p *Function[S]) Variable(id variable.Id) variable.Descriptor {
+func (p *Function[S]) Variable(id variable.Id) variable.Descriptor[S] {
 	return p.Variables[id]
 }
