@@ -254,15 +254,23 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, 
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
+	case *expr.And[symbol.Resolved]:
+		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.Const[symbol.Resolved]:
 		t, errs = p.typeConst(e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
 		t, errs = p.typeLocalAccess(e, env)
 	case *expr.Mul[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
+	case *expr.Not[symbol.Resolved]:
+		t, errs = p.typeBitwiseNot(e, env)
+	case *expr.Or[symbol.Resolved]:
+		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.ExternAccess[symbol.Resolved]:
 		t, errs = p.typeExternAccess(e, env)
 	case *expr.Sub[symbol.Resolved]:
+		t, errs = p.typeArithmeticExpression(e.Exprs, env)
+	case *expr.Xor[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown expression")
@@ -311,6 +319,17 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env Variab
 	}
 	//
 	return res, errs
+}
+
+func (p *TypeChecker) typeBitwiseNot(e *expr.Not[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {
+	t, errs := p.typeExpression(e.Expr, env)
+	if len(errs) > 0 {
+		return nil, errs
+	} else if t.AsUint(p.env) == nil {
+		return nil, p.srcmaps.SyntaxErrors(e.Expr, "expected uint")
+	}
+
+	return t, nil
 }
 
 func (p *TypeChecker) typeConst(e *expr.Const[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {

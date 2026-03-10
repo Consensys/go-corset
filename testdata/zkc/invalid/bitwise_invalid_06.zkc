@@ -1,0 +1,5 @@
+//error:3:7-12:cannot use u8 as u4 in assignment
+fn f(x:u8, y:u8) -> (r:u4) {
+  r = x | y
+  return
+}
