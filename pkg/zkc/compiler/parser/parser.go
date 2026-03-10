@@ -503,9 +503,9 @@ func (p *Parser) parseStatement(pc uint, env *Environment, looping bool,
 	//
 	switch lookahead.Kind {
 	case KEYWORD_BREAK:
-		insn, errs = p.parseBreak(looping)
+		returned, insn, errs = p.parseBreak(looping)
 	case KEYWORD_CONTINUE:
-		insn, errs = p.parseContinue(looping)
+		returned, insn, errs = p.parseContinue(looping)
 	case KEYWORD_FAIL:
 		returned, insn, errs = p.parseFail(env)
 	case KEYWORD_IF:
@@ -770,30 +770,30 @@ func (p *Parser) parseFail(env *Environment) (bool, stmt.Unresolved, []source.Sy
 	//
 	return true, &stmt.Fail[symbol.Unresolved]{}, nil
 }
-func (p *Parser) parseBreak(looping bool) (stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseBreak(looping bool) (bool, stmt.Unresolved, []source.SyntaxError) {
 	tok, errs := p.expect(KEYWORD_BREAK)
 	if len(errs) > 0 {
-		return nil, errs
+		return true, nil, errs
 	}
 
 	if !looping {
-		return nil, p.syntaxErrors(tok, "break outside loop")
+		return true, nil, p.syntaxErrors(tok, "break outside loop")
 	}
 
-	return &stmt.Goto[symbol.Unresolved]{Target: BREAK_SENTINEL}, nil
+	return true, &stmt.Goto[symbol.Unresolved]{Target: BREAK_SENTINEL}, nil
 }
 
-func (p *Parser) parseContinue(looping bool) (stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseContinue(looping bool) (bool, stmt.Unresolved, []source.SyntaxError) {
 	tok, errs := p.expect(KEYWORD_CONTINUE)
 	if len(errs) > 0 {
-		return nil, errs
+		return true, nil, errs
 	}
 
 	if !looping {
-		return nil, p.syntaxErrors(tok, "continue outside loop")
+		return true, nil, p.syntaxErrors(tok, "continue outside loop")
 	}
 
-	return &stmt.Goto[symbol.Unresolved]{Target: CONTINUE_SENTINEL}, nil
+	return true, &stmt.Goto[symbol.Unresolved]{Target: CONTINUE_SENTINEL}, nil
 }
 
 func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxError) {
