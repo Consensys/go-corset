@@ -184,7 +184,8 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	return decl.NewFunction(fn.Name(), vars, codes), append(errs1, errs2...)
 }
 
-func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor) ([]variable.ResolvedDescriptor, []source.SyntaxError) {
+func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
+) ([]variable.ResolvedDescriptor, []source.SyntaxError) {
 	var (
 		ndecls = make([]variable.ResolvedDescriptor, len(decls))
 		errors []source.SyntaxError
@@ -390,7 +391,9 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	case *data.Alias[symbol.Unresolved]:
 		index := p.busmap[t.Name].Index
 		component := p.components[index]
+		//
 		c, ok := component.(*decl.UnresolvedTypeAlias)
+		//
 		if !ok {
 			return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
 		}
