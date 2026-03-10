@@ -14,7 +14,6 @@ package instruction
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/field"
 )
 
 // Instruction provides an abstract notion of a "machine instruction".  That is, a single atomic unit which can be
@@ -24,10 +23,6 @@ type Instruction[W any] interface {
 	// Definitions returns the set of variables registers defined (i.e. written)
 	// by this instruction.
 	Definitions() []register.Id
-	// Validate that this instruction is well-formed.  For example, that it is
-	// balanced, that there are no conflicting writes, that all temporaries have
-	// been allocated, etc.
-	Validate(field field.Config, env register.Map) []error
 	// Provide human readable form of instruction
 	String(env register.Map) string
 }

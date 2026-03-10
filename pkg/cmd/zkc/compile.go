@@ -24,7 +24,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -77,41 +79,47 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 // ============================================================================
 
 func writeAbstractSyntaxTree(program ast.Program) {
+	var (
+		env = data.NewEnvironment(func(id symbol.Resolved) data.ResolvedType {
+			return nil
+		})
+	)
+	//
 	for i, d := range program.Components() {
 		if i != 0 {
 			fmt.Println()
 		}
 		//
-		writeDeclaration(d)
+		writeDeclaration(d, env)
 	}
 }
 
-func writeDeclaration(decl ast.Declaration) {
-	switch decl := decl.(type) {
-	case *ast.Constant:
-		writeConstant(decl)
-	case *ast.Function:
-		writeFunction(decl)
-	case *ast.Memory:
-		writeMemory(decl)
+func writeDeclaration(d decl.Resolved, env data.ResolvedEnvironment) {
+	switch d := d.(type) {
+	case *decl.ResolvedConstant:
+		writeConstant(d, env)
+	case *decl.ResolvedFunction:
+		writeFunction(d, env)
+	case *decl.ResolvedMemory:
+		writeMemory(d, env)
 	default:
 		panic("unknown declaration encountered")
 	}
 }
 
-func writeConstant(m *ast.Constant) {
-	var mapping = variable.ArrayMap()
+func writeConstant(m *decl.ResolvedConstant, env data.ResolvedEnvironment) {
+	var mapping = variable.ArrayMap[symbol.Resolved]()
 	//
 	fmt.Print("const ")
 	// type
-	fmt.Printf("%s ", m.DataType.String())
+	fmt.Printf("%s ", m.DataType.String(env))
 	// name
 	fmt.Printf("%s = ", m.Name())
 	// contents
 	fmt.Println(m.ConstExpr.String(mapping))
 }
 
-func writeMemory(m *ast.Memory) {
+func writeMemory(m *decl.ResolvedMemory, env data.ResolvedEnvironment) {
 	switch m.Kind {
 	case decl.PUBLIC_READ_ONLY_MEMORY:
 		fmt.Printf("public input")
@@ -130,9 +138,9 @@ func writeMemory(m *ast.Memory) {
 	}
 	// address lines
 	fmt.Printf(" %s(", m.Name())
-	writeMemoryParams(m.Address)
+	writeMemoryParams(m.Address, env)
 	fmt.Printf(") -> (")
-	writeMemoryParams(m.Data)
+	writeMemoryParams(m.Data, env)
 	fmt.Printf(")")
 	//
 	if m.Contents != nil {
@@ -144,13 +152,13 @@ func writeMemory(m *ast.Memory) {
 	fmt.Println()
 }
 
-func writeMemoryParams(params []variable.Descriptor) {
+func writeMemoryParams(params []variable.ResolvedDescriptor, env data.ResolvedEnvironment) {
 	for i, p := range params {
 		if i > 0 {
 			fmt.Printf(", ")
 		}
 
-		fmt.Printf("%s %s", p.DataType.String(), p.Name)
+		fmt.Printf("%s %s", p.DataType.String(env), p.Name)
 	}
 }
 
@@ -172,18 +180,18 @@ func writeMemoryContents(values []big.Int) {
 	}
 }
 
-func writeFunction(f *ast.Function) {
+func writeFunction(f *decl.ResolvedFunction, env data.ResolvedEnvironment) {
 	fmt.Printf("fn %s(", f.Name())
 	// parameters
-	writeFunctionArgs(variable.PARAMETER, f.Variables)
+	writeFunctionArgs(variable.PARAMETER, f.Variables, env)
 	//
 	fmt.Printf(") -> (")
 	// returns
-	writeFunctionArgs(variable.RETURN, f.Variables)
+	writeFunctionArgs(variable.RETURN, f.Variables, env)
 	//
 	fmt.Println(") {")
 	//
-	writeFunctionVariables(f)
+	writeFunctionVariables(f, env)
 	//
 	for pc, insn := range f.Code {
 		fmt.Printf("[%d]\t%s\n", pc, insn.String(f))
@@ -192,7 +200,7 @@ func writeFunction(f *ast.Function) {
 	fmt.Println("}")
 }
 
-func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
+func writeFunctionArgs(kind variable.Kind, variables []variable.ResolvedDescriptor, env data.ResolvedEnvironment) {
 	var first = true
 	//
 	for _, r := range variables {
@@ -203,15 +211,15 @@ func writeFunctionArgs(kind variable.Kind, variables []variable.Descriptor) {
 				first = false
 			}
 			//
-			fmt.Printf("%s %s", r.DataType.String(), r.Name)
+			fmt.Printf("%s %s", r.DataType.String(env), r.Name)
 		}
 	}
 }
 
-func writeFunctionVariables(f *ast.Function) {
+func writeFunctionVariables(f *decl.ResolvedFunction, env data.ResolvedEnvironment) {
 	for _, r := range f.Variables {
 		if r.IsLocal() {
-			fmt.Printf("\t%s %s\n", r.DataType.String(), r.Name)
+			fmt.Printf("\t%s %s\n", r.DataType.String(env), r.Name)
 		}
 	}
 }

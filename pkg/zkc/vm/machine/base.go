@@ -179,13 +179,16 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 	//
 	switch insn := insn.(type) {
 	case *instruction.Add[W]:
-		var val W = insn.Constant
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
 		//
 		for _, arg := range insn.Sources {
-			val = val.Add(frame[arg.Unwrap()])
+			val = val.Add(bitwidth, frame[arg.Unwrap()])
 		}
 		//
-		storeAcross(frame, regs, insn.Targets, val)
+		frame[insn.Target.Unwrap()] = val
 		//
 		return true, nil
 
@@ -199,26 +202,137 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 		// Don't fall through to next instruction
 		return false, nil
 
+	case *instruction.Mul[W]:
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for _, arg := range insn.Sources {
+			val = val.Mul(bitwidth, frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+
 	case *instruction.MemRead:
 		var address = make([]W, len(insn.Sources))
 		// Read source registers
 		for i, arg := range insn.Sources {
 			address[i] = frame[arg.Unwrap()]
 		}
-		// Check for ram versus rom read
+		// Read data words from tiven address
 		data := p.Read(insn.Id, address)
-		// What is supposed to happen here??
-		if len(data) != 1 {
-			panic("todo")
+		// Write into target registers
+		for i := range data {
+			target := insn.Targets[i].Unwrap()
+			frame[target] = data[i]
 		}
 		//
-		storeAcross(frame, regs, insn.Targets, data[0])
+		return true, nil
+	case *instruction.MemWrite:
+		var (
+			address = make([]W, len(insn.Targets))
+			data    = make([]W, len(insn.Sources))
+		)
+		// Read address lines
+		for i, arg := range insn.Targets {
+			address[i] = frame[arg.Unwrap()]
+		}
+		// Read data lines
+		for i, arg := range insn.Sources {
+			data[i] = frame[arg.Unwrap()]
+		}
+		// Write data words at given address
+		p.Write(insn.Id, address, data)
 		//
 		return true, nil
-
 	case *instruction.Return:
 		p.Leave()
 		// Fall through to next instruction in the callee frame.
+		return true, nil
+
+	case *instruction.Sub[W]:
+		var (
+			val      W
+			bitwidth = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for i, arg := range insn.Sources {
+			if i == 0 {
+				val = frame[arg.Unwrap()]
+			} else {
+				val = val.Sub(bitwidth, frame[arg.Unwrap()])
+			}
+		}
+		// Subtract constant
+		val = val.Sub(bitwidth, insn.Constant)
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+	case *instruction.And[W]:
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for _, arg := range insn.Sources {
+			val = val.And(bitwidth, frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+
+	case *instruction.Not[W]:
+		var bitwidth = regs[insn.Target.Unwrap()].Width()
+		//
+		frame[insn.Target.Unwrap()] = frame[insn.Source.Unwrap()].Not(bitwidth)
+		//
+		return true, nil
+
+	case *instruction.Or[W]:
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for _, arg := range insn.Sources {
+			val = val.Or(bitwidth, frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+
+	case *instruction.Shl[W]:
+		var bitwidth = regs[insn.Target.Unwrap()].Width()
+		//
+		frame[insn.Target.Unwrap()] = frame[insn.Value.Unwrap()].Shl(bitwidth, frame[insn.Amount.Unwrap()])
+		//
+		return true, nil
+
+	case *instruction.Shr[W]:
+		var bitwidth = regs[insn.Target.Unwrap()].Width()
+		//
+		frame[insn.Target.Unwrap()] = frame[insn.Value.Unwrap()].Shr(bitwidth, frame[insn.Amount.Unwrap()])
+		//
+		return true, nil
+
+	case *instruction.Xor[W]:
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for _, arg := range insn.Sources {
+			val = val.Xor(bitwidth, frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
 		return true, nil
 
 	case *instruction.Vector[W]:
@@ -249,19 +363,6 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 
 	default:
 		panic("unknown instruction encountered")
-	}
-}
-
-// Store a given value across a set of registers, splitting its bits as
-// necessary.  The target registers are given with the least significant first.
-// For example, consider writing 01100010 to registers [R1, R2] of type u4.
-// Then, after the write, we have R1=0010 and R2=0110.
-func storeAcross[W word.Word[W]](frame []W, regs []register.Register, targets []register.Id, value W) {
-	for _, r := range targets {
-		var width = regs[r.Unwrap()].Width()
-		//
-		frame[r.Unwrap()] = value.Slice(width)
-		value = value.Shr64(uint64(width))
 	}
 }
 

@@ -13,54 +13,49 @@
 package expr
 
 import (
-	"math"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Mul represents an expresion which computes the product of one or more terms.
-type Mul[I symbol.Symbol[I]] struct {
-	bitwidth uint
-	Exprs    []Expr[I]
+type Mul[S symbol.Symbol[S]] struct {
+	Exprs    []Expr[S]
+	datatype data.Type[S]
 }
 
 // NewMul constructs an expression representing the product of one or more
 // values.
-func NewMul[I symbol.Symbol[I]](exprs ...Expr[I]) Expr[I] {
+func NewMul[S symbol.Symbol[S]](exprs ...Expr[S]) Expr[S] {
 	if len(exprs) == 0 {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &Mul[I]{Exprs: exprs, bitwidth: math.MaxUint}
-}
-
-// BitWidth implementation for Expr interface
-func (p *Mul[I]) BitWidth() uint {
-	if p.bitwidth == math.MaxUint {
-		panic("untyped expression")
-	}
-	//
-	return p.bitwidth
-}
-
-// SetBitWidth sets the (positive) bitwidth.
-func (p *Mul[I]) SetBitWidth(bitwidth uint) {
-	p.bitwidth = bitwidth
+	return &Mul[S]{Exprs: exprs}
 }
 
 // ExternUses implementation for the Expr interface.
-func (p *Mul[I]) ExternUses() set.AnySortedSet[I] {
+func (p *Mul[S]) ExternUses() set.AnySortedSet[S] {
 	return externUses(p.Exprs...)
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *Mul[I]) LocalUses() bit.Set {
+func (p *Mul[S]) LocalUses() bit.Set {
 	return localUses(p.Exprs...)
 }
 
-func (p *Mul[I]) String(mapping variable.Map) string {
-	return String[I](p, mapping)
+func (p *Mul[S]) String(mapping variable.Map[S]) string {
+	return String[S](p, mapping)
+}
+
+// SetType implementation for Expr interface
+func (p *Mul[S]) SetType(t data.Type[S]) {
+	p.datatype = t
+}
+
+// Type implementation for Expr interface
+func (p *Mul[S]) Type() data.Type[S] {
+	return p.datatype
 }

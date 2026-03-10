@@ -1,6 +1,6 @@
-pub input data(address:u16) -> (byte:u8)
+pub input data(address:u8) -> (byte:u8)
 
-fn test() -> (r:u1) {
+fn main() -> (r:u1) {
   var n:u8 = data[0]
   var tmp:u8
   n = n + 1

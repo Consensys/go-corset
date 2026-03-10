@@ -28,10 +28,10 @@ import (
 // is always zero).  At the moment, these are implemented manually using
 // constraints and assignments to fill them.  Eventually, this approach should
 // be deprecated in favour of direct prover support.
-func InitialiseConstantRegisters[F Element[F]](modules []Module[F]) {
+func InitialiseConstantRegisters[F Element[F]](offset uint, modules []Module[F]) {
 	// Consider each module in turn
 	for m, mod := range modules {
-		var mid = module.Id(m)
+		var mid = offset + uint(m)
 		// Consider each register in turn
 		for r, reg := range mod.Registers() {
 			var rid = register.NewId(uint(r))

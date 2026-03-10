@@ -13,12 +13,9 @@
 package instruction
 
 import (
-	"fmt"
-	"math/big"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
@@ -39,8 +36,8 @@ import (
 // with the most significant (i.e. 16th) bit written to c.  Thus, in this
 // particular example, c represents a carry flag.
 type Add[W word.Word[W]] struct {
-	// Target registers for assignment
-	Targets []register.Id
+	// Target register for assignment
+	Target register.Id
 	// Source registers for assignment
 	Sources []register.Id
 	// Constant for assignment
@@ -48,8 +45,8 @@ type Add[W word.Word[W]] struct {
 }
 
 // NewAdd constructs a new addition instruction
-func NewAdd[W word.Word[W]](targets []register.Id, sources []register.Id, constant W) *Add[W] {
-	return &Add[W]{targets, sources, constant}
+func NewAdd[W word.Word[W]](target register.Id, sources []register.Id, constant W) *Add[W] {
+	return &Add[W]{target, sources, constant}
 }
 
 // Uses implementation for Instruction interface
@@ -59,47 +56,20 @@ func (p *Add[W]) Uses() []register.Id {
 
 // Definitions implementation for Instruction interface
 func (p *Add[W]) Definitions() []register.Id {
-	return p.Targets
+	return []register.Id{p.Target}
 }
 
 func (p *Add[W]) String(mapping register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(array.Reverse(p.Targets), mapping))
+	builder.WriteString(registersToString(mapping, p.Target))
 	builder.WriteString(" = ")
 	builder.WriteString(expressionToString("+", p.Sources, p.Constant, mapping))
 	//
 	return builder.String()
 }
 
-// Validate implementation for Instruction interface.
-func (p *Add[W]) Validate(config field.Config, env register.Map) []error {
-	var errors []error
-	// (1) validate left-hand side fits within bandwidth; target registers fit
-	// within register width; target registers have valid identifiers;
-	errors = append(errors, checkTargetRegisters(config, p.Targets, env)...)
-	// (2) validate right-hand side within bandwidth;
-	if width := p.rhsBitwidth(env); width > config.BandWidth {
-		errors = append(errors, fmt.Errorf("right-hand side exceeds target bandwidth (u%d > u%d)", width, config.BandWidth))
-	}
-	//
-	return errors
-}
-
 // MicroValidate implementation for MicroInstruction interface.
 func (p *Add[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
-	return p.Validate(field, env)
-}
-
-func (p *Add[W]) rhsBitwidth(env register.Map) uint {
-	var rhs big.Int
-	//
-	for _, source := range p.Sources {
-		ith := env.Register(source)
-		rhs.Add(&rhs, ith.MaxValue())
-	}
-	// Include constant
-	rhs.Add(&rhs, p.Constant.BigInt())
-	//
-	return uint(rhs.BitLen())
+	return nil
 }

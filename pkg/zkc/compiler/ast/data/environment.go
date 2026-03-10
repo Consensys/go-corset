@@ -1,0 +1,42 @@
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package data
+
+import "github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+
+// ResolvedEnvironment represents a typing environment which contains only
+// resolved identifiers.
+type ResolvedEnvironment = Environment[symbol.Resolved]
+
+// UnresolvedEnvironment represents a typing environment which may contain unresolved
+// identifiers.
+type UnresolvedEnvironment = Environment[symbol.Unresolved]
+
+// Environment provides a typing environment for externally defined types, such
+// as for type aliases.
+type Environment[S symbol.Symbol[S]] interface {
+	// TypeOf resolves the type of an external identifier.
+	TypeOf(S) Type[S]
+}
+
+// NewEnvironment constructs a new typing environment which wraps a "mapper"
+// function which maps type indices to types.
+func NewEnvironment[S symbol.Symbol[S]](fn func(id S) Type[S]) Environment[S] {
+	return fnEnv[S]{fn}
+}
+
+type fnEnv[S symbol.Symbol[S]] struct {
+	fn func(id S) Type[S]
+}
+
+func (p fnEnv[S]) TypeOf(id S) Type[S] {
+	return p.fn(id)
+}

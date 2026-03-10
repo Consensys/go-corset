@@ -22,7 +22,6 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
-	"github.com/consensys/go-corset/pkg/util/collection/set"
 )
 
 const (
@@ -75,7 +74,7 @@ func NewFunction[T Instruction](name module.Name, public bool, registers []Regis
 		numOutputs = array.CountMatching(registers, func(r Register) bool { return r.IsOutput() })
 	)
 	// Check registers sorted as: inputs, outputs then internal.
-	if !set.IsSorted(registers, func(r Register) register.Type { return r.Kind() }) {
+	if !registersCorrectlyOrdered(registers) {
 		panic("function registers ordered incorrectly")
 	} else if name.Multiplier != 1 {
 		panic("functions only support multiplers of 1")
@@ -227,6 +226,24 @@ func (p *Function[T]) ConstRegister(constant uint8) RegisterId {
 	p.registers = append(p.registers, register.NewConst(constant))
 	//
 	return register.NewId(nregs)
+}
+
+func registersCorrectlyOrdered(registers []register.Register) bool {
+	var index = 0
+	// Inputs first
+	for index < len(registers) && registers[index].IsInput() {
+		index++
+	}
+	// Outputs next
+	for index < len(registers) && registers[index].IsOutput() {
+		index++
+	}
+	// Then computed (or constant)
+	for index < len(registers) && registers[index].IsComputed() {
+		index++
+	}
+	// Should be nothing else
+	return index == len(registers)
 }
 
 // ============================================================================

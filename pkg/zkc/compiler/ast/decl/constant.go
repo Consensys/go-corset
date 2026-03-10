@@ -16,16 +16,28 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
+// ResolvedConstant represents a constant whose expression uses only external
+// identifiers which are resolved. As such, it should not be possible that such
+// a declaration refers to unknown (or otherwise incorrect) external components.
+type ResolvedConstant = Constant[symbol.Resolved]
+
+// UnresolvedConstant represents a constant whose expression may  contain string
+// identifiers for external (i.e. unlinked) components.  As such, its possible
+// that such an expression may fail with an error at link time due to an
+// unresolvable reference to an external component (e.g. function, RAM, ROM,
+// etc).
+type UnresolvedConstant = Constant[symbol.Unresolved]
+
 // Constant represents a named constant at the source level.
-type Constant[I symbol.Symbol[I]] struct {
+type Constant[S symbol.Symbol[S]] struct {
 	name      string
-	DataType  data.Type
-	ConstExpr expr.Expr[I]
+	DataType  data.Type[S]
+	ConstExpr expr.Expr[S]
 }
 
 // NewConstant creates a new named constant in a given base
-func NewConstant[I symbol.Symbol[I]](name string, datatype data.Type, constexpr expr.Expr[I]) *Constant[I] {
-	return &Constant[I]{name, datatype, constexpr}
+func NewConstant[S symbol.Symbol[S]](name string, datatype data.Type[S], constexpr expr.Expr[S]) *Constant[S] {
+	return &Constant[S]{name, datatype, constexpr}
 }
 
 // Arity implementation for Declaration interface

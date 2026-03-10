@@ -15,6 +15,8 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
@@ -33,10 +35,12 @@ type MicroInstruction = instruction.MicroInstruction[word.Uint]
 // register per element).
 func compileFunction(id uint, mapping []uint, program []Declaration) *function.Boot[word.Uint] {
 	var (
-		fn        = program[id].(*Function)
-		registers []register.Register
-		padding   big.Int // zero padding
-		bootCode  = make([]instruction.Instruction[word.Uint], len(fn.Code))
+		env         data.Environment[symbol.Resolved]
+		fn          = program[id].(*Function)
+		registers   []register.Register
+		padding     big.Int // zero padding
+		bootCode    = make([]instruction.Instruction[word.Uint], len(fn.Code))
+		environment data.Environment[symbol.Resolved]
 	)
 	//
 	for _, v := range fn.Variables {
@@ -53,12 +57,12 @@ func compileFunction(id uint, mapping []uint, program []Declaration) *function.B
 			panic(fmt.Sprintf("unexpected variable kind %d", v.Kind))
 		}
 
-		v.DataType.Flattern(v.Name, func(name string, bitwidth uint) {
+		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.New(kind, name, bitwidth, padding))
 		})
 	}
 	//
-	compiler := Compiler{program, fn.Variables, registers}
+	compiler := Compiler{program, fn.Variables, registers, environment}
 	//
 	for i, stmt := range fn.Code {
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)

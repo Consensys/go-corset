@@ -15,6 +15,8 @@ package word
 import (
 	"fmt"
 	"math/big"
+
+	util_math "github.com/consensys/go-corset/pkg/util/math"
 )
 
 // Uint represents an unbound unsigned integer.
@@ -22,10 +24,23 @@ type Uint struct {
 	value big.Int
 }
 
+// And implementation for Word interface.
+func (p Uint) And(_ uint, w Uint) Uint {
+	var res big.Int
+	res.And(&p.value, &w.value)
+	//
+	return Uint{res}
+}
+
 // Add implementation for Word interface.
-func (p Uint) Add(w Uint) Uint {
+func (p Uint) Add(width uint, w Uint) Uint {
 	var res big.Int
 	res.Add(&p.value, &w.value)
+	//
+	for uint(res.BitLen()) > width {
+		// Normalise negative value
+		res.Sub(&res, util_math.Pow2(width))
+	}
 	//
 	return Uint{res}
 }
@@ -40,10 +55,53 @@ func (p Uint) BigInt() *big.Int {
 	return &p.value
 }
 
+// Not implementation for Word interface.
+func (p Uint) Not(width uint) Uint {
+	// Compute bitwise complement within width: (2^width - 1) XOR value
+	mask := new(big.Int).Sub(util_math.Pow2(width), big.NewInt(1))
+
+	var res big.Int
+	res.Xor(&p.value, mask)
+	//
+	return Uint{res}
+}
+
+// Or implementation for Word interface.
+func (p Uint) Or(_ uint, w Uint) Uint {
+	var res big.Int
+	res.Or(&p.value, &w.value)
+	//
+	return Uint{res}
+}
+
 // Mul implementation for Word interface.
-func (p Uint) Mul(w Uint) Uint {
+func (p Uint) Mul(width uint, w Uint) Uint {
 	var res big.Int
 	res.Mul(&p.value, &w.value)
+	//
+	for uint(res.BitLen()) > width {
+		// Normalise negative value
+		res.Sub(&res, util_math.Pow2(width))
+	}
+	//
+	return Uint{res}
+}
+
+// Shl implementation for Word interface.
+func (p Uint) Shl(width uint, n Uint) Uint {
+	var res big.Int
+	res.Lsh(&p.value, uint(n.Uint64()))
+	// Mask result to width bits.
+	mask := new(big.Int).Sub(util_math.Pow2(width), big.NewInt(1))
+	res.And(&res, mask)
+	//
+	return Uint{res}
+}
+
+// Shr implementation for Word interface.
+func (p Uint) Shr(_ uint, n Uint) Uint {
+	var res big.Int
+	res.Rsh(&p.value, uint(n.Uint64()))
 	//
 	return Uint{res}
 }
@@ -90,6 +148,27 @@ func (p Uint) SetBigInt(val *big.Int) Uint {
 	p.value = *val
 
 	return p
+}
+
+// Sub implementation for Word interface.
+func (p Uint) Sub(width uint, w Uint) Uint {
+	var res big.Int
+	res.Sub(&p.value, &w.value)
+	//
+	if res.Sign() < 0 {
+		// Normalise negative value
+		res.Add(&res, util_math.Pow2(width))
+	}
+	//
+	return Uint{res}
+}
+
+// Xor implementation for Word interface.
+func (p Uint) Xor(_ uint, w Uint) Uint {
+	var res big.Int
+	res.Xor(&p.value, &w.value)
+	//
+	return Uint{res}
 }
 
 // Text implementation for Word interface

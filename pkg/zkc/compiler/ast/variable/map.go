@@ -10,24 +10,26 @@
 // SPDX-License-Identifier: Apache-2.0
 package variable
 
+import "github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+
 // Map defines an abstract notion of mapping a variable identifier to a
 // variable description.
-type Map interface {
+type Map[S symbol.Symbol[S]] interface {
 	// Get the descriptor for a given variable.
-	Variable(Id) Descriptor
+	Variable(Id) Descriptor[S]
 }
 
 // ArrayMap constructs a variable map from an array of variables.
-func ArrayMap(vars ...Descriptor) Map {
-	return &arrayMap{vars}
+func ArrayMap[S symbol.Symbol[S]](vars ...Descriptor[S]) Map[S] {
+	return &arrayMap[S]{vars}
 }
 
 // arrayMap constructs a variable map from an array of variable declarations.
-type arrayMap struct {
-	vars []Descriptor
+type arrayMap[S symbol.Symbol[S]] struct {
+	vars []Descriptor[S]
 }
 
 // Variable implementation for Map interface
-func (p arrayMap) Variable(id Id) Descriptor {
+func (p arrayMap[S]) Variable(id Id) Descriptor[S] {
 	return p.vars[id]
 }

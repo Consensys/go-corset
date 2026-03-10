@@ -15,19 +15,18 @@ package parser
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Environment captures useful information used during the assembling process.
 type Environment struct {
 	// Variables identifies set of declared variables.
-	variables []variable.Descriptor
+	variables []VariableDescriptor
 }
 
 // DeclareVariable declares a new register with the given name and bitwidth.  If
 // a register with the same name already exists, this panics.
-func (p *Environment) DeclareVariable(kind variable.Kind, name string, datatype data.Type) {
+func (p *Environment) DeclareVariable(kind variable.Kind, name string, datatype Type) {
 	//
 	if p.IsVariable(name) {
 		panic(fmt.Sprintf("variable %s already declared", name))

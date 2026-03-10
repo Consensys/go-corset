@@ -15,11 +15,12 @@ package stmt
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
 // Goto performs an unconditional branch to a given target instructon.
-type Goto[S any] struct {
+type Goto[S symbol.Symbol[S]] struct {
 	Target uint
 }
 
@@ -38,6 +39,6 @@ func (p *Goto[S]) Definitions() []variable.Id {
 	return nil
 }
 
-func (p *Goto[S]) String(_ variable.Map) string {
+func (p *Goto[S]) String(_ variable.Map[S]) string {
 	return fmt.Sprintf("goto %d", p.Target)
 }

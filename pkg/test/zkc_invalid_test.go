@@ -54,6 +54,14 @@ func Test_ZkcInvalid_Basic_08(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_invalid_08")
 }
 
+func Test_ZkcInvalid_Basic_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_09")
+}
+
+func Test_ZkcInvalid_Basic_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_invalid_10")
+}
+
 // ===================================================================
 // If Tests
 // ===================================================================
@@ -68,6 +76,36 @@ func Test_ZkcInvalid_If_02(t *testing.T) {
 
 func Test_ZkcInvalid_If_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/if_invalid_03")
+}
+
+func Test_ZkcInvalid_If_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/if_invalid_04")
+}
+
+// ===================================================================
+// Constant Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Constant_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_invalid_01")
+}
+
+// should fail
+// func Test_ZkcInvalid_Constant_02(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_02")
+// }
+
+func Test_ZkcInvalid_Constant_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_invalid_03")
+}
+
+// should fail
+// func Test_ZkcInvalid_Constant_04(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_04")
+// }
+
+func Test_ZkcInvalid_Constant_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_invalid_05")
 }
 
 // ===================================================================
@@ -103,26 +141,88 @@ func Test_ZkcInvalid_For_03(t *testing.T) {
 }
 
 // ===================================================================
-// Constant Tests
+// Bitwise Tests
 // ===================================================================
 
-func Test_ZkcInvalid_Constant_01(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/constant_invalid_01")
+func Test_ZkcInvalid_Bitwise_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_01")
 }
 
-// should fail
-// func Test_ZkcInvalid_Constant_02(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_02")
-// }
-
-func Test_ZkcInvalid_Constant_03(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/constant_invalid_03")
+func Test_ZkcInvalid_Bitwise_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_02")
 }
 
-// should fail
-// func Test_ZkcInvalid_Constant_04(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/constant_invalid_04")
-// }
+func Test_ZkcInvalid_Bitwise_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_03")
+}
+
+func Test_ZkcInvalid_Bitwise_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_04")
+}
+
+func Test_ZkcInvalid_Bitwise_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_05")
+}
+
+func Test_ZkcInvalid_Bitwise_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_06")
+}
+
+func Test_ZkcInvalid_Bitwise_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_07")
+}
+
+func Test_ZkcInvalid_Bitwise_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_08")
+}
+
+func Test_ZkcInvalid_Bitwise_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_09")
+}
+
+func Test_ZkcInvalid_Bitwise_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_10")
+}
+
+func Test_ZkcInvalid_Bitwise_11(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_11")
+}
+
+// ===================================================================
+// Shift Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Shift_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_01")
+}
+
+func Test_ZkcInvalid_Shift_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_02")
+}
+
+func Test_ZkcInvalid_Shift_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_03")
+}
+
+func Test_ZkcInvalid_Shift_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_04")
+}
+
+func Test_ZkcInvalid_Shift_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_05")
+}
+
+func Test_ZkcInvalid_Shift_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_06")
+}
+
+func Test_ZkcInvalid_Shift_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_07")
+}
+
+func Test_ZkcInvalid_Shift_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_08")
+}
 
 // ===================================================================
 // Memory Tests
@@ -140,13 +240,17 @@ func Test_ZkcInvalid_Memory_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_03")
 }
 
-// func Test_ZkcInvalid_Memory_04(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_04")
-// }
+func Test_ZkcInvalid_Memory_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_04")
+}
 
-// func Test_ZkcInvalid_Memory_05(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/memory_invalid_05")
-// }
+func Test_ZkcInvalid_Memory_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_05")
+}
+
+func Test_ZkcInvalid_Memory_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_invalid_06")
+}
 
 // ===================================================================
 // Test Helpers

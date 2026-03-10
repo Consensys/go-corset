@@ -10,13 +10,28 @@
 // SPDX-License-Identifier: Apache-2.0
 package decl
 
+import (
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+)
+
+// Resolved represents a declaration  where external identifiers are otherwise
+// resolved. As such, it should not be possible that such a declaration refers
+// to unknown (or otherwise incorrect) external components.
+type Resolved = Declaration[symbol.Resolved]
+
+// Unresolved represents a declaration which contains string identifiers for
+// external (i.e. unlinked) components.  As such, its possible that such a
+// declaration may fail with an error at link time due to an unresolvable
+// reference to an external component (e.g. function, RAM, ROM, etc).
+type Unresolved = Declaration[symbol.Unresolved]
+
 // Declaration represents something declared within a source file, such as a
 // function or constant, etc.
-type Declaration[E any] interface {
+type Declaration[S any] interface {
 	// Arity returns the number of inputs/outputs for this declaration.
 	Arity() (inputs uint, outputs uint)
 	// Return name of this component
 	Name() string
 	// Determine all reference external symbols
-	Externs() []E
+	Externs() []S
 }

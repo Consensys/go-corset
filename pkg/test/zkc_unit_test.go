@@ -33,6 +33,9 @@ func Test_ZkcUnit_Basic_02(t *testing.T) {
 func Test_ZkcUnit_Basic_03(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_valid_03")
 }
+func Test_ZkcUnit_Basic_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_valid_04")
+}
 
 // ===================================================================
 // Constant Tests
@@ -54,12 +57,84 @@ func Test_ZkcUnit_While_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/while_valid_01")
 }
 
+func Test_ZkcUnit_While_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/while_valid_02")
+}
+
 func Test_ZkcUnit_For_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/for_valid_01")
 }
 
 func Test_ZkcUnit_For_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/for_valid_02")
+}
+
+// ===================================================================
+// Bitwise Tests
+// ===================================================================
+
+func Test_ZkcUnit_Bitwise_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_01")
+}
+
+func Test_ZkcUnit_Bitwise_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_02")
+}
+
+func Test_ZkcUnit_Bitwise_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_03")
+}
+
+func Test_ZkcUnit_Bitwise_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_04")
+}
+
+func Test_ZkcUnit_Bitwise_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_05")
+}
+
+func Test_ZkcUnit_Bitwise_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_06")
+}
+
+func Test_ZkcUnit_Bitwise_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_07")
+}
+
+func Test_ZkcUnit_Bitwise_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_08")
+}
+
+// ===================================================================
+// Shift Tests
+// ===================================================================
+
+func Test_ZkcUnit_Shift_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_01")
+}
+
+func Test_ZkcUnit_Shift_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_02")
+}
+
+func Test_ZkcUnit_Shift_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_03")
+}
+
+func Test_ZkcUnit_Shift_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_04")
+}
+
+func Test_ZkcUnit_Shift_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_05")
+}
+
+func Test_ZkcUnit_Shift_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_06")
+}
+
+func Test_ZkcUnit_Shift_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_07")
 }
 
 // ===================================================================

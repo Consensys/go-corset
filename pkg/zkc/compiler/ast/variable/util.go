@@ -10,12 +10,15 @@
 // SPDX-License-Identifier: Apache-2.0
 package variable
 
-import "github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+import (
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+)
 
 // DescriptorsToType construct a single type representing a given set of
 // variable descriptors.
-func DescriptorsToType(vars ...Descriptor) data.Type {
-	var types []data.Type = make([]data.Type, len(vars))
+func DescriptorsToType[S symbol.Symbol[S]](vars ...Descriptor[S]) data.Type[S] {
+	var types []data.Type[S] = make([]data.Type[S], len(vars))
 	//
 	for i, vd := range vars {
 		types[i] = vd.DataType
