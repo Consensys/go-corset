@@ -86,6 +86,15 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Add[S]:
 		operator = "+"
 		exprs = e.Exprs
+	case *And[S]:
+		operator = "&"
+		exprs = e.Exprs
+	case *Or[S]:
+		operator = "|"
+		exprs = e.Exprs
+	case *Xor[S]:
+		operator = "^"
+		exprs = e.Exprs
 	case *Const[S]:
 		return stringOfConstant(e.Constant, e.Base)
 	case *LocalAccess[S]:
@@ -93,6 +102,12 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Mul[S]:
 		exprs = e.Exprs
 		operator = "*"
+	case *Not[S]:
+		if needsBraces[S](e.Expr) {
+			return "~(" + String[S](e.Expr, mapping) + ")"
+		}
+
+		return "~" + String[S](e.Expr, mapping)
 	case *ExternAccess[S]:
 		return e.Name.String()
 	case *Sub[S]:

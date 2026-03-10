@@ -141,6 +141,26 @@ func Test_ZkcInvalid_For_03(t *testing.T) {
 }
 
 // ===================================================================
+// Bitwise Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Bitwise_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_01")
+}
+
+func Test_ZkcInvalid_Bitwise_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_02")
+}
+
+func Test_ZkcInvalid_Bitwise_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_03")
+}
+
+func Test_ZkcInvalid_Bitwise_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_04")
+}
+
+// ===================================================================
 // Memory Tests
 // ===================================================================
 

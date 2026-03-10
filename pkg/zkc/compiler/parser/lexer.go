@@ -144,6 +144,18 @@ const MUL uint = 70
 // DIV signals "/"
 const DIV uint = 71
 
+// BITAND signals "&"
+const BITAND uint = 72
+
+// BITOR signals "|"
+const BITOR uint = 73
+
+// BITXOR signals "^"
+const BITXOR uint = 74
+
+// BITNOT signals "~"
+const BITNOT uint = 75
+
 // QMARK signals "?"
 const QMARK uint = 80
 
@@ -220,6 +232,10 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('*'), MUL),
 	lex.Rule(lex.Unit('/'), DIV),
+	lex.Rule(lex.Unit('&'), BITAND),
+	lex.Rule(lex.Unit('|'), BITOR),
+	lex.Rule(lex.Unit('^'), BITXOR),
+	lex.Rule(lex.Unit('~'), BITNOT),
 	lex.Rule(lex.Unit('?'), QMARK),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
