@@ -16,6 +16,14 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
+// ResolvedTypeAlias represents an alias which contains only resolved identifiers.
+type ResolvedAlias = Alias[symbol.Resolved]
+
+// UnresolvedAlias represents an alias which contains only unresolved identifiers.
+type UnresolvedAlias = Alias[symbol.Unresolved]
+
+
+
 // Alias captures the alias of a language type.
 type Alias[I symbol.Symbol[I]] struct {
 	Name     string
@@ -25,6 +33,11 @@ type Alias[I symbol.Symbol[I]] struct {
 // NewAlias constructs an alias for a given type.
 func NewAlias[I symbol.Symbol[I]](name string, bitwidth uint) *Alias[I] {
 	return &Alias[I]{name, bitwidth}
+}
+
+// AsUint implementation for Type interface
+func (p *Alias[S]) AsUint(Environment[S]) *UnsignedInt[S] {
+	return nil
 }
 
 // BitWidth implementation for Type interface
@@ -37,6 +50,11 @@ func (p *Alias[I]) Flattern(prefix string, constructor func(name string, bitwidt
 	constructor(prefix, p.bitwidth)
 }
 
-func (p *Alias[I]) String() string {
+// AsTuple implementation for Type interface
+func (p *Alias[S]) AsTuple(Environment[S]) *Tuple[S] {
+	return nil
+}
+
+func (p *Alias[S]) String(Environment[S]) string {
 	return fmt.Sprintf("%s", p.Name)
 }

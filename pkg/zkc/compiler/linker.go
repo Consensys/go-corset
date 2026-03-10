@@ -148,10 +148,11 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 		address, errs1 := p.linkVariableDeclarations(d.Address)
 		data, errs2 := p.linkVariableDeclarations(d.Data)
 		// nothing to do here
-		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), nil
+		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), append(errs1, errs2...)
 	case *decl.UnresolvedTypeAlias:
 		// nothing to do here
-		return decl.NewTypeAlias[symbol.Resolved](d.Name(), d.DataType), nil
+		datatype, errs := p.linkType(d.DataType)
+		return decl.NewTypeAlias[symbol.Resolved](d.Name(), datatype), errs
 	default:
 		panic("unknown declaration")
 	}
@@ -160,11 +161,6 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []source.SyntaxError) {
 	expr, errs1 := p.linkExpr(fn.ConstExpr)
 	datatype, errs2 := p.linkType(fn.DataType)
-	// resolve datatype
-	datatype := fn.DataType
-	if d, ok := fn.DataType.(*decl.UnresolvedTypeAlias); ok {
-		datatype = p.resolveAlias(d)
-	}
 	//
 	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), append(errs1, errs2...)
 }
@@ -174,12 +170,6 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 		codes = make([]stmt.Resolved, len(fn.Code))
 		errs1 []source.SyntaxError
 	)
-	// resolve datatype of variables
-	for i, v := range fn.Variables {
-		if d, ok := v.DataType.(*decl.UnresolvedTypeAlias); ok {
-			fn.Variables[i].DataType = p.resolveAlias(d)
-		}
-	}
 	//
 	for i, c := range fn.Code {
 		var es []source.SyntaxError
@@ -194,8 +184,7 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	return decl.NewFunction(fn.Name(), vars, codes), append(errs1, errs2...)
 }
 
-func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
-) ([]variable.ResolvedDescriptor, []source.SyntaxError) {
+func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor) ([]variable.ResolvedDescriptor, []source.SyntaxError) {
 	var (
 		ndecls = make([]variable.ResolvedDescriptor, len(decls))
 		errors []source.SyntaxError
@@ -210,18 +199,6 @@ func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
 	}
 	//
 	return ndecls, errors
-}
-
-func (p *Linker) resolveAlias(d *ast.UnresolvedAlias) *ast.Alias {
-	index := p.busmap[d.Name].Index
-	component := p.components[index]
-
-	c, ok := component.(*ast.UnresolvedTypeAlias)
-	if !ok {
-		panic("unknown type alias")
-	}
-
-	return data.NewAlias[symbol.Resolved](c.Name(), c.DataType.BitWidth())
 }
 
 func (p *Linker) linkInstruction(insn stmt.Unresolved) (stmt.Resolved, []source.SyntaxError) {
@@ -312,7 +289,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	var (
 		args   []expr.Resolved
 		errors []source.SyntaxError
-		nexpr  ast.Expr
+		nexpr  expr.Resolved
 	)
 	//
 	switch e := e.(type) {
@@ -404,6 +381,15 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	switch t := datatype.(type) {
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
+	case *data.Alias[symbol.Unresolved]:
+		index := p.busmap[t.Name].Index
+		component := p.components[index]
+		c, ok := component.(*decl.UnresolvedTypeAlias)
+		if !ok {
+			return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
+		}
+		// TODO bitwidth
+		return data.NewAlias[symbol.Resolved](c.Name(), 0), nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}

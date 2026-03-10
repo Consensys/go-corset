@@ -18,14 +18,14 @@ import (
 // ResolvedTypeAlias represents a type alias whose contents uses only external
 // identifiers which are resolved. As such, it should not be possible that such
 // a declaration refers to unknown (or otherwise incorrect) external components.
-type ResolvedTypeAlias = Type[symbol.Resolved]
+type ResolvedTypeAlias = TypeAlias[symbol.Resolved]
 
 // UnresolvedTypeAlias represents a type alias whose contents may contain string
 // identifiers for external (i.e. unlinked) components.  As such, its possible
 // that such an expression may fail with an error at link time due to an
 // unresolvable reference to an external component (e.g. function, RAM, ROM,
 // etc).
-type UnresolvedTypeAlias = Type[symbol.Unresolved]
+type UnresolvedTypeAlias = TypeAlias[symbol.Unresolved]
 
 // TypeAlias represents an alias for a DataType at the source level.
 type TypeAlias[I symbol.Symbol[I]] struct {
