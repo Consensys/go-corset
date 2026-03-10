@@ -87,6 +87,25 @@ func (p Uint) Mul(width uint, w Uint) Uint {
 	return Uint{res}
 }
 
+// Shl implementation for Word interface.
+func (p Uint) Shl(width uint, n Uint) Uint {
+	var res big.Int
+	res.Lsh(&p.value, uint(n.Uint64()))
+	// Mask result to width bits.
+	mask := new(big.Int).Sub(util_math.Pow2(width), big.NewInt(1))
+	res.And(&res, mask)
+	//
+	return Uint{res}
+}
+
+// Shr implementation for Word interface.
+func (p Uint) Shr(_ uint, n Uint) Uint {
+	var res big.Int
+	res.Rsh(&p.value, uint(n.Uint64()))
+	//
+	return Uint{res}
+}
+
 // Shr64 implementation for Word interface.
 func (p Uint) Shr64(n uint64) Uint {
 	var val big.Int

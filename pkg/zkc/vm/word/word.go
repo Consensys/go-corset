@@ -36,6 +36,10 @@ type Word[W any] interface {
 	Not(uint) W
 	// Bitwise OR of two words.
 	Or(uint, W) W
+	// Shift left word by the amount given in another word, masking to width bits.
+	Shl(uint, W) W
+	// Shift right word by the amount given in another word.
+	Shr(uint, W) W
 	// Shift right word by a given number of bits.
 	Shr64(uint64) W
 	// Slice number of bits from this word.
@@ -115,6 +119,36 @@ func BitwiseXor[W Word[W]](bitwidth uint, values ...W) W {
 			res = v
 		} else {
 			res = res.Xor(bitwidth, v)
+		}
+	}
+	//
+	return res
+}
+
+// BitwiseShl computes a left-shift chain over a set of words.
+func BitwiseShl[W Word[W]](bitwidth uint, values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Shl(bitwidth, v)
+		}
+	}
+	//
+	return res
+}
+
+// BitwiseShr computes a right-shift chain over a set of words.
+func BitwiseShr[W Word[W]](bitwidth uint, values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Shr(bitwidth, v)
 		}
 	}
 	//
