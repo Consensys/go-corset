@@ -141,6 +141,38 @@ func Test_ZkcInvalid_For_03(t *testing.T) {
 }
 
 // ===================================================================
+// Break Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Break_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/break_invalid_01")
+}
+
+func Test_ZkcInvalid_Break_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/break_invalid_02")
+}
+
+func Test_ZkcInvalid_Break_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/break_invalid_03")
+}
+
+func Test_ZkcInvalid_Break_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/break_invalid_04")
+}
+
+// ===================================================================
+// Continue Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Continue_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/continue_invalid_01")
+}
+
+func Test_ZkcInvalid_Continue_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/continue_invalid_02")
+}
+
+// ===================================================================
 // Bitwise Tests
 // ===================================================================
 

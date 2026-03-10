@@ -132,14 +132,13 @@ func (p *Base[W]) Write(id uint, address []W, data []W) {
 func (p *Base[W]) initialise(input map[string][]W) {
 	// Initialise stack input memories
 	for _, m := range p.modules {
-		// Check module name
-		contents, ok1 := input[m.Name()]
 		// Check module is a memory
-		memory, ok2 := m.(memory.Memory[W])
-		//
-		if ok1 && ok2 {
-			memory.Initialise(contents)
+		mem, ok := m.(memory.Memory[W])
+		if !ok {
+			continue
 		}
+		// Initialise with provided contents, or reset to empty if not supplied.
+		mem.Initialise(input[m.Name()])
 	}
 }
 

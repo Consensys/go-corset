@@ -108,6 +108,12 @@ const KEYWORD_FOR uint = 35
 // KEYWORD_VAR signals a local variable declaration
 const KEYWORD_VAR uint = 36
 
+// KEYWORD_BREAK signals a break statement
+const KEYWORD_BREAK uint = 37
+
+// KEYWORD_CONTINUE signals a continue statement
+const KEYWORD_CONTINUE uint = 38
+
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 60
 
@@ -263,6 +269,8 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.String("for"), KEYWORD_FOR),
 	lex.Rule(lex.String("var"), KEYWORD_VAR),
 	lex.Rule(lex.String("while"), KEYWORD_WHILE),
+	lex.Rule(lex.String("break"), KEYWORD_BREAK),
+	lex.Rule(lex.String("continue"), KEYWORD_CONTINUE),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
 }
