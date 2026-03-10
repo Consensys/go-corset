@@ -22,16 +22,16 @@ import "math/big"
 // (i.e. because our target field configuration has a maximum register size of
 // 16bits).
 type Word[W any] interface {
-	// Add two words together, producing another
-	Add(uint, W) W
+	// Add two words together, producing another (along with an overflow bit).
+	Add(uint, W) (W, bool)
 	// Bitwise AND of two words.
 	And(uint, W) W
 	// Return the value of this word as a big integer.
 	BigInt() *big.Int
 	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
 	Cmp(y W) int
-	// Multiply two words together, producing another
-	Mul(uint, W) W
+	// Multiply two words together, producing another (along with an overflow bit).
+	Mul(uint, W) (W, bool)
 	// Bitwise NOT of this word within the given bit width.
 	Not(uint) W
 	// Bitwise OR of two words.
@@ -47,8 +47,8 @@ type Word[W any] interface {
 	// Construct a fresh word with the given uint64 value, or panic (if the
 	// value does not fit).
 	SetUint64(uint64) W
-	// Sub two words together, producing another
-	Sub(uint, W) W
+	// Sub two words together, producing another (along with an underflow bit).
+	Sub(uint, W) (W, bool)
 	// Returns value of word as an unsigned integer and will panic if the value
 	// does not fit.
 	Uint64() uint64
@@ -66,18 +66,25 @@ func Uint64[W Word[W]](val uint64) W {
 }
 
 // Sum a given set of words together.
-func Sum[W Word[W]](bitwidth uint, values ...W) W {
-	var res W
+func Sum[W Word[W]](bitwidth uint, values ...W) (W, bool) {
+	var (
+		res      W
+		overflow bool
+	)
 	//
 	for i, v := range values {
+		var carry bool
+		//
 		if i == 0 {
 			res = v
 		} else {
-			res = res.Add(bitwidth, v)
+			res, carry = res.Add(bitwidth, v)
+			//
+			overflow = overflow || carry
 		}
 	}
 	//
-	return res
+	return res, overflow
 }
 
 // BitwiseAnd computes the bitwise AND of a set of words.
@@ -156,16 +163,23 @@ func BitwiseShr[W Word[W]](bitwidth uint, values ...W) W {
 }
 
 // Product mulitplies a given set of words together.
-func Product[W Word[W]](bitwidth uint, values ...W) W {
-	var res W
+func Product[W Word[W]](bitwidth uint, values ...W) (W, bool) {
+	var (
+		res      W
+		overflow bool
+	)
 	//
 	for i, v := range values {
+		var carry bool
+
 		if i == 0 {
 			res = v
 		} else {
-			res = res.Mul(bitwidth, v)
+			res, carry = res.Mul(bitwidth, v)
+			//
+			overflow = overflow || carry
 		}
 	}
 	//
-	return res
+	return res, overflow
 }
