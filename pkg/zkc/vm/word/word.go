@@ -24,12 +24,18 @@ import "math/big"
 type Word[W any] interface {
 	// Add two words together, producing another
 	Add(uint, W) W
+	// Bitwise AND of two words.
+	And(uint, W) W
 	// Return the value of this word as a big integer.
 	BigInt() *big.Int
 	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
 	Cmp(y W) int
 	// Multiply two words together, producing another
 	Mul(uint, W) W
+	// Bitwise NOT of this word within the given bit width.
+	Not(uint) W
+	// Bitwise OR of two words.
+	Or(uint, W) W
 	// Shift right word by a given number of bits.
 	Shr64(uint64) W
 	// Slice number of bits from this word.
@@ -42,6 +48,8 @@ type Word[W any] interface {
 	// Returns value of word as an unsigned integer and will panic if the value
 	// does not fit.
 	Uint64() uint64
+	// Bitwise XOR of two words.
+	Xor(uint, W) W
 	// Text returns the given word formated in the given base
 	Text(base int) string
 }
@@ -62,6 +70,51 @@ func Sum[W Word[W]](bitwidth uint, values ...W) W {
 			res = v
 		} else {
 			res = res.Add(bitwidth, v)
+		}
+	}
+	//
+	return res
+}
+
+// BitwiseAnd computes the bitwise AND of a set of words.
+func BitwiseAnd[W Word[W]](bitwidth uint, values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.And(bitwidth, v)
+		}
+	}
+	//
+	return res
+}
+
+// BitwiseOr computes the bitwise OR of a set of words.
+func BitwiseOr[W Word[W]](bitwidth uint, values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Or(bitwidth, v)
+		}
+	}
+	//
+	return res
+}
+
+// BitwiseXor computes the bitwise XOR of a set of words.
+func BitwiseXor[W Word[W]](bitwidth uint, values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Xor(bitwidth, v)
 		}
 	}
 	//
