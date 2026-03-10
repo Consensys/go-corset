@@ -13,6 +13,7 @@
 package zkc
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 
@@ -90,22 +91,22 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 		//
 		os.Exit(4)
 	}
-	// Write output
+	// Collect raw outputs from write-once memories
+	rawOutputs := make(map[string][]word.Uint)
 	for _, m := range vm.Modules() {
 		if output, ok := m.(*memory.WriteOnce[word.Uint]); ok {
-			//
-			fmt.Printf("%s = {", output.Name())
-			//
-			for i, val := range output.Contents() {
-				if i != 0 {
-					fmt.Printf(", ")
-				}
-				//
-				fmt.Printf("0x%s", val.Text(16))
-			}
-			//
-			fmt.Println("}")
+			rawOutputs[output.Name()] = output.Contents()
 		}
+	}
+	// Encode outputs back to bytes
+	encodedOutputs, encErrors := program.EncodeInputsOutputs(rawOutputs)
+	//
+	for _, e := range encErrors {
+		log.Error(fmt.Sprintf("%s (IR)", e))
+	}
+	// Write output
+	for name, bytes := range encodedOutputs {
+		fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
 	}
 }
 
