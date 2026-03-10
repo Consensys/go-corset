@@ -261,17 +261,33 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 }
 
 func (p *Compiler) compileShl(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
-	// Exactly two operands: value and shift amount.
+	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
+	// Chain shifts left-to-right: (((a << b) << c) << ...).
+	value := sources[0]
 	//
-	return insns, instruction.NewShl[word.Uint](target, sources[0], sources[1])
+	for i := 1; i < len(sources)-1; i++ {
+		tmp := p.allocate(p.registers[target.Unwrap()].Width())
+		insns = append(insns, instruction.NewShl[word.Uint](tmp, value, sources[i]))
+		value = tmp
+	}
+	//
+	return insns, instruction.NewShl[word.Uint](target, value, sources[len(sources)-1])
 }
 
 func (p *Compiler) compileShr(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
-	// Exactly two operands: value and shift amount.
+	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
+	// Chain shifts left-to-right: (((a >> b) >> c) >> ...).
+	value := sources[0]
 	//
-	return insns, instruction.NewShr[word.Uint](target, sources[0], sources[1])
+	for i := 1; i < len(sources)-1; i++ {
+		tmp := p.allocate(p.registers[target.Unwrap()].Width())
+		insns = append(insns, instruction.NewShr[word.Uint](tmp, value, sources[i]))
+		value = tmp
+	}
+	//
+	return insns, instruction.NewShr[word.Uint](target, value, sources[len(sources)-1])
 }
 
 func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {

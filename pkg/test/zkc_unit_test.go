@@ -125,6 +125,18 @@ func Test_ZkcUnit_Shift_04(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/shift_valid_04")
 }
 
+func Test_ZkcUnit_Shift_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_05")
+}
+
+func Test_ZkcUnit_Shift_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_06")
+}
+
+func Test_ZkcUnit_Shift_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_07")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
