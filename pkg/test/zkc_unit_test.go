@@ -70,6 +70,42 @@ func Test_ZkcUnit_For_02(t *testing.T) {
 }
 
 // ===================================================================
+// Bitwise Tests
+// ===================================================================
+
+func Test_ZkcUnit_Bitwise_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_01")
+}
+
+func Test_ZkcUnit_Bitwise_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_02")
+}
+
+func Test_ZkcUnit_Bitwise_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_03")
+}
+
+func Test_ZkcUnit_Bitwise_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_04")
+}
+
+func Test_ZkcUnit_Bitwise_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_05")
+}
+
+func Test_ZkcUnit_Bitwise_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_06")
+}
+
+func Test_ZkcUnit_Bitwise_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_07")
+}
+
+func Test_ZkcUnit_Bitwise_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_valid_08")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

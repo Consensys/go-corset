@@ -142,6 +142,9 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.Add[symbol.Resolved]:
 		insns, insn = p.compileAdd(e.Exprs, mapping, targets[0])
 		unitExpr = true
+	case *expr.And[symbol.Resolved]:
+		insns, insn = p.compileAnd(e.Exprs, mapping, targets[0])
+		unitExpr = true
 	case *expr.Const[symbol.Resolved]:
 		var c word.Uint
 		//
@@ -170,8 +173,17 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.Mul[symbol.Resolved]:
 		insns, insn = p.compileMul(e.Exprs, mapping, targets[0])
 		unitExpr = true
+	case *expr.Not[symbol.Resolved]:
+		insns, insn = p.compileNot(e, mapping, targets[0])
+		unitExpr = true
+	case *expr.Or[symbol.Resolved]:
+		insns, insn = p.compileOr(e.Exprs, mapping, targets[0])
+		unitExpr = true
 	case *expr.Sub[symbol.Resolved]:
 		insns, insn = p.compileSub(e.Exprs, mapping, targets[0])
+		unitExpr = true
+	case *expr.Xor[symbol.Resolved]:
+		insns, insn = p.compileXor(e.Exprs, mapping, targets[0])
 		unitExpr = true
 	default:
 		panic("unknown expression encountered")
@@ -266,6 +278,88 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) (
 	return insns, instruction.NewSub[word.Uint](target, sources, constant)
 }
 
+func (p *Compiler) compileAnd(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
+	var (
+		bitwidth = p.registers[target.Unwrap()].Width()
+		// Identity for AND is all-ones within the target bitwidth.
+		constant word.Uint
+		nargs    []Expr
+	)
+	// Start with all-ones (identity for AND).
+	constant = constant.Not(bitwidth)
+	//
+	for _, e := range args {
+		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
+			var w word.Uint
+
+			constant = constant.And(bitwidth, w.SetBigInt(&c.Constant))
+		} else if p.isConstantAccess(e) {
+			constant = constant.And(bitwidth, p.evalConstant(e))
+		} else {
+			nargs = append(nargs, e)
+		}
+	}
+	// Compile arguments
+	sources, insns := p.compileArgs(mapping, nargs...)
+	//
+	return insns, instruction.NewAnd[word.Uint](target, sources, constant)
+}
+
+func (p *Compiler) compileNot(e *expr.Not[symbol.Resolved], mapping []uint, target register.Id,
+) ([]MicroInstruction, MicroInstruction) {
+	sources, insns := p.compileArgs(mapping, e.Expr)
+	//
+	return insns, instruction.NewNot[word.Uint](target, sources[0])
+}
+
+func (p *Compiler) compileOr(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
+	var (
+		bitwidth = p.registers[target.Unwrap()].Width()
+		constant word.Uint
+		nargs    []Expr
+	)
+	//
+	for _, e := range args {
+		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
+			var w word.Uint
+
+			constant = constant.Or(bitwidth, w.SetBigInt(&c.Constant))
+		} else if p.isConstantAccess(e) {
+			constant = constant.Or(bitwidth, p.evalConstant(e))
+		} else {
+			nargs = append(nargs, e)
+		}
+	}
+	// Compile arguments
+	sources, insns := p.compileArgs(mapping, nargs...)
+	//
+	return insns, instruction.NewOr[word.Uint](target, sources, constant)
+}
+
+func (p *Compiler) compileXor(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
+	var (
+		bitwidth = p.registers[target.Unwrap()].Width()
+		constant word.Uint
+		nargs    []Expr
+	)
+	//
+	for _, e := range args {
+		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
+			var w word.Uint
+
+			constant = constant.Xor(bitwidth, w.SetBigInt(&c.Constant))
+		} else if p.isConstantAccess(e) {
+			constant = constant.Xor(bitwidth, p.evalConstant(e))
+		} else {
+			nargs = append(nargs, e)
+		}
+	}
+	// Compile arguments
+	sources, insns := p.compileArgs(mapping, nargs...)
+	//
+	return insns, instruction.NewXor[word.Uint](target, sources, constant)
+}
+
 func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []MicroInstruction) {
 	var (
 		insns   []MicroInstruction
@@ -295,6 +389,9 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 	case *expr.Add[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.Sum(bitwidth, args...)
+	case *expr.And[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		return word.BitwiseAnd(bitwidth, args...)
 	case *expr.Const[symbol.Resolved]:
 		var c word.Uint
 		//
@@ -302,6 +399,15 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 	case *expr.Mul[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.Product(bitwidth, args...)
+	case *expr.Not[symbol.Resolved]:
+		arg := p.evalConstant(e.Expr)
+		return arg.Not(bitwidth)
+	case *expr.Or[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		return word.BitwiseOr(bitwidth, args...)
+	case *expr.Xor[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		return word.BitwiseXor(bitwidth, args...)
 	case *expr.ExternAccess[symbol.Resolved]:
 		var decl = p.components[e.Name.Index].(*Constant)
 		return p.evalConstant(decl.ConstExpr)
