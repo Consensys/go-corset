@@ -171,8 +171,38 @@ ZkC supports the following arithmetic operators:
 | `a - b`  | subtraction    |
 | `a * b`  | multiplication |
 
-**Parentheses are required** when mixing operators. `a + b * c` is a syntax
-error; write `a + (b * c)` instead.
+Bitwise operators:
+
+| Operator | Meaning                               |
+| -------- | ------------------------------------- |
+| `a & b`  | bitwise AND                           |
+| `a \| b` | bitwise OR                            |
+| `a ^ b`  | bitwise XOR                           |
+| `~a`     | bitwise NOT (complement within width) |
+| `a << b` | left shift (result masked to width)   |
+| `a >> b` | right shift                           |
+
+All operands of a binary bitwise or shift expression must have the same
+type. The result type equals the operand type. For shifts, the shift
+amount must be the same type as the value being shifted; left-shift
+results are masked to the declared bit width of the target.
+
+**Parentheses are required** when mixing operators of different kinds.
+Chains of the _same_ operator are permitted without extra parentheses:
+
+```zkc
+// OK — same operator chained
+var r:u8 = x & y & z
+var s:u8 = x << 1 << 2
+
+// OK — different operators, disambiguated with braces
+var t:u8 = (x & y) | z
+var u:u8 = (x << 2) >> 1
+
+// ERROR — mixing operators without braces
+var bad:u8 = x & y | z
+var bad2:u8 = x << y >> z
+```
 
 Comparison operators (used in conditions only):
 

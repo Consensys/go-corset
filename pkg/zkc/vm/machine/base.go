@@ -272,6 +272,69 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 		frame[insn.Target.Unwrap()] = val
 		//
 		return true, nil
+	case *instruction.And[W]:
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for _, arg := range insn.Sources {
+			val = val.And(bitwidth, frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+
+	case *instruction.Not[W]:
+		var bitwidth = regs[insn.Target.Unwrap()].Width()
+		//
+		frame[insn.Target.Unwrap()] = frame[insn.Source.Unwrap()].Not(bitwidth)
+		//
+		return true, nil
+
+	case *instruction.Or[W]:
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for _, arg := range insn.Sources {
+			val = val.Or(bitwidth, frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+
+	case *instruction.Shl[W]:
+		var bitwidth = regs[insn.Target.Unwrap()].Width()
+		//
+		frame[insn.Target.Unwrap()] = frame[insn.Value.Unwrap()].Shl(bitwidth, frame[insn.Amount.Unwrap()])
+		//
+		return true, nil
+
+	case *instruction.Shr[W]:
+		var bitwidth = regs[insn.Target.Unwrap()].Width()
+		//
+		frame[insn.Target.Unwrap()] = frame[insn.Value.Unwrap()].Shr(bitwidth, frame[insn.Amount.Unwrap()])
+		//
+		return true, nil
+
+	case *instruction.Xor[W]:
+		var (
+			val      W = insn.Constant
+			bitwidth   = regs[insn.Target.Unwrap()].Width()
+		)
+		//
+		for _, arg := range insn.Sources {
+			val = val.Xor(bitwidth, frame[arg.Unwrap()])
+		}
+		//
+		frame[insn.Target.Unwrap()] = val
+		//
+		return true, nil
+
 	case *instruction.Vector[W]:
 		var (
 			err      error

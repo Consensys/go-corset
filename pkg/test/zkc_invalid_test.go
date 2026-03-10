@@ -141,6 +141,90 @@ func Test_ZkcInvalid_For_03(t *testing.T) {
 }
 
 // ===================================================================
+// Bitwise Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Bitwise_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_01")
+}
+
+func Test_ZkcInvalid_Bitwise_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_02")
+}
+
+func Test_ZkcInvalid_Bitwise_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_03")
+}
+
+func Test_ZkcInvalid_Bitwise_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_04")
+}
+
+func Test_ZkcInvalid_Bitwise_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_05")
+}
+
+func Test_ZkcInvalid_Bitwise_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_06")
+}
+
+func Test_ZkcInvalid_Bitwise_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_07")
+}
+
+func Test_ZkcInvalid_Bitwise_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_08")
+}
+
+func Test_ZkcInvalid_Bitwise_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_09")
+}
+
+func Test_ZkcInvalid_Bitwise_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_10")
+}
+
+func Test_ZkcInvalid_Bitwise_11(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/bitwise_invalid_11")
+}
+
+// ===================================================================
+// Shift Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Shift_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_01")
+}
+
+func Test_ZkcInvalid_Shift_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_02")
+}
+
+func Test_ZkcInvalid_Shift_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_03")
+}
+
+func Test_ZkcInvalid_Shift_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_04")
+}
+
+func Test_ZkcInvalid_Shift_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_05")
+}
+
+func Test_ZkcInvalid_Shift_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_06")
+}
+
+func Test_ZkcInvalid_Shift_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_07")
+}
+
+func Test_ZkcInvalid_Shift_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/shift_invalid_08")
+}
+
+// ===================================================================
 // Memory Tests
 // ===================================================================
 
