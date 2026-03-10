@@ -11,18 +11,14 @@
 package data
 
 import (
-	"fmt"
-
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// ResolvedTypeAlias represents an alias which contains only resolved identifiers.
+// ResolvedAlias represents an alias which contains only resolved identifiers.
 type ResolvedAlias = Alias[symbol.Resolved]
 
 // UnresolvedAlias represents an alias which contains only unresolved identifiers.
 type UnresolvedAlias = Alias[symbol.Unresolved]
-
-
 
 // Alias captures the alias of a language type.
 type Alias[I symbol.Symbol[I]] struct {
@@ -56,5 +52,5 @@ func (p *Alias[S]) AsTuple(Environment[S]) *Tuple[S] {
 }
 
 func (p *Alias[S]) String(Environment[S]) string {
-	return fmt.Sprintf("%s", p.Name)
+	return p.Name
 }
