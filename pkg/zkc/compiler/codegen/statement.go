@@ -179,6 +179,12 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.Or[symbol.Resolved]:
 		insns, insn = p.compileOr(e.Exprs, mapping, targets[0])
 		unitExpr = true
+	case *expr.Shl[symbol.Resolved]:
+		insns, insn = p.compileShl(e.Exprs, mapping, targets[0])
+		unitExpr = true
+	case *expr.Shr[symbol.Resolved]:
+		insns, insn = p.compileShr(e.Exprs, mapping, targets[0])
+		unitExpr = true
 	case *expr.Sub[symbol.Resolved]:
 		insns, insn = p.compileSub(e.Exprs, mapping, targets[0])
 		unitExpr = true
@@ -252,6 +258,20 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewMul[word.Uint](target, sources, constant)
+}
+
+func (p *Compiler) compileShl(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
+	// Exactly two operands: value and shift amount.
+	sources, insns := p.compileArgs(mapping, args...)
+	//
+	return insns, instruction.NewShl[word.Uint](target, sources[0], sources[1])
+}
+
+func (p *Compiler) compileShr(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
+	// Exactly two operands: value and shift amount.
+	sources, insns := p.compileArgs(mapping, args...)
+	//
+	return insns, instruction.NewShr[word.Uint](target, sources[0], sources[1])
 }
 
 func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
@@ -405,6 +425,12 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 	case *expr.Or[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.BitwiseOr(bitwidth, args...)
+	case *expr.Shl[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		return word.BitwiseShl(bitwidth, args...)
+	case *expr.Shr[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		return word.BitwiseShr(bitwidth, args...)
 	case *expr.Xor[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.BitwiseXor(bitwidth, args...)

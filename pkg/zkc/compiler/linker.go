@@ -293,6 +293,9 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	case *expr.Add[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewAdd[symbol.Resolved](args...)
+	case *expr.And[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewAnd[symbol.Resolved](args...)
 	case *expr.Const[symbol.Unresolved]:
 		nexpr = expr.NewConstant[symbol.Resolved](e.Constant, e.Base)
 	case *expr.ExternAccess[symbol.Unresolved]:
@@ -307,11 +310,28 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	case *expr.Mul[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewMul[symbol.Resolved](args...)
+	case *expr.Not[symbol.Unresolved]:
+		var ne expr.Resolved
+
+		ne, errors = p.linkExpr(e.Expr)
+		nexpr = expr.NewNot[symbol.Resolved](ne)
+	case *expr.Or[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewOr[symbol.Resolved](args...)
+	case *expr.Shl[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewShl[symbol.Resolved](args...)
+	case *expr.Shr[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewShr[symbol.Resolved](args...)
 	case *expr.LocalAccess[symbol.Unresolved]:
 		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
 	case *expr.Sub[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewSub[symbol.Resolved](args...)
+	case *expr.Xor[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewXor[symbol.Resolved](args...)
 	default:
 		panic("unknown expression encountered")
 	}

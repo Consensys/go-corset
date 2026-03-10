@@ -106,6 +106,26 @@ func Test_ZkcUnit_Bitwise_08(t *testing.T) {
 }
 
 // ===================================================================
+// Shift Tests
+// ===================================================================
+
+func Test_ZkcUnit_Shift_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_01")
+}
+
+func Test_ZkcUnit_Shift_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_02")
+}
+
+func Test_ZkcUnit_Shift_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_03")
+}
+
+func Test_ZkcUnit_Shift_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_valid_04")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
