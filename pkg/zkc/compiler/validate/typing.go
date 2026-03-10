@@ -96,12 +96,9 @@ func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError
 	// Sanity check
 	if len(errors) != 0 {
 		return errors
-	} else if !data.SubtypeOf(rhs, c.DataType, p.env) {
-		return p.srcmaps.SyntaxErrors(c.ConstExpr,
-			fmt.Sprintf("expected %s (found %s)", c.DataType.String(p.env), rhs.String(p.env)))
 	}
-	//
-	return nil
+	// Subtype check
+	return p.checkSubType(rhs, c.DataType, c.ConstExpr)
 }
 
 func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxError {
@@ -141,10 +138,9 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 		if len(lhsErrs) != 0 || len(rhsErrs) != 0 {
 			errors = append(errors, lhsErrs...)
 			errors = append(errors, rhsErrs...)
-		} else if !data.SubtypeOf(rhs_t, lval_t, p.env) {
-			err := *p.srcmaps.SyntaxError(rhs,
-				fmt.Sprintf("cannot use %s as %s in assignment", rhs_t.String(p.env), lval_t.String(p.env)))
-			errors = append(errors, err)
+		} else {
+			//
+			errors = append(errors, p.checkSubType(rhs_t, lval_t, rhs)...)
 		}
 	}
 	//
@@ -184,10 +180,7 @@ func (p *TypeChecker) typeMemoryLVal(c *decl.ResolvedMemory, e *lval.MemAccess[s
 		// check argument types
 		for i := range args {
 			ith := c.Address[i].DataType
-			if !data.SubtypeOf(args[i], ith, p.env) {
-				errs = append(errs, *p.srcmaps.SyntaxError(e.Args[i],
-					fmt.Sprintf("expected type %s", ith.String(p.env))))
-			}
+			errs = append(errs, p.checkSubType(args[i], ith, e.Args[i])...)
 		}
 	}
 	// Done
@@ -249,8 +242,9 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap) []s
 		rerrs = p.srcmaps.SyntaxErrors(e.Right, "expected uint")
 	}
 	// Check matching types
-	if len(lerrs)+len(rerrs) == 0 && !data.SubtypeOf(lhs, rhs, p.env) && !data.SubtypeOf(rhs, lhs, p.env) {
-		return p.srcmaps.SyntaxErrors(e.Right, fmt.Sprintf("expected type %s", lhs.String(p.env)))
+	if len(lerrs)+len(rerrs) == 0 {
+		// Equivalence check
+		return p.checkEquiType(rhs, lhs, e.Right)
 	}
 	//
 	return append(lerrs, rerrs...)
@@ -308,16 +302,15 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env Variab
 	//
 	for i, t := range args {
 		if i == 0 && t.AsUint(p.env) == nil {
-			return nil, p.srcmaps.SyntaxErrors(exprs[i], "expected uint")
+			return nil, append(errs, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
 		} else if i == 0 {
 			res = t
-		} else if !data.SubtypeOf(res, t, p.env) && !data.SubtypeOf(t, res, p.env) {
-			return nil, p.srcmaps.SyntaxErrors(exprs[i],
-				fmt.Sprintf("expected type %s", res.String(p.env)))
+		} else {
+			errs = append(errs, p.checkEquiType(t, res, exprs[i])...)
 		}
 	}
 	//
-	return res, nil
+	return res, errs
 }
 
 func (p *TypeChecker) typeConst(e *expr.Const[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {
@@ -366,10 +359,8 @@ func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAcc
 		// check argument types
 		for i := range args {
 			ith := c.Address[i].DataType
-			if !data.SubtypeOf(args[i], ith, p.env) {
-				errs = append(errs, *p.srcmaps.SyntaxError(e.Args[i],
-					fmt.Sprintf("expected type %s", ith.String(p.env))))
-			}
+			// Subtype check
+			errs = append(errs, p.checkSubType(args[i], ith, e.Args[i])...)
 		}
 	}
 	// Done
@@ -379,4 +370,21 @@ func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAcc
 func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.ExternAccess[symbol.Resolved],
 	env VariableMap) (Type, []source.SyntaxError) {
 	panic("todo --- function accesses")
+}
+
+// Perform a subtype check, return errors as required.
+func (p *TypeChecker) checkSubType(lhs, rhs Type, node any) []source.SyntaxError {
+	if !data.SubtypeOf(lhs, rhs, p.env) {
+		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
+	}
+	//
+	return nil
+}
+
+func (p *TypeChecker) checkEquiType(lhs, rhs Type, node any) []source.SyntaxError {
+	if !data.SubtypeOf(lhs, rhs, p.env) && !data.SubtypeOf(rhs, lhs, p.env) {
+		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
+	}
+	//
+	return nil
 }
