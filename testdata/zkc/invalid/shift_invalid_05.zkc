@@ -1,4 +1,4 @@
-//error:3:7-13:cannot use u8 as u4 in assignment
+//error:3:7-13:expected type u4
 fn f(x:u8, y:u8) -> (r:u4) {
   r = x << y
   return
