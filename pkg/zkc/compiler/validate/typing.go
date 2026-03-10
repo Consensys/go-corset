@@ -268,6 +268,10 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, 
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.ExternAccess[symbol.Resolved]:
 		t, errs = p.typeExternAccess(e, env)
+	case *expr.Shl[symbol.Resolved]:
+		t, errs = p.typeShiftExpression(e.Exprs, env)
+	case *expr.Shr[symbol.Resolved]:
+		t, errs = p.typeShiftExpression(e.Exprs, env)
 	case *expr.Sub[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.Xor[symbol.Resolved]:
@@ -319,6 +323,33 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env Variab
 	}
 	//
 	return res, errs
+}
+
+// typeShiftExpression types a shift expression (Shl or Shr). The result type
+// is that of the first (value) operand. All operands must be uint and the
+// shift amount must have a compatible type with the value being shifted.
+func (p *TypeChecker) typeShiftExpression(exprs []expr.Resolved, env VariableMap) (Type, []source.SyntaxError) {
+	var (
+		args, errs = p.typeExpressions(exprs, env)
+		res        Type
+	)
+	//
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	//
+	for i, t := range args {
+		if t.AsUint(p.env) == nil {
+			return nil, p.srcmaps.SyntaxErrors(exprs[i], "expected uint")
+		} else if i == 0 {
+			res = t
+		} else if !data.SubtypeOf(res, t, p.env) && !data.SubtypeOf(t, res, p.env) {
+			return nil, p.srcmaps.SyntaxErrors(exprs[i],
+				fmt.Sprintf("expected type %s", res.String(p.env)))
+		}
+	}
+	//
+	return res, nil
 }
 
 func (p *TypeChecker) typeBitwiseNot(e *expr.Not[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {

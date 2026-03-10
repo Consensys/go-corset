@@ -156,6 +156,12 @@ const BITXOR uint = 74
 // BITNOT signals "~"
 const BITNOT uint = 75
 
+// BITSHL signals "<<"
+const BITSHL uint = 76
+
+// BITSHR signals ">>"
+const BITSHR uint = 77
+
 // QMARK signals "?"
 const QMARK uint = 80
 
@@ -225,6 +231,8 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('!', '='), NOT_EQUALS),
 	lex.Rule(lex.Unit('<', '='), LESS_THAN_EQUALS),
 	lex.Rule(lex.Unit('>', '='), GREATER_THAN_EQUALS),
+	lex.Rule(lex.Unit('<', '<'), BITSHL),
+	lex.Rule(lex.Unit('>', '>'), BITSHR),
 	lex.Rule(lex.Unit('<'), LESS_THAN),
 	lex.Rule(lex.Unit('>'), GREATER_THAN),
 	lex.Rule(lex.Unit('='), EQUALS),

@@ -68,7 +68,7 @@ func Parse(srcfile *source.File) (UnlinkedSourceFile, []source.SyntaxError) {
 }
 
 // BINOPS captures the set of binary operations
-var BINOPS = []uint{SUB, MUL, ADD, BITAND, BITOR, BITXOR}
+var BINOPS = []uint{SUB, MUL, ADD, BITAND, BITOR, BITXOR, BITSHL, BITSHR}
 
 // ============================================================================
 // Assembler
@@ -869,6 +869,10 @@ func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
 		arg = expr.NewOr(args...)
 	case kind == BITXOR:
 		arg = expr.NewXor(args...)
+	case kind == BITSHL:
+		arg = expr.NewShl(args...)
+	case kind == BITSHR:
+		arg = expr.NewShr(args...)
 	case kind == MUL:
 		arg = expr.NewMul(args...)
 	case kind == SUB:

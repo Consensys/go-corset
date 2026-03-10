@@ -110,6 +110,12 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 		return "~" + String[S](e.Expr, mapping)
 	case *ExternAccess[S]:
 		return e.Name.String()
+	case *Shl[S]:
+		operator = "<<"
+		exprs = e.Exprs
+	case *Shr[S]:
+		operator = ">>"
+		exprs = e.Exprs
 	case *Sub[S]:
 		exprs = e.Exprs
 		operator = "-"
