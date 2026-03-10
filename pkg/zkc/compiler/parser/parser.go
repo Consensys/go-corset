@@ -70,6 +70,14 @@ func Parse(srcfile *source.File) (UnlinkedSourceFile, []source.SyntaxError) {
 // BINOPS captures the set of binary operations
 var BINOPS = []uint{SUB, MUL, ADD, BITAND, BITOR, BITXOR, BITSHL, BITSHR}
 
+// BREAK_SENTINEL is a placeholder target in Goto instructions emitted by break
+// statements, replaced by the real exit target in patchBreaks.
+const BREAK_SENTINEL = math.MaxUint
+
+// CONTINUE_SENTINEL is a placeholder target in Goto instructions emitted by
+// continue statements, replaced by the real continue target in patchContinues.
+const CONTINUE_SENTINEL = math.MaxUint - 1
+
 // ============================================================================
 // Assembler
 // ============================================================================
@@ -225,7 +233,7 @@ func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 	// Save for source map
 	end := p.index
 	// Parse start of block
-	if returned, code, errs = p.parseStatementBlock(0, &env); len(errs) > 0 {
+	if returned, code, errs = p.parseStatementBlock(0, &env, false); len(errs) > 0 {
 		return nil, errs
 	}
 	// Sanity check we parsed something
@@ -444,7 +452,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	}
 }
 
-func (p *Parser) parseStatementBlock(pc uint, env *Environment,
+func (p *Parser) parseStatementBlock(pc uint, env *Environment, looping bool,
 ) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	//
 	var (
@@ -463,7 +471,7 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment,
 			ret bool
 		)
 		//
-		if ret, ith, errs = p.parseStatement(pc, env); len(errs) > 0 {
+		if ret, ith, errs = p.parseStatement(pc, env, looping); len(errs) > 0 {
 			return false, nil, errs
 		}
 		//
@@ -479,7 +487,9 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment,
 	return returned, insns, errs
 }
 
-func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseStatement(pc uint, env *Environment, looping bool,
+) (bool, []stmt.Unresolved, []source.SyntaxError) {
+	//
 	var (
 		// Save current position for backtracking
 		start    = p.index
@@ -492,10 +502,14 @@ func (p *Parser) parseStatement(pc uint, env *Environment) (bool, []stmt.Unresol
 	lookahead := p.lookahead()
 	//
 	switch lookahead.Kind {
+	case KEYWORD_BREAK:
+		returned, insn, errs = p.parseBreak(looping)
+	case KEYWORD_CONTINUE:
+		returned, insn, errs = p.parseContinue(looping)
 	case KEYWORD_FAIL:
 		returned, insn, errs = p.parseFail(env)
 	case KEYWORD_IF:
-		returned, insns, errs = p.parseIfElse(pc, env)
+		returned, insns, errs = p.parseIfElse(pc, env, looping)
 	case KEYWORD_FOR:
 		returned, insns, errs = p.parseFor(pc, env)
 	case KEYWORD_WHILE:
@@ -547,7 +561,7 @@ func (p *Parser) parseAssignment(env *Environment) (stmt.Unresolved, []source.Sy
 	return &stmt.Assign[symbol.Unresolved]{Targets: lhs, Source: rhs}, nil
 }
 
-func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseIfElse(pc uint, env *Environment, looping bool) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs              []source.SyntaxError
 		cond              Condition
@@ -565,7 +579,7 @@ func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []stmt.Unresolved
 		return false, nil, errs
 	}
 	// Parse true branch
-	if trueRet, trueBranch, errs = p.parseStatementBlock(pc+1, env); len(errs) > 0 {
+	if trueRet, trueBranch, errs = p.parseStatementBlock(pc+1, env, looping); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// falseTarget for if-goto
@@ -581,7 +595,7 @@ func (p *Parser) parseIfElse(pc uint, env *Environment) (bool, []stmt.Unresolved
 			falseTarget++
 		}
 		// parse false branch
-		if falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env); len(errs) > 0 {
+		if falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, looping); len(errs) > 0 {
 			return false, nil, errs
 		}
 		// add bypass (if applicablew)
@@ -616,7 +630,7 @@ func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []stmt.Unresolved,
 		return false, nil, errs
 	}
 	// Parse body block; body starts at pc+1
-	if _, body, errs = p.parseStatementBlock(pc+1, env); len(errs) > 0 {
+	if _, body, errs = p.parseStatementBlock(pc+1, env, true); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// Back-goto jumps to the if-goto at pc
@@ -625,6 +639,10 @@ func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []stmt.Unresolved,
 	// The conditional skip jumps past the back-goto to the instruction after the loop
 	exitTarget := pc + uint(len(insns))
 	insns[0] = &stmt.IfGoto[symbol.Unresolved]{Cond: cond.Negate(), Target: exitTarget}
+	// Patch any break sentinels to jump to exit
+	patchBreaks(insns, exitTarget)
+	// Patch any continue sentinels to jump back to condition check
+	patchContinues(insns, pc)
 	// A while loop never guarantees a return
 	return false, insns, nil
 }
@@ -670,7 +688,7 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []stmt.Unresolved, [
 	//   pc+4+|body| (exit):     ...
 	condPC := pc + 1
 	// Parse body; starts at condPC+1 = pc+2
-	if _, body, errs = p.parseStatementBlock(condPC+1, env); len(errs) > 0 {
+	if _, body, errs = p.parseStatementBlock(condPC+1, env, true); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// Build the instruction sequence
@@ -683,6 +701,10 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []stmt.Unresolved, [
 	// Fill in the conditional check: exit is the instruction after the back-goto
 	exitTarget := pc + uint(len(insns))
 	insns[1] = &stmt.IfGoto[symbol.Unresolved]{Cond: cond.Negate(), Target: exitTarget}
+	// Patch any break sentinels to jump to exit
+	patchBreaks(insns, exitTarget)
+	// Patch any continue sentinels to jump to the post instruction
+	patchContinues(insns, condPC+1+uint(len(body)))
 	// A for loop never guarantees a return
 	return false, insns, nil
 }
@@ -748,6 +770,32 @@ func (p *Parser) parseFail(env *Environment) (bool, stmt.Unresolved, []source.Sy
 	//
 	return true, &stmt.Fail[symbol.Unresolved]{}, nil
 }
+func (p *Parser) parseBreak(looping bool) (bool, stmt.Unresolved, []source.SyntaxError) {
+	tok, errs := p.expect(KEYWORD_BREAK)
+	if len(errs) > 0 {
+		return true, nil, errs
+	}
+
+	if !looping {
+		return true, nil, p.syntaxErrors(tok, "break outside loop")
+	}
+
+	return true, &stmt.Goto[symbol.Unresolved]{Target: BREAK_SENTINEL}, nil
+}
+
+func (p *Parser) parseContinue(looping bool) (bool, stmt.Unresolved, []source.SyntaxError) {
+	tok, errs := p.expect(KEYWORD_CONTINUE)
+	if len(errs) > 0 {
+		return true, nil, errs
+	}
+
+	if !looping {
+		return true, nil, p.syntaxErrors(tok, "continue outside loop")
+	}
+
+	return true, &stmt.Goto[symbol.Unresolved]{Target: CONTINUE_SENTINEL}, nil
+}
+
 func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs  []source.SyntaxError
@@ -1188,4 +1236,24 @@ func UnboundLabel(name string) Label {
 // BoundLabel constructs a label whose PC location is known.
 func BoundLabel(name string, pc uint) Label {
 	return Label{name, pc}
+}
+
+// patchBreaks replaces all break sentinels (Goto with Target == math.MaxUint)
+// in the instruction list with the given exit target.
+func patchBreaks(insns []stmt.Unresolved, target uint) {
+	for _, insn := range insns {
+		if g, ok := insn.(*stmt.Goto[symbol.Unresolved]); ok && g.Target == BREAK_SENTINEL {
+			g.Target = target
+		}
+	}
+}
+
+// patchContinues replaces all continue sentinels (Goto with Target == CONTINUE_SENTINEL)
+// in the instruction list with the given continue target.
+func patchContinues(insns []stmt.Unresolved, target uint) {
+	for _, insn := range insns {
+		if g, ok := insn.(*stmt.Goto[symbol.Unresolved]); ok && g.Target == CONTINUE_SENTINEL {
+			g.Target = target
+		}
+	}
 }
