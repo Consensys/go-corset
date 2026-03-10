@@ -1,4 +1,4 @@
-;;error:4:3-8:bit overflow (u2 into u1)
+//error:4:7-8:expected type bool
 type bool = u1
 fn f(x:bool) -> (r:bool) {
   r = 2
