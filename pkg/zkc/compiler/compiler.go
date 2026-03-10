@@ -107,6 +107,8 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 // we cannot assign to an input register under the current calling convention.
 func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
 	var errors []source.SyntaxError
+	// Check for cyclic aliases
+
 	// Apply various checks
 	errors = append(errors, validate.Typing(program, srcmaps)...)
 	errors = append(errors, validate.ControlFlow(program, srcmaps)...)

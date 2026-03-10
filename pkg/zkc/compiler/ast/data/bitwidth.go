@@ -23,6 +23,8 @@ func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
 	switch t := t.(type) {
 	case *UnsignedInt[S]:
 		return t.bitwidth
+	case *Alias[S]:
+		return t.bitwidth
 	case *Tuple[S]:
 		var bitwidth uint
 		//
