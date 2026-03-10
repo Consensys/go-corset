@@ -397,8 +397,7 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 		if !ok {
 			return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
 		}
-		// TODO bitwidth
-		return data.NewAlias[symbol.Resolved](c.Name(), 0), nil
+		return data.NewAlias[symbol.Resolved](c.Name()), nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}
