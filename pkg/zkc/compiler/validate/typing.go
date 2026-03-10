@@ -305,7 +305,7 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env Variab
 		} else if i == 0 {
 			res = t
 		} else {
-			errs = append(errs, p.checkEquiType(res, t, exprs[i])...)
+			errs = append(errs, p.checkEquiType(t, res, exprs[i])...)
 		}
 	}
 	//
@@ -374,7 +374,7 @@ func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.Exter
 // Perform a subtype check, return errors as required.
 func (p *TypeChecker) checkSubType(lhs, rhs Type, node any) []source.SyntaxError {
 	if !data.SubtypeOf(lhs, rhs, p.env) {
-		p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
+		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
 	}
 	//
 	return nil
@@ -382,7 +382,7 @@ func (p *TypeChecker) checkSubType(lhs, rhs Type, node any) []source.SyntaxError
 
 func (p *TypeChecker) checkEquiType(lhs, rhs Type, node any) []source.SyntaxError {
 	if !data.SubtypeOf(lhs, rhs, p.env) && !data.SubtypeOf(rhs, lhs, p.env) {
-		p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
+		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
 	}
 	//
 	return nil
