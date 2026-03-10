@@ -51,6 +51,11 @@ func (p *Alias[S]) AsTuple(Environment[S]) *Tuple[S] {
 	return nil
 }
 
+// AsAlias implementation for Type interface
+func (p *Alias[S]) AsAlias(Environment[S]) *Alias[S] {
+	return p
+}
+
 func (p *Alias[S]) String(Environment[S]) string {
 	return p.Name
 }

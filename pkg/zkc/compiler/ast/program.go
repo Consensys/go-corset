@@ -61,7 +61,7 @@ func NewProgram(components []decl.Resolved, srcmaps source.Maps[any]) Program {
 // Environment creates a fresh environment for this program
 func (p *Program) Environment() data.ResolvedEnvironment {
 	return data.NewEnvironment(func(id symbol.Resolved) data.ResolvedType {
-		decl := p.declarations[id.Index].(*decl.ResolvedType)
+		decl := p.declarations[id.Index].(*decl.ResolvedTypeAlias)
 		return decl.DataType
 	})
 }
