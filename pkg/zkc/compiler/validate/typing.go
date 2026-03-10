@@ -138,9 +138,10 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 		if len(lhsErrs) != 0 || len(rhsErrs) != 0 {
 			errors = append(errors, lhsErrs...)
 			errors = append(errors, rhsErrs...)
+		} else {
+			//
+			errors = append(errors, p.checkSubType(rhs_t, lval_t, rhs)...)
 		}
-		//
-		errors = append(errors, p.checkSubType(rhs_t, lval_t, rhs)...)
 	}
 	//
 	return append(errors, checkTargets(s, env, p.srcmaps)...)
@@ -243,7 +244,7 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap) []s
 	// Check matching types
 	if len(lerrs)+len(rerrs) == 0 {
 		// Equivalence check
-		return p.checkEquiType(lhs, rhs, e.Right)
+		return p.checkEquiType(rhs, lhs, e.Right)
 	}
 	//
 	return append(lerrs, rerrs...)
@@ -301,7 +302,7 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env Variab
 	//
 	for i, t := range args {
 		if i == 0 && t.AsUint(p.env) == nil {
-			errs = append(errs, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
+			return nil, append(errs, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
 		} else if i == 0 {
 			res = t
 		} else {
