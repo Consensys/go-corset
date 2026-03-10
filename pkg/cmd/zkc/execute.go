@@ -67,7 +67,7 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 		errors    []error
 	)
 	// Execute machine in chunks of 1K steps
-	if bigInputs, _, errors = program.MapInputsOutputs(input); len(errors) == 0 {
+	if bigInputs, _, errors = program.DecodeInputsOutputs(input); len(errors) == 0 {
 		// Build our machine
 		vm = program.Compile()
 		//

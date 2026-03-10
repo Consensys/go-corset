@@ -52,7 +52,7 @@ func runTestCases(t *testing.T, program ast.Program, bootVm *machine.Base[word.U
 func runTestCase(t *testing.T, program ast.Program, vm *machine.Base[word.Uint], test TestCase) {
 	var (
 		err                   error
-		inputs, outputs, errs = program.MapInputsOutputs(test.data)
+		inputs, outputs, errs = program.DecodeInputsOutputs(test.data)
 	)
 	// Execute machine
 	if err = vm.Boot("main", inputs); err == nil {
