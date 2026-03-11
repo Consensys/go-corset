@@ -13,11 +13,19 @@
 package assignment
 
 import (
+	"encoding/gob"
+
+	sc "github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	tr "github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // ReadRegisterRefs reads the values for a given set of registers from a trace.
@@ -72,4 +80,24 @@ func ReadPadding[F field.Element[F]](trace tr.Trace[F], regs ...register.Ref) []
 	}
 	//
 	return targets
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+func init() {
+	initForField[word.BigEndian]()
+	initForField[bls12_377.Element]()
+	initForField[koalabear.Element]()
+	initForField[gf8209.Element]()
+	initForField[gf251.Element]()
+}
+
+func initForField[F field.Element[F]]() {
+	gob.Register(sc.Assignment[F](&ComputedRegister[F]{}))
+	gob.Register(sc.Assignment[F](&PseudoInverse[F]{}))
+	gob.Register(sc.Assignment[F](&NativeComputation[F]{}))
+	gob.Register(sc.Assignment[F](&SortedPermutation[F]{}))
+	gob.Register(sc.Assignment[F](&LexicographicSort[F]{}))
 }
