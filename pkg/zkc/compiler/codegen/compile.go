@@ -98,7 +98,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 		case *TypeAlias:
 			// ignore
 		case *Function:
-			fn, errs := compileFunction(uint(i), mapping, declarations, srcmaps)
+			fn, errs := compileFunction(uint(i), mapping, declarations, srcmaps, env)
 			modules = append(modules, fn)
 			errors = append(errors, errs...)
 		case *Memory:

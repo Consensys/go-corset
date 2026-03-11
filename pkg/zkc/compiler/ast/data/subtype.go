@@ -28,18 +28,17 @@ import (
 // the query "u4+ <: u8" can be read as saying "is there a type which is at
 // least a u4 that is a subtype of u8?".  The answer, of course, is yes: u8.
 func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
+	// Resolve alias types so we compare underlying types from the Ref.
+	if at2 := t2.AsAlias(env); at2 != nil && at2.Ref != nil {
+		return SubtypeOf(t1, at2.Resolve(env), env)
+	}
+	if at1 := t1.AsAlias(env); at1 != nil && at1.Ref != nil {
+		return SubtypeOf(at1.Resolve(env), t2, env)
+	}
 	switch t1 := t1.(type) {
 	case *UnsignedInt[S]:
 		if t := t2.AsUint(env); t != nil {
 			return t1.BitWidth() <= t.BitWidth()
-		}
-		if t := t2.AsAlias(env); t != nil {
-			return t1.BitWidth() == t.BitWidth() || ( t1.BitWidth() < t.BitWidth())
-		}
-		// TODO does it exist
-	case *Alias[S]:
-		if t := t2.AsAlias(env); t != nil {
-			return t1.BitWidth() == t.BitWidth() || ( t1.BitWidth() < t.BitWidth())
 		}
 	case *Tuple[S]:
 		if t := t2.AsTuple(env); t != nil {

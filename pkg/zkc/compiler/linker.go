@@ -384,14 +384,11 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
 	case *data.Alias[symbol.Unresolved]:
 		bus, okBus := p.busmap[t.Name]
-		component := p.components[bus.Index]
 		//
-		c, okComp := component.(*decl.UnresolvedTypeAlias)
-		//
-		if !okBus || !okComp {
+		if !okBus {
 			return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
 		}
-		return data.NewAlias[symbol.Resolved](c.Name()), nil
+		return data.NewAlias[symbol.Resolved](t.Name, &bus), nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}

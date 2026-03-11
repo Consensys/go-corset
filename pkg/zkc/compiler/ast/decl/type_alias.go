@@ -27,7 +27,8 @@ type ResolvedTypeAlias = TypeAlias[symbol.Resolved]
 // etc).
 type UnresolvedTypeAlias = TypeAlias[symbol.Unresolved]
 
-// TypeAlias represents an alias for a DataType at the source level.
+// TypeAlias represents an alias for either a type at the source level or for
+// another alias.
 type TypeAlias[I symbol.Symbol[I]] struct {
 	name     string
 	DataType data.Type[I]

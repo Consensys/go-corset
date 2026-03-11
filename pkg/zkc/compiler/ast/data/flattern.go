@@ -27,7 +27,7 @@ func Flattern[S symbol.Symbol[S]](t Type[S], prefix string, env Environment[S],
 	case *UnsignedInt[S]:
 		constructor(prefix, t.bitwidth)
 	case *Alias[S]:
-		constructor(prefix, t.bitwidth)
+		Flattern(t.Resolve(env), prefix, env, constructor)
 	case *Tuple[S]:
 		for i, element := range t.elements {
 			ith := fmt.Sprintf("%s$%d", prefix, i)
