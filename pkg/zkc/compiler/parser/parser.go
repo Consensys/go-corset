@@ -299,7 +299,6 @@ func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.Sy
 func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError) {
 	var (
 		public  bool
-		input   bool
 		name    string
 		errs    []source.SyntaxError
 		address []VariableDescriptor
@@ -311,44 +310,77 @@ func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError
 	}
 	//
 	lookahead := p.lookahead()
-	// Determine type of declaration
+	// Validate keyword before consuming it
 	switch lookahead.Kind {
-	case KEYWORD_INPUT:
-		p.match(KEYWORD_INPUT)
-		//
-		input = true
-	case KEYWORD_OUTPUT:
-		p.match(KEYWORD_OUTPUT)
-		//
-		input = false
+	case KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
+		p.index++
 	default:
 		return nil, p.syntaxErrors(lookahead, "unknown declaration")
 	}
-	// Parse memory name first (function-style)
+	// Parse the shared header: name(address) -> (data)
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse address args: (type param, ...)
 	if address, errs = p.parseMemoryArgsList(variable.PARAMETER); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse ->
 	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
 		return nil, errs
 	}
-	// Parse data args: (type result, ...)
 	if data, errs = p.parseMemoryArgsList(variable.RETURN); len(errs) > 0 {
 		return nil, errs
 	}
-	// Done
-	var mem *decl.Memory[symbol.Unresolved]
-	if input {
-		mem = decl.NewReadOnlyMemory[symbol.Unresolved](public, name, address, data)
-	} else {
-		mem = decl.NewWriteOnceMemory[symbol.Unresolved](public, name, address, data)
-	}
+	// Construct the appropriate memory declaration
+	switch lookahead.Kind {
+	case KEYWORD_INPUT:
+		return decl.NewReadOnlyMemory[symbol.Unresolved](public, name, address, data), nil
+	case KEYWORD_OUTPUT:
+		return decl.NewWriteOnceMemory[symbol.Unresolved](public, name, address, data), nil
+	default: // KEYWORD_STATIC
+		contents, errs := p.parseStaticInitialiser()
+		if len(errs) > 0 {
+			return nil, errs
+		}
 
-	return mem, nil
+		return decl.NewStaticMemory[symbol.Unresolved](public, name, address, data, contents), nil
+	}
+}
+
+// parseStaticInitialiser parses a brace-enclosed comma-separated list of
+// numeric literals: { number, number, ... }
+func (p *Parser) parseStaticInitialiser() ([]big.Int, []source.SyntaxError) {
+	var (
+		contents []big.Int
+		errs     []source.SyntaxError
+	)
+	//
+	if _, errs = p.expect(LCURLY); len(errs) > 0 {
+		return nil, errs
+	}
+	//
+	for p.lookahead().Kind != RCURLY {
+		tok, errs := p.expect(NUMBER)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		val, errs := p.number(tok)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		contents = append(contents, val)
+		// Consume comma separator; stop if next token is '}'
+		if !p.match(COMMA) {
+			break
+		}
+	}
+	//
+	if _, errs = p.expect(RCURLY); len(errs) > 0 {
+		return nil, errs
+	}
+	//
+	return contents, nil
 }
 
 func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) {

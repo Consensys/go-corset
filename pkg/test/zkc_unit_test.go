@@ -43,6 +43,10 @@ func Test_ZkcUnit_Basic_07(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_valid_07")
 }
 
+func Test_ZkcUnit_Basic_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_valid_05")
+}
+
 // ===================================================================
 // Constant Tests
 // ===================================================================
