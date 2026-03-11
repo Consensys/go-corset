@@ -69,7 +69,7 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 		case *decl.ResolvedFunction:
 			errors = append(errors, typer.typeFunction(*d)...)
 		case *decl.ResolvedMemory:
-			// ignore
+			errors = append(errors, typer.typeMemory(*d)...)
 		default:
 			panic(fmt.Sprintf("unknown component: %s", reflect.TypeOf(d).String()))
 		}
@@ -87,6 +87,25 @@ type TypeChecker struct {
 
 func (p *TypeChecker) lookup(id symbol.Resolved) decl.Resolved {
 	return p.program.Component(id.Index)
+}
+
+func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
+	if !c.IsStatic() {
+		return nil
+	}
+
+	var (
+		errors   []source.SyntaxError
+		dataType = variable.DescriptorsToType(c.Data...)
+	)
+	//
+	for _, v := range c.Contents {
+		valBitwidth := uint(v.BitLen())
+		valType := data.NewUnsignedInt[symbol.Resolved](valBitwidth, true)
+		errors = append(errors, p.checkSubType(valType, dataType, v)...)
+	}
+	//
+	return errors
 }
 
 func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError {

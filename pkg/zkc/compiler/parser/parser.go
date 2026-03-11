@@ -348,9 +348,9 @@ func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError
 
 // parseStaticInitialiser parses a brace-enclosed comma-separated list of
 // numeric literals: { number, number, ... }
-func (p *Parser) parseStaticInitialiser() ([]big.Int, []source.SyntaxError) {
+func (p *Parser) parseStaticInitialiser() ([]*big.Int, []source.SyntaxError) {
 	var (
-		contents []big.Int
+		contents []*big.Int
 		errs     []source.SyntaxError
 	)
 	//
@@ -368,8 +368,12 @@ func (p *Parser) parseStaticInitialiser() ([]big.Int, []source.SyntaxError) {
 		if len(errs) > 0 {
 			return nil, errs
 		}
-		//
-		contents = append(contents, val)
+		// Allocate on the heap so the pointer can be registered in the source
+		// map for error reporting during type checking.
+		v := new(big.Int)
+		v.Set(&val)
+		p.srcmap.Put(v, tok.Span)
+		contents = append(contents, v)
 		// Consume comma separator; stop if next token is '}'
 		if !p.match(COMMA) {
 			break

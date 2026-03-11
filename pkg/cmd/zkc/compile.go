@@ -162,7 +162,7 @@ func writeMemoryParams(params []variable.ResolvedDescriptor, env data.ResolvedEn
 	}
 }
 
-func writeMemoryContents(values []big.Int) {
+func writeMemoryContents(values []*big.Int) {
 	var N = 20
 	//
 	for i := 0; i < len(values); i += N {

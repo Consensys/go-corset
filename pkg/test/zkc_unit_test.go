@@ -71,12 +71,20 @@ func Test_ZkcUnit_While_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/while_valid_02")
 }
 
+func Test_ZkcUnit_While_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/while_valid_03")
+}
+
 func Test_ZkcUnit_For_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/for_valid_01")
 }
 
 func Test_ZkcUnit_For_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/for_valid_02")
+}
+
+func Test_ZkcUnit_For_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/for_valid_03")
 }
 
 // ===================================================================

@@ -97,7 +97,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
-				modules = append(modules, memory.NewReadOnly[word.Uint](c.Name(), regs, contentsToWords(c.Contents)...))
+				modules = append(modules, memory.NewStaticReadOnly[word.Uint](c.Name(), regs, contentsToWords(c.Contents)...))
 			case decl.RANDOM_ACCESS_MEMORY:
 				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
 			}
@@ -111,10 +111,10 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.
 
 // contentsToWords converts the big.Int literal values from a static memory
 // declaration into the word.Uint representation required by the VM.
-func contentsToWords(contents []big.Int) []word.Uint {
+func contentsToWords(contents []*big.Int) []word.Uint {
 	words := make([]word.Uint, len(contents))
 	for i, v := range contents {
-		words[i] = word.Uint{}.SetBigInt(&v)
+		words[i] = word.Uint{}.SetBigInt(v)
 	}
 
 	return words
