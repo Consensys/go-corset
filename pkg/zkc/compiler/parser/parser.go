@@ -321,12 +321,15 @@ func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
+	//
 	if address, errs = p.parseMemoryArgsList(variable.PARAMETER); len(errs) > 0 {
 		return nil, errs
 	}
+	//
 	if _, errs = p.expect(RIGHTARROW); len(errs) > 0 {
 		return nil, errs
 	}
+	//
 	if data, errs = p.parseMemoryArgsList(variable.RETURN); len(errs) > 0 {
 		return nil, errs
 	}
