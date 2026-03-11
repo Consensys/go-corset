@@ -83,3 +83,18 @@ func (p *Function[S]) Externs() []S {
 func (p *Function[S]) Variable(id variable.Id) variable.Descriptor[S] {
 	return p.Variables[id]
 }
+
+// Inputs returns an array containing the output variables of this function
+func (p *Function[S]) Inputs() []variable.Descriptor[S] {
+	return p.Variables[:p.NumInputs]
+}
+
+// Outputs returns an array containing the output variables of this function
+func (p *Function[S]) Outputs() []variable.Descriptor[S] {
+	var (
+		n = p.NumInputs
+		m = n + p.NumOutputs
+	)
+	//
+	return p.Variables[n:m]
+}

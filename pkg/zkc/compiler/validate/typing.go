@@ -455,7 +455,25 @@ func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAcc
 
 func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.ExternAccess[symbol.Resolved],
 	env VariableMap) (Type, []source.SyntaxError) {
-	panic("todo --- function accesses")
+	var (
+		args, errs = p.typeExpressions(e.Args, env)
+		n          = uint(len(args))
+	)
+
+	//
+	if n != c.NumInputs {
+		return nil, p.srcmaps.SyntaxErrors(e,
+			fmt.Sprintf("mismatched arguments (expected %d, found %d)", c.NumInputs, n))
+	} else if len(errs) == 0 {
+		// check argument types
+		for i := range args {
+			ith := c.Variables[i].DataType
+			// Subtype check
+			errs = append(errs, p.checkSubType(args[i], ith, e.Args[i])...)
+		}
+	}
+	// Done
+	return variable.DescriptorsToType(c.Outputs()...), errs
 }
 
 // Perform a subtype check, return errors as required.

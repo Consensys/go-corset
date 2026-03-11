@@ -183,6 +183,16 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 	// Control-Flow Instructions
 	// ==============================================================
 
+	case *instruction.Call:
+		var args = make([]W, len(insn.Sources))
+		//
+		for i, arg := range insn.Sources {
+			args[i] = frame[arg.Unwrap()]
+		}
+		//
+		p.Enter(insn.Id, args...)
+		//
+		panic("how to make this work?")
 	case *instruction.Fail:
 		return false, errors.New("machine panic")
 

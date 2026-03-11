@@ -51,15 +51,11 @@ var executeCmds = []FieldAgnosticCmd{
 
 func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	//
-	ir := GetFlag(cmd, "ir")
-	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
 	//
-	if ir {
-		executeIrProgram("main", program, input)
-	}
+	executeIrProgram("main", program, input)
 }
 
 func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {

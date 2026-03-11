@@ -169,6 +169,8 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 			//
 			insns, insn = p.compileMemoryRead(e, ext, mapping, targets...)
 		case *Function:
+			insns, insn = p.compileFunctionCall(e, ext, mapping, targets...)
+		default:
 			panic(fmt.Sprintf("unknown symbol \"%s\" encountered", e.Name.String()))
 		}
 	case *expr.LocalAccess[symbol.Resolved]:
@@ -245,6 +247,16 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) (
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewAdd[word.Uint](target, sources, constant)
+}
+
+func (p *Compiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], fn *Function, mapping []uint,
+	targets ...register.Id) ([]MicroInstruction, MicroInstruction) {
+	// Determine vm module identifier
+	var id = mapping[e.Name.Index]
+	// Compile arguments
+	sources, insns := p.compileArgs(mapping, e.Args...)
+	// determine type of read
+	return insns, instruction.NewCall(id, targets, sources)
 }
 
 func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem *Memory, mapping []uint,
