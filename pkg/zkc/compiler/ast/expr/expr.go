@@ -83,6 +83,15 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	)
 	//
 	switch e := e.(type) {
+	case *Cast[S]:
+		inner := String[S](e.Expr, mapping)
+		if needsBraces[S](e.Expr) {
+			inner = "(" + inner + ")"
+		}
+
+		var env data.Environment[S]
+
+		return inner + " as " + e.CastType.String(env)
 	case *Add[S]:
 		operator = "+"
 		exprs = e.Exprs
@@ -155,6 +164,8 @@ func stringOfConstant(val big.Int, base uint) string {
 
 func needsBraces[S symbol.Symbol[S]](e Expr[S]) bool {
 	switch e.(type) {
+	case *Cast[S]:
+		return false
 	case *Const[S]:
 		return false
 	case *LocalAccess[S]:

@@ -114,6 +114,9 @@ const KEYWORD_BREAK uint = 37
 // KEYWORD_CONTINUE signals a continue statement
 const KEYWORD_CONTINUE uint = 38
 
+// KEYWORD_AS signals a type cast expression (e.g. "x as u8")
+const KEYWORD_AS uint = 39
+
 // RIGHTARROW signals "->"
 const RIGHTARROW uint = 60
 
@@ -269,6 +272,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.String("for"), KEYWORD_FOR),
 	lex.Rule(lex.String("var"), KEYWORD_VAR),
 	lex.Rule(lex.String("while"), KEYWORD_WHILE),
+	lex.Rule(lex.String("as"), KEYWORD_AS),
 	lex.Rule(lex.String("break"), KEYWORD_BREAK),
 	lex.Rule(lex.String("continue"), KEYWORD_CONTINUE),
 	lex.Rule(identifier, IDENTIFIER),

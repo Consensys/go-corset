@@ -89,25 +89,6 @@ func (p *TypeChecker) lookup(id symbol.Resolved) decl.Resolved {
 	return p.program.Component(id.Index)
 }
 
-func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
-	if !c.IsStatic() {
-		return nil
-	}
-
-	var (
-		errors   []source.SyntaxError
-		dataType = variable.DescriptorsToType(c.Data...)
-	)
-	//
-	for _, v := range c.Contents {
-		valBitwidth := uint(v.BitLen())
-		valType := data.NewUnsignedInt[symbol.Resolved](valBitwidth, true)
-		errors = append(errors, p.checkSubType(valType, dataType, v)...)
-	}
-	//
-	return errors
-}
-
 func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError {
 	var (
 		rhs, errors = p.typeExpression(c.ConstExpr, variable.ArrayMap[symbol.Resolved]())
@@ -130,6 +111,25 @@ func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxErro
 		case *stmt.IfGoto[symbol.Resolved]:
 			errors = append(errors, p.typeIfGoto(s, &fn)...)
 		}
+	}
+	//
+	return errors
+}
+
+func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
+	if !c.IsStatic() {
+		return nil
+	}
+
+	var (
+		errors   []source.SyntaxError
+		dataType = variable.DescriptorsToType(c.Data...)
+	)
+	//
+	for _, v := range c.Contents {
+		valBitwidth := uint(v.BitLen())
+		valType := data.NewUnsignedInt[symbol.Resolved](valBitwidth, true)
+		errors = append(errors, p.checkSubType(valType, dataType, v)...)
 	}
 	//
 	return errors
@@ -271,6 +271,22 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap) []s
 
 func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, errs []source.SyntaxError) {
 	switch e := e.(type) {
+	case *expr.Cast[symbol.Resolved]:
+		var srcType Type
+
+		srcType, errs = p.typeExpression(e.Expr, env)
+		if len(errs) == 0 {
+			if srcType.AsUint(p.env) == nil {
+				errs = p.srcmaps.SyntaxErrors(e.Expr, "expected uint")
+			} else if e.CastType.AsUint(p.env) == nil {
+				errs = p.srcmaps.SyntaxErrors(e, "cast target must be uint")
+			} else {
+				castWidth := e.CastType.AsUint(p.env).BitWidth()
+				openCastType := data.NewUnsignedInt[symbol.Resolved](castWidth, true)
+				errs = p.checkSubType(openCastType, srcType, e)
+			}
+		}
+		t = e.CastType
 	case *expr.Add[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.And[symbol.Resolved]:

@@ -180,6 +180,26 @@ func Test_ZkcUnit_Static_01(t *testing.T) {
 }
 
 // ===================================================================
+// Cast Tests
+// ===================================================================
+
+func Test_ZkcUnit_Cast_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/cast_valid_01")
+}
+
+func Test_ZkcUnit_Cast_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/cast_valid_02")
+}
+
+func Test_ZkcUnit_Cast_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/cast_valid_03")
+}
+
+func Test_ZkcUnit_Cast_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/cast_valid_04")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

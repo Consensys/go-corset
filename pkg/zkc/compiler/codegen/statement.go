@@ -139,6 +139,9 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	)
 	//
 	switch e := e.(type) {
+	case *expr.Cast[symbol.Resolved]:
+		insns, insn = p.compileCast(e, mapping, targets[0])
+		unitExpr = true
 	case *expr.Add[symbol.Resolved]:
 		insns, insn = p.compileAdd(e.Exprs, mapping, targets[0])
 		unitExpr = true
@@ -200,6 +203,14 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	}
 	//
 	return append(insns, insn)
+}
+
+func (p *Compiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, target register.Id,
+) ([]MicroInstruction, MicroInstruction) {
+	castWidth := e.CastType.AsUint(p.environment).BitWidth()
+	sources, insns := p.compileArgs(mapping, e.Expr)
+	//
+	return insns, instruction.NewCast[word.Uint](target, sources[0], castWidth)
 }
 
 func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {

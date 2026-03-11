@@ -1007,14 +1007,23 @@ func (p *Parser) parseUnitExpr(env *Environment) (Expr, []source.SyntaxError) {
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
 		}
-		// Don't add to source map, since it will already have been added.
-		return nexpr, nil
+		// Fall through to check for trailing `as` cast.
 	default:
 		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
 	//
-	if len(errors) == 0 {
+	if len(errors) == 0 && !p.srcmap.Has(nexpr) {
 		p.srcmap.Put(nexpr, p.spanOf(start, p.index-1))
+	}
+	//
+	if len(errors) == 0 && p.match(KEYWORD_AS) {
+		var castType Type
+		//
+		if castType, errors = p.parseType(); len(errors) == 0 {
+			cast := expr.NewCast(nexpr, castType)
+			p.srcmap.Put(cast, p.spanOf(start, p.index-1))
+			nexpr = cast
+		}
 	}
 	//
 	return nexpr, errors
