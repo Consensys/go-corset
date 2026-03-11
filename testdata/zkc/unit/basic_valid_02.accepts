@@ -6,4 +6,3 @@
 { "data": "0x0000ff00_000000ff_0000ffff" }
 { "data": "0x0000ff00_00000100_00010000" }
 { "data": "0xfffffffe_00000001_ffffffff" }
-{ "data": "0xfffffffe_00000002_00000000" }

@@ -33,16 +33,21 @@ func (p Uint) And(_ uint, w Uint) Uint {
 }
 
 // Add implementation for Word interface.
-func (p Uint) Add(width uint, w Uint) Uint {
-	var res big.Int
+func (p Uint) Add(width uint, w Uint) (Uint, bool) {
+	var (
+		res   big.Int
+		carry bool
+	)
 	res.Add(&p.value, &w.value)
 	//
 	for uint(res.BitLen()) > width {
 		// Normalise negative value
 		res.Sub(&res, util_math.Pow2(width))
+		//
+		carry = true
 	}
 	//
-	return Uint{res}
+	return Uint{res}, carry
 }
 
 // Cmp implementation for Word interface.
@@ -75,16 +80,21 @@ func (p Uint) Or(_ uint, w Uint) Uint {
 }
 
 // Mul implementation for Word interface.
-func (p Uint) Mul(width uint, w Uint) Uint {
-	var res big.Int
+func (p Uint) Mul(width uint, w Uint) (Uint, bool) {
+	var (
+		res      big.Int
+		overflow bool
+	)
 	res.Mul(&p.value, &w.value)
 	//
 	for uint(res.BitLen()) > width {
 		// Normalise negative value
 		res.Sub(&res, util_math.Pow2(width))
+		//
+		overflow = true
 	}
 	//
-	return Uint{res}
+	return Uint{res}, overflow
 }
 
 // Shl implementation for Word interface.
@@ -151,16 +161,21 @@ func (p Uint) SetBigInt(val *big.Int) Uint {
 }
 
 // Sub implementation for Word interface.
-func (p Uint) Sub(width uint, w Uint) Uint {
-	var res big.Int
+func (p Uint) Sub(width uint, w Uint) (Uint, bool) {
+	var (
+		res       big.Int
+		underflow bool
+	)
 	res.Sub(&p.value, &w.value)
 	//
 	if res.Sign() < 0 {
 		// Normalise negative value
 		res.Add(&res, util_math.Pow2(width))
+		//
+		underflow = true
 	}
 	//
-	return Uint{res}
+	return Uint{res}, underflow
 }
 
 // Xor implementation for Word interface.
