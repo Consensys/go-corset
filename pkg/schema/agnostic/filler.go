@@ -97,7 +97,7 @@ func (p *PolyFil) RequiredRegisters() *set.SortedSet[uint] {
 	var regs = set.NewSortedSet[uint]()
 	//
 	for i := range p.Poly.Len() {
-		for _, ident := range p.Poly.Term(i).Vars() {
+		for _, ident := range p.Poly.Term(i).Variables() {
 			regs.Insert(ident.Id().Unwrap())
 		}
 	}
