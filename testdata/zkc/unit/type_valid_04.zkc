@@ -1,3 +1,4 @@
-type boolean = u1
+type boolean = b
 type bool = boolean
-const TRUE:bool = 1
+type b = bool
+const TRUE:b = 1
