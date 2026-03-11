@@ -427,10 +427,10 @@ func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) 
 
 func (p *Parser) parseTypeAlias() (decl.Unresolved, []source.SyntaxError) {
 	var (
-		start     = p.index
-		errs      []source.SyntaxError
-		datatype  Type
-		name      string
+		start    = p.index
+		errs     []source.SyntaxError
+		datatype Type
+		name     string
 	)
 	// Parse type declaration
 	if _, errs := p.expect(KEYWORD_TYPE_ALIAS); len(errs) > 0 {

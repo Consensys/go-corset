@@ -388,6 +388,7 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 		if !okBus {
 			return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
 		}
+
 		return data.NewAlias[symbol.Resolved](t.Name, &bus), nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")

@@ -33,7 +33,7 @@ type MicroInstruction = instruction.MicroInstruction[word.Uint]
 // the variable descriptors into register descriptors.  Each variable may
 // expand into one or more registers (e.g. a tuple variable produces one
 // register per element).
-func compileFunction(id uint, mapping []uint, program []Declaration, srcmaps source.Maps[any], env data.ResolvedEnvironment
+func compileFunction(id uint, mapping []uint, program []Declaration, srcmaps source.Maps[any], env data.ResolvedEnvironment,
 ) (*function.Boot[word.Uint], []source.SyntaxError) {
 	//
 	var (

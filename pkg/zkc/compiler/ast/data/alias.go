@@ -29,7 +29,7 @@ type Alias[I symbol.Symbol[I]] struct {
 
 // NewAlias constructs an alias for a given Type.
 func NewAlias[I symbol.Symbol[I]](name string, ref *I) *Alias[I] {
-	return &Alias[I]{ name, ref}
+	return &Alias[I]{Name: name, Ref: ref}
 }
 
 // AsUint implementation for Type interface
@@ -56,5 +56,6 @@ func (p *Alias[S]) Resolve(env Environment[S]) Type[S] {
 	if p.Ref == nil {
 		panic("unresolved type alias")
 	}
+
 	return env.TypeOf(*p.Ref)
 }
