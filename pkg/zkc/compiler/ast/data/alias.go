@@ -21,29 +21,20 @@ type ResolvedAlias = Alias[symbol.Resolved]
 type UnresolvedAlias = Alias[symbol.Unresolved]
 
 // Alias captures the alias of a language type.
+// Ref points to the symbol for the type-alias declaration if resolved.
 type Alias[I symbol.Symbol[I]] struct {
-	Name     string
-	bitwidth uint
+	Name string
+	Ref  *I
 }
 
-// NewAlias constructs an alias for a given type.
-func NewAlias[I symbol.Symbol[I]](name string) *Alias[I] {
-	return &Alias[I]{name, 0}
+// NewAlias constructs an alias for a given Type.
+func NewAlias[I symbol.Symbol[I]](name string, ref *I) *Alias[I] {
+	return &Alias[I]{ name, ref}
 }
 
 // AsUint implementation for Type interface
 func (p *Alias[S]) AsUint(Environment[S]) *UnsignedInt[S] {
 	return nil
-}
-
-// BitWidth implementation for Type interface
-func (p *Alias[I]) BitWidth() uint {
-	return p.bitwidth
-}
-
-// Flattern implementation for Type interface
-func (p *Alias[I]) Flattern(prefix string, constructor func(name string, bitwidth uint)) {
-	constructor(prefix, p.bitwidth)
 }
 
 // AsTuple implementation for Type interface
@@ -58,4 +49,12 @@ func (p *Alias[S]) AsAlias(Environment[S]) *Alias[S] {
 
 func (p *Alias[S]) String(Environment[S]) string {
 	return p.Name
+}
+
+// Resolve returns the type that this alias refers to in the given environment.
+func (p *Alias[S]) Resolve(env Environment[S]) Type[S] {
+	if p.Ref == nil {
+		panic("unresolved type alias")
+	}
+	return env.TypeOf(*p.Ref)
 }

@@ -108,7 +108,7 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
 	var errors []source.SyntaxError
 	// Check for cyclic aliases
-
+	// We assume there is no cycle detection for now
 	// Apply various checks
 	errors = append(errors, validate.Typing(program, srcmaps)...)
 	errors = append(errors, validate.ControlFlow(program, srcmaps)...)
