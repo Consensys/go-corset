@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
@@ -24,6 +26,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
@@ -55,10 +59,16 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
 	//
-	executeIrProgram("main", program, input)
+	trace := GetFlag(cmd, "trace")
+	//
+	if trace {
+		executeIrProgram[TraceObserver[word.Uint]]("main", program, input)
+	} else {
+		executeIrProgram[EmptyBaseObserver]("main", program, input)
+	}
 }
 
-func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {
+func executeIrProgram[V BaseObserver](mainFn string, program ast.Program, input map[string][]byte) {
 	var (
 		vm        *machine.Base[word.Uint]
 		bigInputs map[string][]word.Uint
@@ -77,8 +87,7 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 		if len(errors) == 0 {
 			if err := vm.Boot(mainFn, bigInputs); err != nil {
 				errors = append(errors, err)
-			} else if _, err := machine.ExecuteAll(vm, 1024); err != nil {
-				// NOTE: determine stack trace!
+			} else if _, err := executeVmMachine[word.Uint, *machine.Base[word.Uint], V](vm, 1); err != nil {
 				errors = append(errors, err)
 			}
 		}
@@ -111,8 +120,129 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 	}
 }
 
+func executeVmMachine[W any, M machine.Core[W], V VmObserver[W, M]](machine M, n uint) (uint, error) {
+	var (
+		nsteps   uint
+		observer V
+	)
+	//
+	for {
+		// observe pre execution
+		observer.PreExecution(machine)
+		// Execute upto n steps
+		m, err := machine.Execute(n)
+		// observe pre execution
+		observer.PostExecution(machine)
+		// update the tally
+		nsteps += m
+		// check for termination
+		if err != nil || m < n {
+			return nsteps, err
+		}
+	}
+}
+
+// ============================================================================
+// Machine observers
+// ============================================================================
+
+// BaseObserver is an observer for a base machin
+type BaseObserver = VmObserver[word.Uint, *machine.Base[word.Uint]]
+
+// EmptyBaseObserver is an empty observer for a base machine.
+type EmptyBaseObserver = EmptyObserver[word.Uint, *machine.Base[word.Uint]]
+
+// VmObserver is a generic interface for extract information before and after an
+// execution step of the VM.  For example, to generate debugging information.
+type VmObserver[W any, M machine.Core[W]] interface {
+	PreExecution(machine M)
+	PostExecution(machine M)
+}
+
+// EmptyObserver does nothing
+type EmptyObserver[W any, M machine.Core[W]] struct {
+}
+
+// PreExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PreExecution(machine M) {
+	// do nothing
+}
+
+// PostExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PostExecution(machine M) {
+	// do nothing
+}
+
+// TraceObserver prints a trace
+type TraceObserver[W word.Word[W]] struct {
+}
+
+// PreExecution implementation for Observer interface
+func (p TraceObserver[W]) PreExecution(machine *machine.Base[W]) {
+	var (
+		n = machine.Depth()
+	)
+	//
+	if n > 0 {
+		var (
+			frame   = machine.StackFrame(n - 1)
+			fun     = machine.Module(frame.Function()).(*function.Function[instruction.Instruction[W]])
+			insn    = decode(frame, fun)
+			name    = trace.ParseModuleName(fun.Name())
+			insnStr = insn.String(register.ArrayMap(name, fun.Registers()...))
+		)
+		//
+		for i := uint(0); i < n; i++ {
+			fmt.Printf(" > ")
+		}
+		//
+		fmt.Print(insnStr)
+		//
+		for i := len(insnStr); i < 30; i++ {
+			fmt.Printf(" ")
+		}
+		//
+		for i, r := range fun.Registers() {
+			if i != 0 {
+				fmt.Printf(", ")
+			}
+			//
+			fmt.Printf("%s=0x%s", r.Name(), frame.Load(uint(i)).Text(16))
+		}
+		//
+		fmt.Println()
+	}
+}
+
+// PostExecution implementation for Observer interface
+func (p TraceObserver[W]) PostExecution(machine *machine.Base[W]) {
+	// do nothing
+}
+
+func decode[W word.Word[W]](frame machine.Frame[W],
+	fn *function.Function[instruction.Instruction[W]]) instruction.MicroInstruction[W] {
+	//
+	var (
+		pc   = frame.PC()
+		insn = fn.CodeAt(pc.Macro())
+	)
+	//
+	if uInsn, ok := insn.(*instruction.Vector[W]); ok {
+		return uInsn.Codes[pc.Micro()]
+	} else if uInsn, ok := insn.(instruction.MicroInstruction[W]); ok {
+		return uInsn
+	}
+	//
+	panic("invalid micro instruction")
+}
+
+// ============================================================================
+// Misc
+// ============================================================================
+
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(executeCmd)
 	executeCmd.Flags().Bool("ir", false, "execute intermediate representation (IR)")
+	executeCmd.Flags().Bool("trace", false, "report execution trace")
 }

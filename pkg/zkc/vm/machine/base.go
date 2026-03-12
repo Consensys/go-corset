@@ -142,6 +142,16 @@ func (p *Base[W]) Write(id uint, address []W, data []W) {
 	wm.Write(address, data)
 }
 
+// Depth returns the depth of the call stack.
+func (p *Base[W]) Depth() uint {
+	return uint(len(p.callstack))
+}
+
+// StackFrame returns the nth stack frame, where n==0 returns the root frame.
+func (p *Base[W]) StackFrame(n uint) Frame[W] {
+	return p.callstack[n]
+}
+
 // ========================================================
 // Helpers
 // =======================================================
