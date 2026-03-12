@@ -25,7 +25,7 @@ import (
 // can be compared.  Observe that an unitialised ArrayPoly variable corresponds
 // with zero.
 type ArrayPoly[S util.Comparable[S]] struct {
-	terms set.AnySortedSet[Monomial[S]]
+	Terms set.AnySortedSet[Monomial[S]]
 }
 
 // Len returns the number of terms in this polynomial.
@@ -34,12 +34,12 @@ func (p *ArrayPoly[S]) Len() uint {
 		return 0
 	}
 	//
-	return uint(len(p.terms))
+	return uint(len(p.Terms))
 }
 
 // Term returns the ith term in this polynomial.
 func (p *ArrayPoly[S]) Term(ith uint) Monomial[S] {
-	return p.terms[ith]
+	return p.Terms[ith]
 }
 
 // Set initialises this polynomial from zero or more terms.
@@ -51,7 +51,7 @@ func (p *ArrayPoly[S]) Set(terms ...Monomial[S]) *ArrayPoly[S] {
 	}
 	//
 	if p != nil {
-		p.terms = poly.terms
+		p.Terms = poly.Terms
 		return p
 	}
 	//
@@ -72,10 +72,10 @@ func (p *ArrayPoly[S]) Const64(val uint64) *ArrayPoly[S] {
 
 // Clone performs a deep copy of this polynomial
 func (p *ArrayPoly[S]) Clone() *ArrayPoly[S] {
-	nterms := make([]Monomial[S], len(p.terms))
+	nterms := make([]Monomial[S], len(p.Terms))
 	//
 	for i := range nterms {
-		nterms[i] = p.terms[i].Clone()
+		nterms[i] = p.Terms[i].Clone()
 	}
 	//
 	return &ArrayPoly[S]{nterms}
@@ -84,12 +84,12 @@ func (p *ArrayPoly[S]) Clone() *ArrayPoly[S] {
 // Equal performs structural equality between two polynomials.  That is, they
 // are consider the same provide they have identical structure.
 func (p *ArrayPoly[S]) Equal(other *ArrayPoly[S]) bool {
-	if len(p.terms) != len(other.terms) {
+	if len(p.Terms) != len(other.Terms) {
 		return false
 	}
 	//
-	for i := range len(p.terms) {
-		if !p.terms[i].Equal(other.terms[i]) {
+	for i := range len(p.Terms) {
+		if !p.Terms[i].Equal(other.Terms[i]) {
 			return false
 		}
 	}
@@ -101,8 +101,8 @@ func (p *ArrayPoly[S]) Equal(other *ArrayPoly[S]) bool {
 // positive and negative values.  Currently, this is defined simply as whether
 // or not a contained monomial has a negative coefficient.
 func (p *ArrayPoly[S]) Signed() bool {
-	for i := range len(p.terms) {
-		if p.terms[i].IsNegative() {
+	for i := range len(p.Terms) {
+		if p.Terms[i].IsNegative() {
 			return true
 		}
 	}
@@ -156,8 +156,8 @@ func (p *ArrayPoly[S]) Sub(other *ArrayPoly[S]) *ArrayPoly[S] {
 func (p *ArrayPoly[S]) Mul(other *ArrayPoly[S]) *ArrayPoly[S] {
 	var res ArrayPoly[S]
 	//
-	for _, ith := range p.terms {
-		for _, jth := range other.terms {
+	for _, ith := range p.Terms {
+		for _, jth := range other.Terms {
 			res.AddTerm(ith.Mul(jth))
 		}
 	}
@@ -169,7 +169,7 @@ func (p *ArrayPoly[S]) Mul(other *ArrayPoly[S]) *ArrayPoly[S] {
 func (p *ArrayPoly[S]) MulScalar(scalar *big.Int) *ArrayPoly[S] {
 	var res ArrayPoly[S]
 	//
-	for _, ith := range p.terms {
+	for _, ith := range p.Terms {
 		res.AddTerm(ith.MulScalar(scalar))
 	}
 	//
@@ -180,21 +180,21 @@ func (p *ArrayPoly[S]) MulScalar(scalar *big.Int) *ArrayPoly[S] {
 func (p *ArrayPoly[S]) AddTerm(other Monomial[S]) {
 	// Avoid adding an empty monomial
 	if !other.IsZero() {
-		for i, term := range p.terms {
+		for i, term := range p.Terms {
 			if term.Matches(other) {
-				ith := &p.terms[i]
+				ith := &p.Terms[i]
 				// Add term at this position
-				ith.coefficient.Add(&ith.coefficient, &other.coefficient)
+				ith.Coeff.Add(&ith.Coeff, &other.Coeff)
 				// Check whether its now zero (or not)
 				if ith.IsZero() {
-					p.terms = array.RemoveAt(p.terms, uint(i))
+					p.Terms = array.RemoveAt(p.Terms, uint(i))
 				}
 				//
 				return
 			}
 		}
 		//
-		p.terms.Insert(other.Clone())
+		p.Terms.Insert(other.Clone())
 	}
 }
 
@@ -202,21 +202,21 @@ func (p *ArrayPoly[S]) AddTerm(other Monomial[S]) {
 func (p *ArrayPoly[S]) SubTerm(other Monomial[S]) {
 	// Avoid subtracting an empty monomial
 	if !other.IsZero() {
-		for i, term := range p.terms {
+		for i, term := range p.Terms {
 			if term.Matches(other) {
-				ith := &p.terms[i]
+				ith := &p.Terms[i]
 				// Sub term at this position
-				ith.coefficient.Sub(&ith.coefficient, &other.coefficient)
+				ith.Coeff.Sub(&ith.Coeff, &other.Coeff)
 				// Check whether its now zero (or not)
 				if ith.IsZero() {
-					p.terms = array.RemoveAt(p.terms, uint(i))
+					p.Terms = array.RemoveAt(p.Terms, uint(i))
 				}
 				//
 				return
 			}
 		}
 		// Append negation to end
-		p.terms.Insert(other.Neg())
+		p.Terms.Insert(other.Neg())
 	}
 }
 

@@ -35,7 +35,7 @@ import (
 // same module, and likewise for target modules.  However, the source columns
 // can be in a different module from the target columns.
 //
-// Lookup constraints are typically used to "connect" modules together.  We can
+// Lookup *Constraints are typically used to "connect" modules together.  We can
 // think of them (in some ways) as being a little like function calls.  In this
 // analogy, the source module is making a "function call" into the target
 // module.  That is, the target module contains the set of valid input/output
@@ -43,7 +43,7 @@ import (
 // the source module is just checking that a given set of input/output pairs
 // makes sense.
 type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
-	// Handle returns the handle for this lookup constraint which is simply an
+	// Handle returns the handle for this lookup *Constraint which is simply an
 	// identifier useful when debugging (i.e. to know which lookup failed, etc).
 	Handle string
 	// Targets returns the target expressions which are used to lookup into the
@@ -56,9 +56,9 @@ type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 	Sources []Vector[F, E]
 }
 
-// NewConstraint creates a new lookup constraint with a given handle.
+// NewConstraint creates a new lookup *Constraint with a given handle.
 func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, targets []Vector[F, E],
-	sources []Vector[F, E]) Constraint[F, E] {
+	sources []Vector[F, E]) *Constraint[F, E] {
 	var width uint
 	// Check sources
 	for i, ith := range sources {
@@ -75,7 +75,7 @@ func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, targe
 		}
 	}
 
-	return Constraint[F, E]{Handle: handle,
+	return &Constraint[F, E]{Handle: handle,
 		Targets: targets,
 		Sources: sources,
 	}
@@ -84,13 +84,13 @@ func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, targe
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, E]) Consistent(_ schema.AnySchema[F]) []error {
+func (p *Constraint[F, E]) Consistent(_ schema.AnySchema[F]) []error {
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[F, E]) Name() string {
+func (p *Constraint[F, E]) Name() string {
 	return p.Handle
 }
 
@@ -99,7 +99,7 @@ func (p Constraint[F, E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[F, E]) Contexts() []schema.ModuleId {
+func (p *Constraint[F, E]) Contexts() []schema.ModuleId {
 	var contexts []schema.ModuleId
 	// source contexts
 	for _, source := range p.Sources {
@@ -120,7 +120,7 @@ func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
+func (p *Constraint[F, E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	// sources
 	for _, ith := range p.Sources {
@@ -136,11 +136,11 @@ func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 	return bound
 }
 
-// Accepts checks whether a lookup constraint into the target columns holds for
+// Accepts checks whether a lookup *Constraint into the target columns holds for
 // all rows of the source columns.
 //
 //nolint:revive
-func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p *Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		st       State[F, E]
@@ -162,7 +162,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 // so it can be printed.
 //
 //nolint:revive
-func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+func (p *Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
 		sources = sexp.EmptyList()
 		targets = sexp.EmptyList()
@@ -185,7 +185,7 @@ func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[F, E]) Substitute(mapping map[string]F) {
+func (p *Constraint[F, E]) Substitute(mapping map[string]F) {
 	// Sources
 	for _, ith := range p.Sources {
 		ith.Substitute(mapping)

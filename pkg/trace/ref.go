@@ -50,9 +50,9 @@ func (p CellRef) Cmp(q CellRef) int {
 // ColumnRef abstracts a complete (i.e. global) Column identifier.
 type ColumnRef struct {
 	// Module containing this Column
-	mid ModuleId
+	ModuleId ModuleId
 	// Column index within that module
-	rid ColumnId
+	ColumnId ColumnId
 }
 
 // NewColumnRef constructs a new Column reference from the given module and
@@ -73,10 +73,10 @@ func NewIndexedColumnRef(index uint, width uint) ColumnRef {
 // Cmp implementation for the set.Comparable interface. This allows a CellRef to
 // be used in an AnySortedSet.
 func (p ColumnRef) Cmp(q ColumnRef) int {
-	var c = cmp.Compare(p.mid, q.mid)
+	var c = cmp.Compare(p.ModuleId, q.ModuleId)
 	//
 	if c == 0 {
-		c = cmp.Compare(p.rid.Unwrap(), q.rid.Unwrap())
+		c = cmp.Compare(p.ColumnId.Unwrap(), q.ColumnId.Unwrap())
 	}
 	//
 	return c
@@ -85,24 +85,24 @@ func (p ColumnRef) Cmp(q ColumnRef) int {
 // Index returns a unique index for this column, assuming a given number of
 // modules.
 func (p ColumnRef) Index(nModules uint) uint {
-	return p.mid + (nModules * p.rid.index)
+	return p.ModuleId + (nModules * p.ColumnId.index)
 }
 
 // Module returns the module identifier of this Column reference.
 func (p ColumnRef) Module() ModuleId {
-	return p.mid
+	return p.ModuleId
 }
 
 // Column returns the Column identifier of this Column reference.
 func (p ColumnRef) Column() ColumnId {
-	return p.rid
+	return p.ColumnId
 }
 
 // Register returns the register (i.e. column) identifier of this reference.
 // Since this type is also used in schema, this function is included here for
 // convenience.
 func (p ColumnRef) Register() ColumnId {
-	return p.rid
+	return p.ColumnId
 }
 
 // ModuleId abstracts the notion of a "module identifier"
@@ -171,75 +171,61 @@ func (p ColumnId) String() string {
 // and a "bitwidth access".  That is, it identifies a column on a relative row
 // from the given row.  It also enables direct column casting.
 type ColumnAccessId struct {
-	id ColumnId
-	// bitwidth is the declared bitwidth of this column.
-	bitwidth uint
-	// maskwidth is the portion of the column actually used (which maybe less
+	ColumnId ColumnId
+	// BitWidth is the declared BitWidth of this column.
+	BitWidth uint
+	// MaskWidth is the portion of the column actually used (which maybe less
 	// than the declared width).
-	maskwidth uint
-	// shift is the relative shift applied to determine which row of the column
+	MaskWidth uint
+	// RelShift is the relative shift applied to determine which row of the column
 	// is being accessed.
-	shift int
+	RelShift int
 }
 
 // Cmp implementation for the Comparable interface
 func (p ColumnAccessId) Cmp(o ColumnAccessId) int {
-	if c := p.id.Cmp(o.id); c != 0 {
+	if c := p.ColumnId.Cmp(o.ColumnId); c != 0 {
 		return c
-	} else if c := cmp.Compare(p.shift, o.shift); c != 0 {
+	} else if c := cmp.Compare(p.RelShift, o.RelShift); c != 0 {
 		return c
-	} else if c := cmp.Compare(p.bitwidth, o.bitwidth); c != 0 {
+	} else if c := cmp.Compare(p.BitWidth, o.BitWidth); c != 0 {
 		return c
 	}
 	//
-	return cmp.Compare(p.maskwidth, o.maskwidth)
+	return cmp.Compare(p.MaskWidth, o.MaskWidth)
 }
 
 // Id returns returns the underlying register id.
 func (p ColumnAccessId) Id() ColumnId {
-	return p.id
-}
-
-// BitWidth returns the declared bitwidth of the variable being accessed.
-// Observe that the actual width of this access may be smaller than this if a
-// mask is being applied.
-func (p ColumnAccessId) BitWidth() uint {
-	return p.bitwidth
-}
-
-// MaskWidth returns the portion of the underlying column / register actually
-// read by this access.  For example, given a register of type u16 we might only
-// be accessing the first u8 portion.
-func (p ColumnAccessId) MaskWidth() uint {
-	return p.maskwidth
+	return p.ColumnId
 }
 
 // Shift shifts the given column access by a given (relative) amount.
 func (p ColumnAccessId) Shift(shift int) ColumnAccessId {
 	return ColumnAccessId{
-		p.id, p.bitwidth, p.maskwidth, p.shift + shift,
+		p.ColumnId, p.BitWidth, p.MaskWidth, p.RelShift + shift,
 	}
 }
 
 // Mask masks the given column access by a given number of bits.
 func (p ColumnAccessId) Mask(mask uint) ColumnAccessId {
-	if mask > p.bitwidth {
-		panic(fmt.Sprintf("invalid mask (u%d > u%d)", mask, p.bitwidth))
+	if mask > p.BitWidth {
+		panic(fmt.Sprintf("invalid mask (u%d > u%d)", mask, p.BitWidth))
 	}
 	//
 	return ColumnAccessId{
-		p.id, p.bitwidth, mask, p.shift,
+		p.ColumnId, p.BitWidth, mask, p.RelShift,
 	}
 }
 
 // RelativeShift returns the relative shift for this register.
 func (p ColumnAccessId) RelativeShift() int {
-	return p.shift
+	return p.RelShift
 }
 
 // Unwrap returns the underlying Column index.
 func (p ColumnAccessId) Unwrap() uint {
-	return p.id.Unwrap()
+	return p.ColumnId.Unwrap()
 }
 
 // ============================================================================
@@ -277,12 +263,12 @@ func (p *ColumnId) GobDecode(data []byte) error {
 // GobEncode an option.  This allows it to be marshalled into a binary form.
 func (p ColumnRef) GobEncode() (data []byte, err error) {
 	var (
-		rid        = p.rid.Unwrap()
+		rid        = p.ColumnId.Unwrap()
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
 	)
 	//
-	if err := gobEncoder.Encode(&p.mid); err != nil {
+	if err := gobEncoder.Encode(&p.ModuleId); err != nil {
 		return nil, err
 	}
 	//
@@ -301,7 +287,7 @@ func (p *ColumnRef) GobDecode(data []byte) error {
 		gobDecoder = gob.NewDecoder(buffer)
 	)
 	//
-	if err := gobDecoder.Decode(&p.mid); err != nil {
+	if err := gobDecoder.Decode(&p.ModuleId); err != nil {
 		return err
 	}
 	//
@@ -309,7 +295,7 @@ func (p *ColumnRef) GobDecode(data []byte) error {
 		return err
 	}
 	// Construct reg id
-	p.rid = NewColumnId(rid)
+	p.ColumnId = NewColumnId(rid)
 	// Success!
 	return nil
 }

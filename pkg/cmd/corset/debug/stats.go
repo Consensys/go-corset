@@ -97,7 +97,7 @@ func isVanishingConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	case air.VanishingConstraint[F]:
 		return true
 	case mir.Constraint[F]:
-		_, ok := c.Unwrap().(mir.VanishingConstraint[F])
+		_, ok := c.Unwrap().(*mir.VanishingConstraint[F])
 		return ok
 	}
 	//
@@ -109,7 +109,7 @@ func isLookupConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	case air.LookupConstraint[F]:
 		return true
 	case mir.Constraint[F]:
-		_, ok := c.Unwrap().(mir.LookupConstraint[F])
+		_, ok := c.Unwrap().(*mir.LookupConstraint[F])
 		return ok
 	}
 	//
@@ -121,7 +121,7 @@ func isPermutationConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	case air.PermutationConstraint[F]:
 		return true
 	case mir.Constraint[F]:
-		_, ok := c.Unwrap().(mir.PermutationConstraint[F])
+		_, ok := c.Unwrap().(*mir.PermutationConstraint[F])
 		return ok
 	}
 	//
@@ -133,7 +133,7 @@ func isRangeConstraint[F field.Element[F]](c schema.Constraint[F]) bool {
 	case air.RangeConstraint[F]:
 		return true
 	case mir.Constraint[F]:
-		_, ok := c.Unwrap().(mir.RangeConstraint[F])
+		_, ok := c.Unwrap().(*mir.RangeConstraint[F])
 		return ok
 	}
 	//

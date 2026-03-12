@@ -167,7 +167,7 @@ func countRegisters[F any](module schema.Module[F], filter func(register.Registe
 
 func requiresSpacing[F field.Element[F]](c schema.Constraint[F]) bool {
 	if c, ok := c.(mir.Constraint[F]); ok {
-		if _, ok := c.Unwrap().(mir.VanishingConstraint[F]); ok {
+		if _, ok := c.Unwrap().(*mir.VanishingConstraint[F]); ok {
 			return ok
 		}
 	}

@@ -62,7 +62,7 @@ func (o Option[T]) Unwrap() T {
 // ============================================================================
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
-func (o *Option[T]) GobEncode() (data []byte, err error) {
+func (o Option[T]) GobEncode() (data []byte, err error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)

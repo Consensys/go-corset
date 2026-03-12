@@ -112,22 +112,22 @@ func concretizeConstraints[F1 Element[F1], F2 Element[F2]](constraints []Constra
 func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[F1]) Constraint[F2] {
 	//
 	switch c := constraint.Unwrap().(type) {
-	case Assertion[F1]:
+	case *Assertion[F1]:
 		//
 		return NewAssertion[F2](c.Handle, c.Context, c.Domain, c.Property)
-	case InterleavingConstraint[F1]:
+	case *InterleavingConstraint[F1]:
 		target := concretizeVectorAccess[F1, F2](c.Target)
 		sources := concretizeVectorAccesses[F1, F2](c.Sources)
 		//
 		return NewInterleavingConstraint(c.Handle, c.TargetContext, c.SourceContext, target, sources)
-	case LookupConstraint[F1]:
+	case *LookupConstraint[F1]:
 		targets := concretizeLookupVectors[F1, F2](c.Targets)
 		sources := concretizeLookupVectors[F1, F2](c.Sources)
 		//
 		return NewLookupConstraint(c.Handle, targets, sources)
-	case PermutationConstraint[F1]:
+	case *PermutationConstraint[F1]:
 		return NewPermutationConstraint[F2](c.Handle, c.Context, c.Targets, c.Sources)
-	case RangeConstraint[F1]:
+	case *RangeConstraint[F1]:
 		var terms = concretizeRegisterAccesses[F1, F2](c.Sources)
 		//
 		return NewRangeConstraint(c.Handle, c.Context, terms, c.Bitwidths)
@@ -142,7 +142,7 @@ func concretizeConstraint[F1 Element[F1], F2 Element[F2]](constraint Constraint[
 		}
 		//
 		return NewSortedConstraint(c.Handle, c.Context, c.BitWidth, selector, sources, c.Signs, c.Strict)
-	case VanishingConstraint[F1]:
+	case *VanishingConstraint[F1]:
 		term := concretizeLogicalTerm[F1, F2](c.Constraint)
 		//
 		return NewVanishingConstraint(c.Handle, c.Context, c.Domain, term)
