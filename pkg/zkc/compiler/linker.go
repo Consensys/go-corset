@@ -132,7 +132,7 @@ func (p *Linker) Link() (ast.Program, []source.SyntaxError) {
 		p.srcmap.Copy(p.components[index], decl)
 	}
 	//
-	return ast.NewProgram(decls), errors
+	return ast.NewProgram(decls, p.srcmap), errors
 }
 
 // Link all buses used within this function to their intended targets.  This
@@ -310,6 +310,21 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	case *expr.Mul[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewMul[symbol.Resolved](args...)
+	case *expr.Cast[symbol.Unresolved]:
+		var (
+			ne       expr.Resolved
+			castType data.ResolvedType
+		)
+		//
+		ne, errors = p.linkExpr(e.Expr)
+		//
+		if len(errors) == 0 {
+			castType, errors = p.linkType(e.CastType)
+		}
+		//
+		if len(errors) == 0 {
+			nexpr = expr.NewCast[symbol.Resolved](ne, castType)
+		}
 	case *expr.Not[symbol.Unresolved]:
 		var ne expr.Resolved
 

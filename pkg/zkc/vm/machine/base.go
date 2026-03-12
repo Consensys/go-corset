@@ -215,6 +215,8 @@ func (p *Base[W]) executeInstruction(insn instruction.Instruction[W], frame []W,
 
 	case *instruction.And[W]:
 		return executeAnd(*insn, frame, regs)
+	case *instruction.Cast[W]:
+		return executeCast(*insn, frame, regs)
 	case *instruction.Not[W]:
 		return executeNot(*insn, frame, regs)
 	case *instruction.Or[W]:
@@ -416,6 +418,19 @@ func executeXor[W word.Word[W]](insn instruction.Xor[W], frame []W, regs []regis
 	}
 	//
 	frame[insn.Target.Unwrap()] = val
+	//
+	return true, nil
+}
+
+func executeCast[W word.Word[W]](insn instruction.Cast[W], frame []W, _ []register.Register) (bool, error) {
+	src := frame[insn.Source.Unwrap()]
+	sliced := src.Slice(insn.Width)
+	// Panic if the source value doesn't fit within the target bit width.
+	if src.Cmp(sliced) != 0 {
+		return false, errors.New("cast overflow")
+	}
+	//
+	frame[insn.Target.Unwrap()] = sliced
 	//
 	return true, nil
 }

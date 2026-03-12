@@ -305,6 +305,34 @@ func Test_ZkcInvalid_Static_04(t *testing.T) {
 }
 
 // ===================================================================
+// Cast Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Cast_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/cast_invalid_01")
+}
+
+func Test_ZkcInvalid_Cast_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/cast_invalid_02")
+}
+
+func Test_ZkcInvalid_Cast_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/cast_invalid_03")
+}
+
+func Test_ZkcInvalid_Cast_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/cast_invalid_04")
+}
+
+func Test_ZkcInvalid_Cast_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/cast_invalid_05")
+}
+
+func Test_ZkcInvalid_Cast_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/cast_invalid_06")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

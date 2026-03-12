@@ -22,6 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
@@ -70,16 +71,20 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 	// Execute machine in chunks of 1K steps
 	if bigInputs, _, errors = program.DecodeInputsOutputs(input); len(errors) == 0 {
 		// Build our machine
-		vm = program.Compile()
+		var compileErrs []source.SyntaxError
+
+		vm, compileErrs = program.Compile()
+		for _, e := range compileErrs {
+			errors = append(errors, &e)
+		}
 		//
-		if err := vm.Boot(mainFn, bigInputs); err == nil {
-			// Execute it
-			if _, err := machine.ExecuteAll(vm, 1024); err != nil {
+		if len(errors) == 0 {
+			if err := vm.Boot(mainFn, bigInputs); err != nil {
+				errors = append(errors, err)
+			} else if _, err := machine.ExecuteAll(vm, 1024); err != nil {
 				// NOTE: determine stack trace!
 				errors = append(errors, err)
 			}
-		} else {
-			errors = append(errors, err)
 		}
 	}
 	// Exit with failure (if errors)

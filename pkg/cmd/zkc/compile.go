@@ -69,8 +69,14 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	//
 	if ir {
-		vm := program.Compile()
-		writeIntermediateRepresentation[word.Uint](vm)
+		vm, errs := program.Compile()
+		for _, err := range errs {
+			printSyntaxError(&err)
+		}
+
+		if len(errs) == 0 {
+			writeIntermediateRepresentation[word.Uint](vm)
+		}
 	}
 }
 

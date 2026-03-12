@@ -13,6 +13,7 @@ package ast
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -45,15 +46,16 @@ func (p *RawProgram[I]) Components() []decl.Declaration[I] {
 // external components.
 type Program struct {
 	RawProgram[symbol.Resolved]
+	srcmaps source.Maps[any]
 }
 
 // NewProgram constructs a new program using a given level of instruction.
-func NewProgram(components []decl.Resolved) Program {
+func NewProgram(components []decl.Resolved, srcmaps source.Maps[any]) Program {
 	//
 	decls := make([]decl.Resolved, len(components))
 	copy(decls, components)
 
-	return Program{RawProgram[symbol.Resolved]{decls}}
+	return Program{RawProgram[symbol.Resolved]{decls}, srcmaps}
 }
 
 // Environment creates a fresh environment for this program
@@ -80,6 +82,8 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 	for _, c := range p.declarations {
 		switch c := c.(type) {
 		case *decl.ResolvedFunction:
+			// ignore
+		case *decl.ResolvedConstant:
 			// ignore
 		case *decl.ResolvedMemory:
 			// Record this memory has seen
@@ -129,6 +133,8 @@ func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string
 		switch c := c.(type) {
 		case *decl.ResolvedFunction:
 			// ignore
+		case *decl.ResolvedConstant:
+			// ignore
 		case *decl.ResolvedMemory:
 			visited[c.Name()] = true
 
@@ -160,6 +166,6 @@ func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func (p *Program) Compile() *machine.Base[word.Uint] {
-	return codegen.Compile(p.Environment(), p.declarations)
+func (p *Program) Compile() (*machine.Base[word.Uint], []source.SyntaxError) {
+	return codegen.Compile(p.Environment(), p.declarations, p.srcmaps)
 }
