@@ -32,15 +32,15 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	if at2 := t2.AsAlias(env); at2 != nil && at2.Ref != nil {
 		return SubtypeOf(t1, at2.Resolve(env), env)
 	}
-
-	if at1 := t1.AsAlias(env); at1 != nil && at1.Ref != nil {
-		return SubtypeOf(at1.Resolve(env), t2, env)
-	}
-
+	//
 	switch t1 := t1.(type) {
 	case *UnsignedInt[S]:
 		if t := t2.AsUint(env); t != nil {
 			return t1.BitWidth() <= t.BitWidth()
+		}
+	case *Alias[S]:
+		if at1 := t1.AsAlias(env); at1 != nil && at1.Ref != nil {
+			return SubtypeOf(at1.Resolve(env), t2, env)
 		}
 	case *Tuple[S]:
 		if t := t2.AsTuple(env); t != nil {
