@@ -171,6 +171,9 @@ const BITSHL uint = 76
 // BITSHR signals ">>"
 const BITSHR uint = 77
 
+// REM signals "%"
+const REM uint = 78
+
 // QMARK signals "?"
 const QMARK uint = 80
 
@@ -249,6 +252,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('-'), SUB),
 	lex.Rule(lex.Unit('*'), MUL),
 	lex.Rule(lex.Unit('/'), DIV),
+	lex.Rule(lex.Unit('%'), REM),
 	lex.Rule(lex.Unit('&'), BITAND),
 	lex.Rule(lex.Unit('|'), BITOR),
 	lex.Rule(lex.Unit('^'), BITXOR),

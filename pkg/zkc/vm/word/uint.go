@@ -50,6 +50,18 @@ func (p Uint) Add(width uint, w Uint) (Uint, bool) {
 	return Uint{res}, carry
 }
 
+// Div implementation for Word interface.
+func (p Uint) Div(_ uint, w Uint) Uint {
+	if w.value.Sign() == 0 {
+		panic("division by zero")
+	}
+	//
+	var res big.Int
+	res.Div(&p.value, &w.value)
+	//
+	return Uint{res}
+}
+
 // Cmp implementation for Word interface.
 func (p Uint) Cmp(o Uint) int {
 	return p.value.Cmp(&o.value)
@@ -95,6 +107,18 @@ func (p Uint) Mul(width uint, w Uint) (Uint, bool) {
 	}
 	//
 	return Uint{res}, overflow
+}
+
+// Rem implementation for Word interface.
+func (p Uint) Rem(_ uint, w Uint) Uint {
+	if w.value.Sign() == 0 {
+		panic("division by zero")
+	}
+	//
+	var res big.Int
+	res.Mod(&p.value, &w.value)
+	//
+	return Uint{res}
 }
 
 // Shl implementation for Word interface.

@@ -128,6 +128,12 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Sub[S]:
 		exprs = e.Exprs
 		operator = "-"
+	case *Div[S]:
+		exprs = e.Exprs
+		operator = "/"
+	case *Rem[S]:
+		exprs = e.Exprs
+		operator = "%"
 	default:
 		panic("unreachable")
 	}

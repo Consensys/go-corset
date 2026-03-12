@@ -332,6 +332,54 @@ func Test_ZkcInvalid_Call_06(t *testing.T) {
 }
 
 // ===================================================================
+// Division Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Div_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/div_01")
+}
+
+func Test_ZkcInvalid_Div_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/div_02")
+}
+
+func Test_ZkcInvalid_Div_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/div_03")
+}
+
+func Test_ZkcInvalid_Div_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/div_04")
+}
+
+func Test_ZkcInvalid_Div_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/div_05")
+}
+
+// ===================================================================
+// Remainder Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Rem_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/rem_01")
+}
+
+func Test_ZkcInvalid_Rem_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/rem_02")
+}
+
+func Test_ZkcInvalid_Rem_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/rem_03")
+}
+
+func Test_ZkcInvalid_Rem_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/rem_04")
+}
+
+func Test_ZkcInvalid_Rem_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/rem_05")
+}
+
+// ===================================================================
 // Cast Tests
 // ===================================================================
 
