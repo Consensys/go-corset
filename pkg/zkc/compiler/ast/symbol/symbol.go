@@ -17,7 +17,7 @@ import (
 )
 
 // Symbol represents a reference to some declared entity, such as a function,
-// constant or memory.
+// constant, memory or alias.
 type Symbol[S any] interface {
 	fmt.Stringer
 	set.Comparable[S]
