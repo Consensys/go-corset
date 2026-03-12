@@ -137,6 +137,8 @@ func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string
 			// ignore
 		case *decl.ResolvedConstant:
 			// ignore
+		case *decl.ResolvedTypeAlias:
+			// ignore
 		case *decl.ResolvedMemory:
 			visited[c.Name()] = true
 
