@@ -608,12 +608,19 @@ func (p *Parser) parseAssignment(env *Environment) (stmt.Unresolved, []source.Sy
 }
 
 func (p *Parser) parseCallStatement(env *Environment) (stmt.Unresolved, []source.SyntaxError) {
+	// Parse call as a general expression, since this ensures source mapping is
+	// handled.  This means, however, that we need to check afterwards that we
+	// actually got a call expression rather than a general expression.
 	call, errs := p.parseExpr(env)
+	//
 	if len(errs) > 0 {
 		return nil, errs
+	} else if ea, ok := call.(*expr.ExternAccess[symbol.Unresolved]); ok && ea.Name.Kind == symbol.FUNCTION {
+		// Yes, its a function call
+		return &stmt.Assign[symbol.Unresolved]{Targets: nil, Source: call}, nil
 	}
-	//
-	return &stmt.Assign[symbol.Unresolved]{Targets: nil, Source: call}, nil
+	// No, its some other kind of expression.
+	return nil, p.srcmap.SyntaxErrors(call, "expression unused")
 }
 
 func (p *Parser) parseIfElse(pc uint, env *Environment, looping bool) (bool, []stmt.Unresolved, []source.SyntaxError) {

@@ -327,6 +327,10 @@ func Test_ZkcInvalid_Call_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/call_05")
 }
 
+func Test_ZkcInvalid_Call_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/call_06")
+}
+
 // ===================================================================
 // Cast Tests
 // ===================================================================
