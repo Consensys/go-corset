@@ -63,6 +63,10 @@ type Module[W any] interface {
 	Name() string
 }
 
+// ============================================================================
+// Frame
+// ============================================================================
+
 // Frame represents an executing function on the call stack.  Specifically,
 // it contains the state of all registers at the current point of execution for
 // that function.
@@ -70,7 +74,7 @@ type Frame[W any] struct {
 	// Function identifier
 	functionId uint
 	// Program Counter
-	pc uint
+	pc ProgramCounter
 	// Registers
 	registers []W
 }
@@ -80,7 +84,7 @@ type Frame[W any] struct {
 func NewFrame[W any](fid uint, width uint) Frame[W] {
 	return Frame[W]{
 		functionId: fid,
-		pc:         0,
+		pc:         ProgramCounter{0, 0},
 		registers:  make([]W, width),
 	}
 }
@@ -91,18 +95,13 @@ func (p *Frame[W]) Function() uint {
 }
 
 // PC returns the current Program Counter position.
-func (p *Frame[W]) PC() uint {
+func (p *Frame[W]) PC() ProgramCounter {
 	return p.pc
 }
 
 // Goto sets the Program Counter to a given position.
-func (p *Frame[W]) Goto(pc uint) {
+func (p *Frame[W]) Goto(pc ProgramCounter) {
 	p.pc = pc
-}
-
-// FallThru to the next instruction in the frame.
-func (p *Frame[W]) FallThru() {
-	p.pc++
 }
 
 // Load the value of the ith register from this stack frame.
@@ -114,4 +113,65 @@ func (p *Frame[W]) Load(reg uint) W {
 // its previous contents.
 func (p *Frame[W]) Store(reg uint, value W) {
 	p.registers[reg] = value
+}
+
+// ============================================================================
+// Program Counter
+// ============================================================================
+
+// ProgramCounter abstracts the notion of a program counter in a machine.  A key
+// aspect is that it two dimensional to account for so-called "vector"
+// instructions: (1) it identifies the (macro) instruction being executed; (2)
+// it identifies the (micro) instruction within that being executed.
+type ProgramCounter struct {
+	// Program Counter (PC) identifies the macro instruction being executed
+	macroCounter uint
+	// Code Counter (CC) identifies the micro code within the enclosing
+	// instruction being executed.
+	microCounter uint
+}
+
+// Macro returns the macro instruction identfied by this program counter
+// position.
+func (p ProgramCounter) Macro() uint {
+	return p.macroCounter
+}
+
+// Micro returns the micro code within the enclosing macro instruction identfied
+// by this program position.
+func (p ProgramCounter) Micro() uint {
+	return p.microCounter
+}
+
+// Next shifts the program counter to the next instruction, assuming the current
+// instruction has a given width (i.e. number of micro-instructions).
+func (p ProgramCounter) Next(width uint) ProgramCounter {
+	var ncc = p.microCounter + 1
+	//
+	if ncc >= width {
+		return p.Goto(p.macroCounter + 1)
+	}
+	//
+	return ProgramCounter{p.macroCounter, ncc}
+}
+
+// Goto a given (macro) instruction.  This sets the macro counter to a given
+// position, and resets the micro counter.  If the enclosing function has too
+// few macro instructions, then this will result in a machine failure on the
+// next cycle.
+func (p ProgramCounter) Goto(pc uint) (q ProgramCounter) {
+	q.macroCounter = pc
+	q.microCounter = 0
+	//
+	return q
+}
+
+// Skip over some number of (micro) instructions.  If the enclosing
+// instruction has too few micro instructions, then this will result in a
+// machine failure on the next cycle.
+func (p ProgramCounter) Skip(n uint) (q ProgramCounter) {
+	q.macroCounter = p.macroCounter
+	q.microCounter = p.microCounter + n
+	//
+	return q
 }

@@ -39,7 +39,7 @@ func newArray[W word.Word[W]](name string, registers []register.Register, init .
 	return Array[W]{geometry, name, init}
 }
 
-// Name implementation for ReadOnlyMemory interface.
+// Name implementation for Memory interface.
 func (p *Array[W]) Name() string {
 	return p.name
 }
@@ -49,14 +49,45 @@ func (p *Array[W]) Initialise(contents []W) {
 	p.data = contents
 }
 
-// Read implementation for ReadOnlyMemory interface.
+// Read implementation for Memory interface.
 func (p *Array[W]) Read(address []W) []W {
 	var start, end = p.geometry.Decode(address)
 	//
 	return p.data[start:end]
 }
 
-// Write implementation for ReadOnlyMemory interface.
+// FrameRead implementation for Memory interface.
+func (p *Array[W]) FrameRead(frame []W, address []register.Id, data []register.Id) error {
+	var start, _ = p.geometry.FrameDecode(frame, address)
+	//
+	for i := range data {
+		frame[data[i].Unwrap()] = p.data[uint64(i)+start]
+	}
+	//
+	return nil
+}
+
+// FrameWrite implementation for Memory interface.
+func (p *Array[W]) FrameWrite(frame []W, address []register.Id, data []register.Id) error {
+	var (
+		n          = uint64(len(p.data))
+		start, end = p.geometry.FrameDecode(frame, address)
+	)
+	// expand memory if needed
+	if n <= end {
+		ndata := make([]W, end)
+		copy(ndata, p.data)
+		p.data = ndata
+	}
+	//
+	for i := range data {
+		p.data[uint64(i)+start] = frame[data[i].Unwrap()]
+	}
+	//
+	return nil
+}
+
+// Write implementation for Memory interface.
 func (p *Array[W]) Write(address []W, data []W) {
 	var (
 		n          = uint64(len(p.data))

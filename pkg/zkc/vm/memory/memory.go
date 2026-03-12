@@ -12,6 +12,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package memory
 
+import "github.com/consensys/go-corset/pkg/schema/register"
+
 // Memory represents (in many ways) the simplest form of memory
 // which can be read or written without restrictions.  Initially, all locations
 // of a RAM can be considered to hold zero.  Thus, reading a location which has
@@ -28,6 +30,10 @@ type Memory[W any] interface {
 	// Write a given data-tuple to a given address-tuple, overwriting the
 	// previous value stored at that address.
 	Write(address []W, value []W)
+	// Read a given data-tuple from a given address-tuple.
+	FrameRead(frame []W, address []register.Id, data []register.Id) error
+	// Read a given data-tuple from a given address-tuple.
+	FrameWrite(frame []W, address []register.Id, data []register.Id) error
 	// Return the contents of this memory as a sequence of words, where all rows
 	// are simply appended together.
 	Contents() []W

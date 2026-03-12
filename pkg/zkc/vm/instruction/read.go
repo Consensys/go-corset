@@ -26,37 +26,37 @@ import (
 type MemRead struct {
 	// Module identifyer for memory being read.
 	Id uint
-	// Target registers for assignment
-	Targets []register.Id
-	// Source registers for assignment
-	Sources []register.Id
+	// Data registers for assignment
+	Data []register.Id
+	// Address registers for assignment
+	Address []register.Id
 }
 
 // NewMemRead constructs a new instruction which reads the value from either a
 // Random Access Memory (RAM) or a Read-Only Memory (ROM).
-func NewMemRead(id uint, targets []register.Id, sources []register.Id) *MemRead {
-	return &MemRead{id, targets, sources}
+func NewMemRead(id uint, data []register.Id, address []register.Id) *MemRead {
+	return &MemRead{id, data, address}
 }
 
 // Uses implementation for Instruction interface
 func (p *MemRead) Uses() []register.Id {
-	return p.Sources
+	return p.Address
 }
 
 // Definitions implementation for Instruction interface
 func (p *MemRead) Definitions() []register.Id {
-	return p.Targets
+	return p.Data
 }
 
 func (p *MemRead) String(env register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(env, array.Reverse(p.Targets)...))
+	builder.WriteString(registersToString(env, array.Reverse(p.Data)...))
 	builder.WriteString(" = ")
 	//
 	builder.WriteString(fmt.Sprintf("%d[", p.Id))
 	//
-	for i, rid := range p.Sources {
+	for i, rid := range p.Address {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
