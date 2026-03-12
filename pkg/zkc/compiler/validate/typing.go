@@ -439,7 +439,7 @@ func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], en
 	case *decl.ResolvedFunction:
 		return p.typeFunctionAccess(t, e, env)
 	case *decl.ResolvedTypeAlias:
-		return p.typeAlias(t, e, env)
+		return p.typeAlias(e)
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown symbol type")
 	}
@@ -468,9 +468,8 @@ func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAcc
 	return variable.DescriptorsToType(c.Data...), errs
 }
 
-func (p *TypeChecker) typeAlias(c *decl.ResolvedTypeAlias, e *expr.ExternAccess[symbol.Resolved],
-	env VariableMap) (Type, []source.SyntaxError) {
-	return c.DataType, nil
+func (p *TypeChecker) typeAlias(e *expr.ExternAccess[symbol.Resolved]) (Type, []source.SyntaxError) {
+	return nil, p.srcmaps.SyntaxErrors(e, "cannot assign type alias")
 }
 
 func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.ExternAccess[symbol.Resolved],
