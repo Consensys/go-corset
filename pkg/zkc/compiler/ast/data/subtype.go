@@ -29,7 +29,7 @@ import (
 // least a u4 that is a subtype of u8?".  The answer, of course, is yes: u8.
 func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	// Resolve alias types so we compare underlying types from the Ref.
-	if at2 := t2.AsAlias(env); at2 != nil && at2.Ref != nil {
+	if at2 := t2.AsAlias(env); at2 != nil {
 		return SubtypeOf(t1, at2.Resolve(env), env)
 	}
 	//
@@ -39,7 +39,7 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 			return t1.BitWidth() <= t.BitWidth()
 		}
 	case *Alias[S]:
-		if at1 := t1.AsAlias(env); at1 != nil && at1.Ref != nil {
+		if at1 := t1.AsAlias(env); at1 != nil {
 			return SubtypeOf(at1.Resolve(env), t2, env)
 		}
 	case *Tuple[S]:
@@ -73,7 +73,7 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 // hold.
 func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	// Resolve alias types so we compare underlying types from the Ref.
-	if at2 := t2.AsAlias(env); at2 != nil && at2.Ref != nil {
+	if at2 := t2.AsAlias(env); at2 != nil {
 		return EquiTypes(t1, at2.Resolve(env), env)
 	}
 
@@ -85,7 +85,7 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 				(t.IsOpen() && t.BitWidth() <= t1.BitWidth())
 		}
 	case *Alias[S]:
-		if at1 := t1.AsAlias(env); at1 != nil && at1.Ref != nil {
+		if at1 := t1.AsAlias(env); at1 != nil {
 			return EquiTypes(at1.Resolve(env), t2, env)
 		}
 	case *Tuple[S]:
