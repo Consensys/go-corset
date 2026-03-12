@@ -85,6 +85,8 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 			// ignore
 		case *decl.ResolvedConstant:
 			// ignore
+		case *decl.ResolvedTypeAlias:
+			// ignore
 		case *decl.ResolvedMemory:
 			// Record this memory has seen
 			visited[c.Name()] = true
