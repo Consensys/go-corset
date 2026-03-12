@@ -151,11 +151,8 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), append(errs1, errs2...)
 	case *decl.UnresolvedTypeAlias:
 		datatype, errs := p.linkType(d.DataType)
-		nalias := decl.NewTypeAlias[symbol.Resolved](d.Name(), datatype)
 		//
-		p.srcmap.Copy(d, nalias)
-		//
-		return nalias, errs
+		return decl.NewTypeAlias[symbol.Resolved](d.Name(), datatype), errs
 	default:
 		panic("unknown declaration")
 	}
