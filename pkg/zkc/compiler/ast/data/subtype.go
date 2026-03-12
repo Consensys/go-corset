@@ -76,6 +76,7 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	if at2 := t2.AsAlias(env); at2 != nil && at2.Ref != nil {
 		return EquiTypes(t1, at2.Resolve(env), env)
 	}
+
 	switch t1 := t1.(type) {
 	case *UnsignedInt[S]:
 		if t := t2.AsUint(env); t != nil {
