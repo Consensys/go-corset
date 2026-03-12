@@ -16,6 +16,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
@@ -61,11 +62,14 @@ type VariableDescriptor = variable.Descriptor[symbol.Resolved]
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.Base[word.Uint] {
+func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps source.Maps[any],
+) (*machine.Base[word.Uint], []source.SyntaxError) {
+	//
 	var (
 		modules []machine.Module[word.Uint]
 		mapping = make([]uint, len(declarations))
 		index   = uint(0)
+		errors  []source.SyntaxError
 	)
 	// Construct the mapping from ast declaration identifiers to vm module
 	// identifiers.  Essentially, what is happening here is that some ast
@@ -87,7 +91,9 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.
 		case *Constant:
 			// ignore
 		case *Function:
-			modules = append(modules, compileFunction(uint(i), mapping, declarations))
+			fn, errs := compileFunction(uint(i), mapping, declarations, srcmaps)
+			modules = append(modules, fn)
+			errors = append(errors, errs...)
 		case *Memory:
 			var regs = toMemoryRegisters(c.Address, c.Data, env)
 			//
@@ -106,7 +112,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration) *machine.
 		}
 	}
 	// Construct machine (if no errors)
-	return machine.New[word.Uint](modules...)
+	return machine.New[word.Uint](modules...), errors
 }
 
 // contentsToWords converts the big.Int literal values from a static memory

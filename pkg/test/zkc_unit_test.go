@@ -199,6 +199,10 @@ func Test_ZkcUnit_Cast_04(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/cast_valid_04")
 }
 
+func Test_ZkcUnit_Cast_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/cast_valid_05")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

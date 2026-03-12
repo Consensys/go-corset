@@ -132,7 +132,7 @@ func (p *Linker) Link() (ast.Program, []source.SyntaxError) {
 		p.srcmap.Copy(p.components[index], decl)
 	}
 	//
-	return ast.NewProgram(decls), errors
+	return ast.NewProgram(decls, p.srcmap), errors
 }
 
 // Link all buses used within this function to their intended targets.  This

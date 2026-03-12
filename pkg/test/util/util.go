@@ -45,8 +45,12 @@ func CompileMachine(srcfiles ...source.File) []source.SyntaxError {
 }
 
 // CompileZkc compiles a single zkc source file, potentially producing errors.
+// This includes both the validation phase and the code generation phase.
 func CompileZkc(srcfile source.File) []source.SyntaxError {
-	_, _, errors := compiler.Compile(srcfile)
+	program, _, errors := compiler.Compile(srcfile)
+	if len(errors) == 0 {
+		_, errors = program.Compile()
+	}
 	//
 	return errors
 }

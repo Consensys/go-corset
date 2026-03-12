@@ -33,7 +33,13 @@ func CheckValid(t *testing.T, test, ext string, compiler ErrorCompiler) {
 	// Compile source file into Abstract Syntax Tree form.
 	program := cmd_util.CompileSourceFiles(filename)
 	// Compile program into boot machine
-	vm := program.Compile()
+	vm, errs := program.Compile()
+	for _, err := range errs {
+		t.Errorf("%s", err.Error())
+	}
+	if len(errs) > 0 {
+		return
+	}
 	// Search for tests
 	for _, cfg := range TESTFILE_EXTENSIONS {
 		// Read tests from file

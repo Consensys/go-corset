@@ -15,6 +15,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
@@ -41,6 +42,8 @@ type Compiler struct {
 	variables   []VariableDescriptor
 	registers   []register.Register
 	environment data.Environment[symbol.Resolved]
+	srcmaps     source.Maps[any]
+	errors      []source.SyntaxError
 }
 
 func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction {
@@ -494,6 +497,16 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 	case *expr.Xor[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.BitwiseXor(bitwidth, args...)
+	case *expr.Cast[symbol.Resolved]:
+		inner := p.evalConstant(e.Expr)
+		width := e.CastType.AsUint(p.environment).BitWidth()
+
+		sliced := inner.Slice(width)
+		if inner.Cmp(sliced) != 0 {
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "cast overflow")...)
+		}
+
+		return sliced
 	case *expr.ExternAccess[symbol.Resolved]:
 		var decl = p.components[e.Name.Index].(*Constant)
 		return p.evalConstant(decl.ConstExpr)

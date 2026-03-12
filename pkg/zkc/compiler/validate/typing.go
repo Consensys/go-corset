@@ -286,6 +286,7 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, 
 				errs = p.checkSubType(openCastType, srcType, e)
 			}
 		}
+		//
 		t = e.CastType
 	case *expr.Add[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
