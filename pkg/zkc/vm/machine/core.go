@@ -12,6 +12,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package machine
 
+import "github.com/consensys/go-corset/pkg/schema/register"
+
 // ExecuteAll executes a given machine to completion in chunks of n steps,
 // returning the number of steps executed and/or any error arising.
 func ExecuteAll[W any, M Core[W]](machine M, n uint) (uint, error) {
@@ -45,10 +47,17 @@ type Core[W any] interface {
 	Module(id uint) Module[W]
 	// Return set of modules in this machine.
 	Modules() []Module[W]
-	// Enter a new function on the call-stack
-	Enter(id uint, args ...W)
-	// Leave
-	Leave()
+	// Enter a new function on the call-stack, whilst initialising its arguments
+	// with those values in the current frame taken from the given argument
+	// registers.  In addition, the return registers are saved for when (if) the
+	// function returns.  Specifically, the return registers will be assigned
+	// the return values from the callee.
+	Enter(id uint, frame []W, args, returns []register.Id)
+	// Leave pops the current stack frame off the stack, whilst ensuring the
+	// return values are written into the return registers.  This also returns
+	// true if the last frame was popped off the stack (i.e. the machine has
+	// terminated).
+	Leave() bool
 	// Read location from ith module.  This must be a readable memory, otherwise
 	// this will panic.
 	Read(id uint, address []W) (data []W)
@@ -75,17 +84,24 @@ type Frame[W any] struct {
 	functionId uint
 	// Program Counter
 	pc ProgramCounter
+	// Number of inputs (i.e. arguments)
+	args uint
 	// Registers
 	registers []W
+	// Returns identifies those registers in the target frame which should be
+	// assigned the return values of this call.
+	returns []register.Id
 }
 
 // NewFrame constructs an initially empty frame for a function with a given
 // number of registers.
-func NewFrame[W any](fid uint, width uint) Frame[W] {
+func NewFrame[W any](fid, width, args uint, returns []register.Id) Frame[W] {
 	return Frame[W]{
 		functionId: fid,
 		pc:         ProgramCounter{0, 0},
 		registers:  make([]W, width),
+		args:       args,
+		returns:    returns,
 	}
 }
 
@@ -107,6 +123,12 @@ func (p *Frame[W]) Goto(pc ProgramCounter) {
 // Load the value of the ith register from this stack frame.
 func (p *Frame[W]) Load(reg uint) W {
 	return p.registers[reg]
+}
+
+// Return the value of the ith return (i.e. output) register from this stack
+// frame.
+func (p *Frame[W]) Return(reg uint) W {
+	return p.registers[p.args+reg]
 }
 
 // Store a given value into the ith register of this stack frame, overwriting

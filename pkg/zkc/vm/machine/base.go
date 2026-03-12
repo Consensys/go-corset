@@ -55,7 +55,7 @@ func (p *Base[W]) Boot(fun string, input map[string][]W) error {
 				// Initialise memory
 				p.initialise(input)
 				// Boot the frame
-				p.Enter(uint(i))
+				p.Enter(uint(i), nil, nil, nil)
 				//
 				return nil
 			}
@@ -85,20 +85,37 @@ func (p *Base[W]) Execute(steps uint) (uint, error) {
 }
 
 // Enter implementation for the machine.Core interface.
-func (p *Base[W]) Enter(id uint, args ...W) {
+func (p *Base[W]) Enter(id uint, frame []W, args []register.Id, returns []register.Id) {
 	var (
 		mainFn    = p.modules[id].(*function.Boot[W])
-		bootFrame = NewFrame[W](id, mainFn.Width())
+		bootFrame = NewFrame[W](id, mainFn.Width(), uint(len(args)), returns)
 	)
-	//
+	// Initialise arguments
+	for i, arg := range args {
+		bootFrame.Store(uint(i), frame[arg.Unwrap()])
+	}
+	// Push frame onto call stack
 	p.callstack = append(p.callstack, bootFrame)
 }
 
 // Leave implementation for the machine.Core interface.
-func (p *Base[W]) Leave() {
-	var n = len(p.callstack)
+func (p *Base[W]) Leave() bool {
+	var (
+		n     = len(p.callstack) - 1
+		frame = p.callstack[n]
+	)
+	// pop call stack
+	p.callstack = p.callstack[:n]
+	// write returns (if applicable)
+	if n >= 1 {
+		//
+		for i, r := range frame.returns {
+			val := frame.Return(uint(i))
+			p.callstack[n-1].Store(r.Unwrap(), val)
+		}
+	}
 	//
-	p.callstack = p.callstack[:n-1]
+	return n == 0
 }
 
 // Module implementation for the machine.Core interface.
@@ -145,31 +162,17 @@ func (p *Base[W]) initialise(input map[string][]W) {
 // Execute implementation for the Executor interface
 func (p *Base[W]) execute() error {
 	// Decode
-	var (
-		pc, insn, state, regs = p.decode()
-		uInsn                 instruction.MicroInstruction[W]
-		width                 = uint(1)
-	)
-	// Check for vector instruction
-	if insn == nil {
-		return errors.New("invalid macro instruction")
-	} else if vInsn, ok := insn.(*instruction.Vector[W]); ok {
-		uInsn = vInsn.Codes[pc.microCounter]
-		width = uint(len(vInsn.Codes))
-	} else if pc.microCounter != 0 {
-		return errors.New("invalid micro instruction")
-	} else if insn, ok := insn.(instruction.MicroInstruction[W]); ok {
-		uInsn = insn
-	} else {
-		return errors.New("invalid instruction")
+	var uInsn, width, regs, err = p.decode()
+	//
+	if err == nil {
+		// Execute
+		err = p.executeInstruction(uInsn, width, regs)
 	}
-	// Execute
-	err := p.executeInstruction(uInsn, width, state, regs)
 	//
 	return err
 }
 
-func (p *Base[W]) decode() (ProgramCounter, instruction.Instruction[W], []W, []register.Register) {
+func (p *Base[W]) decode() (instruction.MicroInstruction[W], uint, []register.Register, error) {
 	var (
 		n = len(p.callstack) - 1
 		// Extract executing frame
@@ -180,17 +183,37 @@ func (p *Base[W]) decode() (ProgramCounter, instruction.Instruction[W], []W, []r
 		pc = frame.PC()
 		// Lookup instruction to execute
 		insn = fn.CodeAt(pc.Macro())
+		//
+		uInsn instruction.MicroInstruction[W]
+		//
+		width = uint(1)
 	)
 	//
-	return pc, insn, frame.registers, fn.Registers()
+	// Check for vector instruction
+	if insn == nil {
+		return nil, 0, nil, errors.New("invalid macro instruction")
+	} else if vInsn, ok := insn.(*instruction.Vector[W]); ok {
+		uInsn = vInsn.Codes[pc.Micro()]
+		width = uint(len(vInsn.Codes))
+	} else if pc.Micro() != 0 {
+		return nil, 0, nil, errors.New("invalid micro instruction")
+	} else if insn, ok := insn.(instruction.MicroInstruction[W]); ok {
+		uInsn = insn
+	} else {
+		return nil, 0, nil, errors.New("invalid instruction")
+	}
+	//
+	return uInsn, width, fn.Registers(), nil
 }
 
-func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width uint, frame []W,
-	regs []register.Register) (err error) {
+func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width uint, regs []register.Register,
+) (err error) {
 	//
 	var (
-		n  = len(p.callstack) - 1
-		pc = p.callstack[n].PC()
+		fp         = len(p.callstack) - 1
+		stackframe = p.callstack[fp]
+		frame      = stackframe.registers
+		pc         = stackframe.PC()
 	)
 	//
 	//nolint
@@ -200,24 +223,32 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// Control-Flow Instructions
 	// ==============================================================
 	case *instruction.Call:
-		var args = make([]W, len(insn.Sources))
+		var args = make([]W, len(insn.Arguments))
 		//
-		for i, arg := range insn.Sources {
+		for i, arg := range insn.Arguments {
 			args[i] = frame[arg.Unwrap()]
 		}
 		//
-		p.Enter(insn.Id, args...)
-		//
-		panic("how to make this work?")
+		p.Enter(insn.Id, frame, insn.Arguments, insn.Returns)
+		// Don't fall thru
+		return nil
 	case *instruction.Fail:
 		return errors.New("machine panic")
 	case *instruction.Jmp:
 		// Goto target instruction in current frame
-		p.callstack[n].Goto(pc.Goto(insn.Target))
+		p.callstack[fp].Goto(pc.Goto(insn.Target))
 		return nil
 	case *instruction.Return:
-		p.Leave()
-		return nil
+		if done := p.Leave(); done {
+			return nil
+		}
+		// adjust frame pointer
+		fp = fp - 1
+		// redecode instruction to update width
+		_, width, _, err = p.decode()
+		// reload pc
+		pc = p.callstack[fp].PC()
+		// fall thru
 
 	// ==============================================================
 	// Arithmetic Instructions
@@ -283,7 +314,7 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	}
 	// Fall through to next instruction if no error.
 	if err == nil {
-		p.callstack[n].Goto(pc.Next(width))
+		p.callstack[fp].Goto(pc.Next(width))
 	}
 	// Done
 	return err

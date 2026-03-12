@@ -26,10 +26,13 @@ import (
 type Call struct {
 	// Module identifyer for memory being read.
 	Id uint
-	// Target registers for assignment
-	Targets []register.Id
-	// Source registers for assignment
-	Sources []register.Id
+	// Return registers for function call.  That is, registers which should hold
+	// the result of the call after it has completed.
+	Returns []register.Id
+	// Argumwent registers for function call.  That is, registers which should
+	// hold the arguments for the call which are used to initialise the callee
+	// frame.
+	Arguments []register.Id
 }
 
 // NewCall constructs a new instruction which reads the value from either a
@@ -40,23 +43,23 @@ func NewCall(id uint, targets []register.Id, sources []register.Id) *Call {
 
 // Uses implementation for Instruction interface
 func (p *Call) Uses() []register.Id {
-	return p.Sources
+	return p.Arguments
 }
 
 // Definitions implementation for Instruction interface
 func (p *Call) Definitions() []register.Id {
-	return p.Targets
+	return p.Returns
 }
 
 func (p *Call) String(env register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(env, array.Reverse(p.Targets)...))
+	builder.WriteString(registersToString(env, array.Reverse(p.Returns)...))
 	builder.WriteString(" = ")
 	//
 	builder.WriteString(fmt.Sprintf("%d(", p.Id))
 	//
-	for i, rid := range p.Sources {
+	for i, rid := range p.Arguments {
 		if i != 0 {
 			builder.WriteString(", ")
 		}

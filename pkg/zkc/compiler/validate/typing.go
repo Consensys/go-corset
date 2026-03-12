@@ -98,7 +98,7 @@ func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError
 		return errors
 	}
 	// Subtype check
-	return p.checkSubType(rhs, c.DataType, c.ConstExpr)
+	return p.checkEquiTypes(rhs, c.DataType, c.ConstExpr)
 }
 
 func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxError {
@@ -129,7 +129,7 @@ func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
 	for _, v := range c.Contents {
 		valBitwidth := uint(v.BitLen())
 		valType := data.NewUnsignedInt[symbol.Resolved](valBitwidth, true)
-		errors = append(errors, p.checkSubType(valType, dataType, v)...)
+		errors = append(errors, p.checkEquiTypes(valType, dataType, v)...)
 	}
 	//
 	return errors
@@ -159,7 +159,7 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 			errors = append(errors, rhsErrs...)
 		} else {
 			//
-			errors = append(errors, p.checkSubType(rhs_t, lval_t, rhs)...)
+			errors = append(errors, p.checkEquiTypes(rhs_t, lval_t, rhs)...)
 		}
 	}
 	//
@@ -199,7 +199,7 @@ func (p *TypeChecker) typeMemoryLVal(c *decl.ResolvedMemory, e *lval.MemAccess[s
 		// check argument types
 		for i := range args {
 			ith := c.Address[i].DataType
-			errs = append(errs, p.checkSubType(args[i], ith, e.Args[i])...)
+			errs = append(errs, p.checkEquiTypes(args[i], ith, e.Args[i])...)
 		}
 	}
 	// Done
@@ -263,7 +263,7 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap) []s
 	// Check matching types
 	if len(lerrs)+len(rerrs) == 0 {
 		// Equivalence check
-		return p.checkEquiType(rhs, lhs, e.Right)
+		return p.checkEquiTypes(rhs, lhs, e.Right)
 	}
 	//
 	return append(lerrs, rerrs...)
@@ -272,22 +272,7 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap) []s
 func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, errs []source.SyntaxError) {
 	switch e := e.(type) {
 	case *expr.Cast[symbol.Resolved]:
-		var srcType Type
-
-		srcType, errs = p.typeExpression(e.Expr, env)
-		if len(errs) == 0 {
-			if srcType.AsUint(p.env) == nil {
-				errs = p.srcmaps.SyntaxErrors(e.Expr, "expected uint")
-			} else if e.CastType.AsUint(p.env) == nil {
-				errs = p.srcmaps.SyntaxErrors(e, "cast target must be uint")
-			} else {
-				castWidth := e.CastType.AsUint(p.env).BitWidth()
-				openCastType := data.NewUnsignedInt[symbol.Resolved](castWidth, true)
-				errs = p.checkSubType(openCastType, srcType, e)
-			}
-		}
-		//
-		t = e.CastType
+		t, errs = p.typeCastExpression(e, env)
 	case *expr.Add[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.And[symbol.Resolved]:
@@ -354,11 +339,23 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env Variab
 		} else if i == 0 {
 			res = t
 		} else {
-			errs = append(errs, p.checkEquiType(t, res, exprs[i])...)
+			errs = append(errs, p.checkEquiTypes(t, res, exprs[i])...)
 		}
 	}
 	//
 	return res, errs
+}
+
+func (p *TypeChecker) typeCastExpression(e *expr.Cast[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {
+	var (
+		srcType, errs = p.typeExpression(e.Expr, env)
+	)
+	//
+	if len(errs) == 0 && !data.SubtypeOf(e.CastType, srcType, p.env) && !data.SubtypeOf(srcType, e.CastType, p.env) {
+		errs = p.srcmaps.SyntaxErrors(e.Expr, fmt.Sprintf("expected type %s", e.CastType.String(p.env)))
+	}
+	//
+	return e.CastType, errs
 }
 
 // typeShiftExpression types a shift expression (Shl or Shr). The result type
@@ -446,7 +443,7 @@ func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAcc
 		for i := range args {
 			ith := c.Address[i].DataType
 			// Subtype check
-			errs = append(errs, p.checkSubType(args[i], ith, e.Args[i])...)
+			errs = append(errs, p.checkEquiTypes(args[i], ith, e.Args[i])...)
 		}
 	}
 	// Done
@@ -469,24 +466,15 @@ func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.Exter
 		for i := range args {
 			ith := c.Variables[i].DataType
 			// Subtype check
-			errs = append(errs, p.checkSubType(args[i], ith, e.Args[i])...)
+			errs = append(errs, p.checkEquiTypes(args[i], ith, e.Args[i])...)
 		}
 	}
 	// Done
 	return variable.DescriptorsToType(c.Outputs()...), errs
 }
 
-// Perform a subtype check, return errors as required.
-func (p *TypeChecker) checkSubType(lhs, rhs Type, node any) []source.SyntaxError {
-	if !data.SubtypeOf(lhs, rhs, p.env) {
-		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
-	}
-	//
-	return nil
-}
-
-func (p *TypeChecker) checkEquiType(lhs, rhs Type, node any) []source.SyntaxError {
-	if !data.SubtypeOf(lhs, rhs, p.env) && !data.SubtypeOf(rhs, lhs, p.env) {
+func (p *TypeChecker) checkEquiTypes(lhs, rhs Type, node any) []source.SyntaxError {
+	if !data.EquiTypes(lhs, rhs, p.env) {
 		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
 	}
 	//
