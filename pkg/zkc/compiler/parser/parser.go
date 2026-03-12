@@ -557,6 +557,13 @@ func (p *Parser) parseStatement(pc uint, env *Environment, looping bool,
 		returned, insn, errs = p.parseReturn(env)
 	case KEYWORD_VAR:
 		insns, errs = p.parseVar(env)
+	case IDENTIFIER:
+		// Detect a bare function call statement: name(...) with no assignment.
+		if p.index+1 < len(p.tokens) && p.tokens[p.index+1].Kind == LBRACE {
+			insn, errs = p.parseCallStatement(env)
+		} else {
+			insn, errs = p.parseAssignment(env)
+		}
 	default:
 		insn, errs = p.parseAssignment(env)
 	}
@@ -598,6 +605,15 @@ func (p *Parser) parseAssignment(env *Environment) (stmt.Unresolved, []source.Sy
 	}
 	// Done
 	return &stmt.Assign[symbol.Unresolved]{Targets: lhs, Source: rhs}, nil
+}
+
+func (p *Parser) parseCallStatement(env *Environment) (stmt.Unresolved, []source.SyntaxError) {
+	call, errs := p.parseExpr(env)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	//
+	return &stmt.Assign[symbol.Unresolved]{Targets: nil, Source: call}, nil
 }
 
 func (p *Parser) parseIfElse(pc uint, env *Environment, looping bool) (bool, []stmt.Unresolved, []source.SyntaxError) {

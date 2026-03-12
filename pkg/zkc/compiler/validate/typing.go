@@ -141,10 +141,17 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 		sources = []expr.Expr[symbol.Resolved]{s.Source}
 	)
 	// Sanity check assignment arity
-	if len(s.Targets) < len(sources) {
+	if len(s.Targets) != 0 && len(s.Targets) < len(sources) {
 		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("insufficient target variables (expected %d)", len(sources)))
 	} else if len(s.Targets) > len(sources) {
 		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("too many target variables (expected %d)", len(sources)))
+	} else if len(s.Targets) == 0 {
+		// Special case for empty targets.  This can only arise for a function
+		// call which does not assign any return values.  This ensures that, in
+		// such case, the source expression is typed.
+		_, errors = p.typeExpression(s.Source, env)
+		//
+		return errors
 	}
 	// Check each in turn
 	for i, lval := range s.Targets {
@@ -456,7 +463,6 @@ func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.Exter
 		args, errs = p.typeExpressions(e.Args, env)
 		n          = uint(len(args))
 	)
-
 	//
 	if n != c.NumInputs {
 		return nil, p.srcmaps.SyntaxErrors(e,

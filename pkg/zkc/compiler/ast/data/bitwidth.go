@@ -11,6 +11,8 @@
 package data
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
@@ -31,5 +33,5 @@ func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
 		return bitwidth
 	}
 	//
-	panic("unknown type encountered")
+	panic(fmt.Sprintf("unknown type encountered (%s)", t.String(env)))
 }
