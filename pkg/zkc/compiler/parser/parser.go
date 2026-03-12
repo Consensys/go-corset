@@ -133,6 +133,8 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			component, errors = p.parseInputOutputMemory()
 		case KEYWORD_MEMORY:
 			component, errors = p.parseReadWriteMemory()
+		case KEYWORD_TYPE_ALIAS:
+			component, errors = p.parseTypeAlias()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -423,6 +425,32 @@ func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) 
 	return mem, nil
 }
 
+func (p *Parser) parseTypeAlias() (decl.Unresolved, []source.SyntaxError) {
+	var (
+		start    = p.index
+		errs     []source.SyntaxError
+		datatype Type
+		name     string
+	)
+	// Parse type declaration
+	if _, errs := p.expect(KEYWORD_TYPE_ALIAS); len(errs) > 0 {
+		return nil, errs
+	} else if name, errs = p.parseIdentifier(); len(errs) > 0 {
+		return nil, errs
+	} else if _, errs = p.expect(EQUALS); len(errs) > 0 {
+		return nil, errs
+	} else if datatype, errs = p.parseType(); len(errs) > 0 {
+		return nil, errs
+	}
+	// Save for source map
+	end := p.index
+	component := decl.NewTypeAlias[symbol.Unresolved](name, datatype)
+	//
+	p.srcmap.Put(component, p.spanOf(start, end-1))
+	//
+	return component, errs
+}
+
 // parseMemoryArgsList parses a function-style typed parameter list for memory
 // declarations: (type name, type name, ...).  Returns both the combined type
 // (for the address/data bus) and the individual named descriptors.
@@ -467,27 +495,28 @@ func (p *Parser) parseMemoryArgsList(kind variable.Kind) ([]VariableDescriptor, 
 
 func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	var (
-		lookahead = p.lookahead()
-		name      string
-		errs      []source.SyntaxError
+		name  string
+		errs  []source.SyntaxError
+		start = p.index
 	)
 	//
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
+	// Parse to check if bitwidth is present
+	bw, err := strconv.Atoi(name[1:])
 	//
 	switch {
-	case strings.HasPrefix(name, "u"):
-		// Parse bitwidth
-		bw, err := strconv.Atoi(name[1:])
-		//
-		if err != nil {
-			return nil, p.syntaxErrors(lookahead, err.Error())
-		}
+	case strings.HasPrefix(name, "u") && err == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
+	// we assume that if not a fundamental type, it is an alias
 	default:
-		return nil, p.syntaxErrors(lookahead, "unknown type")
+		alias := data.NewAlias[symbol.Unresolved](symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0))
+		//
+		p.srcmap.Put(alias, p.spanOf(start, p.index-1))
+		//
+		return alias, nil
 	}
 }
 

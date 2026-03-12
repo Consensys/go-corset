@@ -70,6 +70,7 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 			errors = append(errors, typer.typeFunction(*d)...)
 		case *decl.ResolvedMemory:
 			errors = append(errors, typer.typeMemory(*d)...)
+		case *decl.ResolvedTypeAlias:
 		default:
 			panic(fmt.Sprintf("unknown component: %s", reflect.TypeOf(d).String()))
 		}
@@ -182,6 +183,8 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap) (Type, []source.Syn
 			return p.typeMemoryLVal(e, t, env)
 		case *decl.ResolvedFunction:
 			return nil, p.srcmaps.SyntaxErrors(target, "cannot assign function")
+		case *decl.ResolvedTypeAlias:
+			return nil, p.srcmaps.SyntaxErrors(target, "cannot assign type alias")
 		}
 	}
 	//
@@ -422,6 +425,8 @@ func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], en
 		return p.typeMemoryAccess(t, e, env)
 	case *decl.ResolvedFunction:
 		return p.typeFunctionAccess(t, e, env)
+	case *decl.ResolvedTypeAlias:
+		return p.typeAlias(e)
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown symbol type")
 	}
@@ -448,6 +453,10 @@ func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAcc
 	}
 	// Done
 	return variable.DescriptorsToType(c.Data...), errs
+}
+
+func (p *TypeChecker) typeAlias(e *expr.ExternAccess[symbol.Resolved]) (Type, []source.SyntaxError) {
+	return nil, p.srcmaps.SyntaxErrors(e, "cannot assign type alias")
 }
 
 func (p *TypeChecker) typeFunctionAccess(c *decl.ResolvedFunction, e *expr.ExternAccess[symbol.Resolved],

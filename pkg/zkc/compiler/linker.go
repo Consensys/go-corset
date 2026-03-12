@@ -105,7 +105,7 @@ func (p *Linker) Register(component decl.Unresolved) {
 	switch c := component.(type) {
 	case decl.Unresolved:
 		// Allocate bus entry
-		p.busmap[c.Name()] = symbol.Resolved{Index: uint(len(p.busmap))}
+		p.busmap[c.Name()] = symbol.Resolved{Name: c.Name(), Index: uint(len(p.busmap))}
 		//
 		p.components = append(p.components, c)
 	default:
@@ -149,6 +149,10 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 		data, errs2 := p.linkVariableDeclarations(d.Data)
 		// nothing to do here
 		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), append(errs1, errs2...)
+	case *decl.UnresolvedTypeAlias:
+		datatype, errs := p.linkType(d.DataType)
+		//
+		return decl.NewTypeAlias[symbol.Resolved](d.Name(), datatype), errs
 	default:
 		panic("unknown declaration")
 	}
@@ -157,7 +161,7 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []source.SyntaxError) {
 	expr, errs1 := p.linkExpr(fn.ConstExpr)
 	datatype, errs2 := p.linkType(fn.DataType)
-	// FIXME: resolve data type.
+	//
 	return decl.NewConstant[symbol.Resolved](fn.Name(), datatype, expr), append(errs1, errs2...)
 }
 
@@ -378,6 +382,15 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	switch t := datatype.(type) {
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
+	case *data.Alias[symbol.Unresolved]:
+		// resolve symbol
+		name, err := p.resolve(t.Name, t)
+		//
+		if err != nil {
+			return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
+		}
+
+		return data.NewAlias[symbol.Resolved](name), nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}
@@ -428,6 +441,12 @@ func checkSymbolKind(d decl.Unresolved, sym symbol.Unresolved) (msg string, err 
 		return "invalid memory write", true
 	case symbol.FUNCTION:
 	case symbol.CONSTANT:
+	case symbol.TYPE_ALIAS:
+		if _, ok := d.(*decl.UnresolvedTypeAlias); ok {
+			return "", false
+		}
+		//
+		return "invalid type alias", true
 	}
 	// Final arity check
 	if nIns != sym.Inputs {
