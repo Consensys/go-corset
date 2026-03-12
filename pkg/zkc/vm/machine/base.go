@@ -223,12 +223,7 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// Control-Flow Instructions
 	// ==============================================================
 	case *instruction.Call:
-		var args = make([]W, len(insn.Arguments))
-		//
-		for i, arg := range insn.Arguments {
-			args[i] = frame[arg.Unwrap()]
-		}
-		//
+		// Enter callee stack frame
 		p.Enter(insn.Id, frame, insn.Arguments, insn.Returns)
 		// Don't fall thru
 		return nil

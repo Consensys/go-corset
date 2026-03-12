@@ -395,7 +395,7 @@ func (p *Linker) resolve(name symbol.Unresolved, node any) (symbol.Resolved, []s
 			// now, check arity
 			if nIns > name.Inputs {
 				return sym, p.srcmap.SyntaxErrors(node, fmt.Sprintf("insufficient arguments (expected %d)", nIns))
-			} else if nIns > name.Inputs {
+			} else if nIns < name.Inputs {
 				return sym, p.srcmap.SyntaxErrors(node, fmt.Sprintf("too many arguments (expected %d)", nIns))
 			} else if msg, err := checkSymbolKind(c, name); err {
 				return sym, p.srcmap.SyntaxErrors(node, msg)
