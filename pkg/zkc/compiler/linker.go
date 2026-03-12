@@ -440,7 +440,7 @@ func checkSymbolKind(d decl.Unresolved, sym symbol.Unresolved) (msg string, err 
 		return "invalid memory write", true
 	case symbol.FUNCTION:
 	case symbol.CONSTANT:
-	case symbol.ALIAS:
+	case symbol.TYPE_ALIAS:
 	}
 	// Final arity check
 	if nIns != sym.Inputs {

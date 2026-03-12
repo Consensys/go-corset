@@ -1,0 +1,3 @@
+//error:3:14-18:cannot assign type alias
+type bool = u4
+const R:u4 = bool

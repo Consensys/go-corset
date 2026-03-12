@@ -361,6 +361,10 @@ func Test_ZkcInvalid_Type_04(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_invalid_04")
 }
 
+func Test_ZkcInvalid_Type_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_invalid_05")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
