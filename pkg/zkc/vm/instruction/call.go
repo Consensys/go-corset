@@ -54,8 +54,10 @@ func (p *Call) Definitions() []register.Id {
 func (p *Call) String(env register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(env, array.Reverse(p.Returns)...))
-	builder.WriteString(" = ")
+	if len(p.Returns) > 0 {
+		builder.WriteString(registersToString(env, array.Reverse(p.Returns)...))
+		builder.WriteString(" = ")
+	}
 	//
 	builder.WriteString(fmt.Sprintf("%d(", p.Id))
 	//
