@@ -82,3 +82,18 @@ func (p *Geometry[W]) Decode(address []W) (start, end uint64) {
 
 	return start, start + uint64(p.numOutputs)
 }
+
+// FrameDecode operates like Decode, but reads the address values indirectly
+// from the enclosing frame.
+func (p *Geometry[W]) FrameDecode(frame []W, address []register.Id) (start, end uint64) {
+	var index uint64
+	for i, r := range address {
+		var bitwidth = uint64(p.registers[i].Width())
+
+		index = (index << bitwidth) | frame[r.Unwrap()].Uint64()
+	}
+
+	start = index * uint64(p.numOutputs)
+
+	return start, start + uint64(p.numOutputs)
+}

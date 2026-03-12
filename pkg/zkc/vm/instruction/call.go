@@ -21,42 +21,45 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 )
 
-// MemRead represents an arbitrary memory read operation for a given type of
+// Call represents an arbitrary memory read operation for a given type of
 // memory.
-type MemRead struct {
+type Call struct {
 	// Module identifyer for memory being read.
 	Id uint
-	// Data registers for assignment
-	Data []register.Id
-	// Address registers for assignment
-	Address []register.Id
+	// Return registers for function call.  That is, registers which should hold
+	// the result of the call after it has completed.
+	Returns []register.Id
+	// Argumwent registers for function call.  That is, registers which should
+	// hold the arguments for the call which are used to initialise the callee
+	// frame.
+	Arguments []register.Id
 }
 
-// NewMemRead constructs a new instruction which reads the value from either a
+// NewCall constructs a new instruction which reads the value from either a
 // Random Access Memory (RAM) or a Read-Only Memory (ROM).
-func NewMemRead(id uint, data []register.Id, address []register.Id) *MemRead {
-	return &MemRead{id, data, address}
+func NewCall(id uint, targets []register.Id, sources []register.Id) *Call {
+	return &Call{id, targets, sources}
 }
 
 // Uses implementation for Instruction interface
-func (p *MemRead) Uses() []register.Id {
-	return p.Address
+func (p *Call) Uses() []register.Id {
+	return p.Arguments
 }
 
 // Definitions implementation for Instruction interface
-func (p *MemRead) Definitions() []register.Id {
-	return p.Data
+func (p *Call) Definitions() []register.Id {
+	return p.Returns
 }
 
-func (p *MemRead) String(env register.Map) string {
+func (p *Call) String(env register.Map) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(env, array.Reverse(p.Data)...))
+	builder.WriteString(registersToString(env, array.Reverse(p.Returns)...))
 	builder.WriteString(" = ")
 	//
-	builder.WriteString(fmt.Sprintf("%d[", p.Id))
+	builder.WriteString(fmt.Sprintf("%d(", p.Id))
 	//
-	for i, rid := range p.Address {
+	for i, rid := range p.Arguments {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
@@ -64,12 +67,12 @@ func (p *MemRead) String(env register.Map) string {
 		builder.WriteString(env.Register(rid).Name())
 	}
 	//
-	builder.WriteString("]")
+	builder.WriteString(")")
 	//
 	return builder.String()
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *MemRead) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *Call) MicroValidate(_ uint, field field.Config, env register.Map) []error {
 	return nil
 }

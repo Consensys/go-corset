@@ -32,10 +32,10 @@ import (
 type MemWrite struct {
 	// Module identifyer for memory being read.
 	Id uint
-	// Target registers for assignment
-	Targets []register.Id
-	// Source registers for assignment
-	Sources []register.Id
+	// Address registers for assignment
+	Address []register.Id
+	// Data registers for assignment
+	Data []register.Id
 }
 
 // NewMemWrite constructs a new instruction which writes data values to either a
@@ -48,11 +48,11 @@ func NewMemWrite(id uint, targets []register.Id, sources []register.Id) *MemWrit
 func (p *MemWrite) Uses() []register.Id {
 	var data set.AnySortedSet[register.Id]
 	//
-	for _, t := range p.Targets {
+	for _, t := range p.Address {
 		data.Insert(t)
 	}
 	//
-	for _, s := range p.Sources {
+	for _, s := range p.Data {
 		data.Insert(s)
 	}
 	//
@@ -68,10 +68,10 @@ func (p *MemWrite) String(env register.Map) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(fmt.Sprintf("%d[", p.Id))
-	builder.WriteString(registersToString(env, array.Reverse(p.Targets)...))
+	builder.WriteString(registersToString(env, array.Reverse(p.Address)...))
 	builder.WriteString("] = ")
 	//
-	for i, rid := range p.Sources {
+	for i, rid := range p.Data {
 		if i != 0 {
 			builder.WriteString(", ")
 		}

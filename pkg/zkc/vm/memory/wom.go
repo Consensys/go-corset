@@ -34,5 +34,10 @@ func NewWriteOnce[W word.Word[W]](name string, registers []register.Register) *W
 
 // Read implementation for Memory interface.
 func (p *WriteOnce[W]) Read(address []W) []W {
-	panic("unsupported operation for read-only memory")
+	panic("unsupported operation for write-once memory")
+}
+
+// FrameRead implementation for Memory interface.
+func (p *WriteOnce[W]) FrameRead(frame []W, address []register.Id, data []register.Id) error {
+	panic("unsupported operation for write-once memory")
 }
