@@ -383,13 +383,14 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
 	case *data.Alias[symbol.Unresolved]:
-		bus, okBus := p.busmap[t.Name.String()]
+		// resolve symbol
+		name, err := p.resolve(t.Name, t)
 		//
-		if !okBus {
+		if err != nil {
 			return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
 		}
 
-		return data.NewAlias[symbol.Resolved](bus), nil
+		return data.NewAlias[symbol.Resolved](name), nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}
@@ -441,6 +442,11 @@ func checkSymbolKind(d decl.Unresolved, sym symbol.Unresolved) (msg string, err 
 	case symbol.FUNCTION:
 	case symbol.CONSTANT:
 	case symbol.TYPE_ALIAS:
+		if _, ok := d.(*decl.UnresolvedTypeAlias); ok {
+			return "", false
+		}
+		//
+		return "invalid type alias", true
 	}
 	// Final arity check
 	if nIns != sym.Inputs {
