@@ -37,6 +37,6 @@ const (
 	FUNCTION = 3
 	// CONSTANT identifies a constant symbol.
 	CONSTANT = 4
-	// ALIAS identifies a alias symbol.
-	ALIAS = 5
+	// TYPE_ALIAS identifies a alias symbol.
+	TYPE_ALIAS = 5
 )
