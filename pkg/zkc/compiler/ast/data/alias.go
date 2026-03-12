@@ -23,39 +23,34 @@ type UnresolvedAlias = Alias[symbol.Unresolved]
 // Alias captures the alias of a language type.
 // Ref points to the symbol for the type-alias declaration if resolved.
 type Alias[I symbol.Symbol[I]] struct {
-	Name string
-	Ref  *I
+	Name I
 }
 
 // NewAlias constructs an alias for a given Type.
-func NewAlias[I symbol.Symbol[I]](name string, ref *I) *Alias[I] {
-	return &Alias[I]{Name: name, Ref: ref}
+func NewAlias[I symbol.Symbol[I]](name I) *Alias[I] {
+	return &Alias[I]{name}
 }
 
 // AsUint implementation for Type interface
-func (p *Alias[S]) AsUint(Environment[S]) *UnsignedInt[S] {
+func (p *Alias[I]) AsUint(Environment[I]) *UnsignedInt[I] {
 	return nil
 }
 
 // AsTuple implementation for Type interface
-func (p *Alias[S]) AsTuple(Environment[S]) *Tuple[S] {
+func (p *Alias[I]) AsTuple(Environment[I]) *Tuple[I] {
 	return nil
 }
 
 // AsAlias implementation for Type interface
-func (p *Alias[S]) AsAlias(Environment[S]) *Alias[S] {
+func (p *Alias[I]) AsAlias(Environment[I]) *Alias[I] {
 	return p
 }
 
-func (p *Alias[S]) String(Environment[S]) string {
-	return p.Name
+func (p *Alias[I]) String(Environment[I]) string {
+	return p.Name.String()
 }
 
 // Resolve returns the type that this alias refers to in the given environment.
-func (p *Alias[S]) Resolve(env Environment[S]) Type[S] {
-	if p.Ref == nil {
-		panic("unresolved type alias")
-	}
-
-	return env.TypeOf(*p.Ref)
+func (p *Alias[I]) Resolve(env Environment[I]) Type[I] {
+	return env.TypeOf(p.Name)
 }
