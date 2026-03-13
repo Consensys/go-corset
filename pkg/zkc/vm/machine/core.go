@@ -165,6 +165,12 @@ func (p ProgramCounter) Micro() uint {
 	return p.microCounter
 }
 
+// First checks whether this PC value represents location (0,0) i.e. the start
+// of a trace.
+func (p ProgramCounter) First() bool {
+	return p.microCounter == 0 && p.macroCounter == 0
+}
+
 // Next shifts the program counter to the next instruction, assuming the current
 // instruction has a given width (i.e. number of micro-instructions).
 func (p ProgramCounter) Next(width uint) ProgramCounter {

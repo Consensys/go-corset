@@ -55,10 +55,10 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
 	//
-	executeIrProgram("main", program, input)
+	executeIrProgram[EmptyBaseObserver]("main", program, input, EmptyBaseObserver{})
 }
 
-func executeIrProgram(mainFn string, program ast.Program, input map[string][]byte) {
+func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, program ast.Program, input map[string][]byte, view V) {
 	var (
 		vm        *machine.Base[word.Uint]
 		bigInputs map[string][]word.Uint
@@ -77,8 +77,7 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 		if len(errors) == 0 {
 			if err := vm.Boot(mainFn, bigInputs); err != nil {
 				errors = append(errors, err)
-			} else if _, err := machine.ExecuteAll(vm, 1024); err != nil {
-				// NOTE: determine stack trace!
+			} else if _, err := execute[word.Uint, V](vm, 1, view); err != nil {
 				errors = append(errors, err)
 			}
 		}
@@ -110,6 +109,62 @@ func executeIrProgram(mainFn string, program ast.Program, input map[string][]byt
 		fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
 	}
 }
+
+func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Base[W], n uint, observer V) (uint, error) {
+	var (
+		nsteps uint
+	)
+	//
+	for {
+		// observe pre execution
+		observer.PreExecution(machine)
+		// Execute upto n steps
+		m, err := machine.Execute(n)
+		// observe pre execution
+		observer.PostExecution(machine)
+		// update the tally
+		nsteps += m
+		// check for termination
+		if err != nil || m < n {
+			return nsteps, err
+		}
+	}
+}
+
+// ============================================================================
+// Machine observers
+// ============================================================================
+
+// BaseObserver is an observer for a base machin
+type BaseObserver[W word.Word[W]] = VmObserver[W, *machine.Base[W]]
+
+// EmptyBaseObserver is an empty observer for a base machine.
+type EmptyBaseObserver = EmptyObserver[word.Uint, *machine.Base[word.Uint]]
+
+// VmObserver is a generic interface for extract information before and after an
+// execution step of the VM.  For example, to generate debugging information.
+type VmObserver[W any, M machine.Core[W]] interface {
+	PreExecution(machine M)
+	PostExecution(machine M)
+}
+
+// EmptyObserver does nothing
+type EmptyObserver[W any, M machine.Core[W]] struct {
+}
+
+// PreExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PreExecution(machine M) {
+	// do nothing
+}
+
+// PostExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PostExecution(machine M) {
+	// do nothing
+}
+
+// ============================================================================
+// Misc
+// ============================================================================
 
 //nolint:errcheck
 func init() {
