@@ -31,10 +31,9 @@ import (
 )
 
 var debugCmd = &cobra.Command{
-	Use:     "debug [flags] input.json file1.zkc file2.zkc ...",
-	Short:   "Debug a zkc program.",
-	Long:    `Debug a zkc program to produce a set of outputs a from given a set of inputs.`,
-	Aliases: []string{"exec"},
+	Use:   "debug [flags] input.json file1.zkc file2.zkc ...",
+	Short: "Debug a zkc program.",
+	Long:  `Debug a zkc program to produce a set of outputs a from given a set of inputs.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runFieldAgnosticCmd(cmd, args, debugCmds)
 	},
@@ -143,7 +142,7 @@ func (p *TraceObserver[W]) writeInstruction(machine *machine.Base[W]) {
 	// write uses
 	for i, r := range insn.Uses() {
 		var (
-			ith  = frame.Load(uint(i))
+			ith  = frame.Load(r.Unwrap())
 			name = p.fun.Register(r).Name()
 		)
 		//
