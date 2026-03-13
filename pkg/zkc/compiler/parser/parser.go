@@ -68,7 +68,7 @@ func Parse(srcfile *source.File) (UnlinkedSourceFile, []source.SyntaxError) {
 }
 
 // BINOPS captures the set of binary operations
-var BINOPS = []uint{SUB, MUL, ADD, BITAND, BITOR, BITXOR, BITSHL, BITSHR}
+var BINOPS = []uint{SUB, MUL, ADD, DIV, REM, BITAND, BITOR, BITXOR, BITSHL, BITSHR}
 
 // BREAK_SENTINEL is a placeholder target in Goto instructions emitted by break
 // statements, replaced by the real exit target in patchBreaks.
@@ -985,6 +985,10 @@ func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
 		arg = expr.NewShr(args...)
 	case kind == MUL:
 		arg = expr.NewMul(args...)
+	case kind == DIV:
+		arg = expr.NewDiv(args...)
+	case kind == REM:
+		arg = expr.NewRem(args...)
 	case kind == SUB:
 		arg = expr.NewSub(args...)
 	}

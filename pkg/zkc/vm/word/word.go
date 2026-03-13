@@ -26,6 +26,9 @@ type Word[W any] interface {
 	Add(uint, W) (W, bool)
 	// Bitwise AND of two words.
 	And(uint, W) W
+	// Div divides this word by another within the given bit width.  Panics on
+	// division by zero.
+	Div(uint, W) W
 	// Return the value of this word as a big integer.
 	BigInt() *big.Int
 	// Cmp returns 1 if x > y, 0 if x = y, and -1 if x < y.
@@ -36,6 +39,9 @@ type Word[W any] interface {
 	Not(uint) W
 	// Bitwise OR of two words.
 	Or(uint, W) W
+	// Rem computes the remainder of dividing this word by another within the
+	// given bit width.  Panics on division by zero.
+	Rem(uint, W) W
 	// Shift left word by the amount given in another word, masking to width bits.
 	Shl(uint, W) W
 	// Shift right word by the amount given in another word.
@@ -156,6 +162,36 @@ func BitwiseShr[W Word[W]](bitwidth uint, values ...W) W {
 			res = v
 		} else {
 			res = res.Shr(bitwidth, v)
+		}
+	}
+	//
+	return res
+}
+
+// Quotient divides a sequence of words left-to-right.
+func Quotient[W Word[W]](bitwidth uint, values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Div(bitwidth, v)
+		}
+	}
+	//
+	return res
+}
+
+// Remainder computes the remainder of dividing a sequence of words left-to-right.
+func Remainder[W Word[W]](bitwidth uint, values ...W) W {
+	var res W
+	//
+	for i, v := range values {
+		if i == 0 {
+			res = v
+		} else {
+			res = res.Rem(bitwidth, v)
 		}
 	}
 	//

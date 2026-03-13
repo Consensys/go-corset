@@ -300,6 +300,10 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, 
 		t, errs = p.typeShiftExpression(e.Exprs, env)
 	case *expr.Shr[symbol.Resolved]:
 		t, errs = p.typeShiftExpression(e.Exprs, env)
+	case *expr.Div[symbol.Resolved]:
+		t, errs = p.typeArithmeticExpression(e.Exprs, env)
+	case *expr.Rem[symbol.Resolved]:
+		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.Sub[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.Xor[symbol.Resolved]:

@@ -250,8 +250,12 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// ==============================================================
 	case *instruction.Add[W]:
 		err = executeAdd(*insn, frame, regs)
+	case *instruction.Div[W]:
+		err = executeDiv(*insn, frame, regs)
 	case *instruction.Mul[W]:
 		err = executeMul(*insn, frame, regs)
+	case *instruction.Rem[W]:
+		err = executeRem(*insn, frame, regs)
 	case *instruction.Sub[W]:
 		err = executeSub(*insn, frame, regs)
 
@@ -381,6 +385,38 @@ func executeSub[W word.Word[W]](insn instruction.Sub[W], frame []W, regs []regis
 	}
 	//
 	frame[insn.Target.Unwrap()] = val
+	//
+	return nil
+}
+
+func executeDiv[W word.Word[W]](insn instruction.Div[W], frame []W, regs []register.Register) error {
+	var (
+		bitwidth = regs[insn.Target.Unwrap()].Width()
+		dividend = frame[insn.Dividend.Unwrap()]
+		divisor  = frame[insn.Divisor.Unwrap()]
+	)
+	//
+	if divisor.BigInt().Sign() == 0 {
+		return errors.New("division by zero")
+	}
+	//
+	frame[insn.Target.Unwrap()] = dividend.Div(bitwidth, divisor)
+	//
+	return nil
+}
+
+func executeRem[W word.Word[W]](insn instruction.Rem[W], frame []W, regs []register.Register) error {
+	var (
+		bitwidth = regs[insn.Target.Unwrap()].Width()
+		dividend = frame[insn.Dividend.Unwrap()]
+		divisor  = frame[insn.Divisor.Unwrap()]
+	)
+	//
+	if divisor.BigInt().Sign() == 0 {
+		return errors.New("division by zero")
+	}
+	//
+	frame[insn.Target.Unwrap()] = dividend.Rem(bitwidth, divisor)
 	//
 	return nil
 }

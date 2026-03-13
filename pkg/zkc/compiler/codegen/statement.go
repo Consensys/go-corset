@@ -187,6 +187,12 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.Or[symbol.Resolved]:
 		insns, insn = p.compileOr(e.Exprs, mapping, targets[0])
 		unitExpr = true
+	case *expr.Div[symbol.Resolved]:
+		insns, insn = p.compileDiv(e.Exprs, mapping, targets[0])
+		unitExpr = true
+	case *expr.Rem[symbol.Resolved]:
+		insns, insn = p.compileRem(e.Exprs, mapping, targets[0])
+		unitExpr = true
 	case *expr.Shl[symbol.Resolved]:
 		insns, insn = p.compileShl(e.Exprs, mapping, targets[0])
 		unitExpr = true
@@ -298,6 +304,36 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
 	return insns, instruction.NewMul[word.Uint](target, sources, constant)
+}
+
+func (p *Compiler) compileDiv(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
+	// Compile all operands upfront.
+	sources, insns := p.compileArgs(mapping, args...)
+	// Chain divisions left-to-right: (((a / b) / c) / ...).
+	value := sources[0]
+	//
+	for i := 1; i < len(sources)-1; i++ {
+		tmp := p.allocate(p.registers[target.Unwrap()].Width())
+		insns = append(insns, instruction.NewDiv[word.Uint](tmp, value, sources[i]))
+		value = tmp
+	}
+	//
+	return insns, instruction.NewDiv[word.Uint](target, value, sources[len(sources)-1])
+}
+
+func (p *Compiler) compileRem(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
+	// Compile all operands upfront.
+	sources, insns := p.compileArgs(mapping, args...)
+	// Chain remainders left-to-right: (((a % b) % c) % ...).
+	value := sources[0]
+	//
+	for i := 1; i < len(sources)-1; i++ {
+		tmp := p.allocate(p.registers[target.Unwrap()].Width())
+		insns = append(insns, instruction.NewRem[word.Uint](tmp, value, sources[i]))
+		value = tmp
+	}
+	//
+	return insns, instruction.NewRem[word.Uint](target, value, sources[len(sources)-1])
 }
 
 func (p *Compiler) compileShl(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {

@@ -213,6 +213,30 @@ func Test_ZkcUnit_Cast_05(t *testing.T) {
 }
 
 // ===================================================================
+// Division Tests
+// ===================================================================
+
+func Test_ZkcUnit_Div_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/div_01")
+}
+
+func Test_ZkcUnit_Div_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/div_02")
+}
+
+// ===================================================================
+// Remainder Tests
+// ===================================================================
+
+func Test_ZkcUnit_Rem_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/rem_01")
+}
+
+func Test_ZkcUnit_Rem_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/rem_02")
+}
+
+// ===================================================================
 // Call Tests
 // ===================================================================
 
