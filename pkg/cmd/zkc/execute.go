@@ -17,8 +17,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
@@ -26,8 +24,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
-	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
@@ -59,16 +55,10 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
 	//
-	trace := GetFlag(cmd, "trace")
-	//
-	if trace {
-		executeIrProgram[TraceObserver[word.Uint]]("main", program, input)
-	} else {
-		executeIrProgram[EmptyBaseObserver]("main", program, input)
-	}
+	executeIrProgram[EmptyBaseObserver]("main", program, input, EmptyBaseObserver{})
 }
 
-func executeIrProgram[V BaseObserver](mainFn string, program ast.Program, input map[string][]byte) {
+func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, program ast.Program, input map[string][]byte, view V) {
 	var (
 		vm        *machine.Base[word.Uint]
 		bigInputs map[string][]word.Uint
@@ -87,7 +77,7 @@ func executeIrProgram[V BaseObserver](mainFn string, program ast.Program, input 
 		if len(errors) == 0 {
 			if err := vm.Boot(mainFn, bigInputs); err != nil {
 				errors = append(errors, err)
-			} else if _, err := executeVmMachine[word.Uint, *machine.Base[word.Uint], V](vm, 1); err != nil {
+			} else if _, err := execute[word.Uint, V](vm, 1, view); err != nil {
 				errors = append(errors, err)
 			}
 		}
@@ -120,10 +110,9 @@ func executeIrProgram[V BaseObserver](mainFn string, program ast.Program, input 
 	}
 }
 
-func executeVmMachine[W any, M machine.Core[W], V VmObserver[W, M]](machine M, n uint) (uint, error) {
+func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Base[W], n uint, observer V) (uint, error) {
 	var (
-		nsteps   uint
-		observer V
+		nsteps uint
 	)
 	//
 	for {
@@ -147,7 +136,7 @@ func executeVmMachine[W any, M machine.Core[W], V VmObserver[W, M]](machine M, n
 // ============================================================================
 
 // BaseObserver is an observer for a base machin
-type BaseObserver = VmObserver[word.Uint, *machine.Base[word.Uint]]
+type BaseObserver[W word.Word[W]] = VmObserver[W, *machine.Base[W]]
 
 // EmptyBaseObserver is an empty observer for a base machine.
 type EmptyBaseObserver = EmptyObserver[word.Uint, *machine.Base[word.Uint]]
@@ -173,69 +162,6 @@ func (p EmptyObserver[W, M]) PostExecution(machine M) {
 	// do nothing
 }
 
-// TraceObserver prints a trace
-type TraceObserver[W word.Word[W]] struct {
-}
-
-// PreExecution implementation for Observer interface
-func (p TraceObserver[W]) PreExecution(machine *machine.Base[W]) {
-	var (
-		n = machine.Depth()
-	)
-	//
-	if n > 0 {
-		var (
-			frame   = machine.StackFrame(n - 1)
-			fun     = machine.Module(frame.Function()).(*function.Function[instruction.Instruction[W]])
-			insn    = decode(frame, fun)
-			name    = trace.ParseModuleName(fun.Name())
-			insnStr = insn.String(register.ArrayMap(name, fun.Registers()...))
-		)
-		//
-		for i := uint(0); i < n; i++ {
-			fmt.Printf(" > ")
-		}
-		//
-		fmt.Print(insnStr)
-		//
-		for i := len(insnStr); i < 30; i++ {
-			fmt.Printf(" ")
-		}
-		//
-		for i, r := range fun.Registers() {
-			if i != 0 {
-				fmt.Printf(", ")
-			}
-			//
-			fmt.Printf("%s=0x%s", r.Name(), frame.Load(uint(i)).Text(16))
-		}
-		//
-		fmt.Println()
-	}
-}
-
-// PostExecution implementation for Observer interface
-func (p TraceObserver[W]) PostExecution(machine *machine.Base[W]) {
-	// do nothing
-}
-
-func decode[W word.Word[W]](frame machine.Frame[W],
-	fn *function.Function[instruction.Instruction[W]]) instruction.MicroInstruction[W] {
-	//
-	var (
-		pc   = frame.PC()
-		insn = fn.CodeAt(pc.Macro())
-	)
-	//
-	if uInsn, ok := insn.(*instruction.Vector[W]); ok {
-		return uInsn.Codes[pc.Micro()]
-	} else if uInsn, ok := insn.(instruction.MicroInstruction[W]); ok {
-		return uInsn
-	}
-	//
-	panic("invalid micro instruction")
-}
-
 // ============================================================================
 // Misc
 // ============================================================================
@@ -244,5 +170,4 @@ func decode[W word.Word[W]](frame machine.Frame[W],
 func init() {
 	rootCmd.AddCommand(executeCmd)
 	executeCmd.Flags().Bool("ir", false, "execute intermediate representation (IR)")
-	executeCmd.Flags().Bool("trace", false, "report execution trace")
 }
