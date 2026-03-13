@@ -396,6 +396,10 @@ func executeDiv[W word.Word[W]](insn instruction.Div[W], frame []W, regs []regis
 		divisor  = frame[insn.Divisor.Unwrap()]
 	)
 	//
+	if divisor.BigInt().Sign() == 0 {
+		return errors.New("division by zero")
+	}
+	//
 	frame[insn.Target.Unwrap()] = dividend.Div(bitwidth, divisor)
 	//
 	return nil
@@ -407,6 +411,10 @@ func executeRem[W word.Word[W]](insn instruction.Rem[W], frame []W, regs []regis
 		dividend = frame[insn.Dividend.Unwrap()]
 		divisor  = frame[insn.Divisor.Unwrap()]
 	)
+	//
+	if divisor.BigInt().Sign() == 0 {
+		return errors.New("division by zero")
+	}
 	//
 	frame[insn.Target.Unwrap()] = dividend.Rem(bitwidth, divisor)
 	//
