@@ -336,25 +336,27 @@ func (p *TypeChecker) typeExpressions(exprs []expr.Resolved, env VariableMap) ([
 
 func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env VariableMap) (Type, []source.SyntaxError) {
 	var (
-		args, errs = p.typeExpressions(exprs, env)
-		res        Type
+		args, errors = p.typeExpressions(exprs, env)
+		res          *data.UnsignedInt[symbol.Resolved]
 	)
 	//
-	if len(errs) > 0 {
-		return nil, errs
+	if len(errors) > 0 {
+		return nil, errors
 	}
 	//
 	for i, t := range args {
 		if i == 0 && t.AsUint(p.env) == nil {
-			return nil, append(errs, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
+			return nil, append(errors, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
 		} else if i == 0 {
-			res = t
+			res = t.AsUint(p.env)
+		} else if errs := p.checkEquiTypes(t, res, exprs[i]); len(errs) > 0 {
+			errors = append(errors, errs...)
 		} else {
-			errs = append(errs, p.checkEquiTypes(t, res, exprs[i])...)
+			res = res.Join(exprs[i].Type().AsUint(p.env))
 		}
 	}
 	//
-	return res, errs
+	return res, errors
 }
 
 func (p *TypeChecker) typeCastExpression(e *expr.Cast[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {
