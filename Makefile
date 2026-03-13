@@ -57,7 +57,7 @@ unit-test:
 
 zkc-test:
 	@echo ">>> Running ZkC Tests..."
-	go test --timeout 0 -run "Test_ZkcUnit|Test_ZkcInvalid" ./...
+	go test --timeout 0 -run "Test_ZkcBench|Test_ZkcUnit|Test_ZkcInvalid" ./...
 
 build:
 	@echo ">>> Building ${PROJECT_NAME}... ${GOCORSET_VERSION}"

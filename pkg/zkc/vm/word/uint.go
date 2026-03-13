@@ -99,9 +99,9 @@ func (p Uint) Mul(width uint, w Uint) (Uint, bool) {
 	)
 	res.Mul(&p.value, &w.value)
 	//
-	for uint(res.BitLen()) > width {
-		// Normalise negative value
-		res.Sub(&res, util_math.Pow2(width))
+	if uint(res.BitLen()) > width {
+		mask := new(big.Int).Sub(util_math.Pow2(width), big.NewInt(1))
+		res.And(&res, mask)
 		//
 		overflow = true
 	}
