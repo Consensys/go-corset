@@ -73,23 +73,39 @@ func Test_ZkcUnit_Constant_02(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Type_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/type_valid_01")
+	checkZkcUnit(t, "zkc/unit/type_01")
 }
 
 func Test_ZkcUnit_Type_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/type_valid_02")
+	checkZkcUnit(t, "zkc/unit/type_02")
 }
 
 func Test_ZkcUnit_Type_03(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/type_valid_03")
+	checkZkcUnit(t, "zkc/unit/type_03")
 }
 
 func Test_ZkcUnit_Type_04(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/type_valid_04")
+	checkZkcUnit(t, "zkc/unit/type_04")
 }
 
 func Test_ZkcUnit_Type_05(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/type_valid_05")
+	checkZkcUnit(t, "zkc/unit/type_05")
+}
+
+func Test_ZkcUnit_Type_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/type_06")
+}
+
+func Test_ZkcUnit_Type_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/type_07")
+}
+
+func Test_ZkcUnit_Type_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/type_08")
+}
+
+func Test_ZkcUnit_Type_09(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/type_09")
 }
 
 // ===================================================================

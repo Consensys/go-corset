@@ -398,23 +398,23 @@ func Test_ZkcInvalid_Cast_02(t *testing.T) {
 // runtime: goroutine stack exceeds 1000000000-byte limit
 // Address with cycle_detection.go
 /*func Test_ZkcInvalid_Type_01(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/type_invalid_01")
+	checkZkcInvalid(t, "zkc/invalid/type_01")
 }
 */
 func Test_ZkcInvalid_Type_02(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/type_invalid_02")
+	checkZkcInvalid(t, "zkc/invalid/type_02")
 }
 
 func Test_ZkcInvalid_Type_03(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/type_invalid_03")
+	checkZkcInvalid(t, "zkc/invalid/type_03")
 }
 
 func Test_ZkcInvalid_Type_04(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/type_invalid_04")
+	checkZkcInvalid(t, "zkc/invalid/type_04")
 }
 
 func Test_ZkcInvalid_Type_05(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/type_invalid_05")
+	checkZkcInvalid(t, "zkc/invalid/type_05")
 }
 
 // ===================================================================
