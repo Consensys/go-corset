@@ -43,17 +43,17 @@ func EncodeAll[S symbol.Symbol[S]](datatype Type[S], values []word.Uint, env Env
 	)
 
 	for i, v := range values {
-		encodeType(datatype, v, buf, env)
+		encodeType(datatype, bitwidth, v, buf, env)
 		bit.BigEndianCopy(buf, 0, result, uint(i)*bitwidth, bitwidth)
 	}
 
 	return result
 }
 
-func encodeType[S symbol.Symbol[S]](datatype Type[S], v word.Uint, buf []byte, env Environment[S]) {
-	switch t := datatype.(type) {
-	case *UnsignedInt[S]:
-		encodeUnsignedInt(t.bitwidth, v, buf)
+func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v word.Uint, buf []byte, env Environment[S]) {
+	switch datatype.(type) {
+	case *UnsignedInt[S], *Alias[S]:
+		encodeUnsignedInt(bitwidth, v, buf)
 	default:
 		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String(env)))
 	}

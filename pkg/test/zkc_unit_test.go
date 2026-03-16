@@ -108,6 +108,10 @@ func Test_ZkcUnit_Type_09(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/type_09")
 }
 
+func Test_ZkcUnit_Type_10(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/type_10")
+}
+
 // ===================================================================
 // Loop Tests
 // ===================================================================

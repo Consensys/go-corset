@@ -73,7 +73,7 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 	//
 	var (
 		visited = make(map[string]bool)
-		env     data.Environment[symbol.Resolved]
+		env     = p.Environment()
 	)
 	// Initialise inputs / outputs
 	inputs = make(map[string][]word.Uint)
@@ -125,7 +125,7 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string][]byte, []error) {
 	var (
 		visited = make(map[string]bool)
-		env     data.Environment[symbol.Resolved]
+		env     = p.Environment()
 		errs    []error
 	)
 
