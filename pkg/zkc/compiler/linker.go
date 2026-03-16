@@ -105,7 +105,7 @@ func (p *Linker) Register(component decl.Unresolved) {
 	switch c := component.(type) {
 	case decl.Unresolved:
 		// Allocate bus entry
-		p.busmap[c.Name()] = symbol.Resolved{Name: c.Name(), Index: uint(len(p.busmap))}
+		p.busmap[c.Name()] = symbol.Resolved{Index: uint(len(p.busmap))}
 		//
 		p.components = append(p.components, c)
 	default:

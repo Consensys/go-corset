@@ -35,7 +35,7 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	//
 	switch t1 := t1.(type) {
 	case *UnsignedInt[S]:
-		if t := t2.AsUint(env); t != nil {
+		if t, isUint := t2.(*UnsignedInt[S]); isUint {
 			return t1.BitWidth() <= t.BitWidth()
 		}
 	case *Alias[S]:
@@ -79,7 +79,7 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 
 	switch t1 := t1.(type) {
 	case *UnsignedInt[S]:
-		if t := t2.AsUint(env); t != nil {
+		if t, isUint := t2.(*UnsignedInt[S]); isUint {
 			return t1.BitWidth() == t.BitWidth() ||
 				(t1.IsOpen() && t1.BitWidth() <= t.BitWidth()) ||
 				(t.IsOpen() && t.BitWidth() <= t1.BitWidth())

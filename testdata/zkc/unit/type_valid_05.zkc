@@ -1,0 +1,3 @@
+type bool = u1
+const TRUE:bool = 1
+const FALSE:bool = ~TRUE
