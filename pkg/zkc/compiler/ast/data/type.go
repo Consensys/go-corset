@@ -27,6 +27,8 @@ type Type[S symbol.Symbol[S]] interface {
 	AsUint(Environment[S]) *UnsignedInt[S]
 	// AsTuple determines whether or not this is a tuple
 	AsTuple(Environment[S]) *Tuple[S]
+	// AsAlias determines whether or not this is an alias.
+	AsAlias(Environment[S]) *Alias[S]
 	// String returns a string representation of this type.
 	String(Environment[S]) string
 }

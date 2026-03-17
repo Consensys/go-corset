@@ -39,6 +39,11 @@ func (p *Tuple[S]) AsUint(Environment[S]) *UnsignedInt[S] {
 	return nil
 }
 
+// AsAlias implementation for Type interface
+func (p *Tuple[S]) AsAlias(Environment[S]) *Alias[S] {
+	return nil
+}
+
 // Ith returns the ith element in this tuple
 func (p *Tuple[S]) Ith(index uint) Type[S] {
 	return p.elements[index]

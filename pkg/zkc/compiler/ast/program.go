@@ -61,7 +61,7 @@ func NewProgram(components []decl.Resolved, srcmaps source.Maps[any]) Program {
 // Environment creates a fresh environment for this program
 func (p *Program) Environment() data.ResolvedEnvironment {
 	return data.NewEnvironment(func(id symbol.Resolved) data.ResolvedType {
-		decl := p.declarations[id.Index].(*decl.ResolvedType)
+		decl := p.declarations[id.Index].(*decl.ResolvedTypeAlias)
 		return decl.DataType
 	})
 }
@@ -73,7 +73,7 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 	//
 	var (
 		visited = make(map[string]bool)
-		env     data.Environment[symbol.Resolved]
+		env     = p.Environment()
 	)
 	// Initialise inputs / outputs
 	inputs = make(map[string][]word.Uint)
@@ -84,6 +84,8 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 		case *decl.ResolvedFunction:
 			// ignore
 		case *decl.ResolvedConstant:
+			// ignore
+		case *decl.ResolvedTypeAlias:
 			// ignore
 		case *decl.ResolvedMemory:
 			// Record this memory has seen
@@ -123,7 +125,7 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string][]byte, []error) {
 	var (
 		visited = make(map[string]bool)
-		env     data.Environment[symbol.Resolved]
+		env     = p.Environment()
 		errs    []error
 	)
 
@@ -134,6 +136,8 @@ func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string
 		case *decl.ResolvedFunction:
 			// ignore
 		case *decl.ResolvedConstant:
+			// ignore
+		case *decl.ResolvedTypeAlias:
 			// ignore
 		case *decl.ResolvedMemory:
 			visited[c.Name()] = true

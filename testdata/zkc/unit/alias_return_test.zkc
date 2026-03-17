@@ -1,0 +1,5 @@
+type word = u8
+fn f(x:word) -> (r:u8) {
+  var r = x << 1
+  return
+}

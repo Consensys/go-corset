@@ -41,6 +41,8 @@ func ControlFlow(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxE
 			errors = append(errors, validateFunctionFlow(*d, srcmaps)...)
 		case *decl.ResolvedMemory:
 			// ignore
+		case *decl.ResolvedTypeAlias:
+			// ignore
 		default:
 			panic(fmt.Sprintf("unknown component: %s", reflect.TypeOf(d).String()))
 		}

@@ -215,6 +215,33 @@ Comparison operators (used in conditions only):
 | `a > b`  | greater than          |
 | `a >= b` | greater than or equal |
 
+## Type Aliases
+
+Type aliases introduce a new name for an existing type. They are useful
+for improving readability and for defining domain-specific names (e.g.
+`address` for `u160`, `bool` for `u1`):
+
+```zkc
+type address = u160
+type bool    = u1
+```
+
+Circular alias definitions are rejected.
+
+Aliases can be used anywhere a type is expected: in function parameters
+and returns, variable declarations, constants, casts, and expressions.
+An alias and its underlying type are interchangeable for type-checking
+purposes (e.g. a `word` and a `u8` of the same bitwidth are compatible
+in arithmetic, shifts, and comparisons).
+
+```zkc
+type word = u8
+fn f(x:word) -> (r:u8) {
+  var r = x << 1
+  return
+}
+```
+
 ## File Inclusion
 
 ```zkc

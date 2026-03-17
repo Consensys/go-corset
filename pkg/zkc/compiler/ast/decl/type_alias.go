@@ -15,40 +15,41 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// ResolvedType represents a type whose contents uses only external
+// ResolvedTypeAlias represents a type alias whose contents uses only external
 // identifiers which are resolved. As such, it should not be possible that such
 // a declaration refers to unknown (or otherwise incorrect) external components.
-type ResolvedType = Type[symbol.Resolved]
+type ResolvedTypeAlias = TypeAlias[symbol.Resolved]
 
-// UnresolvedType represents a type whose contents may contain string
+// UnresolvedTypeAlias represents a type alias whose contents may contain string
 // identifiers for external (i.e. unlinked) components.  As such, its possible
 // that such an expression may fail with an error at link time due to an
 // unresolvable reference to an external component (e.g. function, RAM, ROM,
 // etc).
-type UnresolvedType = Type[symbol.Unresolved]
+type UnresolvedTypeAlias = TypeAlias[symbol.Unresolved]
 
-// Type represents a type alias at the source level.
-type Type[S symbol.Symbol[S]] struct {
+// TypeAlias represents an alias for either a type at the source level or for
+// another alias.
+type TypeAlias[I symbol.Symbol[I]] struct {
 	name     string
-	DataType data.Type[S]
+	DataType data.Type[I]
 }
 
-// NewType creates a new named type over arbitrary symbol identifiers.
-func NewType[S symbol.Symbol[S]](name string, datatype data.Type[S]) *Type[S] {
-	return &Type[S]{name, datatype}
+// NewTypeAlias creates a new type alias for a fundamental type
+func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type[I]) *TypeAlias[I] {
+	return &TypeAlias[I]{name, datatype}
 }
 
 // Arity implementation for Declaration interface
-func (p *Type[S]) Arity() (nInputs, nOutputs uint) {
+func (p *TypeAlias[I]) Arity() (nInputs, nOutputs uint) {
 	return 0, 0
 }
 
 // Name implementation for AssemblyComponent interface
-func (p *Type[I]) Name() string {
+func (p *TypeAlias[I]) Name() string {
 	return p.name
 }
 
 // Externs implementation for Declaration interface.
-func (p *Type[I]) Externs() []I {
+func (p *TypeAlias[I]) Externs() []I {
 	return nil
 }

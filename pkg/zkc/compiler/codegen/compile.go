@@ -38,6 +38,11 @@ type Declaration = decl.Declaration[symbol.Resolved]
 // a declaration refers to unknown (or otherwise incorrect) external components.
 type Constant = decl.Constant[symbol.Resolved]
 
+// TypeAlias represents a type alias whose expression uses only external
+// identifiers which are resolved. As such, it should not be possible that such
+// a declaration refers to unknown (or otherwise incorrect) external components.
+type TypeAlias = decl.TypeAlias[symbol.Resolved]
+
 // Function represents a function which contains instructions whose external
 // identifiers are otherwise resolved. As such, it should not be possible that
 // such a declaration refers to unknown (or otherwise incorrect) external
@@ -90,8 +95,10 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 		switch c := c.(type) {
 		case *Constant:
 			// ignore
+		case *TypeAlias:
+			// ignore
 		case *Function:
-			fn, errs := compileFunction(uint(i), mapping, declarations, srcmaps)
+			fn, errs := compileFunction(uint(i), mapping, declarations, srcmaps, env)
 			modules = append(modules, fn)
 			errors = append(errors, errs...)
 		case *Memory:

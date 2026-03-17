@@ -1,0 +1,5 @@
+//error:2:1-5:cyclic definition
+type boolean = b
+type bool = boolean
+type b = bool
+const TRUE:b = 1
