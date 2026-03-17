@@ -30,38 +30,62 @@ func typeAliasDependencies(d *decl.ResolvedTypeAlias) []uint {
 }
 
 func constantDependencies(d *decl.ResolvedConstant) []uint {
-	uses := d.ConstExpr.ExternUses()
-	if uses == nil {
+	symSet := d.ConstExpr.ExternUses()
+	if symSet == nil {
 		return nil
 	}
 
-	var indices []uint
+	var deps []uint
 
-	for it := uses.Iter(); it.HasNext(); {
-		sym := it.Next()
-		if sym.Kind == symbol.CONSTANT {
-			indices = append(indices, sym.Index)
+	for sym := symSet.Iter(); sym.HasNext(); {
+		s := sym.Next()
+		if s.Kind == symbol.CONSTANT {
+			deps = append(deps, s.Index)
 		}
 	}
 
-	return indices
+	return deps
 }
 
-// findCycle performs DFS from start. It returns the set of
-// indices involved in that cycle if a cycle is found, else it returns nil.
-func findCycle(start uint, program Program, visited map[uint]bool) map[uint]bool {
+// findCycle performs DFS from start. It returns the set of indices involved in a
+// cycle if one is found, else nil.
+func findCycle(start uint, program Program, path, visited map[uint]bool) map[uint]bool {
+	if visited[start] {
+		return nil
+	}
+
+	if path[start] {
+		for j := range path {
+			visited[j] = true
+		}
+		return map[uint]bool{start: true}
+	}
+
 	d := program.Components()[start]
 	deps := dependencies(d)
 
 	if len(deps) == 0 {
+		visited[start] = true
 		return nil
-	} else if visited[start] {
-		return visited
 	}
 
+	path[start] = true
+
+	for _, k := range deps {
+		if findCycle(k, program, path, visited) != nil {
+			for l := range path {
+				visited[l] = true
+			}
+
+			path[start] = false
+			return map[uint]bool{start: true}
+		}
+	}
+
+	path[start] = false
 	visited[start] = true
 
-	return findCycle(deps[0], program, visited)
+	return nil
 }
 
 // CycleDetection traverses the program and detects cyclic definitions in
@@ -70,14 +94,14 @@ func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxEr
 	var (
 		errors  []source.SyntaxError
 		visited = make(map[uint]bool)
+		path    = make(map[uint]bool)
 	)
 
 	for i, d := range program.Components() {
 		if visited[uint(i)] {
 			continue
 		}
-
-		if findCycle(uint(i), program, visited) != nil {
+		if findCycle(uint(i), program, path, visited) != nil {
 			errors = append(errors, srcmaps.SyntaxErrors(d, "cyclic definition for "+d.Name())...)
 		}
 	}
