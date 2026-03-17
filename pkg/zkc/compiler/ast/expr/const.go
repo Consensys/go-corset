@@ -37,7 +37,7 @@ func NewConstant[S symbol.Symbol[S]](constant big.Int, base uint) Expr[S] {
 
 // ExternUses implementation for the Expr interface.
 func (p *Const[S]) ExternUses() set.AnySortedSet[S] {
-	panic("todo")
+	return nil
 }
 
 // LocalUses implementation for the Expr interface.

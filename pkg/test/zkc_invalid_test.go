@@ -112,6 +112,10 @@ func Test_ZkcInvalid_Constant_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/constant_05")
 }
 
+func Test_ZkcInvalid_Constant_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_06")
+}
+
 // ===================================================================
 // While Tests
 // ===================================================================
