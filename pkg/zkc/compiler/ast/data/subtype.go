@@ -38,10 +38,6 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 		if t, isUint := t2.(*UnsignedInt[S]); isUint {
 			return t1.BitWidth() <= t.BitWidth()
 		}
-		if t := t2.AsAlias(env); t != nil {
-			return t1.BitWidth() == t.BitWidth() || ( t1.BitWidth() < t.BitWidth())
-		}
-		// TODO does it exist
 	case *Alias[S]:
 		if at1 := t1.AsAlias(env); at1 != nil {
 			return SubtypeOf(at1.Resolve(env), t2, env)
