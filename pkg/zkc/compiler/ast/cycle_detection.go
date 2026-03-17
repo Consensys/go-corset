@@ -58,6 +58,7 @@ func findCycle(start uint, program Program, path, visited map[uint]bool) map[uin
 		for j := range path {
 			visited[j] = true
 		}
+
 		return map[uint]bool{start: true}
 	}
 
@@ -78,6 +79,7 @@ func findCycle(start uint, program Program, path, visited map[uint]bool) map[uin
 			}
 
 			path[start] = false
+
 			return map[uint]bool{start: true}
 		}
 	}
@@ -89,18 +91,19 @@ func findCycle(start uint, program Program, path, visited map[uint]bool) map[uin
 }
 
 // CycleDetection traverses the program and detects cyclic definitions in
-// type aliases and constants.
+// type constants and aliases.
 func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
 		errors  []source.SyntaxError
 		visited = make(map[uint]bool)
-		path    = make(map[uint]bool)
 	)
 
 	for i, d := range program.Components() {
 		if visited[uint(i)] {
 			continue
 		}
+
+		path := make(map[uint]bool)
 		if findCycle(uint(i), program, path, visited) != nil {
 			errors = append(errors, srcmaps.SyntaxErrors(d, "cyclic definition for "+d.Name())...)
 		}
