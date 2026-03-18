@@ -1,7 +1,7 @@
 pub input data(address:u1)->(data:u32)
 pub output extend(address:u1)->(extend:u64)
 
-const SGNEXTMASK:u64 = 18446744069414584320 // = 0xFFFFFFFF00000000
+const SGNEXTMASK:u64 = 0xFFFF_FFFF_0000_0000 // = 0xFFFFFFFF00000000
 
 fn main() {
   extend[0] = sgn_extension_u32_u64(data[0])
