@@ -70,5 +70,5 @@ func compileFunction(
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
 	}
 	//
-	return function.New[Instruction](fn.Name(), compiler.registers, bootCode), compiler.errors
+	return function.New(fn.Name(), compiler.registers, bootCode), compiler.errors
 }

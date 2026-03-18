@@ -9,6 +9,4 @@ fn main() {
   if (x & y) != z {
     fail
   }
-
-  return
 }

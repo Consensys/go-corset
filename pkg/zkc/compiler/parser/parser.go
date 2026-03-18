@@ -238,12 +238,14 @@ func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 	if returned, code, errs = p.parseStatementBlock(0, &env, false); len(errs) > 0 {
 		return nil, errs
 	}
-	// Sanity check we parsed something
+	// Sanity check for implicit or explicit return
 	if !returned {
-		return nil, p.syntaxErrors(p.lookahead(), "missing return")
+		stmt := &stmt.Return[symbol.Unresolved]{}
+		// Implicit return
+		code = append(code, stmt)
+		// Associate return with span of final curly brace.
+		p.srcmap.Put(stmt, p.previousToken().Span)
 	}
-	// Advance past "}"
-	p.match(RCURLY)
 	// Construct function
 	fn := decl.NewFunction(name, env.variables, code)
 	//
@@ -1286,6 +1288,16 @@ func (p *Parser) baserOfNumber(token lex.Token) uint {
 // appended at the end of the token stream.
 func (p *Parser) lookahead() lex.Token {
 	return p.tokens[p.index]
+}
+
+// Lookahead returns the next token.  This must exist because EOF is always
+// appended at the end of the token stream.
+func (p *Parser) previousToken() lex.Token {
+	if p.index == 0 {
+		return p.tokens[p.index]
+	}
+	//
+	return p.tokens[p.index-1]
 }
 
 // Expect reurns an arror if the next token is not what was expected.

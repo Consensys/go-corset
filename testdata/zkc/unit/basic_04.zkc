@@ -8,6 +8,4 @@ fn main() {
   var rhs:u16 = rhs[0]
   // write output
   res[0] = (lhs+rhs)
-  // done
-  return
 }
