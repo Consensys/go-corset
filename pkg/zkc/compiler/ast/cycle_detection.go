@@ -112,6 +112,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 			for _, l := range path {
 				visited[l] = true
 			}
+
 			return
 		}
 	}
