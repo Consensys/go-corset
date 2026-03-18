@@ -1,6 +1,8 @@
 package ast
 
 import (
+	"slices"
+
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
@@ -49,43 +51,56 @@ func constantDependencies(d *decl.ResolvedConstant) []uint {
 
 // findCycle performs DFS from start. It returns the set of indices involved in a
 // cycle if one is found, else nil.
-func findCycle(start uint, program Program, path, visited map[uint]bool) map[uint]bool {
+func findCycle(start uint, program Program, path []uint, visited map[uint]bool) map[uint]bool {
 	if visited[start] {
+		// no cycle
 		return nil
 	}
 
-	if path[start] {
-		for j := range path {
+	// (1) we check we haven't met this node on the path
+	// If the node is the first on the path
+	if len(path) != 0 && start == path[0] {
+		// we are in the presence of a cycle
+		// we mark all the nodes on the path as visited
+		for _, j := range path {
 			visited[j] = true
 		}
-
+		// we return a cycle detection on the node
 		return map[uint]bool{start: true}
 	}
 
+	// Else it means we only depend on the cycle without being in it
+	// we mark the node as visited and exit without detecting a cycle on the node
+	if len(path) != 0 && slices.Contains(path, start) {
+		visited[path[0]] = true
+		return nil
+	}
+
+	//(2) we check dependencies
 	d := program.Components()[start]
 	deps := dependencies(d)
 
+	// if there are no dependencies
+	// we mark as visited and exit
 	if len(deps) == 0 {
 		visited[start] = true
 		return nil
 	}
 
-	path[start] = true
+	// else we mark the node on the path
+	path = append(path, start)
 
+	// we detect cycle on the dependencies
 	for _, k := range deps {
 		if findCycle(k, program, path, visited) != nil {
-			for l := range path {
+			// we are in the presence of a cycle
+			// we mark all the nodes on the path as visited
+			for _, l := range path {
 				visited[l] = true
 			}
-
-			path[start] = false
-
 			return map[uint]bool{start: true}
 		}
 	}
-
-	path[start] = false
-	visited[start] = true
 
 	return nil
 }
@@ -103,7 +118,7 @@ func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxEr
 			continue
 		}
 
-		path := make(map[uint]bool)
+		path := []uint{}
 		if findCycle(uint(i), program, path, visited) != nil {
 			errors = append(errors, srcmaps.SyntaxErrors(d, "cyclic definition for "+d.Name())...)
 		}
