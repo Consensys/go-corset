@@ -82,7 +82,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 	}
 
 	// Else it means we only depend on the cycle without being in it
-	// we mark the node as visited and exit without detecting a cycle on the node
+	// we mark the initial node as visited and exit without detecting a cycle on the node
 	if len(path) != 0 && slices.Contains(path, start) {
 		visited[start] = true
 		return nil
