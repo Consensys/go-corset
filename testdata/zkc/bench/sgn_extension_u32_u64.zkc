@@ -1,17 +1,18 @@
 pub input data(address:u1)->(data:u32)
 pub output extend(address:u1)->(extend:u64)
 
-const SGNEXTU64:u64 = 18446744069414584320 ;; = 0xFFFFFFFF00000000
+const SGNEXTMASK:u64 = 18446744069414584320 // = 0xFFFFFFFF00000000
 
 fn main() {
-  extend[0] = sgn_extension_u32_u64(input[0])
+  extend[0] = sgn_extension_u32_u64(data[0])
   return
 }
 
 fn sgn_extension_u32_u64(int:u32) -> (ext_int:u64) {
     var first_bit:u1
     var tmp:u31
-    first_bit, tmp = int
-    ext_int = first_bit == 1 ? SGNEXTU64 | int : int
+    first_bit, tmp = int 
+    ext_int = int as u64
+    if first_bit == 1 {ext_int = SGNEXTMASK | ext_int}
    return
 }
