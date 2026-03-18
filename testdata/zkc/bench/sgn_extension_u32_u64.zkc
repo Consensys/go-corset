@@ -8,14 +8,14 @@ fn main() {
   return
 }
 
-fn sgn_extension_u32_u64(value:u32) -> (ext_int:u64) {
+fn sgn_extension_u32_u64(value:u32) -> (ext_value:u64) {
    // cast from u32 to u64
-   ext_int = value as u64
+   ext_value = value as u64
    
    // if first bit of int is one, the first 32 bits are 1 as well
    var first_bit:u32
    first_bit = value >> 31
-   if first_bit == 1 {ext_int = SGNEXTMASK | ext_int}
+   if first_bit == 1 {ext_value = SGNEXTMASK | ext_value}
 
    return
 }
