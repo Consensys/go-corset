@@ -63,10 +63,10 @@ func constantDependencies(d *decl.ResolvedConstant) []uint {
 
 // findCycle performs DFS from start. It returns the set of indices involved in a
 // cycle if one is found, else nil.
-func findCycle(start uint, program Program, path []uint, visited map[uint]bool) map[uint]bool {
+func findCycle(start uint, program Program, path []uint, visited map[uint]bool) (cycleDetected bool) {
 	if visited[start] {
 		// no cycle
-		return nil
+		return
 	}
 
 	// (1) we check we haven't met this node on the path
@@ -74,18 +74,19 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 	if len(path) != 0 && start == path[0] {
 		// we are in the presence of a cycle
 		// we mark all the nodes on the path as visited
+		cycleDetected = true
 		for _, j := range path {
 			visited[j] = true
 		}
 		// we return a cycle detection on the node
-		return map[uint]bool{start: true}
+		return
 	}
 
 	// Else it means we only depend on the cycle without being in it
 	// we mark the initial node as visited and exit without detecting a cycle on the node
 	if len(path) != 0 && slices.Contains(path, start) {
-		visited[start] = true
-		return nil
+		visited[path[0]] = true
+		return
 	}
 
 	//(2) we check dependencies
@@ -96,7 +97,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 	// we mark as visited and exit
 	if len(deps) == 0 {
 		visited[start] = true
-		return nil
+		return
 	}
 
 	// else we mark the node on the path
@@ -104,18 +105,18 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 
 	// we detect cycle on the dependencies
 	for _, k := range deps {
-		if findCycle(k, program, path, visited) != nil {
+		if findCycle(k, program, path, visited) {
 			// we are in the presence of a cycle
 			// we mark all the nodes on the path as visited
+			cycleDetected = true
 			for _, l := range path {
 				visited[l] = true
 			}
-
-			return map[uint]bool{start: true}
+			return
 		}
 	}
 
-	return nil
+	return
 }
 
 // CycleDetection traverses the program and detects cyclic definitions in
@@ -132,7 +133,7 @@ func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxEr
 		}
 
 		path := []uint{}
-		if findCycle(uint(i), program, path, visited) != nil {
+		if findCycle(uint(i), program, path, visited) {
 			errors = append(errors, srcmaps.SyntaxErrors(d, "cyclic definition for "+d.Name())...)
 		}
 	}
