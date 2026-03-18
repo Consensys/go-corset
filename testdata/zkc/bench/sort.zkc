@@ -39,7 +39,7 @@ fn sort_slice(m:u32, n:u32)
     // sort lower slice
     sort_slice(m,pivot)
     // sort upper slice
-    sort_slice(pivot,n)
+    sort_slice(pivot+1,n)
   }
   return
 }
