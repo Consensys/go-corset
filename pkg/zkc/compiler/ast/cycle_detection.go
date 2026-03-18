@@ -1,3 +1,15 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
 package ast
 
 import (
@@ -72,7 +84,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 	// Else it means we only depend on the cycle without being in it
 	// we mark the node as visited and exit without detecting a cycle on the node
 	if len(path) != 0 && slices.Contains(path, start) {
-		visited[path[0]] = true
+		visited[start] = true
 		return nil
 	}
 
@@ -98,6 +110,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 			for _, l := range path {
 				visited[l] = true
 			}
+
 			return map[uint]bool{start: true}
 		}
 	}
