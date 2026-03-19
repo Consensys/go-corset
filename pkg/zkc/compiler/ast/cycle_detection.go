@@ -70,8 +70,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 	}
 
 	// (1) we check we haven't met this node on the path
-	// If the node is the first on the path
-	if len(path) != 0 && start == path[0] {
+	if len(path) != 0 && slices.Contains(path, start) {
 		// we are in the presence of a cycle
 		// we mark all the nodes on the path as visited
 		for _, j := range path {
@@ -81,36 +80,16 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 		return []uint{start}
 	}
 
-	// Else it means we only depend on the cycle without being in it
-	// we mark the initial node as visited and exit without detecting a cycle on the node
-	if len(path) != 0 && slices.Contains(path, start) {
-		visited[path[0]] = true
-		return []uint{start}
-	}
-
-	//(2) we check dependencies
+	// (2) we check dependencies
 	d := program.Components()[start]
 	deps := dependencies(d)
 
-	// if there are no dependencies
-	// we mark as visited and exit
-	if len(deps) == 0 {
-		visited[start] = true
-		return nil
-	}
-
-	// else we mark the node on the path
+	// we mark the node on the path
+	// we detect cycle on the dependencies if any
 	path = append(path, start)
-
-	// we detect cycle on the dependencies
 	for _, k := range deps {
 		if res := findCycle(k, program, path, visited); res != nil {
 			// we are in the presence of a cycle
-			// we mark all the nodes on the path as visited
-			for _, l := range path {
-				visited[l] = true
-			}
-
 			return []uint{res[0]}
 		}
 	}
@@ -128,7 +107,7 @@ func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxEr
 		visited = make(map[uint]bool)
 	)
 
-	for i, d := range program.Components() {
+	for i := range program.Components() {
 		if visited[uint(i)] {
 			continue
 		}
@@ -136,7 +115,7 @@ func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxEr
 		path := []uint{}
 		if lCycle := findCycle(uint(i), program, path, visited); lCycle != nil {
 			declOnError := program.Components()[lCycle[0]]
-			errors = append(errors, srcmaps.SyntaxErrors(d, "cyclic definition for "+declOnError.Name())...)
+			errors = append(errors, srcmaps.SyntaxErrors(declOnError, "cyclic definition for "+declOnError.Name())...)
 		}
 	}
 
