@@ -299,7 +299,7 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap, effects b
 		t, errs = p.typeCastExpression(e, env, effects)
 	case *expr.Add[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
-	case *expr.And[symbol.Resolved]:
+	case *expr.BitwiseAnd[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
 	case *expr.Const[symbol.Resolved]:
 		t, errs = p.typeConst(e, env)
@@ -307,9 +307,9 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap, effects b
 		t, errs = p.typeLocalAccess(e, env)
 	case *expr.Mul[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
-	case *expr.Not[symbol.Resolved]:
+	case *expr.BitwiseNot[symbol.Resolved]:
 		t, errs = p.typeBitwiseNot(e, env, effects)
-	case *expr.Or[symbol.Resolved]:
+	case *expr.BitwiseOr[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
 	case *expr.ExternAccess[symbol.Resolved]:
 		t, errs = p.typeExternAccess(e, env, effects)
@@ -419,7 +419,7 @@ func (p *TypeChecker) typeShiftExpression(exprs []expr.Resolved, env VariableMap
 	return res, nil
 }
 
-func (p *TypeChecker) typeBitwiseNot(e *expr.Not[symbol.Resolved], env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeBitwiseNot(e *expr.BitwiseNot[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	t, errs := p.typeExpression(e.Expr, env, effects)
 	if len(errs) > 0 {

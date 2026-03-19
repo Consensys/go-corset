@@ -148,7 +148,7 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.Add[symbol.Resolved]:
 		insns, insn = p.compileAdd(e.Exprs, mapping, targets[0])
 		unitExpr = true
-	case *expr.And[symbol.Resolved]:
+	case *expr.BitwiseAnd[symbol.Resolved]:
 		insns, insn = p.compileAnd(e.Exprs, mapping, targets[0])
 		unitExpr = true
 	case *expr.Const[symbol.Resolved]:
@@ -181,10 +181,10 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.Mul[symbol.Resolved]:
 		insns, insn = p.compileMul(e.Exprs, mapping, targets[0])
 		unitExpr = true
-	case *expr.Not[symbol.Resolved]:
+	case *expr.BitwiseNot[symbol.Resolved]:
 		insns, insn = p.compileNot(e, mapping, targets[0])
 		unitExpr = true
-	case *expr.Or[symbol.Resolved]:
+	case *expr.BitwiseOr[symbol.Resolved]:
 		insns, insn = p.compileOr(e.Exprs, mapping, targets[0])
 		unitExpr = true
 	case *expr.Div[symbol.Resolved]:
@@ -424,7 +424,7 @@ func (p *Compiler) compileAnd(args []Expr, mapping []uint, target register.Id) (
 	return insns, instruction.NewAnd[word.Uint](target, sources, constant)
 }
 
-func (p *Compiler) compileNot(e *expr.Not[symbol.Resolved], mapping []uint, target register.Id,
+func (p *Compiler) compileNot(e *expr.BitwiseNot[symbol.Resolved], mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	sources, insns := p.compileArgs(mapping, e.Expr)
 	//
@@ -514,7 +514,7 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 		}
 		//
 		return res
-	case *expr.And[symbol.Resolved]:
+	case *expr.BitwiseAnd[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.BitwiseAnd(bitwidth, args...)
 	case *expr.Const[symbol.Resolved]:
@@ -530,10 +530,10 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 		}
 		//
 		return res
-	case *expr.Not[symbol.Resolved]:
+	case *expr.BitwiseNot[symbol.Resolved]:
 		arg := p.evalConstant(e.Expr)
 		return arg.Not(bitwidth)
-	case *expr.Or[symbol.Resolved]:
+	case *expr.BitwiseOr[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.BitwiseOr(bitwidth, args...)
 	case *expr.Shl[symbol.Resolved]:

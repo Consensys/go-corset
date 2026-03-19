@@ -66,6 +66,10 @@ func Test_ZkcInvalid_Basic_11(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_11")
 }
 
+func Test_ZkcInvalid_Basic_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_12")
+}
+
 // ===================================================================
 // If Tests
 // ===================================================================

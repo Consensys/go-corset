@@ -20,42 +20,41 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// BitwiseAnd represents a bitwise-and of one or more terms.
-type BitwiseAnd[S symbol.Symbol[S]] struct {
-	Exprs    []Expr[S]
-	datatype data.Type[S]
+// LogicalOr represents a bitwise-or of one or more terms.
+type LogicalOr[S symbol.Symbol[S]] struct {
+	Exprs []Expr[S]
 }
 
-// NewBitwiseAnd constructs an expression representing the bitwise-and of one or more
-// values.
-func NewBitwiseAnd[S symbol.Symbol[S]](exprs ...Expr[S]) Expr[S] {
+// NewLogicalOr constructs an expression representing the bitwise-or of one or
+// more values.
+func NewLogicalOr[S symbol.Symbol[S]](exprs ...Expr[S]) Expr[S] {
 	if len(exprs) == 0 {
 		panic("one or more subexpressions required")
 	}
 	//
-	return &BitwiseAnd[S]{Exprs: exprs}
+	return &LogicalOr[S]{Exprs: exprs}
 }
 
 // ExternUses implementation for the Expr interface.
-func (p *BitwiseAnd[S]) ExternUses() set.AnySortedSet[S] {
+func (p *LogicalOr[S]) ExternUses() set.AnySortedSet[S] {
 	return externUses(p.Exprs...)
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *BitwiseAnd[S]) LocalUses() bit.Set {
+func (p *LogicalOr[S]) LocalUses() bit.Set {
 	return localUses(p.Exprs...)
 }
 
-func (p *BitwiseAnd[S]) String(mapping variable.Map[S]) string {
+func (p *LogicalOr[S]) String(mapping variable.Map[S]) string {
 	return String[S](p, mapping)
 }
 
 // SetType implementation for Expr interface
-func (p *BitwiseAnd[S]) SetType(t data.Type[S]) {
-	p.datatype = t
+func (p *LogicalOr[S]) SetType(t data.Type[S]) {
+	panic("unreachable")
 }
 
 // Type implementation for Expr interface
-func (p *BitwiseAnd[S]) Type() data.Type[S] {
-	return p.datatype
+func (p *LogicalOr[S]) Type() data.Type[S] {
+	panic("unreachable")
 }
