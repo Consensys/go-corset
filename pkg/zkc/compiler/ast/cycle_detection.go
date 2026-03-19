@@ -61,9 +61,9 @@ func constantDependencies(d *decl.ResolvedConstant) []uint {
 	return deps
 }
 
-// findCycle performs DFS from start. It returns the set of indices involved in a
+// findCycle performs DFS from start. It returns the declaration involved in a
 // cycle if one is found, else nil.
-func findCycle(start uint, program Program, path []uint, visited map[uint]bool) []uint {
+func findCycle(start uint, program Program, path []uint, visited map[uint]bool) decl.Resolved {
 	if visited[start] {
 		// no cycle
 		return nil
@@ -77,7 +77,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 			visited[j] = true
 		}
 		// we return a cycle detection on the node
-		return []uint{start}
+		return program.Components()[start]
 	}
 
 	// (2) we check dependencies
@@ -88,9 +88,9 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 	// we detect cycle on the dependencies if any
 	path = append(path, start)
 	for _, k := range deps {
-		if res := findCycle(k, program, path, visited); res != nil {
+		if d := findCycle(k, program, path, visited); d != nil {
 			// we are in the presence of a cycle
-			return []uint{res[0]}
+			return d
 		}
 	}
 
@@ -108,14 +108,9 @@ func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxEr
 	)
 
 	for i := range program.Components() {
-		if visited[uint(i)] {
-			continue
-		}
-
-		path := []uint{}
-		if lCycle := findCycle(uint(i), program, path, visited); lCycle != nil {
-			declOnError := program.Components()[lCycle[0]]
-			errors = append(errors, srcmaps.SyntaxErrors(declOnError, "cyclic definition for "+declOnError.Name())...)
+		path := []uint{} // path reset
+		if d := findCycle(uint(i), program, path, visited); d != nil {
+			errors = append(errors, srcmaps.SyntaxErrors(d, "cyclic definition for "+d.Name())...)
 		}
 	}
 
