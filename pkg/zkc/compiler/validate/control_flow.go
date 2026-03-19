@@ -110,13 +110,8 @@ func applyInstructionSemantics(worklist *Worklist, fn decl.ResolvedFunction, src
 	case *stmt.Fail[symbol.Resolved]:
 		// Nothing to do here
 	default:
-		// Check not falling off the end
-		if pc+1 == uint(len(fn.Code)) {
-			errors = append(errors, *srcmaps.SyntaxError(insn, "missing return"))
-		} else {
-			// fall through cases
-			worklist.Join(pc+1, state)
-		}
+		// fall through cases
+		worklist.Join(pc+1, state)
 	}
 	//
 	return errors
