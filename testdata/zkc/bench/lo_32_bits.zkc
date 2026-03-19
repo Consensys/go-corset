@@ -1,12 +1,9 @@
-// pub input data(address:u1)->(data:u64)
-// pub output lo(address:u1)->(lo:u32)
+include "../lib/lo_32_bits.zkc"
 
-// fn main() {
-//  lo[0] = lo_32_bits(data[0])
-//  return
-//}
+pub input data(address:u1)->(data:u64)
+pub output lo(address:u1)->(lo:u32)
 
-fn lo_32_bits(value:u64) -> (lo:u32) {
-   lo = (value & 0xffffffff) as u32
-   return
+fn main() {
+  lo[0] = lo_32_bits(data[0])
+  return
 }

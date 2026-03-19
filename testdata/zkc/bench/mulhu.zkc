@@ -1,4 +1,4 @@
-include "hi_32_bits.zkc"
+include "../lib/hi_32_bits.zkc"
 
 pub input data(address:u1)->(data:u32)
 pub output product(address:u1)->(product:u32)

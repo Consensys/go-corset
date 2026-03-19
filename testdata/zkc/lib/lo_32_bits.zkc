@@ -1,0 +1,4 @@
+fn lo_32_bits(value:u64) -> (lo:u32) {
+   lo = (value & 0xffffffff) as u32
+   return
+}

@@ -1,0 +1,4 @@
+fn hi_32_bits(value:u64) -> (hi:u32) {
+   hi = (value >> 32) as u32
+   return
+}
