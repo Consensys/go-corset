@@ -1,0 +1,5 @@
+{ "data": "0x0000000000000000", "hi":"0x00000000" }
+{ "data": "0x0000000000000001", "hi":"0x00000000" }
+{ "data": "0xFFFFFFFF80000000", "hi":"0xFFFFFFFF" }
+{ "data": "0xFFFFFFFF80000001", "hi":"0xFFFFFFFF" }
+{ "data": "0xFFFFFFFFFFFFFFFF", "hi":"0xFFFFFFFF" }

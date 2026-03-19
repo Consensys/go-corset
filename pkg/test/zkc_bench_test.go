@@ -34,6 +34,14 @@ func Test_ZkcBench_SgnExtend(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/sgn_extension_u32_u64")
 }
 
+func Test_ZkcBench_Lo32Bits(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/lo_32_bits")
+}
+
+func Test_ZkcBench_Hi32Bits(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/hi_32_bits")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
