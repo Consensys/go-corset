@@ -8,7 +8,6 @@ fn main() {
   read_input(len)
   sort_slice(0, len)
   write_output(len)
-  return
 }
 
 // Read n bytes of input data into buffer.
@@ -16,7 +15,6 @@ fn read_input(n:u32) {
   for i:u32 = 0; i < n; i=i+1 {
     buffer[i] = data_in[i]
   }
-  return
 }
 
 // Write n bytes from buffer into output data.
@@ -24,7 +22,6 @@ fn write_output(n:u32) {
   for i:u32 = 0; i < n; i=i+1 {
     data_out[i] = buffer[i]
   }
-  return
 }
 
 // Sort buffer slice between offsets m (inclusive) and n (exclusive)
@@ -41,7 +38,6 @@ fn sort_slice(m:u32, n:u32)
     // sort upper slice
     sort_slice(pivot+1,n)
   }
-  return
 }
 
 fn partition(m:u32, n:u32) -> (p:u32) {
@@ -62,13 +58,10 @@ fn partition(m:u32, n:u32) -> (p:u32) {
   }
   // Swap last
   swap(p,last)
-  //
-  return
 }
 
 fn swap(i:u32,j:u32) {
   var tmp:u8 = buffer[j]
   buffer[j] = buffer[i]
   buffer[i] = tmp
-  return
 }

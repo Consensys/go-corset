@@ -30,6 +30,10 @@ func Test_ZkcBench_Sort(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/sort")
 }
 
+func Test_ZkcBench_SgnExtend(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/sgn_extension_u32_u64")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

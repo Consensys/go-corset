@@ -9,6 +9,4 @@ fn main() {
   if (lhs+rhs) != res {
     fail
   }
-
-  return
 }
