@@ -47,6 +47,10 @@ func Test_ZkcBench_Mul(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/mul")
 }
 
+func Test_ZkcBench_Mulh(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulh")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
