@@ -106,9 +106,16 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 // and all control-flow paths must reach a "return" instruction, etc. Finally,
 // we cannot assign to an input register under the current calling convention.
 func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
-	var errors []source.SyntaxError
-	// Check for cyclic aliases
-	// We assume there is no cycle detection for now
+	var (
+		errors []source.SyntaxError
+	)
+
+	// Check for cyclic definitions (constants and type aliases)
+	errors = append(errors, validate.CycleDetection(program, srcmaps)...)
+	// If a cycle is detected, we skip the typing and control flow phase
+	if len(errors) > 0 {
+		return errors
+	}
 	// Apply various checks
 	errors = append(errors, validate.Typing(program, srcmaps)...)
 	errors = append(errors, validate.ControlFlow(program, srcmaps)...)
