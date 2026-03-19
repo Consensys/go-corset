@@ -10,10 +10,11 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package ast
+package validate
 
 import (
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -61,7 +62,7 @@ func constantDependencies(d *decl.ResolvedConstant) []uint {
 
 // findCycle performs DFS from start. It returns the declaration involved in a
 // cycle if one is found, else nil.
-func findCycle(start uint, program Program, path, visited map[uint]bool) decl.Resolved {
+func findCycle(start uint, program ast.Program, path, visited map[uint]bool) decl.Resolved {
 	if visited[start] {
 		// no cycle
 		return nil
@@ -99,7 +100,7 @@ func findCycle(start uint, program Program, path, visited map[uint]bool) decl.Re
 
 // CycleDetection traverses the program and detects cyclic definitions in
 // type constants and aliases.
-func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxError {
+func CycleDetection(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
 		errors  []source.SyntaxError
 		visited = make(map[uint]bool)

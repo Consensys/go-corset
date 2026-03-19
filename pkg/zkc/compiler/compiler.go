@@ -111,7 +111,7 @@ func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.Syn
 	)
 
 	// Check for cyclic definitions (constants and type aliases)
-	errors = append(errors, ast.CycleDetection(program, srcmaps)...)
+	errors = append(errors, validate.CycleDetection(program, srcmaps)...)
 	// If a cycle is detected, we skip the typing and control flow phase
 	if len(errors) > 0 {
 		return errors
