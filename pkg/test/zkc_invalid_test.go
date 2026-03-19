@@ -288,6 +288,30 @@ func Test_ZkcInvalid_Memory_06(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/memory_06")
 }
 
+func Test_ZkcInvalid_Memory_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_07")
+}
+
+func Test_ZkcInvalid_Memory_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_08")
+}
+
+func Test_ZkcInvalid_Memory_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_09")
+}
+
+func Test_ZkcInvalid_Memory_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_10")
+}
+
+func Test_ZkcInvalid_Memory_11(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_11")
+}
+
+func Test_ZkcInvalid_Memory_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_12")
+}
+
 // ===================================================================
 // Static Tests
 // ===================================================================

@@ -167,10 +167,19 @@ func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []sour
 
 func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []source.SyntaxError) {
 	var (
-		codes = make([]stmt.Resolved, len(fn.Code))
-		errs1 []source.SyntaxError
+		effects = make([]*symbol.Resolved, len(fn.Effects))
+		codes   = make([]stmt.Resolved, len(fn.Code))
+		errs1   []source.SyntaxError
 	)
-	//
+	// link effects
+	for i, e := range fn.Effects {
+		var es []source.SyntaxError
+		//
+		effects[i], es = p.linkEffect(e)
+		//
+		errs1 = append(errs1, es...)
+	}
+	// link code
 	for i, c := range fn.Code {
 		var es []source.SyntaxError
 		//
@@ -181,7 +190,19 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	//
 	vars, errs2 := p.linkVariableDeclarations(fn.Variables)
 	//
-	return decl.NewFunction(fn.Name(), vars, codes), append(errs1, errs2...)
+	return decl.NewFunction(fn.Name(), effects, vars, codes), append(errs1, errs2...)
+}
+
+func (p *Linker) linkEffect(effect *symbol.Unresolved,
+) (*symbol.Resolved, []source.SyntaxError) {
+	// resolve this effect
+	ne, err := p.resolve(*effect, effect)
+	// take its address
+	neffect := &ne
+	// copy over source map info
+	p.srcmap.Copy(effect, neffect)
+	//
+	return neffect, err
 }
 
 func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
@@ -259,19 +280,32 @@ func (p *Linker) linkLVals(lvals []lval.Unresolved) ([]lval.Resolved, []source.S
 }
 
 func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxError) {
+	var (
+		nlval lval.Resolved
+		errs  []source.SyntaxError
+	)
+	//
 	switch lv := lv.(type) {
 	case *lval.Variable[symbol.Unresolved]:
-		return lval.NewVariable[symbol.Resolved](lv.Id), nil
+		nlval = lval.NewVariable[symbol.Resolved](lv.Id)
 	case *lval.MemAccess[symbol.Unresolved]:
 		// resolve symbols in memory name
 		name, errs1 := p.resolve(lv.Name, lv)
 		// resolve symbols in index expression
 		index, errs2 := p.linkExprs(lv.Args...)
 		//
-		return lval.NewMemAccess(name, index), append(errs1, errs2...)
+		nlval = lval.NewMemAccess(name, index)
+		//
+		errs = append(errs1, errs2...)
 	default:
 		return nil, p.srcmap.SyntaxErrors(lv, "unknown lval encountered")
 	}
+	//
+	if nlval != nil {
+		p.srcmap.Copy(lv, nlval)
+	}
+	//
+	return nlval, errs
 }
 
 func (p *Linker) linkCondition(cond expr.UnresolvedCondition) (expr.ResolvedCondition, []source.SyntaxError) {
@@ -414,7 +448,7 @@ func (p *Linker) resolve(name symbol.Unresolved, node any) (symbol.Resolved, []s
 			// now, check arity
 			if nIns > name.Inputs {
 				return sym, p.srcmap.SyntaxErrors(node, fmt.Sprintf("insufficient arguments (expected %d)", nIns))
-			} else if nIns < name.Inputs {
+			} else if nIns < name.Inputs && !name.HasAnyArity() {
 				return sym, p.srcmap.SyntaxErrors(node, fmt.Sprintf("too many arguments (expected %d)", nIns))
 			} else if msg, err := checkSymbolKind(c, name); err {
 				return sym, p.srcmap.SyntaxErrors(node, msg)
@@ -433,6 +467,12 @@ func checkSymbolKind(d decl.Unresolved, sym symbol.Unresolved) (msg string, err 
 	var nIns, _ = d.Arity()
 	//
 	switch sym.Kind {
+	case symbol.MEMORY_EFFECT:
+		if mem, ok := d.(*decl.UnresolvedMemory); ok && mem.IsReadable() && mem.IsWriteable() {
+			return "", false
+		}
+		//
+		return "invalid read/write memory", true
 	case symbol.READABLE_MEMORY:
 		if mem, ok := d.(*decl.UnresolvedMemory); ok && mem.IsReadable() {
 			return "", false

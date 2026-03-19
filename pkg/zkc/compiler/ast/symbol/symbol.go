@@ -39,4 +39,6 @@ const (
 	CONSTANT = 4
 	// TYPE_ALIAS identifies a alias symbol.
 	TYPE_ALIAS = 5
+	// MEMORY_EFFECT indicates a declared effect on some memory.
+	MEMORY_EFFECT = 6
 )
