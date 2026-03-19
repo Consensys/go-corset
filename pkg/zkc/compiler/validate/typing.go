@@ -215,7 +215,7 @@ func (p *TypeChecker) typeMemoryLVal(c *decl.ResolvedMemory, e *lval.MemAccess[s
 	if len(args) != len(c.Address) {
 		return nil, p.srcmaps.SyntaxErrors(e,
 			fmt.Sprintf("mismatched arguments (expected %d, found %d)", len(c.Address), len(args)))
-	} else if !effects.Contains(e.Name.Index) {
+	} else if !effects.Contains(e.Name.Index) && c.IsReadable() && c.IsWriteable() {
 		return nil, p.srcmaps.SyntaxErrors(e, "read/write memory not visible here")
 	} else if len(errs) == 0 {
 		// check argument types

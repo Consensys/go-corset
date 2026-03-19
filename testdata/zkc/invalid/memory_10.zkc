@@ -1,4 +1,4 @@
-//error:2:9-14:memory not visible here
+//error:2:13-19:effect already declared
 fn f<buffer,buffer>(addr:u16) -> (byte:u8) {
   byte = buffer[addr]
   return
