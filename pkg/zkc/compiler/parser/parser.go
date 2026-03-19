@@ -1151,7 +1151,7 @@ func (p *Parser) parseAccessExpr(env *Environment) (Expr, []source.SyntaxError) 
 		args, errs = p.parseExprList(RBRACE, env)
 		//
 		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
-	} else if !env.IsDeclared(name) {
+	} else if !env.IsDeclaredVariable(name) {
 		// Constant access
 		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
 	} else {

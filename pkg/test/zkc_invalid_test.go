@@ -308,6 +308,10 @@ func Test_ZkcInvalid_Memory_11(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/memory_11")
 }
 
+func Test_ZkcInvalid_Memory_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_12")
+}
+
 // ===================================================================
 // Static Tests
 // ===================================================================
