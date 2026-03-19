@@ -1,10 +1,10 @@
-pub input data(address:u1)->(data:u64)
-pub output lo(address:u1)->(lo:u32)
+// pub input data(address:u1)->(data:u64)
+// pub output lo(address:u1)->(lo:u32)
 
-fn main() {
-  lo[0] = lo_32_bits(data[0])
-  return
-}
+// fn main() {
+//  lo[0] = lo_32_bits(data[0])
+//  return
+//}
 
 fn lo_32_bits(value:u64) -> (lo:u32) {
    lo = (value & 0xffffffff) as u32
