@@ -55,6 +55,10 @@ func Test_ZkcBench_Mulhu(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/mulhu")
 }
 
+func Test_ZkcBench_Mulhsu(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulhsu")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
