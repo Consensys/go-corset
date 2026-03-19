@@ -12,7 +12,7 @@ fn mulhsu(a:u32,b:u32) -> (c:u32) {
    var a_tmp:u128 = sgn_extension_u32_u64(a) as u128 // left-pad a with sign extension to 128 bits
    var b_tmp:u128 = b as u128 // left-pad b to 128 bits
    var c_tmp:u128 = a_tmp * b_tmp // result fits in 128 bits
-   c = hi_32_bits((c_tmp & 0xFFFFFFFFFFFFFFFF) as u64)  // take the high 32 bits (after masking to 64 bits)
+   c = hi_32_bits((c_tmp & 0xFFFFFFFF_FFFFFFFF) as u64)  // take the high 32 bits (after masking to 64 bits)
    return
 }
 
