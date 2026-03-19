@@ -13,8 +13,6 @@
 package ast
 
 import (
-	"slices"
-
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
@@ -63,17 +61,17 @@ func constantDependencies(d *decl.ResolvedConstant) []uint {
 
 // findCycle performs DFS from start. It returns the declaration involved in a
 // cycle if one is found, else nil.
-func findCycle(start uint, program Program, path []uint, visited map[uint]bool) decl.Resolved {
+func findCycle(start uint, program Program, path, visited map[uint]bool) decl.Resolved {
 	if visited[start] {
 		// no cycle
 		return nil
 	}
 
 	// (1) we check we haven't met this node on the path
-	if len(path) != 0 && slices.Contains(path, start) {
+	if path[start] {
 		// we are in the presence of a cycle
 		// we mark all the nodes on the path as visited
-		for _, j := range path {
+		for j := range path {
 			visited[j] = true
 		}
 		// we return a cycle detection on the node
@@ -86,7 +84,7 @@ func findCycle(start uint, program Program, path []uint, visited map[uint]bool) 
 
 	// we mark the node on the path
 	// we detect cycle on the dependencies if any
-	path = append(path, start)
+	path[start] = true
 	for _, k := range deps {
 		if d := findCycle(k, program, path, visited); d != nil {
 			// we are in the presence of a cycle
@@ -108,7 +106,7 @@ func CycleDetection(program Program, srcmaps source.Maps[any]) []source.SyntaxEr
 	)
 
 	for i := range program.Components() {
-		path := []uint{} // path reset
+		path := make(map[uint]bool) // path reset
 		if d := findCycle(uint(i), program, path, visited); d != nil {
 			errors = append(errors, srcmaps.SyntaxErrors(d, "cyclic definition for "+d.Name())...)
 		}
