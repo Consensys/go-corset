@@ -221,6 +221,12 @@ func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
+	// Check for any effects
+	if p.match(LESS_THAN) {
+		if errs := p.parseMemoryEffects(&env); len(errs) > 0 {
+			return nil, errs
+		}
+	}
 	// Parse inputs
 	if errs = p.parseArgsList(variable.PARAMETER, &env); len(errs) > 0 {
 		return nil, errs
@@ -247,13 +253,50 @@ func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 		p.srcmap.Put(stmt, p.previousToken().Span)
 	}
 	// Construct function
-	fn := decl.NewFunction(name, env.variables, code)
+	fn := decl.NewFunction(name, env.effects, env.variables, code)
 	//
 	p.srcmap.Put(fn, p.spanOf(start, end-1))
 	// Done
 	return fn, nil
 }
 
+func (p *Parser) parseMemoryEffects(env *Environment) []source.SyntaxError {
+	var (
+		arg   string
+		errs  []source.SyntaxError
+		first = true
+	)
+	// Parse entries until end brace
+	for p.lookahead().Kind != GREATER_THAN {
+		// look for ","
+		if !first {
+			if _, errs = p.expect(COMMA); len(errs) > 0 {
+				return errs
+			}
+		}
+		//
+		first = false
+		// save lookahead here so errors point at the name token
+		lookahead := p.lookahead()
+		// parse name first (new syntax: name:type)
+		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
+			return errs
+		} else if env.IsDeclared(arg) {
+			return p.syntaxErrors(lookahead, "effect already declared")
+		}
+		// construct effect
+		sym := symbol.NewUnresolved(arg, symbol.MEMORY_EFFECT, symbol.ANY_INPUTS)
+		effect := &sym
+		//
+		p.srcmap.Put(effect, lookahead.Span)
+		//
+		env.DeclareEffect(effect)
+	}
+	// Advance past "}"
+	p.match(GREATER_THAN)
+	//
+	return nil
+}
 func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.SyntaxError {
 	var (
 		arg      string
@@ -280,7 +323,7 @@ func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.Sy
 		// parse name first (new syntax: name:type)
 		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
 			return errs
-		} else if env.IsVariable(arg) {
+		} else if env.IsDeclared(arg) {
 			return p.syntaxErrors(lookahead, "variable already declared")
 		}
 		// parse ':'
@@ -816,7 +859,7 @@ func (p *Parser) parseForInit(env *Environment) (stmt.Unresolved, []source.Synta
 		name, errs := p.parseIdentifier()
 		if len(errs) > 0 {
 			return nil, errs
-		} else if env.IsVariable(name) {
+		} else if env.IsDeclared(name) {
 			return nil, p.syntaxErrors(lookahead, "variable already declared")
 		}
 
@@ -908,7 +951,7 @@ func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxE
 		//
 		if len(errs) > 0 {
 			return nil, errs
-		} else if env.IsVariable(name) {
+		} else if env.IsDeclared(name) {
 			return nil, p.syntaxErrors(lookahead, "variable already declared")
 		}
 		// Parse ':'
@@ -1108,7 +1151,7 @@ func (p *Parser) parseAccessExpr(env *Environment) (Expr, []source.SyntaxError) 
 		args, errs = p.parseExprList(RBRACE, env)
 		//
 		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
-	} else if !env.IsVariable(name) {
+	} else if !env.IsDeclared(name) {
 		// Constant access
 		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
 	} else {
@@ -1180,7 +1223,7 @@ func (p *Parser) parseLVal(env *Environment) (LVal, []source.SyntaxError) {
 	//
 	if len(errs) > 0 {
 		return lv, errs
-	} else if env.IsVariable(reg) {
+	} else if env.IsDeclaredVariable(reg) {
 		lv = lval.NewVariable[symbol.Unresolved](env.LookupVariable(reg))
 	} else if !p.match(LSQUARE) {
 		return lv, p.syntaxErrors(lookahead, "unknown register")

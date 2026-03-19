@@ -187,7 +187,13 @@ func writeMemoryContents(values []*big.Int) {
 }
 
 func writeFunction(f *decl.ResolvedFunction, env data.ResolvedEnvironment) {
-	fmt.Printf("fn %s(", f.Name())
+	fmt.Printf("fn %s", f.Name())
+	// Write optional effects
+	if len(f.Effects) > 0 {
+		writeEffects(f.Effects)
+	}
+	//
+	fmt.Printf("(")
 	// parameters
 	writeFunctionArgs(variable.PARAMETER, f.Variables, env)
 	//
@@ -204,6 +210,20 @@ func writeFunction(f *decl.ResolvedFunction, env data.ResolvedEnvironment) {
 	}
 	// Done
 	fmt.Println("}")
+}
+
+func writeEffects(effects []*symbol.Resolved) {
+	fmt.Print("<")
+	//
+	for i, effect := range effects {
+		if i != 0 {
+			fmt.Print(",")
+		}
+		//
+		fmt.Print(effect)
+	}
+	//
+	fmt.Print(">")
 }
 
 func writeFunctionArgs(kind variable.Kind, variables []variable.ResolvedDescriptor, env data.ResolvedEnvironment) {
