@@ -58,6 +58,10 @@ func Test_ZkcBench_Mulhsu(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/mulhsu")
 }
 
+// func Test_ZkcBench_LongDivisionU32(t *testing.T) {
+//	checkZkcBench(t, "zkc/bench/long_division_u32")
+//}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

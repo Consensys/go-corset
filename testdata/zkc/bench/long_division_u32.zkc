@@ -1,0 +1,9 @@
+include "../lib/div.zkc"
+
+pub input data(address:u1)->(data:u32)
+pub output result(address:u1)->(result:u32)
+
+fn main() {
+  result[0] = long_division_u32(data[0],data[1],0)
+  return
+}
