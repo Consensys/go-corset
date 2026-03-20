@@ -66,6 +66,10 @@ func Test_ZkcInvalid_Basic_11(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_11")
 }
 
+func Test_ZkcInvalid_Basic_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_12")
+}
+
 // ===================================================================
 // If Tests
 // ===================================================================
@@ -110,6 +114,10 @@ func Test_ZkcInvalid_Constant_03(t *testing.T) {
 
 func Test_ZkcInvalid_Constant_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/constant_05")
+}
+
+func Test_ZkcInvalid_Constant_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_06")
 }
 
 // ===================================================================
@@ -288,6 +296,30 @@ func Test_ZkcInvalid_Memory_06(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/memory_06")
 }
 
+func Test_ZkcInvalid_Memory_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_07")
+}
+
+func Test_ZkcInvalid_Memory_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_08")
+}
+
+func Test_ZkcInvalid_Memory_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_09")
+}
+
+func Test_ZkcInvalid_Memory_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_10")
+}
+
+func Test_ZkcInvalid_Memory_11(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_11")
+}
+
+func Test_ZkcInvalid_Memory_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_12")
+}
+
 // ===================================================================
 // Static Tests
 // ===================================================================
@@ -399,12 +431,10 @@ func Test_ZkcInvalid_Cast_02(t *testing.T) {
 // Type Tests
 // ===================================================================
 
-// runtime: goroutine stack exceeds 1000000000-byte limit
-// Address with cycle_detection.go
-/*func Test_ZkcInvalid_Type_01(t *testing.T) {
+func Test_ZkcInvalid_Type_01(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_01")
 }
-*/
+
 func Test_ZkcInvalid_Type_02(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_02")
 }
@@ -419,6 +449,14 @@ func Test_ZkcInvalid_Type_04(t *testing.T) {
 
 func Test_ZkcInvalid_Type_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_05")
+}
+
+func Test_ZkcInvalid_Type_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_06")
+}
+
+func Test_ZkcInvalid_Type_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_07")
 }
 
 // ===================================================================

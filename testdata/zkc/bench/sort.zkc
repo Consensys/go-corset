@@ -3,7 +3,7 @@ pub input data_in(address:u32)->(bytes:u8)
 pub output data_out(address:u32)->(bytes:u8)
 memory buffer(address:u32)->(bytes:u8)
 
-fn main() {
+fn main<buffer>() {
   var len:u32 = data_len[0]
   read_input(len)
   sort_slice(0, len)
@@ -11,21 +11,21 @@ fn main() {
 }
 
 // Read n bytes of input data into buffer.
-fn read_input(n:u32) {
+fn read_input<buffer>(n:u32) {
   for i:u32 = 0; i < n; i=i+1 {
     buffer[i] = data_in[i]
   }
 }
 
 // Write n bytes from buffer into output data.
-fn write_output(n:u32) {
+fn write_output<buffer>(n:u32) {
   for i:u32 = 0; i < n; i=i+1 {
     data_out[i] = buffer[i]
   }
 }
 
 // Sort buffer slice between offsets m (inclusive) and n (exclusive)
-fn sort_slice(m:u32, n:u32)
+fn sort_slice<buffer>(m:u32, n:u32)
 // PRE: m <= n
 {
   var pivot:u32
@@ -40,7 +40,7 @@ fn sort_slice(m:u32, n:u32)
   }
 }
 
-fn partition(m:u32, n:u32) -> (p:u32) {
+fn partition<buffer>(m:u32, n:u32) -> (p:u32) {
   // identify last element
   var last:u32 = n - 1
   // first element is pivot
@@ -60,7 +60,7 @@ fn partition(m:u32, n:u32) -> (p:u32) {
   swap(p,last)
 }
 
-fn swap(i:u32,j:u32) {
+fn swap<buffer>(i:u32,j:u32) {
   var tmp:u8 = buffer[j]
   buffer[j] = buffer[i]
   buffer[i] = tmp

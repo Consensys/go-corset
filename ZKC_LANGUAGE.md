@@ -72,7 +72,7 @@ no inputs, and returns no outputs. Here is the `main` function for
 our example:
 
 ```zkc
-fn main() {
+fn main<buffer>() {
   var len:u32 = data_len[0]
   // write input bytes into buffer
   read_input(len)
@@ -85,24 +85,31 @@ fn main() {
 ```
 
 This function begins by simply copying the bytes to be sorted into the
-scratch `buffer`. This is because, to actually do the sort, will
-require an arbitrary mix of reads / writes to the data. Once the sort
-is completed, the sorted bytes are written from `buffer` into the
-output memory. **This is a typical structure for ZkC programs**.
+scratch `buffer`. This is because sorting requires an arbitrary mix of
+reads / writes to the data. Once the sort is completed, the sorted
+bytes are written from `buffer` into the output memory. **This is a
+typical structure for ZkC programs**.
+
+The declaration of `main<buffer>` includes `buffer` as a _memory
+effect_. This is a declaration that the `main` function may access
+the `buffer` memory. Whenever a function `f(...)` accesses read/write
+memory `M` (inc. calling a function which accesses `M`), it must
+declare this explicitly (e.g. `f<M>(...)`). Note that functions can
+declare multiple memory effects as required.
 
 The implementation of `read_input()` and `write_output()` is simple
 enough:
 
 ```zkc
 // Read n bytes of input data into buffer.
-fn read_input(n:u32) {
+fn read_input<buffer>(n:u32) {
   for i:u32 = 0; i < n; i=i+1 {
     buffer[i] = data_in[i]
   }
 }
 
 // Write n bytes from buffer into output data.
-fn write_output(m:u32) {
+fn write_output<buffer>(m:u32) {
   for i:u32 = 0; i < m; i=i+1 {
     data_out[i] = buffer[i]
   }
@@ -125,7 +132,7 @@ function is defined like so:
 
 ```zkc
 // Sort buffer slice between offsets m (inclusive) and n (exclusive)
-fn sort_slice(m:u32, n:u32)
+fn sort_slice<buffer>(m:u32, n:u32)
 // PRE: m <= n
 {
   var pivot:u32
@@ -153,7 +160,7 @@ Finally, expressions in ZkC are fairly general as the following
 illustrates:
 
 ```zkc
-fn partition(m:u32, n:u32) -> (p:u32) {
+fn partition<buffer>(m:u32, n:u32) -> (p:u32) {
   // identify last element
   var last:u32 = n - 1
   // first element is pivot
@@ -173,7 +180,7 @@ fn partition(m:u32, n:u32) -> (p:u32) {
   swap(p,last)
 }
 
-fn swap(i:u32,j:u32) {
+fn swap<buffer>(i:u32,j:u32) {
   var tmp:u8 = buffer[j]
   buffer[j] = buffer[i]
   buffer[i] = tmp
