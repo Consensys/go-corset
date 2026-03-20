@@ -252,7 +252,7 @@ func (p *Linker) linkInstruction(insn stmt.Unresolved) (stmt.Resolved, []source.
 	case *stmt.Return[symbol.Unresolved]:
 		ninsn = &stmt.Return[symbol.Resolved]{}
 	default:
-		panic("unknown instruction encountered")
+		return nil, p.srcmap.SyntaxErrors(insn, "invalid statement")
 	}
 	//
 	if ninsn != nil {
@@ -316,7 +316,7 @@ func (p *Linker) linkCondition(cond expr.UnresolvedCondition) (expr.ResolvedCond
 		//
 		return expr.NewCmp(e.Operator, lhs, rhs), append(lerrs, rerrs...)
 	default:
-		panic("unknown condition encountered")
+		return nil, p.srcmap.SyntaxErrors(cond, "invalid condition")
 	}
 }
 
@@ -331,9 +331,9 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	case *expr.Add[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewAdd[symbol.Resolved](args...)
-	case *expr.And[symbol.Unresolved]:
+	case *expr.BitwiseAnd[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
-		nexpr = expr.NewAnd[symbol.Resolved](args...)
+		nexpr = expr.NewBitwiseAnd[symbol.Resolved](args...)
 	case *expr.Const[symbol.Unresolved]:
 		nexpr = expr.NewConstant[symbol.Resolved](e.Constant, e.Base)
 	case *expr.ExternAccess[symbol.Unresolved]:
@@ -363,14 +363,14 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		if len(errors) == 0 {
 			nexpr = expr.NewCast[symbol.Resolved](ne, castType)
 		}
-	case *expr.Not[symbol.Unresolved]:
+	case *expr.BitwiseNot[symbol.Unresolved]:
 		var ne expr.Resolved
 
 		ne, errors = p.linkExpr(e.Expr)
-		nexpr = expr.NewNot[symbol.Resolved](ne)
-	case *expr.Or[symbol.Unresolved]:
+		nexpr = expr.NewBitwiseNot[symbol.Resolved](ne)
+	case *expr.BitwiseOr[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
-		nexpr = expr.NewOr[symbol.Resolved](args...)
+		nexpr = expr.NewBitwiseOr[symbol.Resolved](args...)
 	case *expr.Shl[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewShl[symbol.Resolved](args...)
@@ -392,7 +392,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewXor[symbol.Resolved](args...)
 	default:
-		panic("unknown expression encountered")
+		return nil, p.srcmap.SyntaxErrors(e, "invalid expression")
 	}
 	//
 	if nexpr != nil {

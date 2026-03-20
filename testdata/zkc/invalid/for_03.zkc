@@ -1,4 +1,4 @@
-//error:4:19-20:unknown comparator
+//error:4:17-18:invalid condition
 fn f(x:u8) -> (r:u8) {
   r = 0
   for i:u8 = 0; i = x; i = i + 1 {
