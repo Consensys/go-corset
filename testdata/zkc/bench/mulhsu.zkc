@@ -1,4 +1,4 @@
-include "../lib/hi_32_bits.zkc"
+include "../lib/bits32.zkc"
 include "../lib/sgn_extension_u32_u64.zkc"
 
 pub input data(address:u1)->(data:u32)
