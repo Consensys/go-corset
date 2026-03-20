@@ -13,8 +13,6 @@
 package expr
 
 import (
-	"math/big"
-
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
@@ -22,41 +20,41 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// Const represents a constant value within an expresion.
-type Const[S symbol.Symbol[S]] struct {
-	Label    string
-	Constant big.Int
-	Base     uint
+// LogicalOr represents a bitwise-or of one or more terms.
+type LogicalOr[S symbol.Symbol[S]] struct {
+	Exprs []Expr[S]
 }
 
-// NewConstant constructs an expression representing a constant value, along with a
-// base (which is used for pretty printing, etc).
-func NewConstant[S symbol.Symbol[S]](constant big.Int, base uint) Expr[S] {
-	return &Const[S]{Constant: constant, Base: base}
+// NewLogicalOr constructs an expression representing the bitwise-or of one or
+// more values.
+func NewLogicalOr[S symbol.Symbol[S]](exprs ...Expr[S]) Expr[S] {
+	if len(exprs) == 0 {
+		panic("one or more subexpressions required")
+	}
+	//
+	return &LogicalOr[S]{Exprs: exprs}
 }
 
 // ExternUses implementation for the Expr interface.
-func (p *Const[S]) ExternUses() set.AnySortedSet[S] {
-	return nil
+func (p *LogicalOr[S]) ExternUses() set.AnySortedSet[S] {
+	return externUses(p.Exprs...)
 }
 
 // LocalUses implementation for the Expr interface.
-func (p *Const[S]) LocalUses() bit.Set {
-	var empty bit.Set
-	return empty
+func (p *LogicalOr[S]) LocalUses() bit.Set {
+	return localUses(p.Exprs...)
 }
 
-func (p *Const[S]) String(mapping variable.Map[S]) string {
+func (p *LogicalOr[S]) String(mapping variable.Map[S]) string {
 	return String[S](p, mapping)
 }
 
 // SetType implementation for Expr interface
-func (p *Const[S]) SetType(t data.Type[S]) {
-
+func (p *LogicalOr[S]) SetType(t data.Type[S]) {
+	panic("unreachable")
 }
 
 // Type implementation for Expr interface
-func (p *Const[S]) Type() data.Type[S] {
-	bitwidth := uint(p.Constant.BitLen())
-	return data.NewUnsignedInt[S](bitwidth, true)
+func (p *LogicalOr[S]) Type() data.Type[S] {
+	panic("unreachable")
 }
