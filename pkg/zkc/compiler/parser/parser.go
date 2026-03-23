@@ -1026,40 +1026,48 @@ func (p *Parser) parseCondition(pc uint, sign bool, target uint, env Environment
 }
 
 <<<<<<< HEAD
-// parseTernaryOrExpr parses either a ternary expression (lhs op rhs ? ifTrue : ifFalse)
-// or a plain arithmetic expression. It is the top-level expression parser for
-// all value positions (assignments, var declarations, function arguments, etc.).
+// parseTernaryOrExpr parses either a ternary expression (cond ? ifTrue : ifFalse)
+// where cond is a comparison expression, or a plain arithmetic expression. It is
+// the top-level expression parser for all value positions (assignments, var
+// declarations, function arguments, etc.).
 func (p *Parser) parseTernaryOrExpr(env *Environment) (Expr, []source.SyntaxError) {
 	start := p.index
-	// Parse the potential LHS of a comparison
-	lhs, errs := p.parseExpr(env)
-	if len(errs) > 0 || !p.follows(COMPARATORS...) {
-		return lhs, errs
-	}
-	// We have a comparator — this is a ternary condition
-	op, errs := p.parseComparator()
+
+	// First parse a full expression, which may already be a comparison expression.
+	ex, errs := p.parseExpr(env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
-	rhs, errs := p.parseExpr(env)
-	if len(errs) > 0 {
+
+	// If the next token is not '?', this is just a plain expression.
+	if !p.follows(QMARK) {
+		return ex, nil
+	}
+
+	// We have a '?' — this is a ternary candidate. Require the condition to be a
+	// comparison expression; otherwise, leave parsing of '?' to higher-level logic.
+	cond, ok := ex.(*expr.Cmp[symbol.Unresolved])
+	if !ok {
+		return ex, nil
+	}
+
+	if _, errs := p.expect(QMARK); len(errs) > 0 {
 		return nil, errs
 	}
-	if _, errs = p.expect(QMARK); len(errs) > 0 {
-		return nil, errs
-	}
+
 	ifTrue, errs := p.parseTernaryOrExpr(env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
-	if _, errs = p.expect(COLON); len(errs) > 0 {
+
+	if _, errs := p.expect(COLON); len(errs) > 0 {
 		return nil, errs
 	}
+
 	ifFalse, errs := p.parseTernaryOrExpr(env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
-	cond := &expr.Cmp[symbol.Unresolved]{Operator: op, Left: lhs, Right: rhs}
 	result := expr.NewTernary[symbol.Unresolved](cond, ifTrue, ifFalse)
 	p.srcmap.Put(result, p.spanOf(start, p.index-1))
 	return result, nil
