@@ -17,6 +17,10 @@
 { "data": "0x00000064_fffffff6_00000000", "result":"0xfffffff6" }
 { "data": "0xffffff9c_fffffff6_00000000", "result":"0x0000000a" }
 { "data": "0x0000000b_00000003_00000000", "result":"0x00000003" }
+{ "data": "0x80000000_00000001_00000000", "result":"0x80000000" }
+{ "data": "0x7fffffff_00000001_00000000", "result":"0x7fffffff" }
+{ "data": "0x7fffffff_ffffffff_00000000", "result":"0x80000001" }
+{ "data": "0x7fffffff_80000000_00000000", "result":"0x00000000" }
 
 { "data": "0x00000001_00000000_00000001", "result":"0x00000001" }
 { "data": "0x80000000_ffffffff_00000001", "result":"0x00000000" }
@@ -37,3 +41,7 @@
 { "data": "0x00000064_fffffff6_00000001", "result":"0x00000000" }
 { "data": "0xffffff9c_fffffff6_00000001", "result":"0x00000000" }
 { "data": "0x0000000b_00000003_00000001", "result":"0x00000002" }
+{ "data": "0x80000000_00000001_00000001", "result":"0x00000000" }
+{ "data": "0x7fffffff_00000001_00000001", "result":"0x00000000" }
+{ "data": "0x7fffffff_ffffffff_00000001", "result":"0x00000000" }
+{ "data": "0x7fffffff_80000000_00000001", "result":"0x7fffffff" }
