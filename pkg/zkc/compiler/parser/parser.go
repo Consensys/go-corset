@@ -13,12 +13,12 @@
 package parser
 
 import (
-	"math"
 	"math/big"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -46,6 +46,12 @@ type Type = data.Type[symbol.Unresolved]
 // VariableDescriptor is a convenient alias
 type VariableDescriptor = variable.Descriptor[symbol.Unresolved]
 
+// IfGoto is a convenient alias
+type IfGoto = stmt.IfGoto[symbol.Unresolved]
+
+// Goto is a convenient alias
+type Goto = stmt.Goto[symbol.Unresolved]
+
 // UnlinkedSourceFile captures a source file has been successfully parsed but
 // which has not yet been linked.   As such, its possible that such a file may
 // fail with an error at link time due to an unresolvable reference to an
@@ -68,8 +74,12 @@ func Parse(srcfile *source.File) (UnlinkedSourceFile, []source.SyntaxError) {
 }
 
 // BINOPS captures the set of binary operations
-var BINOPS = []uint{SUB, MUL, ADD, DIV, REM, BITAND, BITOR, BITXOR, BITSHL, BITSHR}
+var BINOPS = []uint{
+	SUB, MUL, ADD, DIV, REM, BTIWISE_AND, BITWISE_OR, BITWISE_XOR, BITWISE_SHL,
+	BITWISE_SHR, EQUALS_EQUALS, NOT_EQUALS,
+	LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS}
 
+<<<<<<< HEAD
 // COMPARATORS captures the set of comparison operators used in ternary conditions
 var COMPARATORS = []uint{EQUALS_EQUALS, NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS}
 
@@ -80,6 +90,10 @@ const BREAK_SENTINEL = math.MaxUint
 // CONTINUE_SENTINEL is a placeholder target in Goto instructions emitted by
 // continue statements, replaced by the real continue target in patchContinues.
 const CONTINUE_SENTINEL = math.MaxUint - 1
+=======
+// LOGICAL_BINOPS captures the set of logical binary operations
+var LOGICAL_BINOPS = []uint{LOGICAL_AND, LOGICAL_OR}
+>>>>>>> main
 
 // ============================================================================
 // Assembler
@@ -160,7 +174,7 @@ func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
 		errs     []source.SyntaxError
 		datatype Type
 		name     string
-		env      Environment
+		env      = EmptyEnvironment()
 	)
 	// Parse const declaration
 	if _, errs := p.expect(KEYWORD_CONST); len(errs) > 0 {
@@ -177,7 +191,11 @@ func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
 	// Save for source map
 	end := p.index
 	// So far, so good.
+<<<<<<< HEAD
 	expr, errs := p.parseTernaryOrExpr(&env)
+=======
+	expr, errs := p.parseExpr(env)
+>>>>>>> main
 	//
 	component := decl.NewConstant[symbol.Unresolved](name, datatype, expr)
 	//
@@ -210,7 +228,7 @@ func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 	var (
 		start    = p.index
-		env      Environment
+		env      = EmptyEnvironment()
 		name     string
 		code     []stmt.Unresolved
 		errs     []source.SyntaxError
@@ -224,21 +242,27 @@ func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
+	// Check for any effects
+	if p.match(LESS_THAN) {
+		if errs := p.parseMemoryEffects(env); len(errs) > 0 {
+			return nil, errs
+		}
+	}
 	// Parse inputs
-	if errs = p.parseArgsList(variable.PARAMETER, &env); len(errs) > 0 {
+	if errs = p.parseArgsList(variable.PARAMETER, env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse optional '->'
 	if p.match(RIGHTARROW) {
 		// Parse returns
-		if errs = p.parseArgsList(variable.RETURN, &env); len(errs) > 0 {
+		if errs = p.parseArgsList(variable.RETURN, env); len(errs) > 0 {
 			return nil, errs
 		}
 	}
 	// Save for source map
 	end := p.index
 	// Parse start of block
-	if returned, code, errs = p.parseStatementBlock(0, &env, false); len(errs) > 0 {
+	if returned, code, errs = p.parseStatementBlock(0, env, util.None[uint](), util.None[uint]()); len(errs) > 0 {
 		return nil, errs
 	}
 	// Sanity check for implicit or explicit return
@@ -250,14 +274,51 @@ func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 		p.srcmap.Put(stmt, p.previousToken().Span)
 	}
 	// Construct function
-	fn := decl.NewFunction(name, env.variables, code)
+	fn := decl.NewFunction(name, env.Effects(), env.Variables(), code)
 	//
 	p.srcmap.Put(fn, p.spanOf(start, end-1))
 	// Done
 	return fn, nil
 }
 
-func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.SyntaxError {
+func (p *Parser) parseMemoryEffects(env Environment) []source.SyntaxError {
+	var (
+		arg   string
+		errs  []source.SyntaxError
+		first = true
+	)
+	// Parse entries until end brace
+	for p.lookahead().Kind != GREATER_THAN {
+		// look for ","
+		if !first {
+			if _, errs = p.expect(COMMA); len(errs) > 0 {
+				return errs
+			}
+		}
+		//
+		first = false
+		// save lookahead here so errors point at the name token
+		lookahead := p.lookahead()
+		// parse name first (new syntax: name:type)
+		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
+			return errs
+		} else if env.IsDeclared(arg) {
+			return p.syntaxErrors(lookahead, "effect already declared")
+		}
+		// construct effect
+		sym := symbol.NewUnresolved(arg, symbol.MEMORY_EFFECT, symbol.ANY_INPUTS)
+		effect := &sym
+		//
+		p.srcmap.Put(effect, lookahead.Span)
+		//
+		env.DeclareEffect(effect)
+	}
+	// Advance past "}"
+	p.match(GREATER_THAN)
+	//
+	return nil
+}
+func (p *Parser) parseArgsList(kind variable.Kind, env Environment) []source.SyntaxError {
 	var (
 		arg      string
 		datatype Type
@@ -283,7 +344,7 @@ func (p *Parser) parseArgsList(kind variable.Kind, env *Environment) []source.Sy
 		// parse name first (new syntax: name:type)
 		if arg, errs = p.parseIdentifier(); len(errs) > 0 {
 			return errs
-		} else if env.IsVariable(arg) {
+		} else if env.IsDeclared(arg) {
 			return p.syntaxErrors(lookahead, "variable already declared")
 		}
 		// parse ':'
@@ -525,7 +586,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	}
 }
 
-func (p *Parser) parseStatementBlock(pc uint, env *Environment, looping bool,
+func (p *Parser) parseStatementBlock(pc uint, env Environment, breakLab, contLab util.Option[uint],
 ) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	//
 	var (
@@ -533,6 +594,9 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment, looping bool,
 		insns    []stmt.Unresolved
 		returned bool
 	)
+	// Clone environment.  This is to ensure that variables declared in this
+	// block do not clash with those of the same name declared elsewhere.
+	env = env.Clone(breakLab, contLab)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
 		return false, nil, errs
@@ -544,7 +608,7 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment, looping bool,
 			ret bool
 		)
 		//
-		if ret, ith, errs = p.parseStatement(pc, env, looping); len(errs) > 0 {
+		if ret, ith, errs = p.parseStatement(pc, env); len(errs) > 0 {
 			return false, nil, errs
 		}
 		//
@@ -560,7 +624,7 @@ func (p *Parser) parseStatementBlock(pc uint, env *Environment, looping bool,
 	return returned, insns, errs
 }
 
-func (p *Parser) parseStatement(pc uint, env *Environment, looping bool,
+func (p *Parser) parseStatement(pc uint, env Environment,
 ) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	//
 	var (
@@ -576,19 +640,19 @@ func (p *Parser) parseStatement(pc uint, env *Environment, looping bool,
 	//
 	switch lookahead.Kind {
 	case KEYWORD_BREAK:
-		returned, insn, errs = p.parseBreak(looping)
+		returned, insn, errs = p.parseBreak(env)
 	case KEYWORD_CONTINUE:
-		returned, insn, errs = p.parseContinue(looping)
+		returned, insn, errs = p.parseContinue(env)
 	case KEYWORD_FAIL:
-		returned, insn, errs = p.parseFail(env)
+		returned, insn, errs = p.parseFail()
 	case KEYWORD_IF:
-		returned, insns, errs = p.parseIfElse(pc, env, looping)
+		returned, insns, errs = p.parseIfElse(pc, env)
 	case KEYWORD_FOR:
 		returned, insns, errs = p.parseFor(pc, env)
 	case KEYWORD_WHILE:
 		returned, insns, errs = p.parseWhile(pc, env)
 	case KEYWORD_RETURN:
-		returned, insn, errs = p.parseReturn(env)
+		returned, insn, errs = p.parseReturn()
 	case KEYWORD_VAR:
 		insns, errs = p.parseVar(env)
 	case IDENTIFIER:
@@ -617,7 +681,7 @@ func (p *Parser) parseStatement(pc uint, env *Environment, looping bool,
 	return returned, insns, errs
 }
 
-func (p *Parser) parseAssignment(env *Environment) (stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseAssignment(env Environment) (stmt.Unresolved, []source.SyntaxError) {
 	var (
 		lhs  []LVal
 		rhs  Expr
@@ -641,7 +705,7 @@ func (p *Parser) parseAssignment(env *Environment) (stmt.Unresolved, []source.Sy
 	return &stmt.Assign[symbol.Unresolved]{Targets: lhs, Source: rhs}, nil
 }
 
-func (p *Parser) parseCallStatement(env *Environment) (stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.SyntaxError) {
 	// Parse call as a general expression, since this ensures source mapping is
 	// handled.  This means, however, that we need to check afterwards that we
 	// actually got a call expression rather than a general expression.
@@ -657,29 +721,31 @@ func (p *Parser) parseCallStatement(env *Environment) (stmt.Unresolved, []source
 	return nil, p.srcmap.SyntaxErrors(call, "expression unused")
 }
 
-func (p *Parser) parseIfElse(pc uint, env *Environment, looping bool) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseIfElse(pc uint, env Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs              []source.SyntaxError
-		cond              Condition
-		insns             = []stmt.Unresolved{nil}
 		trueBranch        []stmt.Unresolved
 		falseBranch       []stmt.Unresolved
+		falseLabel        = env.FreshLabel()
+		insns             []stmt.Unresolved
 		trueRet, falseRet bool
 	)
 	// Match if
 	if _, errs := p.expect(KEYWORD_IF); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// save lookahead for error reporting
-	if cond, errs = p.parseCondition(env); len(errs) > 0 {
+	// Parse condition
+	if insns, errs = p.parseCondition(pc, false, falseLabel, env); len(errs) > 0 {
 		return false, nil, errs
 	}
+	//
+	n := uint(len(insns))
 	// Parse true branch
-	if trueRet, trueBranch, errs = p.parseStatementBlock(pc+1, env, looping); len(errs) > 0 {
+	if trueRet, trueBranch, errs = p.parseStatementBlock(pc+n, env, env.BreakLabel(), env.ContinueLabel()); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// falseTarget for if-goto
-	falseTarget := pc + 1 + uint(len(trueBranch))
+	falseTarget := pc + n + uint(len(trueBranch))
 	// Include the true branch
 	insns = append(insns, trueBranch...)
 	// Check for "else"
@@ -691,7 +757,9 @@ func (p *Parser) parseIfElse(pc uint, env *Environment, looping bool) (bool, []s
 			falseTarget++
 		}
 		// parse false branch
-		if falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, looping); len(errs) > 0 {
+		falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, env.BreakLabel(), env.ContinueLabel())
+		// Sanity check errors
+		if len(errs) > 0 {
 			return false, nil, errs
 		}
 		// add bypass (if applicablew)
@@ -702,54 +770,57 @@ func (p *Parser) parseIfElse(pc uint, env *Environment, looping bool) (bool, []s
 		// add false branch (if applicable)
 		insns = append(insns, falseBranch...)
 	}
-	// Configure initial if-goto
-	insns[0] = &stmt.IfGoto[symbol.Unresolved]{
-		Cond: cond.Negate(), Target: falseTarget}
-
+	// Patch false target
+	patchBranches(falseLabel, insns, falseTarget)
 	// Done
 	return trueRet && falseRet, insns, nil
 }
 
-func (p *Parser) parseWhile(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseWhile(pc uint, env Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
-		errs  []source.SyntaxError
-		cond  Condition
-		insns = []stmt.Unresolved{nil}
-		body  []stmt.Unresolved
+		errs           []source.SyntaxError
+		insns, body    []stmt.Unresolved
+		breakLabel     = env.FreshLabel()
+		continueLabel  = env.FreshLabel()
+		conditionLabel = env.FreshLabel()
 	)
 	// Match while
 	if _, errs = p.expect(KEYWORD_WHILE); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// Parse condition
-	if cond, errs = p.parseCondition(env); len(errs) > 0 {
+	if insns, errs = p.parseCondition(pc, false, conditionLabel, env); len(errs) > 0 {
 		return false, nil, errs
 	}
+	//
+	n := uint(len(insns))
 	// Parse body block; body starts at pc+1
-	if _, body, errs = p.parseStatementBlock(pc+1, env, true); len(errs) > 0 {
+	if _, body, errs = p.parseStatementBlock(pc+n, env, util.Some(breakLabel), util.Some(continueLabel)); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// Back-goto jumps to the if-goto at pc
+	//
 	insns = append(insns, body...)
 	insns = append(insns, &stmt.Goto[symbol.Unresolved]{Target: pc})
 	// The conditional skip jumps past the back-goto to the instruction after the loop
 	exitTarget := pc + uint(len(insns))
-	insns[0] = &stmt.IfGoto[symbol.Unresolved]{Cond: cond.Negate(), Target: exitTarget}
-	// Patch any break sentinels to jump to exit
-	patchBreaks(insns, exitTarget)
-	// Patch any continue sentinels to jump back to condition check
-	patchContinues(insns, pc)
+	// Patch any condition labels to jump to exit
+	patchBranches(conditionLabel, insns, exitTarget)
+	// Patch any break labels to jump to exit
+	patchBranches(breakLabel, insns, exitTarget)
+	// Patch any continue labels to jump back to condition check
+	patchBranches(continueLabel, insns, pc)
 	// A while loop never guarantees a return
 	return false, insns, nil
 }
 
-func (p *Parser) parseFor(pc uint, env *Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseFor(pc uint, env Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	var (
-		errs []source.SyntaxError
-		init stmt.Unresolved
-		cond Condition
-		post stmt.Unresolved
-		body []stmt.Unresolved
+		errs              []source.SyntaxError
+		init, post        stmt.Unresolved
+		insns, body, cond []stmt.Unresolved
+		breakLabel        = env.FreshLabel()
+		continueLabel     = env.FreshLabel()
+		conditionLabel    = env.FreshLabel()
 	)
 	// Match 'for'
 	if _, errs = p.expect(KEYWORD_FOR); len(errs) > 0 {
@@ -764,7 +835,7 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []stmt.Unresolved, [
 		return false, nil, errs
 	}
 	// Parse condition
-	if cond, errs = p.parseCondition(env); len(errs) > 0 {
+	if cond, errs = p.parseCondition(pc+1, false, conditionLabel, env); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// Parse ';'
@@ -775,32 +846,26 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []stmt.Unresolved, [
 	if post, errs = p.parseAssignment(env); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// Layout:
-	//   pc+0:                   init
-	//   pc+1:                   if !cond goto exit  (placeholder)
-	//   pc+2 .. pc+1+|body|:    body
-	//   pc+2+|body|:            post
-	//   pc+3+|body|:            goto pc+1
-	//   pc+4+|body| (exit):     ...
-	condPC := pc + 1
+	//
+	n := uint(len(cond))
 	// Parse body; starts at condPC+1 = pc+2
-	if _, body, errs = p.parseStatementBlock(condPC+1, env, true); len(errs) > 0 {
+	if _, body, errs = p.parseStatementBlock(pc+1+n, env, util.Some(breakLabel), util.Some(continueLabel)); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// Build the instruction sequence
-	insns := make([]stmt.Unresolved, 0, len(body)+4)
 	insns = append(insns, init)
-	insns = append(insns, nil) // placeholder for if-goto at condPC
+	insns = append(insns, cond...)
 	insns = append(insns, body...)
 	insns = append(insns, post)
-	insns = append(insns, &stmt.Goto[symbol.Unresolved]{Target: condPC})
+	insns = append(insns, &stmt.Goto[symbol.Unresolved]{Target: pc + 1})
 	// Fill in the conditional check: exit is the instruction after the back-goto
 	exitTarget := pc + uint(len(insns))
-	insns[1] = &stmt.IfGoto[symbol.Unresolved]{Cond: cond.Negate(), Target: exitTarget}
-	// Patch any break sentinels to jump to exit
-	patchBreaks(insns, exitTarget)
-	// Patch any continue sentinels to jump to the post instruction
-	patchContinues(insns, condPC+1+uint(len(body)))
+	// Patch any condition labels to jump to exit
+	patchBranches(conditionLabel, insns, exitTarget)
+	// Patch any break labels to jump to exit
+	patchBranches(breakLabel, insns, exitTarget)
+	// Patch any continue labels to jump to the post instruction
+	patchBranches(continueLabel, insns, pc+1+n+uint(len(body)))
 	// A for loop never guarantees a return
 	return false, insns, nil
 }
@@ -808,7 +873,7 @@ func (p *Parser) parseFor(pc uint, env *Environment) (bool, []stmt.Unresolved, [
 // parseForInit parses the initialiser of a for loop.  It accepts either an
 // inline variable declaration of the form "name:type = expr" or a plain
 // assignment to an already-declared variable.
-func (p *Parser) parseForInit(env *Environment) (stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseForInit(env Environment) (stmt.Unresolved, []source.SyntaxError) {
 	// Detect "name:type = expr" by peeking one token ahead.
 	if p.index+1 < len(p.tokens) &&
 		p.tokens[p.index].Kind == IDENTIFIER &&
@@ -819,7 +884,7 @@ func (p *Parser) parseForInit(env *Environment) (stmt.Unresolved, []source.Synta
 		name, errs := p.parseIdentifier()
 		if len(errs) > 0 {
 			return nil, errs
-		} else if env.IsVariable(name) {
+		} else if env.IsDeclared(name) {
 			return nil, p.syntaxErrors(lookahead, "variable already declared")
 		}
 
@@ -851,7 +916,7 @@ func (p *Parser) parseForInit(env *Environment) (stmt.Unresolved, []source.Synta
 	return p.parseAssignment(env)
 }
 
-func (p *Parser) parseReturn(env *Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseReturn() (bool, stmt.Unresolved, []source.SyntaxError) {
 	if _, errs := p.expect(KEYWORD_RETURN); len(errs) > 0 {
 		return true, nil, errs
 	}
@@ -859,40 +924,47 @@ func (p *Parser) parseReturn(env *Environment) (bool, stmt.Unresolved, []source.
 	return true, &stmt.Return[symbol.Unresolved]{}, nil
 }
 
-func (p *Parser) parseFail(env *Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseFail() (bool, stmt.Unresolved, []source.SyntaxError) {
 	if _, errs := p.expect(KEYWORD_FAIL); len(errs) > 0 {
 		return true, nil, errs
 	}
 	//
 	return true, &stmt.Fail[symbol.Unresolved]{}, nil
 }
-func (p *Parser) parseBreak(looping bool) (bool, stmt.Unresolved, []source.SyntaxError) {
-	tok, errs := p.expect(KEYWORD_BREAK)
+func (p *Parser) parseBreak(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+	var (
+		label     = env.BreakLabel()
+		tok, errs = p.expect(KEYWORD_BREAK)
+	)
+	//
 	if len(errs) > 0 {
 		return true, nil, errs
 	}
 
-	if !looping {
+	if !label.HasValue() {
 		return true, nil, p.syntaxErrors(tok, "break outside loop")
 	}
 
-	return true, &stmt.Goto[symbol.Unresolved]{Target: BREAK_SENTINEL}, nil
+	return true, &stmt.Goto[symbol.Unresolved]{Target: label.Unwrap()}, nil
 }
 
-func (p *Parser) parseContinue(looping bool) (bool, stmt.Unresolved, []source.SyntaxError) {
-	tok, errs := p.expect(KEYWORD_CONTINUE)
+func (p *Parser) parseContinue(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+	var (
+		label     = env.ContinueLabel()
+		tok, errs = p.expect(KEYWORD_CONTINUE)
+	)
 	if len(errs) > 0 {
 		return true, nil, errs
 	}
 
-	if !looping {
+	if !label.HasValue() {
 		return true, nil, p.syntaxErrors(tok, "continue outside loop")
 	}
 
-	return true, &stmt.Goto[symbol.Unresolved]{Target: CONTINUE_SENTINEL}, nil
+	return true, &stmt.Goto[symbol.Unresolved]{Target: label.Unwrap()}, nil
 }
 
-func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs  []source.SyntaxError
 		names []string
@@ -911,7 +983,7 @@ func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxE
 		//
 		if len(errs) > 0 {
 			return nil, errs
-		} else if env.IsVariable(name) {
+		} else if env.IsDeclared(name) {
 			return nil, p.syntaxErrors(lookahead, "variable already declared")
 		}
 		// Parse ':'
@@ -955,28 +1027,22 @@ func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxE
 	return []stmt.Unresolved{insn}, nil
 }
 
-func (p *Parser) parseCondition(env *Environment) (Condition, []source.SyntaxError) {
-	var (
-		errs     []source.SyntaxError
-		lhs, rhs Expr
-		op       expr.CmpOp
-	)
-	// Parse left hand side
-	if lhs, errs = p.parseExpr(env); len(errs) > 0 {
-		return nil, errs
-	}
-	// save lookahead for error reporting
-	if op, errs = p.parseComparator(); len(errs) > 0 {
-		return nil, errs
-	}
-	// Parse right hand side
-	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
-		return nil, errs
-	}
+func (p *Parser) parseCondition(pc uint, sign bool, target uint, env Environment,
+) ([]stmt.Unresolved, []source.SyntaxError) {
 	//
-	return &expr.Cmp[symbol.Unresolved]{Operator: op, Left: lhs, Right: rhs}, nil
+	var (
+		errs []source.SyntaxError
+		expr Expr
+	)
+	// Parse condition
+	if expr, errs = p.parseExpr(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// Back-goto jumps to the if-goto at pc
+	return p.flatternCondition(expr, pc, sign, target, env)
 }
 
+<<<<<<< HEAD
 // parseTernaryOrExpr parses either a ternary expression (lhs op rhs ? ifTrue : ifFalse)
 // or a plain arithmetic expression. It is the top-level expression parser for
 // all value positions (assignments, var declarations, function arguments, etc.).
@@ -1017,11 +1083,54 @@ func (p *Parser) parseTernaryOrExpr(env *Environment) (Expr, []source.SyntaxErro
 }
 
 func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
+=======
+func (p *Parser) parseExpr(env Environment) (Expr, []source.SyntaxError) {
+	var (
+		start     = p.index
+		arg, errs = p.parseArithExpr(env)
+		args      = []Expr{arg}
+		tmp       Expr
+	)
+	// initialise lookahead
+	kind := p.lookahead().Kind
+	//
+	for len(errs) == 0 && p.follows(LOGICAL_BINOPS...) {
+		// Sanity check
+		if !p.follows(kind) {
+			return tmp, p.syntaxErrors(p.lookahead(), "braces required")
+		}
+		// Consume connective
+		p.expect(p.lookahead().Kind)
+		//
+		tmp, errs = p.parseArithExpr(env)
+		// Accumulate arguments
+		args = append(args, tmp)
+	}
+	//
+	switch {
+	case len(errs) != 0:
+		return nil, errs
+	case len(args) == 1:
+		return arg, nil
+	case kind == LOGICAL_AND:
+		arg = expr.NewLogicalAnd(args...)
+	case kind == LOGICAL_OR:
+		arg = expr.NewLogicalOr(args...)
+	}
+	//
+	p.srcmap.Put(arg, p.spanOf(start, p.index-1))
+	//
+	return arg, errs
+}
+
+func (p *Parser) parseArithExpr(env Environment) (Expr, []source.SyntaxError) {
+>>>>>>> main
 	var (
 		start     = p.index
 		arg, errs = p.parseUnitExpr(env)
 		args      = []Expr{arg}
 		tmp       Expr
+		binary    bool
 	)
 	// initialise lookahead
 	kind := p.lookahead().Kind
@@ -1046,15 +1155,15 @@ func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
 		return arg, nil
 	case kind == ADD:
 		arg = expr.NewAdd(args...)
-	case kind == BITAND:
-		arg = expr.NewAnd(args...)
-	case kind == BITOR:
-		arg = expr.NewOr(args...)
-	case kind == BITXOR:
+	case kind == BTIWISE_AND:
+		arg = expr.NewBitwiseAnd(args...)
+	case kind == BITWISE_OR:
+		arg = expr.NewBitwiseOr(args...)
+	case kind == BITWISE_XOR:
 		arg = expr.NewXor(args...)
-	case kind == BITSHL:
+	case kind == BITWISE_SHL:
 		arg = expr.NewShl(args...)
-	case kind == BITSHR:
+	case kind == BITWISE_SHR:
 		arg = expr.NewShr(args...)
 	case kind == MUL:
 		arg = expr.NewMul(args...)
@@ -1064,14 +1173,36 @@ func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
 		arg = expr.NewRem(args...)
 	case kind == SUB:
 		arg = expr.NewSub(args...)
+	case kind == EQUALS_EQUALS:
+		binary = true
+		arg = expr.NewCmp(expr.EQ, args[0], args[1])
+	case kind == NOT_EQUALS:
+		binary = true
+		arg = expr.NewCmp(expr.NEQ, args[0], args[1])
+	case kind == LESS_THAN:
+		binary = true
+		arg = expr.NewCmp(expr.LT, args[0], args[1])
+	case kind == LESS_THAN_EQUALS:
+		binary = true
+		arg = expr.NewCmp(expr.LTEQ, args[0], args[1])
+	case kind == GREATER_THAN_EQUALS:
+		binary = true
+		arg = expr.NewCmp(expr.GTEQ, args[0], args[1])
+	case kind == GREATER_THAN:
+		binary = true
+		arg = expr.NewCmp(expr.GT, args[0], args[1])
 	}
 	//
 	p.srcmap.Put(arg, p.spanOf(start, p.index-1))
 	//
+	if binary && len(args) != 2 {
+		return nil, p.srcmap.SyntaxErrors(arg, "invalid binary expresion")
+	}
+	//
 	return arg, nil
 }
 
-func (p *Parser) parseUnitExpr(env *Environment) (Expr, []source.SyntaxError) {
+func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		lookahead = p.lookahead()
 		errors    []source.SyntaxError
@@ -1091,14 +1222,23 @@ func (p *Parser) parseUnitExpr(env *Environment) (Expr, []source.SyntaxError) {
 		base := p.baserOfNumber(lookahead)
 		//
 		nexpr = expr.NewConstant[symbol.Unresolved](val, base)
-	case BITNOT:
-		p.match(BITNOT)
+	case BITWISE_NOT:
+		p.match(BITWISE_NOT)
 
 		var operand Expr
 
 		operand, errors = p.parseUnitExpr(env)
 		if len(errors) == 0 {
-			nexpr = expr.NewNot(operand)
+			nexpr = expr.NewBitwiseNot(operand)
+		}
+	case LOGICAL_NOT:
+		p.match(LOGICAL_NOT)
+
+		var operand Expr
+
+		operand, errors = p.parseUnitExpr(env)
+		if len(errors) == 0 {
+			nexpr = expr.NewLogicalNot(operand)
 		}
 	case LBRACE:
 		p.match(LBRACE)
@@ -1129,7 +1269,7 @@ func (p *Parser) parseUnitExpr(env *Environment) (Expr, []source.SyntaxError) {
 	return nexpr, errors
 }
 
-func (p *Parser) parseAccessExpr(env *Environment) (Expr, []source.SyntaxError) {
+func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		nexpr Expr
 		errs  []source.SyntaxError
@@ -1150,7 +1290,7 @@ func (p *Parser) parseAccessExpr(env *Environment) (Expr, []source.SyntaxError) 
 		args, errs = p.parseExprList(RBRACE, env)
 		//
 		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
-	} else if !env.IsVariable(name) {
+	} else if !env.IsDeclaredVariable(name) {
 		// Constant access
 		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
 	} else {
@@ -1165,7 +1305,7 @@ func (p *Parser) parseAccessExpr(env *Environment) (Expr, []source.SyntaxError) 
 
 // Parse sequence of one or more expressions separated by a comma.
 // nolint
-func (p *Parser) parseExprList(terminator uint, env *Environment) ([]Expr, []source.SyntaxError) {
+func (p *Parser) parseExprList(terminator uint, env Environment) ([]Expr, []source.SyntaxError) {
 	var (
 		lhs  = make([]Expr, 0)
 		errs []source.SyntaxError
@@ -1189,7 +1329,7 @@ func (p *Parser) parseExprList(terminator uint, env *Environment) ([]Expr, []sou
 	return lhs, nil
 }
 
-func (p *Parser) parseLVals(env *Environment) ([]LVal, []source.SyntaxError) {
+func (p *Parser) parseLVals(env Environment) ([]LVal, []source.SyntaxError) {
 	var (
 		lhs  []LVal = make([]LVal, 1)
 		errs []source.SyntaxError
@@ -1211,7 +1351,7 @@ func (p *Parser) parseLVals(env *Environment) ([]LVal, []source.SyntaxError) {
 	return lhs, nil
 }
 
-func (p *Parser) parseLVal(env *Environment) (LVal, []source.SyntaxError) {
+func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	var (
 		lv        LVal
 		start     = p.index
@@ -1222,7 +1362,7 @@ func (p *Parser) parseLVal(env *Environment) (LVal, []source.SyntaxError) {
 	//
 	if len(errs) > 0 {
 		return lv, errs
-	} else if env.IsVariable(reg) {
+	} else if env.IsDeclaredVariable(reg) {
 		lv = lval.NewVariable[symbol.Unresolved](env.LookupVariable(reg))
 	} else if !p.match(LSQUARE) {
 		return lv, p.syntaxErrors(lookahead, "unknown register")
@@ -1248,34 +1388,6 @@ func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 	}
 	//
 	return p.string(tok), nil
-}
-
-func (p *Parser) parseComparator() (expr.CmpOp, []source.SyntaxError) {
-	var (
-		lookahead = p.lookahead()
-		op        expr.CmpOp
-	)
-	// Parse operation
-	switch lookahead.Kind {
-	case EQUALS_EQUALS:
-		op = expr.EQ
-	case NOT_EQUALS:
-		op = expr.NEQ
-	case LESS_THAN:
-		op = expr.LT
-	case LESS_THAN_EQUALS:
-		op = expr.LTEQ
-	case GREATER_THAN:
-		op = expr.GT
-	case GREATER_THAN_EQUALS:
-		op = expr.GTEQ
-	default:
-		return math.MaxUint8, p.syntaxErrors(lookahead, "unknown comparator")
-	}
-	//
-	p.match(lookahead.Kind)
-	//
-	return op, nil
 }
 
 // Get the text representing the given token as a string.
@@ -1383,40 +1495,94 @@ func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError 
 	return []source.SyntaxError{*p.srcfile.SyntaxError(token.Span, msg)}
 }
 
-// Label represents a potentially unresolved label within an assembly.
-type Label struct {
-	// Name of the label
-	name string
-	// PC position the label represents.  This will be math.MaxUint until the
-	// label is officially declared.
-	pc uint
-}
-
-// UnboundLabel constructs a label whose PC location is (as yet) unknown.
-func UnboundLabel(name string) Label {
-	return Label{name, math.MaxUint}
-}
-
-// BoundLabel constructs a label whose PC location is known.
-func BoundLabel(name string, pc uint) Label {
-	return Label{name, pc}
-}
-
-// patchBreaks replaces all break sentinels (Goto with Target == math.MaxUint)
-// in the instruction list with the given exit target.
-func patchBreaks(insns []stmt.Unresolved, target uint) {
-	for _, insn := range insns {
-		if g, ok := insn.(*stmt.Goto[symbol.Unresolved]); ok && g.Target == BREAK_SENTINEL {
-			g.Target = target
+// Flattern a given condition starting at a given program counter position into
+// a sequence of one or more instructions.  The intention is: (1) for positive
+// sign, branch to target label if condition holds (otherwise fall through); (2)
+// for negative sign, branch to target label if condition does not hold
+// (otherwise fall through).
+func (p *Parser) flatternCondition(cond Expr, pc uint, sign bool, target uint, env Environment,
+) ([]stmt.Unresolved, []source.SyntaxError) {
+	switch c := cond.(type) {
+	case *expr.Cmp[symbol.Unresolved]:
+		return p.flatternComparison(c, sign, target)
+	case *expr.LogicalAnd[symbol.Unresolved]:
+		if sign {
+			return p.flatternLogicalAnd(c.Exprs, pc, true, target, env)
+		} else {
+			return p.flatternLogicalOr(c.Exprs, pc, false, target, env)
 		}
+	case *expr.LogicalOr[symbol.Unresolved]:
+		if sign {
+			return p.flatternLogicalOr(c.Exprs, pc, true, target, env)
+		} else {
+			return p.flatternLogicalAnd(c.Exprs, pc, false, target, env)
+		}
+	case *expr.LogicalNot[symbol.Unresolved]:
+		return p.flatternCondition(c.Expr, pc, !sign, target, env)
+	default:
+		return nil, p.srcmap.SyntaxErrors(cond, "invalid condition")
 	}
 }
 
-// patchContinues replaces all continue sentinels (Goto with Target == CONTINUE_SENTINEL)
-// in the instruction list with the given continue target.
-func patchContinues(insns []stmt.Unresolved, target uint) {
+func (p *Parser) flatternLogicalAnd(args []Expr, pc uint, sign bool, target uint, env Environment,
+) ([]stmt.Unresolved, []source.SyntaxError) {
+	var (
+		label = env.FreshLabel()
+		stmts []stmt.Unresolved
+	)
+	//
+	for _, arg := range args {
+		ss, errs := p.flatternCondition(arg, pc+uint(len(stmts)), !sign, label, env)
+		//
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		stmts = append(stmts, ss...)
+	}
+	//
+	stmts = append(stmts, &Goto{Target: target})
+	// Patch labels
+	patchBranches(label, stmts, pc+uint(len(stmts)))
+	//
+	return stmts, nil
+}
+
+func (p *Parser) flatternLogicalOr(args []Expr, pc uint, sign bool, target uint, env Environment,
+) ([]stmt.Unresolved, []source.SyntaxError) {
+	var stmts []stmt.Unresolved
+	//
+	for _, arg := range args {
+		ss, errs := p.flatternCondition(arg, pc+uint(len(stmts)), sign, target, env)
+		//
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		stmts = append(stmts, ss...)
+	}
+	//
+	return stmts, nil
+}
+
+func (p *Parser) flatternComparison(cond *expr.Cmp[symbol.Unresolved], sign bool, target uint,
+) ([]stmt.Unresolved, []source.SyntaxError) {
+	var stmts []stmt.Unresolved
+	//
+	if sign {
+		return append(stmts, &IfGoto{Cond: cond, Target: target}), nil
+	} else {
+		return append(stmts, &IfGoto{Cond: cond.Negate(), Target: target}), nil
+	}
+}
+
+// patchBranches replaces all occurrences of the given marker in a branching
+// instruction (i.e. goto or if-goto) with the given target.
+func patchBranches(label uint, insns []stmt.Unresolved, target uint) {
 	for _, insn := range insns {
-		if g, ok := insn.(*stmt.Goto[symbol.Unresolved]); ok && g.Target == CONTINUE_SENTINEL {
+		if g, ok := insn.(*stmt.Goto[symbol.Unresolved]); ok && g.Target == label {
+			g.Target = target
+		} else if g, ok := insn.(*stmt.IfGoto[symbol.Unresolved]); ok && g.Target == label {
 			g.Target = target
 		}
 	}

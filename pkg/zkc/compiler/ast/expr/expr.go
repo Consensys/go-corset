@@ -95,10 +95,10 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Add[S]:
 		operator = "+"
 		exprs = e.Exprs
-	case *And[S]:
+	case *BitwiseAnd[S]:
 		operator = "&"
 		exprs = e.Exprs
-	case *Or[S]:
+	case *BitwiseOr[S]:
 		operator = "|"
 		exprs = e.Exprs
 	case *Xor[S]:
@@ -111,9 +111,9 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Mul[S]:
 		exprs = e.Exprs
 		operator = "*"
-	case *Not[S]:
-		if needsBraces(e.Expr) {
-			return "~(" + String(e.Expr, mapping) + ")"
+	case *BitwiseNot[S]:
+		if needsBraces[S](e.Expr) {
+			return "~(" + String[S](e.Expr, mapping) + ")"
 		}
 		return "~" + String(e.Expr, mapping)
 	case *ExternAccess[S]:

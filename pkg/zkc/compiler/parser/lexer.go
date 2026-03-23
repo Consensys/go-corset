@@ -144,41 +144,50 @@ const GREATER_THAN uint = 66
 // GREATER_THAN_EQUALS signals ">="
 const GREATER_THAN_EQUALS uint = 67
 
+// LOGICAL_AND signals "&&"
+const LOGICAL_AND uint = 68
+
+// LOGICAL_OR signals "||"
+const LOGICAL_OR uint = 69
+
+// LOGICAL_NOT signals "!"
+const LOGICAL_NOT uint = 70
+
 // ADD signals "+"
-const ADD uint = 68
+const ADD uint = 80
 
 // SUB signals "-"
-const SUB uint = 69
+const SUB uint = 81
 
 // MUL signals "*"
-const MUL uint = 70
+const MUL uint = 82
 
 // DIV signals "/"
-const DIV uint = 71
+const DIV uint = 83
 
-// BITAND signals "&"
-const BITAND uint = 72
+// BTIWISE_AND signals "&"
+const BTIWISE_AND uint = 84
 
-// BITOR signals "|"
-const BITOR uint = 73
+// BITWISE_OR signals "|"
+const BITWISE_OR uint = 85
 
-// BITXOR signals "^"
-const BITXOR uint = 74
+// BITWISE_XOR signals "^"
+const BITWISE_XOR uint = 86
 
-// BITNOT signals "~"
-const BITNOT uint = 75
+// BITWISE_NOT signals "~"
+const BITWISE_NOT uint = 87
 
-// BITSHL signals "<<"
-const BITSHL uint = 76
+// BITWISE_SHL signals "<<"
+const BITWISE_SHL uint = 88
 
-// BITSHR signals ">>"
-const BITSHR uint = 77
+// BITWISE_SHR signals ">>"
+const BITWISE_SHR uint = 89
 
 // REM signals "%"
-const REM uint = 78
+const REM uint = 90
 
 // QMARK signals "?"
-const QMARK uint = 80
+const QMARK uint = 91
 
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
@@ -246,8 +255,8 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('!', '='), NOT_EQUALS),
 	lex.Rule(lex.Unit('<', '='), LESS_THAN_EQUALS),
 	lex.Rule(lex.Unit('>', '='), GREATER_THAN_EQUALS),
-	lex.Rule(lex.Unit('<', '<'), BITSHL),
-	lex.Rule(lex.Unit('>', '>'), BITSHR),
+	lex.Rule(lex.Unit('<', '<'), BITWISE_SHL),
+	lex.Rule(lex.Unit('>', '>'), BITWISE_SHR),
 	lex.Rule(lex.Unit('<'), LESS_THAN),
 	lex.Rule(lex.Unit('>'), GREATER_THAN),
 	lex.Rule(lex.Unit('='), EQUALS),
@@ -256,10 +265,13 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('*'), MUL),
 	lex.Rule(lex.Unit('/'), DIV),
 	lex.Rule(lex.Unit('%'), REM),
-	lex.Rule(lex.Unit('&'), BITAND),
-	lex.Rule(lex.Unit('|'), BITOR),
-	lex.Rule(lex.Unit('^'), BITXOR),
-	lex.Rule(lex.Unit('~'), BITNOT),
+	lex.Rule(lex.Unit('!'), LOGICAL_NOT),
+	lex.Rule(lex.Unit('&', '&'), LOGICAL_AND),
+	lex.Rule(lex.Unit('|', '|'), LOGICAL_OR),
+	lex.Rule(lex.Unit('&'), BTIWISE_AND),
+	lex.Rule(lex.Unit('|'), BITWISE_OR),
+	lex.Rule(lex.Unit('^'), BITWISE_XOR),
+	lex.Rule(lex.Unit('~'), BITWISE_NOT),
 	lex.Rule(lex.Unit('?'), QMARK),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),

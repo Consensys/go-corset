@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -91,6 +92,16 @@ func (p *Cmp[S]) LocalUses() bit.Set {
 	reads.Union(p.Right.LocalUses())
 	//
 	return reads
+}
+
+// SetType implementation for Expr interface
+func (p *Cmp[S]) SetType(t data.Type[S]) {
+	panic("unreachable")
+}
+
+// Type implementation for Expr interface
+func (p *Cmp[S]) Type() data.Type[S] {
+	panic("unreachable")
 }
 
 func (p *Cmp[S]) String(env variable.Map[S]) string {

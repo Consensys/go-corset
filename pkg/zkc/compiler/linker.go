@@ -29,7 +29,7 @@ import (
 
 // Link a set of one or more source files together to produce a complete program
 // (or one or more errors).  Linking is the process of resolving external
-// identifiers used within a source file, or generateing errors when this fails.
+// identifiers used within a source file, or generating errors when this fails.
 // For example, if a function in one source file calls another function in a
 // different source file, then this linkage needs to be resolved (i.e. checked).
 // This can fail for various reasons: for example, if no function of the given
@@ -41,7 +41,7 @@ func Link(files ...parser.UnlinkedSourceFile) (ast.Program, source.Maps[any], []
 		linker  = NewLinker()
 		errors  []source.SyntaxError
 	)
-	// Constuct bus and source mappings
+	// Construct bus and source mappings
 	for _, item := range files {
 		linker.Join(item.SourceMap)
 		//
@@ -137,7 +137,7 @@ func (p *Linker) Link() (ast.Program, []source.SyntaxError) {
 
 // Link all buses used within this function to their intended targets.  This
 // means, for every bus used locally, settings the global bus identifier and
-// also allocated regisers for the address/data lines.
+// also allocated registers for the address/data lines.
 func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxError) {
 	switch d := p.components[index].(type) {
 	case *decl.UnresolvedConstant:
@@ -167,10 +167,19 @@ func (p *Linker) linkConstant(fn decl.UnresolvedConstant) (decl.Resolved, []sour
 
 func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []source.SyntaxError) {
 	var (
-		codes = make([]stmt.Resolved, len(fn.Code))
-		errs1 []source.SyntaxError
+		effects = make([]*symbol.Resolved, len(fn.Effects))
+		codes   = make([]stmt.Resolved, len(fn.Code))
+		errs1   []source.SyntaxError
 	)
-	//
+	// link effects
+	for i, e := range fn.Effects {
+		var es []source.SyntaxError
+		//
+		effects[i], es = p.linkEffect(e)
+		//
+		errs1 = append(errs1, es...)
+	}
+	// link code
 	for i, c := range fn.Code {
 		var es []source.SyntaxError
 		//
@@ -181,7 +190,19 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	//
 	vars, errs2 := p.linkVariableDeclarations(fn.Variables)
 	//
-	return decl.NewFunction(fn.Name(), vars, codes), append(errs1, errs2...)
+	return decl.NewFunction(fn.Name(), effects, vars, codes), append(errs1, errs2...)
+}
+
+func (p *Linker) linkEffect(effect *symbol.Unresolved,
+) (*symbol.Resolved, []source.SyntaxError) {
+	// resolve this effect
+	ne, err := p.resolve(*effect, effect)
+	// take its address
+	neffect := &ne
+	// copy over source map info
+	p.srcmap.Copy(effect, neffect)
+	//
+	return neffect, err
 }
 
 func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
@@ -231,7 +252,7 @@ func (p *Linker) linkInstruction(insn stmt.Unresolved) (stmt.Resolved, []source.
 	case *stmt.Return[symbol.Unresolved]:
 		ninsn = &stmt.Return[symbol.Resolved]{}
 	default:
-		panic("unknown instruction encountered")
+		return nil, p.srcmap.SyntaxErrors(insn, "invalid statement")
 	}
 	//
 	if ninsn != nil {
@@ -259,19 +280,32 @@ func (p *Linker) linkLVals(lvals []lval.Unresolved) ([]lval.Resolved, []source.S
 }
 
 func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxError) {
+	var (
+		nlval lval.Resolved
+		errs  []source.SyntaxError
+	)
+	//
 	switch lv := lv.(type) {
 	case *lval.Variable[symbol.Unresolved]:
-		return lval.NewVariable[symbol.Resolved](lv.Id), nil
+		nlval = lval.NewVariable[symbol.Resolved](lv.Id)
 	case *lval.MemAccess[symbol.Unresolved]:
 		// resolve symbols in memory name
 		name, errs1 := p.resolve(lv.Name, lv)
 		// resolve symbols in index expression
 		index, errs2 := p.linkExprs(lv.Args...)
 		//
-		return lval.NewMemAccess(name, index), append(errs1, errs2...)
+		nlval = lval.NewMemAccess(name, index)
+		//
+		errs = append(errs1, errs2...)
 	default:
 		return nil, p.srcmap.SyntaxErrors(lv, "unknown lval encountered")
 	}
+	//
+	if nlval != nil {
+		p.srcmap.Copy(lv, nlval)
+	}
+	//
+	return nlval, errs
 }
 
 func (p *Linker) linkCondition(cond expr.UnresolvedCondition) (expr.ResolvedCondition, []source.SyntaxError) {
@@ -282,7 +316,7 @@ func (p *Linker) linkCondition(cond expr.UnresolvedCondition) (expr.ResolvedCond
 		//
 		return expr.NewCmp(e.Operator, lhs, rhs), append(lerrs, rerrs...)
 	default:
-		panic("unknown condition encountered")
+		return nil, p.srcmap.SyntaxErrors(cond, "invalid condition")
 	}
 }
 
@@ -297,9 +331,9 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	case *expr.Add[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewAdd[symbol.Resolved](args...)
-	case *expr.And[symbol.Unresolved]:
+	case *expr.BitwiseAnd[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
-		nexpr = expr.NewAnd[symbol.Resolved](args...)
+		nexpr = expr.NewBitwiseAnd[symbol.Resolved](args...)
 	case *expr.Const[symbol.Unresolved]:
 		nexpr = expr.NewConstant[symbol.Resolved](e.Constant, e.Base)
 	case *expr.ExternAccess[symbol.Unresolved]:
@@ -329,14 +363,14 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		if len(errors) == 0 {
 			nexpr = expr.NewCast[symbol.Resolved](ne, castType)
 		}
-	case *expr.Not[symbol.Unresolved]:
+	case *expr.BitwiseNot[symbol.Unresolved]:
 		var ne expr.Resolved
 
 		ne, errors = p.linkExpr(e.Expr)
-		nexpr = expr.NewNot[symbol.Resolved](ne)
-	case *expr.Or[symbol.Unresolved]:
+		nexpr = expr.NewBitwiseNot[symbol.Resolved](ne)
+	case *expr.BitwiseOr[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
-		nexpr = expr.NewOr[symbol.Resolved](args...)
+		nexpr = expr.NewBitwiseOr[symbol.Resolved](args...)
 	case *expr.Shl[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewShl[symbol.Resolved](args...)
@@ -366,7 +400,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		errors = append(append(append(errors, cerrs...), terrs...), ferrs...)
 
 	default:
-		panic("unknown expression encountered")
+		return nil, p.srcmap.SyntaxErrors(e, "invalid expression")
 	}
 	//
 	if nexpr != nil {
@@ -422,7 +456,7 @@ func (p *Linker) resolve(name symbol.Unresolved, node any) (symbol.Resolved, []s
 			// now, check arity
 			if nIns > name.Inputs {
 				return sym, p.srcmap.SyntaxErrors(node, fmt.Sprintf("insufficient arguments (expected %d)", nIns))
-			} else if nIns < name.Inputs {
+			} else if nIns < name.Inputs && !name.HasAnyArity() {
 				return sym, p.srcmap.SyntaxErrors(node, fmt.Sprintf("too many arguments (expected %d)", nIns))
 			} else if msg, err := checkSymbolKind(c, name); err {
 				return sym, p.srcmap.SyntaxErrors(node, msg)
@@ -441,6 +475,12 @@ func checkSymbolKind(d decl.Unresolved, sym symbol.Unresolved) (msg string, err 
 	var nIns, _ = d.Arity()
 	//
 	switch sym.Kind {
+	case symbol.MEMORY_EFFECT:
+		if mem, ok := d.(*decl.UnresolvedMemory); ok && mem.IsReadable() && mem.IsWriteable() {
+			return "", false
+		}
+		//
+		return "invalid read/write memory", true
 	case symbol.READABLE_MEMORY:
 		if mem, ok := d.(*decl.UnresolvedMemory); ok && mem.IsReadable() {
 			return "", false
