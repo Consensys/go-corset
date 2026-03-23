@@ -22,34 +22,34 @@ import (
 
 // Ternary represents a conditional expression: condition ? ifTrue : ifFalse
 type Ternary[S symbol.Symbol[S]] struct {
-    Cond     Condition[S]
-    IfTrue   Expr[S]
-    IfFalse  Expr[S]
-    datatype data.Type[S]
+	Cond     Condition[S]
+	IfTrue   Expr[S]
+	IfFalse  Expr[S]
+	datatype data.Type[S]
 }
 
 func NewTernary[S symbol.Symbol[S]](cond Condition[S], ifTrue, ifFalse Expr[S]) Expr[S] {
-    return &Ternary[S]{Cond: cond, IfTrue: ifTrue, IfFalse: ifFalse}
+	return &Ternary[S]{Cond: cond, IfTrue: ifTrue, IfFalse: ifFalse}
 }
 
 func (p *Ternary[S]) ExternUses() set.AnySortedSet[S] {
-    r := p.Cond.ExternUses()
-    branchUses := externUses(p.IfTrue, p.IfFalse)
-    r.InsertSorted(&branchUses)
-    return r
+	r := p.Cond.ExternUses()
+	branchUses := externUses(p.IfTrue, p.IfFalse)
+	r.InsertSorted(&branchUses)
+	return r
 }
 
 func (p *Ternary[S]) LocalUses() bit.Set {
-    var bits bit.Set
-    bits.Union(p.Cond.LocalUses())
-    bits.Union(p.IfTrue.LocalUses())
-    bits.Union(p.IfFalse.LocalUses())
-    return bits
+	var bits bit.Set
+	bits.Union(p.Cond.LocalUses())
+	bits.Union(p.IfTrue.LocalUses())
+	bits.Union(p.IfFalse.LocalUses())
+	return bits
 }
 
 func (p *Ternary[S]) String(mapping variable.Map[S]) string {
-    return p.Cond.String(mapping) + " ? " +
-        p.IfTrue.String(mapping) + " : " + p.IfFalse.String(mapping)
+	return p.Cond.String(mapping) + " ? " +
+		p.IfTrue.String(mapping) + " : " + p.IfFalse.String(mapping)
 }
 
 func (p *Ternary[S]) SetType(t data.Type[S]) { p.datatype = t }
