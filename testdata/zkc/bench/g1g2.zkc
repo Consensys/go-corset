@@ -1,0 +1,34 @@
+pub input vA_input(address:u1) -> (word:u64)
+pub input vB_input(address:u1) -> (word:u64)
+pub input vC_input(address:u1) -> (word:u64)
+pub input vD_input(address:u1) -> (word:u64)
+pub input x(address:u1) -> (word:u64)
+pub input y(address:u1) -> (word:u64)
+pub output vA_out(address:u1) -> (word:u64)
+pub output vB_out(address:u1) -> (word:u64)
+pub output vC_out(address:u1) -> (word:u64)
+pub output vD_out(address:u1) -> (word:u64)
+
+const MASK64:u128 = 0xFFFFFFFFFFFFFFFF
+
+fn main() {
+    var vA:u64
+    var vB:u64
+    var vC:u64
+    var vD:u64
+    // g1
+    vA = (( vA_input[0] as u128 + vB_input[0] as u128 + x[0] as u128 ) & MASK64) as u64
+    vD = (( vD_input[0] ^ vA ) >> 32) | (( vD_input[0] ^ vA ) << 32)
+    vC = (( vC_input[0] as u128 + vD as u128 ) & MASK64) as u64
+    vB = (( vB_input[0] ^ vC ) >> 24) | (( vB_input[0] ^ vC ) << 40)
+    // g2
+    vA = ((vA as u128 + vB as u128 + y[0] as u128) & MASK64) as u64
+    vD = (( vD ^ vA ) >> 16) | (( vD ^ vA ) << 48)
+    vC = ((vC as u128 + vD as u128 ) & MASK64) as u64
+    vB = (( vB ^ vC ) >> 63) | (( vB ^ vC ) << 1)
+    // result
+    vA_out[0] = vA
+    vB_out[0] = vB
+    vC_out[0] = vC
+    vD_out[0] = vD
+}
