@@ -1,4 +1,4 @@
-include "../lib/bits32.zkc"
+include "../lib/bits_32.zkc"
 
 pub input data(address:u1)->(data:u64)
 pub output hi(address:u1)->(hi:u32)

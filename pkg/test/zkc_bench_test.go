@@ -42,25 +42,29 @@ func Test_ZkcBench_Hi32Bits(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/hi_32_bits")
 }
 
-func Test_ZkcBench_Mul(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/mul")
+func Test_ZkcBench_Mul32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mul_32")
 }
 
-func Test_ZkcBench_Mulh(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/mulh")
+func Test_ZkcBench_Mulh32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulh_32")
 }
 
-func Test_ZkcBench_Mulhu(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/mulhu")
+func Test_ZkcBench_Mulhu32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulhu_32")
 }
 
-func Test_ZkcBench_Mulhsu(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/mulhsu")
+func Test_ZkcBench_Mulhsu32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulhsu_32")
 }
 
-// func Test_ZkcBench_LongDivisionU32(t *testing.T) {
-//	checkZkcBench(t, "zkc/bench/long_division_u32")
-//}
+func Test_ZkcBench_LongDivisionU32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/long_division_u32")
+}
+
+func Test_ZkcBench_DivuRemu32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/divu_remu_32")
+}
 
 // ===================================================================
 // Test Helpers

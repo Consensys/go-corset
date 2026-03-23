@@ -1,4 +1,4 @@
-include "../lib/mul.zkc"
+include "../lib/mul_32.zkc"
 
 pub input data(address:u1)->(data:u32)
 pub output product(address:u1)->(product:u32)
