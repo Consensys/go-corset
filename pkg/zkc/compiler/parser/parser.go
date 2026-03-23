@@ -75,7 +75,7 @@ func Parse(srcfile *source.File) (UnlinkedSourceFile, []source.SyntaxError) {
 
 // BINOPS captures the set of binary operations
 var BINOPS = []uint{
-	SUB, MUL, ADD, DIV, REM, BTIWISE_AND, BITWISE_OR, BITWISE_XOR, BITWISE_SHL,
+	SUB, MUL, ADD, DIV, REM, BITWISE_AND, BITWISE_OR, BITWISE_XOR, BITWISE_SHL,
 	BITWISE_SHR, EQUALS_EQUALS, NOT_EQUALS,
 	LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS}
 
@@ -178,7 +178,7 @@ func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
 	// Save for source map
 	end := p.index
 	// So far, so good.
-	expr, errs := p.parseTernaryOrExpr(&env)
+	expr, errs := p.parseTernaryOrExpr(env)
 	//
 	component := decl.NewConstant[symbol.Unresolved](name, datatype, expr)
 	//
@@ -681,7 +681,7 @@ func (p *Parser) parseAssignment(env Environment) (stmt.Unresolved, []source.Syn
 		return nil, errs
 	}
 	// Parse right-hand side
-	if rhs, errs = p.parseTernaryOrExpr(&env); len(errs) > 0 {
+	if rhs, errs = p.parseTernaryOrExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -692,7 +692,7 @@ func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.
 	// Parse call as a general expression, since this ensures source mapping is
 	// handled.  This means, however, that we need to check afterwards that we
 	// actually got a call expression rather than a general expression.
-	call, errs := p.parseExpr(&env)
+	call, errs := p.parseExpr(env)
 	//
 	if len(errs) > 0 {
 		return nil, errs
@@ -745,7 +745,7 @@ func (p *Parser) parseIfElse(pc uint, env Environment) (bool, []stmt.Unresolved,
 		if len(errs) > 0 {
 			return false, nil, errs
 		}
-		// add bypass (if applicablew)
+		// add bypass (if applicable)
 		if !trueRet {
 			endTarget := falseTarget + uint(len(falseBranch))
 			insns = append(insns, &stmt.Goto[symbol.Unresolved]{Target: endTarget})
@@ -886,7 +886,7 @@ func (p *Parser) parseForInit(env Environment) (stmt.Unresolved, []source.Syntax
 			return nil, errs
 		}
 
-		rhs, errs := p.parseTernaryOrExpr(&env)
+		rhs, errs := p.parseTernaryOrExpr(env)
 		if len(errs) > 0 {
 			return nil, errs
 		}
@@ -996,7 +996,7 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 		return nil, p.syntaxErrors(p.lookahead(), "initialiser requires single variable declaration")
 	}
 	// Parse the initialiser expression
-	rhs, errs := p.parseTernaryOrExpr(&env)
+	rhs, errs := p.parseTernaryOrExpr(env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
@@ -1018,7 +1018,7 @@ func (p *Parser) parseCondition(pc uint, sign bool, target uint, env Environment
 		expr Expr
 	)
 	// Parse condition
-	if expr, errs = p.parseExpr(&env); len(errs) > 0 {
+	if expr, errs = p.parseExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Back-goto jumps to the if-goto at pc
@@ -1029,7 +1029,7 @@ func (p *Parser) parseCondition(pc uint, sign bool, target uint, env Environment
 // where cond is a comparison expression, or a plain arithmetic expression. It is
 // the top-level expression parser for all value positions (assignments, var
 // declarations, function arguments, etc.).
-func (p *Parser) parseTernaryOrExpr(env *Environment) (Expr, []source.SyntaxError) {
+func (p *Parser) parseTernaryOrExpr(env Environment) (Expr, []source.SyntaxError) {
 	start := p.index
 
 	// First parse a full expression, which may already be a comparison expression.
@@ -1072,7 +1072,7 @@ func (p *Parser) parseTernaryOrExpr(env *Environment) (Expr, []source.SyntaxErro
 	return result, nil
 }
 
-func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
+func (p *Parser) parseExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		start     = p.index
 		arg, errs = p.parseArithExpr(env)
@@ -1142,7 +1142,7 @@ func (p *Parser) parseArithExpr(env Environment) (Expr, []source.SyntaxError) {
 		return arg, nil
 	case kind == ADD:
 		arg = expr.NewAdd(args...)
-	case kind == BTIWISE_AND:
+	case kind == BITWISE_AND:
 		arg = expr.NewBitwiseAnd(args...)
 	case kind == BITWISE_OR:
 		arg = expr.NewBitwiseOr(args...)
@@ -1229,7 +1229,7 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 		}
 	case LBRACE:
 		p.match(LBRACE)
-		nexpr, errors = p.parseTernaryOrExpr(&env)
+		nexpr, errors = p.parseTernaryOrExpr(env)
 		//
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
@@ -1306,7 +1306,7 @@ func (p *Parser) parseExprList(terminator uint, env Environment) ([]Expr, []sour
 			return nil, p.syntaxErrors(lookahead, "expected ,")
 		}
 		//
-		if expr, errs = p.parseTernaryOrExpr(&env); len(errs) > 0 {
+		if expr, errs = p.parseTernaryOrExpr(env); len(errs) > 0 {
 			return nil, errs
 		}
 		// Add register to lhs

@@ -165,8 +165,8 @@ const MUL uint = 82
 // DIV signals "/"
 const DIV uint = 83
 
-// BTIWISE_AND signals "&"
-const BTIWISE_AND uint = 84
+// BITWISE_AND signals "&"
+const BITWISE_AND uint = 84
 
 // BITWISE_OR signals "|"
 const BITWISE_OR uint = 85
@@ -268,7 +268,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('!'), LOGICAL_NOT),
 	lex.Rule(lex.Unit('&', '&'), LOGICAL_AND),
 	lex.Rule(lex.Unit('|', '|'), LOGICAL_OR),
-	lex.Rule(lex.Unit('&'), BTIWISE_AND),
+	lex.Rule(lex.Unit('&'), BITWISE_AND),
 	lex.Rule(lex.Unit('|'), BITWISE_OR),
 	lex.Rule(lex.Unit('^'), BITWISE_XOR),
 	lex.Rule(lex.Unit('~'), BITWISE_NOT),
