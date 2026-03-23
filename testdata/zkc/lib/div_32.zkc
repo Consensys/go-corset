@@ -25,39 +25,30 @@ fn abs_u32(value:u32) -> (out:u32) {
 
 // unsigned binary long division
 fn long_division_u32(a:u32, b:u32, get_remainder:u1) -> (result:u32) {
-    // if b == 0 {
-    //     if get_remainder == 0 {
-    //         result = MINUS_ONE
-    //         return
-    //     }
-    //     // get_remainder == 1
-    //     result = a
-    //     return
-    // } // division by zero
-    // var q:u32 = 0
-    // var r:u32  = 0
-    // for i:u32 = 0; i < 32; i = i + 1 {
-    //     r = ((r << 1) | ((a >> (31 - i)) & 1))
-    //     if r >= b {
-    //         r = r - b
-    //         q = q | (1 << (31 - i))
-    //     }
-    // }
-    // if get_remainder == 0 {
-    //     result = q
-    //     return
-    // }
-    // // get_remainder == 1
-    // result = r
-    // return
-
-    // version using / and % operators (TODO: it should be equivalent to the above)
+    if b == 0 {
+        if get_remainder == 0 {
+            result = MINUS_ONE
+            return
+        }
+        // get_remainder == 1
+        result = a
+        return
+    } // division by zero
+    var q:u32 = 0
+    var r:u32  = 0
+    for i:u32 = 0; i < 32; i = i + 1 {
+        r = ((r << 1) | ((a >> (31 - i)) & 1))
+        if r >= b {
+            r = r - b
+            q = q | (1 << (31 - i))
+        }
+    }
     if get_remainder == 0 {
-        result = divu(a, b)
+        result = q
         return
     }
     // get_remainder == 1
-    result = remu(a, b)
+    result = r
     return
 }
 
