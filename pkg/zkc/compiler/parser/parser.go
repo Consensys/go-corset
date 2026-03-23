@@ -79,21 +79,8 @@ var BINOPS = []uint{
 	BITWISE_SHR, EQUALS_EQUALS, NOT_EQUALS,
 	LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS}
 
-<<<<<<< HEAD
-// COMPARATORS captures the set of comparison operators used in ternary conditions
-var COMPARATORS = []uint{EQUALS_EQUALS, NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS}
-
-// BREAK_SENTINEL is a placeholder target in Goto instructions emitted by break
-// statements, replaced by the real exit target in patchBreaks.
-const BREAK_SENTINEL = math.MaxUint
-
-// CONTINUE_SENTINEL is a placeholder target in Goto instructions emitted by
-// continue statements, replaced by the real continue target in patchContinues.
-const CONTINUE_SENTINEL = math.MaxUint - 1
-=======
 // LOGICAL_BINOPS captures the set of logical binary operations
 var LOGICAL_BINOPS = []uint{LOGICAL_AND, LOGICAL_OR}
->>>>>>> main
 
 // ============================================================================
 // Assembler
