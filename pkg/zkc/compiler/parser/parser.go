@@ -178,11 +178,7 @@ func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
 	// Save for source map
 	end := p.index
 	// So far, so good.
-<<<<<<< HEAD
 	expr, errs := p.parseTernaryOrExpr(&env)
-=======
-	expr, errs := p.parseExpr(env)
->>>>>>> main
 	//
 	component := decl.NewConstant[symbol.Unresolved](name, datatype, expr)
 	//
