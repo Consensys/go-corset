@@ -63,7 +63,13 @@ func Test_ZkcBench_LongDivisionU32(t *testing.T) {
 }
 
 func Test_ZkcBench_DivuRemu32(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/divu_remu_32")
+	checkZkcBench(t, "zkc/bench/long_division_u32")
+	// we use the same testing file as the one for
+	// LongDivisionU32 and check if we want q or r
+}
+
+func Test_ZkcBench_DivRem32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/div_rem_32")
 }
 
 // ===================================================================
