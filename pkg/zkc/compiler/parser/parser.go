@@ -681,7 +681,7 @@ func (p *Parser) parseAssignment(env Environment) (stmt.Unresolved, []source.Syn
 		return nil, errs
 	}
 	// Parse right-hand side
-	if rhs, errs = p.parseTernaryOrExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseTernaryOrExpr(&env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -692,7 +692,7 @@ func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.
 	// Parse call as a general expression, since this ensures source mapping is
 	// handled.  This means, however, that we need to check afterwards that we
 	// actually got a call expression rather than a general expression.
-	call, errs := p.parseExpr(env)
+	call, errs := p.parseExpr(&env)
 	//
 	if len(errs) > 0 {
 		return nil, errs
@@ -886,7 +886,7 @@ func (p *Parser) parseForInit(env Environment) (stmt.Unresolved, []source.Syntax
 			return nil, errs
 		}
 
-		rhs, errs := p.parseTernaryOrExpr(env)
+		rhs, errs := p.parseTernaryOrExpr(&env)
 		if len(errs) > 0 {
 			return nil, errs
 		}
@@ -996,7 +996,7 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 		return nil, p.syntaxErrors(p.lookahead(), "initialiser requires single variable declaration")
 	}
 	// Parse the initialiser expression
-	rhs, errs := p.parseTernaryOrExpr(env)
+	rhs, errs := p.parseTernaryOrExpr(&env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
@@ -1018,14 +1018,13 @@ func (p *Parser) parseCondition(pc uint, sign bool, target uint, env Environment
 		expr Expr
 	)
 	// Parse condition
-	if expr, errs = p.parseExpr(env); len(errs) > 0 {
+	if expr, errs = p.parseExpr(&env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Back-goto jumps to the if-goto at pc
 	return p.flatternCondition(expr, pc, sign, target, env)
 }
 
-<<<<<<< HEAD
 // parseTernaryOrExpr parses either a ternary expression (cond ? ifTrue : ifFalse)
 // where cond is a comparison expression, or a plain arithmetic expression. It is
 // the top-level expression parser for all value positions (assignments, var
@@ -1074,8 +1073,6 @@ func (p *Parser) parseTernaryOrExpr(env *Environment) (Expr, []source.SyntaxErro
 }
 
 func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
-=======
-func (p *Parser) parseExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		start     = p.index
 		arg, errs = p.parseArithExpr(env)
@@ -1115,7 +1112,6 @@ func (p *Parser) parseExpr(env Environment) (Expr, []source.SyntaxError) {
 }
 
 func (p *Parser) parseArithExpr(env Environment) (Expr, []source.SyntaxError) {
->>>>>>> main
 	var (
 		start     = p.index
 		arg, errs = p.parseUnitExpr(env)
@@ -1187,7 +1183,7 @@ func (p *Parser) parseArithExpr(env Environment) (Expr, []source.SyntaxError) {
 	p.srcmap.Put(arg, p.spanOf(start, p.index-1))
 	//
 	if binary && len(args) != 2 {
-		return nil, p.srcmap.SyntaxErrors(arg, "invalid binary expresion")
+		return nil, p.srcmap.SyntaxErrors(arg, "invalid binary expression")
 	}
 	//
 	return arg, nil
@@ -1233,7 +1229,7 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 		}
 	case LBRACE:
 		p.match(LBRACE)
-		nexpr, errors = p.parseTernaryOrExpr(env)
+		nexpr, errors = p.parseTernaryOrExpr(&env)
 		//
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
@@ -1310,7 +1306,7 @@ func (p *Parser) parseExprList(terminator uint, env Environment) ([]Expr, []sour
 			return nil, p.syntaxErrors(lookahead, "expected ,")
 		}
 		//
-		if expr, errs = p.parseTernaryOrExpr(env); len(errs) > 0 {
+		if expr, errs = p.parseTernaryOrExpr(&env); len(errs) > 0 {
 			return nil, errs
 		}
 		// Add register to lhs
