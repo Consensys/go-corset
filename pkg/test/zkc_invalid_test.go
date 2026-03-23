@@ -460,6 +460,26 @@ func Test_ZkcInvalid_Type_07(t *testing.T) {
 }
 
 // ===================================================================
+// Printf Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Printf_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_01")
+}
+
+func Test_ZkcInvalid_Printf_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_02")
+}
+
+func Test_ZkcInvalid_Printf_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_03")
+}
+
+func Test_ZkcInvalid_Printf_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_04")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

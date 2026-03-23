@@ -321,6 +321,18 @@ func Test_ZkcUnit_Call_02(t *testing.T) {
 }
 
 // ===================================================================
+// Printg Tests
+// ===================================================================
+
+func Test_ZkcUnit_Printf_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/printf_01")
+}
+
+func Test_ZkcUnit_Printf_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/printf_02")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 
