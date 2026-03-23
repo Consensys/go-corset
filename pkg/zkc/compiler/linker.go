@@ -357,6 +357,14 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	case *expr.Xor[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewXor[symbol.Resolved](args...)
+
+	case *expr.Ternary[symbol.Unresolved]:
+		cond, cerrs := p.linkCondition(e.Cond)
+		ifTrue, terrs := p.linkExpr(e.IfTrue)
+		ifFalse, ferrs := p.linkExpr(e.IfFalse)
+		nexpr = expr.NewTernary[symbol.Resolved](cond, ifTrue, ifFalse)
+		errors = append(append(append(errors, cerrs...), terrs...), ferrs...)
+
 	default:
 		panic("unknown expression encountered")
 	}

@@ -205,6 +205,9 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.Xor[symbol.Resolved]:
 		insns, insn = p.compileXor(e.Exprs, mapping, targets[0])
 		unitExpr = true
+	case *expr.Ternary[symbol.Resolved]:
+		insns, insn = p.compileTernary(e, mapping, targets[0])
+		unitExpr = true
 	default:
 		panic("unknown expression encountered")
 	}
@@ -214,6 +217,29 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	}
 	//
 	return append(insns, insn)
+}
+
+func (p *Compiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping []uint, target register.Id,
+) ([]MicroInstruction, MicroInstruction) {
+	cmp := e.Cond.(*expr.Cmp[symbol.Resolved])
+	// Eagerly evaluate both branches into temporaries.
+	trueRegs, trueInsns := p.compileArgs(mapping, e.IfTrue)
+	falseRegs, falseInsns := p.compileArgs(mapping, e.IfFalse)
+	// Evaluate condition operands.
+	condRegs, condInsns := p.compileArgs(mapping, cmp.Left, cmp.Right)
+	// Selection sequence:
+	//   skip_if(cond, lhs, rhs, 2)      if TRUE skip false-copy + skip(1)
+	//   add(target, [falseReg], 0)       false branch (skipped when TRUE)
+	//   skip(1)                          skip over true branch
+	//   add(target, [trueReg], 0)        true branch  (returned as final insn)
+	var zero word.Uint
+	insns := append(trueInsns, falseInsns...)
+	insns = append(insns, condInsns...)
+	insns = append(insns, instruction.NewSkipIf(instruction.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
+	insns = append(insns, instruction.NewAdd[word.Uint](target, []register.Id{falseRegs[0]}, zero))
+	insns = append(insns, &instruction.Skip{Skip: 1})
+
+	return insns, instruction.NewAdd[word.Uint](target, []register.Id{trueRegs[0]}, zero)
 }
 
 func (p *Compiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, target register.Id,

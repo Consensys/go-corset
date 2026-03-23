@@ -70,6 +70,9 @@ func Parse(srcfile *source.File) (UnlinkedSourceFile, []source.SyntaxError) {
 // BINOPS captures the set of binary operations
 var BINOPS = []uint{SUB, MUL, ADD, DIV, REM, BITAND, BITOR, BITXOR, BITSHL, BITSHR}
 
+// COMPARATORS captures the set of comparison operators used in ternary conditions
+var COMPARATORS = []uint{EQUALS_EQUALS, NOT_EQUALS, LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS}
+
 // BREAK_SENTINEL is a placeholder target in Goto instructions emitted by break
 // statements, replaced by the real exit target in patchBreaks.
 const BREAK_SENTINEL = math.MaxUint
@@ -174,7 +177,7 @@ func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
 	// Save for source map
 	end := p.index
 	// So far, so good.
-	expr, errs := p.parseExpr(&env)
+	expr, errs := p.parseTernaryOrExpr(&env)
 	//
 	component := decl.NewConstant[symbol.Unresolved](name, datatype, expr)
 	//
@@ -631,7 +634,7 @@ func (p *Parser) parseAssignment(env *Environment) (stmt.Unresolved, []source.Sy
 		return nil, errs
 	}
 	// Parse right-hand side
-	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseTernaryOrExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -835,7 +838,7 @@ func (p *Parser) parseForInit(env *Environment) (stmt.Unresolved, []source.Synta
 			return nil, errs
 		}
 
-		rhs, errs := p.parseExpr(env)
+		rhs, errs := p.parseTernaryOrExpr(env)
 		if len(errs) > 0 {
 			return nil, errs
 		}
@@ -938,7 +941,7 @@ func (p *Parser) parseVar(env *Environment) ([]stmt.Unresolved, []source.SyntaxE
 		return nil, p.syntaxErrors(p.lookahead(), "initialiser requires single variable declaration")
 	}
 	// Parse the initialiser expression
-	rhs, errs := p.parseExpr(env)
+	rhs, errs := p.parseTernaryOrExpr(env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
@@ -972,6 +975,45 @@ func (p *Parser) parseCondition(env *Environment) (Condition, []source.SyntaxErr
 	}
 	//
 	return &expr.Cmp[symbol.Unresolved]{Operator: op, Left: lhs, Right: rhs}, nil
+}
+
+// parseTernaryOrExpr parses either a ternary expression (lhs op rhs ? ifTrue : ifFalse)
+// or a plain arithmetic expression. It is the top-level expression parser for
+// all value positions (assignments, var declarations, function arguments, etc.).
+func (p *Parser) parseTernaryOrExpr(env *Environment) (Expr, []source.SyntaxError) {
+	start := p.index
+	// Parse the potential LHS of a comparison
+	lhs, errs := p.parseExpr(env)
+	if len(errs) > 0 || !p.follows(COMPARATORS...) {
+		return lhs, errs
+	}
+	// We have a comparator — this is a ternary condition
+	op, errs := p.parseComparator()
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	rhs, errs := p.parseExpr(env)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	if _, errs = p.expect(QMARK); len(errs) > 0 {
+		return nil, errs
+	}
+	ifTrue, errs := p.parseTernaryOrExpr(env)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	if _, errs = p.expect(COLON); len(errs) > 0 {
+		return nil, errs
+	}
+	ifFalse, errs := p.parseTernaryOrExpr(env)
+	if len(errs) > 0 {
+		return nil, errs
+	}
+	cond := &expr.Cmp[symbol.Unresolved]{Operator: op, Left: lhs, Right: rhs}
+	result := expr.NewTernary[symbol.Unresolved](cond, ifTrue, ifFalse)
+	p.srcmap.Put(result, p.spanOf(start, p.index-1))
+	return result, nil
 }
 
 func (p *Parser) parseExpr(env *Environment) (Expr, []source.SyntaxError) {
@@ -1060,7 +1102,7 @@ func (p *Parser) parseUnitExpr(env *Environment) (Expr, []source.SyntaxError) {
 		}
 	case LBRACE:
 		p.match(LBRACE)
-		nexpr, errors = p.parseExpr(env)
+		nexpr, errors = p.parseTernaryOrExpr(env)
 		//
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
@@ -1137,7 +1179,7 @@ func (p *Parser) parseExprList(terminator uint, env *Environment) ([]Expr, []sou
 			return nil, p.syntaxErrors(lookahead, "expected ,")
 		}
 		//
-		if expr, errs = p.parseExpr(env); len(errs) > 0 {
+		if expr, errs = p.parseTernaryOrExpr(env); len(errs) > 0 {
 			return nil, errs
 		}
 		// Add register to lhs

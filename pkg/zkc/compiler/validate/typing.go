@@ -311,6 +311,16 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap) (t Type, 
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
 	case *expr.Xor[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env)
+	case *expr.Ternary[symbol.Resolved]:
+		errs = append(errs, p.typeCondition(e.Cond, env)...)
+		tt, terrs := p.typeExpression(e.IfTrue, env)
+		ft, ferrs := p.typeExpression(e.IfFalse, env)
+		errs = append(append(errs, terrs...), ferrs...)
+		if len(errs) == 0 {
+			errs = p.checkEquiTypes(ft, tt, e.IfFalse)
+			t = tt
+		}
+
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown expression")
 	}
