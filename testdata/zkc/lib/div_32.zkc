@@ -3,6 +3,10 @@ const OVERFLOW_DIVIDEND:u32 = 0x80000000
 
 // negate a u32 using two's complement
 fn neg_u32(value:u32) -> (out:u32) {
+    if value == 0 {
+        out = 0
+        return
+    }
     out = (~value) + 1
     return
 }
@@ -115,6 +119,6 @@ fn remu(a:u32, b:u32) -> (c:u32) {
         c = a
         return // division by zero
     }
-    c = a % b // a - ((a / b) * b)
+    c = a % b
     return
 }

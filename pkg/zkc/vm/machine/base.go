@@ -344,9 +344,7 @@ func executeAdd[W word.Word[W]](insn instruction.Add[W], frame []W, regs []regis
 		val, overflow = val.Add(bitwidth, frame[arg.Unwrap()])
 		//
 		if overflow {
-			// return errors.New("executeAdd arithmetic overflow")
-			// TODO: in some cases we may want to allow overflow and
-			// just consider the result of the truncated value
+			return errors.New("executeAdd arithmetic overflow")
 		}
 	}
 	//
