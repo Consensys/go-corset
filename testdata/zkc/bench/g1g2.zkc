@@ -1,9 +1,12 @@
+// inputs
 pub input vA_input(address:u1) -> (word:u64)
 pub input vB_input(address:u1) -> (word:u64)
 pub input vC_input(address:u1) -> (word:u64)
 pub input vD_input(address:u1) -> (word:u64)
 pub input x(address:u1) -> (word:u64)
 pub input y(address:u1) -> (word:u64)
+
+// outputs
 pub output vA_out(address:u1) -> (word:u64)
 pub output vB_out(address:u1) -> (word:u64)
 pub output vC_out(address:u1) -> (word:u64)
