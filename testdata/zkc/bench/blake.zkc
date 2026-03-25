@@ -1,13 +1,13 @@
 // BLAKE2F module implementation
 // Implementation of BLAKE2 compression function `F` precompile (EIP-152)
 
-pub input r(address:u1) -> (word:u64)
+pub input r(address:u1) -> (word:u32)
 pub input h(address:u3) -> (word:u64)
 pub input m(address:u4) -> (word:u64)
 pub input t(address:u1) -> (word:u64)
-pub input f(address:u1) -> (boolean:u1)
+pub input f(address:u1) -> (byte:u8)
 pub output h_out(address:u3) -> (word:u64)
-memory v_buffer(address:u4)-> (word:u64)
+memory v_buffer(address:u4) -> (word:u64)
 memory s_buffer(address:u4)-> (s:u4)
 
 const MASK_u64:u128 = 0xFFFFFFFFFFFFFFFF
@@ -27,7 +27,7 @@ fn main<v_buffer,s_buffer>() {
   }
 
   var k_mod_10:u4 = 0
-  for k:u64 = 0; k < r[0]; k=k+1 {
+  for k:u32 = 0; k < r[0]; k=k+1 {
     for col:u5 = 0; col <= 15; col=col+1 {
         s_buffer[col as u4] = SIGMA[k_mod_10,col as u4]
     }
