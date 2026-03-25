@@ -28,7 +28,7 @@ type LocalHeap[T word.DynamicWord[T]] struct {
 	// heap of bytes
 	heap []byte
 	// byte lengths for each chunk in the pool
-	lengths []uint8
+	lengths []uint16
 	// hash buckets
 	buckets [][]uint32
 	// count of words stored
@@ -41,7 +41,7 @@ func NewLocalHeap[T word.DynamicWord[T]]() *LocalHeap[T] {
 	var (
 		empty T
 		p     = &LocalHeap[T]{
-			lengths: []uint8{0},
+			lengths: []uint16{0},
 			buckets: make([][]uint32, HEAP_POOL_INIT_BUCKETS),
 			heap:    nil,
 			count:   0,
@@ -58,7 +58,7 @@ func NewLocalHeap[T word.DynamicWord[T]]() *LocalHeap[T] {
 func (p *LocalHeap[T]) Clone() LocalHeap[T] {
 	var (
 		heap    = make([]byte, len(p.heap))
-		lengths = make([]uint8, len(p.lengths))
+		lengths = make([]uint16, len(p.lengths))
 		buckets = make([][]uint32, len(p.buckets))
 	)
 	//
@@ -112,21 +112,27 @@ func (p *LocalHeap[T]) Size() uint {
 	return p.count
 }
 
-// MarshalBinary converts this heap into a sequence of bytes.
-func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
+// MarshalBinaryV3 converts this heap into a sequence of bytes.
+func (p *LocalHeap[T]) MarshalBinaryV3() ([]byte, error) {
 	var (
-		buf bytes.Buffer
-		n   = len(p.lengths)
+		buf     bytes.Buffer
+		n       = len(p.lengths)
+		lengths = make([]byte, len(p.lengths)*2)
 	)
+	// construct lengths (big endian)
+	for i, l := range p.lengths {
+		lengths[2*i] = byte(l >> 8)
+		lengths[(2*i)+1] = byte(l & 0xff)
+	}
 	// write heap length
 	if err := binary.Write(&buf, binary.BigEndian, uint32(len(p.heap))); err != nil {
 		return nil, err
 	}
 	// write lengths
-	if m, err := buf.Write(p.lengths); err != nil {
+	if m, err := buf.Write(lengths); err != nil {
 		return nil, err
-	} else if m != n {
-		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, n)
+	} else if m != 2*n {
+		return nil, fmt.Errorf("wrote insufficient bytes (%d v %d)", m, 2*n)
 	}
 	// write bytes
 	if m, err := buf.Write(p.heap); err != nil {
@@ -138,9 +144,9 @@ func (p *LocalHeap[T]) MarshalBinary() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// UnmarshalBinary initialises this heap from a given set of data bytes. This
+// UnmarshalBinaryV2 initialises this heap from a given set of data bytes. This
 // should match exactly the encoding above.
-func (p *LocalHeap[T]) UnmarshalBinary(data []byte) error {
+func (p *LocalHeap[T]) UnmarshalBinaryV2(data []byte) error {
 	var (
 		buf = bytes.NewReader(data)
 		n   uint32
@@ -150,8 +156,41 @@ func (p *LocalHeap[T]) UnmarshalBinary(data []byte) error {
 		return err
 	}
 	// Allocate space
-	p.lengths = data[4 : n+4]
+	p.lengths = make([]uint16, n)
 	p.heap = data[n+4 : n+n+4]
+	// Reconstruct lengths
+	for i, b := range data[4 : n+4] {
+		p.lengths[i] = uint16(b)
+	}
+	// Reconstruct hash
+	p.reconstruct()
+	// Done
+	return nil
+}
+
+// UnmarshalBinaryV3 initialises this heap from a given set of data bytes. This
+// should match exactly the encoding above.
+func (p *LocalHeap[T]) UnmarshalBinaryV3(data []byte) error {
+	var (
+		buf     = bytes.NewReader(data)
+		lengths []byte
+		n       uint32
+	)
+	// Read bytes length
+	if err := binary.Read(buf, binary.BigEndian, &n); err != nil {
+		return err
+	}
+	// Allocate space
+	p.lengths = make([]uint16, n)
+	p.heap = data[n+n+4 : n+n+n+4]
+	// Reconstruct lengths
+	lengths = data[4 : n+n+4]
+	//
+	for i := range p.lengths {
+		msb := uint16(lengths[2*i])
+		lsb := uint16(lengths[(2*i)+1])
+		p.lengths[i] = (msb << 8) | lsb
+	}
 	// Reconstruct hash
 	p.reconstruct()
 	// Done
@@ -166,6 +205,10 @@ func (p *LocalHeap[T]) alloc(word T) uint32 {
 		// Determine length of word
 		bytewidth = uint32(word.ByteWidth())
 	)
+	//
+	if bytewidth > math.MaxUint16 {
+		panic(fmt.Sprintf("word is too long (%d bytes)", bytewidth))
+	}
 	// Allocate space for new word
 	for range bytewidth {
 		p.heap = append(p.heap, 0)
@@ -174,7 +217,7 @@ func (p *LocalHeap[T]) alloc(word T) uint32 {
 	// Write word data
 	word.PutBytes(p.heap[address : address+bytewidth])
 	// Configure word length
-	p.lengths[address] = uint8(bytewidth)
+	p.lengths[address] = uint16(bytewidth)
 	// Record word
 	p.count++
 	// Done

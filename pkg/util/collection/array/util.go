@@ -65,6 +65,28 @@ func FrontPad[T any](slice []T, n uint, item T) []T {
 	return slice
 }
 
+// BackPad pads an array upto a given length n with a given item.
+// Specifically, new items are inserted at the end of the array.
+func BackPad[T any](slice []T, n uint, item T) []T {
+	//
+	if uint(len(slice)) < n {
+		var (
+			nslice = make([]T, n)
+			m      = uint(len(slice))
+		)
+		//
+		copy(nslice, slice)
+		// Pad out remainder
+		for i := m; i < n; i++ {
+			nslice[i] = item
+		}
+		//
+		slice = nslice
+	}
+	//
+	return slice
+}
+
 // Prepend creates a new slice containing the result of prepending the given
 // item onto the end of the given slice.  Observe that, unlike the built-in
 // append() function, this will never modify the given slice.
@@ -228,15 +250,20 @@ func InsertAllAt[T any](items []T, elements []T, index uint) []T {
 // index removed.  If the index is beyond the bounds of the array, then there is
 // no change.
 func RemoveAt[T any](items []T, index uint) []T {
-	n := uint(len(items))
+	var (
+		n      = uint(len(items))
+		nitems []T
+	)
 	//
-	if index < n {
-		first := items[0:index]
-		second := items[index+1:]
-		items = append(first, second...)
+	if index >= n {
+		return items
 	}
+	// Construct new array
+	nitems = make([]T, n-1)
+	copy(nitems, items[0:index])
+	copy(nitems[index:], items[index+1:])
 	//
-	return items
+	return nitems
 }
 
 // RemoveMatching removes all elements from an array matching the given item.

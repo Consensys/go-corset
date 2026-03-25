@@ -13,6 +13,7 @@
 package air
 
 import (
+	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/constraint"
 	"github.com/consensys/go-corset/pkg/schema/constraint/interleaving"
@@ -120,6 +121,22 @@ func (p Air[F, C]) Accepts(trace trace.Trace[F], schema schema.AnySchema[F],
 // expression on that first row is also undefined (and hence must pass)
 func (p Air[F, C]) Bounds(module uint) util.Bounds {
 	return p.constraint.Bounds(module)
+}
+
+// Complexity implementation for constraint interface
+func (p Air[F, C]) Complexity() uint {
+	var bound schema.Constraint[F] = p.constraint
+	//
+	if c, ok := bound.(vanishing.Constraint[F, LogicalTerm[F]]); ok {
+		var t = c.Constraint.Term
+		return term.ComplexityOfTerm[F](t)
+	} else if c, ok := bound.(*vanishing.Constraint[F, LogicalTerm[F]]); ok {
+		var t = c.Constraint.Term
+		return term.ComplexityOfTerm[F](t)
+	}
+
+	//
+	return 0
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not

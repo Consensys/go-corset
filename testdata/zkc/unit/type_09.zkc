@@ -1,0 +1,5 @@
+type word = u4
+const X:u8 = 101
+const X_AS_WORD:word = X as word
+
+

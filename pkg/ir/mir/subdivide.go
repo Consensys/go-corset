@@ -139,10 +139,22 @@ func (p *Subdivider[F]) FlushAllocator(mid module.Id, alloc agnostic.RegisterAll
 		regs   = alloc.Registers()
 	)
 	// Allocate *new* registers into module
-	module.NewRegisters(regs[n:]...)
+	rids := module.NewRegisters(regs[n:]...)
 	// include any additional assignments required for carry lines
 	for _, a := range alloc.Assignments() {
 		module.AddAssignment(assignment.NewComputedRegister[F](a.Right, true, mid, a.Left...))
+	}
+	// constrain all new registers
+	for i, rid := range rids {
+		var (
+			ith        = regs[n+i]
+			terms      = []*RegisterAccess[F]{term.RawRegisterAccess[F, Term[F]](rid, ith.Width(), 0)}
+			bitwidths  = []uint{ith.Width()}
+			handle     = fmt.Sprintf("%s:u%d", ith.Name(), ith.Width())
+			constraint = ranged.NewConstraint[F](handle, mid, terms, bitwidths)
+		)
+		//
+		module.AddConstraint(Constraint[F]{constraint})
 	}
 }
 

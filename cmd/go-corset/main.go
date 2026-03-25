@@ -12,8 +12,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package main
 
-import "github.com/consensys/go-corset/pkg/cmd"
+import "github.com/consensys/go-corset/pkg/cmd/corset"
 
 func main() {
-	cmd.Execute()
+	corset.Execute()
 }

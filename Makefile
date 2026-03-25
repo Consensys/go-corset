@@ -53,7 +53,11 @@ corset-bench:
 
 unit-test:
 	@echo ">>> Running Unit Tests..."
-	go test --timeout 0 -skip "Test_Asm|Test_Agnostic|Test_Bench|Test_Valid|Test_Invalid" ./...
+	go test --timeout 0 -skip "Test_Asm|Test_Agnostic|Test_Bench|Test_Valid|Test_Invalid|Test_Zkc" ./...
+
+zkc-test:
+	@echo ">>> Running ZkC Tests..."
+	go test --timeout 0 -run "Test_ZkcBench|Test_ZkcUnit|Test_ZkcInvalid" ./...
 
 build:
 	@echo ">>> Building ${PROJECT_NAME}... ${GOCORSET_VERSION}"

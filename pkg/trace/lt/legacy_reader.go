@@ -24,11 +24,11 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
-// FromBytesLegacy parses a byte array representing a given (legacy) LT trace
+// FromBytesV1 parses a byte array representing a given (legacy) LT trace
 // file into an columns, or produces an error if the original file was malformed
 // in some way.   The input represents the original legacy format of trace files
 // (i.e. without any additional header information prepended, etc).
-func FromBytesLegacy(data []byte) (WordHeap, []Module[word.BigEndian], error) {
+func FromBytesV1(data []byte) (WordHeap, []Module[word.BigEndian], error) {
 	var modules []Module[word.BigEndian]
 	// Read out all column data
 	heap, columns, error := readLegacyBytes(data)

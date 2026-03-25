@@ -1,3 +1,42 @@
+;; Extract the nth byte from a u1024 value, where n==0 returns the most
+;; significant byte.
+fn byte1024(word u1024, n u7) -> (res u8) {
+  var msb u1
+  var m u6
+  var high, low u512
+  ;; Break down index
+  msb, m = n
+  ;; Break down word
+  high,low = word
+  ;;
+  if msb == 0 goto high_lab
+  res = byte512(low,m)
+  return
+high_lab:
+  res = byte512(high,m)
+  return
+}
+
+
+;; Extract the nth byte from a u512 value, where n==0 returns the most
+;; significant byte.
+fn byte512(word u512, n u6) -> (res u8) {
+  var msb u1
+  var m u5
+  var high, low u256
+  ;; Break down index
+  msb, m = n
+  ;; Break down word
+  high,low = word
+  ;;
+  if msb == 0 goto high_lab
+  res = byte256(low,m)
+  return
+high_lab:
+  res = byte256(high,m)
+  return
+}
+
 ;; Extract the nth byte from a u256 value, where n==0 returns the most
 ;; significant byte.
 fn byte256(word u256, n u5) -> (res u8) {

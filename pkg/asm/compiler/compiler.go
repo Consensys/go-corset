@@ -173,14 +173,17 @@ func (p *Compiler[F, T, E, M]) compileReadOnlyMemory(fn io.ReadOnlyMemory) {
 // Compile a function with the given name, registers and micro-instructions into
 // constraints.
 func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction) {
-	busId := p.busMap[fn.Name()]
-	// Setup framing columns / constraints
-	framing := p.initFunctionFraming(busId, fn)
-	// Initialise buses required for this code sequence
-	ioLines := p.initBuses(busId, fn)
+	var (
+		busId = p.busMap[fn.Name()]
+		// Extract module
+		module = p.modules[busId]
+		// Setup framing columns / constraints
+		framing = p.initFunctionFraming(busId, fn)
+		// Initialise buses required for this code sequence
+		ioLines = p.initBuses(busId, fn)
+	)
 	// Construct appropriate mapping
 	mapping := Translator[F, T, E, M]{
-		Module:    p.modules[busId],
 		Framing:   framing,
 		Registers: fn.Registers(),
 		ioLines:   ioLines,
@@ -189,7 +192,9 @@ func (p *Compiler[F, T, E, M]) compileFunction(fn MicroFunction) {
 	// Compile each instruction in turn
 	for pc, inst := range fn.Code() {
 		// Core translation
-		mapping.Translate(uint(pc), inst)
+		constraint := mapping.Translate(uint(pc), inst)
+		// Add constraint
+		module.NewConstraint(fmt.Sprintf("pc%d", pc), util.None[int](), constraint)
 	}
 }
 
@@ -268,14 +273,18 @@ func (p *Compiler[F, T, E, M]) initMultLineFunctionFraming(busId uint, fn MicroF
 	pc_i := Variable[T, E](pc, bus.pcWidth, 0)
 	pc_im1 := Variable[T, E](pc, bus.pcWidth, -1)
 	ret_i := Variable[T, E](ret, bus.retWidth, 0)
+	ret_im1 := Variable[T, E](ret, bus.retWidth, -1)
 	zero := Number[T, E](0)
 	one := Number[T, E](1)
 	// PC[i]==0 ==> RET[i]==0 (prevents lookup in padding)
 	module.NewConstraint("padding", util.None[int](),
 		If(pc_i.Equals(zero), ret_i.Equals(zero)))
 	// PC[i-1]==0 && PC[i]!=0 ==> PC[i]==1
-	module.NewConstraint("reset", util.None[int](),
+	module.NewConstraint("init", util.None[int](),
 		If(pc_im1.Equals(zero), If(pc_i.NotEquals(zero), pc_i.Equals(one))))
+	// RET[i-1]!=0 ==> PC[i]==1
+	module.NewConstraint("reset", util.None[int](),
+		If(ret_im1.NotEquals(zero), pc_i.Equals(one)))
 	// PC[0] != 0 ==> PC[0] == 1
 	module.NewConstraint("first", util.Some(0),
 		If(pc_i.NotEquals(zero), pc_i.Equals(one)))

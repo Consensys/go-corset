@@ -15,12 +15,27 @@ package lt
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/pool"
 	"github.com/consensys/go-corset/pkg/util/word"
 )
+
+// FromBytesV2 parses a byte array representing a given LTv2 trace file into a set
+// of columns, or produces an error if the original file was malformed in some
+// way.
+func FromBytesV2(data []byte) (WordHeap, []Module[word.BigEndian], error) {
+	return fromBytes(data, 2)
+}
+
+// FromBytesV3 parses a byte array representing a given LTv3 trace file into a set
+// of columns, or produces an error if the original file was malformed in some
+// way.
+func FromBytesV3(data []byte) (WordHeap, []Module[word.BigEndian], error) {
+	return fromBytes(data, 3)
+}
 
 // FromBytes parses a byte array representing a given LTv2 trace file into a set
 // of columns, or produces an error if the original file was malformed in some
@@ -39,7 +54,7 @@ import (
 // represents a collection of indexed word data.  Finally, COLUMNS contains
 // concrete column data which is either represented explicitly (for narrow
 // words, like u8) or using indexes into the heap (for wide words, like u256).
-func FromBytes(data []byte) (WordHeap, []Module[word.BigEndian], error) {
+func fromBytes(data []byte, version uint) (WordHeap, []Module[word.BigEndian], error) {
 	var (
 		err                    error
 		buf                    = bytes.NewReader(data)
@@ -58,8 +73,17 @@ func FromBytes(data []byte) (WordHeap, []Module[word.BigEndian], error) {
 		return WordHeap{}, nil, err
 	}
 	// Read heap
-	if err := heap.UnmarshalBinary(data[8+headerBytes : 8+headerBytes+heapBytes]); err != nil {
-		return WordHeap{}, nil, err
+	switch version {
+	case 2:
+		if err := heap.UnmarshalBinaryV2(data[8+headerBytes : 8+headerBytes+heapBytes]); err != nil {
+			return WordHeap{}, nil, err
+		}
+	case 3:
+		if err := heap.UnmarshalBinaryV3(data[8+headerBytes : 8+headerBytes+heapBytes]); err != nil {
+			return WordHeap{}, nil, err
+		}
+	default:
+		panic(fmt.Sprintf("unsupported trace file format (v%d)", version))
 	}
 	//
 	modules := make([]Module[word.BigEndian], len(headers))

@@ -173,8 +173,9 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) (targe
 			right, rightEqs = splitNonLinearTerms(chunkWidth, field, p.RightHandSide, mapping)
 		)
 		// Attempt to chunk polynomials
-		lhs, lhsChunked = chunkPolynomial(left, chunkWidths, field, mapping)
-		rhs, rhsChunked = chunkPolynomial(right, chunkWidths, field, mapping)
+		lhsChunks, rhsChunks := chunkEquation(left, right, chunkWidths)
+		lhs, lhsChunked = addCarryLines(lhsChunks, chunkWidths, field, mapping)
+		rhs, rhsChunked = addCarryLines(rhsChunks, chunkWidths, field, mapping)
 		//
 		if lhsChunked && rhsChunked {
 			// Successful chunking, therefore include any constraints necessary
@@ -189,7 +190,7 @@ func (p *Equation) chunkUp(field field.Config, mapping RegisterAllocator) (targe
 		mapping.Reset(n)
 	}
 	// Reconstruct target equations
-	for i := range len(lhs) {
+	for i := range max(len(lhs), len(rhs)) {
 		if lhs[i].Len() > 0 || rhs[i].Len() > 0 {
 			targets = append(targets, NewEquation(lhs[i], rhs[i]))
 		}
@@ -258,11 +259,13 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
 	//
 	for i := range p.Len() {
 		var (
-			term  = p.Term(i)
-			width = WidthOfMonomial(term, env)
+			term          = p.Term(i)
+			width, signed = WidthOfMonomial(term, env)
 		)
 		//
-		if width > field.BandWidth {
+		if signed {
+			panic("unbalance equation encountered")
+		} else if width > field.BandWidth {
 			for _, v := range term.Vars() {
 				// Check whether register is above threshold or not.
 				if mapping.Register(v.Id()).Width() > regWidth {
@@ -279,23 +282,36 @@ func splitNonLinearTerms(regWidth uint, field field.Config, p DynamicPolynomial,
 }
 
 // Divide a polynomial into "chunks", each of which has a maximum bitwidth as
-// determined by the chunk widths.  This inserts carry lines as needed to ensure
-// correctness.
-func chunkPolynomial(p DynamicPolynomial, chunkWidths []uint, field field.Config,
-	mapping RegisterAllocator) ([]DynamicPolynomial, bool) {
+// determined by the chunk widths.
+func chunkEquation(lhs, rhs DynamicPolynomial, chunkWidths []uint) (l, r []DynamicPolynomial) {
 	//
 	var (
-		env    = DynamicEnvironment()
-		chunks []DynamicPolynomial
+		lhsChunks []DynamicPolynomial
+		rhsChunks []DynamicPolynomial
 	)
 	// Subdivide polynomial into chunks
 	for _, chunkWidth := range chunkWidths {
-		var remainder DynamicPolynomial
+		var lhsRem, rhsRem DynamicPolynomial
 		// Chunk the polynomials
-		p, remainder = p.Shr(chunkWidth)
-		// Include remainder as chunk
-		chunks = append(chunks, remainder)
+		lhs, lhsRem = lhs.Shr(chunkWidth)
+		rhs, rhsRem = rhs.Shr(chunkWidth)
+		// Include remainders (if non-zero)
+		if lhs.Len() != 0 || rhs.Len() != 0 || lhsRem.Len() != 0 || rhsRem.Len() != 0 {
+			lhsChunks = append(lhsChunks, lhsRem)
+			rhsChunks = append(rhsChunks, rhsRem)
+		}
 	}
+	//
+	return lhsChunks, rhsChunks
+}
+
+// Add carry lines into chunks as needed to ensure correctness.
+func addCarryLines(chunks []DynamicPolynomial, chunkWidths []uint, field field.Config,
+	mapping RegisterAllocator) ([]DynamicPolynomial, bool) {
+	//
+	var (
+		env = DynamicEnvironment()
+	)
 	// Add carry lines as necessary
 	for i := 0; i < len(chunks); i++ {
 		var (
@@ -358,7 +374,12 @@ func balancePolynomial(poly DynamicPolynomial) (pos, neg DynamicPolynomial) {
 
 // DynamicPoly2String provides a convenient helper function for debugging polynomials.
 func DynamicPoly2String(p DynamicPolynomial, env register.Map) string {
-	return poly.String(p, func(r register.AccessId) string {
+	return poly.String(p, RegAccess2String(env))
+}
+
+// RegAccess2String provides a convenient helper function for debugging polynomials.
+func RegAccess2String(env register.Map) func(r register.AccessId) string {
+	return func(r register.AccessId) string {
 		var (
 			name  = env.Register(r.Id()).Name()
 			shift = r.RelativeShift()
@@ -372,5 +393,5 @@ func DynamicPoly2String(p DynamicPolynomial, env register.Map) string {
 		default:
 			return fmt.Sprintf("%s[i%d]", name, shift)
 		}
-	})
+	}
 }

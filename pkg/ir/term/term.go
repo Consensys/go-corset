@@ -97,6 +97,11 @@ type Expr[F any, T any] interface {
 	Simplify(casts bool) T
 }
 
+// Costable represents a component which can self-determine an approximage cost measure.
+type Costable interface {
+	Complexity() uint
+}
+
 // Testable captures the notion of a constraint which can be tested on a given
 // row of a given trace.  It is very similar to Evaluable, except that it only
 // indicates success or failure.  The reason for using this interface over
@@ -133,6 +138,48 @@ type Logical[F any, T any] interface {
 
 	// Negate this logical term
 	Negate() T
+}
+
+// ============================================================================
+// Subdivision
+// ============================================================================
+
+// ComplexityOfTerm attempts to provide a cost estimate for the given expression.
+func ComplexityOfTerm[F field.Element[F], T Expr[F, T]](c T) uint {
+	var f Expr[F, T] = any(c).(Expr[F, T])
+	//
+	switch t := f.(type) {
+	case *Add[F, T]:
+		var r = uint(0)
+		//
+		for _, arg := range t.Args {
+			r = max(r, ComplexityOfTerm[F](arg))
+		}
+		//
+		return r
+	case *Constant[F, T]:
+		return 0
+	case *Mul[F, T]:
+		var r = uint(0)
+		//
+		for _, arg := range t.Args {
+			r += ComplexityOfTerm[F](arg)
+		}
+		//
+		return r
+	case *RegisterAccess[F, T]:
+		return 1
+	case *Sub[F, T]:
+		var r = uint(0)
+		//
+		for _, arg := range t.Args {
+			r = max(r, ComplexityOfTerm[F](arg))
+		}
+		//
+		return r
+	default:
+		panic(fmt.Sprintf("unknown computation encountered: %s", c.Lisp(false, nil).String(false)))
+	}
 }
 
 // ============================================================================

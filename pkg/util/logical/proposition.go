@@ -299,10 +299,14 @@ func andConjunctProposition[I any, A Atom[I, A]](c Conjunction[I, A], o Proposit
 		nc.atoms.InsertSorted(&disjunct.atoms)
 		//
 		if !nc.simplify() {
-			return Truth[I, A](false)
+			continue
 		}
 		//
 		disjuncts.Insert(nc)
+	}
+	// Sanity check
+	if len(disjuncts) == 0 {
+		return Truth[I, A](false)
 	}
 	// Done
 	return Proposition[I, A]{disjuncts}

@@ -66,7 +66,7 @@ func SplitWord[F Element[F]](val word.BigEndian, widths []uint) ([]F, bool) {
 	// read actual bits
 	for i, w := range widths {
 		// Read bits
-		m := bits.ReadInto(w, buf[:])
+		m := bits.LittleEndianReadInto(w, buf[:])
 		// Convert back to big endian
 		array.ReverseInPlace(buf[:m])
 		// Done

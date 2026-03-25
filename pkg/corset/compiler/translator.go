@@ -36,6 +36,23 @@ import (
 	"github.com/consensys/go-corset/pkg/util/word"
 )
 
+// Config encapsulates various options which can affect compilation.
+type Config struct {
+	// Enable standard library
+	Stdlib bool
+	// Enable debug constraints
+	Debug bool
+	// Enable legacy register allocator
+	Legacy bool
+	// Enforce all types by default
+	EnforceTypes bool
+	// Enforce types for all limbs arising from splitting registers
+	EnforceLimbTypes bool
+	// Target field configuration.  This is only used to assist in reporting
+	// errors which are specific to the given field configuration.
+	Field field.Config
+}
+
 // SchemaBuilder is used within this translator for building the final mixed HIR
 // schema.
 type SchemaBuilder = ir.SchemaBuilder[word.BigEndian, hir.Constraint, hir.Term]
@@ -55,7 +72,7 @@ func TranslateCircuit(
 	srcmap *source.Maps[ast.Node],
 	circuit *ast.Circuit,
 	extern asm.MacroProgram,
-	config field.Config) (asm.MacroHirProgram, []SyntaxError) {
+	config Config) (asm.MacroHirProgram, []SyntaxError) {
 	//
 	builder := ir.NewSchemaBuilder[word.BigEndian, hir.Constraint, hir.Term](extern.Components()...)
 	t := translator{env, srcmap, builder, config}
@@ -83,8 +100,8 @@ type translator struct {
 	srcmap *source.Maps[ast.Node]
 	// Represents the schema being constructed by this translator.
 	schema SchemaBuilder
-	// Field configuration is needed to check for irregular lookups
-	config field.Config
+	// compilation configuration
+	config Config
 }
 
 func (t *translator) translateModules(circuit *ast.Circuit) {
@@ -169,7 +186,10 @@ func (t *translator) translateModuleRegisters(corsetRegisters []uint) {
 // Any other cases are considered to be erroneous register allocations, and will
 // lead to a panic.
 func (t *translator) translateTypeConstraints(reg Register, mod ModuleBuilder) {
-	required := false
+	var (
+		regWidth = reg.Bitwidth
+		required = t.config.EnforceTypes || (t.config.EnforceLimbTypes && regWidth > t.config.Field.RegisterWidth)
+	)
 	// Check for provability
 	for _, col := range reg.Sources {
 		if col.MustProve {
@@ -179,7 +199,6 @@ func (t *translator) translateTypeConstraints(reg Register, mod ModuleBuilder) {
 	}
 	// Apply provability (if it is required)
 	if required {
-		regWidth := reg.Bitwidth
 		// For now, enforce all source registers have matching bitwidth.
 		for _, col := range reg.Sources {
 			// Determine bitwidth
@@ -722,8 +741,8 @@ func (t *translator) determineLookupBitwidths(terms []lookup.Vector[word.BigEndi
 
 func (t *translator) isIrregularLookup(srcWidth, tgtWidth uint) int {
 	var (
-		srcLimbWidths = register.LimbWidths(t.config.RegisterWidth, srcWidth)
-		tgtLimbWidths = register.LimbWidths(t.config.RegisterWidth, tgtWidth)
+		srcLimbWidths = register.LimbWidths(t.config.Field.RegisterWidth, srcWidth)
+		tgtLimbWidths = register.LimbWidths(t.config.Field.RegisterWidth, tgtWidth)
 		n             = min(len(srcLimbWidths), len(tgtLimbWidths))
 	)
 	//

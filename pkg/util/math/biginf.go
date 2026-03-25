@@ -185,6 +185,15 @@ func (p *InfInt) Negate() InfInt {
 	}
 }
 
+// Sign returns an indication whether this value is negative, zero or positive.
+func (p *InfInt) Sign() int {
+	if p.sign != notAnInfinity {
+		panic("cannot cast infinity into a big integer")
+	}
+	//
+	return p.val.Sign()
+}
+
 // Set this to match some (potentially infinite) integer.  Observe this will
 // clone the underlying big integer if the value is finite.
 func (p *InfInt) Set(other InfInt) {

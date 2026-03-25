@@ -113,7 +113,7 @@ func Test_Invalid_Div_07(t *testing.T) {
 // ===================================================================
 
 func checkAsmInvalid(t *testing.T, test string) {
-	util.CheckInvalid(t, test, "zkasm", compileAssembly)
+	util.CheckInvalid(t, test, "zkasm", ";;error", compileAssembly)
 }
 
 func compileAssembly(srcfile source.File) []source.SyntaxError {
