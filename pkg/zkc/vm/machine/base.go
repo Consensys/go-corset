@@ -17,6 +17,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/util"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
@@ -318,6 +319,8 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 			pc = pc.Skip(insn.Skip)
 		}
 		// Fall thru
+	case *instruction.Debug:
+		err = executeDebug(*insn, frame, regs)
 	default:
 		panic("unknown instruction encountered")
 	}
@@ -531,6 +534,18 @@ func executeCast[W word.Word[W]](insn instruction.Cast[W], frame []W, _ []regist
 	}
 	//
 	frame[insn.Target.Unwrap()] = sliced
+	//
+	return nil
+}
+
+func executeDebug[W word.Word[W]](insn instruction.Debug, frame []W, _ []register.Register) error {
+	for _, chunk := range insn.Chunks {
+		fmt.Printf("%s", chunk.Text)
+		//
+		if chunk.Format.HasFormat() {
+			fmt.Printf("%s", util.FormatWord(chunk.Format, frame[chunk.Argument.Unwrap()]))
+		}
+	}
 	//
 	return nil
 }

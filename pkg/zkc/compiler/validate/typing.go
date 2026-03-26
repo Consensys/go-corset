@@ -120,6 +120,8 @@ func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxErro
 			errors = append(errors, p.typeAssignment(s, &fn, effects)...)
 		case *stmt.IfGoto[symbol.Resolved]:
 			errors = append(errors, p.typeIfGoto(s, &fn, effects)...)
+		case *stmt.Printf[symbol.Resolved]:
+			errors = append(errors, p.typePrintf(s, &fn, effects)...)
 		}
 	}
 	//
@@ -259,6 +261,23 @@ func checkTargets(s *stmt.Assign[symbol.Resolved], env VariableMap, srcmaps sour
 func (p *TypeChecker) typeIfGoto(s *stmt.IfGoto[symbol.Resolved], env VariableMap, effects bit.Set,
 ) []source.SyntaxError {
 	return p.typeCondition(s.Cond, env, effects)
+}
+
+func (p *TypeChecker) typePrintf(s *stmt.Printf[symbol.Resolved], env VariableMap, effects bit.Set,
+) []source.SyntaxError {
+	var errs []source.SyntaxError
+	//
+	for _, e := range s.Arguments {
+		ith, ierrs := p.typeExpression(e, env, effects)
+		//
+		if len(ierrs) == 0 && ith.AsUint(p.env) == nil {
+			errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint"))
+		} else {
+			errs = append(errs, ierrs...)
+		}
+	}
+	//
+	return errs
 }
 
 func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap, effects bit.Set) []source.SyntaxError {

@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+	"github.com/consensys/go-corset/pkg/zkc/util"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
@@ -63,6 +64,8 @@ func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction
 		return &instruction.Jmp{Target: s.Target}
 	case *stmt.Fail[symbol.Resolved]:
 		return &instruction.Fail{}
+	case *stmt.Printf[symbol.Resolved]:
+		return p.compilePrintf(mapping, s.Chunks, s.Arguments)
 	case *stmt.Return[symbol.Resolved]:
 		return &instruction.Return{}
 	default:
@@ -112,6 +115,34 @@ func (p *Compiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []Micr
 	}
 	//
 	return regs, preInsns, postInsns
+}
+
+func (p *Compiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, args []Expr) Instruction {
+	var (
+		nchunks     []instruction.FormattedChunk
+		regs, insns = p.compileArgs(mapping, args...)
+		index       uint
+	)
+	//
+
+	// Manage all chunks
+	for _, chunk := range chunks {
+		if chunk.Format.HasFormat() {
+			nchunks = append(nchunks, instruction.FormattedChunk{
+				Text: chunk.Text, Format: chunk.Format, Argument: regs[index],
+			})
+			//
+			index++
+		} else {
+			nchunks = append(nchunks, instruction.FormattedChunk{
+				Text: chunk.Text, Format: util.EMPTY_FORMAT, Argument: register.UnusedId(),
+			})
+		}
+	}
+	//
+	insns = append(insns, &instruction.Debug{Chunks: nchunks})
+	//
+	return instruction.NewVector[word.Uint](insns...)
 }
 
 func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target uint) Instruction {
