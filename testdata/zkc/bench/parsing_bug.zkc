@@ -1,0 +1,15 @@
+
+fn main() {
+  var i:u32 = 30
+  var q:u32 = 0
+  var q_bug:u32 = 0
+
+  var tmp:u32 = 1 << (31 - i)
+  q = q | tmp
+  printf "### q = %d\n\n", q
+
+  q_bug = q_bug | (1 << (31 - i))
+  printf "### q_bug = %d\n\n", q_bug
+
+  return
+}

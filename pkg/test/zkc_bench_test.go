@@ -70,6 +70,10 @@ func Test_ZkcBench_DivRem32(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/div_rem_32")
 }
 
+func Test_ZkcBench_ParsingBug(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/parsing_bug")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
