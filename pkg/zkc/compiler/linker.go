@@ -249,6 +249,12 @@ func (p *Linker) linkInstruction(insn stmt.Unresolved) (stmt.Resolved, []source.
 		cond, errors = p.linkCondition(insn.Cond)
 		//
 		ninsn = &stmt.IfGoto[symbol.Resolved]{Cond: cond, Target: insn.Target}
+	case *stmt.Printf[symbol.Unresolved]:
+		var args []expr.Expr[symbol.Resolved]
+		//
+		args, errors = p.linkExprs(insn.Arguments...)
+		//
+		ninsn = &stmt.Printf[symbol.Resolved]{Chunks: insn.Chunks, Arguments: args}
 	case *stmt.Return[symbol.Unresolved]:
 		ninsn = &stmt.Return[symbol.Resolved]{}
 	default:
