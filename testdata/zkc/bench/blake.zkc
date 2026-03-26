@@ -31,15 +31,16 @@ fn main<v_buffer,s_buffer>() {
     for col:u5 = 0; col <= 15; col=col+1 {
         s_buffer[col as u4] = SIGMA[k_mod_10,col as u4]
     }
-    g1g2(0, 4, 8, 12, m[s_buffer[0]], m[s_buffer[4]])
-    g1g2(1, 5, 9, 13, m[s_buffer[1]], m[s_buffer[5]])
-    g1g2(2, 6, 10, 14, m[s_buffer[2]], m[s_buffer[6]])
-    g1g2(3, 7, 11, 15, m[s_buffer[3]], m[s_buffer[7]])
+    g1g2(0, 4, 8,  12, m[s_buffer[0]],  m[s_buffer[4]])
+    g1g2(1, 5, 9,  13, m[s_buffer[1]],  m[s_buffer[5]])
+    g1g2(2, 6, 10, 14, m[s_buffer[2]],  m[s_buffer[6]])
+    g1g2(3, 7, 11, 15, m[s_buffer[3]],  m[s_buffer[7]])
 
-    g1g2(0, 5, 10, 15, m[s_buffer[8]], m[s_buffer[12]])
-    g1g2(1, 6, 11, 12, m[s_buffer[9]], m[s_buffer[13]])
-    g1g2(2, 7, 8, 13, m[s_buffer[10]], m[s_buffer[14]])
-    g1g2(3, 4, 9, 14, m[s_buffer[11]], m[s_buffer[15]])
+    g1g2(0, 5, 10, 15, m[s_buffer[8]],  m[s_buffer[12]])
+    g1g2(1, 6, 11, 12, m[s_buffer[9]],  m[s_buffer[13]])
+    g1g2(2, 7,  8, 13, m[s_buffer[10]], m[s_buffer[14]])
+    g1g2(3, 4,  9, 14, m[s_buffer[11]], m[s_buffer[15]])
+    // equivalent to k_mod_10 = (k_mod_10 + 1) % 10
     if k_mod_10 == 9 {
         k_mod_10 = 0
     } else {
@@ -53,6 +54,8 @@ fn main<v_buffer,s_buffer>() {
   }
 }
 
+
+// Initialization vector
 static IV(address:u3) -> (iv:u64) {
   0x6a09e667f3bcc908, // IV0
   0xbb67ae8584caa73b, // IV1
