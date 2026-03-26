@@ -40,7 +40,8 @@ fn long_division_u32(a:u32, b:u32, get_remainder:u1) -> (result:u32) {
         r = ((r << 1) | ((a >> (31 - i)) & 1))
         if r >= b {
             r = r - b
-            q = q | (1 << (31 - i))
+            var tmp:u32 = 1 << (31 - i) // TODO: temporary workaround due to parsing issue
+            q = q | tmp
         }
     }
     if get_remainder == 0 {
