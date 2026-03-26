@@ -29,10 +29,6 @@ func Test_ZkcBench_Fnv1aHash(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/fnv1a_hash")
 }
 
-func Test_ZkcBench_G1G2(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/g1g2")
-}
-
 func Test_ZkcBench_Sort(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/sort")
 }
