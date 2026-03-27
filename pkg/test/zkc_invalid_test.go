@@ -459,6 +459,10 @@ func Test_ZkcInvalid_Type_07(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_07")
 }
 
+func Test_ZkcInvalid_Type_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_08")
+}
+
 // ===================================================================
 // Printf Tests
 // ===================================================================

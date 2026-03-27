@@ -252,6 +252,10 @@ func Test_ZkcUnit_Shift_07(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/shift_07")
 }
 
+func Test_ZkcUnit_Shift_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_08")
+}
+
 // ===================================================================
 // Static Initialiser Tests
 // ===================================================================
