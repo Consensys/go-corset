@@ -60,7 +60,7 @@ func (p *Debug) String(env register.Map) string {
 	)
 	//
 	for _, c := range p.Chunks {
-		tBuilder.WriteString(c.Text)
+		tBuilder.WriteString(util.EscapeFormattedText(c.Text))
 		//
 		if c.Format.HasFormat() {
 			tBuilder.WriteString(c.Format.String())
