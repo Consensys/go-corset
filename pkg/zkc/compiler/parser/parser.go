@@ -553,10 +553,23 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
+	// First check for arrays
+	datatype, arraySize, isArray := strings.Cut(name, "[")
 	// Parse to check if bitwidth is present
-	bw, err := strconv.Atoi(name[1:])
-	//
+	bw, err := strconv.Atoi(datatype[1:])
 	switch {
+	case isArray && err == nil:
+		sizeString, _, _ := strings.Cut(arraySize, "]")
+		size, err := strconv.Atoi(sizeString)
+		//
+		p.srcmap.Put(name, p.spanOf(start, p.index-1))
+		//
+		if err != nil || size == 0 {
+			return nil, p.srcmap.SyntaxErrors(name, "arrays are restricted to non zero constant value")
+		}
+		//
+		fa := data.NewFixedArray[symbol.Unresolved](uint(size), data.NewUnsignedInt[symbol.Unresolved](uint(bw), false))
+		return fa, nil
 	case strings.HasPrefix(name, "u") && err == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
