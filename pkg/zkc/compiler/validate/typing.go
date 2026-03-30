@@ -378,6 +378,8 @@ func (p *TypeChecker) typeUintExpressions(t Type, exprs []expr.Resolved, env Var
 			return nil, append(errors, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
 		} else if i == 0 {
 			res = ith_t.AsUint(p.env)
+		} else if len(errors) > 0 {
+			// skip type checking
 		} else if errs := p.checkEquiTypes(ith_t, res, exprs[i]); len(errs) > 0 {
 			errors = append(errors, errs...)
 		} else {
