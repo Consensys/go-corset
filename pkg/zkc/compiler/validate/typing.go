@@ -405,8 +405,6 @@ func (p *TypeChecker) typeCastExpression(t Type, e *expr.Cast[symbol.Resolved], 
 	//
 	if len(errors) == 0 && !data.SubtypeOf(e.CastType, srcType, p.env) && !data.SubtypeOf(srcType, e.CastType, p.env) {
 		errors = p.srcmaps.SyntaxErrors(e.Expr, fmt.Sprintf("expected type %s", e.CastType.String(p.env)))
-	} else if errs := p.checkEquiTypes(t, e.CastType, e); len(errs) > 0 {
-		errors = append(errors, errs...)
 	}
 	//
 	return e.CastType, errors
