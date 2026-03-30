@@ -170,6 +170,8 @@ var identifierStart lex.Scanner[rune] = lex.Or(
 var identifierRest lex.Scanner[rune] = lex.Many(lex.Or(
 	lex.Unit('_'),
 	lex.Unit('\''),
+	lex.Unit('['),
+	lex.Unit(']'),
 	lex.Within('0', '9'),
 	lex.Within('a', 'z'),
 	lex.Within('A', 'Z')))
