@@ -38,6 +38,16 @@ func (p Unresolved) HasAnyArity() bool {
 	return p.Inputs == ANY_INPUTS
 }
 
+// IsMemory implementation for Symbol interface
+func (p Unresolved) IsMemory() bool {
+	return p.Kind == READABLE_MEMORY || p.Kind == WRITEABLE_MEMORY
+}
+
+// IsFunction implementation for Symbol interface
+func (p Unresolved) IsFunction() bool {
+	return p.Kind == FUNCTION
+}
+
 // Cmp implementation for set.Comparable interface
 func (p Unresolved) Cmp(o Unresolved) int {
 	if c := strings.Compare(p.Name, o.Name); c != 0 {
