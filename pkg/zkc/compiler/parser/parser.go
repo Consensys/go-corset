@@ -597,9 +597,15 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 			return nil, p.srcmap.SyntaxErrors(name, "arrays are restricted to non zero constant value")
 		}
 		//
-		fa := data.NewFixedArray[symbol.Unresolved](uint(size), data.NewUnsignedInt[symbol.Unresolved](uint(bw), false))
-		return fa, nil
-	case strings.HasPrefix(name, "u") && err == nil:
+		switch {
+		case strings.HasPrefix(datatype, "u"):
+			fa := data.NewFixedArray[symbol.Unresolved](data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), uint(size))
+			return fa, nil
+		default:
+			fa := data.NewFixedArray[symbol.Unresolved](data.NewAlias[symbol.Unresolved](symbol.NewUnresolved(datatype, symbol.TYPE_ALIAS, 0)), uint(size))
+			return fa, nil
+		}
+	case strings.HasPrefix(datatype, "u") && err == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
 	// we assume that if not a fundamental type, it is an alias
