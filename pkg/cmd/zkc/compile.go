@@ -265,6 +265,12 @@ func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Base[W]) {
 		switch m := m.(type) {
 		case *memory.ReadOnly[W]:
 			writeIrMemory("input", m)
+		case *memory.StaticReadOnly[W]:
+			writeIrMemory("static", m)
+		case *memory.RandomAccess[W]:
+			writeIrMemory("memory", m)
+		case *memory.WriteOnce[W]:
+			writeIrMemory("output", m)
 		case *function.Boot[W]:
 			name := trace.ModuleName{Name: m.Name(), Multiplier: 1}
 			mapping := instruction.NewSystemMap(register.ArrayMap(name, m.Registers()...), machine.Modules())

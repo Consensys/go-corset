@@ -83,6 +83,6 @@ func (p *MemWrite[W]) String(mapping SystemMap[W]) string {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *MemWrite[W]) MicroValidate(_ uint, field field.Config, env SystemMap[W]) []error {
+func (p *MemWrite[W]) MicroValidate(_ uint, _ field.Config, env SystemMap[W]) []error {
 	return nil
 }

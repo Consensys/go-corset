@@ -86,8 +86,8 @@ func (p *Mul[W]) Validate(config field.Config, env SystemMap[W]) []error {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Mul[W]) MicroValidate(_ uint, field field.Config, env SystemMap[W]) []error {
-	return p.Validate(field, env)
+func (p *Mul[W]) MicroValidate(_ uint, field field.Config, mapping SystemMap[W]) []error {
+	return p.Validate(field, mapping)
 }
 
 func (p *Mul[W]) rhsBitwidth(env register.Map) uint {

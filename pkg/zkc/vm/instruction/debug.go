@@ -79,7 +79,7 @@ func (p *Debug[W]) String(mapping SystemMap[W]) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Debug[W]) Validate(_ field.Config, _ register.Map) []error {
+func (p *Debug[W]) Validate(_ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
 

@@ -36,7 +36,7 @@ func (p *Return[W]) String(_ SystemMap[W]) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Return[W]) Validate(_ field.Config, _ register.Map) []error {
+func (p *Return[W]) Validate(_ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
 

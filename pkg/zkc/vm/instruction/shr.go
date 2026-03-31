@@ -64,6 +64,6 @@ func (p *Shr[W]) String(mapping SystemMap[W]) string {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Shr[W]) MicroValidate(_ uint, field field.Config, _ SystemMap[W]) []error {
+func (p *Shr[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
