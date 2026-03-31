@@ -554,29 +554,46 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		return nil, errs
 	}
 	// First check for arrays
-	datatype, arraySize, isArray := strings.Cut(name, "[")
+	isArray := p.match(LSQUARE)
 	// Parse to check if bitwidth is present
-	bw, err := strconv.Atoi(datatype[1:])
+	bw, err := strconv.Atoi(name[1:])
 	switch {
 	case isArray && err == nil:
-		sizeString, _, _ := strings.Cut(arraySize, "]")
-		size, err := strconv.Atoi(sizeString)
+		var size big.Int
+		var nbErrs []source.SyntaxError
 		//
 		p.srcmap.Put(name, p.spanOf(start, p.index-1))
 		//
-		if err != nil || size == 0 {
-			return nil, p.srcmap.SyntaxErrors(name, "arrays are restricted to non zero constant value")
+		lookahead := p.lookahead()
+		switch lookahead.Kind {
+		case NUMBER:
+			//
+			p.match(NUMBER)
+			//
+			size, nbErrs = p.number(lookahead)
+			base := p.baserOfNumber(lookahead)
+			//
+			if len(nbErrs) != 0 || base != 10 {
+				return nil, p.srcmap.SyntaxErrors(name, "array size is not a number in base 10")
+			}
+			// TODO add constant
+		default:
+			return nil, p.srcmap.SyntaxErrors(name, "array size is not a number or a constant")
+		}
+		//
+		if !p.match(RSQUARE) {
+			return nil, p.srcmap.SyntaxErrors(name, "expected closing bracket")
 		}
 		//
 		switch {
-		case strings.HasPrefix(datatype, "u"):
-			fa := data.NewFixedArray[symbol.Unresolved](data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), uint(size))
+		case strings.HasPrefix(name, "u"):
+			fa := data.NewFixedArray[symbol.Unresolved](data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), uint(size.Uint64()))
 			return fa, nil
 		default:
-			fa := data.NewFixedArray[symbol.Unresolved](data.NewAlias[symbol.Unresolved](symbol.NewUnresolved(datatype, symbol.TYPE_ALIAS, 0)), uint(size))
+			fa := data.NewFixedArray[symbol.Unresolved](data.NewAlias[symbol.Unresolved](symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)), uint(size.Uint64()))
 			return fa, nil
 		}
-	case strings.HasPrefix(datatype, "u") && err == nil:
+	case strings.HasPrefix(name, "u") && err == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
 	// we assume that if not a fundamental type, it is an alias
