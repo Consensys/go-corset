@@ -24,13 +24,13 @@ type UnresolvedFixedArray = FixedArray[symbol.Unresolved]
 
 // FixedArray captures a fixed sized array type.
 type FixedArray[I symbol.Symbol[I]] struct {
-	size     uint
-	datatype Type[I]
+	DataType Type[I]
+	Size     uint
 }
 
 // NewFixedArray constructs a fixed-size array Type.
-func NewFixedArray[I symbol.Symbol[I]](size uint, datatype Type[I]) *FixedArray[I] {
-	return &FixedArray[I]{size, datatype}
+func NewFixedArray[I symbol.Symbol[I]](datatype Type[I], size uint) *FixedArray[I] {
+	return &FixedArray[I]{datatype, size}
 }
 
 // FixedArray implementation for Type interface
@@ -48,6 +48,11 @@ func (p *FixedArray[I]) AsAlias(Environment[I]) *Alias[I] {
 	return nil
 }
 
-func (p *FixedArray[I]) String(Environment[I]) string {
-	return fmt.Sprintf("u%d[%d]+", p.datatype, p.size)
+func (p *FixedArray[I]) String(env Environment[I]) string {
+	return fmt.Sprintf("%s[%d]+", p.DataType.String(env), p.Size)
+}
+
+// Resolve returns the type that this fixed-size array refers to in the given environment.
+func (p *FixedArray[I]) Resolve(Environment[I]) Type[I] {
+	return p.DataType
 }
