@@ -1,0 +1,5 @@
+fn main() {
+  var items:u8[3]
+  var res:u10 = items[0] + items[1] + items[2]
+  return
+}

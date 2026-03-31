@@ -25,6 +25,8 @@ func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
 		return t.bitwidth
 	case *Alias[S]:
 		return BitWidthOf(t.Resolve(env), env)
+	case *FixedArray[S]:
+		return BitWidthOf(t.Resolve(env), env)
 	case *Tuple[S]:
 		var bitwidth uint
 		//
