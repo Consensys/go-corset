@@ -61,7 +61,7 @@ func (p *Mul[W]) Definitions() []register.Id {
 	return []register.Id{p.Target}
 }
 
-func (p *Mul[W]) String(mapping register.Map) string {
+func (p *Mul[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(registersToString(mapping, p.Target))
@@ -72,7 +72,7 @@ func (p *Mul[W]) String(mapping register.Map) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Mul[W]) Validate(config field.Config, env register.Map) []error {
+func (p *Mul[W]) Validate(config field.Config, env SystemMap[W]) []error {
 	var errors []error
 	// (1) validate left-hand side fits within bandwidth; target registers fit
 	// within register width; target registers have valid identifiers;
@@ -86,7 +86,7 @@ func (p *Mul[W]) Validate(config field.Config, env register.Map) []error {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Mul[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *Mul[W]) MicroValidate(_ uint, field field.Config, env SystemMap[W]) []error {
 	return p.Validate(field, env)
 }
 

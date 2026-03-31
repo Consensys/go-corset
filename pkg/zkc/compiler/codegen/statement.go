@@ -61,13 +61,13 @@ func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction
 	case *stmt.IfGoto[symbol.Resolved]:
 		return p.compileCondition(pc, s.Cond, mapping, s.Target)
 	case *stmt.Goto[symbol.Resolved]:
-		return &instruction.Jmp{Target: s.Target}
+		return &instruction.Jmp[word.Uint]{Target: s.Target}
 	case *stmt.Fail[symbol.Resolved]:
-		return &instruction.Fail{}
+		return &instruction.Fail[word.Uint]{}
 	case *stmt.Printf[symbol.Resolved]:
 		return p.compilePrintf(mapping, s.Chunks, s.Arguments)
 	case *stmt.Return[symbol.Resolved]:
-		return &instruction.Return{}
+		return &instruction.Return[word.Uint]{}
 	default:
 		panic("unknown statement encountered")
 	}
@@ -110,7 +110,7 @@ func (p *Compiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []Micr
 			}
 			//
 			preInsns = append(preInsns, pre...)
-			postInsns = append(postInsns, instruction.NewMemWrite(id, targets, sources))
+			postInsns = append(postInsns, instruction.NewMemWrite[word.Uint](id, targets, sources))
 		}
 	}
 	//
@@ -140,7 +140,7 @@ func (p *Compiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, a
 		}
 	}
 	//
-	insns = append(insns, &instruction.Debug{Chunks: nchunks})
+	insns = append(insns, &instruction.Debug[word.Uint]{Chunks: nchunks})
 	//
 	return instruction.NewVector[word.Uint](insns...)
 }
@@ -154,9 +154,9 @@ func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
 		args, insns = p.compileArgs(mapping, e.Left, e.Right)
-		insns = append(insns, instruction.NewSkipIf(instruction.Condition(e.Operator), args[0], args[1], 1))
-		insns = append(insns, instruction.NewJmp(pc+1))
-		insns = append(insns, instruction.NewJmp(target))
+		insns = append(insns, instruction.NewSkipIf[word.Uint](instruction.Condition(e.Operator), args[0], args[1], 1))
+		insns = append(insns, instruction.NewJmp[word.Uint](pc+1))
+		insns = append(insns, instruction.NewJmp[word.Uint](target))
 	default:
 		panic("unknown condition encountered")
 	}
@@ -293,7 +293,7 @@ func (p *Compiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], fn
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return insns, instruction.NewCall(id, targets, sources)
+	return insns, instruction.NewCall[word.Uint](id, targets, sources)
 }
 
 func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem *Memory, mapping []uint,
@@ -303,7 +303,7 @@ func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem 
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return insns, instruction.NewMemRead(id, targets, sources)
+	return insns, instruction.NewMemRead[word.Uint](id, targets, sources)
 }
 
 func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {

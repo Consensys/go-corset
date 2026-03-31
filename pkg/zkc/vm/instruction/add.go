@@ -59,7 +59,7 @@ func (p *Add[W]) Definitions() []register.Id {
 	return []register.Id{p.Target}
 }
 
-func (p *Add[W]) String(mapping register.Map) string {
+func (p *Add[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(registersToString(mapping, p.Target))
@@ -70,6 +70,6 @@ func (p *Add[W]) String(mapping register.Map) string {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Add[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *Add[W]) MicroValidate(_ uint, field field.Config, env SystemMap[W]) []error {
 	return nil
 }

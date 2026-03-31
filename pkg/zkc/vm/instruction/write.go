@@ -29,7 +29,7 @@ import (
 //
 // Here t0,...,tn are the target registers used for determine the address being
 // written, whilst s0,...,sn are the source registers which fill the data lines.
-type MemWrite struct {
+type MemWrite[W any] struct {
 	// Module identifyer for memory being read.
 	Id uint
 	// Address registers for assignment
@@ -40,12 +40,12 @@ type MemWrite struct {
 
 // NewMemWrite constructs a new instruction which writes data values to either a
 // Random Access Memory (RAM) or a Write-Once Memory (WOM).
-func NewMemWrite(id uint, targets []register.Id, sources []register.Id) *MemWrite {
-	return &MemWrite{id, targets, sources}
+func NewMemWrite[W any](id uint, targets []register.Id, sources []register.Id) *MemWrite[W] {
+	return &MemWrite[W]{id, targets, sources}
 }
 
 // Uses implementation for Instruction interface
-func (p *MemWrite) Uses() []register.Id {
+func (p *MemWrite[W]) Uses() []register.Id {
 	var data set.AnySortedSet[register.Id]
 	//
 	for _, t := range p.Address {
@@ -60,15 +60,15 @@ func (p *MemWrite) Uses() []register.Id {
 }
 
 // Definitions implementation for Instruction interface
-func (p *MemWrite) Definitions() []register.Id {
+func (p *MemWrite[W]) Definitions() []register.Id {
 	return nil
 }
 
-func (p *MemWrite) String(env register.Map) string {
+func (p *MemWrite[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(fmt.Sprintf("%d[", p.Id))
-	builder.WriteString(registersToString(env, array.Reverse(p.Address)...))
+	builder.WriteString(fmt.Sprintf("%s[", mapping.Module(p.Id).Name()))
+	builder.WriteString(registersToString(mapping, array.Reverse(p.Address)...))
 	builder.WriteString("] = ")
 	//
 	for i, rid := range p.Data {
@@ -76,13 +76,13 @@ func (p *MemWrite) String(env register.Map) string {
 			builder.WriteString(", ")
 		}
 		//
-		builder.WriteString(env.Register(rid).Name())
+		builder.WriteString(mapping.Register(rid).Name())
 	}
 	//
 	return builder.String()
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *MemWrite) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *MemWrite[W]) MicroValidate(_ uint, field field.Config, env SystemMap[W]) []error {
 	return nil
 }

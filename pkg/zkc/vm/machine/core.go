@@ -12,7 +12,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package machine
 
-import "github.com/consensys/go-corset/pkg/schema/register"
+import (
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+)
 
 // ExecuteAll executes a given machine to completion in chunks of n steps,
 // returning the number of steps executed and/or any error arising.
@@ -67,10 +70,7 @@ type Core[W any] interface {
 }
 
 // Module represents an either a function or memory within the machine.
-type Module[W any] interface {
-	// Name of this module
-	Name() string
-}
+type Module[W any] = instruction.Module[W]
 
 // ============================================================================
 // Frame

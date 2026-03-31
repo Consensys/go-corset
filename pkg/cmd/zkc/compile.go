@@ -29,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
@@ -256,25 +257,39 @@ func writeFunctionVariables(f *decl.ResolvedFunction, env data.ResolvedEnvironme
 
 func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Base[W]) {
 	// Write memories
-	for _, m := range machine.Modules() {
+	for i, m := range machine.Modules() {
+		if i != 0 {
+			fmt.Println()
+		}
+		//
 		switch m := m.(type) {
-		case memory.Memory[W]:
-			writeIrMemory(m)
+		case *memory.ReadOnly[W]:
+			writeIrMemory("input", m)
 		case *function.Boot[W]:
-			writeIrFunction[W](m)
+			name := trace.ModuleName{Name: m.Name(), Multiplier: 1}
+			mapping := instruction.NewSystemMap(register.ArrayMap(name, m.Registers()...), machine.Modules())
+			writeIrFunction[W](m, mapping)
 		}
 	}
 }
 
-func writeIrMemory[W word.Word[W]](m memory.Memory[W]) {
-	fmt.Printf("memory? %s(?) -> (?)\n", m.Name())
+func writeIrMemory[W word.Word[W]](kind string, m memory.Memory[W]) {
+	var regs = m.Geometry().Registers()
+	//
+	fmt.Printf("%s %s(", kind, m.Name())
+	// parameters
+	writeIrFunctionArgs(register.INPUT_REGISTER, regs)
+	//
+	fmt.Printf(")")
+	//
+	fmt.Printf(" -> (")
+	// returns
+	writeIrFunctionArgs(register.OUTPUT_REGISTER, regs)
+	//
+	fmt.Println(")")
 }
 
-func writeIrFunction[W word.Word[W]](f *function.Boot[W]) {
-	var (
-		name   = trace.ModuleName{Name: f.Name(), Multiplier: 1}
-		regMap = register.ArrayMap(name, f.Registers()...)
-	)
+func writeIrFunction[W word.Word[W]](f *function.Boot[W], mapping instruction.SystemMap[W]) {
 	fmt.Printf("fn %s(", f.Name())
 	// parameters
 	writeIrFunctionArgs(register.INPUT_REGISTER, f.Registers())
@@ -295,7 +310,7 @@ func writeIrFunction[W word.Word[W]](f *function.Boot[W]) {
 	writeIrFunctionVariables[W](f)
 	//
 	for pc, insn := range f.Code() {
-		fmt.Printf("[%d]\t%s\n", pc, insn.String(regMap))
+		fmt.Printf("[%d]\t%s\n", pc, insn.String(mapping))
 	}
 	// Done
 	fmt.Println("}")

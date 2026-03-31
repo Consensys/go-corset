@@ -14,7 +14,21 @@ package instruction
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/trace"
 )
+
+// Module represents an either a function or memory within the machine.
+type Module[W any] interface {
+	// Name of this module
+	Name() string
+}
+
+// SystemMap provides a global view of modules in the systemn.
+type SystemMap[W any] interface {
+	register.Map
+	//
+	Module(id uint) Module[W]
+}
 
 // Instruction provides an abstract notion of a "machine instruction".  That is, a single atomic unit which can be
 type Instruction[W any] interface {
@@ -24,5 +38,39 @@ type Instruction[W any] interface {
 	// by this instruction.
 	Definitions() []register.Id
 	// Provide human readable form of instruction
-	String(env register.Map) string
+	String(SystemMap[W]) string
+}
+
+// NewSystemMap constructs a new system map
+func NewSystemMap[W any](regs register.Map, modules []Module[W]) SystemMap[W] {
+	return &systemMap[W]{regs, modules}
+}
+
+type systemMap[W any] struct {
+	regs    register.Map
+	modules []Module[W]
+}
+
+func (p *systemMap[W]) Module(id uint) Module[W] {
+	return p.modules[id]
+}
+
+func (p *systemMap[W]) Name() trace.ModuleName {
+	return p.regs.Name()
+}
+
+func (p *systemMap[W]) HasRegister(name string) (register.Id, bool) {
+	return p.regs.HasRegister(name)
+}
+
+func (p *systemMap[W]) Register(id register.Id) register.Register {
+	return p.regs.Register(id)
+}
+
+func (p *systemMap[W]) Registers() []register.Register {
+	return p.regs.Registers()
+}
+
+func (p *systemMap[W]) String() string {
+	return p.regs.String()
 }
