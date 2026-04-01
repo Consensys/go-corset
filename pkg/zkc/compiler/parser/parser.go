@@ -1482,27 +1482,38 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	)
 	//
 	name, errs = p.parseIdentifier()
-	// now, check for function call or memory access
-	if len(errs) == 0 && p.match(LSQUARE) {
-		var args []Expr
-		//
-		args, errs = p.parseExprList(RSQUARE, env)
-		//
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.READABLE_MEMORY, uint(len(args))), args...)
-	} else if len(errs) == 0 && p.match(LBRACE) {
-		var args []Expr
-		//
-		args, errs = p.parseExprList(RBRACE, env)
-		//
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
-	} else if !env.IsDeclaredVariable(name) {
-		// Constant access
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
+	isDeclared := env.IsDeclaredVariable(name)
+	if !isDeclared {
+		// now, extern access check for function call or memory access
+		if len(errs) == 0 && p.match(LSQUARE) {
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RSQUARE, env)
+			//
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.READABLE_MEMORY, uint(len(args))), args...)
+		} else if len(errs) == 0 && p.match(LBRACE) {
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RBRACE, env)
+			//
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
+		} else {
+			// Constant access
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
+		}
 	} else {
-		// Register access
 		rid := env.LookupVariable(name)
-		// Done
-		nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
+		if !p.match(LSQUARE) {
+			// Register access
+			nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
+		} else {
+			// Array access
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RSQUARE, env)
+			//
+			nexpr = expr.NewArrayAccess(rid, args...)
+		}
 	}
 	//
 	return nexpr, errs
@@ -1558,16 +1569,17 @@ func (p *Parser) parseLVals(env Environment) ([]LVal, []source.SyntaxError) {
 
 func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	var (
-		lv        LVal
-		start     = p.index
-		lookahead = p.lookahead()
-		reg, errs = p.parseIdentifier()
-		index     []Expr
+		lv         LVal
+		start      = p.index
+		lookahead  = p.lookahead()
+		reg, errs  = p.parseIdentifier()
+		isDeclared = env.IsDeclaredVariable(reg)
+		index      []Expr
 	)
 	//
 	if len(errs) > 0 {
 		return lv, errs
-	} else if env.IsDeclaredVariable(reg) {
+	} else if isDeclared && !p.match(LSQUARE) {
 		var vars = []variable.Id{env.LookupVariable(reg)}
 		// Look for destructuring lvals
 		for p.match(COLONCOLON) {
@@ -1584,10 +1596,12 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 		}
 		//
 		lv = lval.NewVariable[symbol.Unresolved](vars...)
-	} else if !p.match(LSQUARE) {
-		return lv, p.syntaxErrors(lookahead, "unknown variable")
+	} else if !isDeclared && !p.match(LSQUARE) {
+		return lv, p.syntaxErrors(lookahead, "unknown register")
 	} else if index, errs = p.parseExprList(RSQUARE, env); len(errs) > 0 {
 		return lv, errs
+	} else if isDeclared {
+		lv = lval.NewArray(env.LookupVariable(reg), index)
 	} else {
 		// construct name symbol
 		var name = symbol.NewUnresolved(reg, symbol.WRITEABLE_MEMORY, 1)
