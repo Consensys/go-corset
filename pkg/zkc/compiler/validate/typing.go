@@ -191,6 +191,9 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 	switch t := target.(type) {
 	case *lval.Variable[symbol.Resolved]:
 		return env.Variable(t.Id).DataType, nil
+		// TODO check
+	case *lval.Array[symbol.Resolved]:
+		return env.Variable(t.Id).DataType, nil
 	case *lval.MemAccess[symbol.Resolved]:
 		// Lookup the symbol
 		var extern = p.lookup(t.Name)
@@ -324,6 +327,8 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap, effects b
 		t, errs = p.typeConst(e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
 		t, errs = p.typeLocalAccess(e, env)
+	case *expr.ArrayAccess[symbol.Resolved]:
+		t, errs = p.typeArrayAccess(e, env)
 	case *expr.Mul[symbol.Resolved]:
 		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
@@ -462,6 +467,12 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 ) (Type, []source.SyntaxError) {
 	//
 	return env.Variable(e.Variable).DataType, nil
+}
+
+func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
+	//
+	return env.Variable(e.Id).DataType, nil
 }
 
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,

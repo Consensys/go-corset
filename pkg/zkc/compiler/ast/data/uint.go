@@ -72,6 +72,10 @@ func (p *UnsignedInt[S]) AsAlias(Environment[S]) *Alias[S] {
 	return nil
 }
 
+// AsFixedArray implementation for Type interface
+func (p *UnsignedInt[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
+	return nil
+}
 func (p *UnsignedInt[S]) String(_ Environment[S]) string {
 	if p.open {
 		return fmt.Sprintf("u%d+", p.bitwidth)
