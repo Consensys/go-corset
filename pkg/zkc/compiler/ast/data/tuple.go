@@ -44,6 +44,11 @@ func (p *Tuple[S]) AsAlias(Environment[S]) *Alias[S] {
 	return nil
 }
 
+// AsFixedArray implementation for Type interface
+func (p *Tuple[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
+	return nil
+}
+
 // Ith returns the ith element in this tuple
 func (p *Tuple[S]) Ith(index uint) Type[S] {
 	return p.elements[index]

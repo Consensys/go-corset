@@ -48,6 +48,11 @@ func (p *FixedArray[I]) AsAlias(Environment[I]) *Alias[I] {
 	return nil
 }
 
+// AsFixedArray implementation for Type interface
+func (p *FixedArray[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
+	return p
+}
+
 func (p *FixedArray[I]) String(env Environment[I]) string {
 	return fmt.Sprintf("%s[%d]+", p.DataType.String(env), p.Size)
 }
