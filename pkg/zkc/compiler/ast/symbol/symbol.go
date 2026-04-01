@@ -21,6 +21,10 @@ import (
 type Symbol[S any] interface {
 	fmt.Stringer
 	set.Comparable[S]
+	// IsMemory determines whether this refers to a form of memory (or not)
+	IsMemory() bool
+	// IsFunction determines whether this refers to a function (or not)
+	IsFunction() bool
 }
 
 // Kind determines the symbol kind (e.g. constant, function, input, output,

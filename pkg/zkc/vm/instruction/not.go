@@ -49,7 +49,7 @@ func (p *Not[W]) Definitions() []register.Id {
 }
 
 // String implementation for Instruction interface.
-func (p *Not[W]) String(mapping register.Map) string {
+func (p *Not[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(registersToString(mapping, p.Target))
@@ -60,6 +60,6 @@ func (p *Not[W]) String(mapping register.Map) string {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Not[W]) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *Not[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }

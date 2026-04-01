@@ -85,9 +85,9 @@ type MicroInstruction[W word.Word[W]] interface {
 	// Validate that this micro-instruction is well-formed.  For example, that
 	// it is balanced, that there are no conflicting writes, that all
 	// temporaries have been allocated, etc.
-	MicroValidate(width uint, field field.Config, env register.Map) []error
+	MicroValidate(width uint, field field.Config, mapping SystemMap[W]) []error
 	// Provide human readable form of instruction
-	String(env register.Map) string
+	String(SystemMap[W]) string
 }
 
 // NewVector constructs a new vector instruction composed of zero or more
@@ -140,7 +140,7 @@ func (p *Vector[W]) Definitions() []register.Id {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p *Vector[W]) Validate(field field.Config, mapping register.Map) []error {
+func (p *Vector[W]) Validate(field field.Config, mapping SystemMap[W]) []error {
 	// Construct write map
 	var (
 		errors   []error
@@ -180,7 +180,7 @@ func (p *Vector[W]) Validate(field field.Config, mapping register.Map) []error {
 }
 
 // String implementation for Instruction interface
-func (p *Vector[W]) String(env register.Map) string {
+func (p *Vector[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
 	for i, code := range p.Codes {
@@ -188,7 +188,7 @@ func (p *Vector[W]) String(env register.Map) string {
 			builder.WriteString(" ; ")
 		}
 		//
-		builder.WriteString(code.String(env))
+		builder.WriteString(code.String(mapping))
 	}
 	//
 	return builder.String()
@@ -206,12 +206,12 @@ func writeDfaTransfer[W word.Word[W]](offset uint, code MicroInstruction[W], sta
 	var arcs []dfa.Transfer[dfa.Writes]
 	//
 	switch code := code.(type) {
-	case *Fail, *Return, *Jmp:
+	case *Fail[W], *Return[W], *Jmp[W]:
 		return nil
-	case *Skip:
+	case *Skip[W]:
 		// join into branch target
 		return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
-	case *SkipIf:
+	case *SkipIf[W]:
 		// join into branch target
 		arcs = append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
 		// fall through

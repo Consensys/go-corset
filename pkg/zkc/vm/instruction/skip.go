@@ -20,26 +20,26 @@ import (
 )
 
 // Skip microcode performs an unconditional skip over a given number of codes.
-type Skip struct {
+type Skip[W any] struct {
 	// Skip
 	Skip uint
 }
 
 // Uses implementation for Instruction interface.
-func (p *Skip) Uses() []register.Id {
+func (p *Skip[W]) Uses() []register.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Skip) Definitions() []register.Id {
+func (p *Skip[W]) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Skip) String(_ register.Map) string {
+func (p *Skip[W]) String(_ SystemMap[W]) string {
 	return fmt.Sprintf("skip %d", p.Skip)
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Skip) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
+func (p *Skip[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }

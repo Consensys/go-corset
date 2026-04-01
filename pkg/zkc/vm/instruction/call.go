@@ -23,7 +23,7 @@ import (
 
 // Call represents an arbitrary memory read operation for a given type of
 // memory.
-type Call struct {
+type Call[W any] struct {
 	// Module identifyer for memory being read.
 	Id uint
 	// Return registers for function call.  That is, registers which should hold
@@ -37,36 +37,36 @@ type Call struct {
 
 // NewCall constructs a new instruction which reads the value from either a
 // Random Access Memory (RAM) or a Read-Only Memory (ROM).
-func NewCall(id uint, targets []register.Id, sources []register.Id) *Call {
-	return &Call{id, targets, sources}
+func NewCall[W any](id uint, targets []register.Id, sources []register.Id) *Call[W] {
+	return &Call[W]{id, targets, sources}
 }
 
 // Uses implementation for Instruction interface
-func (p *Call) Uses() []register.Id {
+func (p *Call[W]) Uses() []register.Id {
 	return p.Arguments
 }
 
 // Definitions implementation for Instruction interface
-func (p *Call) Definitions() []register.Id {
+func (p *Call[W]) Definitions() []register.Id {
 	return p.Returns
 }
 
-func (p *Call) String(env register.Map) string {
+func (p *Call[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
 	if len(p.Returns) > 0 {
-		builder.WriteString(registersToString(env, array.Reverse(p.Returns)...))
+		builder.WriteString(registersToString(mapping, array.Reverse(p.Returns)...))
 		builder.WriteString(" = ")
 	}
 	//
-	builder.WriteString(fmt.Sprintf("%d(", p.Id))
+	builder.WriteString(fmt.Sprintf("%s(", mapping.Module(p.Id).Name()))
 	//
 	for i, rid := range p.Arguments {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 		//
-		builder.WriteString(env.Register(rid).Name())
+		builder.WriteString(mapping.Register(rid).Name())
 	}
 	//
 	builder.WriteString(")")
@@ -75,6 +75,6 @@ func (p *Call) String(env register.Map) string {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Call) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *Call[W]) MicroValidate(_ uint, field field.Config, _ SystemMap[W]) []error {
 	return nil
 }
