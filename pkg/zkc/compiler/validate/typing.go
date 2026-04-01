@@ -203,6 +203,9 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		}
 		// Consider destructurings
 		return p.typeDestructuringLval(t, env)
+		// TODO check
+	case *lval.Array[symbol.Resolved]:
+		return env.Variable(t.Id).DataType, nil
 	case *lval.MemAccess[symbol.Resolved]:
 		// Unknown external access cannot be typed.  This case handles some kind of
 		// linking error earlier in the compilation pipeline.
@@ -441,6 +444,8 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 		actual, errs = p.typeConst(expected, e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
 		actual, errs = p.typeLocalAccess(e, env)
+	case *expr.ArrayAccess[symbol.Resolved]:
+		actual, errs = p.typeArrayAccess(e, env)
 	case *expr.Mul[symbol.Resolved]:
 		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
@@ -677,6 +682,12 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 ) (Type, []source.SyntaxError) {
 	//
 	return env.Variable(e.Variable).DataType, nil
+}
+
+func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
+	//
+	return env.Variable(e.Id).DataType, nil
 }
 
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,
