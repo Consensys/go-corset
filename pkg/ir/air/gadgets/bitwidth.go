@@ -410,9 +410,16 @@ func decompose[F field.Element[F]](loWidth uint, ith F) (F, F) {
 		loFr, hiFr  F
 		n           = uint(len(bytes))
 	)
-	// Sanity check assumption
+	// Sub-byte split: use uint64 arithmetic. Only safe for small fields.
 	if loWidth%8 != 0 {
-		panic(fmt.Sprintf("unreachable (u%d)", loWidth))
+		if ith.Modulus().BitLen() > 64 {
+			panic(fmt.Sprintf("unreachable (u%d)", loWidth))
+		}
+		val := ith.Uint64()
+		loMask := uint64(1)<<loWidth - 1
+		loFr = loFr.SetUint64(val & loMask)
+		hiFr = hiFr.SetUint64(val >> loWidth)
+		return loFr, hiFr
 	}
 	//
 	if loByteWidth >= n {
