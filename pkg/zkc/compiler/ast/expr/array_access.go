@@ -41,6 +41,7 @@ func (p *ArrayAccess[S]) ExternUses() set.AnySortedSet[S] {
 func (p *ArrayAccess[S]) LocalUses() bit.Set {
 	var read bit.Set
 	read.Insert(p.Id)
+	read.Union(localUses(p.Args...))
 	//
 	return read
 }
