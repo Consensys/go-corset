@@ -40,12 +40,21 @@ func (p *Array[S]) ExternUses() set.AnySortedSet[S] {
 
 // LocalUses implementation for the LVal interface.
 func (p *Array[S]) LocalUses() bit.Set {
-	return bit.Set{}
+	var reads bit.Set
+	//
+	for _, e := range p.Args {
+		reads.Union(e.LocalUses())
+	}
+	//
+	return reads
 }
 
 // LocalDefs implementation for the LVal interface.
 func (p *Array[S]) LocalDefs() bit.Set {
-	return bit.Set{}
+	var defs bit.Set
+	defs.Insert(p.Id)
+	//
+	return defs
 }
 
 func (p *Array[S]) String(mapping variable.Map[S]) string {
