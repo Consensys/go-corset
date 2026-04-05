@@ -18,29 +18,29 @@ import (
 )
 
 // Return performs an unconditional branch to a given target instructon.
-type Return struct {
+type Return[W any] struct {
 }
 
 // Uses implementation for Instruction interface.
-func (p *Return) Uses() []register.Id {
+func (p *Return[W]) Uses() []register.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Return) Definitions() []register.Id {
+func (p *Return[W]) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Return) String(_ register.Map) string {
+func (p *Return[W]) String(_ SystemMap[W]) string {
 	return "ret"
 }
 
 // Validate implementation for Instruction interface.
-func (p *Return) Validate(_ field.Config, _ register.Map) []error {
+func (p *Return[W]) Validate(_ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Return) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
+func (p *Return[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }

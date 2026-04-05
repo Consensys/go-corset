@@ -118,7 +118,18 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 
 		return "~" + String[S](e.Expr, mapping)
 	case *ExternAccess[S]:
-		return e.Name.String()
+		args := stringOfArguments(e.Args, mapping)
+		name := e.Name.String()
+		//
+		switch {
+		case e.Name.IsFunction():
+			return fmt.Sprintf("%s(%s)", name, args)
+		case e.Name.IsMemory():
+			return fmt.Sprintf("%s[%s]", name, args)
+		default:
+			return name
+		}
+
 	case *Shl[S]:
 		operator = "<<"
 		exprs = e.Exprs
@@ -152,6 +163,20 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 		} else {
 			builder.WriteString(String[S](e, mapping))
 		}
+	}
+	//
+	return builder.String()
+}
+
+func stringOfArguments[S symbol.Symbol[S]](args []Expr[S], mapping variable.Map[S]) string {
+	var builder strings.Builder
+	//
+	for i, arg := range args {
+		if i != 0 {
+			builder.WriteString(",")
+		}
+
+		builder.WriteString(String[S](arg, mapping))
 	}
 	//
 	return builder.String()

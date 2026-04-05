@@ -12,16 +12,20 @@
 // SPDX-License-Identifier: Apache-2.0
 package memory
 
-import "github.com/consensys/go-corset/pkg/schema/register"
+import (
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+)
 
 // Memory represents (in many ways) the simplest form of memory
 // which can be read or written without restrictions.  Initially, all locations
 // of a RAM can be considered to hold zero.  Thus, reading a location which has
 // not yet been written will return zero; otherwise, it will return the last
 // value written.
-type Memory[W any] interface {
+type Memory[W word.Word[W]] interface {
 	// Name returns the name of this RAM
 	Name() string
+	Geometry() Geometry[W]
 	// Initialise this memory with the given contents.  This will overwrite any
 	// existing contents.
 	Initialise(contents []W)

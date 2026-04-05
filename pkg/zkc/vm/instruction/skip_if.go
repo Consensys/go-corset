@@ -43,7 +43,7 @@ type Condition uint
 // condition is either that two registers are equal, or that they are not equal.
 // This has two variants: register-register; and, register-constant.  The latter
 // is indiciated when the right register is marked as UNUSED.
-type SkipIf struct {
+type SkipIf[W any] struct {
 	Cond Condition
 	// Left and right comparisons
 	Left register.Id
@@ -54,12 +54,12 @@ type SkipIf struct {
 }
 
 // NewSkipIf constructs a fresh conditional skip instruction.
-func NewSkipIf(condition Condition, left, right register.Id, skip uint) *SkipIf {
-	return &SkipIf{condition, left, right, skip}
+func NewSkipIf[W any](condition Condition, left, right register.Id, skip uint) *SkipIf[W] {
+	return &SkipIf[W]{condition, left, right, skip}
 }
 
 // Uses implementation for Instruction interface
-func (p *SkipIf) Uses() []register.Id {
+func (p *SkipIf[W]) Uses() []register.Id {
 	var regs []io.RegisterId
 	// Add all registers on the left-hand side
 	regs = append(regs, p.Left)
@@ -70,14 +70,14 @@ func (p *SkipIf) Uses() []register.Id {
 }
 
 // Definitions implementation for Instruction interface
-func (p *SkipIf) Definitions() []io.RegisterId {
+func (p *SkipIf[W]) Definitions() []io.RegisterId {
 	return nil
 }
 
-func (p *SkipIf) String(env register.Map) string {
+func (p *SkipIf[W]) String(mapping SystemMap[W]) string {
 	var (
-		l = env.Register(p.Left).Name()
-		r = env.Register(p.Right).Name()
+		l = mapping.Register(p.Left).Name()
+		r = mapping.Register(p.Right).Name()
 		o string
 	)
 	//
@@ -102,7 +102,7 @@ func (p *SkipIf) String(env register.Map) string {
 }
 
 // MicroValidate iumplementation for MicroInstruction interface
-func (p *SkipIf) MicroValidate(n uint, _ field.Config, fn register.Map) []error {
+func (p *SkipIf[W]) MicroValidate(n uint, _ field.Config, fn SystemMap[W]) []error {
 	var (
 		errors []error
 		lw     = fn.Register(p.Left).Width()

@@ -18,29 +18,29 @@ import (
 )
 
 // Fail performs an unconditional branch to a given target instructon.
-type Fail struct {
+type Fail[W any] struct {
 }
 
 // Uses implementation for Instruction interface.
-func (p *Fail) Uses() []register.Id {
+func (p *Fail[W]) Uses() []register.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Fail) Definitions() []register.Id {
+func (p *Fail[W]) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Fail) String(_ register.Map) string {
+func (p *Fail[W]) String(_ SystemMap[W]) string {
 	return "fail"
 }
 
 // Validate implementation for Instruction interface.
-func (p *Fail) Validate(_ field.Config, _ register.Map) []error {
+func (p *Fail[W]) Validate(_ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Fail) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
+func (p *Fail[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }

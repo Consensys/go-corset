@@ -26,6 +26,16 @@ func NewResolved(name string, kind Kind, index uint) Resolved {
 	return Resolved{name, kind, index}
 }
 
+// IsMemory implementation for Symbol interface
+func (p Resolved) IsMemory() bool {
+	return p.Kind == READABLE_MEMORY || p.Kind == WRITEABLE_MEMORY
+}
+
+// IsFunction implementation for Symbol interface
+func (p Resolved) IsFunction() bool {
+	return p.Kind == FUNCTION
+}
+
 // Cmp implementation for set.Comparable interface
 func (p Resolved) Cmp(o Resolved) int {
 	return cmp.Compare(p.Index, o.Index)
