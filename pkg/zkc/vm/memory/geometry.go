@@ -60,6 +60,12 @@ func NewGeometry[W word.Word[W]](registers []register.Register) Geometry[W] {
 	return Geometry[W]{registers, inputs, outputs}
 }
 
+// Registers returns the set of registers used for the address and data lines of
+// this memory.
+func (p Geometry[W]) Registers() []register.Register {
+	return p.registers
+}
+
 // Decode maps address (a tuple of words representing a logical memory address)
 // to the half-open index range [start, end) within the backing flat slice.  The
 // length end-start always equals dataGeometry, i.e. the number of data words
@@ -70,7 +76,7 @@ func NewGeometry[W word.Word[W]](registers []register.Register) Geometry[W] {
 // subsequent components, then OR-ed in.  For a scalar address this reduces to
 // index = address[0]; for a tuple (u8, u16) it gives index = address[0]<<16 |
 // address[1].
-func (p *Geometry[W]) Decode(address []W) (start, end uint64) {
+func (p Geometry[W]) Decode(address []W) (start, end uint64) {
 	var index uint64
 	for i, component := range address {
 		var bitwidth = uint64(p.registers[i].Width())
@@ -85,7 +91,7 @@ func (p *Geometry[W]) Decode(address []W) (start, end uint64) {
 
 // FrameDecode operates like Decode, but reads the address values indirectly
 // from the enclosing frame.
-func (p *Geometry[W]) FrameDecode(frame []W, address []register.Id) (start, end uint64) {
+func (p Geometry[W]) FrameDecode(frame []W, address []register.Id) (start, end uint64) {
 	var index uint64
 	for i, r := range address {
 		var bitwidth = uint64(p.registers[i].Width())

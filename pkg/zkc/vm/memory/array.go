@@ -49,6 +49,11 @@ func (p *Array[W]) Initialise(contents []W) {
 	p.data = contents
 }
 
+// Geometry implementation for Memory interface.
+func (p *Array[W]) Geometry() Geometry[W] {
+	return p.geometry
+}
+
 // Read implementation for Memory interface.
 func (p *Array[W]) Read(address []W) []W {
 	var start, end = p.geometry.Decode(address)

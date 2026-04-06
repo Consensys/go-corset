@@ -252,12 +252,20 @@ func Test_ZkcUnit_Shift_07(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/shift_07")
 }
 
+func Test_ZkcUnit_Shift_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_08")
+}
+
 // ===================================================================
 // Static Initialiser Tests
 // ===================================================================
 
 func Test_ZkcUnit_Static_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/static_01")
+}
+
+func Test_ZkcUnit_SwitchEndian(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_endian")
 }
 
 // ===================================================================

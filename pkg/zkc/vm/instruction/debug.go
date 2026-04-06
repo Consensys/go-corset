@@ -30,12 +30,12 @@ type FormattedChunk struct {
 }
 
 // Debug performs an unconditional branch to a given target instructon.
-type Debug struct {
+type Debug[W any] struct {
 	Chunks []FormattedChunk
 }
 
 // Uses implementation for Instruction interface.
-func (p *Debug) Uses() []register.Id {
+func (p *Debug[W]) Uses() []register.Id {
 	var uses []register.Id
 	//
 	for _, c := range p.Chunks {
@@ -48,11 +48,11 @@ func (p *Debug) Uses() []register.Id {
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Debug) Definitions() []register.Id {
+func (p *Debug[W]) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Debug) String(env register.Map) string {
+func (p *Debug[W]) String(mapping SystemMap[W]) string {
 	var (
 		tBuilder  strings.Builder
 		builder   strings.Builder
@@ -60,7 +60,7 @@ func (p *Debug) String(env register.Map) string {
 	)
 	//
 	for _, c := range p.Chunks {
-		tBuilder.WriteString(c.Text)
+		tBuilder.WriteString(util.EscapeFormattedText(c.Text))
 		//
 		if c.Format.HasFormat() {
 			tBuilder.WriteString(c.Format.String())
@@ -71,7 +71,7 @@ func (p *Debug) String(env register.Map) string {
 			//
 			firstTime = false
 			//
-			builder.WriteString(env.Register(c.Argument.Id()).Name())
+			builder.WriteString(mapping.Register(c.Argument.Id()).Name())
 		}
 	}
 	//
@@ -79,11 +79,11 @@ func (p *Debug) String(env register.Map) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Debug) Validate(_ field.Config, _ register.Map) []error {
+func (p *Debug[W]) Validate(_ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Debug) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
+func (p *Debug[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
