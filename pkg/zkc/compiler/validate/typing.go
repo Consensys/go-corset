@@ -190,7 +190,23 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 	// determine lhs width
 	switch t := target.(type) {
 	case *lval.Variable[symbol.Resolved]:
-		return env.Variable(t.Id).DataType, nil
+		var bitwidth uint
+		// Special case single variables
+		if len(t.Ids) == 1 {
+			return env.Variable(t.Ids[0]).DataType, nil
+		}
+		// Consider destructurings
+		for _, id := range t.Ids {
+			id_t := env.Variable(id).DataType.AsUint(p.env)
+			// Check whether have integer type or not
+			if id_t == nil {
+				return nil, p.srcmaps.SyntaxErrors(target, "expected integer type")
+			}
+			//
+			bitwidth += id_t.BitWidth()
+		}
+		//
+		return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
 	case *lval.MemAccess[symbol.Resolved]:
 		// Lookup the symbol
 		var extern = p.lookup(t.Name)
@@ -325,6 +341,8 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	switch e := e.(type) {
 	case *expr.Cast[symbol.Resolved]:
 		actual, errs = p.typeCastExpression(expected, e, env, effects)
+	case *expr.Concat[symbol.Resolved]:
+		actual, errs = p.typeConcatExpression(expected, e, env, effects)
 	case *expr.Add[symbol.Resolved]:
 		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseAnd[symbol.Resolved]:
@@ -406,6 +424,30 @@ func (p *TypeChecker) typeArithmeticExpression(t Type, exprs []expr.Resolved, en
 	var res, errors = p.typeUintExpressions(t, exprs, env, effects)
 	//
 	return res, errors
+}
+
+func (p *TypeChecker) typeConcatExpression(t Type, e *expr.Concat[symbol.Resolved], env VariableMap, effects bit.Set,
+) (Type, []source.SyntaxError) {
+	var (
+		errors   []source.SyntaxError
+		bitwidth uint
+	)
+	//
+	for _, e := range e.Exprs {
+		ith_t, errs := p.typeExpression(t, e, env, effects)
+		//
+		if len(errs) > 0 {
+			errors = append(errors, errs...)
+		} else if ith_t := ith_t.AsUint(p.env); ith_t == nil {
+			return nil, append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+		} else if ith_t := ith_t.AsUint(p.env); ith_t.IsOpen() {
+			return nil, append(errors, *p.srcmaps.SyntaxError(e, "expected fixed-width uint"))
+		} else {
+			bitwidth += ith_t.BitWidth()
+		}
+	}
+	//
+	return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
 }
 
 func (p *TypeChecker) typeCastExpression(t Type, e *expr.Cast[symbol.Resolved], env VariableMap, effects bit.Set,

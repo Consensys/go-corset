@@ -44,6 +44,8 @@ type Word[W any] interface {
 	Rem(uint, W) W
 	// Shift left word by the amount given in another word, masking to width bits.
 	Shl(uint, W) W
+	// Shift left word by the amount given in another word, masking to width bits.
+	Shl64(uint, uint64) W
 	// Shift right word by the amount given in another word.
 	Shr(uint, W) W
 	// Shift right word by a given number of bits.

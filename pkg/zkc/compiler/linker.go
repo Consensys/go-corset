@@ -293,7 +293,7 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	//
 	switch lv := lv.(type) {
 	case *lval.Variable[symbol.Unresolved]:
-		nlval = lval.NewVariable[symbol.Resolved](lv.Id)
+		nlval = lval.NewVariable[symbol.Resolved](lv.Ids...)
 	case *lval.MemAccess[symbol.Unresolved]:
 		// resolve symbols in memory name
 		name, errs1 := p.resolve(lv.Name, lv)
@@ -328,6 +328,7 @@ func (p *Linker) linkCondition(cond expr.UnresolvedCondition) (expr.ResolvedCond
 
 func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxError) {
 	var (
+		arg    expr.Resolved
 		args   []expr.Resolved
 		errors []source.SyntaxError
 		nexpr  expr.Resolved
@@ -355,25 +356,23 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewMul[symbol.Resolved](args...)
 	case *expr.Cast[symbol.Unresolved]:
-		var (
-			ne       expr.Resolved
-			castType data.ResolvedType
-		)
+		var castType data.ResolvedType
 		//
-		ne, errors = p.linkExpr(e.Expr)
+		arg, errors = p.linkExpr(e.Expr)
 		//
 		if len(errors) == 0 {
 			castType, errors = p.linkType(e.CastType)
 		}
 		//
 		if len(errors) == 0 {
-			nexpr = expr.NewCast[symbol.Resolved](ne, castType)
+			nexpr = expr.NewCast[symbol.Resolved](arg, castType)
 		}
+	case *expr.Concat[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewConcat[symbol.Resolved](args...)
 	case *expr.BitwiseNot[symbol.Unresolved]:
-		var ne expr.Resolved
-
-		ne, errors = p.linkExpr(e.Expr)
-		nexpr = expr.NewBitwiseNot[symbol.Resolved](ne)
+		arg, errors = p.linkExpr(e.Expr)
+		nexpr = expr.NewBitwiseNot[symbol.Resolved](arg)
 	case *expr.BitwiseOr[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewBitwiseOr[symbol.Resolved](args...)
