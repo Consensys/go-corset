@@ -70,8 +70,8 @@ func Test_ZkcBench_DivRem32(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/div_rem_32")
 }
 
-func Test_ZkcBench_ParsingBug(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/parsing_bug")
+func Test_ZkcBench_LeftShiftAndTypeBug(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/left_shift_and_type_bug")
 }
 
 // ===================================================================
