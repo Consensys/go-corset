@@ -277,7 +277,7 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) (
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
 		if overflow {
-			panic("arithmetic overflow")
+			panic("compileAdd arithmetic overflow")
 		}
 	}
 	// Compile arguments
@@ -328,7 +328,7 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
 		if overflow {
-			panic("arithmetic overflow")
+			panic("compileMul arithmetic overflow")
 		}
 	}
 	// Compile arguments
@@ -419,7 +419,7 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) (
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
 		if overflow {
-			panic("arithmetic overflow")
+			panic("compileSub arithmetic overflow")
 		}
 	}
 	// Compile arguments
@@ -541,7 +541,7 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 		res, overflow := word.Sum(bitwidth, args...)
 		// TODO: report a proper error
 		if overflow {
-			panic("arithmetic overflow")
+			panic("evalConstantAdd arithmetic overflow")
 		}
 		//
 		return res
@@ -557,7 +557,7 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 		res, overflow := word.Product(bitwidth, args...)
 		// TODO: report a proper error
 		if overflow {
-			panic("arithmetic overflow")
+			panic("evalConstantMul arithmetic overflow")
 		}
 		//
 		return res

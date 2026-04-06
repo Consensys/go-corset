@@ -37,6 +37,46 @@ func Test_ZkcBench_SgnExtend(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/sgn_extension_u32_u64")
 }
 
+func Test_ZkcBench_Lo32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/lo_32")
+}
+
+func Test_ZkcBench_Hi32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/hi_32")
+}
+
+func Test_ZkcBench_Mul32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mul_32")
+}
+
+func Test_ZkcBench_Mulh32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulh_32")
+}
+
+func Test_ZkcBench_Mulhu32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulhu_32")
+}
+
+func Test_ZkcBench_Mulhsu32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/mulhsu_32")
+}
+
+func Test_ZkcBench_LongDivisionU32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/long_division_u32")
+}
+
+func Test_ZkcBench_DivuRemu32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/divu_remu_32")
+}
+
+func Test_ZkcBench_DivRem32(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/div_rem_32")
+}
+
+func Test_ZkcBench_LeftShiftAndTypeBug(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/left_shift_and_type_bug")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
