@@ -736,14 +736,18 @@ func (p *Parser) parseIfElse(pc uint, env Environment) (bool, []stmt.Unresolved,
 	insns = append(insns, trueBranch...)
 	// Check for "else"
 	if p.lookahead().Kind == KEYWORD_ELSE {
-		// Skip over if
+		// Skip over else
 		_, _ = p.expect(KEYWORD_ELSE)
 		// add branch bypass (if needed)
 		if !trueRet {
 			falseTarget++
 		}
-		// parse false branch
-		falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, env.BreakLabel(), env.ContinueLabel())
+		// parse false branch (either a block or an else-if chain)
+		if p.lookahead().Kind == KEYWORD_IF {
+			falseRet, falseBranch, errs = p.parseIfElse(falseTarget, env)
+		} else {
+			falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, env.BreakLabel(), env.ContinueLabel())
+		}
 		// Sanity check errors
 		if len(errs) > 0 {
 			return false, nil, errs

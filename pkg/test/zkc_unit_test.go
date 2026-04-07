@@ -73,6 +73,38 @@ func Test_ZkcUnit_Basic_13(t *testing.T) {
 }
 
 // ===================================================================
+// If-Else-If Tests
+// ===================================================================
+
+func Test_ZkcUnit_IfElse_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_01")
+}
+
+func Test_ZkcUnit_IfElse_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_02")
+}
+
+func Test_ZkcUnit_IfElse_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_03")
+}
+
+func Test_ZkcUnit_IfElse_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_04")
+}
+
+func Test_ZkcUnit_IfElse_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_05")
+}
+
+func Test_ZkcUnit_IfElse_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_06")
+}
+
+func Test_ZkcUnit_IfElse_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_07")
+}
+
+// ===================================================================
 // Constant Tests
 // ===================================================================
 
