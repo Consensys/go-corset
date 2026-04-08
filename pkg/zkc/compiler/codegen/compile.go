@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
@@ -110,7 +111,8 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
-				modules = append(modules, memory.NewStaticReadOnly[word.Uint](c.Name(), regs, contentsToWords(c.Contents)...))
+				modules = append(modules, memory.NewStaticReadOnly(c.Name(), regs,
+					contentsToWords(c.Contents, declarations, env)...))
 			case decl.RANDOM_ACCESS_MEMORY:
 				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
 			}
@@ -122,12 +124,12 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 	return machine.New[word.Uint](modules...), errors
 }
 
-// contentsToWords converts the big.Int literal values from a static memory
-// declaration into the word.Uint representation required by the VM.
-func contentsToWords(contents []*big.Int) []word.Uint {
+// contentsToWords evaluates the compile-time constant expressions from a static
+// memory declaration into the word.Uint representation required by the VM.
+func contentsToWords(contents []expr.Resolved, components []Declaration, env data.ResolvedEnvironment) []word.Uint {
 	words := make([]word.Uint, len(contents))
 	for i, v := range contents {
-		words[i] = word.Uint{}.SetBigInt(v)
+		words[i] = evalConstantExpr(v, components, env)
 	}
 
 	return words
