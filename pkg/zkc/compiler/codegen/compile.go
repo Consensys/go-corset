@@ -95,7 +95,10 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 	for i, c := range declarations {
 		switch c := c.(type) {
 		case *Constant:
-			// ignore
+			// force detection of errors
+			_, errs := compileStaticInitialisers(declarations, env, srcmaps, c.ConstExpr)
+			//
+			errors = append(errors, errs...)
 		case *TypeAlias:
 			// ignore
 		case *Function:
@@ -112,7 +115,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				// Compile the static initialiser
-				words, errs := compileStaticInitialiser(c.Contents, declarations, env, srcmaps)
+				words, errs := compileStaticInitialisers(declarations, env, srcmaps, c.Contents...)
 				//
 				if len(errors) == 0 {
 					// Construct the read-only memory
@@ -133,8 +136,8 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
 // memory declaration into the word.Uint representation required by the VM.
-func compileStaticInitialiser(contents []expr.Resolved, components []Declaration, env data.ResolvedEnvironment,
-	srcmaps source.Maps[any]) ([]word.Uint, []source.SyntaxError) {
+func compileStaticInitialisers(components []Declaration, env data.ResolvedEnvironment,
+	srcmaps source.Maps[any], contents ...expr.Resolved) ([]word.Uint, []source.SyntaxError) {
 	//
 	var (
 		words    = make([]word.Uint, len(contents))
@@ -142,7 +145,7 @@ func compileStaticInitialiser(contents []expr.Resolved, components []Declaration
 	)
 	//
 	for i, v := range contents {
-		words[i] = compiler.evalConstant(v)
+		words[i] = compiler.evalConstant(v, true)
 	}
 
 	return words, compiler.errors

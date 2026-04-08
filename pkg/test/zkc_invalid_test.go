@@ -138,19 +138,17 @@ func Test_ZkcInvalid_Constant_01(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/constant_01")
 }
 
-// should fail
-// func Test_ZkcInvalid_Constant_02(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/constant_02")
-// }
+func Test_ZkcInvalid_Constant_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_02")
+}
 
 func Test_ZkcInvalid_Constant_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/constant_03")
 }
 
-// should fail
-// func Test_ZkcInvalid_Constant_04(t *testing.T) {
-// 	checkZkcInvalid(t, "zkc/invalid/constant_04")
-// }
+func Test_ZkcInvalid_Constant_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/constant_04")
+}
 
 func Test_ZkcInvalid_Constant_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/constant_05")
