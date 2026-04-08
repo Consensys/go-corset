@@ -93,6 +93,7 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, program ast.Prog
 	}
 	// Collect raw outputs from write-once memories
 	rawOutputs := make(map[string][]word.Uint)
+
 	for _, m := range vm.Modules() {
 		if output, ok := m.(*memory.WriteOnce[word.Uint]); ok {
 			rawOutputs[output.Name()] = output.Contents()

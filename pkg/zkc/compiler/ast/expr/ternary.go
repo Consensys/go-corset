@@ -28,22 +28,27 @@ type Ternary[S symbol.Symbol[S]] struct {
 	datatype data.Type[S]
 }
 
+// NewTernary creates a new Ternary expression.
 func NewTernary[S symbol.Symbol[S]](cond Condition[S], ifTrue, ifFalse Expr[S]) Expr[S] {
 	return &Ternary[S]{Cond: cond, IfTrue: ifTrue, IfFalse: ifFalse}
 }
 
+// ExternUses returns the set of external variables used by the expression.
 func (p *Ternary[S]) ExternUses() set.AnySortedSet[S] {
 	r := p.Cond.ExternUses()
 	branchUses := externUses(p.IfTrue, p.IfFalse)
 	r.InsertSorted(&branchUses)
+
 	return r
 }
 
+// LocalUses returns the set of local variables used by the expression.
 func (p *Ternary[S]) LocalUses() bit.Set {
 	var bits bit.Set
 	bits.Union(p.Cond.LocalUses())
 	bits.Union(p.IfTrue.LocalUses())
 	bits.Union(p.IfFalse.LocalUses())
+
 	return bits
 }
 
@@ -52,6 +57,8 @@ func (p *Ternary[S]) String(mapping variable.Map[S]) string {
 		p.IfTrue.String(mapping) + " : " + p.IfFalse.String(mapping)
 }
 
+// SetType sets the data type of the expression, which is determined during type checking.
 func (p *Ternary[S]) SetType(t data.Type[S]) { p.datatype = t }
 
-func (p *Ternary[S]) Type() data.Type[S]     { return p.datatype }
+// Type returns the data type of the expression, which is determined during type checking.
+func (p *Ternary[S]) Type() data.Type[S] { return p.datatype }

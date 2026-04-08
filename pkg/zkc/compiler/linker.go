@@ -403,6 +403,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		ifTrue, terrs := p.linkExpr(e.IfTrue)
 		ifFalse, ferrs := p.linkExpr(e.IfFalse)
 		nexpr = expr.NewTernary[symbol.Resolved](cond, ifTrue, ifFalse)
+
 		errors = append(append(append(errors, cerrs...), terrs...), ferrs...)
 
 	default:

@@ -119,7 +119,7 @@ const (
 	MUL
 	// DIV signals "/"
 	DIV
-	// BTIWISE_AND signals "&"
+	// BITWISE_AND signals "&"
 	BITWISE_AND
 	// BITWISE_OR signals "|"
 	BITWISE_OR

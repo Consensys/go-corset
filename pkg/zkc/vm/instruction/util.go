@@ -58,7 +58,7 @@ func expressionToString[W word.Word[W]](op string, regs []register.Id, constant 
 		builder.WriteString(" ")
 	}
 	//
-	builder.WriteString(fmt.Sprintf("0x%s", constant.Text(16)))
+	fmt.Fprintf(&builder, "0x%s", constant.Text(16))
 	//
 	return builder.String()
 }

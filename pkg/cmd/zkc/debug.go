@@ -151,7 +151,7 @@ func (p *TraceObserver[W]) writeInstruction(machine *machine.Base[W]) {
 			builder.WriteString("; ")
 		}
 		//
-		builder.WriteString(fmt.Sprintf("%s==0x%s", name, ith.Text(16)))
+		fmt.Fprintf(&builder, "%s==0x%s", name, ith.Text(16))
 	}
 	//
 	p.uses = builder.String()
@@ -202,9 +202,9 @@ func (p *TraceObserver[W]) callStack(machine *machine.Base[W]) string {
 		//
 		if i+1 == p.depth {
 			inputs := functionInputs(ith, fun)
-			builder.WriteString(fmt.Sprintf("> %s(%s) ", fun.Name(), inputs))
+			fmt.Fprintf(&builder, "> %s(%s) ", fun.Name(), inputs)
 		} else {
-			builder.WriteString(fmt.Sprintf("> %s ", fun.Name()))
+			fmt.Fprintf(&builder, "> %s ", fun.Name())
 		}
 	}
 	//
@@ -223,7 +223,7 @@ func functionInputs[W word.Word[W]](frame machine.Frame[W], fun *function.Functi
 			builder.WriteString(", ")
 		}
 		//
-		builder.WriteString(fmt.Sprintf("%s=0x%s", r.Name(), ith.Text(16)))
+		fmt.Fprintf(&builder, "%s=0x%s", r.Name(), ith.Text(16))
 	}
 
 	return builder.String()
@@ -237,7 +237,7 @@ func leftAligned(str string, width uint) string {
 	//
 	if uint(len(str)) > width {
 		str = str[:width-2]
-		builder.WriteString(fmt.Sprintf("%s..", str))
+		fmt.Fprintf(&builder, "%s..", str)
 	} else {
 		builder.WriteString(str)
 	}

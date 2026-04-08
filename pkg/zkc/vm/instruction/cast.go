@@ -56,7 +56,7 @@ func (p *Cast[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(registersToString(mapping, p.Target))
-	builder.WriteString(fmt.Sprintf(" = (u%d) ", p.Width))
+	fmt.Fprintf(&builder, " = (u%d) ", p.Width)
 	builder.WriteString(registersToString(mapping, p.Source))
 	//
 	return builder.String()

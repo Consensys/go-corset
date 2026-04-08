@@ -115,6 +115,7 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 		if needsBraces[S](e.Expr) {
 			return "~(" + String[S](e.Expr, mapping) + ")"
 		}
+
 		return "~" + String(e.Expr, mapping)
 	case *ExternAccess[S]:
 		args := stringOfArguments(e.Args, mapping)

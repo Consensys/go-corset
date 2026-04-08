@@ -1187,8 +1187,10 @@ func (p *Parser) parseTernaryOrExpr(env Environment) (Expr, []source.SyntaxError
 	if len(errs) > 0 {
 		return nil, errs
 	}
+
 	result := expr.NewTernary[symbol.Unresolved](cond, ifTrue, ifFalse)
 	p.srcmap.Put(result, p.spanOf(start, p.index-1))
+
 	return result, nil
 }
 

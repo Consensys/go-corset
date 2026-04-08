@@ -19,6 +19,10 @@ lint:
 	@echo ">>> Performing golang code linting.."
 	golangci-lint run --config=.golangci.yml
 
+lint-apply:
+	@echo ">>> Applying golang code linting fixes..."
+	golangci-lint run --config=.golangci.yml --fix
+
 test:
 	@echo ">>> Running All Tests..."
 	go test --timeout 0 ./...

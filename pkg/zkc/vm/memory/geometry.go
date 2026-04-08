@@ -78,6 +78,7 @@ func (p Geometry[W]) Registers() []register.Register {
 // address[1].
 func (p Geometry[W]) Decode(address []W) (start, end uint64) {
 	var index uint64
+
 	for i, component := range address {
 		var bitwidth = uint64(p.registers[i].Width())
 
@@ -93,6 +94,7 @@ func (p Geometry[W]) Decode(address []W) (start, end uint64) {
 // from the enclosing frame.
 func (p Geometry[W]) FrameDecode(frame []W, address []register.Id) (start, end uint64) {
 	var index uint64
+
 	for i, r := range address {
 		var bitwidth = uint64(p.registers[i].Width())
 

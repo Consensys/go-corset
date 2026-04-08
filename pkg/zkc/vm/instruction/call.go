@@ -59,7 +59,7 @@ func (p *Call[W]) String(mapping SystemMap[W]) string {
 		builder.WriteString(" = ")
 	}
 	//
-	builder.WriteString(fmt.Sprintf("%s(", mapping.Module(p.Id).Name()))
+	fmt.Fprintf(&builder, "%s(", mapping.Module(p.Id).Name())
 	//
 	for i, rid := range p.Arguments {
 		if i != 0 {

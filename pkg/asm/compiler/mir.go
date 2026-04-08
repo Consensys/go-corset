@@ -133,7 +133,7 @@ func (p MirModule[F]) String() string {
 	var builder strings.Builder
 	//
 	for _, r := range p.Module.Registers() {
-		builder.WriteString(fmt.Sprintf("var %s\n", r.String()))
+		fmt.Fprintf(&builder, "var %s\n", r.String())
 	}
 	//
 	return builder.String()

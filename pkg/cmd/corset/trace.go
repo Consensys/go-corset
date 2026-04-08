@@ -864,6 +864,7 @@ func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 		name: fmt.Sprintf("Columns (%d..%d bits)", lowWidth, highWidth),
 		summary: func(tr view.TraceView) string {
 			count := 0
+
 			for i := range tr.Width() {
 				var (
 					mod     = tr.Module(i)
@@ -878,6 +879,7 @@ func trWidthSummariser(lowWidth uint, highWidth uint) traceSummariser {
 					}
 				}
 			}
+
 			return fmt.Sprintf("%d", count)
 		},
 	}
