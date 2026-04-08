@@ -1236,7 +1236,7 @@ func (p *Parser) parseExpr(env Environment) (Expr, []source.SyntaxError) {
 func (p *Parser) parseArithExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		start     = p.index
-		arg, errs = p.parseUnitExpr(env)
+		arg, errs = p.parseConcatExpr(env)
 		args      = []Expr{arg}
 		tmp       Expr
 		binary    bool
@@ -1252,7 +1252,7 @@ func (p *Parser) parseArithExpr(env Environment) (Expr, []source.SyntaxError) {
 		// Consume connective
 		p.expect(p.lookahead().Kind)
 		//
-		tmp, errs = p.parseUnitExpr(env)
+		tmp, errs = p.parseConcatExpr(env)
 		// Accumulate arguments
 		args = append(args, tmp)
 	}
@@ -1307,6 +1307,35 @@ func (p *Parser) parseArithExpr(env Environment) (Expr, []source.SyntaxError) {
 	if binary && len(args) != 2 {
 		return nil, p.srcmap.SyntaxErrors(arg, "invalid binary expression")
 	}
+	//
+	return arg, nil
+}
+
+func (p *Parser) parseConcatExpr(env Environment) (Expr, []source.SyntaxError) {
+	var (
+		exprs = make([]Expr, 1)
+		errs  []source.SyntaxError
+		start = p.index
+	)
+	// Parse initial expression
+	exprs[0], errs = p.parseUnitExpr(env)
+	// Check for trailing concatenation
+	for len(errs) == 0 && p.match(COLONCOLON) {
+		var expr Expr
+		//
+		expr, errs = p.parseUnitExpr(env)
+		exprs = append(exprs, expr)
+	}
+	//
+	if len(errs) > 0 {
+		return nil, errs
+	} else if len(exprs) == 1 {
+		return exprs[0], nil
+	}
+	// Bitwise concatenation
+	arg := expr.NewConcat(exprs...)
+	// Record span for this new expression
+	p.srcmap.Put(arg, p.spanOf(start, p.index-1))
 	//
 	return arg, nil
 }
@@ -1472,9 +1501,24 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	if len(errs) > 0 {
 		return lv, errs
 	} else if env.IsDeclaredVariable(reg) {
-		lv = lval.NewVariable[symbol.Unresolved](env.LookupVariable(reg))
+		var vars = []variable.Id{env.LookupVariable(reg)}
+		// Look for destructuring lvals
+		for p.match(COLONCOLON) {
+			// save lookahead for error reporting
+			lookahead = p.lookahead()
+			//
+			if reg, errs = p.parseIdentifier(); len(errs) > 0 {
+				return lv, errs
+			} else if !env.IsDeclaredVariable(reg) {
+				return lv, p.syntaxErrors(lookahead, "unknown variable")
+			}
+			//
+			vars = append(vars, env.LookupVariable(reg))
+		}
+		//
+		lv = lval.NewVariable[symbol.Unresolved](vars...)
 	} else if !p.match(LSQUARE) {
-		return lv, p.syntaxErrors(lookahead, "unknown register")
+		return lv, p.syntaxErrors(lookahead, "unknown variable")
 	} else if index, errs = p.parseExprList(RSQUARE, env); len(errs) > 0 {
 		return lv, errs
 	} else {

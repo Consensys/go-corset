@@ -41,6 +41,8 @@ const (
 	COMMA
 	// COLON signals ":"
 	COLON
+	// COLONCOLON signals "::"
+	COLONCOLON
 	// SEMICOLON signals ":"
 	SEMICOLON
 	// NUMBER signals an integer number
@@ -196,6 +198,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('['), LSQUARE),
 	lex.Rule(lex.Unit(']'), RSQUARE),
 	lex.Rule(lex.Unit(','), COMMA),
+	lex.Rule(lex.Unit(':', ':'), COLONCOLON),
 	lex.Rule(lex.Unit(':'), COLON),
 	lex.Rule(lex.Unit(';'), SEMICOLON),
 	lex.Rule(lex.Unit('-', '>'), RIGHTARROW),

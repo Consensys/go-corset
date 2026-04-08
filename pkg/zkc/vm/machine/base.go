@@ -309,6 +309,13 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// ==============================================================
 	case *instruction.Cast[W]:
 		err = executeCast(*insn, frame, regs)
+		// Fall thru
+	case *instruction.Concat[W]:
+		err = executeConcat(*insn, frame, regs)
+		// Fall thru
+	case *instruction.Destruct[W]:
+		err = executeDestruct(*insn, frame, regs)
+		// Fall thru
 	case *instruction.Skip[W]:
 		// Skip some micro-instructions
 		pc = pc.Skip(insn.Skip)
@@ -534,6 +541,45 @@ func executeCast[W word.Word[W]](insn instruction.Cast[W], frame []W, _ []regist
 	}
 	//
 	frame[insn.Target.Unwrap()] = sliced
+	//
+	return nil
+}
+
+func executeConcat[W word.Word[W]](insn instruction.Concat[W], frame []W, regs []register.Register) error {
+	var (
+		val    W
+		offset uint64
+		width  = regs[insn.Target.Unwrap()].Width()
+	)
+	//
+	for _, reg := range insn.Sources {
+		// determine register width
+		var (
+			reg_width = regs[reg.Unwrap()].Width()
+			reg_val   = frame[reg.Unwrap()]
+		)
+		// Merge bits from value at the correct position
+		val = val.Or(width, reg_val.Shl64(width, offset))
+		// Update width accumulate
+		offset += uint64(reg_width)
+	}
+	//
+	frame[insn.Target.Unwrap()] = val
+	//
+	return nil
+}
+
+func executeDestruct[W word.Word[W]](insn instruction.Destruct[W], frame []W, regs []register.Register) error {
+	var val = frame[insn.Source.Unwrap()]
+	//
+	for _, reg := range insn.Targets {
+		// determine register width
+		var reg_width = regs[reg.Unwrap()].Width()
+		//
+		frame[reg.Unwrap()] = val.Slice(reg_width)
+		// Shift val
+		val = val.Shr64(uint64(reg_width))
+	}
 	//
 	return nil
 }
