@@ -29,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	zkc_util "github.com/consensys/go-corset/pkg/zkc/util"
 )
 
 // Condition is a convenient alias
@@ -137,7 +138,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			component, errors = p.parseInputOutputMemory()
 		case KEYWORD_MEMORY:
 			component, errors = p.parseReadWriteMemory()
-		case KEYWORD_TYPE_ALIAS:
+		case KEYWORD_TYPE:
 			component, errors = p.parseTypeAlias()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
@@ -482,7 +483,7 @@ func (p *Parser) parseTypeAlias() (decl.Unresolved, []source.SyntaxError) {
 		name     string
 	)
 	// Parse type declaration
-	if _, errs := p.expect(KEYWORD_TYPE_ALIAS); len(errs) > 0 {
+	if _, errs := p.expect(KEYWORD_TYPE); len(errs) > 0 {
 		return nil, errs
 	} else if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
@@ -628,14 +629,16 @@ func (p *Parser) parseStatement(pc uint, env Environment,
 		returned, insn, errs = p.parseContinue(env)
 	case KEYWORD_FAIL:
 		returned, insn, errs = p.parseFail()
-	case KEYWORD_IF:
-		returned, insns, errs = p.parseIfElse(pc, env)
 	case KEYWORD_FOR:
 		returned, insns, errs = p.parseFor(pc, env)
-	case KEYWORD_WHILE:
-		returned, insns, errs = p.parseWhile(pc, env)
+	case KEYWORD_IF:
+		returned, insns, errs = p.parseIfElse(pc, env)
+	case KEYWORD_PRINTF:
+		returned, insn, errs = p.parsePrintf(env)
 	case KEYWORD_RETURN:
 		returned, insn, errs = p.parseReturn()
+	case KEYWORD_WHILE:
+		returned, insns, errs = p.parseWhile(pc, env)
 	case KEYWORD_VAR:
 		insns, errs = p.parseVar(env)
 	case IDENTIFIER:
@@ -733,14 +736,18 @@ func (p *Parser) parseIfElse(pc uint, env Environment) (bool, []stmt.Unresolved,
 	insns = append(insns, trueBranch...)
 	// Check for "else"
 	if p.lookahead().Kind == KEYWORD_ELSE {
-		// Skip over if
+		// Skip over else
 		_, _ = p.expect(KEYWORD_ELSE)
 		// add branch bypass (if needed)
 		if !trueRet {
 			falseTarget++
 		}
-		// parse false branch
-		falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, env.BreakLabel(), env.ContinueLabel())
+		// parse false branch (either a block or an else-if chain)
+		if p.lookahead().Kind == KEYWORD_IF {
+			falseRet, falseBranch, errs = p.parseIfElse(falseTarget, env)
+		} else {
+			falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, env.BreakLabel(), env.ContinueLabel())
+		}
 		// Sanity check errors
 		if len(errs) > 0 {
 			return false, nil, errs
@@ -914,6 +921,119 @@ func (p *Parser) parseFail() (bool, stmt.Unresolved, []source.SyntaxError) {
 	//
 	return true, &stmt.Fail[symbol.Unresolved]{}, nil
 }
+
+func (p *Parser) parsePrintf(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+	var (
+		token  lex.Token
+		chunks []stmt.FormattedChunk
+	)
+	//
+	if _, errs := p.expect(KEYWORD_PRINTF); len(errs) > 0 {
+		return false, nil, errs
+	} else if token, errs = p.expect(STRING); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// Process string
+	var (
+		str    = p.string(token)
+		runes  = []rune(str[1 : len(str)-1])
+		nrunes []rune
+		args   []Expr
+		nargs  int
+	)
+	//
+	for i := 0; i < len(runes); {
+		switch runes[i] {
+		case '%':
+			var (
+				f  zkc_util.Format
+				ok bool
+			)
+			if i, f, ok = parseFormatting(i+1, runes); !ok {
+				return false, nil, p.syntaxErrors(token, "invalid formatting")
+			}
+			//
+			nargs++
+			// append new chunkformat
+			chunks = append(chunks, stmt.FormattedChunk{Text: string(nrunes), Format: f})
+			// reset to build next chunk
+			nrunes = nil
+		case '\\':
+			if i+1 == len(runes) {
+				return false, nil, p.syntaxErrors(token, "invalid escape")
+			}
+			// Attempt to parse escape character
+			c, ok := escapeCharacter(runes[i+1])
+			//
+			if !ok {
+				return false, nil, p.syntaxErrors(token, "invalid escape")
+			}
+			// Continue
+			nrunes = append(nrunes, c)
+			i = i + 2
+		default:
+			nrunes = append(nrunes, runes[i])
+			i = i + 1
+		}
+	}
+	//
+	if len(nrunes) > 0 {
+		chunks = append(chunks, stmt.FormattedChunk{Text: string(nrunes), Format: zkc_util.EMPTY_FORMAT})
+	}
+	// parse expression arguments
+	for p.match(COMMA) {
+		arg, errs := p.parseExpr(env)
+		//
+		if len(errs) > 0 {
+			return false, nil, errs
+		}
+		//
+		args = append(args, arg)
+	}
+	// Sanity check for matching arguments / chunks
+	if len(args) > nargs {
+		return false, nil, p.srcmap.SyntaxErrors(args[nargs], "too many arguments")
+	} else if len(args) > 0 && len(args) < nargs {
+		n := len(args) - 1
+		//
+		return false, nil, p.srcmap.SyntaxErrors(args[n], "insufficient arguments")
+	} else if len(args) < nargs {
+		return false, nil, p.syntaxErrors(token, "insufficient arguments")
+	}
+	//
+	return false, &stmt.Printf[symbol.Unresolved]{Chunks: chunks, Arguments: args}, nil
+}
+
+func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
+	if index >= len(runes) {
+		return 0, zkc_util.EMPTY_FORMAT, false
+	}
+	//
+	switch runes[index] {
+	case 'd':
+		return index + 1, zkc_util.DecimalFormat(), true
+	case 'x':
+		return index + 1, zkc_util.HexFormat(), true
+	default:
+		return 0, zkc_util.EMPTY_FORMAT, false
+	}
+}
+
+func escapeCharacter(ch rune) (rune, bool) {
+	switch ch {
+	case 'n':
+		return '\n', true
+	case 'r':
+		return '\r', true
+	case 't':
+		return '\t', true
+	case '\\':
+		return '\\', true
+	}
+	//
+	return ' ', false
+}
+
 func (p *Parser) parseBreak(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	var (
 		label     = env.BreakLabel()

@@ -20,35 +20,35 @@ import (
 )
 
 // Jmp performs an unconditional branch to a given target instructon.
-type Jmp struct {
+type Jmp[W any] struct {
 	Target uint
 }
 
 // NewJmp constructs a fresh jump instruction to the given PC location.
-func NewJmp(target uint) *Jmp {
-	return &Jmp{target}
+func NewJmp[W any](target uint) *Jmp[W] {
+	return &Jmp[W]{target}
 }
 
 // Uses implementation for Instruction interface.
-func (p *Jmp) Uses() []register.Id {
+func (p *Jmp[W]) Uses() []register.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Jmp) Definitions() []register.Id {
+func (p *Jmp[W]) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Jmp) String(_ register.Map) string {
+func (p *Jmp[W]) String(_ SystemMap[W]) string {
 	return fmt.Sprintf("jmp %d", p.Target)
 }
 
 // Validate implementation for Instruction interface.
-func (p *Jmp) Validate(_ field.Config, _ register.Map) []error {
+func (p *Jmp[W]) Validate(_ field.Config, _ SystemMap[W]) []error {
 	return nil
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Jmp) MicroValidate(_ uint, _ field.Config, _ register.Map) []error {
+func (p *Jmp[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }

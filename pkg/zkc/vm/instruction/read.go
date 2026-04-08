@@ -23,7 +23,7 @@ import (
 
 // MemRead represents an arbitrary memory read operation for a given type of
 // memory.
-type MemRead struct {
+type MemRead[W any] struct {
 	// Module identifyer for memory being read.
 	Id uint
 	// Data registers for assignment
@@ -34,34 +34,34 @@ type MemRead struct {
 
 // NewMemRead constructs a new instruction which reads the value from either a
 // Random Access Memory (RAM) or a Read-Only Memory (ROM).
-func NewMemRead(id uint, data []register.Id, address []register.Id) *MemRead {
-	return &MemRead{id, data, address}
+func NewMemRead[W any](id uint, data []register.Id, address []register.Id) *MemRead[W] {
+	return &MemRead[W]{id, data, address}
 }
 
 // Uses implementation for Instruction interface
-func (p *MemRead) Uses() []register.Id {
+func (p *MemRead[W]) Uses() []register.Id {
 	return p.Address
 }
 
 // Definitions implementation for Instruction interface
-func (p *MemRead) Definitions() []register.Id {
+func (p *MemRead[W]) Definitions() []register.Id {
 	return p.Data
 }
 
-func (p *MemRead) String(env register.Map) string {
+func (p *MemRead[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(env, array.Reverse(p.Data)...))
+	builder.WriteString(registersToString(mapping, array.Reverse(p.Data)...))
 	builder.WriteString(" = ")
 	//
-	builder.WriteString(fmt.Sprintf("%d[", p.Id))
+	builder.WriteString(fmt.Sprintf("%s[", mapping.Module(p.Id).Name()))
 	//
 	for i, rid := range p.Address {
 		if i != 0 {
 			builder.WriteString(", ")
 		}
 		//
-		builder.WriteString(env.Register(rid).Name())
+		builder.WriteString(mapping.Register(rid).Name())
 	}
 	//
 	builder.WriteString("]")
@@ -70,6 +70,6 @@ func (p *MemRead) String(env register.Map) string {
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *MemRead) MicroValidate(_ uint, field field.Config, env register.Map) []error {
+func (p *MemRead[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
 	return nil
 }

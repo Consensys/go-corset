@@ -18,176 +18,124 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
 
-// END_OF signals "end of file"
-const END_OF uint = 0
-
-// WHITESPACE signals whitespace
-const WHITESPACE uint = 1
-
-// COMMENT signals "// ... \n"
-const COMMENT uint = 2
-
-// LBRACE signals "("
-const LBRACE uint = 3
-
-// RBRACE signals ")"
-const RBRACE uint = 4
-
-// LCURLY signals "{"
-const LCURLY uint = 5
-
-// RCURLY signals "}"
-const RCURLY uint = 6
-
-// LSQUARE signals "["
-const LSQUARE uint = 7
-
-// RSQUARE signals "]"
-const RSQUARE uint = 8
-
-// COMMA signals ","
-const COMMA uint = 9
-
-// COLON signals ":"
-const COLON uint = 10
-
-// SEMICOLON signals ":"
-const SEMICOLON uint = 11
-
-// NUMBER signals an integer number
-const NUMBER uint = 12
-
-// STRING signals a quoted string
-const STRING uint = 13
-
-// IDENTIFIER signals a column variable
-const IDENTIFIER uint = 20
-
-// KEYWORD_CONST signals a constant declaration
-const KEYWORD_CONST uint = 21
-
-// KEYWORD_INCLUDE signals an include declaration
-const KEYWORD_INCLUDE uint = 22
-
-// KEYWORD_FN signals a function declaration
-const KEYWORD_FN uint = 23
-
-// KEYWORD_MEMORY signals a random-access memory declaration
-const KEYWORD_MEMORY uint = 24
-
-// KEYWORD_STATIC signals a static read-only memory
-const KEYWORD_STATIC uint = 25
-
-// KEYWORD_INPUT signals a read-only memory
-const KEYWORD_INPUT uint = 26
-
-// KEYWORD_OUTPUT signals a write-once memory
-const KEYWORD_OUTPUT uint = 27
-
-// KEYWORD_RETURN signals a return statement
-const KEYWORD_RETURN uint = 28
-
-// KEYWORD_FAIL signals a return statement
-const KEYWORD_FAIL uint = 29
-
-// KEYWORD_IF signals a return statement
-const KEYWORD_IF uint = 30
-
-// KEYWORD_ELSE signals an else branch
-const KEYWORD_ELSE uint = 31
-
-// KEYWORD_PUB signals a public input / output
-const KEYWORD_PUB uint = 32
-
-// KEYWORD_WHILE signals a while loop
-const KEYWORD_WHILE uint = 34
-
-// KEYWORD_FOR signals a for loop
-const KEYWORD_FOR uint = 35
-
-// KEYWORD_VAR signals a local variable declaration
-const KEYWORD_VAR uint = 36
-
-// KEYWORD_BREAK signals a break statement
-const KEYWORD_BREAK uint = 37
-
-// KEYWORD_CONTINUE signals a continue statement
-const KEYWORD_CONTINUE uint = 38
-
-// KEYWORD_AS signals a type cast expression (e.g. "x as u8")
-const KEYWORD_AS uint = 39
-
-// KEYWORD_TYPE_ALIAS signals a type alias declaration
-const KEYWORD_TYPE_ALIAS uint = 40
-
-// RIGHTARROW signals "->"
-const RIGHTARROW uint = 60
-
-// EQUALS signals "="
-const EQUALS uint = 61
-
-// EQUALS_EQUALS signals "=="
-const EQUALS_EQUALS uint = 62
-
-// NOT_EQUALS signals "!="
-const NOT_EQUALS uint = 63
-
-// LESS_THAN signals "<"
-const LESS_THAN uint = 64
-
-// LESS_THAN_EQUALS signals "<="
-const LESS_THAN_EQUALS uint = 65
-
-// GREATER_THAN signals ">"
-const GREATER_THAN uint = 66
-
-// GREATER_THAN_EQUALS signals ">="
-const GREATER_THAN_EQUALS uint = 67
-
-// LOGICAL_AND signals "&&"
-const LOGICAL_AND uint = 68
-
-// LOGICAL_OR signals "||"
-const LOGICAL_OR uint = 69
-
-// LOGICAL_NOT signals "!"
-const LOGICAL_NOT uint = 70
-
-// ADD signals "+"
-const ADD uint = 80
-
-// SUB signals "-"
-const SUB uint = 81
-
-// MUL signals "*"
-const MUL uint = 82
-
-// DIV signals "/"
-const DIV uint = 83
-
-// BITWISE_AND signals "&"
-const BITWISE_AND uint = 84
-
-// BITWISE_OR signals "|"
-const BITWISE_OR uint = 85
-
-// BITWISE_XOR signals "^"
-const BITWISE_XOR uint = 86
-
-// BITWISE_NOT signals "~"
-const BITWISE_NOT uint = 87
-
-// BITWISE_SHL signals "<<"
-const BITWISE_SHL uint = 88
-
-// BITWISE_SHR signals ">>"
-const BITWISE_SHR uint = 89
-
-// REM signals "%"
-const REM uint = 90
-
-// QMARK signals "?"
-const QMARK uint = 91
+const (
+	// END_OF signals "end of file"
+	END_OF uint = iota
+	// WHITESPACE signals whitespace
+	WHITESPACE
+	// COMMENT signals "// ... \n"
+	COMMENT
+	// LBRACE signals "("
+	LBRACE
+	// RBRACE signals ")"
+	RBRACE
+	// LCURLY signals "{"
+	LCURLY
+	// RCURLY signals "}"
+	RCURLY
+	// LSQUARE signals "["
+	LSQUARE
+	// RSQUARE signals "]"
+	RSQUARE
+	// COMMA signals ","
+	COMMA
+	// COLON signals ":"
+	COLON
+	// SEMICOLON signals ":"
+	SEMICOLON
+	// NUMBER signals an integer number
+	NUMBER
+	// STRING signals a quoted string
+	STRING
+	// IDENTIFIER signals a column variable
+	IDENTIFIER
+	// KEYWORD_AS signals a type cast expression (e.g. "x as u8")
+	KEYWORD_AS
+	// KEYWORD_BREAK signals a break statement
+	KEYWORD_BREAK
+	// KEYWORD_CONTINUE signals a continue statement
+	KEYWORD_CONTINUE
+	// KEYWORD_CONST signals a constant declaration
+	KEYWORD_CONST
+	// KEYWORD_ELSE signals an else branch
+	KEYWORD_ELSE
+	// KEYWORD_FAIL signals a return statement
+	KEYWORD_FAIL
+	// KEYWORD_FN signals a function declaration
+	KEYWORD_FN
+	// KEYWORD_FOR signals a for loop
+	KEYWORD_FOR
+	// KEYWORD_IF signals a return statement
+	KEYWORD_IF
+	// KEYWORD_INCLUDE signals an include declaration
+	KEYWORD_INCLUDE
+	// KEYWORD_INPUT signals a read-only memory
+	KEYWORD_INPUT
+	// KEYWORD_MEMORY signals a random-access memory declaration
+	KEYWORD_MEMORY
+	// KEYWORD_RETURN signals a return statement
+	KEYWORD_RETURN
+	// KEYWORD_STATIC signals a static read-only memory
+	KEYWORD_STATIC
+	// KEYWORD_OUTPUT signals a write-once memory
+	KEYWORD_OUTPUT
+	// KEYWORD_PRINTF signals a printf statement
+	KEYWORD_PRINTF
+	// KEYWORD_PUB signals a public input / output
+	KEYWORD_PUB
+	// KEYWORD_WHILE signals a while loop
+	KEYWORD_WHILE
+	// KEYWORD_VAR signals a local variable declaration
+	KEYWORD_VAR
+	// KEYWORD_TYPE signals a type alias declaration
+	KEYWORD_TYPE
+	// RIGHTARROW signals "->"
+	RIGHTARROW
+	// EQUALS signals "="
+	EQUALS
+	// EQUALS_EQUALS signals "=="
+	EQUALS_EQUALS
+	// NOT_EQUALS signals "!="
+	NOT_EQUALS
+	// LESS_THAN signals "<"
+	LESS_THAN
+	// LESS_THAN_EQUALS signals "<="
+	LESS_THAN_EQUALS
+	// GREATER_THAN signals ">"
+	GREATER_THAN
+	// GREATER_THAN_EQUALS signals ">="
+	GREATER_THAN_EQUALS
+	// LOGICAL_AND signals "&&"
+	LOGICAL_AND
+	// LOGICAL_OR signals "||"
+	LOGICAL_OR
+	// LOGICAL_NOT signals "!"
+	LOGICAL_NOT
+	// ADD signals "+"
+	ADD
+	// SUB signals "-"
+	SUB
+	// MUL signals "*"
+	MUL
+	// DIV signals "/"
+	DIV
+	// BTIWISE_AND signals "&"
+	BITWISE_AND
+	// BITWISE_OR signals "|"
+	BITWISE_OR
+	// BITWISE_XOR signals "^"
+	BITWISE_XOR
+	// BITWISE_NOT signals "~"
+	BITWISE_NOT
+	// BITWISE_SHL signals "<<"
+	BITWISE_SHL
+	// BITWISE_SHR signals ">>"
+	BITWISE_SHR
+	// REM signals "%"
+	REM
+	// QMARK signals "?"
+	QMARK
+)
 
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
@@ -276,25 +224,26 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
+	lex.Rule(lex.String("as"), KEYWORD_AS),
+	lex.Rule(lex.String("break"), KEYWORD_BREAK),
 	lex.Rule(lex.String("const"), KEYWORD_CONST),
+	lex.Rule(lex.String("continue"), KEYWORD_CONTINUE),
 	lex.Rule(lex.String("else"), KEYWORD_ELSE),
 	lex.Rule(lex.String("fail"), KEYWORD_FAIL),
+	lex.Rule(lex.String("for"), KEYWORD_FOR),
 	lex.Rule(lex.String("fn"), KEYWORD_FN),
 	lex.Rule(lex.String("if"), KEYWORD_IF),
 	lex.Rule(lex.String("include"), KEYWORD_INCLUDE),
 	lex.Rule(lex.String("input"), KEYWORD_INPUT),
+	lex.Rule(lex.String("memory"), KEYWORD_MEMORY),
 	lex.Rule(lex.String("output"), KEYWORD_OUTPUT),
+	lex.Rule(lex.String("printf"), KEYWORD_PRINTF),
 	lex.Rule(lex.String("pub"), KEYWORD_PUB),
 	lex.Rule(lex.String("return"), KEYWORD_RETURN),
 	lex.Rule(lex.String("static"), KEYWORD_STATIC),
-	lex.Rule(lex.String("memory"), KEYWORD_MEMORY),
-	lex.Rule(lex.String("for"), KEYWORD_FOR),
+	lex.Rule(lex.String("type"), KEYWORD_TYPE),
 	lex.Rule(lex.String("var"), KEYWORD_VAR),
 	lex.Rule(lex.String("while"), KEYWORD_WHILE),
-	lex.Rule(lex.String("as"), KEYWORD_AS),
-	lex.Rule(lex.String("type"), KEYWORD_TYPE_ALIAS),
-	lex.Rule(lex.String("break"), KEYWORD_BREAK),
-	lex.Rule(lex.String("continue"), KEYWORD_CONTINUE),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
 }

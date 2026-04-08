@@ -70,6 +70,10 @@ func Test_ZkcInvalid_Basic_12(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_12")
 }
 
+func Test_ZkcInvalid_Basic_13(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_13")
+}
+
 // ===================================================================
 // If Tests
 // ===================================================================
@@ -457,6 +461,30 @@ func Test_ZkcInvalid_Type_06(t *testing.T) {
 
 func Test_ZkcInvalid_Type_07(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_07")
+}
+
+func Test_ZkcInvalid_Type_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_08")
+}
+
+// ===================================================================
+// Printf Tests
+// ===================================================================
+
+func Test_ZkcInvalid_Printf_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_01")
+}
+
+func Test_ZkcInvalid_Printf_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_02")
+}
+
+func Test_ZkcInvalid_Printf_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_03")
+}
+
+func Test_ZkcInvalid_Printf_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_04")
 }
 
 // ===================================================================

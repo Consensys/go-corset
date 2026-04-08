@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
+	"github.com/consensys/go-corset/pkg/zkc/util"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
@@ -60,11 +61,13 @@ func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction
 	case *stmt.IfGoto[symbol.Resolved]:
 		return p.compileCondition(pc, s.Cond, mapping, s.Target)
 	case *stmt.Goto[symbol.Resolved]:
-		return &instruction.Jmp{Target: s.Target}
+		return &instruction.Jmp[word.Uint]{Target: s.Target}
 	case *stmt.Fail[symbol.Resolved]:
-		return &instruction.Fail{}
+		return &instruction.Fail[word.Uint]{}
+	case *stmt.Printf[symbol.Resolved]:
+		return p.compilePrintf(mapping, s.Chunks, s.Arguments)
 	case *stmt.Return[symbol.Resolved]:
-		return &instruction.Return{}
+		return &instruction.Return[word.Uint]{}
 	default:
 		panic("unknown statement encountered")
 	}
@@ -107,11 +110,39 @@ func (p *Compiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []Micr
 			}
 			//
 			preInsns = append(preInsns, pre...)
-			postInsns = append(postInsns, instruction.NewMemWrite(id, targets, sources))
+			postInsns = append(postInsns, instruction.NewMemWrite[word.Uint](id, targets, sources))
 		}
 	}
 	//
 	return regs, preInsns, postInsns
+}
+
+func (p *Compiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, args []Expr) Instruction {
+	var (
+		nchunks     []instruction.FormattedChunk
+		regs, insns = p.compileArgs(mapping, args...)
+		index       uint
+	)
+	//
+
+	// Manage all chunks
+	for _, chunk := range chunks {
+		if chunk.Format.HasFormat() {
+			nchunks = append(nchunks, instruction.FormattedChunk{
+				Text: chunk.Text, Format: chunk.Format, Argument: regs[index],
+			})
+			//
+			index++
+		} else {
+			nchunks = append(nchunks, instruction.FormattedChunk{
+				Text: chunk.Text, Format: util.EMPTY_FORMAT, Argument: register.UnusedId(),
+			})
+		}
+	}
+	//
+	insns = append(insns, &instruction.Debug[word.Uint]{Chunks: nchunks})
+	//
+	return instruction.NewVector[word.Uint](insns...)
 }
 
 func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target uint) Instruction {
@@ -123,9 +154,9 @@ func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
 		args, insns = p.compileArgs(mapping, e.Left, e.Right)
-		insns = append(insns, instruction.NewSkipIf(instruction.Condition(e.Operator), args[0], args[1], 1))
-		insns = append(insns, instruction.NewJmp(pc+1))
-		insns = append(insns, instruction.NewJmp(target))
+		insns = append(insns, instruction.NewSkipIf[word.Uint](instruction.Condition(e.Operator), args[0], args[1], 1))
+		insns = append(insns, instruction.NewJmp[word.Uint](pc+1))
+		insns = append(insns, instruction.NewJmp[word.Uint](target))
 	default:
 		panic("unknown condition encountered")
 	}
@@ -272,7 +303,7 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id) (
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
 		if overflow {
-			panic("arithmetic overflow")
+			panic("compileAdd arithmetic overflow")
 		}
 	}
 	// Compile arguments
@@ -288,7 +319,7 @@ func (p *Compiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], fn
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return insns, instruction.NewCall(id, targets, sources)
+	return insns, instruction.NewCall[word.Uint](id, targets, sources)
 }
 
 func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem *Memory, mapping []uint,
@@ -298,7 +329,7 @@ func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem 
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return insns, instruction.NewMemRead(id, targets, sources)
+	return insns, instruction.NewMemRead[word.Uint](id, targets, sources)
 }
 
 func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) ([]MicroInstruction, MicroInstruction) {
@@ -323,7 +354,7 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id) (
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
 		if overflow {
-			panic("arithmetic overflow")
+			panic("compileMul arithmetic overflow")
 		}
 	}
 	// Compile arguments
@@ -414,7 +445,7 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id) (
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
 		if overflow {
-			panic("arithmetic overflow")
+			panic("compileSub arithmetic overflow")
 		}
 	}
 	// Compile arguments
@@ -536,7 +567,7 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 		res, overflow := word.Sum(bitwidth, args...)
 		// TODO: report a proper error
 		if overflow {
-			panic("arithmetic overflow")
+			panic("evalConstantAdd arithmetic overflow")
 		}
 		//
 		return res
@@ -552,7 +583,7 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 		res, overflow := word.Product(bitwidth, args...)
 		// TODO: report a proper error
 		if overflow {
-			panic("arithmetic overflow")
+			panic("evalConstantMul arithmetic overflow")
 		}
 		//
 		return res

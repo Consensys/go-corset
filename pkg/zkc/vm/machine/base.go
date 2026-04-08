@@ -17,6 +17,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/zkc/util"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
@@ -182,6 +183,7 @@ func (p *Base[W]) execute() error {
 	return err
 }
 
+// nolint
 func (p *Base[W]) decode() (instruction.MicroInstruction[W], uint, []register.Register, error) {
 	var (
 		n = len(p.callstack) - 1
@@ -198,7 +200,6 @@ func (p *Base[W]) decode() (instruction.MicroInstruction[W], uint, []register.Re
 		//
 		width = uint(1)
 	)
-	//
 	// Check for vector instruction
 	if insn == nil {
 		return nil, 0, nil, errors.New("invalid macro instruction")
@@ -232,18 +233,18 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// ==============================================================
 	// Control-Flow Instructions
 	// ==============================================================
-	case *instruction.Call:
+	case *instruction.Call[W]:
 		// Enter callee stack frame
 		p.Enter(insn.Id, frame, insn.Arguments, insn.Returns)
 		// Don't fall thru
 		return nil
-	case *instruction.Fail:
+	case *instruction.Fail[W]:
 		return errors.New("machine panic")
-	case *instruction.Jmp:
+	case *instruction.Jmp[W]:
 		// Goto target instruction in current frame
 		p.callstack[fp].Goto(pc.Goto(insn.Target))
 		return nil
-	case *instruction.Return:
+	case *instruction.Return[W]:
 		if done := p.Leave(); done {
 			return nil
 		}
@@ -292,12 +293,12 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// ==============================================================
 	// Memory Instructions
 	// ==============================================================
-	case *instruction.MemRead:
+	case *instruction.MemRead[W]:
 		var rom = p.modules[insn.Id].(memory.Memory[W])
 		// Read data words from tiven address
 		err = rom.FrameRead(frame, insn.Address, insn.Data)
 		// Fall thru
-	case *instruction.MemWrite:
+	case *instruction.MemWrite[W]:
 		var rom = p.modules[insn.Id].(memory.Memory[W])
 		// Read data words from tiven address
 		err = rom.FrameWrite(frame, insn.Address, insn.Data)
@@ -308,16 +309,18 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// ==============================================================
 	case *instruction.Cast[W]:
 		err = executeCast(*insn, frame, regs)
-	case *instruction.Skip:
+	case *instruction.Skip[W]:
 		// Skip some micro-instructions
 		pc = pc.Skip(insn.Skip)
 		// Fall thru
-	case *instruction.SkipIf:
+	case *instruction.SkipIf[W]:
 		// Skip (conditionally) micro-instructions
 		if executeCondition(frame, insn.Cond, insn.Left, insn.Right) {
 			pc = pc.Skip(insn.Skip)
 		}
 		// Fall thru
+	case *instruction.Debug[W]:
+		err = executeDebug(*insn, frame, regs)
 	default:
 		panic("unknown instruction encountered")
 	}
@@ -344,7 +347,7 @@ func executeAdd[W word.Word[W]](insn instruction.Add[W], frame []W, regs []regis
 		val, overflow = val.Add(bitwidth, frame[arg.Unwrap()])
 		//
 		if overflow {
-			return errors.New("arithmetic overflow")
+			return errors.New("executeAdd arithmetic overflow")
 		}
 	}
 	//
@@ -364,7 +367,7 @@ func executeMul[W word.Word[W]](insn instruction.Mul[W], frame []W, regs []regis
 		val, overflow = val.Mul(bitwidth, frame[arg.Unwrap()])
 		//
 		if overflow {
-			return errors.New("arithmetic overflow")
+			return errors.New("executeMul arithmetic overflow")
 		}
 	}
 	//
@@ -531,6 +534,18 @@ func executeCast[W word.Word[W]](insn instruction.Cast[W], frame []W, _ []regist
 	}
 	//
 	frame[insn.Target.Unwrap()] = sliced
+	//
+	return nil
+}
+
+func executeDebug[W word.Word[W]](insn instruction.Debug[W], frame []W, _ []register.Register) error {
+	for _, chunk := range insn.Chunks {
+		fmt.Printf("%s", chunk.Text)
+		//
+		if chunk.Format.HasFormat() {
+			fmt.Printf("%s", util.FormatWord(chunk.Format, frame[chunk.Argument.Unwrap()]))
+		}
+	}
 	//
 	return nil
 }

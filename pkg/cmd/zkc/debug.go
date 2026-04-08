@@ -130,9 +130,10 @@ func (p *TraceObserver[W]) writeInstruction(machine *machine.Base[W]) {
 	var (
 		frame   = machine.StackFrame(p.depth - 1)
 		insn    = decode(frame, p.fun)
-		name    = trace.ParseModuleName("")
 		pc      = frame.PC()
-		insnStr = insn.String(register.ArrayMap(name, p.fun.Registers()...))
+		name    = trace.ModuleName{Name: p.fun.Name(), Multiplier: 1}
+		mapping = instruction.NewSystemMap(register.ArrayMap(name, p.fun.Registers()...), machine.Modules())
+		insnStr = insn.String(mapping)
 		builder strings.Builder
 	)
 	//
@@ -270,7 +271,7 @@ func decode[W word.Word[W]](frame machine.Frame[W],
 		pc   = frame.PC()
 		insn = fn.CodeAt(pc.Macro())
 	)
-	//
+	// nolint
 	if uInsn, ok := insn.(*instruction.Vector[W]); ok {
 		return uInsn.Codes[pc.Micro()]
 	} else if uInsn, ok := insn.(instruction.MicroInstruction[W]); ok {

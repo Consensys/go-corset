@@ -94,7 +94,7 @@ func (p *TypeChecker) lookup(id symbol.Resolved) decl.Resolved {
 func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError {
 	var (
 		effects     bit.Set
-		rhs, errors = p.typeExpression(c.ConstExpr, variable.ArrayMap[symbol.Resolved](), effects)
+		rhs, errors = p.typeExpression(c.DataType, c.ConstExpr, variable.ArrayMap[symbol.Resolved](), effects)
 	)
 	// Sanity check
 	if len(errors) != 0 {
@@ -120,6 +120,8 @@ func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxErro
 			errors = append(errors, p.typeAssignment(s, &fn, effects)...)
 		case *stmt.IfGoto[symbol.Resolved]:
 			errors = append(errors, p.typeIfGoto(s, &fn, effects)...)
+		case *stmt.Printf[symbol.Resolved]:
+			errors = append(errors, p.typePrintf(s, &fn, effects)...)
 		}
 	}
 	//
@@ -160,7 +162,7 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 		// Special case for empty targets.  This can only arise for a function
 		// call which does not assign any return values.  This ensures that, in
 		// such case, the source expression is typed.
-		_, errors = p.typeExpression(s.Source, env, effects)
+		_, errors = p.typeExpression(nil, s.Source, env, effects)
 		//
 		return errors
 	}
@@ -169,7 +171,7 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 		var (
 			rhs             = sources[i]
 			lval_t, lhsErrs = p.typeLval(lval, env, effects)
-			rhs_t, rhsErrs  = p.typeExpression(rhs, env, effects)
+			rhs_t, rhsErrs  = p.typeExpression(lval_t, rhs, env, effects)
 		)
 		//
 		if len(lhsErrs) != 0 || len(rhsErrs) != 0 {
@@ -210,22 +212,29 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 
 func (p *TypeChecker) typeMemoryLVal(c *decl.ResolvedMemory, e *lval.MemAccess[symbol.Resolved],
 	env VariableMap, effects bit.Set) (Type, []source.SyntaxError) {
-	var args, errs = p.typeExpressions(e.Args, env, effects)
-	//
-	if len(args) != len(c.Address) {
+	var errors []source.SyntaxError
+	// Initial sanity checks
+	if len(e.Args) != len(c.Address) {
 		return nil, p.srcmaps.SyntaxErrors(e,
-			fmt.Sprintf("mismatched arguments (expected %d, found %d)", len(c.Address), len(args)))
+			fmt.Sprintf("mismatched arguments (expected %d, found %d)", len(c.Address), len(e.Args)))
 	} else if !effects.Contains(e.Name.Index) && c.IsReadable() && c.IsWriteable() {
 		return nil, p.srcmaps.SyntaxErrors(e, "read/write memory not visible here")
-	} else if len(errs) == 0 {
-		// check argument types
-		for i := range args {
-			ith := c.Address[i].DataType
-			errs = append(errs, p.checkEquiTypes(args[i], ith, e.Args[i])...)
+	}
+	// check argument types
+	for i, e := range e.Args {
+		var (
+			ith         = c.Address[i].DataType
+			arg_t, errs = p.typeExpression(c.Address[i].DataType, e, env, effects)
+		)
+		//
+		errors = append(errors, errs...)
+		// Subtype check (if no other errors)
+		if len(errs) == 0 {
+			errors = append(errors, p.checkEquiTypes(arg_t, ith, e)...)
 		}
 	}
 	// Done
-	return variable.DescriptorsToType(c.Data...), errs
+	return variable.DescriptorsToType(c.Data...), errors
 }
 
 // CheckTargetRegisters performs some simple checks on a set of target registers
@@ -261,6 +270,25 @@ func (p *TypeChecker) typeIfGoto(s *stmt.IfGoto[symbol.Resolved], env VariableMa
 	return p.typeCondition(s.Cond, env, effects)
 }
 
+func (p *TypeChecker) typePrintf(s *stmt.Printf[symbol.Resolved], env VariableMap, effects bit.Set,
+) []source.SyntaxError {
+	var errs []source.SyntaxError
+	//
+	for _, e := range s.Arguments {
+		ith, ierrs := p.typeExpression(nil, e, env, effects)
+		//
+		if len(ierrs) == 0 && ith.AsUint(p.env) == nil {
+			errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint"))
+		} else if len(ierrs) == 0 && ith.AsUint(p.env).IsOpen() {
+			errs = append(errs, *p.srcmaps.SyntaxError(e, "concrete type required"))
+		} else {
+			errs = append(errs, ierrs...)
+		}
+	}
+	//
+	return errs
+}
+
 func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap, effects bit.Set) []source.SyntaxError {
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
@@ -272,8 +300,8 @@ func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap, e
 
 func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap, effects bit.Set) []source.SyntaxError {
 	var (
-		lhs, lerrs = p.typeExpression(e.Left, env, effects)
-		rhs, rerrs = p.typeExpression(e.Right, env, effects)
+		lhs, lerrs = p.typeExpression(nil, e.Left, env, effects)
+		rhs, rerrs = p.typeExpression(lhs, e.Right, env, effects)
 	)
 	// Check left-hand side
 	if len(lerrs) == 0 && lhs.AsUint(p.env) == nil {
@@ -292,38 +320,39 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap, eff
 	return append(lerrs, rerrs...)
 }
 
-func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap, effects bit.Set,
-) (t Type, errs []source.SyntaxError) {
+func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env VariableMap, effects bit.Set,
+) (actual Type, errs []source.SyntaxError) {
 	switch e := e.(type) {
 	case *expr.Cast[symbol.Resolved]:
-		t, errs = p.typeCastExpression(e, env, effects)
+		actual, errs = p.typeCastExpression(expected, e, env, effects)
 	case *expr.Add[symbol.Resolved]:
-		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseAnd[symbol.Resolved]:
-		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.Const[symbol.Resolved]:
-		t, errs = p.typeConst(e, env)
+		actual, errs = p.typeConst(expected, e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
-		t, errs = p.typeLocalAccess(e, env)
+		actual, errs = p.typeLocalAccess(e, env)
 	case *expr.Mul[symbol.Resolved]:
-		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
-		t, errs = p.typeBitwiseNot(e, env, effects)
+		actual, errs = p.typeBitwiseNot(expected, e, env, effects)
 	case *expr.BitwiseOr[symbol.Resolved]:
-		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.ExternAccess[symbol.Resolved]:
-		t, errs = p.typeExternAccess(e, env, effects)
+		actual, errs = p.typeExternAccess(e, env, effects)
 	case *expr.Shl[symbol.Resolved]:
-		t, errs = p.typeShiftExpression(e.Exprs, env, effects)
+		actual, errs = p.typeShiftExpression(expected, e.Exprs, env, effects)
 	case *expr.Shr[symbol.Resolved]:
-		t, errs = p.typeShiftExpression(e.Exprs, env, effects)
+		actual, errs = p.typeShiftExpression(expected, e.Exprs, env, effects)
 	case *expr.Div[symbol.Resolved]:
-		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.Rem[symbol.Resolved]:
-		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.Sub[symbol.Resolved]:
-		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.Xor[symbol.Resolved]:
+<<<<<<< HEAD
 		t, errs = p.typeArithmeticExpression(e.Exprs, env, effects)
 	case *expr.Ternary[symbol.Resolved]:
 		errs = append(errs, p.typeCondition(e.Cond, env, effects)...)
@@ -335,50 +364,37 @@ func (p *TypeChecker) typeExpression(e expr.Resolved, env VariableMap, effects b
 			t = tt
 		}
 
+=======
+		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+>>>>>>> main
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown expression")
 	}
 	// Associate type
-	e.SetType(t)
+	e.SetType(actual)
 	//
-	return t, errs
+	return actual, errs
 }
 
-func (p *TypeChecker) typeExpressions(exprs []expr.Resolved, env VariableMap, effects bit.Set,
-) ([]Type, []source.SyntaxError) {
+func (p *TypeChecker) typeUintExpressions(t Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
+) (Type, []source.SyntaxError) {
 	var (
-		types  = make([]Type, len(exprs))
 		errors []source.SyntaxError
+		res    *data.UnsignedInt[symbol.Resolved]
 	)
 	//
 	for i, e := range exprs {
-		var errs []source.SyntaxError
+		ith_t, errs := p.typeExpression(t, e, env, effects)
 		//
-		types[i], errs = p.typeExpression(e, env, effects)
-		//
-		errors = append(errors, errs...)
-	}
-	//
-	return types, errors
-}
-
-func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env VariableMap, effects bit.Set,
-) (Type, []source.SyntaxError) {
-	var (
-		args, errors = p.typeExpressions(exprs, env, effects)
-		res          *data.UnsignedInt[symbol.Resolved]
-	)
-	//
-	if len(errors) > 0 {
-		return nil, errors
-	}
-	//
-	for i, t := range args {
-		if i == 0 && t.AsUint(p.env) == nil {
+		if len(errs) > 0 {
+			errors = append(errors, errs...)
+		} else if i == 0 && ith_t.AsUint(p.env) == nil {
 			return nil, append(errors, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
 		} else if i == 0 {
-			res = t.AsUint(p.env)
-		} else if errs := p.checkEquiTypes(t, res, exprs[i]); len(errs) > 0 {
+			res = ith_t.AsUint(p.env)
+		} else if len(errors) > 0 {
+			// skip type checking
+		} else if errs := p.checkEquiTypes(ith_t, res, exprs[i]); len(errs) > 0 {
 			errors = append(errors, errs...)
 		} else {
 			res = res.Join(exprs[i].Type().AsUint(p.env))
@@ -388,50 +404,50 @@ func (p *TypeChecker) typeArithmeticExpression(exprs []expr.Resolved, env Variab
 	return res, errors
 }
 
-func (p *TypeChecker) typeCastExpression(e *expr.Cast[symbol.Resolved], env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeArithmeticExpression(t Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
+) (Type, []source.SyntaxError) {
+	var res, errors = p.typeUintExpressions(t, exprs, env, effects)
+	//
+	return res, errors
+}
+
+func (p *TypeChecker) typeCastExpression(t Type, e *expr.Cast[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	var (
-		srcType, errs = p.typeExpression(e.Expr, env, effects)
+		srcType, errors = p.typeExpression(nil, e.Expr, env, effects)
 	)
 	//
-	if len(errs) == 0 && !data.SubtypeOf(e.CastType, srcType, p.env) && !data.SubtypeOf(srcType, e.CastType, p.env) {
-		errs = p.srcmaps.SyntaxErrors(e.Expr, fmt.Sprintf("expected type %s", e.CastType.String(p.env)))
+	if len(errors) == 0 && !data.SubtypeOf(e.CastType, srcType, p.env) && !data.SubtypeOf(srcType, e.CastType, p.env) {
+		errors = p.srcmaps.SyntaxErrors(e.Expr, fmt.Sprintf("expected type %s", e.CastType.String(p.env)))
 	}
 	//
-	return e.CastType, errs
+	return e.CastType, errors
 }
 
 // typeShiftExpression types a shift expression (Shl or Shr). The result type
 // is that of the first (value) operand. All operands must be uint and the
 // shift amount must have a compatible type with the value being shifted.
-func (p *TypeChecker) typeShiftExpression(exprs []expr.Resolved, env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeShiftExpression(t Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	var (
-		args, errs = p.typeExpressions(exprs, env, effects)
-		res        Type
+		arg, errors = p.typeExpression(t, exprs[0], env, effects)
+		_, errs2    = p.typeUintExpressions(nil, exprs[1:], env, effects)
+		res         *data.UnsignedInt[symbol.Resolved]
 	)
-	//
-	if len(errs) > 0 {
-		return nil, errs
+	// Sanity check argument
+	if len(errors) > 0 {
+		// don't type check as other problems
+	} else if res = arg.AsUint(p.env); res == nil {
+		return nil, append(errors, *p.srcmaps.SyntaxError(exprs[0], "expected uint"))
 	}
 	//
-	for i, t := range args {
-		if t.AsUint(p.env) == nil {
-			return nil, p.srcmaps.SyntaxErrors(exprs[i], "expected uint")
-		} else if i == 0 {
-			res = t
-		} else if !data.SubtypeOf(res, t, p.env) && !data.SubtypeOf(t, res, p.env) {
-			return nil, p.srcmaps.SyntaxErrors(exprs[i],
-				fmt.Sprintf("expected type %s", res.String(p.env)))
-		}
-	}
-	//
-	return res, nil
+	return res, append(errors, errs2...)
 }
 
-func (p *TypeChecker) typeBitwiseNot(e *expr.BitwiseNot[symbol.Resolved], env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeBitwiseNot(t Type, e *expr.BitwiseNot[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
-	t, errs := p.typeExpression(e.Expr, env, effects)
+	t, errs := p.typeExpression(t, e.Expr, env, effects)
+	//
 	if len(errs) > 0 {
 		return nil, errs
 	} else if t.AsUint(p.env) == nil {
@@ -441,12 +457,17 @@ func (p *TypeChecker) typeBitwiseNot(e *expr.BitwiseNot[symbol.Resolved], env Va
 	return t, nil
 }
 
-func (p *TypeChecker) typeConst(e *expr.Const[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {
+func (p *TypeChecker) typeConst(t Type, e *expr.Const[symbol.Resolved], env VariableMap) (Type, []source.SyntaxError) {
 	var (
 		bitwidth = uint(e.Constant.BitLen())
+		actual   = data.NewUnsignedInt[symbol.Resolved](bitwidth, true)
 	)
 	//
-	return data.NewUnsignedInt[symbol.Resolved](bitwidth, true), nil
+	if t == nil {
+		return actual, nil
+	}
+	//
+	return t, p.checkEquiTypes(actual, t, e)
 }
 
 func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env VariableMap,
@@ -462,7 +483,7 @@ func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], en
 	// Decide what kind of symbol it is
 	switch t := extern.(type) {
 	case *decl.ResolvedConstant:
-		return p.typeConstantAccess(t, e, env)
+		return p.typeConstantAccess(t)
 	case *decl.ResolvedMemory:
 		return p.typeMemoryAccess(t, e, env, effects)
 	case *decl.ResolvedFunction:
@@ -473,62 +494,75 @@ func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], en
 		return nil, p.srcmaps.SyntaxErrors(e, "unknown symbol type")
 	}
 }
-func (p *TypeChecker) typeConstantAccess(c *decl.ResolvedConstant, e *expr.ExternAccess[symbol.Resolved],
-	env VariableMap) (Type, []source.SyntaxError) {
+func (p *TypeChecker) typeConstantAccess(c *decl.ResolvedConstant) (Type, []source.SyntaxError) {
 	return c.DataType, nil
 }
 
 func (p *TypeChecker) typeMemoryAccess(c *decl.ResolvedMemory, e *expr.ExternAccess[symbol.Resolved],
 	env VariableMap, effects bit.Set) (Type, []source.SyntaxError) {
-	var args, errs = p.typeExpressions(e.Args, env, effects)
+	var errors []source.SyntaxError
 	//
-	if len(args) != len(c.Address) {
+	if len(e.Args) != len(c.Address) {
 		return nil, p.srcmaps.SyntaxErrors(e,
-			fmt.Sprintf("mismatched arguments (expected %d, found %d)", len(c.Address), len(args)))
+			fmt.Sprintf("mismatched arguments (expected %d, found %d)", len(c.Address), len(e.Args)))
 	} else if c.IsReadable() && c.IsWriteable() && !effects.Contains(e.Name.Index) {
 		return nil, p.srcmaps.SyntaxErrors(e, "read/write memory not visible here")
-	} else if len(errs) == 0 {
-		// check argument types
-		for i := range args {
-			ith := c.Address[i].DataType
+	}
+	// check argument types
+	for i, arg := range e.Args {
+		var (
+			ith         = c.Address[i].DataType
+			ith_t, errs = p.typeExpression(ith, arg, env, effects)
+		)
+		//
+		errors = append(errors, errs...)
+		// Perofmr subtype check (if no other errors)
+		if len(errs) == 0 {
 			// Subtype check
-			errs = append(errs, p.checkEquiTypes(args[i], ith, e.Args[i])...)
+			errors = append(errors, p.checkEquiTypes(ith_t, ith, e.Args[i])...)
 		}
 	}
 	// Done
-	return variable.DescriptorsToType(c.Data...), errs
+	return variable.DescriptorsToType(c.Data...), errors
 }
 
 func (p *TypeChecker) typeAlias(e *expr.ExternAccess[symbol.Resolved]) (Type, []source.SyntaxError) {
-	return nil, p.srcmaps.SyntaxErrors(e, "cannot assign type alias")
+	return nil, p.srcmaps.SyntaxErrors(e, "not an expression")
 }
 
 func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternAccess[symbol.Resolved],
 	env VariableMap, effects bit.Set) (Type, []source.SyntaxError) {
 	var (
-		args, errs = p.typeExpressions(e.Args, env, effects)
-		n          = uint(len(args))
+		errors []source.SyntaxError
+		n      = uint(len(e.Args))
 	)
 	//
 	if n != c.NumInputs {
 		return nil, p.srcmaps.SyntaxErrors(e,
 			fmt.Sprintf("mismatched arguments (expected %d, found %d)", c.NumInputs, n))
-	} else if len(errs) == 0 {
-		// check argument types
-		for i := range args {
-			ith := c.Variables[i].DataType
-			// Subtype check
-			errs = append(errs, p.checkEquiTypes(args[i], ith, e.Args[i])...)
+	}
+	// check argument types
+	for i, arg := range e.Args {
+		var (
+			ith         = c.Variables[i].DataType
+			ith_t, errs = p.typeExpression(ith, arg, env, effects)
+		)
+		//
+		errors = append(errors, errs...)
+		// Subtype check (if no other errors)
+		if len(errs) == 0 {
+			errors = append(errors, p.checkEquiTypes(ith_t, ith, e.Args[i])...)
 		}
 	}
 	// Sanity check callee effects visible at call site
 	for _, effect := range c.Effects {
 		if !effects.Contains(effect.Index) {
-			errs = append(errs, *p.srcmaps.SyntaxError(e, fmt.Sprintf("read/write memory \"%s\" not visible here", effect.Name)))
+			errors = append(errors,
+				*p.srcmaps.SyntaxError(e, fmt.Sprintf("read/write memory \"%s\" not visible here", effect.Name)))
 		}
 	}
 	// Done
-	return variable.DescriptorsToType(c.Outputs()...), errs
+	return variable.DescriptorsToType(c.Outputs()...), errors
 }
 
 func (p *TypeChecker) checkEquiTypes(lhs, rhs Type, node any) []source.SyntaxError {

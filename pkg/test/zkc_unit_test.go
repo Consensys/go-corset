@@ -73,6 +73,38 @@ func Test_ZkcUnit_Basic_13(t *testing.T) {
 }
 
 // ===================================================================
+// If-Else-If Tests
+// ===================================================================
+
+func Test_ZkcUnit_IfElse_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_01")
+}
+
+func Test_ZkcUnit_IfElse_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_02")
+}
+
+func Test_ZkcUnit_IfElse_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_03")
+}
+
+func Test_ZkcUnit_IfElse_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_04")
+}
+
+func Test_ZkcUnit_IfElse_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_05")
+}
+
+func Test_ZkcUnit_IfElse_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_06")
+}
+
+func Test_ZkcUnit_IfElse_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ifelse_07")
+}
+
+// ===================================================================
 // Constant Tests
 // ===================================================================
 
@@ -252,12 +284,20 @@ func Test_ZkcUnit_Shift_07(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/shift_07")
 }
 
+func Test_ZkcUnit_Shift_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/shift_08")
+}
+
 // ===================================================================
 // Static Initialiser Tests
 // ===================================================================
 
 func Test_ZkcUnit_Static_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/static_01")
+}
+
+func Test_ZkcUnit_SwitchEndian(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_endian")
 }
 
 // ===================================================================
@@ -318,6 +358,18 @@ func Test_ZkcUnit_Call_01(t *testing.T) {
 
 func Test_ZkcUnit_Call_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/call_02")
+}
+
+// ===================================================================
+// Printg Tests
+// ===================================================================
+
+func Test_ZkcUnit_Printf_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/printf_01")
+}
+
+func Test_ZkcUnit_Printf_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/printf_02")
 }
 
 // ===================================================================
