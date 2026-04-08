@@ -29,7 +29,7 @@ import (
 
 // Link a set of one or more source files together to produce a complete program
 // (or one or more errors).  Linking is the process of resolving external
-// identifiers used within a source file, or generateing errors when this fails.
+// identifiers used within a source file, or generating errors when this fails.
 // For example, if a function in one source file calls another function in a
 // different source file, then this linkage needs to be resolved (i.e. checked).
 // This can fail for various reasons: for example, if no function of the given
@@ -41,7 +41,7 @@ func Link(files ...parser.UnlinkedSourceFile) (ast.Program, source.Maps[any], []
 		linker  = NewLinker()
 		errors  []source.SyntaxError
 	)
-	// Constuct bus and source mappings
+	// Construct bus and source mappings
 	for _, item := range files {
 		linker.Join(item.SourceMap)
 		//
@@ -137,7 +137,7 @@ func (p *Linker) Link() (ast.Program, []source.SyntaxError) {
 
 // Link all buses used within this function to their intended targets.  This
 // means, for every bus used locally, settings the global bus identifier and
-// also allocated regisers for the address/data lines.
+// also allocated registers for the address/data lines.
 func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxError) {
 	switch d := p.components[index].(type) {
 	case *decl.UnresolvedConstant:
@@ -397,6 +397,15 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	case *expr.Xor[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewXor[symbol.Resolved](args...)
+
+	case *expr.Ternary[symbol.Unresolved]:
+		cond, cerrs := p.linkCondition(e.Cond)
+		ifTrue, terrs := p.linkExpr(e.IfTrue)
+		ifFalse, ferrs := p.linkExpr(e.IfFalse)
+		nexpr = expr.NewTernary[symbol.Resolved](cond, ifTrue, ifFalse)
+
+		errors = append(append(append(errors, cerrs...), terrs...), ferrs...)
+
 	default:
 		return nil, p.srcmap.SyntaxErrors(e, "invalid expression")
 	}

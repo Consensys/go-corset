@@ -54,7 +54,7 @@ func (p *MemRead[W]) String(mapping SystemMap[W]) string {
 	builder.WriteString(registersToString(mapping, array.Reverse(p.Data)...))
 	builder.WriteString(" = ")
 	//
-	builder.WriteString(fmt.Sprintf("%s[", mapping.Module(p.Id).Name()))
+	fmt.Fprintf(&builder, "%s[", mapping.Module(p.Id).Name())
 	//
 	for i, rid := range p.Address {
 		if i != 0 {

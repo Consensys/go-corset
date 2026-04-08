@@ -67,7 +67,7 @@ func (p *MemWrite[W]) Definitions() []register.Id {
 func (p *MemWrite[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(fmt.Sprintf("%s[", mapping.Module(p.Id).Name()))
+	fmt.Fprintf(&builder, "%s[", mapping.Module(p.Id).Name())
 	builder.WriteString(registersToString(mapping, array.Reverse(p.Address)...))
 	builder.WriteString("] = ")
 	//

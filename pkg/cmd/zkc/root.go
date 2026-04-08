@@ -33,6 +33,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		if GetFlag(cmd, "version") {
 			fmt.Print("zkc ")
+
 			if Version != "" {
 				// Built via "make"
 				fmt.Printf("%s", Version)
@@ -43,6 +44,7 @@ var rootCmd = &cobra.Command{
 				// Unknown, perhaps "go run"
 				fmt.Printf("(unknown version)")
 			}
+
 			fmt.Println()
 		}
 	},

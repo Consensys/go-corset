@@ -84,8 +84,8 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	//
 	switch e := e.(type) {
 	case *Cast[S]:
-		inner := String[S](e.Expr, mapping)
-		if needsBraces[S](e.Expr) {
+		inner := String(e.Expr, mapping)
+		if needsBraces(e.Expr) {
 			inner = "(" + inner + ")"
 		}
 
@@ -116,7 +116,7 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 			return "~(" + String[S](e.Expr, mapping) + ")"
 		}
 
-		return "~" + String[S](e.Expr, mapping)
+		return "~" + String(e.Expr, mapping)
 	case *ExternAccess[S]:
 		args := stringOfArguments(e.Args, mapping)
 		name := e.Name.String()
@@ -145,6 +145,8 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Rem[S]:
 		exprs = e.Exprs
 		operator = "%"
+	case *Ternary[S]:
+		return e.String(mapping)
 	default:
 		panic("unreachable")
 	}
@@ -156,12 +158,12 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 			builder.WriteString(" ")
 		}
 		//
-		if needsBraces[S](e) {
+		if needsBraces(e) {
 			builder.WriteString("(")
-			builder.WriteString(String[S](e, mapping))
+			builder.WriteString(String(e, mapping))
 			builder.WriteString(")")
 		} else {
-			builder.WriteString(String[S](e, mapping))
+			builder.WriteString(String(e, mapping))
 		}
 	}
 	//
