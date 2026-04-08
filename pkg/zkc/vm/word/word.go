@@ -99,11 +99,11 @@ func Sum[W Word[W]](bitwidth uint, values ...W) (W, bool) {
 // underflow indicator.
 func Subtract[W Word[W]](bitwidth uint, values ...W) (W, bool) {
 	var (
-		res       W = values[0]
+		res       W
 		underflow bool
 	)
 	//
-	for i, v := range values[1:] {
+	for i, v := range values {
 		var borrow bool
 		//
 		if i == 0 {

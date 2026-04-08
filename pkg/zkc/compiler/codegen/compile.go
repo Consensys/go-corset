@@ -117,7 +117,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 				// Compile the static initialiser
 				words, errs := compileStaticInitialisers(declarations, env, srcmaps, c.Contents...)
 				//
-				if len(errors) == 0 {
+				if len(errs) == 0 {
 					// Construct the read-only memory
 					modules = append(modules, memory.NewStaticReadOnly(c.Name(), regs, words...))
 				}
