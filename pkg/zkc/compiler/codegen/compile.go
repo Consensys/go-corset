@@ -111,8 +111,15 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
-				modules = append(modules, memory.NewStaticReadOnly(c.Name(), regs,
-					compileStaticInitialise(c.Contents, declarations, env, srcmaps)...))
+				// Compile the static initialiser
+				words, errs := compileStaticInitialiser(c.Contents, declarations, env, srcmaps)
+				//
+				if len(errors) == 0 {
+					// Construct the read-only memory
+					modules = append(modules, memory.NewStaticReadOnly(c.Name(), regs, words...))
+				}
+				// Include all errors
+				errors = append(errors, errs...)
 			case decl.RANDOM_ACCESS_MEMORY:
 				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
 			}
@@ -126,8 +133,8 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
 // memory declaration into the word.Uint representation required by the VM.
-func compileStaticInitialise(contents []expr.Resolved, components []Declaration, env data.ResolvedEnvironment,
-	srcmaps source.Maps[any]) []word.Uint {
+func compileStaticInitialiser(contents []expr.Resolved, components []Declaration, env data.ResolvedEnvironment,
+	srcmaps source.Maps[any]) ([]word.Uint, []source.SyntaxError) {
 	//
 	var (
 		words    = make([]word.Uint, len(contents))
@@ -138,7 +145,7 @@ func compileStaticInitialise(contents []expr.Resolved, components []Declaration,
 		words[i] = compiler.evalConstant(v)
 	}
 
-	return words
+	return words, compiler.errors
 }
 
 func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,

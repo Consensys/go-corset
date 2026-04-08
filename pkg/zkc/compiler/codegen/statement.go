@@ -651,12 +651,22 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 	case *expr.Add[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		res, overflow := word.Sum(bitwidth, args...)
-		// TODO: report a proper error
+		// check for overflow
 		if overflow {
-			panic("evalConstantAdd arithmetic overflow")
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "arithmetic overflow")...)
 		}
 		//
 		return res
+	case *expr.Sub[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		res, overflow := word.Subtract(bitwidth, args...)
+		// check for underflow
+		if overflow {
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "arithmetic underflow")...)
+		}
+		//
+		return res
+
 	case *expr.BitwiseAnd[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		return word.BitwiseAnd(bitwidth, args...)
@@ -667,10 +677,20 @@ func (p *Compiler) evalConstant(e Expr) word.Uint {
 	case *expr.Mul[symbol.Resolved]:
 		args := p.evalConstants(e.Exprs)
 		res, overflow := word.Product(bitwidth, args...)
-		// TODO: report a proper error
+		// sanity check for overflow
 		if overflow {
-			panic("evalConstantMul arithmetic overflow")
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "arithmetic overflow")...)
 		}
+		//
+		return res
+	case *expr.Div[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		res := word.Quotient(bitwidth, args...)
+		//
+		return res
+	case *expr.Rem[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs)
+		res := word.Remainder(bitwidth, args...)
 		//
 		return res
 	case *expr.BitwiseNot[symbol.Resolved]:
