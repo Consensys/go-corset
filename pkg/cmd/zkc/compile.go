@@ -14,7 +14,6 @@ package zkc
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
@@ -26,6 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
@@ -169,14 +169,14 @@ func writeMemoryParams(params []variable.ResolvedDescriptor, env data.ResolvedEn
 	}
 }
 
-func writeMemoryContents(values []*big.Int) {
+func writeMemoryContents(values []expr.Resolved) {
 	var N = 20
 	//
 	for i := 0; i < len(values); i += N {
 		var left = len(values) - i
 		//
 		for j := range min(N, left) {
-			fmt.Printf("0x%s", values[i+j].Text(16))
+			fmt.Printf("%s", values[i+j].String(variable.ArrayMap[symbol.Resolved]()))
 			//
 			if i+j+1 != len(values) {
 				fmt.Printf(", ")

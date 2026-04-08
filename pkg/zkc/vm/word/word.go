@@ -95,6 +95,29 @@ func Sum[W Word[W]](bitwidth uint, values ...W) (W, bool) {
 	return res, overflow
 }
 
+// Subtract a given set of words together, producing the difference and an
+// underflow indicator.
+func Subtract[W Word[W]](bitwidth uint, values ...W) (W, bool) {
+	var (
+		res       W
+		underflow bool
+	)
+	//
+	for i, v := range values {
+		var borrow bool
+		//
+		if i == 0 {
+			res = v
+		} else {
+			res, borrow = res.Sub(bitwidth, v)
+			//
+			underflow = underflow || borrow
+		}
+	}
+	//
+	return res, underflow
+}
+
 // BitwiseAnd computes the bitwise AND of a set of words.
 func BitwiseAnd[W Word[W]](bitwidth uint, values ...W) W {
 	var res W

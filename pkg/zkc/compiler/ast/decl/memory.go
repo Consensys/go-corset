@@ -11,8 +11,7 @@
 package decl
 
 import (
-	"math/big"
-
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
@@ -68,14 +67,14 @@ type Memory[S symbol.Symbol[S]] struct {
 	Address []variable.Descriptor[S]
 	// Data bus for memory.
 	Data []variable.Descriptor[S]
-	// Contents (for static memory only). Each element is a pointer so that
-	// elements can be registered in the source map for error reporting.
-	Contents []*big.Int
+	// Contents (for static memory only). Each element is a compile-time constant
+	// expression.
+	Contents []expr.Expr[S]
 }
 
 // NewMemory constructs a new memory.
 func NewMemory[S symbol.Symbol[S]](name string, kind MemoryKind, address []variable.Descriptor[S],
-	data []variable.Descriptor[S], contents []*big.Int) *Memory[S] {
+	data []variable.Descriptor[S], contents []expr.Expr[S]) *Memory[S] {
 	// sanity checks
 	if contents != nil && kind != PUBLIC_STATIC_MEMORY && kind != PRIVATE_STATIC_MEMORY {
 		panic("invalid non-static memory")
@@ -115,7 +114,7 @@ func NewWriteOnceMemory[S symbol.Symbol[S]](public bool, name string, address []
 
 // NewStaticMemory constructs a new static memory.
 func NewStaticMemory[S symbol.Symbol[S]](public bool, name string, address []variable.Descriptor[S],
-	data []variable.Descriptor[S], contents []*big.Int) *Memory[S] {
+	data []variable.Descriptor[S], contents []expr.Expr[S]) *Memory[S] {
 	//
 	if public {
 		return &Memory[S]{name: name, Kind: PUBLIC_STATIC_MEMORY, Address: address, Data: data, Contents: contents}

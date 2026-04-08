@@ -134,14 +134,18 @@ func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
 	}
 
 	var (
-		errors   []source.SyntaxError
-		dataType = variable.DescriptorsToType(c.Data...)
+		errors       []source.SyntaxError
+		dataType     = variable.DescriptorsToType(c.Data...)
+		emptyEffects bit.Set
 	)
 	//
 	for _, v := range c.Contents {
-		valBitwidth := uint(v.BitLen())
-		valType := data.NewUnsignedInt[symbol.Resolved](valBitwidth, true)
-		errors = append(errors, p.checkEquiTypes(valType, dataType, v)...)
+		valType, errs := p.typeExpression(dataType, v, variable.ArrayMap[symbol.Resolved](), emptyEffects)
+		if len(errs) != 0 {
+			errors = append(errors, errs...)
+		} else {
+			errors = append(errors, p.checkEquiTypes(valType, dataType, v)...)
+		}
 	}
 	//
 	return errors
