@@ -170,6 +170,7 @@ func init() {
 	gob.Register(ComputationTerm(&LabelledConst[word.BigEndian, Computation[word.BigEndian]]{}))
 	gob.Register(ComputationTerm(&Norm[word.BigEndian, Computation[word.BigEndian]]{}))
 	gob.Register(ComputationTerm(&RegisterAccess[word.BigEndian, Computation[word.BigEndian]]{}))
+	gob.Register(ComputationTerm(&VectorAccess[word.BigEndian, Computation[word.BigEndian]]{}))
 
 	gob.Register(LogicalComputationTerm(&Conjunct[word.BigEndian, LogicalComputation[word.BigEndian]]{}))
 	gob.Register(LogicalComputationTerm(&Disjunct[word.BigEndian, LogicalComputation[word.BigEndian]]{}))
@@ -177,4 +178,6 @@ func init() {
 		&Equal[word.BigEndian, LogicalComputation[word.BigEndian], Computation[word.BigEndian]]{}))
 	gob.Register(LogicalComputationTerm(
 		&NotEqual[word.BigEndian, LogicalComputation[word.BigEndian], Computation[word.BigEndian]]{}))
+	gob.Register(LogicalComputationTerm(
+		&Ite[word.BigEndian, LogicalComputation[word.BigEndian]]{}))
 }

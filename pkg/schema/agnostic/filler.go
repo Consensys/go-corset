@@ -13,6 +13,7 @@
 package agnostic
 
 import (
+	"encoding/gob"
 	"fmt"
 	"math/big"
 
@@ -38,8 +39,8 @@ var _ Computation = &PolyFil{}
 // registers (e.g. for holding carry values) that arise as part of register
 // splitting.
 type PolyFil struct {
-	rshift uint
-	poly   DynamicPolynomial
+	RightShift uint
+	Poly       DynamicPolynomial
 }
 
 // NewPolyFil constructs a new poly fil computation.
@@ -54,15 +55,15 @@ func (p *PolyFil) ApplyShift(shift int) Computation {
 
 // Bounds implementation for Boundable interface.
 func (p *PolyFil) Bounds() util.Bounds {
-	return BoundsForPolynomial(p.poly)
+	return BoundsForPolynomial(p.Poly)
 }
 
 // EvalAt implementation for Evaluable interface.
 func (p *PolyFil) EvalAt(k int, tr trace.Module[word.BigEndian], sc register.Map) (word.BigEndian, error) {
-	val := EvalPolynomial(uint(k), p.poly, tr)
+	val := EvalPolynomial(uint(k), p.Poly, tr)
 	//
-	if p.rshift != 0 {
-		return val.Rsh(p.rshift), nil
+	if p.RightShift != 0 {
+		return val.Rsh(p.RightShift), nil
 	}
 	//
 	return val, nil
@@ -70,7 +71,7 @@ func (p *PolyFil) EvalAt(k int, tr trace.Module[word.BigEndian], sc register.Map
 
 // Lisp implementation for Lispifiable interface.
 func (p *PolyFil) Lisp(global bool, mapping register.Map) sexp.SExp {
-	body := poly.Lisp(p.poly, func(id register.AccessId) string {
+	body := poly.Lisp(p.Poly, func(id register.AccessId) string {
 		var name = mapping.Register(id.Id()).Name()
 		//
 		if id.RelativeShift() == 0 {
@@ -80,13 +81,13 @@ func (p *PolyFil) Lisp(global bool, mapping register.Map) sexp.SExp {
 		return fmt.Sprintf("%s[%d]", name, id.RelativeShift())
 	})
 	//
-	if p.rshift == 0 {
+	if p.RightShift == 0 {
 		return body
 	}
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol(">>"),
-		sexp.NewSymbol(fmt.Sprintf("%d", p.rshift)),
+		sexp.NewSymbol(fmt.Sprintf("%d", p.RightShift)),
 		body,
 	})
 }
@@ -95,8 +96,8 @@ func (p *PolyFil) Lisp(global bool, mapping register.Map) sexp.SExp {
 func (p *PolyFil) RequiredRegisters() *set.SortedSet[uint] {
 	var regs = set.NewSortedSet[uint]()
 	//
-	for i := range p.poly.Len() {
-		for _, ident := range p.poly.Term(i).Vars() {
+	for i := range p.Poly.Len() {
+		for _, ident := range p.Poly.Term(i).Variables() {
 			regs.Insert(ident.Id().Unwrap())
 		}
 	}
@@ -205,4 +206,8 @@ func BoundsForRegister(p register.AccessId) util.Bounds {
 	}
 	// Negative shift
 	return util.NewBounds(uint(-p.RelativeShift()), 0)
+}
+
+func init() {
+	gob.Register(term.Computation[word.BigEndian](&PolyFil{}))
 }

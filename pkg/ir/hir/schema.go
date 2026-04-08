@@ -132,11 +132,16 @@ func SubstituteConstants(schema schema.AnySchema[word.BigEndian], mapping map[st
 }
 
 func init() {
+	gob.Register(schema.AnySchema[word.BigEndian](Schema{}))
+	//
+	gob.Register(schema.Constraint[word.BigEndian](&Assertion{}))
 	gob.Register(schema.Constraint[word.BigEndian](&VanishingConstraint{}))
 	gob.Register(schema.Constraint[word.BigEndian](&RangeConstraint{}))
+	gob.Register(schema.Constraint[word.BigEndian](&InterleavingConstraint{}))
 	gob.Register(schema.Constraint[word.BigEndian](&PermutationConstraint{}))
 	gob.Register(schema.Constraint[word.BigEndian](&LookupConstraint{}))
 	gob.Register(schema.Constraint[word.BigEndian](&SortedConstraint{}))
+	gob.Register(schema.Constraint[word.BigEndian](&FunctionCall{}))
 	//
 	gob.Register(Term(&Add{}))
 	gob.Register(Term(&Mul{}))
@@ -148,9 +153,12 @@ func init() {
 	gob.Register(Term(&LabelledConst{}))
 	gob.Register(Term(&Norm{}))
 	gob.Register(Term(&RegisterAccess{}))
+	gob.Register(Term(&VectorAccess{}))
 	//
 	gob.Register(LogicalTerm(&Conjunct{}))
 	gob.Register(LogicalTerm(&Disjunct{}))
 	gob.Register(LogicalTerm(&Equal{}))
 	gob.Register(LogicalTerm(&NotEqual{}))
+	gob.Register(LogicalTerm(&Ite{}))
+	gob.Register(LogicalTerm(&Negate{}))
 }

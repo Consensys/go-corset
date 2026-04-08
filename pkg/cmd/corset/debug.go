@@ -62,23 +62,18 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	attrs := GetFlag(cmd, "attributes")
 	metadata := GetFlag(cmd, "metadata")
 	constants := GetFlag(cmd, "constants")
-	spillage := GetFlag(cmd, "spillage")
+
 	textWidth := GetUint(cmd, "textwidth")
 	sort := GetUint(cmd, "sort")
 	// Read in constraint files
-	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
-	stack := stacker.Build()
+	stack := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
 	// Print constant info (if requested)
 	if constants {
-		debug.PrintExternalisedConstants(stack.BinaryFile())
-	}
-	// Print spillage info (if requested)
-	if spillage {
-		printSpillage(stack.BinaryFile(), true)
+		debug.PrintExternalisedConstants(stack.Attributes())
 	}
 	// Print meta-data (if requested)
 	if metadata {
-		printBinaryFileHeader(stack.BinaryFile())
+		printBinaryFileMetadata(*stack.BinaryFile())
 	}
 	// Print stats (if requested)
 	if stats {
@@ -90,10 +85,10 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Print embedded attributes (if requested
 	if attrs {
-		printAttributes(stack.BinaryFile())
+		printAttributes(stack.Attributes())
 	}
 	//
-	if !stats && !modules && !attrs {
+	if !constants && !metadata && !stats && !modules && !attrs {
 		debug.PrintSchemas(stack, textWidth)
 	}
 }
@@ -105,14 +100,13 @@ func init() {
 	debugCmd.Flags().Bool("metadata", false, "Print embedded metadata")
 	debugCmd.Flags().Bool("stats", false, "Print summary information")
 	debugCmd.Flags().BoolP("modules", "m", false, "show module stats")
-	debugCmd.Flags().Bool("spillage", false, "Print spillage information")
 	debugCmd.Flags().Uint("textwidth", 130, "Set maximum textwidth to use")
 	debugCmd.Flags().Uint("sort", 0, "sort table column")
 }
 
-func printAttributes(binf *binfile.BinaryFile) {
+func printAttributes(attributes []binfile.Attribute) {
 	// Print attributes
-	for _, attr := range binf.Attributes {
+	for _, attr := range attributes {
 		fmt.Printf("attribute \"%s\":\n", attr.AttributeName())
 		//
 		if attr.AttributeName() == "CorsetSourceMap" {
@@ -121,29 +115,8 @@ func printAttributes(binf *binfile.BinaryFile) {
 	}
 }
 
-func printSpillage(binf *binfile.BinaryFile, defensive bool) {
-	// fmt.Println("Spillage:")
-	// // Compute spillage for optimisation level
-	// spillage := determineSpillage(&binf.Schema, defensive, optConfig)
-	// // Define module ID
-	// mid := uint(0)
-	// // Iterate modules and print spillage
-	// for i := uint(0); i < uint(len(spillage)); i++ {
-	// 	name := binf.Schema.Module(i).Name()
-	// 	//
-	// 	if name == "" {
-	// 		name = "<prelude>"
-	// 	}
-	// 	//
-	// 	fmt.Printf("\t%s: %d\n", name, spillage[i])
-	// 	//
-	// 	mid++
-	// }
-	panic("todo")
-}
-
-func printBinaryFileHeader(binf *binfile.BinaryFile) {
-	header := binf.Header
+func printBinaryFileMetadata(binf binfile.BinaryFile) {
+	var header = binf.Header
 	//
 	fmt.Printf("Format: %d.%d\n", header.MajorVersion, header.MinorVersion)
 	// Attempt to parse metadata
@@ -156,5 +129,17 @@ func printBinaryFileHeader(binf *binfile.BinaryFile) {
 		fmt.Println("Metadata:")
 		//
 		printTypedMetadata(1, metadata)
+	}
+	//
+	if binf.Compiled.HasValue() {
+		var compiled = binf.Compiled.Unwrap()
+		//
+		fmt.Printf("Constraints: %s", compiled.Name)
+		//
+		if compiled.Config.HasValue() {
+			fmt.Printf("[%s]", compiled.Config.Unwrap().Name)
+		}
+		//
+		fmt.Println()
 	}
 }

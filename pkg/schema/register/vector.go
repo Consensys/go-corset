@@ -22,7 +22,7 @@ import (
 // in the vector.  For example, we might have a vector hi::lo where lo has index
 // 0, and hi has index 1.
 type Vector struct {
-	regs []Id
+	Regs []Id
 }
 
 // NewVector constructs a new vector from a given sequence of registers, where
@@ -33,14 +33,14 @@ func NewVector(regs ...Id) Vector {
 
 // Clone this vector producing an identical but physically disjoint vector.
 func (p Vector) Clone() Vector {
-	return Vector{slices.Clone(p.regs)}
+	return Vector{slices.Clone(p.Regs)}
 }
 
 // BitWidth returns the bitwidth of this vector in a given context.
 func (p Vector) BitWidth(fn Map) uint {
 	var bitwidth uint
 	//
-	for _, r := range p.regs {
+	for _, r := range p.Regs {
 		bitwidth += fn.Register(r).Width()
 	}
 	//
@@ -50,14 +50,14 @@ func (p Vector) BitWidth(fn Map) uint {
 // Registers provides raw access to the underlying register array wrapped in
 // this vector.
 func (p Vector) Registers() []Id {
-	return p.regs
+	return p.Regs
 }
 
 // Split this vector according to a given limbs mapping.
 func (p Vector) Split(mapping LimbsMap) Vector {
 	var limbs []Id
 	//
-	for _, r := range p.regs {
+	for _, r := range p.Regs {
 		limbs = append(limbs, mapping.LimbIds(r)...)
 	}
 	//
@@ -67,9 +67,9 @@ func (p Vector) Split(mapping LimbsMap) Vector {
 func (p Vector) String(fn Map) string {
 	var builder strings.Builder
 	//
-	for i := len(p.regs); i > 0; i-- {
-		ith := p.regs[i-1]
-		if i != len(p.regs) {
+	for i := len(p.Regs); i > 0; i-- {
+		ith := p.Regs[i-1]
+		if i != len(p.Regs) {
 			builder.WriteString("::")
 		}
 		//
