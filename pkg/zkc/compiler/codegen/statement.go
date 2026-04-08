@@ -641,32 +641,15 @@ func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []
 	return targets, insns
 }
 
-func (p *Compiler) evalConstant(e Expr) word.Uint {
-	switch e := e.(type) {
-	case *expr.Cast[symbol.Resolved]:
-		inner := evalConstantExpr(e.Expr, p.components, p.environment)
-		width := e.CastType.AsUint(p.environment).BitWidth()
-
-		sliced := inner.Slice(width)
-		if inner.Cmp(sliced) != 0 {
-			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "cast overflow")...)
-		}
-
-		return sliced
-	default:
-		return evalConstantExpr(e, p.components, p.environment)
-	}
-}
-
-// evalConstantExpr evaluates a compile-time constant expression using the
+// evalConstant evaluates a compile-time constant expression using the
 // provided declaration list and type environment.  It is used both during
 // function code generation and when initialising static memory contents.
-func evalConstantExpr(e Expr, components []Declaration, env data.ResolvedEnvironment) word.Uint {
-	bitwidth := data.BitWidthOf(e.Type(), env)
+func (p *Compiler) evalConstant(e Expr) word.Uint {
+	bitwidth := data.BitWidthOf(e.Type(), p.environment)
 	//
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
-		args := evalConstantExprs(e.Exprs, components, env)
+		args := p.evalConstants(e.Exprs)
 		res, overflow := word.Sum(bitwidth, args...)
 		// TODO: report a proper error
 		if overflow {
@@ -675,14 +658,14 @@ func evalConstantExpr(e Expr, components []Declaration, env data.ResolvedEnviron
 		//
 		return res
 	case *expr.BitwiseAnd[symbol.Resolved]:
-		args := evalConstantExprs(e.Exprs, components, env)
+		args := p.evalConstants(e.Exprs)
 		return word.BitwiseAnd(bitwidth, args...)
 	case *expr.Const[symbol.Resolved]:
 		var c word.Uint
 		//
 		return c.SetBigInt(&e.Constant)
 	case *expr.Mul[symbol.Resolved]:
-		args := evalConstantExprs(e.Exprs, components, env)
+		args := p.evalConstants(e.Exprs)
 		res, overflow := word.Product(bitwidth, args...)
 		// TODO: report a proper error
 		if overflow {
@@ -691,38 +674,43 @@ func evalConstantExpr(e Expr, components []Declaration, env data.ResolvedEnviron
 		//
 		return res
 	case *expr.BitwiseNot[symbol.Resolved]:
-		arg := evalConstantExpr(e.Expr, components, env)
+		arg := p.evalConstant(e.Expr)
 		return arg.Not(bitwidth)
 	case *expr.BitwiseOr[symbol.Resolved]:
-		args := evalConstantExprs(e.Exprs, components, env)
+		args := p.evalConstants(e.Exprs)
 		return word.BitwiseOr(bitwidth, args...)
 	case *expr.Shl[symbol.Resolved]:
-		args := evalConstantExprs(e.Exprs, components, env)
+		args := p.evalConstants(e.Exprs)
 		return word.BitwiseShl(bitwidth, args...)
 	case *expr.Shr[symbol.Resolved]:
-		args := evalConstantExprs(e.Exprs, components, env)
+		args := p.evalConstants(e.Exprs)
 		return word.BitwiseShr(bitwidth, args...)
 	case *expr.Xor[symbol.Resolved]:
-		args := evalConstantExprs(e.Exprs, components, env)
+		args := p.evalConstants(e.Exprs)
 		return word.BitwiseXor(bitwidth, args...)
 	case *expr.Cast[symbol.Resolved]:
-		inner := evalConstantExpr(e.Expr, components, env)
-		width := e.CastType.AsUint(env).BitWidth()
+		inner := p.evalConstant(e.Expr)
+		width := e.CastType.AsUint(p.environment).BitWidth()
 
-		return inner.Slice(width)
+		sliced := inner.Slice(width)
+		if inner.Cmp(sliced) != 0 {
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "cast overflow")...)
+		}
+
+		return sliced
 	case *expr.ExternAccess[symbol.Resolved]:
-		var decl = components[e.Name.Index].(*Constant)
-		return evalConstantExpr(decl.ConstExpr, components, env)
+		var decl = p.components[e.Name.Index].(*Constant)
+		return p.evalConstant(decl.ConstExpr)
 	default:
 		panic("unknown expression encountered")
 	}
 }
 
-func evalConstantExprs(es []Expr, components []Declaration, env data.ResolvedEnvironment) []word.Uint {
+func (p *Compiler) evalConstants(es []Expr) []word.Uint {
 	var words = make([]word.Uint, len(es))
 	//
 	for i, e := range es {
-		words[i] = evalConstantExpr(e, components, env)
+		words[i] = p.evalConstant(e)
 	}
 	//
 	return words

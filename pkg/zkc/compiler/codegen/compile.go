@@ -112,7 +112,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				modules = append(modules, memory.NewStaticReadOnly(c.Name(), regs,
-					contentsToWords(c.Contents, declarations, env)...))
+					compileStaticInitialise(c.Contents, declarations, env, srcmaps)...))
 			case decl.RANDOM_ACCESS_MEMORY:
 				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
 			}
@@ -121,15 +121,21 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 		}
 	}
 	// Construct machine (if no errors)
-	return machine.New[word.Uint](modules...), errors
+	return machine.New(modules...), errors
 }
 
-// contentsToWords evaluates the compile-time constant expressions from a static
+// compileStaticInitialise evaluates the compile-time constant expressions from a static
 // memory declaration into the word.Uint representation required by the VM.
-func contentsToWords(contents []expr.Resolved, components []Declaration, env data.ResolvedEnvironment) []word.Uint {
-	words := make([]word.Uint, len(contents))
+func compileStaticInitialise(contents []expr.Resolved, components []Declaration, env data.ResolvedEnvironment,
+	srcmaps source.Maps[any]) []word.Uint {
+	//
+	var (
+		words    = make([]word.Uint, len(contents))
+		compiler = Compiler{components, nil, nil, env, srcmaps, nil}
+	)
+	//
 	for i, v := range contents {
-		words[i] = evalConstantExpr(v, components, env)
+		words[i] = compiler.evalConstant(v)
 	}
 
 	return words
