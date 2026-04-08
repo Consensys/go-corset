@@ -120,12 +120,20 @@ func Test_ZkcUnit_IfElse_07(t *testing.T) {
 // Constant Tests
 // ===================================================================
 
-func Test_ZkcUnit_Constant_01(t *testing.T) {
+func Test_ZkcUnit_Const_01(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/const_01")
 }
 
-func Test_ZkcUnit_Constant_02(t *testing.T) {
+func Test_ZkcUnit_Const_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/const_02")
+}
+
+func Test_ZkcUnit_Const_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/const_03")
+}
+
+func Test_ZkcUnit_Const_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/const_04")
 }
 
 // ===================================================================
