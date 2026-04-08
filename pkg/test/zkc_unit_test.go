@@ -84,6 +84,18 @@ func Test_ZkcUnit_Basic_16(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_16")
 }
 
+func Test_ZkcUnit_Basic_17(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_17")
+}
+
+func Test_ZkcUnit_Basic_18(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_18")
+}
+
+func Test_ZkcUnit_Basic_19(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_19")
+}
+
 // ===================================================================
 // If-Else-If Tests
 // ===================================================================
