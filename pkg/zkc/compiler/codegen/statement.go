@@ -266,9 +266,10 @@ func (p *Compiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping []ui
 	var zero word.Uint
 	insns := append(trueInsns, falseInsns...)
 	insns = append(insns, condInsns...)
-	insns = append(insns, instruction.NewSkipIf(instruction.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
+	insns = append(insns, instruction.NewSkipIf[word.Uint](instruction.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
 	insns = append(insns, instruction.NewAdd[word.Uint](target, []register.Id{falseRegs[0]}, zero))
-	insns = append(insns, &instruction.Skip{Skip: 1})
+	insns = append(insns, &instruction.Skip[word.Uint]{Skip: 1})
+	
 
 	return insns, instruction.NewAdd[word.Uint](target, []register.Id{trueRegs[0]}, zero)
 }
