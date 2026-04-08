@@ -124,7 +124,16 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		// Determine type of declaration
 		switch lookahead.Kind {
 		case KEYWORD_CONST:
-			component, errors = p.parseConstant()
+			var consts []decl.Unresolved
+
+			consts, errors = p.parseConstant()
+			if len(errors) > 0 {
+				return item, errors
+			}
+
+			item.Components = append(item.Components, consts...)
+			// Avoid appending to components below
+			continue
 		case KEYWORD_INCLUDE:
 			include, errors = p.parseInclude()
 			if len(errors) == 0 {
@@ -156,13 +165,14 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 	return item, nil
 }
 
-func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseConstant() ([]decl.Unresolved, []source.SyntaxError) {
 	var (
 		start    = p.index
 		errs     []source.SyntaxError
 		datatype Type
 		name     string
 		env      = EmptyEnvironment()
+		consts   []decl.Unresolved
 	)
 	// Parse const declaration
 	if _, errs := p.expect(KEYWORD_CONST); len(errs) > 0 {
@@ -179,13 +189,40 @@ func (p *Parser) parseConstant() (decl.Unresolved, []source.SyntaxError) {
 	// Save for source map
 	end := p.index
 	// So far, so good.
-	expr, errs := p.parseTernaryOrExpr(env)
+	constExpr, errs := p.parseTernaryOrExpr(env)
+	if len(errs) > 0 {
+		return nil, errs
+	}
 	//
-	component := decl.NewConstant[symbol.Unresolved](name, datatype, expr)
-	//
+	component := decl.NewConstant[symbol.Unresolved](name, datatype, constExpr)
 	p.srcmap.Put(component, p.spanOf(start, end-1))
+	consts = append(consts, component)
+	// Parse additional comma-separated constants on the same line.
+	for p.match(COMMA) {
+		start = p.index
+		if name, errs = p.parseIdentifier(); len(errs) > 0 {
+			return nil, errs
+		} else if _, errs = p.expect(COLON); len(errs) > 0 {
+			return nil, errs
+		} else if datatype, errs = p.parseType(); len(errs) > 0 {
+			return nil, errs
+		} else if _, errs = p.expect(EQUALS); len(errs) > 0 {
+			return nil, errs
+		}
+
+		end = p.index
+
+		constExpr, errs = p.parseTernaryOrExpr(env)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+
+		component = decl.NewConstant[symbol.Unresolved](name, datatype, constExpr)
+		p.srcmap.Put(component, p.spanOf(start, end-1))
+		consts = append(consts, component)
+	}
 	//
-	return component, errs
+	return consts, nil
 }
 
 func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
