@@ -35,6 +35,8 @@ const (
 	FORMAT_DEC
 	// FORMAT_HEX indicates to format in hexadecimal
 	FORMAT_HEX
+	// FORMAT_BIN indicates to format in binary
+	FORMAT_BIN
 )
 
 // Format simply encodes the set of permitted formatting strings in a printf
@@ -56,6 +58,11 @@ func HexFormat() Format {
 	return Format{FORMAT_HEX}
 }
 
+// BinFormat constructs a new binary format.
+func BinFormat() Format {
+	return Format{FORMAT_BIN}
+}
+
 // HasFormat checks whether this actually represents a format, or is empty.
 func (p Format) HasFormat() bool {
 	return p.Code != FORMAT_NONE
@@ -67,6 +74,8 @@ func (p Format) String() string {
 		return "%d"
 	case FORMAT_HEX:
 		return "%x"
+	case FORMAT_BIN:
+		return "%b"
 	}
 	//
 	panic("invalid format")
@@ -78,7 +87,9 @@ func FormatWord[W word.Word[W]](format Format, word W) string {
 	case FORMAT_DEC:
 		return word.Text(10)
 	case FORMAT_HEX:
-		return word.Text(16)
+		return "0x" + word.Text(16)
+	case FORMAT_BIN:
+		return "0b" + word.Text(2)
 	}
 	//
 	panic("invalid format")

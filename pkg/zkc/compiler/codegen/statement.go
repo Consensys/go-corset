@@ -228,7 +228,7 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 		//
 		switch ext := p.components[e.Name.Index].(type) {
 		case *Constant:
-			insns, insn = p.compileConst(p.evalConstant(e), mapping, targets[0])
+			insns, insn = p.compileConst(p.evalConstant(e, false), mapping, targets[0])
 			unitExpr = true
 		case *Memory:
 			if !ext.IsReadable() {
@@ -355,7 +355,7 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id,
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant, overflow = constant.Add(bitwidth, w.SetBigInt(&c.Constant))
 		} else if p.isConstantAccess(e) {
-			constant, overflow = constant.Add(bitwidth, p.evalConstant(e))
+			constant, overflow = constant.Add(bitwidth, p.evalConstant(e, false))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -421,7 +421,7 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id,
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok {
 			constant, overflow = constant.Mul(bitwidth, w.SetBigInt(&c.Constant))
 		} else if p.isConstantAccess(e) {
-			constant, overflow = constant.Mul(bitwidth, p.evalConstant(e))
+			constant, overflow = constant.Mul(bitwidth, p.evalConstant(e, false))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -517,7 +517,7 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id,
 		if c, ok := e.(*expr.Const[symbol.Resolved]); ok && i > 0 {
 			constant, overflow = constant.Add(bitwidth, w.SetBigInt(&c.Constant))
 		} else if p.isConstantAccess(e) && i > 0 {
-			constant, overflow = constant.Add(bitwidth, p.evalConstant(e))
+			constant, overflow = constant.Add(bitwidth, p.evalConstant(e, false))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -550,7 +550,7 @@ func (p *Compiler) compileAnd(args []Expr, mapping []uint, target register.Id,
 
 			constant = constant.And(bitwidth, w.SetBigInt(&c.Constant))
 		} else if p.isConstantAccess(e) {
-			constant = constant.And(bitwidth, p.evalConstant(e))
+			constant = constant.And(bitwidth, p.evalConstant(e, false))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -583,7 +583,7 @@ func (p *Compiler) compileOr(args []Expr, mapping []uint, target register.Id,
 
 			constant = constant.Or(bitwidth, w.SetBigInt(&c.Constant))
 		} else if p.isConstantAccess(e) {
-			constant = constant.Or(bitwidth, p.evalConstant(e))
+			constant = constant.Or(bitwidth, p.evalConstant(e, false))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -608,7 +608,7 @@ func (p *Compiler) compileXor(args []Expr, mapping []uint, target register.Id,
 
 			constant = constant.Xor(bitwidth, w.SetBigInt(&c.Constant))
 		} else if p.isConstantAccess(e) {
-			constant = constant.Xor(bitwidth, p.evalConstant(e))
+			constant = constant.Xor(bitwidth, p.evalConstant(e, false))
 		} else {
 			nargs = append(nargs, e)
 		}
@@ -641,73 +641,96 @@ func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []
 	return targets, insns
 }
 
-func (p *Compiler) evalConstant(e Expr) word.Uint {
+// evalConstant evaluates a compile-time constant expression using the
+// provided declaration list and type environment.  It is used both during
+// function code generation and when initialising static memory contents.
+func (p *Compiler) evalConstant(e Expr, definition bool) word.Uint {
 	bitwidth := data.BitWidthOf(e.Type(), p.environment)
 	//
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
-		args := p.evalConstants(e.Exprs)
+		args := p.evalConstants(e.Exprs, definition)
 		res, overflow := word.Sum(bitwidth, args...)
-		// TODO: report a proper error
-		if overflow {
-			panic("evalConstantAdd arithmetic overflow")
+		// check for overflow
+		if overflow && definition {
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "arithmetic overflow")...)
 		}
 		//
 		return res
+	case *expr.Sub[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs, definition)
+		res, overflow := word.Subtract(bitwidth, args...)
+		// check for underflow
+		if overflow && definition {
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "arithmetic underflow")...)
+		}
+		//
+		return res
+
 	case *expr.BitwiseAnd[symbol.Resolved]:
-		args := p.evalConstants(e.Exprs)
+		args := p.evalConstants(e.Exprs, definition)
 		return word.BitwiseAnd(bitwidth, args...)
 	case *expr.Const[symbol.Resolved]:
 		var c word.Uint
 		//
 		return c.SetBigInt(&e.Constant)
 	case *expr.Mul[symbol.Resolved]:
-		args := p.evalConstants(e.Exprs)
+		args := p.evalConstants(e.Exprs, definition)
 		res, overflow := word.Product(bitwidth, args...)
-		// TODO: report a proper error
-		if overflow {
-			panic("evalConstantMul arithmetic overflow")
+		// sanity check for overflow
+		if overflow && definition {
+			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "arithmetic overflow")...)
 		}
 		//
 		return res
+	case *expr.Div[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs, definition)
+		res := word.Quotient(bitwidth, args...)
+		//
+		return res
+	case *expr.Rem[symbol.Resolved]:
+		args := p.evalConstants(e.Exprs, definition)
+		res := word.Remainder(bitwidth, args...)
+		//
+		return res
 	case *expr.BitwiseNot[symbol.Resolved]:
-		arg := p.evalConstant(e.Expr)
+		arg := p.evalConstant(e.Expr, definition)
 		return arg.Not(bitwidth)
 	case *expr.BitwiseOr[symbol.Resolved]:
-		args := p.evalConstants(e.Exprs)
+		args := p.evalConstants(e.Exprs, definition)
 		return word.BitwiseOr(bitwidth, args...)
 	case *expr.Shl[symbol.Resolved]:
-		args := p.evalConstants(e.Exprs)
+		args := p.evalConstants(e.Exprs, definition)
 		return word.BitwiseShl(bitwidth, args...)
 	case *expr.Shr[symbol.Resolved]:
-		args := p.evalConstants(e.Exprs)
+		args := p.evalConstants(e.Exprs, definition)
 		return word.BitwiseShr(bitwidth, args...)
 	case *expr.Xor[symbol.Resolved]:
-		args := p.evalConstants(e.Exprs)
+		args := p.evalConstants(e.Exprs, definition)
 		return word.BitwiseXor(bitwidth, args...)
 	case *expr.Cast[symbol.Resolved]:
-		inner := p.evalConstant(e.Expr)
+		inner := p.evalConstant(e.Expr, definition)
 		width := e.CastType.AsUint(p.environment).BitWidth()
 
 		sliced := inner.Slice(width)
-		if inner.Cmp(sliced) != 0 {
+		if inner.Cmp(sliced) != 0 && definition {
 			p.errors = append(p.errors, p.srcmaps.SyntaxErrors(e, "cast overflow")...)
 		}
 
 		return sliced
 	case *expr.ExternAccess[symbol.Resolved]:
 		var decl = p.components[e.Name.Index].(*Constant)
-		return p.evalConstant(decl.ConstExpr)
+		return p.evalConstant(decl.ConstExpr, false)
 	default:
 		panic("unknown expression encountered")
 	}
 }
 
-func (p *Compiler) evalConstants(es []Expr) []word.Uint {
+func (p *Compiler) evalConstants(es []Expr, definition bool) []word.Uint {
 	var words = make([]word.Uint, len(es))
 	//
 	for i, e := range es {
-		words[i] = p.evalConstant(e)
+		words[i] = p.evalConstant(e, definition)
 	}
 	//
 	return words

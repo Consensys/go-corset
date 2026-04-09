@@ -439,11 +439,12 @@ func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError
 }
 
 // parseStaticInitialiser parses a brace-enclosed comma-separated list of
-// numeric literals: { number, number, ... }
-func (p *Parser) parseStaticInitialiser() ([]*big.Int, []source.SyntaxError) {
+// compile-time constant expressions: { expr, expr, ... }
+func (p *Parser) parseStaticInitialiser() ([]expr.Unresolved, []source.SyntaxError) {
 	var (
-		contents []*big.Int
+		contents []expr.Unresolved
 		errs     []source.SyntaxError
+		env      = EmptyEnvironment()
 	)
 	//
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
@@ -451,21 +452,12 @@ func (p *Parser) parseStaticInitialiser() ([]*big.Int, []source.SyntaxError) {
 	}
 	//
 	for p.lookahead().Kind != RCURLY {
-		tok, errs := p.expect(NUMBER)
+		e, errs := p.parseTernaryOrExpr(env)
 		if len(errs) > 0 {
 			return nil, errs
 		}
-		//
-		val, errs := p.number(tok)
-		if len(errs) > 0 {
-			return nil, errs
-		}
-		// Allocate on the heap so the pointer can be registered in the source
-		// map for error reporting during type checking.
-		v := new(big.Int)
-		v.Set(&val)
-		p.srcmap.Put(v, tok.Span)
-		contents = append(contents, v)
+
+		contents = append(contents, e)
 		// Consume comma separator; stop if next token is '}'
 		if !p.match(COMMA) {
 			break
@@ -1051,6 +1043,8 @@ func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
 		return index + 1, zkc_util.DecimalFormat(), true
 	case 'x':
 		return index + 1, zkc_util.HexFormat(), true
+	case 'b':
+		return index + 1, zkc_util.BinFormat(), true
 	default:
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}

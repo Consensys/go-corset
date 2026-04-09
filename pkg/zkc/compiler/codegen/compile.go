@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
@@ -94,7 +95,10 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 	for i, c := range declarations {
 		switch c := c.(type) {
 		case *Constant:
-			// ignore
+			// force detection of errors
+			_, errs := compileStaticInitialisers(declarations, env, srcmaps, c.ConstExpr)
+			//
+			errors = append(errors, errs...)
 		case *TypeAlias:
 			// ignore
 		case *Function:
@@ -110,7 +114,15 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
-				modules = append(modules, memory.NewStaticReadOnly[word.Uint](c.Name(), regs, contentsToWords(c.Contents)...))
+				// Compile the static initialiser
+				words, errs := compileStaticInitialisers(declarations, env, srcmaps, c.Contents...)
+				//
+				if len(errs) == 0 {
+					// Construct the read-only memory
+					modules = append(modules, memory.NewStaticReadOnly(c.Name(), regs, words...))
+				}
+				// Include all errors
+				errors = append(errors, errs...)
 			case decl.RANDOM_ACCESS_MEMORY:
 				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
 			}
@@ -119,18 +131,24 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 		}
 	}
 	// Construct machine (if no errors)
-	return machine.New[word.Uint](modules...), errors
+	return machine.New(modules...), errors
 }
 
-// contentsToWords converts the big.Int literal values from a static memory
-// declaration into the word.Uint representation required by the VM.
-func contentsToWords(contents []*big.Int) []word.Uint {
-	words := make([]word.Uint, len(contents))
+// compileStaticInitialise evaluates the compile-time constant expressions from a static
+// memory declaration into the word.Uint representation required by the VM.
+func compileStaticInitialisers(components []Declaration, env data.ResolvedEnvironment,
+	srcmaps source.Maps[any], contents ...expr.Resolved) ([]word.Uint, []source.SyntaxError) {
+	//
+	var (
+		words    = make([]word.Uint, len(contents))
+		compiler = Compiler{components, nil, nil, env, srcmaps, nil}
+	)
+	//
 	for i, v := range contents {
-		words[i] = word.Uint{}.SetBigInt(v)
+		words[i] = compiler.evalConstant(v, true)
 	}
 
-	return words
+	return words, compiler.errors
 }
 
 func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,

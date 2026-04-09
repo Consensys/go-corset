@@ -147,8 +147,17 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 	case *decl.UnresolvedMemory:
 		address, errs1 := p.linkVariableDeclarations(d.Address)
 		data, errs2 := p.linkVariableDeclarations(d.Data)
-		// nothing to do here
-		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, d.Contents), append(errs1, errs2...)
+
+		var (
+			contents []expr.Resolved
+			errs3    []source.SyntaxError
+		)
+		if d.Contents != nil {
+			contents, errs3 = p.linkExprs(d.Contents...)
+		}
+
+		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, contents),
+			append(append(errs1, errs2...), errs3...)
 	case *decl.UnresolvedTypeAlias:
 		datatype, errs := p.linkType(d.DataType)
 		//
