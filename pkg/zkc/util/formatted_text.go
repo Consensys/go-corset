@@ -35,7 +35,7 @@ const (
 	FORMAT_DEC
 	// FORMAT_HEX indicates to format in hexadecimal
 	FORMAT_HEX
-	// FORMAT_BIN indicates to format in hexadecimal
+	// FORMAT_BIN indicates to format in binary
 	FORMAT_BIN
 )
 
@@ -58,7 +58,7 @@ func HexFormat() Format {
 	return Format{FORMAT_HEX}
 }
 
-// BinFormat constructs a new hexadecimal format.
+// BinFormat constructs a new binary format.
 func BinFormat() Format {
 	return Format{FORMAT_BIN}
 }
