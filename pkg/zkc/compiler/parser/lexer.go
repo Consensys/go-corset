@@ -227,28 +227,36 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
-	lex.Rule(lex.String("as"), KEYWORD_AS),
-	lex.Rule(lex.String("break"), KEYWORD_BREAK),
-	lex.Rule(lex.String("const"), KEYWORD_CONST),
-	lex.Rule(lex.String("continue"), KEYWORD_CONTINUE),
-	lex.Rule(lex.String("else"), KEYWORD_ELSE),
-	lex.Rule(lex.String("fail"), KEYWORD_FAIL),
-	lex.Rule(lex.String("for"), KEYWORD_FOR),
-	lex.Rule(lex.String("fn"), KEYWORD_FN),
-	lex.Rule(lex.String("if"), KEYWORD_IF),
-	lex.Rule(lex.String("include"), KEYWORD_INCLUDE),
-	lex.Rule(lex.String("input"), KEYWORD_INPUT),
-	lex.Rule(lex.String("memory"), KEYWORD_MEMORY),
-	lex.Rule(lex.String("output"), KEYWORD_OUTPUT),
-	lex.Rule(lex.String("printf"), KEYWORD_PRINTF),
-	lex.Rule(lex.String("pub"), KEYWORD_PUB),
-	lex.Rule(lex.String("return"), KEYWORD_RETURN),
-	lex.Rule(lex.String("static"), KEYWORD_STATIC),
-	lex.Rule(lex.String("type"), KEYWORD_TYPE),
-	lex.Rule(lex.String("var"), KEYWORD_VAR),
-	lex.Rule(lex.String("while"), KEYWORD_WHILE),
 	lex.Rule(identifier, IDENTIFIER),
 	lex.Rule(lex.Eof[rune](), END_OF),
+}
+
+// keywords maps exact identifier strings to their keyword token kinds.
+// Reclassification happens as a post-processing step in Lex so that
+// identifiers that merely start with a keyword (e.g. "as_X") are never
+// misidentified: the identifier rule always consumes the full token, and
+// only an exact match triggers reclassification.
+var keywords = map[string]uint{
+	"as":       KEYWORD_AS,
+	"break":    KEYWORD_BREAK,
+	"const":    KEYWORD_CONST,
+	"continue": KEYWORD_CONTINUE,
+	"else":     KEYWORD_ELSE,
+	"fail":     KEYWORD_FAIL,
+	"fn":       KEYWORD_FN,
+	"for":      KEYWORD_FOR,
+	"if":       KEYWORD_IF,
+	"include":  KEYWORD_INCLUDE,
+	"input":    KEYWORD_INPUT,
+	"memory":   KEYWORD_MEMORY,
+	"output":   KEYWORD_OUTPUT,
+	"printf":   KEYWORD_PRINTF,
+	"pub":      KEYWORD_PUB,
+	"return":   KEYWORD_RETURN,
+	"static":   KEYWORD_STATIC,
+	"type":     KEYWORD_TYPE,
+	"var":      KEYWORD_VAR,
+	"while":    KEYWORD_WHILE,
 }
 
 // Lex a given source file into a sequence of zero or more tokens, along with
@@ -268,8 +276,19 @@ func Lex(srcfile source.File) ([]lex.Token, []source.SyntaxError) {
 	}
 	// Remove any whitespace
 	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
-	// Remove any comments (for not)
+	// Remove any comments (for now)
 	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+	// Reclassify identifiers whose full text is an exact keyword match.
+	contents := srcfile.Contents()
+
+	for i, tok := range tokens {
+		if tok.Kind == IDENTIFIER {
+			text := string(contents[tok.Span.Start():tok.Span.End()])
+			if kind, ok := keywords[text]; ok {
+				tokens[i].Kind = kind
+			}
+		}
+	}
 	// Done
 	return tokens, nil
 }
