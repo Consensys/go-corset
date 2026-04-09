@@ -1043,6 +1043,8 @@ func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
 		return index + 1, zkc_util.DecimalFormat(), true
 	case 'x':
 		return index + 1, zkc_util.HexFormat(), true
+	case 'b':
+		return index + 1, zkc_util.BinFormat(), true
 	default:
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}
