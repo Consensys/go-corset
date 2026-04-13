@@ -596,7 +596,9 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		if _, errs := p.expect(COMMA); len(errs) != 0 {
 			return nil, p.srcmap.SyntaxErrors(name, "expected comma to define array size")
 		}
+		//
 		lookahead := p.lookahead()
+		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
 		switch lookahead.Kind {
 		case NUMBER:
 			//
@@ -606,15 +608,18 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 			base := p.baserOfNumber(lookahead)
 			//
 			if len(nbErrs) != 0 || base != 10 {
-				return nil, p.srcmap.SyntaxErrors(name, "array size is not a number in base 10")
+				return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
+			}
+			if size.BitLen() == 0 {
+				return nil, p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
 			}
 			// TODO add constant
 		default:
-			return nil, p.srcmap.SyntaxErrors(name, "array size is not a number or a constant")
+			return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
 		}
 		//
 		if !p.match(RSQUARE) {
-			return nil, p.srcmap.SyntaxErrors(name, "expected closing bracket")
+			return nil, p.srcmap.SyntaxErrors(lookahead, "expected closing bracket")
 		}
 		//
 		switch {

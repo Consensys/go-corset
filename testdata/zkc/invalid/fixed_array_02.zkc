@@ -1,0 +1,5 @@
+//error:3:17-18:array size is not a number or a constant
+fn main() {
+  var items:[u8,a]
+  return
+}
