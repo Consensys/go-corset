@@ -578,12 +578,12 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		errs  []source.SyntaxError
 		start = p.index
 	)
+	// First check for arrays
+	isArray := p.match(LSQUARE)
 	//
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
-	// First check for arrays
-	isArray := p.match(LSQUARE)
 	// Parse to check if bitwidth is present
 	bw, err := strconv.Atoi(name[1:])
 	switch {
@@ -593,6 +593,9 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		//
 		p.srcmap.Put(name, p.spanOf(start, p.index-1))
 		//
+		if _, errs := p.expect(COMMA); len(errs) != 0 {
+			return nil, p.srcmap.SyntaxErrors(name, "expected comma to define array size")
+		}
 		lookahead := p.lookahead()
 		switch lookahead.Kind {
 		case NUMBER:
