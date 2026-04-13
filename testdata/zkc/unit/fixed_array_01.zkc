@@ -1,4 +1,4 @@
 fn main() {
-  var items:u8[3]
+  var items:[u8,3]
   return
 }
