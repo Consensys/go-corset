@@ -244,6 +244,9 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.LocalAccess[symbol.Resolved]:
 		insns, insn = p.compileLocalAccess(e, mapping, targets[0])
 		unitExpr = true
+	case *expr.ArrayAccess[symbol.Resolved]:
+		insns, insn = p.compileArrayAccess(e, mapping, targets[0])
+		unitExpr = true
 	case *expr.Mul[symbol.Resolved]:
 		insns, insn = p.compileMul(e.Exprs, mapping, targets[0])
 		unitExpr = true
@@ -388,6 +391,16 @@ func (p *Compiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], mapp
 	var (
 		zero word.Uint
 		reg  = []register.Id{register.NewId(e.Variable)}
+	)
+	//
+	return nil, instruction.NewAdd[word.Uint](target, reg, zero)
+}
+
+func (p *Compiler) compileArrayAccess(e *expr.ArrayAccess[symbol.Resolved], mapping []uint, target register.Id,
+) ([]MicroInstruction, MicroInstruction) {
+	var (
+		zero word.Uint
+		reg  = []register.Id{register.NewId(e.Id)}
 	)
 	//
 	return nil, instruction.NewAdd[word.Uint](target, reg, zero)

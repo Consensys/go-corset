@@ -54,7 +54,7 @@ func (p *FixedArray[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
 }
 
 func (p *FixedArray[I]) String(env Environment[I]) string {
-	return fmt.Sprintf("%s[%d]+", p.DataType.String(env), p.Size)
+	return fmt.Sprintf("%s[%d]", p.DataType.String(env), p.Size)
 }
 
 // Resolve returns the type that this fixed-size array refers to in the given environment.

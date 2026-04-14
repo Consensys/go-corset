@@ -591,13 +591,13 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		var size big.Int
 		var nbErrs []source.SyntaxError
 		//
-		p.srcmap.Put(name, p.spanOf(start, p.index-1))
-		//
+		lookahead := p.lookahead()
+		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
 		if _, errs := p.expect(COMMA); len(errs) != 0 {
-			return nil, p.srcmap.SyntaxErrors(name, "expected comma to define array size")
+			return nil, p.srcmap.SyntaxErrors(lookahead, "expected comma to define array size")
 		}
 		//
-		lookahead := p.lookahead()
+		lookahead = p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
 		switch lookahead.Kind {
 		case NUMBER:
