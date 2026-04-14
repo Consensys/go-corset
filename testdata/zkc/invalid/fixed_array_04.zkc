@@ -1,0 +1,4 @@
+//error:3:16-17:expected comma to define array size
+fn main() {
+  var items:[u8;2]
+}

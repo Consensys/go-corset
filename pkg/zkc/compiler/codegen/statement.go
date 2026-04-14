@@ -257,6 +257,9 @@ func (p *StmtCompiler) compileExpr(e Expr, mapping []uint, targets ...register.I
 	case *expr.LocalAccess[symbol.Resolved]:
 		insns, insn = p.compileLocalAccess(e, mapping, targets[0])
 		unitExpr = true
+	case *expr.ArrayAccess[symbol.Resolved]:
+		insns, insn = p.compileArrayAccess(e, mapping, targets[0])
+		unitExpr = true
 	case *expr.Mul[symbol.Resolved]:
 		insns, insn = p.compileMul(e.Exprs, mapping, targets[0])
 		unitExpr = true
@@ -405,6 +408,16 @@ func (p *StmtCompiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], 
 	)
 	//
 	return nil, p.newAdd(target, reg, zero)
+}
+
+func (p *StmtCompiler) compileArrayAccess(e *expr.ArrayAccess[symbol.Resolved], mapping []uint, target register.Id,
+) ([]MicroInstruction, MicroInstruction) {
+	var (
+		zero word.Uint
+		reg  = []register.Id{register.NewId(e.Id)}
+	)
+	//
+	return nil, instruction.NewAdd[word.Uint](target, reg, zero)
 }
 
 func (p *StmtCompiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mapping []uint,
