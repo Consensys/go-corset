@@ -213,7 +213,13 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
 		// TODO check
 	case *lval.Array[symbol.Resolved]:
-		return env.Variable(t.Id).DataType, nil
+		varType := env.Variable(t.Id).DataType
+
+		if varFixedArrayType := varType.AsFixedArray(p.env); varFixedArrayType != nil {
+			return varFixedArrayType.DataType, nil
+		}
+
+		return varType, nil
 	case *lval.MemAccess[symbol.Resolved]:
 		// Lookup the symbol
 		var extern = p.lookup(t.Name)
@@ -526,8 +532,13 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 
 func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
 ) (Type, []source.SyntaxError) {
-	//
-	return env.Variable(e.Id).DataType, nil
+	varType := env.Variable(e.Id).DataType
+
+	if varFixedArrayType := varType.AsFixedArray(p.env); varFixedArrayType != nil {
+		return varFixedArrayType.DataType, nil
+	}
+
+	return varType, nil
 }
 
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,
