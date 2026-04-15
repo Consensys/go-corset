@@ -15,10 +15,10 @@ compiler](https://github.com/Consensys/corset) and
 
 - [Overview](#overview)
 - [Command-Line Interface](#command-line-interface)
-- [Installing LSP for ZkC](#installing-lsp-for-zkc)
 - [Contributing](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Developers](#developer-setup)
+- [Installing LSP for ZkC](#installing-lsp-for-zkc)
 
 ## Overview
 
@@ -182,24 +182,33 @@ The LSP server is invoked by the editor automatically using:
 zkc lsp
 ```
 
-### Vim / Neovim
+### Neovim
 
-#### Neovim with `nvim-lspconfig`
+Requires Neovim 0.9 or later (semantic token support was added in 0.9).
 
-Add the following to your Neovim configuration (e.g. `~/.config/nvim/init.lua`):
+Install [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and add the
+following to your Neovim configuration (e.g. `~/.config/nvim/init.lua`):
 
 ```lua
+-- Associate the .zkc extension with the zkc filetype
+vim.filetype.add({ extension = { zkc = 'zkc' } })
+
 local lspconfig = require('lspconfig')
 local configs = require('lspconfig.configs')
 
--- Register the zkc language server if it is not already known
+-- Register the zkc language server
 if not configs.zkc then
   configs.zkc = {
     default_config = {
       cmd = { 'zkc', 'lsp' },
       filetypes = { 'zkc' },
-      root_dir = lspconfig.util.root_pattern('.git'),
-      settings = {},
+      -- Fall back to cwd if there is no .git root
+      root_dir = function(fname)
+        return lspconfig.util.root_pattern('.git')(fname) or vim.fn.getcwd()
+      end,
+      -- Pass the full client capabilities so the server receives the
+      -- semantic token support flags
+      capabilities = vim.lsp.protocol.make_client_capabilities(),
     },
   }
 end
@@ -207,54 +216,7 @@ end
 lspconfig.zkc.setup {}
 ```
 
-You also need to associate the `.zkc` extension with the `zkc` filetype.
-Add this to your config (before the `setup` call above):
-
-```lua
-vim.filetype.add({ extension = { zkc = 'zkc' } })
-```
-
-#### Vim 8+ with `vim-lsp`
-
-Install [vim-lsp](https://github.com/prabirshawa/vim-lsp) and add the
-following to your `~/.vimrc`:
-
-```vim
-" Register the zkc language server
-if executable('zkc')
-  au User lsp_setup call lsp#register_server({
-    \ 'name': 'zkc',
-    \ 'cmd': {server_info -> ['zkc', 'lsp']},
-    \ 'allowlist': ['zkc'],
-    \ })
-endif
-
-" Associate .zkc files with the zkc filetype
-autocmd BufNewFile,BufRead *.zkc setlocal filetype=zkc
-```
-
 ### Emacs
-
-#### Eglot (built-in since Emacs 29)
-
-Add the following to your Emacs configuration (e.g. `~/.emacs.d/init.el`):
-
-```elisp
-;; Define a simple major mode for .zkc files
-(define-derived-mode zkc-mode prog-mode "ZkC"
-  "Major mode for ZkC source files.")
-(add-to-list 'auto-mode-alist '("\\.zkc\\'" . zkc-mode))
-
-;; Register the zkc LSP server with eglot
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs
-               '(zkc-mode . ("zkc" "lsp"))))
-
-;; Automatically start eglot when opening a .zkc file
-(add-hook 'zkc-mode-hook 'eglot-ensure)
-```
-
-#### lsp-mode
 
 Install [lsp-mode](https://emacs-lsp.github.io/lsp-mode/) and add the
 following to your configuration:
@@ -264,6 +226,14 @@ following to your configuration:
 (define-derived-mode zkc-mode prog-mode "ZkC"
   "Major mode for ZkC source files.")
 (add-to-list 'auto-mode-alist '("\\.zkc\\'" . zkc-mode))
+
+;; Enable semantic token highlighting (off by default in lsp-mode).
+(setq lsp-semantic-tokens-enable t)
+
+;; Configure Language ID
+(with-eval-after-load 'lsp-mode
+  (add-to-list 'lsp-language-id-configuration
+               '(zkc-mode . "zkc")))
 
 ;; Register the zkc language server with lsp-mode
 (with-eval-after-load 'lsp-mode

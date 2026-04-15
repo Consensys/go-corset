@@ -115,7 +115,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		component decl.Unresolved
 	)
 	// Convert source file into tokens
-	if p.tokens, errors = Lex(*p.srcfile); len(errors) > 0 {
+	if p.tokens, errors = Lex(*p.srcfile, false); len(errors) > 0 {
 		return item, errors
 	}
 	// Continue going until all consumed

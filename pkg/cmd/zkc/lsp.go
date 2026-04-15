@@ -19,27 +19,32 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 
+	"github.com/consensys/go-corset/pkg/cmd/zkc/lsp"
 	"github.com/spf13/cobra"
 )
 
 var lspCmd = &cobra.Command{
 	Use:   "lsp",
-	Short: "Start the ZkC language server.",
-	Long:  `Start a Language Server Protocol (LSP) server for the ZkC language.`,
+	Short: "Start the zkc-language server.",
+	Long:  `Start a Language Server Protocol (LSP) server for the zkc-language.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		runLspServer(lspPort)
 	},
 }
 
-// lspPort is the TCP port to listen on. Zero means use stdio.
-var lspPort uint16
-
-// lspLog is the path to the log file. Empty means no logging.
-var lspLog string
+var (
+	// lspVerbose indicates whether to log to stderr or not.
+	lspVerbose bool
+	// lspPort is the TCP port to listen on. Zero means use stdio.
+	lspPort uint16
+	// lspLog is the path to the log file. Empty means no logging.
+	lspLog string
+)
 
 // stdioConn wraps stdin/stdout into a single ReadWriteCloser for the JSON-RPC stream.
 type stdioConn struct {
@@ -55,14 +60,17 @@ func (s stdioConn) Close() error { return nil }
 // is responsible for closing the returned file when done (nil is returned when
 // path is empty).
 func openLspLog(path string) *os.File {
-	if path == "" {
+	if path == "" && !lspVerbose {
 		log.SetOutput(io.Discard)
+		return nil
+	} else if path == "" {
+		log.SetOutput(os.Stderr)
 		return nil
 	}
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "zkc lsp: cannot open log file %s: %v\n", path, err)
+		fmt.Fprintf(os.Stderr, "zkc-lsp: cannot open log file %s: %v\n", path, err)
 		os.Exit(1)
 	}
 
@@ -97,16 +105,15 @@ func runLspServerTCP(port uint16) {
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "zkc lsp: cannot listen on %s: %v\n", addr, err)
-		os.Exit(1)
+		log.Fatalf("zkc-lsp: cannot listen on %s: %v\n", addr, err)
 	}
 
-	fmt.Fprintf(os.Stderr, "zkc lsp: listening on %s\n", addr)
+	log.Printf("zkc-lsp: listening on %s\n", addr)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "zkc lsp: accept error: %v\n", err)
+			log.Printf("zkc-lsp: accept error: %v\n", err)
 			return
 		}
 
@@ -125,7 +132,10 @@ func runLspConn(rwc io.ReadWriteCloser) {
 }
 
 // zkcServer implements protocol.Server for the ZkC language.
-type zkcServer struct{}
+type zkcServer struct {
+	mu   sync.RWMutex
+	docs map[protocol.URI]string
+}
 
 // ============================================================================
 // Lifecycle
@@ -139,9 +149,22 @@ type zkcServer struct{}
 func (s *zkcServer) Initialize(
 	_ context.Context, _ *protocol.InitializeParams,
 ) (*protocol.InitializeResult, error) {
+	s.mu.Lock()
+	s.docs = make(map[protocol.URI]string)
+	s.mu.Unlock()
+
 	return &protocol.InitializeResult{
-		Capabilities: protocol.ServerCapabilities{},
-		ServerInfo:   &protocol.ServerInfo{Name: "zkc"},
+		Capabilities: protocol.ServerCapabilities{
+			TextDocumentSync: &protocol.TextDocumentSyncOptions{
+				OpenClose: true,
+				Change:    protocol.TextDocumentSyncKindFull,
+			},
+			SemanticTokensProvider: lsp.SemTokOptions{
+				Legend: lsp.SemTokLegend,
+				Full:   true,
+			},
+		},
+		ServerInfo: &protocol.ServerInfo{Name: "zkc"},
 	}, nil
 }
 
@@ -159,7 +182,10 @@ func (s *zkcServer) Initialized(_ context.Context, _ *protocol.InitializedParams
 // yet; it waits for the subsequent exit notification before terminating.
 // Responding to requests other than exit after shutdown should return an
 // error.
-func (s *zkcServer) Shutdown(_ context.Context) error { return nil }
+func (s *zkcServer) Shutdown(_ context.Context) error {
+	log.Printf("SHUTDOWN")
+	return nil
+}
 
 // Exit handles the exit notification. After receiving shutdown the client
 // sends exit to signal that the server process should terminate. The server
@@ -201,7 +227,11 @@ func (s *zkcServer) SetTrace(_ context.Context, _ *protocol.SetTraceParams) erro
 // when a text document is opened in the editor, supplying the full document
 // content. From this point the server is responsible for maintaining an
 // up-to-date view of the document until the corresponding didClose is received.
-func (s *zkcServer) DidOpen(_ context.Context, _ *protocol.DidOpenTextDocumentParams) error {
+func (s *zkcServer) DidOpen(_ context.Context, params *protocol.DidOpenTextDocumentParams) error {
+	s.mu.Lock()
+	s.docs[params.TextDocument.URI] = params.TextDocument.Text
+	s.mu.Unlock()
+
 	return nil
 }
 
@@ -209,7 +239,16 @@ func (s *zkcServer) DidOpen(_ context.Context, _ *protocol.DidOpenTextDocumentPa
 // this whenever the content of an open document changes, providing either a
 // full replacement of the document text or an incremental list of edits,
 // depending on what was agreed during capability negotiation.
-func (s *zkcServer) DidChange(_ context.Context, _ *protocol.DidChangeTextDocumentParams) error {
+func (s *zkcServer) DidChange(_ context.Context, params *protocol.DidChangeTextDocumentParams) error {
+	if len(params.ContentChanges) == 0 {
+		return nil
+	}
+
+	s.mu.Lock()
+	// Use the last change; in full-sync mode this carries the entire updated text.
+	s.docs[params.TextDocument.URI] = params.ContentChanges[len(params.ContentChanges)-1].Text
+	s.mu.Unlock()
+
 	return nil
 }
 
@@ -217,7 +256,11 @@ func (s *zkcServer) DidChange(_ context.Context, _ *protocol.DidChangeTextDocume
 // this when a previously-opened document is closed in the editor. After this
 // point the server should discard any in-memory state for the document; the
 // source of truth reverts to the file system.
-func (s *zkcServer) DidClose(_ context.Context, _ *protocol.DidCloseTextDocumentParams) error {
+func (s *zkcServer) DidClose(_ context.Context, params *protocol.DidCloseTextDocumentParams) error {
+	s.mu.Lock()
+	delete(s.docs, params.TextDocument.URI)
+	s.mu.Unlock()
+
 	return nil
 }
 
@@ -690,11 +733,18 @@ func (s *zkcServer) OutgoingCalls(
 // document. Rather than relying on syntactic tokenisation, the server
 // classifies tokens by their semantic role (e.g. type name, variable, keyword)
 // so the editor can apply richer, more accurate syntax colouring.
-// Not yet implemented.
 func (s *zkcServer) SemanticTokensFull(
-	_ context.Context, _ *protocol.SemanticTokensParams,
+	_ context.Context, params *protocol.SemanticTokensParams,
 ) (*protocol.SemanticTokens, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.SemanticTokensFor(params.TextDocument.URI, text)
 }
 
 // SemanticTokensFullDelta handles a textDocument/semanticTokens/full/delta
@@ -754,6 +804,7 @@ func (s *zkcServer) Request(_ context.Context, method string, _ interface{}) (in
 
 //nolint:errcheck
 func init() {
+	lspCmd.Flags().BoolVarP(&lspVerbose, "verbose", "v", false, "increase logging verbosity")
 	lspCmd.Flags().Uint16VarP(&lspPort, "port", "p", 0, "TCP port to listen on (default 0: use stdio)")
 	lspCmd.Flags().StringVarP(&lspLog, "log", "l", "", "write log output to this file (default: no logging)")
 	rootCmd.AddCommand(lspCmd)

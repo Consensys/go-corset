@@ -252,8 +252,10 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 }
 
 // Lex a given source file into a sequence of zero or more tokens, along with
-// any syntax errors arising.
-func Lex(srcfile source.File) ([]lex.Token, []source.SyntaxError) {
+// any syntax errors arising. When includeComments is true, COMMENT tokens are
+// retained in the output (e.g. for syntax highlighting); otherwise they are
+// removed along with whitespace.
+func Lex(srcfile source.File, includeComments bool) ([]lex.Token, []source.SyntaxError) {
 	var (
 		lexer = lex.NewLexer(srcfile.Contents(), rules...)
 		// Lex as many tokens as possible
@@ -268,8 +270,10 @@ func Lex(srcfile source.File) ([]lex.Token, []source.SyntaxError) {
 	}
 	// Remove any whitespace
 	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
-	// Remove any comments (for not)
-	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+	// Remove comments unless the caller wants them (e.g. for syntax highlighting)
+	if !includeComments {
+		tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+	}
 	// Done
 	return tokens, nil
 }
