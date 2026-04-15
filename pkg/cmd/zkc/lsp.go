@@ -126,7 +126,7 @@ func runLspConn(rwc io.ReadWriteCloser) {
 	ctx := context.Background()
 	stream := jsonrpc2.NewStream(rwc)
 	conn := jsonrpc2.NewConn(stream)
-	handler := protocol.ServerHandler(&zkcServer{}, jsonrpc2.MethodNotFoundHandler)
+	handler := protocol.ServerHandler(&zkcServer{conn: conn}, jsonrpc2.MethodNotFoundHandler)
 	conn.Go(ctx, handler)
 	<-conn.Done()
 }
@@ -135,6 +135,7 @@ func runLspConn(rwc io.ReadWriteCloser) {
 type zkcServer struct {
 	mu   sync.RWMutex
 	docs map[protocol.URI]string
+	conn jsonrpc2.Conn // retained so the server can push notifications to the client
 }
 
 // ============================================================================
@@ -223,14 +224,25 @@ func (s *zkcServer) LogTrace(_ context.Context, _ *protocol.LogTraceParams) erro
 // trace level negotiated during initialization and takes effect immediately.
 func (s *zkcServer) SetTrace(_ context.Context, _ *protocol.SetTraceParams) error { return nil }
 
+// publishDiagnostics compiles uri from text and pushes a
+// textDocument/publishDiagnostics notification to the client.
+func (s *zkcServer) publishDiagnostics(ctx context.Context, uri protocol.URI, text string) {
+	params := lsp.DiagnosticsFor(uri, text)
+	if err := s.conn.Notify(ctx, "textDocument/publishDiagnostics", params); err != nil {
+		log.Printf("zkc-lsp: publishDiagnostics notify error: %v", err)
+	}
+}
+
 // DidOpen handles a textDocument/didOpen notification. The client sends this
 // when a text document is opened in the editor, supplying the full document
 // content. From this point the server is responsible for maintaining an
 // up-to-date view of the document until the corresponding didClose is received.
-func (s *zkcServer) DidOpen(_ context.Context, params *protocol.DidOpenTextDocumentParams) error {
+func (s *zkcServer) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
 	s.mu.Lock()
 	s.docs[params.TextDocument.URI] = params.TextDocument.Text
 	s.mu.Unlock()
+
+	s.publishDiagnostics(ctx, params.TextDocument.URI, params.TextDocument.Text)
 
 	return nil
 }
@@ -239,15 +251,19 @@ func (s *zkcServer) DidOpen(_ context.Context, params *protocol.DidOpenTextDocum
 // this whenever the content of an open document changes, providing either a
 // full replacement of the document text or an incremental list of edits,
 // depending on what was agreed during capability negotiation.
-func (s *zkcServer) DidChange(_ context.Context, params *protocol.DidChangeTextDocumentParams) error {
+func (s *zkcServer) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
 	if len(params.ContentChanges) == 0 {
 		return nil
 	}
 
-	s.mu.Lock()
 	// Use the last change; in full-sync mode this carries the entire updated text.
-	s.docs[params.TextDocument.URI] = params.ContentChanges[len(params.ContentChanges)-1].Text
+	text := params.ContentChanges[len(params.ContentChanges)-1].Text
+
+	s.mu.Lock()
+	s.docs[params.TextDocument.URI] = text
 	s.mu.Unlock()
+
+	s.publishDiagnostics(ctx, params.TextDocument.URI, text)
 
 	return nil
 }
@@ -256,10 +272,18 @@ func (s *zkcServer) DidChange(_ context.Context, params *protocol.DidChangeTextD
 // this when a previously-opened document is closed in the editor. After this
 // point the server should discard any in-memory state for the document; the
 // source of truth reverts to the file system.
-func (s *zkcServer) DidClose(_ context.Context, params *protocol.DidCloseTextDocumentParams) error {
+func (s *zkcServer) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
 	s.mu.Lock()
 	delete(s.docs, params.TextDocument.URI)
 	s.mu.Unlock()
+
+	// Clear any squiggles the editor is displaying for this document.
+	if err := s.conn.Notify(ctx, "textDocument/publishDiagnostics", &protocol.PublishDiagnosticsParams{
+		URI:         params.TextDocument.URI,
+		Diagnostics: []protocol.Diagnostic{},
+	}); err != nil {
+		log.Printf("zkc-lsp: clear diagnostics: %v", err)
+	}
 
 	return nil
 }
