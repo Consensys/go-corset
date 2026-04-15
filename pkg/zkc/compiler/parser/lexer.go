@@ -259,6 +259,9 @@ var keywords = map[string]uint{
 	"while":    KEYWORD_WHILE,
 }
 
+// MAX_KEYWORD_LENGTH is used to optimise lexing of keywords.
+var MAX_KEYWORD_LENGTH int
+
 // Lex a given source file into a sequence of zero or more tokens, along with
 // any syntax errors arising. When includeComments is true, COMMENT tokens are
 // retained in the output (e.g. for syntax highlighting); otherwise they are
@@ -281,11 +284,13 @@ func Lex(srcfile source.File, includeComments bool) ([]lex.Token, []source.Synta
 	// Remove comments unless the caller wants them (e.g. for syntax highlighting)
 	if !includeComments {
 		tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+	}
 	// Reclassify identifiers whose full text is an exact keyword match.
 	contents := srcfile.Contents()
 
 	for i, tok := range tokens {
-		if tok.Kind == IDENTIFIER {
+		// Check whether the given identifier is a keyword, or not.
+		if tok.Kind == IDENTIFIER && tok.Span.Length() <= MAX_KEYWORD_LENGTH {
 			text := string(contents[tok.Span.Start():tok.Span.End()])
 			if kind, ok := keywords[text]; ok {
 				tokens[i].Kind = kind
@@ -294,4 +299,11 @@ func Lex(srcfile source.File, includeComments bool) ([]lex.Token, []source.Synta
 	}
 	// Done
 	return tokens, nil
+}
+
+func init() {
+	// Statically compute maximum length of any keyword
+	for k := range keywords {
+		MAX_KEYWORD_LENGTH = max(MAX_KEYWORD_LENGTH, len(k))
+	}
 }
