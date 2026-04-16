@@ -143,9 +143,16 @@ func (p *Linker) LinkBestEffort() (ast.Program, source.Maps[any]) {
 	var decls []decl.Resolved
 	//
 	for index := range p.components {
-		decl, _ := p.linkDeclaration(uint(index))
-		decls = append(decls, decl)
+		decl, errs := p.linkDeclaration(uint(index))
+		// Always copy the srcmap so go-to-definition can locate the declaration
+		// even when linking fails.
 		p.srcmap.Copy(p.components[index], decl)
+		// Only include structurally complete declarations in the program.
+		// Declarations with link errors may have nil DataType fields, which
+		// would panic in IDE features that call DataType.String().
+		if len(errs) == 0 {
+			decls = append(decls, decl)
+		}
 	}
 	//
 	return ast.NewProgram(decls, p.srcmap), p.srcmap
