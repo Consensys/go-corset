@@ -330,6 +330,49 @@ fn divide(x:u16, y:u16) -> (r:u16) {
 In this case, the `fail` instruction is being used to enforce an
 expected precondition to the function.
 
+### Debugging
+
+ZkC provides a `printf` statement for printing diagnostic output during
+program execution. It is purely a debugging aid and **has no effect on the
+generated constraints** — a `printf` is invisible to the ZK prover.
+
+```zkc
+printf "format string", expr1, expr2, ...
+```
+
+The format string is a double-quoted string literal containing literal text
+and zero or more _format specifiers_. Each specifier consumes one argument
+from the comma-separated list that follows:
+
+| Specifier | Output format             |
+| --------- | ------------------------- |
+| `%d`      | decimal (e.g. `42`)       |
+| `%x`      | hexadecimal (e.g. `0x2a`) |
+| `%b`      | binary (e.g. `0b101010`)  |
+
+The following escape sequences are recognised inside format strings:
+
+| Sequence | Meaning           |
+| -------- | ----------------- |
+| `\n`     | newline           |
+| `\t`     | horizontal tab    |
+| `\r`     | carriage return   |
+| `\\`     | literal backslash |
+
+Arguments must be expressions that produce a concrete unsigned integer type.
+Local variables, constants, and arithmetic/bitwise sub-expressions are all
+accepted. The number of arguments must exactly match the number of format
+specifiers in the string — providing too few or too many is a compile-time
+error.
+
+```zkc
+fn main() {
+  var x:u32 = data[0]
+  var y:u32 = data[1]
+  printf "x = %d, y = 0x%x\n", x, y
+}
+```
+
 ## Expressions
 
 ZkC supports the following arithmetic operators:
