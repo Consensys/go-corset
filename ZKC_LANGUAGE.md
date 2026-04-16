@@ -286,6 +286,59 @@ fn compute() -> (val u32, err u1) {
 Here we see that, since `compute()` has two returns the corresponding
 function call requires two target variables.
 
+### Bit Destructuring and Concatenation
+
+The `::` operator splits or joins integer values at the bit level. It can
+appear on either side of an assignment.
+
+**Destructuring (left-hand side):** a wider value is split into narrower
+named parts. The leftmost variable receives the **most significant** bits;
+the rightmost receives the **least significant** bits.
+
+```zkc
+var word:u32 = data[0]
+var hi:u16
+var lo:u16
+hi::lo = word   // hi = upper 16 bits, lo = lower 16 bits
+```
+
+All target variables must already be declared. The sum of their bit widths
+must equal the bit width of the right-hand side expression — mismatches are
+caught at compile time.
+
+**Concatenation (right-hand side):** narrower values are joined into a
+wider one. Again, the leftmost operand contributes the **most significant**
+bits.
+
+```zkc
+var hi:u16 = data[0] as u16
+var lo:u16 = data[1] as u16
+var word:u32
+word = hi::lo   // word = (hi << 16) | lo
+```
+
+The operands of a concatenation expression can be arbitrary expressions,
+not just variables:
+
+```zkc
+word = hi::(0xffee as u16)
+```
+
+The combined bit width of the operands must match the bit width of the
+assignment target.
+
+**Chaining** more than two parts works on both sides:
+
+```zkc
+var a:u8
+var b:u8
+var c:u16
+a::b::c = some_u32   // a = bits[31:24], b = bits[23:16], c = bits[15:0]
+```
+
+All parts must be concrete unsigned integer types (`u1`, `u8`, `u16`,
+etc.). Open or non-integer types are rejected by the type checker.
+
 ### Loops
 
 In addition to `if` conditions (as seen above), ZkC supports `while`
