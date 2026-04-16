@@ -1491,6 +1491,7 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	//
 	name, errs = p.parseIdentifier()
 	isDeclared := env.IsDeclaredVariable(name)
+	// TODO : issue if variable has same name as input
 	if !isDeclared {
 		// now, extern access check for function call or memory access
 		if len(errs) == 0 && p.match(LSQUARE) {
