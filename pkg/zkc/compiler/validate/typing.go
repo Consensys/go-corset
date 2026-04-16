@@ -211,6 +211,23 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		}
 		//
 		return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
+	case *lval.Array[symbol.Resolved]:
+		var errors []source.SyntaxError
+		varType := env.Variable(t.Id).DataType
+		fixedArr := varType.AsFixedArray(p.env)
+
+		// check argument are the same type and are unsigned integers
+		for _, e := range t.Args {
+			ith_t, errs := p.typeExpression(nil, e, variable.ArrayMap[symbol.Resolved](), effects)
+			errors = append(errors, errs...)
+
+			if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
+				errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+			} else if len(errs) == 0 {
+				errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
+			}
+		}
+		return fixedArr.DataType, errors
 	case *lval.MemAccess[symbol.Resolved]:
 		// Lookup the symbol
 		var extern = p.lookup(t.Name)
@@ -355,6 +372,8 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 		actual, errs = p.typeConst(expected, e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
 		actual, errs = p.typeLocalAccess(e, env)
+	case *expr.ArrayAccess[symbol.Resolved]:
+		actual, errs = p.typeArrayAccess(e, env)
 	case *expr.Mul[symbol.Resolved]:
 		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
@@ -519,6 +538,31 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 	return env.Variable(e.Variable).DataType, nil
 }
 
+func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
+	var (
+		errors  []source.SyntaxError
+		effects bit.Set
+	)
+
+	varType := env.Variable(e.Id).DataType
+	fixedArr := varType.AsFixedArray(p.env)
+
+	// check argument are equiTypes and are unsigned integers
+	for _, e := range e.Args {
+		ith_t, errs := p.typeExpression(nil, e, variable.ArrayMap[symbol.Resolved](), effects)
+		errors = append(errors, errs...)
+
+		if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
+			errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+		} else if len(errs) == 0 {
+			errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
+		}
+	}
+
+	return fixedArr.DataType, errors
+}
+
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	// Lookup the symbol
@@ -606,6 +650,20 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 	}
 	// Done
 	return variable.DescriptorsToType(c.Outputs()...), errors
+}
+
+func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, size uint) []source.SyntaxError {
+	c, ok := arg.(*expr.Const[symbol.Resolved])
+	if !ok {
+		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant")
+	}
+	//
+	if c.Constant.Sign() < 0 || !c.Constant.IsUint64() || c.Constant.Uint64() >= uint64(size) {
+		return p.srcmaps.SyntaxErrors(arg,
+			fmt.Sprintf("index %s out of bounds for array of size %d", c.Constant.String(), size))
+	}
+	//
+	return nil
 }
 
 func (p *TypeChecker) checkEquiTypes(lhs, rhs Type, node any) []source.SyntaxError {

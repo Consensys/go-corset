@@ -108,6 +108,18 @@ func String[S symbol.Symbol[S]](e LVal[S], mapping variable.Map[S]) string {
 		}
 		//
 		return fmt.Sprintf("%s[%s]", e.Name.String(), builder.String())
+	case *Array[S]:
+		var builder strings.Builder
+		//
+		for i, arg := range e.Args {
+			if i != 0 {
+				builder.WriteString(",")
+			}
+			//
+			builder.WriteString(arg.String(mapping))
+		}
+		//
+		return fmt.Sprintf("%s[%s]", mapping.Variable(e.Id).Name, builder.String())
 	default:
 		panic("unknown lval")
 	}

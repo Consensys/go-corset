@@ -108,6 +108,17 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 		return stringOfConstant(e.Constant, e.Base)
 	case *LocalAccess[S]:
 		return mapping.Variable(e.Variable).Name
+	case *ArrayAccess[S]:
+		var b strings.Builder
+		//
+		for i, arg := range e.Args {
+			if i != 0 {
+				b.WriteString(",")
+			}
+			b.WriteString(String[S](arg, mapping))
+		}
+		//
+		return fmt.Sprintf("%s[%s]", mapping.Variable(e.Id).Name, b.String())
 	case *Mul[S]:
 		exprs = e.Exprs
 		operator = "*"
@@ -202,6 +213,8 @@ func needsBraces[S symbol.Symbol[S]](e Expr[S]) bool {
 	case *Const[S]:
 		return false
 	case *LocalAccess[S]:
+		return false
+	case *ArrayAccess[S]:
 		return false
 	case *ExternAccess[S]:
 		return false

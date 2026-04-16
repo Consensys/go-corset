@@ -303,6 +303,11 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	switch lv := lv.(type) {
 	case *lval.Variable[symbol.Unresolved]:
 		nlval = lval.NewVariable[symbol.Resolved](lv.Ids...)
+	case *lval.Array[symbol.Unresolved]:
+		index, errs1 := p.linkExprs(lv.Args...)
+		nlval = lval.NewArray[symbol.Resolved](lv.Id, index)
+		//
+		errs = append(errs, errs1...)
 	case *lval.MemAccess[symbol.Unresolved]:
 		// resolve symbols in memory name
 		name, errs1 := p.resolve(lv.Name, lv)
@@ -393,6 +398,10 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		nexpr = expr.NewShr[symbol.Resolved](args...)
 	case *expr.LocalAccess[symbol.Unresolved]:
 		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
+	case *expr.ArrayAccess[symbol.Unresolved]:
+		// resolve arguments
+		args, errors = p.linkExprs(e.Args...)
+		nexpr = expr.NewArrayAccess[symbol.Resolved](e.Id, args...)
 	case *expr.Div[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewDiv[symbol.Resolved](args...)
@@ -445,6 +454,20 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	switch t := datatype.(type) {
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
+	case *data.FixedArray[symbol.Unresolved]:
+		switch d := t.DataType.(type) {
+		case *data.UnsignedInt[symbol.Unresolved]:
+			return data.NewFixedArray[symbol.Resolved](data.NewUnsignedInt[symbol.Resolved](d.BitWidth(), d.IsOpen()), t.Size), nil
+		case *data.Alias[symbol.Unresolved]:
+			// resolve symbol
+			name, err := p.resolve(d.Name, d)
+			//
+			if err != nil {
+				return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
+			}
+
+			return data.NewFixedArray[symbol.Resolved](data.NewAlias[symbol.Resolved](name), t.Size), nil
+		}
 	case *data.Alias[symbol.Unresolved]:
 		// resolve symbol
 		name, err := p.resolve(t.Name, t)
@@ -457,6 +480,7 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}
+	return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 }
 
 // Resolve the symbol referred to by an external access into a resolved symbol,

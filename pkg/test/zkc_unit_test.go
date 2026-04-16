@@ -149,6 +149,18 @@ func Test_ZkcUnit_Const_04(t *testing.T) {
 }
 
 // ===================================================================
+// Fixed-size array Tests
+// ===================================================================
+
+func Test_ZkcUnit_FixedArray_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_01")
+}
+
+func Test_ZkcUnit_FixedArray_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_02")
+}
+
+// ===================================================================
 // Type Tests
 // ===================================================================
 

@@ -70,6 +70,13 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 	}
 	// Well-formedness checks (assuming unlimited field width).
 	errors = validateProgram(program, srcmaps)
+	// Error check
+	if len(errors) != 0 {
+		return ast.Program{}, srcmaps, errors
+	}
+	// Lowering
+	lowering := Lowering{expandFixedArrays: true}
+	program, errors = lowering.Lower(program)
 	// Done
 	return program, srcmaps, errors
 }

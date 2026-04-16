@@ -687,14 +687,58 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		errs  []source.SyntaxError
 		start = p.index
 	)
+	// First check for arrays
+	isArray := p.match(LSQUARE)
 	//
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse to check if bitwidth is present
 	bw, err := strconv.Atoi(name[1:])
-	//
 	switch {
+	case isArray && err == nil:
+		var size big.Int
+		var nbErrs []source.SyntaxError
+		//
+		lookahead := p.lookahead()
+		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
+		if _, errs := p.expect(COMMA); len(errs) != 0 {
+			return nil, p.srcmap.SyntaxErrors(lookahead, "expected comma to define array size")
+		}
+		//
+		lookahead = p.lookahead()
+		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
+		switch lookahead.Kind {
+		case NUMBER:
+			//
+			p.match(NUMBER)
+			//
+			size, nbErrs = p.number(lookahead)
+			base := p.baserOfNumber(lookahead)
+			//
+			if len(nbErrs) != 0 || base != 10 {
+				return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
+			}
+			if size.BitLen() == 0 {
+				return nil, p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
+			}
+			// TODO add constant
+		default:
+			return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
+		}
+		//
+		if !p.match(RSQUARE) {
+			return nil, p.srcmap.SyntaxErrors(lookahead, "expected closing bracket")
+		}
+		//
+		switch {
+		case strings.HasPrefix(name, "u"):
+			fa := data.NewFixedArray[symbol.Unresolved](data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), uint(size.Uint64()))
+			return fa, nil
+		default:
+			fa := data.NewFixedArray[symbol.Unresolved](data.NewAlias[symbol.Unresolved](symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)), uint(size.Uint64()))
+			return fa, nil
+		}
 	case strings.HasPrefix(name, "u") && err == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
@@ -1559,27 +1603,39 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	)
 	//
 	name, errs = p.parseIdentifier()
-	// now, check for function call or memory access
-	if len(errs) == 0 && p.match(LSQUARE) {
-		var args []Expr
-		//
-		args, errs = p.parseExprList(RSQUARE, env)
-		//
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.READABLE_MEMORY, uint(len(args))), args...)
-	} else if len(errs) == 0 && p.match(LBRACE) {
-		var args []Expr
-		//
-		args, errs = p.parseExprList(RBRACE, env)
-		//
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
-	} else if !env.IsDeclaredVariable(name) {
-		// Constant access
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
+	isDeclared := env.IsDeclaredVariable(name)
+	// TODO : issue if variable has same name as input
+	if !isDeclared {
+		// now, extern access check for function call or memory access
+		if len(errs) == 0 && p.match(LSQUARE) {
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RSQUARE, env)
+			//
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.READABLE_MEMORY, uint(len(args))), args...)
+		} else if len(errs) == 0 && p.match(LBRACE) {
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RBRACE, env)
+			//
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
+		} else {
+			// Constant access
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
+		}
 	} else {
-		// Register access
 		rid := env.LookupVariable(name)
-		// Done
-		nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
+		if !p.match(LSQUARE) {
+			// Register access
+			nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
+		} else {
+			// Array access
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RSQUARE, env)
+			//
+			nexpr = expr.NewArrayAccess(rid, args...)
+		}
 	}
 	//
 	return nexpr, errs
@@ -1635,16 +1691,17 @@ func (p *Parser) parseLVals(env Environment) ([]LVal, []source.SyntaxError) {
 
 func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	var (
-		lv        LVal
-		start     = p.index
-		lookahead = p.lookahead()
-		reg, errs = p.parseIdentifier()
-		index     []Expr
+		lv         LVal
+		start      = p.index
+		lookahead  = p.lookahead()
+		reg, errs  = p.parseIdentifier()
+		isDeclared = env.IsDeclaredVariable(reg)
+		index      []Expr
 	)
 	//
 	if len(errs) > 0 {
 		return lv, errs
-	} else if env.IsDeclaredVariable(reg) {
+	} else if isDeclared && !p.match(LSQUARE) {
 		var vars = []variable.Id{env.LookupVariable(reg)}
 		// Look for destructuring lvals
 		for p.match(COLONCOLON) {
@@ -1661,10 +1718,12 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 		}
 		//
 		lv = lval.NewVariable[symbol.Unresolved](vars...)
-	} else if !p.match(LSQUARE) {
-		return lv, p.syntaxErrors(lookahead, "unknown variable")
+	} else if !isDeclared && !p.match(LSQUARE) {
+		return lv, p.syntaxErrors(lookahead, "unknown register")
 	} else if index, errs = p.parseExprList(RSQUARE, env); len(errs) > 0 {
 		return lv, errs
+	} else if isDeclared {
+		lv = lval.NewArray(env.LookupVariable(reg), index)
 	} else {
 		// construct name symbol
 		var name = symbol.NewUnresolved(reg, symbol.WRITEABLE_MEMORY, 1)
