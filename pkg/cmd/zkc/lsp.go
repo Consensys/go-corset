@@ -166,6 +166,10 @@ func (s *zkcServer) Initialize(
 			},
 			HoverProvider:          true,
 			DocumentSymbolProvider: true,
+			DefinitionProvider:     true,
+			SignatureHelpProvider: &protocol.SignatureHelpOptions{
+				TriggerCharacters: []string{"(", ","},
+			},
 		},
 		ServerInfo: &protocol.ServerInfo{Name: "zkc"},
 	}, nil
@@ -459,11 +463,18 @@ func (s *zkcServer) Declaration(
 // when the user invokes "go to definition" on a symbol. The server returns
 // the location (file and range) where the symbol is defined, allowing the
 // editor to navigate there.
-// Not yet implemented.
 func (s *zkcServer) Definition(
-	_ context.Context, _ *protocol.DefinitionParams,
+	_ context.Context, params *protocol.DefinitionParams,
 ) ([]protocol.Location, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.DefinitionFor(params.TextDocument.URI, text, params.Position)
 }
 
 // DocumentColor handles a textDocument/documentColor request. The client
@@ -649,11 +660,18 @@ func (s *zkcServer) Rename(
 // sends this while the user is typing arguments inside a function call, to
 // display the callee's parameter list as a tooltip. The server returns the
 // matching overloads and identifies which parameter is active at the cursor.
-// Not yet implemented.
 func (s *zkcServer) SignatureHelp(
-	_ context.Context, _ *protocol.SignatureHelpParams,
+	_ context.Context, params *protocol.SignatureHelpParams,
 ) (*protocol.SignatureHelp, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.SignatureHelpFor(params.TextDocument.URI, text, params.Position)
 }
 
 // Symbols handles a workspace/symbol request. The client sends this when the
