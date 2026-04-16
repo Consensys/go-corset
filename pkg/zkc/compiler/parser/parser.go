@@ -850,6 +850,10 @@ func (p *Parser) parseFor(pc uint, env Environment) (bool, []stmt.Unresolved, []
 	if _, errs = p.expect(KEYWORD_FOR); len(errs) > 0 {
 		return false, nil, errs
 	}
+	// Clone the environment so the loop init variable is scoped to this loop only,
+	// not the enclosing function scope.  This allows two loops to reuse the same
+	// variable name (e.g. for i:u8=0; ...) without a "variable already declared" error.
+	env = env.Clone(env.BreakLabel(), env.ContinueLabel())
 	// Parse init: either an inline variable declaration (name:type = expr) or a plain assignment
 	if init, errs = p.parseForInit(env); len(errs) > 0 {
 		return false, nil, errs
