@@ -286,14 +286,10 @@ fn compute() -> (val u32, err u1) {
 Here we see that, since `compute()` has two returns the corresponding
 function call requires two target variables.
 
-### Bit Destructuring and Concatenation
-
-The `::` operator splits or joins integer values at the bit level. It can
-appear on either side of an assignment.
-
-**Destructuring (left-hand side):** a wider value is split into narrower
-named parts. The leftmost variable receives the **most significant** bits;
-the rightmost receives the **least significant** bits.
+A **destructuring assignment** splits a given value across a number of
+smaller variables. The leftmost variable receives the **most
+significant** bits; the rightmost receives the **least significant**
+bits.
 
 ```zkc
 var word:u32 = data[0]
@@ -305,39 +301,6 @@ hi::lo = word   // hi = upper 16 bits, lo = lower 16 bits
 All target variables must already be declared. The sum of their bit widths
 must equal the bit width of the right-hand side expression — mismatches are
 caught at compile time.
-
-**Concatenation (right-hand side):** narrower values are joined into a
-wider one. Again, the leftmost operand contributes the **most significant**
-bits.
-
-```zkc
-var hi:u16 = data[0] as u16
-var lo:u16 = data[1] as u16
-var word:u32
-word = hi::lo   // word = (hi << 16) | lo
-```
-
-The operands of a concatenation expression can be arbitrary expressions,
-not just variables:
-
-```zkc
-word = hi::(0xffee as u16)
-```
-
-The combined bit width of the operands must match the bit width of the
-assignment target.
-
-**Chaining** more than two parts works on both sides:
-
-```zkc
-var a:u8
-var b:u8
-var c:u16
-a::b::c = some_u32   // a = bits[31:24], b = bits[23:16], c = bits[15:0]
-```
-
-All parts must be concrete unsigned integer types (`u1`, `u8`, `u16`,
-etc.). Open or non-integer types are rejected by the type checker.
 
 ### Loops
 
@@ -426,6 +389,33 @@ fn main() {
 }
 ```
 
+### Type Aliases
+
+Type aliases introduce a new name for an existing type. They are useful
+for improving readability and for defining domain-specific names (e.g.
+`address` for `u160`, `bool` for `u1`):
+
+```zkc
+type address = u160
+type bool    = u1
+```
+
+Circular alias definitions are rejected.
+
+Aliases can be used anywhere a type is expected: in function parameters
+and returns, variable declarations, constants, casts, and expressions.
+An alias and its underlying type are interchangeable for type-checking
+purposes (e.g. a `word` and a `u8` of the same bitwidth are compatible
+in arithmetic, shifts, and comparisons).
+
+```zkc
+type word = u8
+fn f(x:word) -> (r:u8) {
+  var r = x << 1
+  return
+}
+```
+
 ## Expressions
 
 ZkC supports the following arithmetic operators:
@@ -480,32 +470,38 @@ Comparison operators (used in conditions only):
 | `a > b`  | greater than          |
 | `a >= b` | greater than or equal |
 
-### Type Aliases
-
-Type aliases introduce a new name for an existing type. They are useful
-for improving readability and for defining domain-specific names (e.g.
-`address` for `u160`, `bool` for `u1`):
+**Bitwise Concatenation.** Small values can be concatenated together
+to form larger bitwise values. As for destructuring assignments, the
+leftmost operand contributes the **most significant** bits.
 
 ```zkc
-type address = u160
-type bool    = u1
+var hi:u16 = data[0] as u16
+var lo:u16 = data[1] as u16
+var word:u32
+word = hi::lo   // word = (hi << 16) | lo
 ```
 
-Circular alias definitions are rejected.
-
-Aliases can be used anywhere a type is expected: in function parameters
-and returns, variable declarations, constants, casts, and expressions.
-An alias and its underlying type are interchangeable for type-checking
-purposes (e.g. a `word` and a `u8` of the same bitwidth are compatible
-in arithmetic, shifts, and comparisons).
+The operands of a concatenation expression can be arbitrary expressions,
+not just variables:
 
 ```zkc
-type word = u8
-fn f(x:word) -> (r:u8) {
-  var r = x << 1
-  return
-}
+word = hi::(0xffee as u16)
 ```
+
+The combined bit width of the operands must match the bit width of the
+assignment target.
+
+**Chaining** more than two parts works on both sides:
+
+```zkc
+var a:u8
+var b:u8
+var c:u16
+a::b::c = some_u32   // a = bits[31:24], b = bits[23:16], c = bits[15:0]
+```
+
+All parts must be concrete unsigned integer types (`u1`, `u8`, `u16`,
+etc.). Open or non-integer types are rejected by the type checker.
 
 ## File Inclusion
 
