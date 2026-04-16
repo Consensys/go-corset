@@ -57,8 +57,18 @@ func (p *TraceObserver[W]) PostExecution(machine *machine.Base[W]) {
 	)
 	//
 	if n > 0 {
-		if n == p.depth {
-			p.writeState(machine)
+		switch {
+		case n == p.depth:
+			// Normal instruction: depth unchanged, use current top frame.
+			p.writeStateFromFrame(machine, machine.StackFrame(n-1), false)
+		case n == p.depth+1:
+			// Call instruction: depth increased. Use caller's frame and skip
+			// return register annotations (returns are not yet written).
+			p.writeStateFromFrame(machine, machine.StackFrame(n-2), true)
+		case n+1 == p.depth:
+			// Ret instruction: depth decreased. Callee frame is gone; use
+			// current caller frame. ret has no Uses/Definitions so no loads occur.
+			p.writeStateFromFrame(machine, machine.StackFrame(n-1), false)
 		}
 
 		fmt.Println()
@@ -85,10 +95,12 @@ func (p *TraceObserver[W]) writeInstruction(machine *machine.Base[W]) {
 	p.pc = frame.PC()
 }
 
-func (p *TraceObserver[W]) writeState(machine *machine.Base[W]) {
+// writeStateFromFrame prints the current instruction with register values annotated
+// inline. frame is the stack frame to read register values from. If skipDefs is
+// true, Definitions are excluded from annotation (used for call instructions where
+// return registers are not yet written).
+func (p *TraceObserver[W]) writeStateFromFrame(machine *machine.Base[W], frame machine.Frame[W], skipDefs bool) {
 	var (
-		n      = machine.Depth()
-		frame  = machine.StackFrame(n - 1)
 		name   = trace.ModuleName{Name: p.fun.Name(), Multiplier: 1}
 		base   = instruction.NewSystemMap(register.ArrayMap(name, p.fun.Registers()...), machine.Modules())
 		values = make(map[uint]string)
@@ -101,8 +113,10 @@ func (p *TraceObserver[W]) writeState(machine *machine.Base[W]) {
 		values[r.Unwrap()] = frame.Load(r.Unwrap()).Text(16)
 	}
 
-	for _, r := range p.insn.Definitions() {
-		values[r.Unwrap()] = frame.Load(r.Unwrap()).Text(16)
+	if !skipDefs {
+		for _, r := range p.insn.Definitions() {
+			values[r.Unwrap()] = frame.Load(r.Unwrap()).Text(16)
+		}
 	}
 	//
 	annotated := &annotatedMap[W]{base: base, values: values}
