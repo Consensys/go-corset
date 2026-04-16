@@ -26,13 +26,10 @@ import (
 
 // TraceObserver prints a trace
 type TraceObserver[W word.Word[W]] struct {
-	depth       uint
-	fun         *function.Function[instruction.Instruction[W]]
-	uses        string
-	definitions []register.Id
-	regWidth    uint
-	LeftPane    uint
-	MidPane     uint
+	depth uint
+	fun   *function.Function[instruction.Instruction[W]]
+	insn  instruction.MicroInstruction[W]
+	pc    machine.ProgramCounter
 }
 
 // PreExecution implementation for Observer interface
@@ -76,78 +73,41 @@ func (p *TraceObserver[W]) enterFunction(machine *machine.Base[W]) {
 	//
 	p.depth = n
 	p.fun = machine.Module(frame.Function()).(*function.Function[instruction.Instruction[W]])
-	p.uses = ""
-	p.definitions = nil
-	p.regWidth = 0
-	//
-	for _, r := range p.fun.Registers() {
-		p.regWidth = max(p.regWidth, uint(len(r.Name())))
-	}
+	p.insn = nil
 }
 
 func (p *TraceObserver[W]) writeInstruction(machine *machine.Base[W]) {
 	var (
-		frame   = machine.StackFrame(p.depth - 1)
-		insn    = decode(frame, p.fun)
-		pc      = frame.PC()
-		name    = trace.ModuleName{Name: p.fun.Name(), Multiplier: 1}
-		mapping = instruction.NewSystemMap(register.ArrayMap(name, p.fun.Registers()...), machine.Modules())
-		insnStr = insn.String(mapping)
-		builder strings.Builder
+		frame = machine.StackFrame(p.depth - 1)
 	)
 	//
-	insnStr = fmt.Sprintf("[%02x.%02x] %s", pc.Macro(), pc.Micro(), insnStr)
-	//
-	fmt.Print(leftAligned(insnStr, p.LeftPane))
-	// write uses
-	for i, r := range insn.Uses() {
-		var (
-			ith  = frame.Load(r.Unwrap())
-			name = p.fun.Register(r).Name()
-		)
-		//
-		if i != 0 {
-			builder.WriteString("; ")
-		}
-		//
-		fmt.Fprintf(&builder, "%s==0x%s", name, ith.Text(16))
-	}
-	//
-	p.uses = builder.String()
-	p.definitions = insn.Definitions()
+	p.insn = decode(frame, p.fun)
+	p.pc = frame.PC()
 }
 
 func (p *TraceObserver[W]) writeState(machine *machine.Base[W]) {
-	fmt.Print(rightAligned(p.defs(machine), p.MidPane))
-	//
-	if len(p.definitions) > 0 || p.uses != "" {
-		fmt.Printf(" ; %s", p.uses)
-	}
-}
-
-func (p *TraceObserver[W]) defs(machine *machine.Base[W]) string {
 	var (
-		n       = machine.Depth()
-		frame   = machine.StackFrame(n - 1)
-		builder strings.Builder
+		n      = machine.Depth()
+		frame  = machine.StackFrame(n - 1)
+		name   = trace.ModuleName{Name: p.fun.Name(), Multiplier: 1}
+		base   = instruction.NewSystemMap(register.ArrayMap(name, p.fun.Registers()...), machine.Modules())
+		values = make(map[uint]string)
 	)
-	//
-	for i, r := range p.definitions {
-		var (
-			ith = frame.Load(r.Unwrap())
-			reg = p.fun.Register(r)
-		)
-		//
-		if i != 0 {
-			builder.WriteString("; ")
-		}
-		//
-		builder.WriteString(rightAligned(reg.Name(), p.regWidth))
-		builder.WriteString(":=0x")
-		builder.WriteString(ith.Text(16))
+	// Collect register values. In PostExecution, sources still hold their pre-execution values
+	// (unmodified by the instruction), while definitions hold their post-execution values.
+	// Definitions are added last so that when a register appears on both sides, the
+	// post-execution value is shown.
+	for _, r := range p.insn.Uses() {
+		values[r.Unwrap()] = frame.Load(r.Unwrap()).Text(16)
+	}
+
+	for _, r := range p.insn.Definitions() {
+		values[r.Unwrap()] = frame.Load(r.Unwrap()).Text(16)
 	}
 	//
-	return builder.String()
+	annotated := &annotatedMap[W]{base: base, values: values}
+	insnStr := fmt.Sprintf("[%02x.%02x] %s", p.pc.Macro(), p.pc.Micro(), p.insn.String(annotated))
+	fmt.Print(insnStr)
 }
 
 func (p *TraceObserver[W]) callStack(machine *machine.Base[W]) string {
@@ -188,41 +148,6 @@ func functionInputs[W word.Word[W]](frame machine.Frame[W], fun *function.Functi
 	return builder.String()
 }
 
-func leftAligned(str string, width uint) string {
-	var (
-		n       = min(uint(len(str)), width)
-		builder strings.Builder
-	)
-	//
-	if uint(len(str)) > width {
-		str = str[:width-2]
-		fmt.Fprintf(&builder, "%s..", str)
-	} else {
-		builder.WriteString(str)
-	}
-	//
-	for i := n; i < width; i++ {
-		builder.WriteString(" ")
-	}
-	//
-	return builder.String()
-}
-
-func rightAligned(str string, width uint) string {
-	var (
-		n       = min(uint(len(str)), width)
-		builder strings.Builder
-	)
-	//
-	for i := n; i < width; i++ {
-		builder.WriteString(" ")
-	}
-	//
-	builder.WriteString(str)
-	//
-	return builder.String()
-}
-
 func decode[W word.Word[W]](frame machine.Frame[W],
 	fn *function.Function[instruction.Instruction[W]]) instruction.MicroInstruction[W] {
 	//
@@ -239,3 +164,31 @@ func decode[W word.Word[W]](frame machine.Frame[W],
 	//
 	panic("invalid micro instruction")
 }
+
+// annotatedMap wraps a SystemMap and annotates each register name with its
+// current value as "[0xVAL]", producing inline value display in instruction strings.
+type annotatedMap[W word.Word[W]] struct {
+	base   instruction.SystemMap[W]
+	values map[uint]string // register index → hex value string (no "0x" prefix)
+}
+
+func (a *annotatedMap[W]) Register(id register.Id) register.Register {
+	reg := a.base.Register(id)
+	if val, ok := a.values[id.Unwrap()]; ok {
+		return register.New(reg.Kind(), reg.Name()+" [0x"+val+"]", reg.Width(), *reg.Padding())
+	}
+
+	return reg
+}
+
+func (a *annotatedMap[W]) Module(id uint) instruction.Module[W] { return a.base.Module(id) }
+
+func (a *annotatedMap[W]) Name() trace.ModuleName { return a.base.Name() }
+
+func (a *annotatedMap[W]) HasRegister(name string) (register.Id, bool) {
+	return a.base.HasRegister(name)
+}
+
+func (a *annotatedMap[W]) Registers() []register.Register { return a.base.Registers() }
+
+func (a *annotatedMap[W]) String() string { return a.base.String() }

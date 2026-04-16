@@ -43,17 +43,11 @@ var debugCmds = []FieldAgnosticCmd{
 }
 
 func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
-	leftWidth := GetUint(cmd, "left-width")
-	midWidth := GetUint(cmd, "mid-width")
-	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
 	//
-	observer := debug.TraceObserver[word.Uint]{
-		LeftPane: leftWidth,
-		MidPane:  midWidth,
-	}
+	observer := debug.TraceObserver[word.Uint]{}
 	//
 	executeIrProgram("main", program, input, &observer)
 	//
@@ -67,6 +61,4 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(debugCmd)
-	debugCmd.Flags().Uint("left-width", 40, "width of instruction panel")
-	debugCmd.Flags().Uint("mid-width", 40, "width of assignment panel")
 }
