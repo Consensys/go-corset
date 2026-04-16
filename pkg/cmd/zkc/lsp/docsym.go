@@ -27,7 +27,7 @@ import (
 // error; diagnostics for those failures are already reported separately.
 func DocumentSymbolsFor(uri protocol.URI, text string) ([]interface{}, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps, _ := compiler.Compile(*srcfile)
+	program, srcmaps := compiler.CompileBestEffort(*srcfile)
 
 	env := program.Environment()
 
