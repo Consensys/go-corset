@@ -211,7 +211,6 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		}
 		//
 		return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
-		// TODO check
 	case *lval.Array[symbol.Resolved]:
 		var errors []source.SyntaxError
 		varType := env.Variable(t.Id).DataType
@@ -224,6 +223,8 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 
 			if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
 				errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+			} else if len(errs) == 0 {
+				errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
 			}
 		}
 		return fixedArr.DataType, errors
@@ -540,7 +541,7 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
 ) (Type, []source.SyntaxError) {
 	var (
-		errors []source.SyntaxError
+		errors  []source.SyntaxError
 		effects bit.Set
 	)
 
@@ -554,6 +555,8 @@ func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env 
 
 		if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
 			errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+		} else if len(errs) == 0 {
+			errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
 		}
 	}
 
@@ -647,6 +650,20 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 	}
 	// Done
 	return variable.DescriptorsToType(c.Outputs()...), errors
+}
+
+func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, size uint) []source.SyntaxError {
+	c, ok := arg.(*expr.Const[symbol.Resolved])
+	if !ok {
+		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant")
+	}
+	//
+	if c.Constant.Sign() < 0 || !c.Constant.IsUint64() || c.Constant.Uint64() >= uint64(size) {
+		return p.srcmaps.SyntaxErrors(arg,
+			fmt.Sprintf("index %s out of bounds for array of size %d", c.Constant.String(), size))
+	}
+	//
+	return nil
 }
 
 func (p *TypeChecker) checkEquiTypes(lhs, rhs Type, node any) []source.SyntaxError {
