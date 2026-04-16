@@ -164,6 +164,8 @@ func (s *zkcServer) Initialize(
 				Legend: lsp.SemTokLegend,
 				Full:   true,
 			},
+			HoverProvider:          true,
+			DocumentSymbolProvider: true,
 		},
 		ServerInfo: &protocol.ServerInfo{Name: "zkc"},
 	}, nil
@@ -512,11 +514,18 @@ func (s *zkcServer) DocumentLinkResolve(
 // sends this to populate the editor's outline panel or breadcrumb bar. The
 // server returns a hierarchical or flat list of symbols (functions, types,
 // constants, etc.) present in the document, each with a name, kind, and range.
-// Not yet implemented.
 func (s *zkcServer) DocumentSymbol(
-	_ context.Context, _ *protocol.DocumentSymbolParams,
+	_ context.Context, params *protocol.DocumentSymbolParams,
 ) ([]interface{}, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.DocumentSymbolsFor(params.TextDocument.URI, text)
 }
 
 // ExecuteCommand handles a workspace/executeCommand request. Servers
@@ -557,9 +566,16 @@ func (s *zkcServer) Formatting(
 // cursor rests on a token and requests contextual information to display in a
 // popup — typically the type signature of a symbol, its documentation comment,
 // or an evaluated value.
-// Not yet implemented.
-func (s *zkcServer) Hover(_ context.Context, _ *protocol.HoverParams) (*protocol.Hover, error) {
-	return nil, errNotImplemented
+func (s *zkcServer) Hover(_ context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.HoverFor(params.TextDocument.URI, text, params.Position)
 }
 
 // Implementation handles a textDocument/implementation request. The client

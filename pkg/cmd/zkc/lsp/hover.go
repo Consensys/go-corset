@@ -1,0 +1,247 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package lsp
+
+import (
+	"strings"
+
+	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/zkc/compiler"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
+	"go.lsp.dev/protocol"
+)
+
+// HoverFor compiles the given document and returns hover information for the
+// symbol under the cursor at pos.  It returns nil when no hover content is
+// available (e.g. the cursor is on punctuation or the document cannot be
+// compiled).
+func HoverFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.Hover, error) {
+	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
+	program, srcmaps, _ := compiler.Compile(*srcfile)
+
+	// Convert LSP cursor position to a rune offset in the source file.
+	offset := posToOffset(*srcfile, pos)
+
+	// Lex the document to find the identifier token under the cursor.
+	tokens, _ := parser.Lex(*srcfile, false)
+
+	tok, ok := tokenAtOffset(tokens, offset)
+	if !ok || tok.Kind != parser.IDENTIFIER {
+		return nil, nil
+	}
+
+	// Extract the identifier text.
+	contents := srcfile.Contents()
+	name := string(contents[tok.Span.Start():tok.Span.End()])
+
+	env := program.Environment()
+
+	// 1. Search top-level declarations first.
+	for _, d := range program.Components() {
+		if d.Name() != name {
+			continue
+		}
+
+		return &protocol.Hover{
+			Contents: protocol.MarkupContent{
+				Kind:  protocol.Markdown,
+				Value: formatDeclaration(d, env),
+			},
+		}, nil
+	}
+
+	// 2. Search local variables inside the enclosing function.
+	return hoverLocalVariable(name, offset, &program, srcmaps, *srcfile, env), nil
+}
+
+// hoverLocalVariable searches for a local variable named name inside the
+// function whose span in srcfile contains offset. Returns a Hover with the
+// variable's type, or nil if no match is found.
+func hoverLocalVariable(
+	name string,
+	offset int,
+	program interface{ Components() []decl.Resolved },
+	srcmaps source.Maps[any],
+	srcfile source.File,
+	env data.ResolvedEnvironment,
+) *protocol.Hover {
+	for _, d := range program.Components() {
+		fn, ok := d.(*decl.ResolvedFunction)
+		if !ok {
+			continue
+		}
+
+		// Check whether the cursor falls within this function's span.
+		srcFile, span, found := srcmaps.Lookup(d)
+		if !found || srcFile.Filename() != srcfile.Filename() {
+			continue
+		}
+
+		if offset < span.Start() || offset >= span.End() {
+			continue
+		}
+
+		// Cursor is inside this function — search its variables.
+		for _, v := range fn.Variables {
+			if v.Name == name {
+				return &protocol.Hover{
+					Contents: protocol.MarkupContent{
+						Kind:  protocol.Markdown,
+						Value: "```zkc\n" + name + ": " + v.DataType.String(env) + "\n```",
+					},
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// formatDeclaration formats a top-level declaration as a markdown code block
+// suitable for display in a hover popup.
+func formatDeclaration(d decl.Resolved, env data.ResolvedEnvironment) string {
+	var sig string
+
+	switch d := d.(type) {
+	case *decl.ResolvedFunction:
+		sig = formatFunctionDecl(d, env)
+	case *decl.ResolvedConstant:
+		sig = "const " + d.Name() + ": " + d.DataType.String(env)
+	case *decl.ResolvedMemory:
+		sig = formatMemoryDecl(d, env)
+	case *decl.ResolvedTypeAlias:
+		sig = "type " + d.Name() + " = " + d.DataType.String(env)
+	default:
+		sig = d.Name()
+	}
+
+	return "```zkc\n" + sig + "\n```"
+}
+
+// formatFunctionDecl formats a function declaration as a single-line
+// signature, e.g. "fn f<mem>(x: u16, y: u32) -> (r: u16)".
+func formatFunctionDecl(fn *decl.ResolvedFunction, env data.ResolvedEnvironment) string {
+	var sb strings.Builder
+
+	sb.WriteString("fn ")
+	sb.WriteString(fn.Name())
+
+	// Memory effects, e.g. <ram, rom>
+	if len(fn.Effects) > 0 {
+		sb.WriteString("<")
+
+		for i, e := range fn.Effects {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+
+			sb.WriteString(e.Name)
+		}
+
+		sb.WriteString(">")
+	}
+
+	// Parameters
+	sb.WriteString("(")
+
+	for i, v := range fn.Inputs() {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+
+		sb.WriteString(v.Name)
+		sb.WriteString(": ")
+		sb.WriteString(v.DataType.String(env))
+	}
+
+	sb.WriteString(")")
+
+	// Return values
+	if outs := fn.Outputs(); len(outs) > 0 {
+		sb.WriteString(" -> (")
+
+		for i, v := range outs {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+
+			sb.WriteString(v.Name)
+			sb.WriteString(": ")
+			sb.WriteString(v.DataType.String(env))
+		}
+
+		sb.WriteString(")")
+	}
+
+	return sb.String()
+}
+
+// formatMemoryDecl formats a memory declaration as a single-line signature,
+// e.g. "pub input rom(addr: u16) -> (data: u32)".
+func formatMemoryDecl(m *decl.ResolvedMemory, env data.ResolvedEnvironment) string {
+	var sb strings.Builder
+
+	// Public visibility prefix
+	switch m.Kind {
+	case decl.PUBLIC_READ_ONLY_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY, decl.PUBLIC_STATIC_MEMORY:
+		sb.WriteString("pub ")
+	}
+
+	// Memory kind keyword
+	switch m.Kind {
+	case decl.PUBLIC_READ_ONLY_MEMORY, decl.PRIVATE_READ_ONLY_MEMORY:
+		sb.WriteString("input ")
+	case decl.PUBLIC_WRITE_ONCE_MEMORY, decl.PRIVATE_WRITE_ONCE_MEMORY:
+		sb.WriteString("output ")
+	case decl.PUBLIC_STATIC_MEMORY, decl.PRIVATE_STATIC_MEMORY:
+		sb.WriteString("static ")
+	case decl.RANDOM_ACCESS_MEMORY:
+		sb.WriteString("memory ")
+	}
+
+	sb.WriteString(m.Name())
+
+	// Address bus
+	sb.WriteString("(")
+
+	for i, v := range m.Address {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+
+		sb.WriteString(v.Name)
+		sb.WriteString(": ")
+		sb.WriteString(v.DataType.String(env))
+	}
+
+	sb.WriteString(")")
+
+	// Data bus
+	sb.WriteString(" -> (")
+
+	for i, v := range m.Data {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+
+		sb.WriteString(v.Name)
+		sb.WriteString(": ")
+		sb.WriteString(v.DataType.String(env))
+	}
+
+	sb.WriteString(")")
+
+	return sb.String()
+}
