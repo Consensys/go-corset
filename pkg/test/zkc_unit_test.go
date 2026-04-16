@@ -232,6 +232,10 @@ func Test_ZkcUnit_For_03(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/for_03")
 }
 
+func Test_ZkcUnit_For_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/for_04")
+}
+
 // ===================================================================
 // Break Tests
 // ===================================================================
