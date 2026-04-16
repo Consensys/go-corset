@@ -127,6 +127,7 @@ func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 		if tok.Kind == parser.IDENTIFIER {
 			// Look ahead past any intervening comment to the next meaningful token.
 			nextKind := parser.END_OF
+
 			for j := i + 1; j < len(tokens); j++ {
 				if tokens[j].Kind != parser.COMMENT {
 					nextKind = tokens[j].Kind
