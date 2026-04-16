@@ -568,8 +568,13 @@ func (p *Parser) parseStaticInitialiser() ([]expr.Unresolved, []source.SyntaxErr
 		}
 	}
 	//
-	if _, errs = p.expect(RCURLY); len(errs) > 0 {
+	rcurlyTok, errs := p.expect(RCURLY)
+	if len(errs) > 0 {
 		return nil, errs
+	}
+	// A static memory must have at least one entry.
+	if len(contents) == 0 {
+		return nil, p.syntaxErrors(rcurlyTok, "empty static memory")
 	}
 	//
 	return contents, nil
