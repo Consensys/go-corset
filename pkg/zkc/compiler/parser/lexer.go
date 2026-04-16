@@ -137,6 +137,8 @@ const (
 	REM
 	// QMARK signals "?"
 	QMARK
+	// AT signals "@"
+	AT
 )
 
 // Rule for describing whitespace
@@ -224,6 +226,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('^'), BITWISE_XOR),
 	lex.Rule(lex.Unit('~'), BITWISE_NOT),
 	lex.Rule(lex.Unit('?'), QMARK),
+	lex.Rule(lex.Unit('@'), AT),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),

@@ -13,6 +13,7 @@
 package parser
 
 import (
+	"fmt"
 	"math/big"
 	"slices"
 	"strconv"
@@ -113,6 +114,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		include   *string
 		errors    []source.SyntaxError
 		component decl.Unresolved
+		annotToks []lex.Token
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile, false); len(errors) > 0 {
@@ -120,21 +122,40 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 	}
 	// Continue going until all consumed
 	for p.lookahead().Kind != END_OF {
+		// Parse any leading annotations (e.g. @inline), checking that each
+		// name is known.
+		if annotToks, errors = p.parseAnnotations(); len(errors) > 0 {
+			return item, errors
+		}
+		//
 		lookahead := p.lookahead()
 		// Determine type of declaration
 		switch lookahead.Kind {
 		case KEYWORD_CONST:
 			var consts []decl.Unresolved
 
+			if errors = p.validateAnnotationKinds(annotToks, decl.CONSTANT_KIND); len(errors) > 0 {
+				return item, errors
+			}
+
 			consts, errors = p.parseConstant()
 			if len(errors) > 0 {
 				return item, errors
+			}
+			// Attach annotations to the first constant in the group
+			if len(annotToks) > 0 && len(consts) > 0 {
+				consts[0].SetAnnotations(p.tokenStrings(annotToks))
 			}
 
 			item.Components = append(item.Components, consts...)
 			// Avoid appending to components below
 			continue
 		case KEYWORD_INCLUDE:
+			// Annotations before an include directive are never valid.
+			if len(annotToks) > 0 {
+				return item, p.syntaxErrors(annotToks[0], "annotations not permitted before include directive")
+			}
+
 			include, errors = p.parseInclude()
 			if len(errors) == 0 {
 				item.Includes = append(item.Includes, include)
@@ -142,12 +163,28 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			// Avoid appending to components
 			continue
 		case KEYWORD_FN:
+			if errors = p.validateAnnotationKinds(annotToks, decl.FUNCTION_KIND); len(errors) > 0 {
+				return item, errors
+			}
+
 			component, errors = p.parseFunction()
 		case KEYWORD_PUB, KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
+			if errors = p.validateAnnotationKinds(annotToks, decl.MEMORY_KIND); len(errors) > 0 {
+				return item, errors
+			}
+
 			component, errors = p.parseInputOutputMemory()
 		case KEYWORD_MEMORY:
+			if errors = p.validateAnnotationKinds(annotToks, decl.MEMORY_KIND); len(errors) > 0 {
+				return item, errors
+			}
+
 			component, errors = p.parseReadWriteMemory()
 		case KEYWORD_TYPE:
+			if errors = p.validateAnnotationKinds(annotToks, decl.TYPE_ALIAS_KIND); len(errors) > 0 {
+				return item, errors
+			}
+
 			component, errors = p.parseTypeAlias()
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
@@ -156,6 +193,10 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		if len(errors) > 0 {
 			return item, errors
 		}
+		// Attach annotation names to the declaration
+		if len(annotToks) > 0 {
+			component.SetAnnotations(p.tokenStrings(annotToks))
+		}
 		//
 		item.Components = append(item.Components, component)
 	}
@@ -163,6 +204,69 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 	item.SourceMap = *p.srcmap
 	//
 	return item, nil
+}
+
+// parseAnnotations parses zero or more leading annotations of the form "@ident"
+// that precede a top-level declaration.  It returns the identifier tokens (for
+// source-location-aware error reporting) and reports an error immediately if an
+// annotation name is not found in decl.ANNOTATIONS.
+func (p *Parser) parseAnnotations() ([]lex.Token, []source.SyntaxError) {
+	var toks []lex.Token
+	//
+	for p.lookahead().Kind == AT {
+		// consume '@'
+		p.index++
+		// expect an identifier immediately after '@'
+		tok, errs := p.expect(IDENTIFIER)
+		if len(errs) > 0 {
+			return nil, errs
+		}
+		// Validate that the annotation name is registered.
+		name := p.string(tok)
+		known := false
+
+		for _, ann := range decl.ANNOTATIONS {
+			if ann.Name() == name {
+				known = true
+				break
+			}
+		}
+
+		if !known {
+			return nil, p.syntaxErrors(tok, fmt.Sprintf("unknown annotation \"%s\"", name))
+		}
+		//
+		toks = append(toks, tok)
+	}
+	//
+	return toks, nil
+}
+
+// validateAnnotationKinds checks that every annotation token in toks is
+// permitted on a declaration of the given kind.  The first violation produces
+// a syntax error pointing at the offending annotation token.
+func (p *Parser) validateAnnotationKinds(toks []lex.Token, kind decl.DeclarationKind) []source.SyntaxError {
+	for _, tok := range toks {
+		name := p.string(tok)
+
+		for _, ann := range decl.ANNOTATIONS {
+			if ann.Name() == name && !ann.Permits(kind) {
+				return p.syntaxErrors(tok, "not permitted on "+kind.String()+" declaration")
+			}
+		}
+	}
+
+	return nil
+}
+
+// tokenStrings extracts the source text of each token as a string slice.
+func (p *Parser) tokenStrings(toks []lex.Token) []string {
+	names := make([]string, len(toks))
+	for i, tok := range toks {
+		names[i] = p.string(tok)
+	}
+
+	return names
 }
 
 func (p *Parser) parseConstant() ([]decl.Unresolved, []source.SyntaxError) {
@@ -464,8 +568,13 @@ func (p *Parser) parseStaticInitialiser() ([]expr.Unresolved, []source.SyntaxErr
 		}
 	}
 	//
-	if _, errs = p.expect(RCURLY); len(errs) > 0 {
+	rcurlyTok, errs := p.expect(RCURLY)
+	if len(errs) > 0 {
 		return nil, errs
+	}
+	// A static memory must have at least one entry.
+	if len(contents) == 0 {
+		return nil, p.syntaxErrors(rcurlyTok, "empty static memory")
 	}
 	//
 	return contents, nil
@@ -845,6 +954,10 @@ func (p *Parser) parseFor(pc uint, env Environment) (bool, []stmt.Unresolved, []
 	if _, errs = p.expect(KEYWORD_FOR); len(errs) > 0 {
 		return false, nil, errs
 	}
+	// Clone the environment so the loop init variable is scoped to this loop only,
+	// not the enclosing function scope.  This allows two loops to reuse the same
+	// variable name (e.g. for i:u8=0; ...) without a "variable already declared" error.
+	env = env.Clone(env.BreakLabel(), env.ContinueLabel())
 	// Parse init: either an inline variable declaration (name:type = expr) or a plain assignment
 	if init, errs = p.parseForInit(env); len(errs) > 0 {
 		return false, nil, errs

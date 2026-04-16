@@ -60,6 +60,8 @@ type UnresolvedMemory = Memory[symbol.Unresolved]
 type Memory[S symbol.Symbol[S]] struct {
 	// Name given to this memory variable
 	name string
+	// Annotations associated with this declaration.
+	annotations []string
 	// Kind of memory (i.e. read-only, random access, etc)
 	Kind MemoryKind
 	// Address bus for memory (where, for random access, the first line always
@@ -126,6 +128,16 @@ func NewStaticMemory[S symbol.Symbol[S]](public bool, name string, address []var
 // Arity implementation for Declaration interface
 func (p *Memory[S]) Arity() (nInputs, nOutputs uint) {
 	return uint(len(p.Address)), uint(len(p.Data))
+}
+
+// Annotations implementation for Declaration interface
+func (p *Memory[S]) Annotations() []string {
+	return p.annotations
+}
+
+// SetAnnotations implementation for Declaration interface
+func (p *Memory[S]) SetAnnotations(annotations []string) {
+	p.annotations = annotations
 }
 
 // Name implementation for Declaration interface
