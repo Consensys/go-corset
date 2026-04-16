@@ -135,6 +135,22 @@ func (p *Linker) Link() (ast.Program, []source.SyntaxError) {
 	return ast.NewProgram(decls, p.srcmap), errors
 }
 
+// LinkBestEffort is like Link but includes every declaration in the program
+// regardless of whether it had link errors. Declarations with errors may have
+// unresolved symbols, but their names and source locations are intact, which
+// is sufficient for IDE features such as hover and go-to-definition.
+func (p *Linker) LinkBestEffort() (ast.Program, source.Maps[any]) {
+	var decls []decl.Resolved
+	//
+	for index := range p.components {
+		decl, _ := p.linkDeclaration(uint(index))
+		decls = append(decls, decl)
+		p.srcmap.Copy(p.components[index], decl)
+	}
+	//
+	return ast.NewProgram(decls, p.srcmap), p.srcmap
+}
+
 // Link all buses used within this function to their intended targets.  This
 // means, for every bus used locally, settings the global bus identifier and
 // also allocated registers for the address/data lines.

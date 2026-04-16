@@ -14,6 +14,7 @@ package compiler
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
@@ -84,20 +85,97 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 	)
 	//
 	for _, include := range item.Includes {
-		filename := filepath.Join(dir, *include)
-		// Check filename not already parsed
-		if seen, ok := visited[filename]; seen && ok {
-			// file already loaded, therefore ignore.
-		} else if fs, err := source.ReadFiles(filename); err == nil {
-			files = append(files, fs...)
+		if strings.ContainsAny(*include, "*?[") {
+			// Glob pattern: expand to matching files.
+			pattern := filepath.Join(dir, *include)
+
+			matches, err := filepath.Glob(pattern)
+			if err != nil {
+				errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
+				continue
+			}
+
+			if len(matches) == 0 {
+				errors = append(errors, *item.SourceMap.SyntaxError(include, "no files matched glob pattern"))
+				continue
+			}
+
+			for _, filename := range matches {
+				if seen, ok := visited[filename]; seen && ok {
+					continue
+				}
+
+				if fs, err := source.ReadFiles(filename); err == nil {
+					files = append(files, fs...)
+				} else {
+					errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
+				}
+
+				visited[filename] = true
+			}
 		} else {
-			errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
+			filename := filepath.Join(dir, *include)
+			// Check filename not already parsed
+			if seen, ok := visited[filename]; seen && ok {
+				// file already loaded, therefore ignore.
+			} else if fs, err := source.ReadFiles(filename); err == nil {
+				files = append(files, fs...)
+			} else {
+				errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
+			}
+			// Record that we've seen this file now.
+			visited[filename] = true
 		}
-		// Record that we've seen this file now.
-		visited[filename] = true
 	}
 	//
 	return files, errors
+}
+
+// CompileBestEffort is like Compile but tolerates link errors. It parses all
+// files (following includes) and links each declaration independently, keeping
+// those that resolve successfully and discarding only the ones with errors.
+// The returned program may therefore be incomplete, but it is always non-empty
+// as long as at least one declaration links cleanly. This is intended for IDE
+// features (hover, go-to-definition) where partial information is better than
+// nothing.
+func CompileBestEffort(files ...source.File) (ast.Program, source.Maps[any]) {
+	var (
+		items   []parser.UnlinkedSourceFile
+		visited map[string]bool = make(map[string]bool)
+	)
+	// Initialise visited map with all top-level files
+	for _, sf := range files {
+		visited[sf.Filename()] = true
+	}
+	// Parse each file in turn, following includes.
+	for len(files) > 0 {
+		var (
+			asm      = files[0]
+			included []source.File
+			cs       parser.UnlinkedSourceFile
+		)
+
+		files = files[1:]
+
+		if cs, _ = parser.Parse(&asm); len(cs.Components) > 0 || len(cs.Includes) > 0 {
+			items = append(items, cs)
+			included, _ = readIncludedFiles(asm, cs, visited)
+			files = append(files, included...)
+		}
+	}
+	// Link all declarations regardless of errors.
+	linker := NewLinker()
+	for _, item := range items {
+		linker.Join(item.SourceMap)
+
+		for _, declaration := range item.Components {
+			if !linker.Exists(declaration.Name()) {
+				linker.Register(declaration)
+			}
+		}
+	}
+
+	return linker.LinkBestEffort()
 }
 
 // Validate checks that a given program is well-formed.  For example, an
