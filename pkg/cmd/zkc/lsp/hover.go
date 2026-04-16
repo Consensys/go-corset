@@ -54,10 +54,20 @@ func HoverFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.H
 			continue
 		}
 
+		sig := formatDeclaration(d, env)
+		hover := sig
+
+		// Prepend any // doc-comment lines immediately preceding the declaration.
+		if declFile, span, found := srcmaps.Lookup(d); found {
+			if doc := extractPrecedingComments(declFile, span.Start()); doc != "" {
+				hover = doc + "\n\n---\n\n" + sig
+			}
+		}
+
 		return &protocol.Hover{
 			Contents: protocol.MarkupContent{
 				Kind:  protocol.Markdown,
-				Value: formatDeclaration(d, env),
+				Value: hover,
 			},
 		}, nil
 	}
@@ -186,6 +196,63 @@ func formatFunctionDecl(fn *decl.ResolvedFunction, env data.ResolvedEnvironment)
 	}
 
 	return sb.String()
+}
+
+// extractPrecedingComments walks backward from spanStart in srcFile and returns
+// any // comment lines directly preceding that position (no blank line between
+// the comments and the span). Lines are returned joined by "\n" with the "//"
+// prefix and optional following space stripped. Returns "" when none are found.
+func extractPrecedingComments(srcFile source.File, spanStart int) string {
+	contents := srcFile.Contents()
+
+	// Find the start of the line that contains spanStart.
+	lineStart := spanStart
+	for lineStart > 0 && contents[lineStart-1] != '\n' {
+		lineStart--
+	}
+
+	// Walk backward one line at a time from just before lineStart.
+	var commentLines []string
+
+	pos := lineStart // points just after the '\n' ending the previous line
+
+	for pos > 0 {
+		// pos-1 is the '\n' that terminates the previous line.
+		end := pos - 1 // the '\n' character itself — not part of line content
+
+		// Find where that line starts.
+		start := end
+		for start > 0 && contents[start-1] != '\n' {
+			start--
+		}
+
+		line := strings.TrimSpace(string(contents[start:end]))
+
+		if line == "" {
+			// Blank line — stop collecting.
+			break
+		}
+
+		if !strings.HasPrefix(line, "//") {
+			break
+		}
+
+		text := strings.TrimPrefix(line, "//")
+		text = strings.TrimPrefix(text, " ")
+		commentLines = append(commentLines, text)
+		pos = start
+	}
+
+	if len(commentLines) == 0 {
+		return ""
+	}
+
+	// We collected lines newest-first; reverse to chronological order.
+	for i, j := 0, len(commentLines)-1; i < j; i, j = i+1, j-1 {
+		commentLines[i], commentLines[j] = commentLines[j], commentLines[i]
+	}
+
+	return strings.Join(commentLines, "\n")
 }
 
 // formatMemoryDecl formats a memory declaration as a single-line signature,
