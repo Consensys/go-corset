@@ -43,6 +43,8 @@ type UnresolvedFunction = Function[symbol.Unresolved]
 type Function[S symbol.Symbol[S]] struct {
 	// Unique name of this function.
 	name string
+	// Annotations associated with this declaration.
+	annotations []string
 	// Effects describes zero or more external memories which this function is
 	// permitted to access.
 	Effects []*S
@@ -66,12 +68,29 @@ func NewFunction[S symbol.Symbol[S]](name string, effects []*S, vars []variable.
 		numOutputs = array.CountMatching(vars, func(r variable.Descriptor[S]) bool { return r.IsReturn() })
 	)
 	//
-	return &Function[S]{name, effects, vars, numInputs, numOutputs, code}
+	return &Function[S]{
+		name:       name,
+		Effects:    effects,
+		Variables:  vars,
+		NumInputs:  numInputs,
+		NumOutputs: numOutputs,
+		Code:       code,
+	}
 }
 
 // Arity implementation for Declaration interface
 func (p *Function[S]) Arity() (nInputs, nOutputs uint) {
 	return p.NumInputs, p.NumOutputs
+}
+
+// Annotations implementation for Declaration interface
+func (p *Function[S]) Annotations() []string {
+	return p.annotations
+}
+
+// SetAnnotations implementation for Declaration interface
+func (p *Function[S]) SetAnnotations(annotations []string) {
+	p.annotations = annotations
 }
 
 // Name implementation for Declaration interface

@@ -30,18 +30,29 @@ type UnresolvedTypeAlias = TypeAlias[symbol.Unresolved]
 // TypeAlias represents an alias for either a type at the source level or for
 // another alias.
 type TypeAlias[I symbol.Symbol[I]] struct {
-	name     string
-	DataType data.Type[I]
+	name        string
+	annotations []string
+	DataType    data.Type[I]
 }
 
 // NewTypeAlias creates a new type alias for a fundamental type
 func NewTypeAlias[I symbol.Symbol[I]](name string, datatype data.Type[I]) *TypeAlias[I] {
-	return &TypeAlias[I]{name, datatype}
+	return &TypeAlias[I]{name: name, DataType: datatype}
 }
 
 // Arity implementation for Declaration interface
 func (p *TypeAlias[I]) Arity() (nInputs, nOutputs uint) {
 	return 0, 0
+}
+
+// Annotations implementation for Declaration interface
+func (p *TypeAlias[I]) Annotations() []string {
+	return p.annotations
+}
+
+// SetAnnotations implementation for Declaration interface
+func (p *TypeAlias[I]) SetAnnotations(annotations []string) {
+	p.annotations = annotations
 }
 
 // Name implementation for AssemblyComponent interface
