@@ -213,13 +213,20 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
 		// TODO check
 	case *lval.Array[symbol.Resolved]:
+		var errors []source.SyntaxError
 		varType := env.Variable(t.Id).DataType
+		fixedArr := varType.AsFixedArray(p.env)
 
-		if varFixedArrayType := varType.AsFixedArray(p.env); varFixedArrayType != nil {
-			return varFixedArrayType.DataType, nil
+		// check argument are the same type and are unsigned integers
+		for _, e := range t.Args {
+			ith_t, errs := p.typeExpression(nil, e, variable.ArrayMap[symbol.Resolved](), effects)
+			errors = append(errors, errs...)
+
+			if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
+				errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+			}
 		}
-
-		return varType, nil
+		return fixedArr.DataType, errors
 	case *lval.MemAccess[symbol.Resolved]:
 		// Lookup the symbol
 		var extern = p.lookup(t.Name)
@@ -532,13 +539,25 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 
 func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
 ) (Type, []source.SyntaxError) {
-	varType := env.Variable(e.Id).DataType
+	var (
+		errors []source.SyntaxError
+		effects bit.Set
+	)
 
-	if varFixedArrayType := varType.AsFixedArray(p.env); varFixedArrayType != nil {
-		return varFixedArrayType.DataType, nil
+	varType := env.Variable(e.Id).DataType
+	fixedArr := varType.AsFixedArray(p.env)
+
+	// check argument are equiTypes and are unsigned integers
+	for _, e := range e.Args {
+		ith_t, errs := p.typeExpression(nil, e, variable.ArrayMap[symbol.Resolved](), effects)
+		errors = append(errors, errs...)
+
+		if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
+			errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+		}
 	}
 
-	return varType, nil
+	return fixedArr.DataType, errors
 }
 
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,

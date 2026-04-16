@@ -24,7 +24,8 @@ import (
 type ArrayAccess[S symbol.Symbol[S]] struct {
 	Id       variable.Id
 	Args     []Expr[S]
-	datatype data.Type[S]
+	// TODO instantiate ?
+	Datatype data.Type[S]
 }
 
 // NewArrayAccess constructs an expression representing an array access.
@@ -52,10 +53,10 @@ func (p *ArrayAccess[S]) String(mapping variable.Map[S]) string {
 
 // SetType implementation for Expr interface
 func (p *ArrayAccess[S]) SetType(t data.Type[S]) {
-	p.datatype = t
+	p.Datatype = t
 }
 
 // Type implementation for Expr interface
 func (p *ArrayAccess[S]) Type() data.Type[S] {
-	return p.datatype
+	return p.Datatype
 }
