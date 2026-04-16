@@ -32,8 +32,8 @@ func SignatureHelpFor(uri protocol.URI, text string, pos protocol.Position) (*pr
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)
 
-	// Lex the document (keep comments so whitespace-stripping doesn't shift
-	// token positions, but we drop them in the backward scan below anyway).
+	// Lex the document without comments; the backward scan only needs the
+	// structural tokens, and token spans already refer to original source offsets.
 	tokens, _ := parser.Lex(*srcfile, false)
 
 	// Find the enclosing function call and active parameter index.
