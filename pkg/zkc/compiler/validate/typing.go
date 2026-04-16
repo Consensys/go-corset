@@ -216,6 +216,8 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 
 			if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
 				errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+			} else if len(errs) == 0 {
+				errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
 			}
 		}
 		return fixedArr.DataType, errors
@@ -700,7 +702,7 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
 ) (Type, []source.SyntaxError) {
 	var (
-		errors []source.SyntaxError
+		errors  []source.SyntaxError
 		effects bit.Set
 	)
 
@@ -714,6 +716,8 @@ func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env 
 
 		if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
 			errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+		} else if len(errs) == 0 {
+			errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
 		}
 	}
 
@@ -823,6 +827,20 @@ func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxErro
 	if wellFormed(to, p.env) && wellFormed(from, p.env) &&
 		!data.SubtypeOf(to, from, p.env) && !data.SubtypeOf(from, to, p.env) {
 		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", to.String(p.env)))
+	}
+	//
+	return nil
+}
+
+func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, size uint) []source.SyntaxError {
+	c, ok := arg.(*expr.Const[symbol.Resolved])
+	if !ok {
+		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant")
+	}
+	//
+	if c.Constant.Sign() < 0 || !c.Constant.IsUint64() || c.Constant.Uint64() >= uint64(size) {
+		return p.srcmaps.SyntaxErrors(arg,
+			fmt.Sprintf("index %s out of bounds for array of size %d", c.Constant.String(), size))
 	}
 	//
 	return nil
