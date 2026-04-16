@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"go.lsp.dev/protocol"
+	lspuri "go.lsp.dev/uri"
 )
 
 // DefinitionFor compiles the given document and returns the source location of
@@ -54,7 +55,7 @@ func DefinitionFor(uri protocol.URI, text string, pos protocol.Position) ([]prot
 		}
 
 		rng := spanToRange(defFile, span)
-		defURI := protocol.URI("file://" + defFile.Filename())
+		defURI := lspuri.File(defFile.Filename())
 
 		return []protocol.Location{{URI: defURI, Range: rng}}, nil
 	}
