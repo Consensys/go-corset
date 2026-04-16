@@ -14,6 +14,7 @@ package zkc
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/consensys/go-corset/pkg/cmd/zkc/debug"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -21,6 +22,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/termio"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	"github.com/spf13/cobra"
 )
@@ -43,9 +46,17 @@ var debugCmds = []FieldAgnosticCmd{
 }
 
 func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	// Check whether interactive mode (or not)
+	interactive := GetFlag(cmd, "interactive")
+	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
+	//
+	if interactive {
+		runInteractiveDebugger[F](input, program)
+		return
+	}
 	//
 	observer := debug.TraceObserver[word.Uint]{}
 	//
@@ -54,11 +65,42 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	fmt.Println()
 }
 
+func runInteractiveDebugger[F field.Element[F]](input map[string][]byte, program ast.Program) []error {
+	var (
+		debugger = constructInteractiveDebugger[F]()
+	)
+	// Render inspector
+	if err := debugger.Render(); err != nil {
+		return []error{err}
+	}
+	//
+	return debugger.Start()
+}
+
+func constructInteractiveDebugger[F field.Element[F]]() *debug.Debugger {
+	//
+	var (
+		term, err = termio.NewTerminal()
+		view      = &debug.TraceView{}
+	)
+	// Check whether successful
+	if err == nil {
+		// Construct inspector state
+		return debug.NewDebugger(term, view)
+	}
+
+	fmt.Println(error.Error(err))
+	os.Exit(1)
+	// Unreachable
+	return nil
+}
+
 // ============================================================================
 // Misc
 // ============================================================================
 
 //nolint:errcheck
 func init() {
+	debugCmd.Flags().BoolP("interactive", "i", false, "enable interactive debugging")
 	rootCmd.AddCommand(debugCmd)
 }
