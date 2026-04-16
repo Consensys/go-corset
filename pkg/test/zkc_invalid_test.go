@@ -390,6 +390,10 @@ func Test_ZkcInvalid_Static_07(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/static_07")
 }
 
+func Test_ZkcInvalid_Static_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/static_08")
+}
+
 // ===================================================================
 // Call Tests
 // ===================================================================
