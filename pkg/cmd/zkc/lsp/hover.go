@@ -48,7 +48,13 @@ func HoverFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.H
 
 	env := program.Environment()
 
-	// 1. Search top-level declarations first.
+	// 1. Local variables take precedence: a local shadows any top-level
+	//    declaration with the same name.
+	if h := hoverLocalVariable(name, offset, &program, srcmaps, *srcfile, env); h != nil {
+		return h, nil
+	}
+
+	// 2. Fall back to top-level declarations.
 	for _, d := range program.Components() {
 		if d.Name() != name {
 			continue
@@ -72,8 +78,7 @@ func HoverFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.H
 		}, nil
 	}
 
-	// 2. Search local variables inside the enclosing function.
-	return hoverLocalVariable(name, offset, &program, srcmaps, *srcfile, env), nil
+	return nil, nil
 }
 
 // hoverLocalVariable searches for a local variable named name inside the
