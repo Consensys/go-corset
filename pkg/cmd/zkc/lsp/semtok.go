@@ -95,6 +95,8 @@ func semTokType(kind uint) (uint32, bool) {
 // A small state machine tracks the previous non-comment token kind so that
 // identifiers in type-annotation position (after ':' or 'as') are classified
 // as type tokens, and function-name identifiers (after 'fn') as function tokens.
+// Lookahead is also used: an identifier immediately followed by '(' is a call
+// site and is classified as a function token.
 func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 	data := make([]uint32, 0, len(tokens)*5)
 
@@ -103,18 +105,27 @@ func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 	// Initialised to END_OF (0) which matches no special case.
 	prevMeaningfulKind := parser.END_OF
 
-	for _, tok := range tokens {
+	for i, tok := range tokens {
 		var (
 			tokType uint32
 			ok      bool
 		)
 
 		if tok.Kind == parser.IDENTIFIER {
-			switch prevMeaningfulKind {
-			case parser.COLON, parser.KEYWORD_AS:
-				tokType, ok = 5, true // type
-			case parser.KEYWORD_FN:
-				tokType, ok = 6, true // function
+			// Look ahead past any intervening comment to the next meaningful token.
+			nextKind := parser.END_OF
+			for j := i + 1; j < len(tokens); j++ {
+				if tokens[j].Kind != parser.COMMENT {
+					nextKind = tokens[j].Kind
+					break
+				}
+			}
+
+			switch {
+			case prevMeaningfulKind == parser.COLON || prevMeaningfulKind == parser.KEYWORD_AS:
+				tokType, ok = 5, true // type annotation
+			case prevMeaningfulKind == parser.KEYWORD_FN || nextKind == parser.LBRACE:
+				tokType, ok = 6, true // function declaration name or call site
 			default:
 				tokType, ok = 7, true // variable
 			}
