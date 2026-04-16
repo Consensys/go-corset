@@ -91,13 +91,43 @@ func semTokType(kind uint) (uint32, bool) {
 //
 // Positions are relative to the previous token (or the start of the file for
 // the first token). tokenModifiers is always 0 for now.
+//
+// A small state machine tracks the previous non-comment token kind so that
+// identifiers in type-annotation position (after ':' or 'as') are classified
+// as type tokens, and function-name identifiers (after 'fn') as function tokens.
 func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 	data := make([]uint32, 0, len(tokens)*5)
 
 	var prevLine, prevChar uint32
+	// prevMeaningfulKind tracks the kind of the last non-comment token seen.
+	// Initialised to END_OF (0) which matches no special case.
+	prevMeaningfulKind := parser.END_OF
 
 	for _, tok := range tokens {
-		tokType, ok := semTokType(tok.Kind)
+		var (
+			tokType uint32
+			ok      bool
+		)
+
+		if tok.Kind == parser.IDENTIFIER {
+			switch prevMeaningfulKind {
+			case parser.COLON, parser.KEYWORD_AS:
+				tokType, ok = 5, true // type
+			case parser.KEYWORD_FN:
+				tokType, ok = 6, true // function
+			default:
+				tokType, ok = 7, true // variable
+			}
+		} else {
+			tokType, ok = semTokType(tok.Kind)
+		}
+
+		// Update state for all non-comment tokens so that a comment between
+		// ':' and a type name does not reset the type-position detection.
+		if tok.Kind != parser.COMMENT {
+			prevMeaningfulKind = tok.Kind
+		}
+
 		if !ok {
 			continue
 		}
