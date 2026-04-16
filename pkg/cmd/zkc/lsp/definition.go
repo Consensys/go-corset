@@ -25,7 +25,7 @@ import (
 // the name is not a top-level declaration, or the document cannot be compiled).
 func DefinitionFor(uri protocol.URI, text string, pos protocol.Position) ([]protocol.Location, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps, _ := compiler.Compile(*srcfile)
+	program, srcmaps := compiler.CompileBestEffort(*srcfile)
 
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)

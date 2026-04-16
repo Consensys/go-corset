@@ -29,7 +29,7 @@ import (
 // compiled).
 func HoverFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.Hover, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps, _ := compiler.Compile(*srcfile)
+	program, srcmaps := compiler.CompileBestEffort(*srcfile)
 
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)
