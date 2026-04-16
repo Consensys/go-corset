@@ -131,13 +131,13 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 	return files, errors
 }
 
-// CompileBestEffort is like Compile but tolerates link errors. It parses all
-// files (following includes) and links each declaration independently, keeping
-// those that resolve successfully and discarding only the ones with errors.
-// The returned program may therefore be incomplete, but it is always non-empty
-// as long as at least one declaration links cleanly. This is intended for IDE
-// features (hover, go-to-definition) where partial information is better than
-// nothing.
+// CompileBestEffort is like Compile but tolerates parse, include, and link
+// errors so it can still return partial results. It parses all files
+// (following includes), registers every discovered declaration, and then
+// performs best-effort linking across the resulting set. The returned program
+// may therefore be incomplete and may include declarations that did not link
+// cleanly. This is intended for IDE features (hover, go-to-definition) where
+// partial information is better than nothing.
 func CompileBestEffort(files ...source.File) (ast.Program, source.Maps[any]) {
 	var (
 		items   []parser.UnlinkedSourceFile
