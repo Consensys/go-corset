@@ -161,6 +161,8 @@ func (p *Parser) parseDeclaration() ([]decl.Declaration[symbol.Unresolved], []so
 	case KEYWORD_TYPE:
 		kind = decl.TYPE_ALIAS_KIND
 		components[0], errors = p.parseTypeAlias()
+	case EOF:
+		return nil, p.syntaxErrors(lookahead, "unexpected end-of-file")
 	default:
 		return nil, p.syntaxErrors(lookahead, "unknown declaration")
 	}
@@ -2045,7 +2047,8 @@ func (p *Parser) previousToken() lex.Token {
 	return p.tokens[p.index-1]
 }
 
-// Expect reurns an arror if the next token is not what was expected.
+// Expect returns an error if the next token is not of the expected Kind.
+// Otherwise it returns the token and increments the index by 1.
 func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	//
