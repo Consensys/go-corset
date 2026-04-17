@@ -186,6 +186,8 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 			}
 
 			component, errors = p.parseTypeAlias()
+		case END_OF:
+			errors = p.syntaxErrors(lookahead, "annotation(s) followed by END_OF")
 		default:
 			errors = p.syntaxErrors(lookahead, "unknown declaration")
 		}
@@ -1751,7 +1753,8 @@ func (p *Parser) previousToken() lex.Token {
 	return p.tokens[p.index-1]
 }
 
-// Expect reurns an arror if the next token is not what was expected.
+// Expect returns an error if the next token is not of the expected Kind.
+// Otherwise it returns the token and increments the index by 1.
 func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	//

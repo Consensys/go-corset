@@ -43,7 +43,7 @@ const (
 	COLON
 	// COLONCOLON signals "::"
 	COLONCOLON
-	// SEMICOLON signals ":"
+	// SEMICOLON signals ";"
 	SEMICOLON
 	// NUMBER signals an integer number
 	NUMBER
