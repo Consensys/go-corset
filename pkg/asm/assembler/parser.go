@@ -62,7 +62,7 @@ func Parse(srcfile *source.File) (AssemblyItem, []source.SyntaxError) {
 }
 
 // BINOPS captures the set of binary operations
-var BINOPS = []uint{SUB, MUL, ADD}
+var BINOPS = []AsmTokenKind{SUB, MUL, ADD}
 
 // ============================================================================
 // Assembler
@@ -71,7 +71,7 @@ var BINOPS = []uint{SUB, MUL, ADD}
 // Parser is a parser for assembly language.
 type Parser struct {
 	srcfile *source.File
-	tokens  []lex.Token
+	tokens  []lex.Token[AsmTokenKind]
 	// Source mapping
 	srcmap *source.Map[any]
 	// Position within the tokens
@@ -135,7 +135,7 @@ func (p *Parser) parseConstant() (*AssemblyConstant, []source.SyntaxError) {
 	var (
 		start     = p.index
 		errs      []source.SyntaxError
-		lookahead lex.Token
+		lookahead lex.Token[AsmTokenKind]
 		name      string
 	)
 	// Parse include declaration
@@ -322,7 +322,7 @@ func (p *Parser) parseOptionalPadding() (big.Int, []source.SyntaxError) {
 	var (
 		padding   big.Int
 		errs      []source.SyntaxError
-		lookahead lex.Token
+		lookahead lex.Token[AsmTokenKind]
 	)
 	//
 	if !p.match(EQUALS) {
@@ -911,13 +911,13 @@ func (p *Parser) parseComparator() (uint8, []source.SyntaxError) {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) string(token lex.Token) string {
+func (p *Parser) string(token lex.Token[AsmTokenKind]) string {
 	start, end := token.Span.Start(), token.Span.End()
 	return string(p.srcfile.Contents()[start:end])
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) number(token lex.Token) (big.Int, []source.SyntaxError) {
+func (p *Parser) number(token lex.Token[AsmTokenKind]) (big.Int, []source.SyntaxError) {
 	var (
 		number, exponent big.Int
 		ok               bool
@@ -946,7 +946,7 @@ func (p *Parser) number(token lex.Token) (big.Int, []source.SyntaxError) {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) baserOfNumber(token lex.Token) uint {
+func (p *Parser) baserOfNumber(token lex.Token[AsmTokenKind]) uint {
 	var str = p.string(token)
 	//
 	if strings.HasPrefix(str, "0x") {
@@ -960,12 +960,12 @@ func (p *Parser) baserOfNumber(token lex.Token) uint {
 
 // Lookahead returns the next token.  This must exist because EOF is always
 // appended at the end of the token stream.
-func (p *Parser) lookahead() lex.Token {
+func (p *Parser) lookahead() lex.Token[AsmTokenKind] {
 	return p.tokens[p.index]
 }
 
-// Expect reurns an arror if the next token is not what was expected.
-func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
+// Expect returns an error if the next token is not what was expected.
+func (p *Parser) expect(kind AsmTokenKind) (lex.Token[AsmTokenKind], []source.SyntaxError) {
 	lookahead := p.lookahead()
 	//
 	if lookahead.Kind != kind {
@@ -979,7 +979,7 @@ func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
 }
 
 // Match attempts to match the given token.
-func (p *Parser) match(kind uint) bool {
+func (p *Parser) match(kind AsmTokenKind) bool {
 	if p.lookahead().Kind == kind {
 		p.index++
 		return true
@@ -989,12 +989,12 @@ func (p *Parser) match(kind uint) bool {
 }
 
 // Follows checks whether one of the given token kinds is next.
-func (p *Parser) follows(options ...uint) bool {
+func (p *Parser) follows(options ...AsmTokenKind) bool {
 	return slices.Contains(options, p.lookahead().Kind)
 }
 
 // Following attempts to check what follows the current position.
-func (p *Parser) following(kinds ...uint) bool {
+func (p *Parser) following(kinds ...AsmTokenKind) bool {
 	for i, kind := range kinds {
 		n := i + p.index
 		if n >= len(p.tokens) {
@@ -1015,7 +1015,7 @@ func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
 	return source.NewSpan(start, end)
 }
 
-func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError {
+func (p *Parser) syntaxErrors(token lex.Token[AsmTokenKind], msg string) []source.SyntaxError {
 	return []source.SyntaxError{*p.srcfile.SyntaxError(token.Span, msg)}
 }
 

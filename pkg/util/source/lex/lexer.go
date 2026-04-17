@@ -16,8 +16,8 @@ import "github.com/consensys/go-corset/pkg/util/source"
 
 // Token associates a piece of information with a given range of characters in
 // the string being scanned.
-type Token struct {
-	Kind uint
+type Token[K ~uint] struct {
+	Kind K
 	Span source.Span
 }
 
@@ -25,28 +25,28 @@ type Token struct {
 // tag.
 //
 // nolint
-type LexRule[T any] struct {
+type LexRule[T any, K ~uint] struct {
 	scanner Scanner[T]
-	tag     uint
+	tag     K
 }
 
 // Rule constructs a new lexing rule which maps matching characters to a given
 // tag.
-func Rule[T any](scanner Scanner[T], tag uint) LexRule[T] {
-	return LexRule[T]{scanner, tag}
+func Rule[T any, K ~uint](scanner Scanner[T], tag K) LexRule[T, K] {
+	return LexRule[T, K]{scanner, tag}
 }
 
 // Lexer provides a top-level construct for tokenising a given input string.
-type Lexer[T any] struct {
+type Lexer[T any, K ~uint] struct {
 	items  []T
 	index  int
-	rules  []LexRule[T]
-	buffer []Token
+	rules  []LexRule[T, K]
+	buffer []Token[K]
 }
 
 // NewLexer constructs a new lexer with a given set of lexing rules.
-func NewLexer[T any](input []T, rules ...LexRule[T]) *Lexer[T] {
-	return &Lexer[T]{
+func NewLexer[T any, K ~uint](input []T, rules ...LexRule[T, K]) *Lexer[T, K] {
+	return &Lexer[T, K]{
 		input,
 		0,
 		rules,
@@ -55,24 +55,24 @@ func NewLexer[T any](input []T, rules ...LexRule[T]) *Lexer[T] {
 }
 
 // Index returns the current index within the items array.
-func (p *Lexer[T]) Index() uint {
+func (p *Lexer[T, K]) Index() uint {
 	return uint(p.index)
 }
 
 // Remaining determines how many characters from the original sequence were
 // left.
-func (p *Lexer[T]) Remaining() uint {
+func (p *Lexer[T, K]) Remaining() uint {
 	return uint(max(0, len(p.items)-p.index))
 }
 
 // HasNext checks whether or not there are any items remaining to visit.
-func (p *Lexer[T]) HasNext() bool {
+func (p *Lexer[T, K]) HasNext() bool {
 	p.scan()
 	return len(p.buffer) > 0
 }
 
 // Next returns the next item and advances the lexer.
-func (p *Lexer[T]) Next() Token {
+func (p *Lexer[T, K]) Next() Token[K] {
 	next := p.buffer[0]
 	p.buffer = p.buffer[1:]
 	//
@@ -88,8 +88,8 @@ func (p *Lexer[T]) Next() Token {
 
 // Collect is a convenience function which parses all remaining tokens in one
 // go, producing an array of tokens.
-func (p *Lexer[T]) Collect() []Token {
-	var tokens []Token
+func (p *Lexer[T, K]) Collect() []Token[K] {
+	var tokens []Token[K]
 	// Keep scanning
 	for p.HasNext() {
 		tokens = append(tokens, p.Next())
@@ -99,7 +99,7 @@ func (p *Lexer[T]) Collect() []Token {
 }
 
 // internal scan functions.
-func (p *Lexer[T]) scan() {
+func (p *Lexer[T, K]) scan() {
 	if len(p.buffer) == 0 && p.index <= len(p.items) {
 		// Look for item
 		for _, r := range p.rules {
@@ -107,7 +107,7 @@ func (p *Lexer[T]) scan() {
 				end := min(len(p.items), p.index+int(n))
 				span := source.NewSpan(p.index, end)
 				// Insert into buffer
-				p.buffer = append(p.buffer, Token{r.tag, span})
+				p.buffer = append(p.buffer, Token[K]{r.tag, span})
 				// Done
 				return
 			}

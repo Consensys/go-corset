@@ -27,7 +27,7 @@ func Parse[T Term[T]](input string, environment func(string) bool) (T, []source.
 	var (
 		empty   T
 		srcfile = source.NewSourceFile("expr", []byte(input))
-		lexer   = lex.NewLexer[rune](srcfile.Contents(), rules...)
+		lexer   = lex.NewLexer(srcfile.Contents(), rules...)
 		// Lex as many tokens as possible
 		tokens = lexer.Collect()
 	)
@@ -39,7 +39,7 @@ func Parse[T Term[T]](input string, environment func(string) bool) (T, []source.
 		return empty, []source.SyntaxError{*err}
 	}
 	// Remove any whitespace
-	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
+	tokens = array.RemoveMatching(tokens, func(t lex.Token[uint]) bool { return t.Kind == WHITESPACE })
 	//
 	parser := &Parser[T]{environment, srcfile, tokens, 0}
 	// Parse term
@@ -158,7 +158,7 @@ var identifierRest lex.Scanner[rune] = lex.Many(lex.Or(
 var identifier lex.Scanner[rune] = lex.And(identifierStart, identifierRest)
 
 // lexing rules
-var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
+var rules []lex.LexRule[rune, uint] = []lex.LexRule[rune, uint]{
 	lex.Rule(lex.Unit('('), LBRACE),
 	lex.Rule(lex.Unit(')'), RBRACE),
 	lex.Rule(lex.Unit('+'), ADD),
@@ -188,7 +188,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 type Parser[T Term[T]] struct {
 	environment func(string) bool
 	srcfile     *source.File
-	tokens      []lex.Token
+	tokens      []lex.Token[uint]
 	// Position within the tokens
 	index int
 }
@@ -385,13 +385,13 @@ func (p *Parser[T]) parseNumber() T {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser[T]) string(token lex.Token) string {
+func (p *Parser[T]) string(token lex.Token[uint]) string {
 	start, end := token.Span.Start(), token.Span.End()
 	return string(p.srcfile.Contents()[start:end])
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser[T]) number(token lex.Token) big.Int {
+func (p *Parser[T]) number(token lex.Token[uint]) big.Int {
 	var number big.Int
 	//
 	number.SetString(p.string(token), 0)
@@ -406,11 +406,11 @@ func (p *Parser[T]) follows(options ...uint) bool {
 
 // Lookahead returns the next token.  This must exist because EOF is always
 // appended at the end of the token stream.
-func (p *Parser[T]) lookahead() lex.Token {
+func (p *Parser[T]) lookahead() lex.Token[uint] {
 	return p.tokens[p.index]
 }
 
-func (p *Parser[T]) expect(kind uint) lex.Token {
+func (p *Parser[T]) expect(kind uint) lex.Token[uint] {
 	if p.lookahead().Kind != kind {
 		panic("internal failure")
 	}
@@ -430,6 +430,6 @@ func (p *Parser[T]) match(kind uint) bool {
 	return false
 }
 
-func (p *Parser[T]) syntaxErrors(token lex.Token, msg string) []source.SyntaxError {
+func (p *Parser[T]) syntaxErrors(token lex.Token[uint], msg string) []source.SyntaxError {
 	return []source.SyntaxError{*p.srcfile.SyntaxError(token.Span, msg)}
 }

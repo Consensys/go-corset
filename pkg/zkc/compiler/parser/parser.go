@@ -76,13 +76,13 @@ func Parse(srcfile *source.File) (UnlinkedSourceFile, []source.SyntaxError) {
 }
 
 // BINOPS captures the set of binary operations
-var BINOPS = []uint{
+var BINOPS = []ZkcTokenKind{
 	SUB, MUL, ADD, DIV, REM, BITWISE_AND, BITWISE_OR, BITWISE_XOR, BITWISE_SHL,
 	BITWISE_SHR, EQUALS_EQUALS, NOT_EQUALS,
 	LESS_THAN, LESS_THAN_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS}
 
 // LOGICAL_BINOPS captures the set of logical binary operations
-var LOGICAL_BINOPS = []uint{LOGICAL_AND, LOGICAL_OR}
+var LOGICAL_BINOPS = []ZkcTokenKind{LOGICAL_AND, LOGICAL_OR}
 
 // ============================================================================
 // Assembler
@@ -91,7 +91,7 @@ var LOGICAL_BINOPS = []uint{LOGICAL_AND, LOGICAL_OR}
 // Parser is a parser for assembly language.
 type Parser struct {
 	srcfile *source.File
-	tokens  []lex.Token
+	tokens  []lex.Token[ZkcTokenKind]
 	// Source mapping
 	srcmap *source.Map[any]
 	// Position within the tokens
@@ -114,7 +114,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		include   *string
 		errors    []source.SyntaxError
 		component decl.Unresolved
-		annotToks []lex.Token
+		annotToks []lex.Token[ZkcTokenKind]
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile, false); len(errors) > 0 {
@@ -210,8 +210,8 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 // that precede a top-level declaration.  It returns the identifier tokens (for
 // source-location-aware error reporting) and reports an error immediately if an
 // annotation name is not found in decl.ANNOTATIONS.
-func (p *Parser) parseAnnotations() ([]lex.Token, []source.SyntaxError) {
-	var toks []lex.Token
+func (p *Parser) parseAnnotations() ([]lex.Token[ZkcTokenKind], []source.SyntaxError) {
+	var toks []lex.Token[ZkcTokenKind]
 	//
 	for p.lookahead().Kind == AT {
 		// consume '@'
@@ -245,7 +245,8 @@ func (p *Parser) parseAnnotations() ([]lex.Token, []source.SyntaxError) {
 // validateAnnotationKinds checks that every annotation token in toks is
 // permitted on a declaration of the given kind.  The first violation produces
 // a syntax error pointing at the offending annotation token.
-func (p *Parser) validateAnnotationKinds(toks []lex.Token, kind decl.DeclarationKind) []source.SyntaxError {
+func (p *Parser) validateAnnotationKinds(toks []lex.Token[ZkcTokenKind],
+	kind decl.DeclarationKind) []source.SyntaxError {
 	for _, tok := range toks {
 		name := p.string(tok)
 
@@ -260,7 +261,7 @@ func (p *Parser) validateAnnotationKinds(toks []lex.Token, kind decl.Declaration
 }
 
 // tokenStrings extracts the source text of each token as a string slice.
-func (p *Parser) tokenStrings(toks []lex.Token) []string {
+func (p *Parser) tokenStrings(toks []lex.Token[ZkcTokenKind]) []string {
 	names := make([]string, len(toks))
 	for i, tok := range toks {
 		names[i] = p.string(tok)
@@ -1066,7 +1067,7 @@ func (p *Parser) parseFail() (bool, stmt.Unresolved, []source.SyntaxError) {
 
 func (p *Parser) parsePrintf(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	var (
-		token  lex.Token
+		token  lex.Token[ZkcTokenKind]
 		chunks []stmt.FormattedChunk
 	)
 	//
@@ -1587,7 +1588,7 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 
 // Parse sequence of one or more expressions separated by a comma.
 // nolint
-func (p *Parser) parseExprList(terminator uint, env Environment) ([]Expr, []source.SyntaxError) {
+func (p *Parser) parseExprList(terminator ZkcTokenKind, env Environment) ([]Expr, []source.SyntaxError) {
 	var (
 		lhs  = make([]Expr, 0)
 		errs []source.SyntaxError
@@ -1688,13 +1689,13 @@ func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) string(token lex.Token) string {
+func (p *Parser) string(token lex.Token[ZkcTokenKind]) string {
 	start, end := token.Span.Start(), token.Span.End()
 	return string(p.srcfile.Contents()[start:end])
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) number(token lex.Token) (big.Int, []source.SyntaxError) {
+func (p *Parser) number(token lex.Token[ZkcTokenKind]) (big.Int, []source.SyntaxError) {
 	var (
 		number, exponent big.Int
 		ok               bool
@@ -1723,7 +1724,7 @@ func (p *Parser) number(token lex.Token) (big.Int, []source.SyntaxError) {
 }
 
 // Get the text representing the given token as a string.
-func (p *Parser) baserOfNumber(token lex.Token) uint {
+func (p *Parser) baserOfNumber(token lex.Token[ZkcTokenKind]) uint {
 	var str = p.string(token)
 	//
 	if strings.HasPrefix(str, "0x") {
@@ -1737,13 +1738,13 @@ func (p *Parser) baserOfNumber(token lex.Token) uint {
 
 // Lookahead returns the next token.  This must exist because EOF is always
 // appended at the end of the token stream.
-func (p *Parser) lookahead() lex.Token {
+func (p *Parser) lookahead() lex.Token[ZkcTokenKind] {
 	return p.tokens[p.index]
 }
 
 // Lookahead returns the next token.  This must exist because EOF is always
 // appended at the end of the token stream.
-func (p *Parser) previousToken() lex.Token {
+func (p *Parser) previousToken() lex.Token[ZkcTokenKind] {
 	if p.index == 0 {
 		return p.tokens[p.index]
 	}
@@ -1752,7 +1753,7 @@ func (p *Parser) previousToken() lex.Token {
 }
 
 // Expect reurns an arror if the next token is not what was expected.
-func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
+func (p *Parser) expect(kind ZkcTokenKind) (lex.Token[ZkcTokenKind], []source.SyntaxError) {
 	lookahead := p.lookahead()
 	//
 	if lookahead.Kind != kind {
@@ -1766,7 +1767,7 @@ func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
 }
 
 // Match attempts to match the given token.
-func (p *Parser) match(kind uint) bool {
+func (p *Parser) match(kind ZkcTokenKind) bool {
 	if p.lookahead().Kind == kind {
 		p.index++
 		return true
@@ -1776,7 +1777,7 @@ func (p *Parser) match(kind uint) bool {
 }
 
 // Follows checks whether one of the given token kinds is next.
-func (p *Parser) follows(options ...uint) bool {
+func (p *Parser) follows(options ...ZkcTokenKind) bool {
 	return slices.Contains(options, p.lookahead().Kind)
 }
 
@@ -1788,7 +1789,7 @@ func (p *Parser) spanOf(firstToken, lastToken int) source.Span {
 	return source.NewSpan(start, end)
 }
 
-func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError {
+func (p *Parser) syntaxErrors(token lex.Token[ZkcTokenKind], msg string) []source.SyntaxError {
 	return []source.SyntaxError{*p.srcfile.SyntaxError(token.Span, msg)}
 }
 

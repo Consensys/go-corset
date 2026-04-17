@@ -13,100 +13,125 @@
 package assembler
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
 
-// END_OF signals "end of file"
-const END_OF uint = 0
+// AsmTokenKind identifies the kind of a lexer token in the assembler parser.
+type AsmTokenKind uint
 
-// WHITESPACE signals whitespace
-const WHITESPACE uint = 1
+// String returns the name of the token kind for display and debugging.
+func (k AsmTokenKind) String() string {
+	switch k {
+	case END_OF:
+		return "END_OF"
+	case WHITESPACE:
+		return "WHITESPACE"
+	case COMMENT:
+		return "COMMENT"
+	case LBRACE:
+		return "LBRACE"
+	case RBRACE:
+		return "RBRACE"
+	case LCURLY:
+		return "LCURLY"
+	case RCURLY:
+		return "RCURLY"
+	case COMMA:
+		return "COMMA"
+	case COLON:
+		return "COLON"
+	case SEMICOLON:
+		return "SEMICOLON"
+	case NUMBER:
+		return "NUMBER"
+	case STRING:
+		return "STRING"
+	case IDENTIFIER:
+		return "IDENTIFIER"
+	case KEYWORD_CONST:
+		return "KEYWORD_CONST"
+	case KEYWORD_INCLUDE:
+		return "KEYWORD_INCLUDE"
+	case KEYWORD_FN:
+		return "KEYWORD_FN"
+	case KEYWORD_PUB:
+		return "KEYWORD_PUB"
+	case RIGHTARROW:
+		return "RIGHTARROW"
+	case EQUALS:
+		return "EQUALS"
+	case EQUALS_EQUALS:
+		return "EQUALS_EQUALS"
+	case NOT_EQUALS:
+		return "NOT_EQUALS"
+	case LESS_THAN:
+		return "LESS_THAN"
+	case LESS_THAN_EQUALS:
+		return "LESS_THAN_EQUALS"
+	case GREATER_THAN:
+		return "GREATER_THAN"
+	case GREATER_THAN_EQUALS:
+		return "GREATER_THAN_EQUALS"
+	case ADD:
+		return "ADD"
+	case SUB:
+		return "SUB"
+	case MUL:
+		return "MUL"
+	case DIV:
+		return "DIV"
+	case QMARK:
+		return "QMARK"
+	default:
+		return fmt.Sprintf("AsmTokenKind(%d)", uint(k))
+	}
+}
 
-// COMMENT signals ";; ... \n"
-const COMMENT uint = 2
+// Primitive tokens (0–11)
+const (
+	END_OF     AsmTokenKind = 0
+	WHITESPACE AsmTokenKind = 1
+	COMMENT    AsmTokenKind = 2
+	LBRACE     AsmTokenKind = 3
+	RBRACE     AsmTokenKind = 4
+	LCURLY     AsmTokenKind = 5
+	RCURLY     AsmTokenKind = 6
+	COMMA      AsmTokenKind = 7
+	COLON      AsmTokenKind = 8
+	SEMICOLON  AsmTokenKind = 9
+	NUMBER     AsmTokenKind = 10
+	STRING     AsmTokenKind = 11
+)
 
-// LBRACE signals "("
-const LBRACE uint = 3
+// Identifiers and keywords (20–24)
+const (
+	IDENTIFIER      AsmTokenKind = 20
+	KEYWORD_CONST   AsmTokenKind = 21
+	KEYWORD_INCLUDE AsmTokenKind = 22
+	KEYWORD_FN      AsmTokenKind = 23
+	KEYWORD_PUB     AsmTokenKind = 24
+)
 
-// RBRACE signals ")"
-const RBRACE uint = 4
-
-// LCURLY signals "{"
-const LCURLY uint = 5
-
-// RCURLY signals "}"
-const RCURLY uint = 6
-
-// COMMA signals ","
-const COMMA uint = 7
-
-// COLON signals ":"
-const COLON uint = 8
-
-// SEMICOLON signals ":"
-const SEMICOLON uint = 9
-
-// NUMBER signals an integer number
-const NUMBER uint = 10
-
-// STRING signals a quoted string
-const STRING uint = 11
-
-// IDENTIFIER signals a column variable
-const IDENTIFIER uint = 20
-
-// KEYWORD_CONST signals a constant declaration
-const KEYWORD_CONST uint = 21
-
-// KEYWORD_INCLUDE signals an include declaration
-const KEYWORD_INCLUDE uint = 22
-
-// KEYWORD_FN signals a function declaration
-const KEYWORD_FN uint = 23
-
-// KEYWORD_PUB signals a public function declaration
-const KEYWORD_PUB uint = 24
-
-// RIGHTARROW signals "->"
-const RIGHTARROW uint = 30
-
-// EQUALS signals "="
-const EQUALS uint = 31
-
-// EQUALS_EQUALS signals "=="
-const EQUALS_EQUALS uint = 32
-
-// NOT_EQUALS signals "!="
-const NOT_EQUALS uint = 33
-
-// LESS_THAN signals "<"
-const LESS_THAN uint = 34
-
-// LESS_THAN_EQUALS signals "<="
-const LESS_THAN_EQUALS uint = 35
-
-// GREATER_THAN signals ">"
-const GREATER_THAN uint = 36
-
-// GREATER_THAN_EQUALS signals ">="
-const GREATER_THAN_EQUALS uint = 37
-
-// ADD signals "+"
-const ADD uint = 38
-
-// SUB signals "-"
-const SUB uint = 39
-
-// MUL signals "*"
-const MUL uint = 40
-
-// DIV signals "/"
-const DIV uint = 41
-
-// QMARK signals "?"
-const QMARK uint = 50
+// Operators (30–50)
+const (
+	RIGHTARROW          AsmTokenKind = 30
+	EQUALS              AsmTokenKind = 31
+	EQUALS_EQUALS       AsmTokenKind = 32
+	NOT_EQUALS          AsmTokenKind = 33
+	LESS_THAN           AsmTokenKind = 34
+	LESS_THAN_EQUALS    AsmTokenKind = 35
+	GREATER_THAN        AsmTokenKind = 36
+	GREATER_THAN_EQUALS AsmTokenKind = 37
+	ADD                 AsmTokenKind = 38
+	SUB                 AsmTokenKind = 39
+	MUL                 AsmTokenKind = 40
+	DIV                 AsmTokenKind = 41
+	QMARK               AsmTokenKind = 50
+)
 
 // Rule for describing whitespace
 var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
@@ -158,7 +183,7 @@ var commentRest lex.Scanner[rune] = lex.Until('\n')
 var comment lex.Scanner[rune] = lex.And(commentStart, commentRest)
 
 // lexing rules
-var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
+var rules []lex.LexRule[rune, AsmTokenKind] = []lex.LexRule[rune, AsmTokenKind]{
 	lex.Rule(comment, COMMENT),
 	lex.Rule(lex.Unit('('), LBRACE),
 	lex.Rule(lex.Unit(')'), RBRACE),
@@ -193,7 +218,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 
 // Lex a given source file into a sequence of zero or more tokens, along with
 // any syntax errors arising.
-func Lex(srcfile source.File) ([]lex.Token, []source.SyntaxError) {
+func Lex(srcfile source.File) ([]lex.Token[AsmTokenKind], []source.SyntaxError) {
 	var (
 		lexer = lex.NewLexer(srcfile.Contents(), rules...)
 		// Lex as many tokens as possible
@@ -207,9 +232,9 @@ func Lex(srcfile source.File) ([]lex.Token, []source.SyntaxError) {
 		return nil, []source.SyntaxError{*err}
 	}
 	// Remove any whitespace
-	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
+	tokens = array.RemoveMatching(tokens, func(t lex.Token[AsmTokenKind]) bool { return t.Kind == WHITESPACE })
 	// Remove any comments (for not)
-	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+	tokens = array.RemoveMatching(tokens, func(t lex.Token[AsmTokenKind]) bool { return t.Kind == COMMENT })
 	// Done
 	return tokens, nil
 }

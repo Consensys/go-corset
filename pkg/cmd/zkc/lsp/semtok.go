@@ -45,7 +45,7 @@ var SemTokLegend = protocol.SemanticTokensLegend{
 // SemTokType maps a ZkC lexer token kind to an index into semTokLegend.TokenTypes.
 // The second return value is false for tokens that should not be emitted
 // (punctuation, whitespace, EOF).
-func semTokType(kind uint) (uint32, bool) {
+func semTokType(kind parser.ZkcTokenKind) (uint32, bool) {
 	switch kind {
 	// Keywords
 	case parser.KEYWORD_AS, parser.KEYWORD_BREAK, parser.KEYWORD_CONST,
@@ -91,7 +91,7 @@ func semTokType(kind uint) (uint32, bool) {
 //
 // Positions are relative to the previous token (or the start of the file for
 // the first token). tokenModifiers is always 0 for now.
-func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
+func encodeTokens(srcfile source.File, tokens []lex.Token[parser.ZkcTokenKind]) []uint32 {
 	data := make([]uint32, 0, len(tokens)*5)
 
 	var prevLine, prevChar uint32

@@ -13,14 +13,147 @@
 package parser
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 )
 
+// ZkcTokenKind identifies the kind of a lexer token in the zkc parser.
+type ZkcTokenKind uint
+
+// String returns the name of the token kind for display and debugging.
+func (k ZkcTokenKind) String() string {
+	switch k {
+	case END_OF:
+		return "END_OF"
+	case WHITESPACE:
+		return "WHITESPACE"
+	case COMMENT:
+		return "COMMENT"
+	case LBRACE:
+		return "LBRACE"
+	case RBRACE:
+		return "RBRACE"
+	case LCURLY:
+		return "LCURLY"
+	case RCURLY:
+		return "RCURLY"
+	case LSQUARE:
+		return "LSQUARE"
+	case RSQUARE:
+		return "RSQUARE"
+	case COMMA:
+		return "COMMA"
+	case COLON:
+		return "COLON"
+	case COLONCOLON:
+		return "COLONCOLON"
+	case SEMICOLON:
+		return "SEMICOLON"
+	case NUMBER:
+		return "NUMBER"
+	case STRING:
+		return "STRING"
+	case IDENTIFIER:
+		return "IDENTIFIER"
+	case KEYWORD_AS:
+		return "KEYWORD_AS"
+	case KEYWORD_BREAK:
+		return "KEYWORD_BREAK"
+	case KEYWORD_CONTINUE:
+		return "KEYWORD_CONTINUE"
+	case KEYWORD_CONST:
+		return "KEYWORD_CONST"
+	case KEYWORD_ELSE:
+		return "KEYWORD_ELSE"
+	case KEYWORD_FAIL:
+		return "KEYWORD_FAIL"
+	case KEYWORD_FN:
+		return "KEYWORD_FN"
+	case KEYWORD_FOR:
+		return "KEYWORD_FOR"
+	case KEYWORD_IF:
+		return "KEYWORD_IF"
+	case KEYWORD_INCLUDE:
+		return "KEYWORD_INCLUDE"
+	case KEYWORD_INPUT:
+		return "KEYWORD_INPUT"
+	case KEYWORD_MEMORY:
+		return "KEYWORD_MEMORY"
+	case KEYWORD_RETURN:
+		return "KEYWORD_RETURN"
+	case KEYWORD_STATIC:
+		return "KEYWORD_STATIC"
+	case KEYWORD_OUTPUT:
+		return "KEYWORD_OUTPUT"
+	case KEYWORD_PRINTF:
+		return "KEYWORD_PRINTF"
+	case KEYWORD_PUB:
+		return "KEYWORD_PUB"
+	case KEYWORD_WHILE:
+		return "KEYWORD_WHILE"
+	case KEYWORD_VAR:
+		return "KEYWORD_VAR"
+	case KEYWORD_TYPE:
+		return "KEYWORD_TYPE"
+	case RIGHTARROW:
+		return "RIGHTARROW"
+	case EQUALS:
+		return "EQUALS"
+	case EQUALS_EQUALS:
+		return "EQUALS_EQUALS"
+	case NOT_EQUALS:
+		return "NOT_EQUALS"
+	case LESS_THAN:
+		return "LESS_THAN"
+	case LESS_THAN_EQUALS:
+		return "LESS_THAN_EQUALS"
+	case GREATER_THAN:
+		return "GREATER_THAN"
+	case GREATER_THAN_EQUALS:
+		return "GREATER_THAN_EQUALS"
+	case LOGICAL_AND:
+		return "LOGICAL_AND"
+	case LOGICAL_OR:
+		return "LOGICAL_OR"
+	case LOGICAL_NOT:
+		return "LOGICAL_NOT"
+	case ADD:
+		return "ADD"
+	case SUB:
+		return "SUB"
+	case MUL:
+		return "MUL"
+	case DIV:
+		return "DIV"
+	case BITWISE_AND:
+		return "BITWISE_AND"
+	case BITWISE_OR:
+		return "BITWISE_OR"
+	case BITWISE_XOR:
+		return "BITWISE_XOR"
+	case BITWISE_NOT:
+		return "BITWISE_NOT"
+	case BITWISE_SHL:
+		return "BITWISE_SHL"
+	case BITWISE_SHR:
+		return "BITWISE_SHR"
+	case REM:
+		return "REM"
+	case QMARK:
+		return "QMARK"
+	case AT:
+		return "AT"
+	default:
+		return fmt.Sprintf("ZkcTokenKind(%d)", uint(k))
+	}
+}
+
 const (
 	// END_OF signals "end of file"
-	END_OF uint = iota
+	END_OF ZkcTokenKind = iota
 	// WHITESPACE signals whitespace
 	WHITESPACE
 	// COMMENT signals "// ... \n"
@@ -191,7 +324,7 @@ var commentRest lex.Scanner[rune] = lex.Until('\n')
 var comment lex.Scanner[rune] = lex.And(commentStart, commentRest)
 
 // lexing rules
-var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
+var rules []lex.LexRule[rune, ZkcTokenKind] = []lex.LexRule[rune, ZkcTokenKind]{
 	lex.Rule(comment, COMMENT),
 	lex.Rule(lex.Unit('('), LBRACE),
 	lex.Rule(lex.Unit(')'), RBRACE),
@@ -239,7 +372,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 // identifiers that merely start with a keyword (e.g. "as_X") are never
 // misidentified: the identifier rule always consumes the full token, and
 // only an exact match triggers reclassification.
-var keywords = map[string]uint{
+var keywords = map[string]ZkcTokenKind{
 	"as":       KEYWORD_AS,
 	"break":    KEYWORD_BREAK,
 	"const":    KEYWORD_CONST,
@@ -269,7 +402,7 @@ var MAX_KEYWORD_LENGTH int
 // any syntax errors arising. When includeComments is true, COMMENT tokens are
 // retained in the output (e.g. for syntax highlighting); otherwise they are
 // removed along with whitespace.
-func Lex(srcfile source.File, includeComments bool) ([]lex.Token, []source.SyntaxError) {
+func Lex(srcfile source.File, includeComments bool) ([]lex.Token[ZkcTokenKind], []source.SyntaxError) {
 	var (
 		lexer = lex.NewLexer(srcfile.Contents(), rules...)
 		// Lex as many tokens as possible
@@ -283,10 +416,10 @@ func Lex(srcfile source.File, includeComments bool) ([]lex.Token, []source.Synta
 		return nil, []source.SyntaxError{*err}
 	}
 	// Remove any whitespace
-	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
+	tokens = array.RemoveMatching(tokens, func(t lex.Token[ZkcTokenKind]) bool { return t.Kind == WHITESPACE })
 	// Remove comments unless the caller wants them (e.g. for syntax highlighting)
 	if !includeComments {
-		tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+		tokens = array.RemoveMatching(tokens, func(t lex.Token[ZkcTokenKind]) bool { return t.Kind == COMMENT })
 	}
 	// Reclassify identifiers whose full text is an exact keyword match.
 	contents := srcfile.Contents()
