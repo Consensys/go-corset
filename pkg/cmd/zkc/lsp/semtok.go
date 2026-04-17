@@ -42,10 +42,23 @@ var SemTokLegend = protocol.SemanticTokensLegend{
 	TokenModifiers: []protocol.SemanticTokenModifiers{},
 }
 
-// SemTokType maps a ZkC lexer token kind to an index into semTokLegend.TokenTypes.
+// Named indices into SemTokLegend.TokenTypes. The order here must mirror the
+// legend exactly; the iota ensures the values stay in step if entries are added.
+const (
+	semTokKeyword  uint32 = iota // protocol.SemanticTokenKeyword
+	semTokComment                // protocol.SemanticTokenComment
+	semTokString                 // protocol.SemanticTokenString
+	semTokNumber                 // protocol.SemanticTokenNumber
+	semTokOperator               // protocol.SemanticTokenOperator
+	semTokType                   // protocol.SemanticTokenType
+	semTokFunction               // protocol.SemanticTokenFunction
+	semTokVariable               // protocol.SemanticTokenVariable
+)
+
+// semTokForKind maps a ZkC lexer token kind to an index into SemTokLegend.TokenTypes.
 // The second return value is false for tokens that should not be emitted
 // (punctuation, whitespace, EOF).
-func semTokType(kind uint) (uint32, bool) {
+func semTokForKind(kind uint) (uint32, bool) {
 	switch kind {
 	// Keywords
 	case parser.KEYWORD_AS, parser.KEYWORD_BREAK, parser.KEYWORD_CONST,
@@ -55,16 +68,16 @@ func semTokType(kind uint) (uint32, bool) {
 		parser.KEYWORD_OUTPUT, parser.KEYWORD_PRINTF, parser.KEYWORD_PUB,
 		parser.KEYWORD_RETURN, parser.KEYWORD_STATIC, parser.KEYWORD_TYPE,
 		parser.KEYWORD_VAR, parser.KEYWORD_WHILE:
-		return 0, true
+		return semTokKeyword, true
 	// Comments
 	case parser.COMMENT:
-		return 1, true
+		return semTokComment, true
 	// String literals
 	case parser.STRING:
-		return 2, true
+		return semTokString, true
 	// Numeric literals
 	case parser.NUMBER:
-		return 3, true
+		return semTokNumber, true
 	// Operators and punctuation-like tokens that carry meaning
 	case parser.ADD, parser.SUB, parser.MUL, parser.DIV, parser.REM,
 		parser.EQUALS, parser.EQUALS_EQUALS, parser.NOT_EQUALS,
@@ -74,10 +87,10 @@ func semTokType(kind uint) (uint32, bool) {
 		parser.BITWISE_AND, parser.BITWISE_OR, parser.BITWISE_XOR,
 		parser.BITWISE_NOT, parser.BITWISE_SHL, parser.BITWISE_SHR,
 		parser.RIGHTARROW, parser.QMARK:
-		return 4, true
+		return semTokOperator, true
 	// Identifiers — emitted as 'variable'; future work can refine via AST
 	case parser.IDENTIFIER:
-		return 7, true
+		return semTokVariable, true
 	// Punctuation (braces, colon, comma, semicolon) and EOF: skip
 	default:
 		return 0, false
@@ -91,13 +104,55 @@ func semTokType(kind uint) (uint32, bool) {
 //
 // Positions are relative to the previous token (or the start of the file for
 // the first token). tokenModifiers is always 0 for now.
+//
+// A small state machine tracks the previous non-comment token kind so that
+// identifiers in type-annotation position (after ':' or 'as') are classified
+// as type tokens, and function-name identifiers (after 'fn') as function tokens.
+// Lookahead is also used: an identifier immediately followed by '(' is a call
+// site and is classified as a function token.
 func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 	data := make([]uint32, 0, len(tokens)*5)
 
 	var prevLine, prevChar uint32
+	// prevMeaningfulKind tracks the kind of the last non-comment token seen.
+	// Initialised to END_OF (0) which matches no special case.
+	prevMeaningfulKind := parser.END_OF
 
-	for _, tok := range tokens {
-		tokType, ok := semTokType(tok.Kind)
+	for i, tok := range tokens {
+		var (
+			tokType uint32
+			ok      bool
+		)
+
+		if tok.Kind == parser.IDENTIFIER {
+			// Look ahead past any intervening comment to the next meaningful token.
+			nextKind := parser.END_OF
+
+			for j := i + 1; j < len(tokens); j++ {
+				if tokens[j].Kind != parser.COMMENT {
+					nextKind = tokens[j].Kind
+					break
+				}
+			}
+
+			switch {
+			case prevMeaningfulKind == parser.COLON || prevMeaningfulKind == parser.KEYWORD_AS:
+				tokType, ok = semTokType, true // type annotation
+			case prevMeaningfulKind == parser.KEYWORD_FN || nextKind == parser.LBRACE:
+				tokType, ok = semTokFunction, true // function declaration name or call site
+			default:
+				tokType, ok = semTokVariable, true // variable
+			}
+		} else {
+			tokType, ok = semTokForKind(tok.Kind)
+		}
+
+		// Update state for all non-comment tokens so that a comment between
+		// ':' and a type name does not reset the type-position detection.
+		if tok.Kind != parser.COMMENT {
+			prevMeaningfulKind = tok.Kind
+		}
+
 		if !ok {
 			continue
 		}

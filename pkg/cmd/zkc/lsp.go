@@ -164,6 +164,12 @@ func (s *zkcServer) Initialize(
 				Legend: lsp.SemTokLegend,
 				Full:   true,
 			},
+			HoverProvider:          true,
+			DocumentSymbolProvider: true,
+			DefinitionProvider:     true,
+			SignatureHelpProvider: &protocol.SignatureHelpOptions{
+				TriggerCharacters: []string{"(", ","},
+			},
 		},
 		ServerInfo: &protocol.ServerInfo{Name: "zkc"},
 	}, nil
@@ -457,11 +463,18 @@ func (s *zkcServer) Declaration(
 // when the user invokes "go to definition" on a symbol. The server returns
 // the location (file and range) where the symbol is defined, allowing the
 // editor to navigate there.
-// Not yet implemented.
 func (s *zkcServer) Definition(
-	_ context.Context, _ *protocol.DefinitionParams,
+	_ context.Context, params *protocol.DefinitionParams,
 ) ([]protocol.Location, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.DefinitionFor(params.TextDocument.URI, text, params.Position)
 }
 
 // DocumentColor handles a textDocument/documentColor request. The client
@@ -512,11 +525,18 @@ func (s *zkcServer) DocumentLinkResolve(
 // sends this to populate the editor's outline panel or breadcrumb bar. The
 // server returns a hierarchical or flat list of symbols (functions, types,
 // constants, etc.) present in the document, each with a name, kind, and range.
-// Not yet implemented.
 func (s *zkcServer) DocumentSymbol(
-	_ context.Context, _ *protocol.DocumentSymbolParams,
+	_ context.Context, params *protocol.DocumentSymbolParams,
 ) ([]interface{}, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.DocumentSymbolsFor(params.TextDocument.URI, text)
 }
 
 // ExecuteCommand handles a workspace/executeCommand request. Servers
@@ -557,9 +577,16 @@ func (s *zkcServer) Formatting(
 // cursor rests on a token and requests contextual information to display in a
 // popup — typically the type signature of a symbol, its documentation comment,
 // or an evaluated value.
-// Not yet implemented.
-func (s *zkcServer) Hover(_ context.Context, _ *protocol.HoverParams) (*protocol.Hover, error) {
-	return nil, errNotImplemented
+func (s *zkcServer) Hover(_ context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.HoverFor(params.TextDocument.URI, text, params.Position)
 }
 
 // Implementation handles a textDocument/implementation request. The client
@@ -633,11 +660,18 @@ func (s *zkcServer) Rename(
 // sends this while the user is typing arguments inside a function call, to
 // display the callee's parameter list as a tooltip. The server returns the
 // matching overloads and identifies which parameter is active at the cursor.
-// Not yet implemented.
 func (s *zkcServer) SignatureHelp(
-	_ context.Context, _ *protocol.SignatureHelpParams,
+	_ context.Context, params *protocol.SignatureHelpParams,
 ) (*protocol.SignatureHelp, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.docs[params.TextDocument.URI]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.SignatureHelpFor(params.TextDocument.URI, text, params.Position)
 }
 
 // Symbols handles a workspace/symbol request. The client sends this when the

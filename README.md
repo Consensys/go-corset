@@ -186,6 +186,40 @@ zkc lsp
 
 Requires Neovim 0.9 or later (semantic token support was added in 0.9).
 
+#### Neovim 0.11+ (native LSP, no plugins required)
+
+Add the following to your Neovim configuration:
+
+**`~/.config/nvim/lua/autocmd.lua`** (or equivalent — anywhere that runs at startup):
+
+```lua
+vim.filetype.add({ extension = { zkc = 'zkc' } })
+```
+
+**`~/.config/nvim/lsp/zkc.lua`**:
+
+```lua
+return {
+  cmd = { 'zkc', 'lsp' },
+  filetypes = { 'zkc' },
+  root_markers = { '.git' },
+}
+```
+
+**`~/.config/nvim/lua/lsp.lua`** (or wherever you call `vim.lsp.enable`):
+
+```lua
+vim.lsp.enable({ 'zkc' })
+```
+
+To enable `gc`/`gcc` commenting, add **`~/.config/nvim/ftplugin/zkc.lua`**:
+
+```lua
+vim.bo.commentstring = '// %s'
+```
+
+#### Neovim 0.9+ (via nvim-lspconfig)
+
 Install [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig) and add the
 following to your Neovim configuration (e.g. `~/.config/nvim/init.lua`):
 
