@@ -215,7 +215,7 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	for i, c := range fn.Code {
 		var es []source.SyntaxError
 		//
-		codes[i], es = p.linkInstruction(c)
+		codes[i], es = p.linkStatement(c)
 		//
 		errs1 = append(errs1, es...)
 	}
@@ -255,49 +255,82 @@ func (p *Linker) linkVariableDeclarations(decls []variable.UnresolvedDescriptor,
 	return ndecls, errors
 }
 
-func (p *Linker) linkInstruction(insn stmt.Unresolved) (stmt.Resolved, []source.SyntaxError) {
+func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.SyntaxError) {
 	var (
 		ninsn  stmt.Resolved
 		errors []source.SyntaxError
 	)
 	//
-	switch insn := insn.(type) {
+	switch s := s.(type) {
 	case *stmt.Assign[symbol.Unresolved]:
 		// Link the left-hand side
-		lhs, errs1 := p.linkLVals(insn.Targets)
+		lhs, errs1 := p.linkLVals(s.Targets)
 		// Link the right-hand side
-		rhs, errs2 := p.linkExpr(insn.Source)
+		rhs, errs2 := p.linkExpr(s.Source)
 		//
 		ninsn = &stmt.Assign[symbol.Resolved]{Targets: lhs, Source: rhs}
 		//
 		errors = append(errs1, errs2...)
+	case *stmt.Break[symbol.Unresolved]:
+		ninsn = &stmt.Break[symbol.Resolved]{}
+	case *stmt.Continue[symbol.Unresolved]:
+		ninsn = &stmt.Continue[symbol.Resolved]{}
 	case *stmt.Fail[symbol.Unresolved]:
 		ninsn = &stmt.Fail[symbol.Resolved]{}
-	case *stmt.Goto[symbol.Unresolved]:
-		ninsn = &stmt.Goto[symbol.Resolved]{Target: insn.Target}
-	case *stmt.IfGoto[symbol.Unresolved]:
-		var cond expr.ResolvedCondition
-		// link the condition
-		cond, errors = p.linkCondition(insn.Cond)
+	case *stmt.For[symbol.Unresolved]:
+		init, errs1 := p.linkStatement(s.Init)
+		cond, errs2 := p.linkExpr(s.Cond)
+		post, errs3 := p.linkStatement(s.Post)
+		body, errs4 := p.linkStatements(s.Body)
+		ninsn = &stmt.For[symbol.Resolved]{Init: init, Cond: cond, Post: post, Body: body}
 		//
-		ninsn = &stmt.IfGoto[symbol.Resolved]{Cond: cond, Target: insn.Target}
+		errors = append(append(append(errs1, errs2...), errs3...), errs4...)
+	case *stmt.IfElse[symbol.Unresolved]:
+		cond, errs1 := p.linkExpr(s.Cond)
+		trueBranch, errs2 := p.linkStatements(s.TrueBranch)
+		falseBranch, errs3 := p.linkStatements(s.FalseBranch)
+		ninsn = &stmt.IfElse[symbol.Resolved]{Cond: cond, TrueBranch: trueBranch, FalseBranch: falseBranch}
+		//
+		errors = append(append(errs1, errs2...), errs3...)
 	case *stmt.Printf[symbol.Unresolved]:
 		var args []expr.Expr[symbol.Resolved]
 		//
-		args, errors = p.linkExprs(insn.Arguments...)
+		args, errors = p.linkExprs(s.Arguments...)
 		//
-		ninsn = &stmt.Printf[symbol.Resolved]{Chunks: insn.Chunks, Arguments: args}
+		ninsn = &stmt.Printf[symbol.Resolved]{Chunks: s.Chunks, Arguments: args}
 	case *stmt.Return[symbol.Unresolved]:
 		ninsn = &stmt.Return[symbol.Resolved]{}
+	case *stmt.While[symbol.Unresolved]:
+		cond, errs1 := p.linkExpr(s.Cond)
+		body, errs2 := p.linkStatements(s.Body)
+		ninsn = &stmt.While[symbol.Resolved]{Cond: cond, Body: body}
+		//
+		errors = append(errs1, errs2...)
 	default:
-		return nil, p.srcmap.SyntaxErrors(insn, "invalid statement")
+		return nil, p.srcmap.SyntaxErrors(s, "invalid statement")
 	}
 	//
 	if ninsn != nil {
-		p.srcmap.Copy(insn, ninsn)
+		p.srcmap.Copy(s, ninsn)
 	}
 	//
 	return ninsn, errors
+}
+
+func (p *Linker) linkStatements(stmts []stmt.Unresolved) ([]stmt.Resolved, []source.SyntaxError) {
+	var (
+		result = make([]stmt.Resolved, len(stmts))
+		errors []source.SyntaxError
+	)
+	//
+	for i, insn := range stmts {
+		var errs []source.SyntaxError
+
+		result[i], errs = p.linkStatement(insn)
+		errors = append(errors, errs...)
+	}
+
+	return result, errors
 }
 
 func (p *Linker) linkLVals(lvals []lval.Unresolved) ([]lval.Resolved, []source.SyntaxError) {
@@ -346,18 +379,6 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	return nlval, errs
 }
 
-func (p *Linker) linkCondition(cond expr.UnresolvedCondition) (expr.ResolvedCondition, []source.SyntaxError) {
-	switch e := cond.(type) {
-	case *expr.Cmp[symbol.Unresolved]:
-		lhs, lerrs := p.linkExpr(e.Left)
-		rhs, rerrs := p.linkExpr(e.Right)
-		//
-		return expr.NewCmp(e.Operator, lhs, rhs), append(lerrs, rerrs...)
-	default:
-		return nil, p.srcmap.SyntaxErrors(cond, "invalid condition")
-	}
-}
-
 func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxError) {
 	var (
 		arg    expr.Resolved
@@ -367,6 +388,12 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	)
 	//
 	switch e := e.(type) {
+	case *expr.Cmp[symbol.Unresolved]:
+		lhs, lerrs := p.linkExpr(e.Left)
+		rhs, rerrs := p.linkExpr(e.Right)
+		nexpr = expr.NewCmp(e.Operator, lhs, rhs)
+
+		errors = append(lerrs, rerrs...)
 	case *expr.Add[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewAdd[symbol.Resolved](args...)
@@ -416,6 +443,18 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		nexpr = expr.NewShr[symbol.Resolved](args...)
 	case *expr.LocalAccess[symbol.Unresolved]:
 		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
+	case *expr.LogicalAnd[symbol.Unresolved]:
+		args, errs := p.linkExprs(e.Exprs...)
+		nexpr = expr.NewLogicalAnd[symbol.Resolved](args...)
+		errors = errs
+	case *expr.LogicalOr[symbol.Unresolved]:
+		args, errs := p.linkExprs(e.Exprs...)
+		nexpr = expr.NewLogicalOr[symbol.Resolved](args...)
+		errors = errs
+	case *expr.LogicalNot[symbol.Unresolved]:
+		inner, errs := p.linkExpr(e.Expr)
+		nexpr = expr.NewLogicalNot[symbol.Resolved](inner)
+		errors = errs
 	case *expr.Div[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewDiv[symbol.Resolved](args...)
@@ -430,7 +469,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		nexpr = expr.NewXor[symbol.Resolved](args...)
 
 	case *expr.Ternary[symbol.Unresolved]:
-		cond, cerrs := p.linkCondition(e.Cond)
+		cond, cerrs := p.linkExpr(e.Cond)
 		ifTrue, terrs := p.linkExpr(e.IfTrue)
 		ifFalse, ferrs := p.linkExpr(e.IfFalse)
 		nexpr = expr.NewTernary[symbol.Resolved](cond, ifTrue, ifFalse)

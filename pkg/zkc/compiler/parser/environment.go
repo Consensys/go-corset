@@ -14,9 +14,7 @@ package parser
 
 import (
 	"fmt"
-	"math"
 
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
@@ -31,12 +29,8 @@ type globalEnvironment struct {
 type localEnvironment struct {
 	// Set of visible variables in this environment
 	visible bit.Set
-	// Identifies next available label
-	label uint
-	// Identifies (optional) break label
-	breakLabel util.Option[uint]
-	// Identifies (optional) continue label
-	continueLabel util.Option[uint]
+	// inLoop indicates whether we are currently inside a loop body
+	inLoop bool
 }
 
 // Environment captures useful information used during the assembling process.
@@ -49,31 +43,25 @@ type Environment struct {
 func EmptyEnvironment() Environment {
 	return Environment{
 		global: &globalEnvironment{nil, nil},
-		local:  &localEnvironment{label: math.MaxUint},
+		local:  &localEnvironment{},
 	}
 }
 
 // Clone constructs a clone of this environment, such that variables declared in
-// the clone will not clash with those declared elsewhere.
-func (p *Environment) Clone(breakLab, contLab util.Option[uint]) Environment {
+// the clone will not clash with those declared elsewhere.  The inLoop parameter
+// indicates whether the cloned environment is inside a loop.
+func (p *Environment) Clone(inLoop bool) Environment {
 	var local localEnvironment
 	// Clone local variables
 	local.visible = p.local.visible.Clone()
-	local.breakLabel = breakLab
-	local.continueLabel = contLab
-	local.label = p.local.label
+	local.inLoop = inLoop
 	// Otherwise, keep global as is
 	return Environment{global: p.global, local: &local}
 }
 
-// BreakLabel returns the (optional) enclosing break label
-func (p *Environment) BreakLabel() util.Option[uint] {
-	return p.local.breakLabel
-}
-
-// ContinueLabel returns the (optional) enclosing continue label
-func (p *Environment) ContinueLabel() util.Option[uint] {
-	return p.local.continueLabel
+// InLoop returns whether the current environment is inside a loop body.
+func (p *Environment) InLoop() bool {
+	return p.local.inLoop
 }
 
 // Effects returns the set of memory effects declared globally
@@ -84,15 +72,6 @@ func (p *Environment) Effects() []*symbol.Unresolved {
 // Variables returns the set of variables declared globally
 func (p *Environment) Variables() []VariableDescriptor {
 	return p.global.variables
-}
-
-// FreshLabel declares a fresh label which can be used for patching.
-func (p *Environment) FreshLabel() (lab uint) {
-	lab = p.local.label
-	//
-	p.local.label--
-	//
-	return lab
 }
 
 // DeclareEffect declares a new effect.  If an effect with the same name

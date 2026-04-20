@@ -22,34 +22,26 @@ import (
 
 // Ternary represents a conditional expression: condition ? ifTrue : ifFalse
 type Ternary[S symbol.Symbol[S]] struct {
-	Cond     Condition[S]
+	Cond     Expr[S]
 	IfTrue   Expr[S]
 	IfFalse  Expr[S]
 	datatype data.Type[S]
 }
 
 // NewTernary creates a new Ternary expression.
-func NewTernary[S symbol.Symbol[S]](cond Condition[S], ifTrue, ifFalse Expr[S]) Expr[S] {
+func NewTernary[S symbol.Symbol[S]](cond, ifTrue, ifFalse Expr[S]) Expr[S] {
 	return &Ternary[S]{Cond: cond, IfTrue: ifTrue, IfFalse: ifFalse}
 }
 
 // ExternUses returns the set of external variables used by the expression.
 func (p *Ternary[S]) ExternUses() set.AnySortedSet[S] {
-	r := p.Cond.ExternUses()
-	branchUses := externUses(p.IfTrue, p.IfFalse)
-	r.InsertSorted(&branchUses)
-
+	r := externUses(p.Cond, p.IfTrue, p.IfFalse)
 	return r
 }
 
 // LocalUses returns the set of local variables used by the expression.
 func (p *Ternary[S]) LocalUses() bit.Set {
-	var bits bit.Set
-	bits.Union(p.Cond.LocalUses())
-	bits.Union(p.IfTrue.LocalUses())
-	bits.Union(p.IfFalse.LocalUses())
-
-	return bits
+	return localUses(p.Cond, p.IfTrue, p.IfFalse)
 }
 
 func (p *Ternary[S]) String(mapping variable.Map[S]) string {

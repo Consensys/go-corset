@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/lower"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/validate"
 )
@@ -69,6 +70,8 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 	if len(errors) != 0 {
 		return ast.Program{}, srcmaps, errors
 	}
+	// Lower block-level constructs (if/else, while, for) into flat if-goto form
+	lower.FlatternStatements(program, srcmaps)
 	// Well-formedness checks (assuming unlimited field width).
 	errors = validateProgram(program, srcmaps)
 	// Done
