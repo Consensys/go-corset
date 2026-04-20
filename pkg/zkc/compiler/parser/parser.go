@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -47,12 +46,6 @@ type Type = data.Type[symbol.Unresolved]
 
 // VariableDescriptor is a convenient alias
 type VariableDescriptor = variable.Descriptor[symbol.Unresolved]
-
-// IfGoto is a convenient alias
-type IfGoto = stmt.IfGoto[symbol.Unresolved]
-
-// Goto is a convenient alias
-type Goto = stmt.Goto[symbol.Unresolved]
 
 // UnlinkedSourceFile captures a source file has been successfully parsed but
 // which has not yet been linked.   As such, its possible that such a file may
@@ -387,7 +380,7 @@ func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
 	// Save for source map
 	end := p.index
 	// Parse start of block
-	if returned, code, errs = p.parseStatementBlock(0, env, util.None[uint](), util.None[uint]()); len(errs) > 0 {
+	if returned, code, errs = p.parseStatementBlock(env, false); len(errs) > 0 {
 		return nil, errs
 	}
 	// Sanity check for implicit or explicit return
@@ -708,7 +701,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	}
 }
 
-func (p *Parser) parseStatementBlock(pc uint, env Environment, breakLab, contLab util.Option[uint],
+func (p *Parser) parseStatementBlock(env Environment, inLoop bool,
 ) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	//
 	var (
@@ -718,7 +711,7 @@ func (p *Parser) parseStatementBlock(pc uint, env Environment, breakLab, contLab
 	)
 	// Clone environment.  This is to ensure that variables declared in this
 	// block do not clash with those of the same name declared elsewhere.
-	env = env.Clone(breakLab, contLab)
+	env = env.Clone(inLoop)
 	// Parse start of block
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
 		return false, nil, errs
@@ -730,15 +723,13 @@ func (p *Parser) parseStatementBlock(pc uint, env Environment, breakLab, contLab
 			ret bool
 		)
 		//
-		if ret, ith, errs = p.parseStatement(pc, env); len(errs) > 0 {
+		if ret, ith, errs = p.parseStatement(env); len(errs) > 0 {
 			return false, nil, errs
 		}
 		//
 		returned = returned || ret
 		//
 		insns = append(insns, ith...)
-		// increment pc
-		pc = pc + uint(len(ith))
 	}
 	// Advance past "}"
 	p.match(RCURLY)
@@ -746,7 +737,7 @@ func (p *Parser) parseStatementBlock(pc uint, env Environment, breakLab, contLab
 	return returned, insns, errs
 }
 
-func (p *Parser) parseStatement(pc uint, env Environment,
+func (p *Parser) parseStatement(env Environment,
 ) (bool, []stmt.Unresolved, []source.SyntaxError) {
 	//
 	var (
@@ -768,15 +759,15 @@ func (p *Parser) parseStatement(pc uint, env Environment,
 	case KEYWORD_FAIL:
 		returned, insn, errs = p.parseFail()
 	case KEYWORD_FOR:
-		returned, insns, errs = p.parseFor(pc, env)
+		returned, insn, errs = p.parseFor(env)
 	case KEYWORD_IF:
-		returned, insns, errs = p.parseIfElse(pc, env)
+		returned, insn, errs = p.parseIfElse(env)
 	case KEYWORD_PRINTF:
 		returned, insn, errs = p.parsePrintf(env)
 	case KEYWORD_RETURN:
 		returned, insn, errs = p.parseReturn()
 	case KEYWORD_WHILE:
-		returned, insns, errs = p.parseWhile(pc, env)
+		returned, insn, errs = p.parseWhile(env)
 	case KEYWORD_VAR:
 		insns, errs = p.parseVar(env)
 	case IDENTIFIER:
@@ -845,110 +836,88 @@ func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.
 	return nil, p.srcmap.SyntaxErrors(call, "expression unused")
 }
 
-func (p *Parser) parseIfElse(pc uint, env Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseIfElse(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	var (
-		errs              []source.SyntaxError
-		trueBranch        []stmt.Unresolved
-		falseBranch       []stmt.Unresolved
-		falseLabel        = env.FreshLabel()
-		insns             []stmt.Unresolved
-		trueRet, falseRet bool
+		errs        []source.SyntaxError
+		trueBranch  []stmt.Unresolved
+		falseBranch []stmt.Unresolved
+		trueRet     bool
+		falseRet    bool
+		condExpr    Expr
 	)
 	// Match if
-	if _, errs := p.expect(KEYWORD_IF); len(errs) > 0 {
+	if _, errs = p.expect(KEYWORD_IF); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// Parse condition
-	if insns, errs = p.parseCondition(pc, false, falseLabel, env); len(errs) > 0 {
+	// Parse and validate condition expression
+	if condExpr, errs = p.parseConditionExpr(env); len(errs) > 0 {
 		return false, nil, errs
 	}
-	//
-	n := uint(len(insns))
 	// Parse true branch
-	if trueRet, trueBranch, errs = p.parseStatementBlock(pc+n, env, env.BreakLabel(), env.ContinueLabel()); len(errs) > 0 {
+	if trueRet, trueBranch, errs = p.parseStatementBlock(env, env.InLoop()); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// falseTarget for if-goto
-	falseTarget := pc + n + uint(len(trueBranch))
-	// Include the true branch
-	insns = append(insns, trueBranch...)
 	// Check for "else"
 	if p.lookahead().Kind == KEYWORD_ELSE {
-		// Skip over else
 		_, _ = p.expect(KEYWORD_ELSE)
-		// add branch bypass (if needed)
-		if !trueRet {
-			falseTarget++
-		}
 		// parse false branch (either a block or an else-if chain)
 		if p.lookahead().Kind == KEYWORD_IF {
-			falseRet, falseBranch, errs = p.parseIfElse(falseTarget, env)
+			var falseInsn stmt.Unresolved
+
+			falseRet, falseInsn, errs = p.parseIfElse(env)
+			if len(errs) > 0 {
+				return false, nil, errs
+			}
+
+			falseBranch = []stmt.Unresolved{falseInsn}
 		} else {
-			falseRet, falseBranch, errs = p.parseStatementBlock(falseTarget, env, env.BreakLabel(), env.ContinueLabel())
+			falseRet, falseBranch, errs = p.parseStatementBlock(env, env.InLoop())
+			if len(errs) > 0 {
+				return false, nil, errs
+			}
 		}
-		// Sanity check errors
-		if len(errs) > 0 {
-			return false, nil, errs
-		}
-		// add bypass (if applicable)
-		if !trueRet {
-			endTarget := falseTarget + uint(len(falseBranch))
-			insns = append(insns, &stmt.Goto[symbol.Unresolved]{Target: endTarget})
-		}
-		// add false branch (if applicable)
-		insns = append(insns, falseBranch...)
 	}
-	// Patch false target
-	patchBranches(falseLabel, insns, falseTarget)
-	// Done
-	return trueRet && falseRet, insns, nil
+
+	node := &stmt.IfElse[symbol.Unresolved]{
+		Cond:        condExpr,
+		TrueBranch:  trueBranch,
+		FalseBranch: falseBranch,
+	}
+	// An if/else definitely returns only when both branches do
+	return trueRet && falseRet && len(falseBranch) > 0, node, nil
 }
 
-func (p *Parser) parseWhile(pc uint, env Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseWhile(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	var (
-		errs           []source.SyntaxError
-		insns, body    []stmt.Unresolved
-		breakLabel     = env.FreshLabel()
-		continueLabel  = env.FreshLabel()
-		conditionLabel = env.FreshLabel()
+		errs     []source.SyntaxError
+		body     []stmt.Unresolved
+		condExpr Expr
 	)
 	// Match while
 	if _, errs = p.expect(KEYWORD_WHILE); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// Parse condition
-	if insns, errs = p.parseCondition(pc, false, conditionLabel, env); len(errs) > 0 {
+	// Parse and validate condition expression
+	if condExpr, errs = p.parseConditionExpr(env); len(errs) > 0 {
 		return false, nil, errs
 	}
-	//
-	n := uint(len(insns))
-	// Parse body block; body starts at pc+1
-	if _, body, errs = p.parseStatementBlock(pc+n, env, util.Some(breakLabel), util.Some(continueLabel)); len(errs) > 0 {
+	// Parse body block (loop body enables break/continue)
+	if _, body, errs = p.parseStatementBlock(env, true); len(errs) > 0 {
 		return false, nil, errs
 	}
-	//
-	insns = append(insns, body...)
-	insns = append(insns, &stmt.Goto[symbol.Unresolved]{Target: pc})
-	// The conditional skip jumps past the back-goto to the instruction after the loop
-	exitTarget := pc + uint(len(insns))
-	// Patch any condition labels to jump to exit
-	patchBranches(conditionLabel, insns, exitTarget)
-	// Patch any break labels to jump to exit
-	patchBranches(breakLabel, insns, exitTarget)
-	// Patch any continue labels to jump back to condition check
-	patchBranches(continueLabel, insns, pc)
+
+	node := &stmt.While[symbol.Unresolved]{Cond: condExpr, Body: body}
 	// A while loop never guarantees a return
-	return false, insns, nil
+	return false, node, nil
 }
 
-func (p *Parser) parseFor(pc uint, env Environment) (bool, []stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseFor(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	var (
-		errs              []source.SyntaxError
-		init, post        stmt.Unresolved
-		insns, body, cond []stmt.Unresolved
-		breakLabel        = env.FreshLabel()
-		continueLabel     = env.FreshLabel()
-		conditionLabel    = env.FreshLabel()
+		errs     []source.SyntaxError
+		init     stmt.Unresolved
+		post     stmt.Unresolved
+		body     []stmt.Unresolved
+		condExpr Expr
 	)
 	// Match 'for'
 	if _, errs = p.expect(KEYWORD_FOR); len(errs) > 0 {
@@ -957,7 +926,7 @@ func (p *Parser) parseFor(pc uint, env Environment) (bool, []stmt.Unresolved, []
 	// Clone the environment so the loop init variable is scoped to this loop only,
 	// not the enclosing function scope.  This allows two loops to reuse the same
 	// variable name (e.g. for i:u8=0; ...) without a "variable already declared" error.
-	env = env.Clone(env.BreakLabel(), env.ContinueLabel())
+	env = env.Clone(env.InLoop())
 	// Parse init: either an inline variable declaration (name:type = expr) or a plain assignment
 	if init, errs = p.parseForInit(env); len(errs) > 0 {
 		return false, nil, errs
@@ -966,8 +935,8 @@ func (p *Parser) parseFor(pc uint, env Environment) (bool, []stmt.Unresolved, []
 	if _, errs = p.expect(SEMICOLON); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// Parse condition
-	if cond, errs = p.parseCondition(pc+1, false, conditionLabel, env); len(errs) > 0 {
+	// Parse and validate condition expression
+	if condExpr, errs = p.parseConditionExpr(env); len(errs) > 0 {
 		return false, nil, errs
 	}
 	// Parse ';'
@@ -978,28 +947,14 @@ func (p *Parser) parseFor(pc uint, env Environment) (bool, []stmt.Unresolved, []
 	if post, errs = p.parseAssignment(env); len(errs) > 0 {
 		return false, nil, errs
 	}
-	//
-	n := uint(len(cond))
-	// Parse body; starts at condPC+1 = pc+2
-	if _, body, errs = p.parseStatementBlock(pc+1+n, env, util.Some(breakLabel), util.Some(continueLabel)); len(errs) > 0 {
+	// Parse body (loop body enables break/continue)
+	if _, body, errs = p.parseStatementBlock(env, true); len(errs) > 0 {
 		return false, nil, errs
 	}
-	// Build the instruction sequence
-	insns = append(insns, init)
-	insns = append(insns, cond...)
-	insns = append(insns, body...)
-	insns = append(insns, post)
-	insns = append(insns, &stmt.Goto[symbol.Unresolved]{Target: pc + 1})
-	// Fill in the conditional check: exit is the instruction after the back-goto
-	exitTarget := pc + uint(len(insns))
-	// Patch any condition labels to jump to exit
-	patchBranches(conditionLabel, insns, exitTarget)
-	// Patch any break labels to jump to exit
-	patchBranches(breakLabel, insns, exitTarget)
-	// Patch any continue labels to jump to the post instruction
-	patchBranches(continueLabel, insns, pc+1+n+uint(len(body)))
+
+	node := &stmt.For[symbol.Unresolved]{Init: init, Cond: condExpr, Post: post, Body: body}
 	// A for loop never guarantees a return
-	return false, insns, nil
+	return false, node, nil
 }
 
 // parseForInit parses the initialiser of a for loop.  It accepts either an
@@ -1179,36 +1134,29 @@ func escapeCharacter(ch rune) (rune, bool) {
 }
 
 func (p *Parser) parseBreak(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
-	var (
-		label     = env.BreakLabel()
-		tok, errs = p.expect(KEYWORD_BREAK)
-	)
-	//
+	tok, errs := p.expect(KEYWORD_BREAK)
 	if len(errs) > 0 {
 		return true, nil, errs
 	}
 
-	if !label.HasValue() {
+	if !env.InLoop() {
 		return true, nil, p.syntaxErrors(tok, "break outside loop")
 	}
 
-	return true, &stmt.Goto[symbol.Unresolved]{Target: label.Unwrap()}, nil
+	return true, &stmt.Break[symbol.Unresolved]{}, nil
 }
 
 func (p *Parser) parseContinue(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
-	var (
-		label     = env.ContinueLabel()
-		tok, errs = p.expect(KEYWORD_CONTINUE)
-	)
+	tok, errs := p.expect(KEYWORD_CONTINUE)
 	if len(errs) > 0 {
 		return true, nil, errs
 	}
 
-	if !label.HasValue() {
+	if !env.InLoop() {
 		return true, nil, p.syntaxErrors(tok, "continue outside loop")
 	}
 
-	return true, &stmt.Goto[symbol.Unresolved]{Target: label.Unwrap()}, nil
+	return true, &stmt.Continue[symbol.Unresolved]{}, nil
 }
 
 func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxError) {
@@ -1274,19 +1222,19 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 	return []stmt.Unresolved{insn}, nil
 }
 
-func (p *Parser) parseCondition(pc uint, sign bool, target uint, env Environment,
-) ([]stmt.Unresolved, []source.SyntaxError) {
-	//
-	var (
-		errs []source.SyntaxError
-		expr Expr
-	)
-	// Parse condition
-	if expr, errs = p.parseExpr(env); len(errs) > 0 {
+// parseConditionExpr parses an expression and validates it is a valid condition
+// (i.e. a comparison, logical-and, logical-or, or logical-not).
+func (p *Parser) parseConditionExpr(env Environment) (Expr, []source.SyntaxError) {
+	ex, errs := p.parseExpr(env)
+	if len(errs) > 0 {
 		return nil, errs
 	}
-	// Back-goto jumps to the if-goto at pc
-	return p.flatternCondition(expr, pc, sign, target, env)
+
+	if !isValidCondition(ex) {
+		return nil, p.srcmap.SyntaxErrors(ex, "invalid condition")
+	}
+
+	return ex, nil
 }
 
 // parseTernaryOrExpr parses either a ternary expression (cond ? ifTrue : ifFalse)
@@ -1797,90 +1745,19 @@ func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError 
 // sign, branch to target label if condition holds (otherwise fall through); (2)
 // for negative sign, branch to target label if condition does not hold
 // (otherwise fall through).
-func (p *Parser) flatternCondition(cond Expr, pc uint, sign bool, target uint, env Environment,
-) ([]stmt.Unresolved, []source.SyntaxError) {
-	switch c := cond.(type) {
+// isValidCondition checks that an expression is a valid condition for use in
+// if/else, while, or for statements (i.e. Cmp, LogicalAnd, LogicalOr, LogicalNot).
+func isValidCondition(e Expr) bool {
+	switch e.(type) {
 	case *expr.Cmp[symbol.Unresolved]:
-		return p.flatternComparison(c, sign, target)
+		return true
 	case *expr.LogicalAnd[symbol.Unresolved]:
-		if sign {
-			return p.flatternLogicalAnd(c.Exprs, pc, true, target, env)
-		} else {
-			return p.flatternLogicalOr(c.Exprs, pc, false, target, env)
-		}
+		return true
 	case *expr.LogicalOr[symbol.Unresolved]:
-		if sign {
-			return p.flatternLogicalOr(c.Exprs, pc, true, target, env)
-		} else {
-			return p.flatternLogicalAnd(c.Exprs, pc, false, target, env)
-		}
+		return true
 	case *expr.LogicalNot[symbol.Unresolved]:
-		return p.flatternCondition(c.Expr, pc, !sign, target, env)
+		return true
 	default:
-		return nil, p.srcmap.SyntaxErrors(cond, "invalid condition")
-	}
-}
-
-func (p *Parser) flatternLogicalAnd(args []Expr, pc uint, sign bool, target uint, env Environment,
-) ([]stmt.Unresolved, []source.SyntaxError) {
-	var (
-		label = env.FreshLabel()
-		stmts []stmt.Unresolved
-	)
-	//
-	for _, arg := range args {
-		ss, errs := p.flatternCondition(arg, pc+uint(len(stmts)), !sign, label, env)
-		//
-		if len(errs) > 0 {
-			return nil, errs
-		}
-		//
-		stmts = append(stmts, ss...)
-	}
-	//
-	stmts = append(stmts, &Goto{Target: target})
-	// Patch labels
-	patchBranches(label, stmts, pc+uint(len(stmts)))
-	//
-	return stmts, nil
-}
-
-func (p *Parser) flatternLogicalOr(args []Expr, pc uint, sign bool, target uint, env Environment,
-) ([]stmt.Unresolved, []source.SyntaxError) {
-	var stmts []stmt.Unresolved
-	//
-	for _, arg := range args {
-		ss, errs := p.flatternCondition(arg, pc+uint(len(stmts)), sign, target, env)
-		//
-		if len(errs) > 0 {
-			return nil, errs
-		}
-		//
-		stmts = append(stmts, ss...)
-	}
-	//
-	return stmts, nil
-}
-
-func (p *Parser) flatternComparison(cond *expr.Cmp[symbol.Unresolved], sign bool, target uint,
-) ([]stmt.Unresolved, []source.SyntaxError) {
-	var stmts []stmt.Unresolved
-	//
-	if sign {
-		return append(stmts, &IfGoto{Cond: cond, Target: target}), nil
-	} else {
-		return append(stmts, &IfGoto{Cond: cond.Negate(), Target: target}), nil
-	}
-}
-
-// patchBranches replaces all occurrences of the given marker in a branching
-// instruction (i.e. goto or if-goto) with the given target.
-func patchBranches(label uint, insns []stmt.Unresolved, target uint) {
-	for _, insn := range insns {
-		if g, ok := insn.(*stmt.Goto[symbol.Unresolved]); ok && g.Target == label {
-			g.Target = target
-		} else if g, ok := insn.(*stmt.IfGoto[symbol.Unresolved]); ok && g.Target == label {
-			g.Target = target
-		}
+		return false
 	}
 }
