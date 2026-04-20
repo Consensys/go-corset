@@ -1746,12 +1746,24 @@ func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError 
 // isValidCondition checks that an expression is a valid condition for use in
 // if/else, while, or for statements (i.e. Cmp, LogicalAnd, LogicalOr, LogicalNot).
 func isValidCondition(e Expr) bool {
-	switch e.(type) {
+	switch e := e.(type) {
 	case *expr.Cmp[symbol.Unresolved]:
 		return true
 	case *expr.LogicalAnd[symbol.Unresolved]:
+		for _, arg := range e.Exprs {
+			if !isValidCondition(arg) {
+				return false
+			}
+		}
+		//
 		return true
 	case *expr.LogicalOr[symbol.Unresolved]:
+		for _, arg := range e.Exprs {
+			if !isValidCondition(arg) {
+				return false
+			}
+		}
+		//
 		return true
 	case *expr.LogicalNot[symbol.Unresolved]:
 		return true
