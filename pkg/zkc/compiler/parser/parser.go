@@ -411,7 +411,7 @@ func (p *Parser) parseMemoryEffects(env Environment) []source.SyntaxError {
 		//
 		env.DeclareEffect(effect)
 	}
-	// Advance past "}"
+	// Advance past ">"
 	p.match(GREATER_THAN)
 	//
 	return nil
@@ -1623,6 +1623,7 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	return lv, nil
 }
 
+// parseIdentifier expects an IDENTIFIER token
 func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 	tok, errs := p.expect(IDENTIFIER)
 	//
