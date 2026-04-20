@@ -286,6 +286,22 @@ fn compute() -> (val u32, err u1) {
 Here we see that, since `compute()` has two returns the corresponding
 function call requires two target variables.
 
+A **destructuring assignment** splits a given value across a number of
+smaller variables. The leftmost variable receives the **most
+significant** bits; the rightmost receives the **least significant**
+bits.
+
+```zkc
+var word:u32 = data[0]
+var hi:u16
+var lo:u16
+hi::lo = word   // hi = upper 16 bits, lo = lower 16 bits
+```
+
+All target variables must already be declared. The sum of their bit widths
+must equal the bit width of the right-hand side expression — mismatches are
+caught at compile time.
+
 ### Loops
 
 In addition to `if` conditions (as seen above), ZkC supports `while`
@@ -329,6 +345,76 @@ fn divide(x:u16, y:u16) -> (r:u16) {
 
 In this case, the `fail` instruction is being used to enforce an
 expected precondition to the function.
+
+### Debugging
+
+ZkC provides a `printf` statement for printing diagnostic output during
+program execution. It is purely a debugging aid and **has no effect on the
+generated constraints** — a `printf` is invisible to the ZK prover.
+
+```zkc
+printf "format string", expr1, expr2, ...
+```
+
+The format string is a double-quoted string literal containing literal text
+and zero or more _format specifiers_. Each specifier consumes one argument
+from the comma-separated list that follows:
+
+| Specifier | Output format             |
+| --------- | ------------------------- |
+| `%d`      | decimal (e.g. `42`)       |
+| `%x`      | hexadecimal (e.g. `0x2a`) |
+| `%b`      | binary (e.g. `0b101010`)  |
+
+The following escape sequences are recognised inside format strings:
+
+| Sequence | Meaning           |
+| -------- | ----------------- |
+| `\n`     | newline           |
+| `\t`     | horizontal tab    |
+| `\r`     | carriage return   |
+| `\\`     | literal backslash |
+
+Arguments must be expressions that produce a concrete unsigned integer type.
+Local variables, constants, and arithmetic/bitwise sub-expressions are all
+accepted. The number of arguments must exactly match the number of format
+specifiers in the string — providing too few or too many is a compile-time
+error.
+
+```zkc
+fn main() {
+  var x:u32 = data[0]
+  var y:u32 = data[1]
+  printf "x = %d, y = 0x%x\n", x, y
+}
+```
+
+### Type Aliases
+
+Type aliases introduce a new name for an existing type. They are useful
+for improving readability and for defining domain-specific names (e.g.
+`address` for `u160`, `bool` for `u1`):
+
+```zkc
+type address = u160
+type bool    = u1
+```
+
+Circular alias definitions are rejected.
+
+Aliases can be used anywhere a type is expected: in function parameters
+and returns, variable declarations, constants, casts, and expressions.
+An alias and its underlying type are interchangeable for type-checking
+purposes (e.g. a `word` and a `u8` of the same bitwidth are compatible
+in arithmetic, shifts, and comparisons).
+
+```zkc
+type word = u8
+fn f(x:word) -> (r:u8) {
+  var r = x << 1
+  return
+}
+```
 
 ## Expressions
 
@@ -384,32 +470,38 @@ Comparison operators (used in conditions only):
 | `a > b`  | greater than          |
 | `a >= b` | greater than or equal |
 
-### Type Aliases
-
-Type aliases introduce a new name for an existing type. They are useful
-for improving readability and for defining domain-specific names (e.g.
-`address` for `u160`, `bool` for `u1`):
+**Bitwise Concatenation.** Small values can be concatenated together
+to form larger bitwise values. As for destructuring assignments, the
+leftmost operand contributes the **most significant** bits.
 
 ```zkc
-type address = u160
-type bool    = u1
+var hi:u16 = data[0] as u16
+var lo:u16 = data[1] as u16
+var word:u32
+word = hi::lo   // word = (hi << 16) | lo
 ```
 
-Circular alias definitions are rejected.
-
-Aliases can be used anywhere a type is expected: in function parameters
-and returns, variable declarations, constants, casts, and expressions.
-An alias and its underlying type are interchangeable for type-checking
-purposes (e.g. a `word` and a `u8` of the same bitwidth are compatible
-in arithmetic, shifts, and comparisons).
+The operands of a concatenation expression can be arbitrary expressions,
+not just variables:
 
 ```zkc
-type word = u8
-fn f(x:word) -> (r:u8) {
-  var r = x << 1
-  return
-}
+word = hi::(0xffee as u16)
 ```
+
+The combined bit width of the operands must match the bit width of the
+assignment target.
+
+**Chaining** more than two parts works on both sides:
+
+```zkc
+var a:u8
+var b:u8
+var c:u16
+a::b::c = some_u32   // a = bits[31:24], b = bits[23:16], c = bits[15:0]
+```
+
+All parts must be concrete unsigned integer types (`u1`, `u8`, `u16`,
+etc.). Open or non-integer types are rejected by the type checker.
 
 ## File Inclusion
 
