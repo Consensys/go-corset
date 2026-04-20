@@ -93,13 +93,11 @@ func lowerStatementExprs(s stmt.Resolved, srcmaps source.Maps[any]) stmt.Resolve
 	switch t := s.(type) {
 	case *stmt.Assign[symbol.Resolved]:
 		ns := &stmt.Assign[symbol.Resolved]{Targets: t.Targets, Source: lowerExpr(t.Source, srcmaps)}
-
 		srcmaps.Copy(s, ns)
 
 		return ns
 	case *stmt.Printf[symbol.Resolved]:
 		ns := &stmt.Printf[symbol.Resolved]{Chunks: t.Chunks, Arguments: lowerExprs(t.Arguments, srcmaps)}
-
 		srcmaps.Copy(s, ns)
 
 		return ns
@@ -120,8 +118,13 @@ func lowerExprs(exprs []expr.Resolved, srcmaps source.Maps[any]) []expr.Resolved
 }
 
 // lowerExpr recursively lowers ternary conditions within an expression so that
-// every Ternary.Cond is a single Cmp node after lowering.
+// every Ternary.Cond is a single Cmp node after lowering.  A new node is always
+// created for composite expressions and its source map entry is copied from the
+// original so that subsequent passes (e.g. type checking) can report errors with
+// correct source locations.
 func lowerExpr(e expr.Resolved, srcmaps source.Maps[any]) expr.Resolved {
+	var ne expr.Resolved
+
 	switch t := e.(type) {
 	case *expr.Ternary[symbol.Resolved]:
 		ifTrue := lowerExpr(t.IfTrue, srcmaps)
@@ -129,37 +132,41 @@ func lowerExpr(e expr.Resolved, srcmaps source.Maps[any]) expr.Resolved {
 
 		return lowerTernaryCondition(t.Cond, ifTrue, ifFalse, srcmaps, e)
 	case *expr.Add[symbol.Resolved]:
-		return expr.NewAdd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewAdd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Sub[symbol.Resolved]:
-		return expr.NewSub[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewSub[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Mul[symbol.Resolved]:
-		return expr.NewMul[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewMul[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Div[symbol.Resolved]:
-		return expr.NewDiv[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewDiv[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Rem[symbol.Resolved]:
-		return expr.NewRem[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewRem[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.BitwiseAnd[symbol.Resolved]:
-		return expr.NewBitwiseAnd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewBitwiseAnd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.BitwiseOr[symbol.Resolved]:
-		return expr.NewBitwiseOr[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewBitwiseOr[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Xor[symbol.Resolved]:
-		return expr.NewXor[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewXor[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Shl[symbol.Resolved]:
-		return expr.NewShl[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewShl[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Shr[symbol.Resolved]:
-		return expr.NewShr[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewShr[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Concat[symbol.Resolved]:
-		return expr.NewConcat[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+		ne = expr.NewConcat[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Cast[symbol.Resolved]:
-		return expr.NewCast[symbol.Resolved](lowerExpr(t.Expr, srcmaps), t.CastType)
+		ne = expr.NewCast[symbol.Resolved](lowerExpr(t.Expr, srcmaps), t.CastType)
 	case *expr.BitwiseNot[symbol.Resolved]:
-		return expr.NewBitwiseNot[symbol.Resolved](lowerExpr(t.Expr, srcmaps))
+		ne = expr.NewBitwiseNot[symbol.Resolved](lowerExpr(t.Expr, srcmaps))
 	case *expr.ExternAccess[symbol.Resolved]:
-		return expr.NewExternAccess[symbol.Resolved](t.Name, lowerExprs(t.Args, srcmaps)...)
+		ne = expr.NewExternAccess[symbol.Resolved](t.Name, lowerExprs(t.Args, srcmaps)...)
 	default:
 		// Const, LocalAccess — leaf nodes with no sub-expressions to lower.
 		return e
 	}
+
+	srcmaps.Copy(e, ne)
+
+	return ne
 }
 
 // lowerTernaryCondition converts a ternary with a complex condition into nested
