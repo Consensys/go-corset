@@ -30,11 +30,6 @@ type While[S symbol.Symbol[S]] struct {
 	Body []Stmt[S]
 }
 
-// Buses implementation for Stmt interface
-func (p *While[S]) Buses() []S {
-	panic("todo")
-}
-
 // Uses implementation for Stmt interface.
 func (p *While[S]) Uses() []variable.Id {
 	var reads []variable.Id

@@ -34,11 +34,6 @@ type IfElse[S symbol.Symbol[S]] struct {
 	FalseBranch []Stmt[S]
 }
 
-// Buses implementation for Stmt interface
-func (p *IfElse[S]) Buses() []S {
-	panic("todo")
-}
-
 // Uses implementation for Stmt interface.
 func (p *IfElse[S]) Uses() []variable.Id {
 	var reads []variable.Id

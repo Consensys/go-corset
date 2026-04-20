@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
@@ -995,9 +996,12 @@ func (p *Parser) parseForInit(env Environment) (stmt.Unresolved, []source.Syntax
 			return nil, errs
 		}
 
-		target := lval.NewVariable[symbol.Unresolved](env.LookupVariable(name))
+		id := env.LookupVariable(name)
 
-		return &stmt.Assign[symbol.Unresolved]{Targets: []LVal{target}, Source: rhs}, nil
+		return &stmt.VarDecl[symbol.Unresolved]{
+			Variables: []variable.Id{id},
+			Init:      util.Some[Expr](rhs),
+		}, nil
 	}
 	// Fall back to a plain assignment to an already-declared variable.
 	return p.parseAssignment(env)
@@ -1196,12 +1200,19 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 	}
 	// Declare all variables before parsing any initialiser, so the
 	// initialiser expression can reference other already-declared variables.
+	varIds := make([]variable.Id, len(names))
 	for i, name := range names {
 		env.DeclareVariable(variable.LOCAL, name, types[i])
+		varIds[i] = env.LookupVariable(name)
 	}
 	// Check for optional initialiser
 	if !p.match(EQUALS) {
-		return nil, nil
+		insn := &stmt.VarDecl[symbol.Unresolved]{
+			Variables: varIds,
+			Init:      util.None[Expr](),
+		}
+
+		return []stmt.Unresolved{insn}, nil
 	}
 	// Initialisers are only supported for single-variable declarations.
 	if len(names) > 1 {
@@ -1212,11 +1223,10 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 	if len(errs) > 0 {
 		return nil, errs
 	}
-	// Build the assignment instruction
-	target := env.LookupVariable(names[0])
-	insn := &stmt.Assign[symbol.Unresolved]{
-		Targets: []LVal{lval.NewVariable[symbol.Unresolved](target)},
-		Source:  rhs,
+	// Build the variable declaration with initialiser
+	insn := &stmt.VarDecl[symbol.Unresolved]{
+		Variables: varIds,
+		Init:      util.Some[Expr](rhs),
 	}
 	//
 	return []stmt.Unresolved{insn}, nil
