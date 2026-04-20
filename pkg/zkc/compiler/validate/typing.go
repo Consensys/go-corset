@@ -397,7 +397,7 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 		}
 
 	default:
-		return nil, p.srcmaps.SyntaxErrors(e, "unknown expression")
+		return nil, p.srcmaps.SyntaxErrors(e, "invalid expression")
 	}
 	// Associate type
 	e.SetType(actual)

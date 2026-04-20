@@ -279,14 +279,14 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 		ninsn = &stmt.Fail[symbol.Resolved]{}
 	case *stmt.For[symbol.Unresolved]:
 		init, errs1 := p.linkStatement(s.Init)
-		cond, errs2 := p.linkConditionExpr(s.Cond)
+		cond, errs2 := p.linkExpr(s.Cond)
 		post, errs3 := p.linkStatement(s.Post)
 		body, errs4 := p.linkStatements(s.Body)
 		ninsn = &stmt.For[symbol.Resolved]{Init: init, Cond: cond, Post: post, Body: body}
 		//
 		errors = append(append(append(errs1, errs2...), errs3...), errs4...)
 	case *stmt.IfElse[symbol.Unresolved]:
-		cond, errs1 := p.linkConditionExpr(s.Cond)
+		cond, errs1 := p.linkExpr(s.Cond)
 		trueBranch, errs2 := p.linkStatements(s.TrueBranch)
 		falseBranch, errs3 := p.linkStatements(s.FalseBranch)
 		ninsn = &stmt.IfElse[symbol.Resolved]{Cond: cond, TrueBranch: trueBranch, FalseBranch: falseBranch}
@@ -301,7 +301,7 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 	case *stmt.Return[symbol.Unresolved]:
 		ninsn = &stmt.Return[symbol.Resolved]{}
 	case *stmt.While[symbol.Unresolved]:
-		cond, errs1 := p.linkConditionExpr(s.Cond)
+		cond, errs1 := p.linkExpr(s.Cond)
 		body, errs2 := p.linkStatements(s.Body)
 		ninsn = &stmt.While[symbol.Resolved]{Cond: cond, Body: body}
 		//
@@ -379,61 +379,6 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	return nlval, errs
 }
 
-// linkConditionExpr links a condition expression (Cmp, LogicalAnd, LogicalOr,
-// LogicalNot) used as a control-flow predicate in if/else, while, or for
-// statements.  This is kept separate from linkExpr to avoid accepting condition
-// types in value positions (e.g. "r = (x == 1)").
-func (p *Linker) linkConditionExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxError) {
-	var (
-		nexpr  expr.Resolved
-		errors []source.SyntaxError
-	)
-
-	switch t := e.(type) {
-	case *expr.Cmp[symbol.Unresolved]:
-		lhs, lerrs := p.linkExpr(t.Left)
-		rhs, rerrs := p.linkExpr(t.Right)
-		nexpr = expr.NewCmp(t.Operator, lhs, rhs)
-
-		errors = append(lerrs, rerrs...)
-	case *expr.LogicalAnd[symbol.Unresolved]:
-		args, errs := p.linkConditionExprs(t.Exprs...)
-		nexpr = expr.NewLogicalAnd[symbol.Resolved](args...)
-		errors = errs
-	case *expr.LogicalOr[symbol.Unresolved]:
-		args, errs := p.linkConditionExprs(t.Exprs...)
-		nexpr = expr.NewLogicalOr[symbol.Resolved](args...)
-		errors = errs
-	case *expr.LogicalNot[symbol.Unresolved]:
-		inner, errs := p.linkConditionExpr(t.Expr)
-		nexpr = expr.NewLogicalNot[symbol.Resolved](inner)
-		errors = errs
-	default:
-		return nil, p.srcmap.SyntaxErrors(e, "invalid condition")
-	}
-
-	if nexpr != nil {
-		p.srcmap.Copy(e, nexpr)
-	}
-
-	return nexpr, errors
-}
-
-func (p *Linker) linkConditionExprs(exprs ...expr.Unresolved) ([]expr.Resolved, []source.SyntaxError) {
-	result := make([]expr.Resolved, len(exprs))
-
-	var errors []source.SyntaxError
-
-	for i, e := range exprs {
-		var errs []source.SyntaxError
-
-		result[i], errs = p.linkConditionExpr(e)
-		errors = append(errors, errs...)
-	}
-
-	return result, errors
-}
-
 func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxError) {
 	var (
 		arg    expr.Resolved
@@ -443,6 +388,12 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 	)
 	//
 	switch e := e.(type) {
+	case *expr.Cmp[symbol.Unresolved]:
+		lhs, lerrs := p.linkExpr(e.Left)
+		rhs, rerrs := p.linkExpr(e.Right)
+		nexpr = expr.NewCmp(e.Operator, lhs, rhs)
+
+		errors = append(lerrs, rerrs...)
 	case *expr.Add[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewAdd[symbol.Resolved](args...)
@@ -492,6 +443,18 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		nexpr = expr.NewShr[symbol.Resolved](args...)
 	case *expr.LocalAccess[symbol.Unresolved]:
 		nexpr = expr.NewLocalAccess[symbol.Resolved](e.Variable)
+	case *expr.LogicalAnd[symbol.Unresolved]:
+		args, errs := p.linkExprs(e.Exprs...)
+		nexpr = expr.NewLogicalAnd[symbol.Resolved](args...)
+		errors = errs
+	case *expr.LogicalOr[symbol.Unresolved]:
+		args, errs := p.linkExprs(e.Exprs...)
+		nexpr = expr.NewLogicalOr[symbol.Resolved](args...)
+		errors = errs
+	case *expr.LogicalNot[symbol.Unresolved]:
+		inner, errs := p.linkExpr(e.Expr)
+		nexpr = expr.NewLogicalNot[symbol.Resolved](inner)
+		errors = errs
 	case *expr.Div[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewDiv[symbol.Resolved](args...)
@@ -506,7 +469,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		nexpr = expr.NewXor[symbol.Resolved](args...)
 
 	case *expr.Ternary[symbol.Unresolved]:
-		cond, cerrs := p.linkConditionExpr(e.Cond)
+		cond, cerrs := p.linkExpr(e.Cond)
 		ifTrue, terrs := p.linkExpr(e.IfTrue)
 		ifFalse, ferrs := p.linkExpr(e.IfFalse)
 		nexpr = expr.NewTernary[symbol.Resolved](cond, ifTrue, ifFalse)

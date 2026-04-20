@@ -439,6 +439,10 @@ func branchTerminates(stmts []stmt.Resolved) bool {
 	}
 
 	switch t := stmts[len(stmts)-1].(type) {
+	case *stmt.Break[symbol.Resolved]:
+		return true
+	case *stmt.Continue[symbol.Resolved]:
+		return true
 	case *stmt.Return[symbol.Resolved]:
 		return true
 	case *stmt.Fail[symbol.Resolved]:
