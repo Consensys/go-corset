@@ -1255,6 +1255,11 @@ func (p *Parser) parseExpr(env Environment) (Expr, []source.SyntaxError) {
 		return ex, nil
 	}
 
+	// This should eventually be deprecated
+	if !isValidCondition(ex) {
+		return nil, p.srcmap.SyntaxErrors(ex, "invalid condition")
+	}
+
 	if _, errs := p.expect(QMARK); len(errs) > 0 {
 		return nil, errs
 	}
