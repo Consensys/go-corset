@@ -1,0 +1,10 @@
+const CASE_A:u8 = 0
+
+fn main() {
+
+  var case_expression:u8 = 13
+
+  switch case_expression {
+    case CASE_A -> { }
+    default -> { }
+}
