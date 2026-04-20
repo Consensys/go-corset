@@ -27,7 +27,7 @@ import (
 // error; diagnostics for those failures are already reported separately.
 func DocumentSymbolsFor(uri protocol.URI, text string) ([]interface{}, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps := compiler.CompileBestEffort(*srcfile)
+	program, srcmaps, _ := compiler.Compile(*srcfile)
 
 	env := program.Environment()
 
@@ -76,11 +76,11 @@ func declDetail(d decl.Resolved, env data.ResolvedEnvironment) string {
 	case *decl.ResolvedFunction:
 		return funcDetail(d, env)
 	case *decl.ResolvedConstant:
-		return ": " + d.DataType.String(env)
+		return ": " + dataTypeToString(d.DataType, env)
 	case *decl.ResolvedMemory:
 		return memDetail(d, env)
 	case *decl.ResolvedTypeAlias:
-		return "= " + d.DataType.String(env)
+		return "= " + dataTypeToString(d.DataType, env)
 	default:
 		return ""
 	}
@@ -96,7 +96,7 @@ func funcDetail(fn *decl.ResolvedFunction, env data.ResolvedEnvironment) string 
 			s += ", "
 		}
 
-		s += v.Name + ": " + v.DataType.String(env)
+		s += v.Name + ": " + dataTypeToString(v.DataType, env)
 	}
 
 	s += ")"
@@ -109,7 +109,7 @@ func funcDetail(fn *decl.ResolvedFunction, env data.ResolvedEnvironment) string 
 				s += ", "
 			}
 
-			s += v.Name + ": " + v.DataType.String(env)
+			s += v.Name + ": " + dataTypeToString(v.DataType, env)
 		}
 
 		s += ")"
@@ -141,7 +141,7 @@ func memDetail(m *decl.ResolvedMemory, env data.ResolvedEnvironment) string {
 			s += ", "
 		}
 
-		s += v.Name + ": " + v.DataType.String(env)
+		s += v.Name + ": " + dataTypeToString(v.DataType, env)
 	}
 
 	s += ") -> ("
@@ -151,7 +151,7 @@ func memDetail(m *decl.ResolvedMemory, env data.ResolvedEnvironment) string {
 			s += ", "
 		}
 
-		s += v.Name + ": " + v.DataType.String(env)
+		s += v.Name + ": " + dataTypeToString(v.DataType, env)
 	}
 
 	s += ")"

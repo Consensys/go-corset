@@ -49,20 +49,18 @@ func Link(files ...parser.UnlinkedSourceFile) (ast.Program, source.Maps[any], []
 		for _, declaration := range item.Components {
 			// Check whether component of same name already exists.
 			if linker.Exists(declaration.Name()) {
-				// Indicates component of same name already exists.  It would be
-				// good to report a source error here, but the problem is that
-				// our source map doesn't contain the right information.
-				msg := fmt.Sprintf("duplicate declaration %s", declaration.Name())
-				errors = append(errors, *linker.srcmap.SyntaxError(declaration, msg))
+				// Indicates component of same name already exists.
+				errors = append(errors, *linker.srcmap.SyntaxError(declaration, "duplicate declaration"))
 			} else {
 				linker.Register(declaration)
 			}
 		}
 	}
 	// Link all assembly items
-	if len(errors) == 0 {
-		program, errors = linker.Link()
-	}
+	var linkErrs []source.SyntaxError
+
+	program, linkErrs = linker.Link()
+	errors = append(errors, linkErrs...)
 	//
 	return program, linker.srcmap, errors
 }
@@ -100,18 +98,21 @@ func (p *Linker) Join(srcmap source.Map[any]) {
 
 // Register a new components with this linker.
 func (p *Linker) Register(component decl.Unresolved) {
-	// First, record name
-	p.names[component.Name()] = true
-	// Second, act on component type
-	switch c := component.(type) {
-	case decl.Unresolved:
-		// Allocate bus entry
-		p.busmap[c.Name()] = symbol.Resolved{Index: uint(len(p.busmap))}
-		//
-		p.components = append(p.components, c)
-	default:
-		// Should be unreachable
-		panic(fmt.Sprintf("unknown component %s", component.Name()))
+	// Ignore any anonymous components (i.e. includes)
+	if component.Name() != "" {
+		// First, record name
+		p.names[component.Name()] = true
+		// Second, act on component type
+		switch c := component.(type) {
+		case decl.Unresolved:
+			// Allocate bus entry
+			p.busmap[c.Name()] = symbol.Resolved{Index: uint(len(p.busmap))}
+			//
+			p.components = append(p.components, c)
+		default:
+			// Should be unreachable
+			panic(fmt.Sprintf("unknown component %s", component.Name()))
+		}
 	}
 }
 
@@ -124,50 +125,26 @@ func (p *Linker) Link() (ast.Program, []source.SyntaxError) {
 	//
 	for index := range p.components {
 		decl, errs := p.linkDeclaration(uint(index))
-		if len(errs) == 0 {
-			decls = append(decls, decl)
-		}
-		//
+		decls = append(decls, decl)
 		errors = append(errors, errs...)
-		//
+
 		p.srcmap.Copy(p.components[index], decl)
 	}
 	//
 	return ast.NewProgram(decls, p.srcmap), errors
 }
 
-// LinkBestEffort is like Link but includes every declaration in the program
-// regardless of whether it had link errors. Declarations with errors may have
-// unresolved symbols, but their names and source locations are intact, which
-// is sufficient for IDE features such as hover and go-to-definition.
-func (p *Linker) LinkBestEffort() (ast.Program, source.Maps[any]) {
-	var decls []decl.Resolved
-	//
-	for index := range p.components {
-		decl, errs := p.linkDeclaration(uint(index))
-		// Always copy the srcmap so go-to-definition can locate the declaration
-		// even when linking fails.
-		p.srcmap.Copy(p.components[index], decl)
-		// Only include structurally complete declarations in the program.
-		// Declarations with link errors may have nil DataType fields, which
-		// would panic in IDE features that call DataType.String().
-		if len(errs) == 0 {
-			decls = append(decls, decl)
-		}
-	}
-	//
-	return ast.NewProgram(decls, p.srcmap), p.srcmap
-}
-
-// Link all buses used within this function to their intended targets.  This
-// means, for every bus used locally, settings the global bus identifier and
-// also allocated registers for the address/data lines.
+// Link all external accessed used within this function to their intended
+// targets.  This means, for every bus used locally, settings the global bus
+// identifier and also allocated registers for the address/data lines.
 func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxError) {
 	switch d := p.components[index].(type) {
 	case *decl.UnresolvedConstant:
 		return p.linkConstant(*d)
 	case *decl.UnresolvedFunction:
 		return p.linkFunction(*d)
+	case *decl.UnresolvedInclude:
+		return decl.NewInclude[symbol.Resolved](d.Pattern()), nil
 	case *decl.UnresolvedMemory:
 		address, errs1 := p.linkVariableDeclarations(d.Address)
 		data, errs2 := p.linkVariableDeclarations(d.Data)
@@ -438,9 +415,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 			castType, errors = p.linkType(e.CastType)
 		}
 		//
-		if len(errors) == 0 {
-			nexpr = expr.NewCast[symbol.Resolved](arg, castType)
-		}
+		nexpr = expr.NewCast[symbol.Resolved](arg, castType)
 	case *expr.Concat[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewConcat[symbol.Resolved](args...)

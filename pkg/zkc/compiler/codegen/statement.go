@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
@@ -26,6 +27,9 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
+
+// Stmt is a convenient alias
+type Stmt = stmt.Stmt[symbol.Resolved]
 
 // Condition is a convenient alias
 type Condition = expr.Condition[symbol.Resolved]
@@ -122,7 +126,7 @@ func (p *Compiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []Micr
 			}
 		case *lval.MemAccess[symbol.Resolved]:
 			var (
-				ext = p.components[lv.Name.Index].(*Memory)
+				ext = p.components[lv.Name.Index].(*decl.ResolvedMemory)
 				// Determine vm module identifier
 				id = mapping[lv.Name.Index]
 			)
@@ -227,16 +231,16 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	case *expr.ExternAccess[symbol.Resolved]:
 		//
 		switch ext := p.components[e.Name.Index].(type) {
-		case *Constant:
+		case *decl.ResolvedConstant:
 			insns, insn = p.compileConst(p.evalConstant(e, false), mapping, targets[0])
 			unitExpr = true
-		case *Memory:
+		case *decl.ResolvedMemory:
 			if !ext.IsReadable() {
 				panic(fmt.Sprintf("unreadable memory \"%s\" encountered", e.Name.String()))
 			}
 			//
 			insns, insn = p.compileMemoryRead(e, ext, mapping, targets...)
-		case *Function:
+		case *decl.ResolvedFunction:
 			insns, insn = p.compileFunctionCall(e, ext, mapping, targets...)
 		default:
 			panic(fmt.Sprintf("unknown symbol \"%s\" encountered", e.Name.String()))
@@ -371,7 +375,7 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id,
 	return insns, instruction.NewAdd[word.Uint](target, sources, constant)
 }
 
-func (p *Compiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], fn *Function, mapping []uint,
+func (p *Compiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], fn *decl.ResolvedFunction, mapping []uint,
 	targets ...register.Id) ([]MicroInstruction, MicroInstruction) {
 	var (
 		// Determine vm module identifier
@@ -393,7 +397,7 @@ func (p *Compiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], mapp
 	return nil, instruction.NewAdd[word.Uint](target, reg, zero)
 }
 
-func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem *Memory, mapping []uint,
+func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem *decl.ResolvedMemory, mapping []uint,
 	targets ...register.Id) ([]MicroInstruction, MicroInstruction) {
 	var (
 		// Determine vm module identifier
@@ -719,7 +723,7 @@ func (p *Compiler) evalConstant(e Expr, definition bool) word.Uint {
 
 		return sliced
 	case *expr.ExternAccess[symbol.Resolved]:
-		var decl = p.components[e.Name.Index].(*Constant)
+		var decl = p.components[e.Name.Index].(*decl.ResolvedConstant)
 		return p.evalConstant(decl.ConstExpr, false)
 	default:
 		panic("unknown expression encountered")
@@ -755,7 +759,7 @@ func (p *Compiler) isConstantAccess(e Expr) bool {
 		return false
 	}
 	// Check whethe ris constant
-	_, ok = p.components[ne.Name.Index].(*Constant)
+	_, ok = p.components[ne.Name.Index].(*decl.ResolvedConstant)
 	//
 	return ok
 }

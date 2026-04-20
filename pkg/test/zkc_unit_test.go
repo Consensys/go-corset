@@ -433,6 +433,18 @@ func Test_ZkcUnit_Printf_02(t *testing.T) {
 }
 
 // ===================================================================
+// Include Tests
+// ===================================================================
+
+func Test_ZkcUnit_Include_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/include_01")
+}
+
+func Test_ZkcUnit_Include_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/include_02")
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

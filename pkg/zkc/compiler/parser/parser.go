@@ -53,7 +53,6 @@ type VariableDescriptor = variable.Descriptor[symbol.Unresolved]
 // fail with an error at link time due to an unresolvable reference to an
 // external component (e.g. function, RAM, ROM, etc).
 type UnlinkedSourceFile struct {
-	Includes []*string
 	// Components making up this assembly item.
 	Components []decl.Unresolved
 	// Mapping of instructions back to the source file.
@@ -104,100 +103,80 @@ func NewParser(srcfile *source.File) *Parser {
 // some number of syntax errors.
 func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 	var (
-		item      UnlinkedSourceFile
-		include   *string
-		errors    []source.SyntaxError
-		component decl.Unresolved
-		annotToks []lex.Token
+		item         UnlinkedSourceFile
+		errors, errs []source.SyntaxError
+		components   []decl.Unresolved
 	)
 	// Convert source file into tokens
 	if p.tokens, errors = Lex(*p.srcfile, false); len(errors) > 0 {
 		return item, errors
 	}
 	// Continue going until all consumed
-	for p.lookahead().Kind != END_OF {
-		// Parse any leading annotations (e.g. @inline), checking that each
-		// name is known.
-		if annotToks, errors = p.parseAnnotations(); len(errors) > 0 {
-			return item, errors
+	for p.lookahead().Kind != EOF {
+		// Parse declaration
+		components, errs = p.parseDeclaration()
+		// Accumulate errors
+		errors = append(errors, errs...)
+		// Check for unrecoverable error; if so, break out.
+		if components == nil {
+			break
 		}
 		//
-		lookahead := p.lookahead()
-		// Determine type of declaration
-		switch lookahead.Kind {
-		case KEYWORD_CONST:
-			var consts []decl.Unresolved
-
-			if errors = p.validateAnnotationKinds(annotToks, decl.CONSTANT_KIND); len(errors) > 0 {
-				return item, errors
-			}
-
-			consts, errors = p.parseConstant()
-			if len(errors) > 0 {
-				return item, errors
-			}
-			// Attach annotations to the first constant in the group
-			if len(annotToks) > 0 && len(consts) > 0 {
-				consts[0].SetAnnotations(p.tokenStrings(annotToks))
-			}
-
-			item.Components = append(item.Components, consts...)
-			// Avoid appending to components below
-			continue
-		case KEYWORD_INCLUDE:
-			// Annotations before an include directive are never valid.
-			if len(annotToks) > 0 {
-				return item, p.syntaxErrors(annotToks[0], "annotations not permitted before include directive")
-			}
-
-			include, errors = p.parseInclude()
-			if len(errors) == 0 {
-				item.Includes = append(item.Includes, include)
-			}
-			// Avoid appending to components
-			continue
-		case KEYWORD_FN:
-			if errors = p.validateAnnotationKinds(annotToks, decl.FUNCTION_KIND); len(errors) > 0 {
-				return item, errors
-			}
-
-			component, errors = p.parseFunction()
-		case KEYWORD_PUB, KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
-			if errors = p.validateAnnotationKinds(annotToks, decl.MEMORY_KIND); len(errors) > 0 {
-				return item, errors
-			}
-
-			component, errors = p.parseInputOutputMemory()
-		case KEYWORD_MEMORY:
-			if errors = p.validateAnnotationKinds(annotToks, decl.MEMORY_KIND); len(errors) > 0 {
-				return item, errors
-			}
-
-			component, errors = p.parseReadWriteMemory()
-		case KEYWORD_TYPE:
-			if errors = p.validateAnnotationKinds(annotToks, decl.TYPE_ALIAS_KIND); len(errors) > 0 {
-				return item, errors
-			}
-
-			component, errors = p.parseTypeAlias()
-		default:
-			errors = p.syntaxErrors(lookahead, "unknown declaration")
-		}
-		//
-		if len(errors) > 0 {
-			return item, errors
-		}
-		// Attach annotation names to the declaration
-		if len(annotToks) > 0 {
-			component.SetAnnotations(p.tokenStrings(annotToks))
-		}
-		//
-		item.Components = append(item.Components, component)
+		item.Components = append(item.Components, components...)
 	}
 	// Copy over source map
 	item.SourceMap = *p.srcmap
 	//
-	return item, nil
+	return item, errors
+}
+
+func (p *Parser) parseDeclaration() ([]decl.Declaration[symbol.Unresolved], []source.SyntaxError) {
+	var (
+		errors      []source.SyntaxError
+		components  = []decl.Unresolved{nil}
+		annotations []lex.Token
+		kind        decl.DeclarationKind
+	)
+	// Parse any leading annotations (e.g. @inline), checking that each
+	// name is known.
+	if annotations, errors = p.parseAnnotations(); len(errors) > 0 {
+		return nil, errors
+	}
+	// See what kind of declaration this is
+	lookahead := p.lookahead()
+	// Determine type of declaration
+	switch lookahead.Kind {
+	case KEYWORD_CONST:
+		kind = decl.CONSTANT_KIND
+		components, errors = p.parseConstant()
+	case KEYWORD_INCLUDE:
+		kind = decl.INCLUDE_KIND
+		components[0], errors = p.parseInclude()
+	case KEYWORD_FN:
+		kind = decl.FUNCTION_KIND
+		components[0], errors = p.parseFunction()
+	case KEYWORD_PUB, KEYWORD_INPUT, KEYWORD_OUTPUT, KEYWORD_STATIC:
+		kind = decl.MEMORY_KIND
+		components[0], errors = p.parseInputOutputMemory()
+	case KEYWORD_MEMORY:
+		kind = decl.MEMORY_KIND
+		components[0], errors = p.parseReadWriteMemory()
+	case KEYWORD_TYPE:
+		kind = decl.TYPE_ALIAS_KIND
+		components[0], errors = p.parseTypeAlias()
+	default:
+		return nil, p.syntaxErrors(lookahead, "unknown declaration")
+	}
+	//
+	errors = append(errors, p.validateAnnotationKinds(annotations, kind)...)
+	// Sanity check for unrecorable error
+	if len(components) == 0 || components[0] == nil {
+		return nil, errors
+	}
+	// Attach annotation names to the declaration
+	components[0].SetAnnotations(p.tokenStrings(annotations))
+	//
+	return components, errors
 }
 
 // parseAnnotations parses zero or more leading annotations of the form "@ident"
@@ -323,7 +302,7 @@ func (p *Parser) parseConstant() ([]decl.Unresolved, []source.SyntaxError) {
 	return consts, nil
 }
 
-func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
+func (p *Parser) parseInclude() (decl.Unresolved, []source.SyntaxError) {
 	// Parse include declaration
 	if _, errs := p.expect(KEYWORD_INCLUDE); len(errs) > 0 {
 		return nil, errs
@@ -336,12 +315,12 @@ func (p *Parser) parseInclude() (*string, []source.SyntaxError) {
 	}
 	// Process string
 	str := p.string(tok)
-	str = str[1 : len(str)-1]
-	pStr := &str
+	// Construct include
+	inc := decl.NewInclude[symbol.Unresolved](str[1 : len(str)-1])
 	// Store for error reporting.
-	p.srcmap.Put(pStr, tok.Span)
+	p.srcmap.Put(inc, tok.Span)
 	// Done
-	return pStr, errs
+	return inc, errs
 }
 
 func (p *Parser) parseFunction() (decl.Unresolved, []source.SyntaxError) {
@@ -485,11 +464,13 @@ func (p *Parser) parseArgsList(kind variable.Kind, env Environment) []source.Syn
 
 func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError) {
 	var (
+		start   = p.index
 		public  bool
 		name    string
 		errs    []source.SyntaxError
 		address []VariableDescriptor
 		data    []VariableDescriptor
+		mem     decl.Unresolved
 	)
 	// Parse optional pub modifier; private by default
 	if p.match(KEYWORD_PUB) {
@@ -520,20 +501,26 @@ func (p *Parser) parseInputOutputMemory() (decl.Unresolved, []source.SyntaxError
 	if data, errs = p.parseMemoryArgsList(variable.RETURN); len(errs) > 0 {
 		return nil, errs
 	}
+	// Save for source map
+	end := p.index
 	// Construct the appropriate memory declaration
 	switch lookahead.Kind {
 	case KEYWORD_INPUT:
-		return decl.NewReadOnlyMemory[symbol.Unresolved](public, name, address, data), nil
+		mem = decl.NewReadOnlyMemory[symbol.Unresolved](public, name, address, data)
 	case KEYWORD_OUTPUT:
-		return decl.NewWriteOnceMemory[symbol.Unresolved](public, name, address, data), nil
+		mem = decl.NewWriteOnceMemory[symbol.Unresolved](public, name, address, data)
 	default: // KEYWORD_STATIC
 		contents, errs := p.parseStaticInitialiser()
 		if len(errs) > 0 {
 			return nil, errs
 		}
-
-		return decl.NewStaticMemory[symbol.Unresolved](public, name, address, data, contents), nil
+		//
+		mem = decl.NewStaticMemory[symbol.Unresolved](public, name, address, data, contents)
 	}
+	//
+	p.srcmap.Put(mem, p.spanOf(start, end-1))
+	//
+	return mem, nil
 }
 
 // parseStaticInitialiser parses a brace-enclosed comma-separated list of
@@ -576,6 +563,7 @@ func (p *Parser) parseStaticInitialiser() ([]expr.Unresolved, []source.SyntaxErr
 
 func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) {
 	var (
+		start   = p.index
 		name    string
 		errs    []source.SyntaxError
 		address []VariableDescriptor
@@ -603,7 +591,9 @@ func (p *Parser) parseReadWriteMemory() (decl.Unresolved, []source.SyntaxError) 
 	}
 	// Done
 	mem := decl.NewRandomAccessMemory[symbol.Unresolved](name, address, data)
-
+	//
+	p.srcmap.Put(mem, p.spanOf(start, p.index-1))
+	//
 	return mem, nil
 }
 

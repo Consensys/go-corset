@@ -17,6 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
@@ -39,7 +40,7 @@ func compileFunction(
 ) (*function.Boot[word.Uint], []source.SyntaxError) {
 	//
 	var (
-		fn        = program[id].(*Function)
+		fn        = program[id].(*decl.ResolvedFunction)
 		registers []register.Register
 		padding   big.Int // zero padding
 		bootCode  = make([]instruction.Instruction[word.Uint], len(fn.Code))

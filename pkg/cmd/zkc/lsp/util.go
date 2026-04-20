@@ -15,6 +15,8 @@ package lsp
 import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"go.lsp.dev/protocol"
 )
 
@@ -71,4 +73,15 @@ func tokenAtOffset(tokens []lex.Token, offset int) (lex.Token, bool) {
 	}
 
 	return lex.Token{}, false
+}
+
+// dataTypeToString converts a data type to its string representation. A nil
+// type can arise when the compiler encounters an error (e.g. an unresolved
+// symbol), so we guard against that here to avoid crashing the LSP server.
+func dataTypeToString(datatype data.Type[symbol.Resolved], env data.ResolvedEnvironment) string {
+	if datatype == nil {
+		return "???"
+	}
+	//
+	return datatype.String(env)
 }

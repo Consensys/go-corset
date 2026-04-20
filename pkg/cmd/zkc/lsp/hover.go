@@ -29,7 +29,7 @@ import (
 // compiled).
 func HoverFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.Hover, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps := compiler.CompileBestEffort(*srcfile)
+	program, srcmaps, _ := compiler.Compile(*srcfile)
 
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)
@@ -114,7 +114,7 @@ func hoverLocalVariable(
 				return &protocol.Hover{
 					Contents: protocol.MarkupContent{
 						Kind:  protocol.Markdown,
-						Value: "```zkc\n" + name + ": " + v.DataType.String(env) + "\n```",
+						Value: "```zkc\n" + name + ": " + dataTypeToString(v.DataType, env) + "\n```",
 					},
 				}
 			}
@@ -133,11 +133,11 @@ func formatDeclaration(d decl.Resolved, env data.ResolvedEnvironment) string {
 	case *decl.ResolvedFunction:
 		sig = formatFunctionDecl(d, env)
 	case *decl.ResolvedConstant:
-		sig = "const " + d.Name() + ": " + d.DataType.String(env)
+		sig = "const " + d.Name() + ": " + dataTypeToString(d.DataType, env)
 	case *decl.ResolvedMemory:
 		sig = formatMemoryDecl(d, env)
 	case *decl.ResolvedTypeAlias:
-		sig = "type " + d.Name() + " = " + d.DataType.String(env)
+		sig = "type " + d.Name() + " = " + dataTypeToString(d.DataType, env)
 	default:
 		sig = d.Name()
 	}
@@ -178,7 +178,7 @@ func formatFunctionDecl(fn *decl.ResolvedFunction, env data.ResolvedEnvironment)
 
 		sb.WriteString(v.Name)
 		sb.WriteString(": ")
-		sb.WriteString(v.DataType.String(env))
+		sb.WriteString(dataTypeToString(v.DataType, env))
 	}
 
 	sb.WriteString(")")
@@ -194,7 +194,7 @@ func formatFunctionDecl(fn *decl.ResolvedFunction, env data.ResolvedEnvironment)
 
 			sb.WriteString(v.Name)
 			sb.WriteString(": ")
-			sb.WriteString(v.DataType.String(env))
+			sb.WriteString(dataTypeToString(v.DataType, env))
 		}
 
 		sb.WriteString(")")
@@ -295,7 +295,7 @@ func formatMemoryDecl(m *decl.ResolvedMemory, env data.ResolvedEnvironment) stri
 
 		sb.WriteString(v.Name)
 		sb.WriteString(": ")
-		sb.WriteString(v.DataType.String(env))
+		sb.WriteString(dataTypeToString(v.DataType, env))
 	}
 
 	sb.WriteString(")")
@@ -310,7 +310,7 @@ func formatMemoryDecl(m *decl.ResolvedMemory, env data.ResolvedEnvironment) stri
 
 		sb.WriteString(v.Name)
 		sb.WriteString(": ")
-		sb.WriteString(v.DataType.String(env))
+		sb.WriteString(dataTypeToString(v.DataType, env))
 	}
 
 	sb.WriteString(")")

@@ -109,6 +109,21 @@ func Test_ZkcInvalid_Basic_21(t *testing.T) {
 func Test_ZkcInvalid_Basic_22(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_22")
 }
+func Test_ZkcInvalid_Basic_23(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_23")
+}
+func Test_ZkcInvalid_Basic_24(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_24")
+}
+func Test_ZkcInvalid_Basic_25(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_25")
+}
+func Test_ZkcInvalid_Basic_26(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_26")
+}
+func Test_ZkcInvalid_Basic_27(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_27")
+}
 
 // ===================================================================
 // If Tests
@@ -156,6 +171,12 @@ func Test_ZkcInvalid_Const_05(t *testing.T) {
 
 func Test_ZkcInvalid_Const_06(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/const_06")
+}
+func Test_ZkcInvalid_Const_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/const_07")
+}
+func Test_ZkcInvalid_Const_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/const_08")
 }
 
 // ===================================================================
@@ -358,6 +379,19 @@ func Test_ZkcInvalid_Memory_12(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/memory_12")
 }
 
+func Test_ZkcInvalid_Memory_13(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_13")
+}
+func Test_ZkcInvalid_Memory_14(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_14")
+}
+func Test_ZkcInvalid_Memory_15(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_15")
+}
+func Test_ZkcInvalid_Memory_16(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/memory_16")
+}
+
 // ===================================================================
 // Static Tests
 // ===================================================================
@@ -421,6 +455,10 @@ func Test_ZkcInvalid_Call_06(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/call_06")
 }
 
+func Test_ZkcInvalid_Call_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/call_07")
+}
+
 // ===================================================================
 // Division Tests
 // ===================================================================
@@ -481,6 +519,10 @@ func Test_ZkcInvalid_Cast_02(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/cast_02")
 }
 
+func Test_ZkcInvalid_Cast_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/cast_03")
+}
+
 // ===================================================================
 // Type Tests
 // ===================================================================
@@ -515,6 +557,13 @@ func Test_ZkcInvalid_Type_07(t *testing.T) {
 
 func Test_ZkcInvalid_Type_08(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_08")
+}
+
+func Test_ZkcInvalid_Type_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_09")
+}
+func Test_ZkcInvalid_Type_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/type_10")
 }
 
 // ===================================================================
