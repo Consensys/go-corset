@@ -43,11 +43,6 @@ type Assign[S symbol.Symbol[S]] struct {
 	Source expr.Expr[S]
 }
 
-// Buses implementation for Instruction interface
-func (p *Assign[S]) Buses() []S {
-	panic("todo")
-}
-
 // Uses implementation for Instruction interface.
 func (p *Assign[S]) Uses() []variable.Id {
 	return expr.Uses[S](p.Source)

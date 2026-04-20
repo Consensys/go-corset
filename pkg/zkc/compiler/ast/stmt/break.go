@@ -24,11 +24,6 @@ type Break[S symbol.Symbol[S]] struct {
 	Dummy uint
 }
 
-// Buses implementation for Stmt interface
-func (p *Break[S]) Buses() []S {
-	return nil
-}
-
 // Uses implementation for Stmt interface.
 func (p *Break[S]) Uses() []variable.Id {
 	return nil

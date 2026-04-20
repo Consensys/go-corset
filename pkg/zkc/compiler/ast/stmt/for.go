@@ -34,11 +34,6 @@ type For[S symbol.Symbol[S]] struct {
 	Body []Stmt[S]
 }
 
-// Buses implementation for Stmt interface
-func (p *For[S]) Buses() []S {
-	panic("todo")
-}
-
 // Uses implementation for Stmt interface.
 func (p *For[S]) Uses() []variable.Id {
 	var reads []variable.Id

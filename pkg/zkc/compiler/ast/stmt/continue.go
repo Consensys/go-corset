@@ -24,11 +24,6 @@ type Continue[S symbol.Symbol[S]] struct {
 	Dummy uint
 }
 
-// Buses implementation for Stmt interface
-func (p *Continue[S]) Buses() []S {
-	return nil
-}
-
 // Uses implementation for Stmt interface.
 func (p *Continue[S]) Uses() []variable.Id {
 	return nil

@@ -36,11 +36,6 @@ type Printf[S symbol.Symbol[S]] struct {
 	Arguments []expr.Expr[S]
 }
 
-// Buses implementation for Instruction interface
-func (p *Printf[S]) Buses() []S {
-	return nil
-}
-
 // Uses implementation for Instruction interface.
 func (p *Printf[S]) Uses() []variable.Id {
 	return expr.Uses(p.Arguments...)

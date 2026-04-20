@@ -15,6 +15,7 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
@@ -300,6 +301,20 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 		ninsn = &stmt.Printf[symbol.Resolved]{Chunks: s.Chunks, Arguments: args}
 	case *stmt.Return[symbol.Unresolved]:
 		ninsn = &stmt.Return[symbol.Resolved]{}
+	case *stmt.VarDecl[symbol.Unresolved]:
+		if s.Init.IsEmpty() {
+			ninsn = &stmt.VarDecl[symbol.Resolved]{
+				Variables: s.Variables,
+				Init:      util.None[expr.Resolved](),
+			}
+		} else {
+			rhs, errs := p.linkExpr(s.Init.Unwrap())
+			ninsn = &stmt.VarDecl[symbol.Resolved]{
+				Variables: s.Variables,
+				Init:      util.Some[expr.Resolved](rhs),
+			}
+			errors = errs
+		}
 	case *stmt.While[symbol.Unresolved]:
 		cond, errs1 := p.linkExpr(s.Cond)
 		body, errs2 := p.linkStatements(s.Body)

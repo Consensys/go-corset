@@ -18,6 +18,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
@@ -82,6 +83,8 @@ func lowerStatement(pc uint, s stmt.Resolved, env *lowerEnv, srcmaps source.Maps
 		return lowerBreak(t, env, srcmaps)
 	case *stmt.Continue[symbol.Resolved]:
 		return lowerContinue(t, env, srcmaps)
+	case *stmt.VarDecl[symbol.Resolved]:
+		return lowerVarDecl(t, srcmaps)
 	default:
 		return []stmt.Resolved{lowerStatementExprs(s, srcmaps)}
 	}
@@ -342,6 +345,20 @@ func lowerContinue(s *stmt.Continue[symbol.Resolved], env *lowerEnv, srcmaps sou
 	srcmaps.Copy(s, g)
 
 	return []stmt.Resolved{g}
+}
+
+func lowerVarDecl(s *stmt.VarDecl[symbol.Resolved], srcmaps source.Maps[any]) []stmt.Resolved {
+	if s.Init.IsEmpty() {
+		return nil
+	}
+
+	assign := &stmt.Assign[symbol.Resolved]{
+		Targets: []lval.LVal[symbol.Resolved]{lval.NewVariable[symbol.Resolved](s.Variables[0])},
+		Source:  lowerExpr(s.Init.Unwrap(), srcmaps),
+	}
+	srcmaps.Copy(s, assign)
+
+	return []stmt.Resolved{assign}
 }
 
 // flatternCondition converts a condition expression into a flat sequence of
