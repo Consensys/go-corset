@@ -379,18 +379,6 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	return nlval, errs
 }
 
-func (p *Linker) linkCondition(cond expr.UnresolvedCondition) (expr.ResolvedCondition, []source.SyntaxError) {
-	switch e := cond.(type) {
-	case *expr.Cmp[symbol.Unresolved]:
-		lhs, lerrs := p.linkExpr(e.Left)
-		rhs, rerrs := p.linkExpr(e.Right)
-		//
-		return expr.NewCmp(e.Operator, lhs, rhs), append(lerrs, rerrs...)
-	default:
-		return nil, p.srcmap.SyntaxErrors(cond, "invalid condition")
-	}
-}
-
 // linkConditionExpr links a condition expression (Cmp, LogicalAnd, LogicalOr,
 // LogicalNot) used as a control-flow predicate in if/else, while, or for
 // statements.  This is kept separate from linkExpr to avoid accepting condition
@@ -518,7 +506,7 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		nexpr = expr.NewXor[symbol.Resolved](args...)
 
 	case *expr.Ternary[symbol.Unresolved]:
-		cond, cerrs := p.linkCondition(e.Cond)
+		cond, cerrs := p.linkConditionExpr(e.Cond)
 		ifTrue, terrs := p.linkExpr(e.IfTrue)
 		ifFalse, ferrs := p.linkExpr(e.IfFalse)
 		nexpr = expr.NewTernary[symbol.Resolved](cond, ifTrue, ifFalse)

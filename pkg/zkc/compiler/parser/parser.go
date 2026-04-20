@@ -1256,9 +1256,9 @@ func (p *Parser) parseTernaryOrExpr(env Environment) (Expr, []source.SyntaxError
 	}
 
 	// We have a '?' — this is a ternary candidate. Require the condition to be a
-	// comparison expression; otherwise, leave parsing of '?' to higher-level logic.
-	cond, ok := ex.(*expr.Cmp[symbol.Unresolved])
-	if !ok {
+	// valid condition expression (comparison or logical); otherwise, leave parsing
+	// of '?' to higher-level logic.
+	if !isValidCondition(ex) {
 		return ex, nil
 	}
 
@@ -1280,7 +1280,7 @@ func (p *Parser) parseTernaryOrExpr(env Environment) (Expr, []source.SyntaxError
 		return nil, errs
 	}
 
-	result := expr.NewTernary[symbol.Unresolved](cond, ifTrue, ifFalse)
+	result := expr.NewTernary[symbol.Unresolved](ex, ifTrue, ifFalse)
 	p.srcmap.Put(result, p.spanOf(start, p.index-1))
 
 	return result, nil

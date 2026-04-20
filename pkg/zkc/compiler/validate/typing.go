@@ -318,6 +318,16 @@ func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap, e
 	}
 }
 
+// typeTernaryCondition type-checks the condition of a ternary expression.
+// After lowering, the condition is always a single Cmp node.
+func (p *TypeChecker) typeTernaryCondition(e expr.Resolved, env VariableMap, effects bit.Set) []source.SyntaxError {
+	if cmp, ok := e.(*expr.Cmp[symbol.Resolved]); ok {
+		return p.typeCmp(cmp, env, effects)
+	}
+
+	return p.srcmaps.SyntaxErrors(e, "invalid ternary condition")
+}
+
 func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap, effects bit.Set) []source.SyntaxError {
 	var (
 		lhs, lerrs = p.typeExpression(nil, e.Left, env, effects)
@@ -376,7 +386,7 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	case *expr.Xor[symbol.Resolved]:
 		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
 	case *expr.Ternary[symbol.Resolved]:
-		errs = append(errs, p.typeCondition(e.Cond, env, effects)...)
+		errs = append(errs, p.typeTernaryCondition(e.Cond, env, effects)...)
 		tt, terrs := p.typeExpression(expected, e.IfTrue, env, effects)
 		ft, ferrs := p.typeExpression(expected, e.IfFalse, env, effects)
 

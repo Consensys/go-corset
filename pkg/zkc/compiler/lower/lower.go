@@ -83,7 +83,136 @@ func lowerStatement(pc uint, s stmt.Resolved, env *lowerEnv, srcmaps source.Maps
 	case *stmt.Continue[symbol.Resolved]:
 		return lowerContinue(t, env, srcmaps)
 	default:
-		return []stmt.Resolved{s}
+		return []stmt.Resolved{lowerStatementExprs(s, srcmaps)}
+	}
+}
+
+// lowerStatementExprs lowers ternary conditions within the expressions of a
+// flat (leaf) statement so that every Ternary.Cond is a single Cmp node.
+func lowerStatementExprs(s stmt.Resolved, srcmaps source.Maps[any]) stmt.Resolved {
+	switch t := s.(type) {
+	case *stmt.Assign[symbol.Resolved]:
+		ns := &stmt.Assign[symbol.Resolved]{Targets: t.Targets, Source: lowerExpr(t.Source, srcmaps)}
+
+		srcmaps.Copy(s, ns)
+
+		return ns
+	case *stmt.Printf[symbol.Resolved]:
+		ns := &stmt.Printf[symbol.Resolved]{Chunks: t.Chunks, Arguments: lowerExprs(t.Arguments, srcmaps)}
+
+		srcmaps.Copy(s, ns)
+
+		return ns
+	default:
+		return s
+	}
+}
+
+// lowerExprs lowers a slice of expressions.
+func lowerExprs(exprs []expr.Resolved, srcmaps source.Maps[any]) []expr.Resolved {
+	result := make([]expr.Resolved, len(exprs))
+
+	for i, e := range exprs {
+		result[i] = lowerExpr(e, srcmaps)
+	}
+
+	return result
+}
+
+// lowerExpr recursively lowers ternary conditions within an expression so that
+// every Ternary.Cond is a single Cmp node after lowering.
+func lowerExpr(e expr.Resolved, srcmaps source.Maps[any]) expr.Resolved {
+	switch t := e.(type) {
+	case *expr.Ternary[symbol.Resolved]:
+		ifTrue := lowerExpr(t.IfTrue, srcmaps)
+		ifFalse := lowerExpr(t.IfFalse, srcmaps)
+
+		return lowerTernaryCondition(t.Cond, ifTrue, ifFalse, srcmaps, e)
+	case *expr.Add[symbol.Resolved]:
+		return expr.NewAdd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Sub[symbol.Resolved]:
+		return expr.NewSub[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Mul[symbol.Resolved]:
+		return expr.NewMul[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Div[symbol.Resolved]:
+		return expr.NewDiv[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Rem[symbol.Resolved]:
+		return expr.NewRem[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.BitwiseAnd[symbol.Resolved]:
+		return expr.NewBitwiseAnd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.BitwiseOr[symbol.Resolved]:
+		return expr.NewBitwiseOr[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Xor[symbol.Resolved]:
+		return expr.NewXor[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Shl[symbol.Resolved]:
+		return expr.NewShl[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Shr[symbol.Resolved]:
+		return expr.NewShr[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Concat[symbol.Resolved]:
+		return expr.NewConcat[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.Cast[symbol.Resolved]:
+		return expr.NewCast[symbol.Resolved](lowerExpr(t.Expr, srcmaps), t.CastType)
+	case *expr.BitwiseNot[symbol.Resolved]:
+		return expr.NewBitwiseNot[symbol.Resolved](lowerExpr(t.Expr, srcmaps))
+	case *expr.ExternAccess[symbol.Resolved]:
+		return expr.NewExternAccess[symbol.Resolved](t.Name, lowerExprs(t.Args, srcmaps)...)
+	default:
+		// Const, LocalAccess — leaf nodes with no sub-expressions to lower.
+		return e
+	}
+}
+
+// lowerTernaryCondition converts a ternary with a complex condition into nested
+// ternaries each having a simple Cmp condition:
+//   - (a && b) ? v1 : v2  →  a ? (b ? v1 : v2) : v2
+//   - (a || b) ? v1 : v2  →  a ? v1 : (b ? v1 : v2)
+//   - (!a)     ? v1 : v2  →  a ? v2 : v1
+func lowerTernaryCondition(
+	cond, ifTrue, ifFalse expr.Resolved, srcmaps source.Maps[any], orig expr.Resolved,
+) expr.Resolved {
+	switch c := cond.(type) {
+	case *expr.Cmp[symbol.Resolved]:
+		t := &expr.Ternary[symbol.Resolved]{Cond: cond, IfTrue: ifTrue, IfFalse: ifFalse}
+
+		srcmaps.Copy(orig, t)
+
+		return t
+	case *expr.LogicalNot[symbol.Resolved]:
+		return lowerTernaryCondition(c.Expr, ifFalse, ifTrue, srcmaps, orig)
+	case *expr.LogicalAnd[symbol.Resolved]:
+		first := c.Exprs[0]
+
+		var rest expr.Resolved
+
+		if len(c.Exprs) == 2 {
+			rest = c.Exprs[1]
+		} else {
+			r := expr.NewLogicalAnd[symbol.Resolved](c.Exprs[1:]...)
+			srcmaps.Copy(orig, r)
+			rest = r
+		}
+
+		inner := lowerTernaryCondition(rest, ifTrue, ifFalse, srcmaps, orig)
+
+		return lowerTernaryCondition(first, inner, ifFalse, srcmaps, orig)
+	case *expr.LogicalOr[symbol.Resolved]:
+		first := c.Exprs[0]
+
+		var rest expr.Resolved
+
+		if len(c.Exprs) == 2 {
+			rest = c.Exprs[1]
+		} else {
+			r := expr.NewLogicalOr[symbol.Resolved](c.Exprs[1:]...)
+			srcmaps.Copy(orig, r)
+			rest = r
+		}
+
+		inner := lowerTernaryCondition(rest, ifTrue, ifFalse, srcmaps, orig)
+
+		return lowerTernaryCondition(first, ifTrue, inner, srcmaps, orig)
+	default:
+		panic("unexpected condition type in ternary lowering")
 	}
 }
 
