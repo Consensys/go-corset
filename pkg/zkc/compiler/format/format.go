@@ -48,30 +48,29 @@ type formatter struct {
 // (constants, functions, and type aliases). Comments before memory declarations
 // are accumulated and flushed before the next source-mapped declaration.
 func Format(w io.Writer, file parser.UnlinkedSourceFile, src source.File) error {
-	f := &formatter{
-		w:    bufio.NewWriter(w),
-		cmts: collectComments(src),
-	}
-	// Emit include directives.
-	for _, inc := range file.Includes {
-		f.writeln("include \"" + *inc + "\"")
-	}
-
-	if len(file.Includes) > 0 && len(file.Components) > 0 {
-		f.writeln("")
-	}
-
+	var (
+		includes = true
+		// Construct fomrmatter
+		f = &formatter{
+			w:    bufio.NewWriter(w),
+			cmts: collectComments(src),
+		}
+	)
 	// Emit declarations.
 	for i, comp := range file.Components {
-		if i != 0 {
+		var _, inc = comp.(*decl.UnresolvedInclude)
+		// Update record of include block
+		includes = includes && inc
+		// Add spacing
+		if !includes && i != 0 {
 			f.writeln("")
 		}
-
+		// Emit comments
 		if file.SourceMap.Has(comp) {
 			span := file.SourceMap.Get(comp)
 			f.flushComments(span.Start())
 		}
-
+		//
 		f.formatDecl(comp)
 	}
 
@@ -138,6 +137,8 @@ func (f *formatter) formatDecl(d decl.Unresolved) {
 		f.formatConstant(d)
 	case *decl.Function[symbol.Unresolved]:
 		f.formatFunction(d)
+	case *decl.Include[symbol.Unresolved]:
+		f.formatInclude(d)
 	case *decl.Memory[symbol.Unresolved]:
 		f.formatMemory(d)
 	case *decl.TypeAlias[symbol.Unresolved]:
@@ -199,6 +200,10 @@ func (f *formatter) formatFunction(fn *decl.Function[symbol.Unresolved]) {
 
 	f.indent--
 	f.writeln("}")
+}
+
+func (f *formatter) formatInclude(m *decl.Include[symbol.Unresolved]) {
+	f.writeln(fmt.Sprintf("include \"%s\"", m.Pattern()))
 }
 
 func (f *formatter) formatMemory(m *decl.Memory[symbol.Unresolved]) {
