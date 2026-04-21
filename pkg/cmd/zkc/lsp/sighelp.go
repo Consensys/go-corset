@@ -27,7 +27,7 @@ import (
 // inside a function-call argument list or the callee cannot be resolved.
 func SignatureHelpFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.SignatureHelp, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, _ := compiler.CompileBestEffort(*srcfile)
+	program, _, _ := compiler.Compile(*srcfile)
 
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)
@@ -133,7 +133,7 @@ func buildSignatureInfo(fn *decl.ResolvedFunction, env data.ResolvedEnvironment)
 	params := make([]protocol.ParameterInformation, 0, len(fn.Inputs()))
 	for _, v := range fn.Inputs() {
 		params = append(params, protocol.ParameterInformation{
-			Label: v.Name + ": " + v.DataType.String(env),
+			Label: v.Name + ": " + dataTypeToString(v.DataType, env),
 		})
 	}
 

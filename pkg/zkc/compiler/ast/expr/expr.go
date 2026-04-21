@@ -61,7 +61,9 @@ func Uses[S symbol.Symbol[S]](exprs ...Expr[S]) []variable.Id {
 	)
 	// extract all usages
 	for _, e := range exprs {
-		bits.Union(e.LocalUses())
+		if e != nil {
+			bits.Union(e.LocalUses())
+		}
 	}
 	// Collect them all up
 	for iter := bits.Iter(); iter.HasNext(); {

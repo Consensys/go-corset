@@ -69,6 +69,8 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 			errors = append(errors, typer.typeConstant(*d)...)
 		case *decl.ResolvedFunction:
 			errors = append(errors, typer.typeFunction(*d)...)
+		case *decl.ResolvedInclude:
+			// ignore
 		case *decl.ResolvedMemory:
 			errors = append(errors, typer.typeMemory(*d)...)
 		case *decl.ResolvedTypeAlias:
@@ -194,24 +196,18 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 	// determine lhs width
 	switch t := target.(type) {
 	case *lval.Variable[symbol.Resolved]:
-		var bitwidth uint
 		// Special case single variables
 		if len(t.Ids) == 1 {
 			return env.Variable(t.Ids[0]).DataType, nil
 		}
 		// Consider destructurings
-		for _, id := range t.Ids {
-			id_t := env.Variable(id).DataType.AsUint(p.env)
-			// Check whether have integer type or not
-			if id_t == nil {
-				return nil, p.srcmaps.SyntaxErrors(target, "expected integer type")
-			}
-			//
-			bitwidth += id_t.BitWidth()
-		}
-		//
-		return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
+		return p.typeDestructuringLval(t, env)
 	case *lval.MemAccess[symbol.Resolved]:
+		// Unknown external access cannot be typed.  This case handles some kind of
+		// linking error earlier in the compilation pipeline.
+		if t.Name.IsUnknown() {
+			return nil, nil
+		}
 		// Lookup the symbol
 		var extern = p.lookup(t.Name)
 		//
@@ -228,6 +224,43 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 	}
 	//
 	return nil, p.srcmaps.SyntaxErrors(target, "unknown lval")
+}
+
+func (p *TypeChecker) typeDestructuringLval(target *lval.Variable[symbol.Resolved], env VariableMap,
+) (Type, []source.SyntaxError) {
+	//
+	var (
+		bitwidth uint
+		ok       bool = true
+		errors   []source.SyntaxError
+	)
+	// Consider destructurings
+	for _, id := range target.Ids {
+		var (
+			// Extract type of this variable
+			ith_t = env.Variable(id).DataType
+			// Check well-formedness of this variable
+			ith_ok = wellFormed(ith_t, p.env)
+		)
+		//
+		if !ith_ok {
+			// Component not well-formed, hence cannot determine result type.
+			ok = false
+		} else if t := ith_t.AsUint(p.env); t != nil {
+			bitwidth += t.BitWidth()
+		} else {
+			// Component not well-formed, hence cannot determine result type.
+			ok = false
+			// Include syntax error
+			errors = append(errors, *p.srcmaps.SyntaxError(target, "expected integer type"))
+		}
+	}
+	//
+	if !ok {
+		return nil, errors
+	}
+	//
+	return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
 }
 
 func (p *TypeChecker) typeMemoryLVal(c *decl.ResolvedMemory, e *lval.MemAccess[symbol.Resolved],
@@ -297,12 +330,14 @@ func (p *TypeChecker) typePrintf(s *stmt.Printf[symbol.Resolved], env VariableMa
 	for _, e := range s.Arguments {
 		ith, ierrs := p.typeExpression(nil, e, env, effects)
 		//
-		if len(ierrs) == 0 && ith.AsUint(p.env) == nil {
-			errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint"))
-		} else if len(ierrs) == 0 && ith.AsUint(p.env).IsOpen() {
-			errs = append(errs, *p.srcmaps.SyntaxError(e, "concrete type required"))
-		} else {
+		if len(ierrs) > 0 {
 			errs = append(errs, ierrs...)
+		} else if !wellFormed(ith, p.env) {
+			// silently skip - error already reported earlier in pipeline
+		} else if ith.AsUint(p.env) == nil {
+			errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint"))
+		} else if ith.AsUint(p.env).IsOpen() {
+			errs = append(errs, *p.srcmaps.SyntaxError(e, "concrete type required"))
 		}
 	}
 	//
@@ -334,11 +369,11 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap, eff
 		rhs, rerrs = p.typeExpression(lhs, e.Right, env, effects)
 	)
 	// Check left-hand side
-	if len(lerrs) == 0 && lhs.AsUint(p.env) == nil {
+	if len(lerrs) == 0 && wellFormed(lhs, p.env) && lhs.AsUint(p.env) == nil {
 		lerrs = p.srcmaps.SyntaxErrors(e.Left, "expected uint")
 	}
 	// Check right-hand side
-	if len(rerrs) == 0 && rhs.AsUint(p.env) == nil {
+	if len(rerrs) == 0 && wellFormed(rhs, p.env) && rhs.AsUint(p.env) == nil {
 		rerrs = p.srcmaps.SyntaxErrors(e.Right, "expected uint")
 	}
 	// Check matching types
@@ -352,6 +387,14 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap, eff
 
 func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env VariableMap, effects bit.Set,
 ) (actual Type, errs []source.SyntaxError) {
+	// Sanity check for expressions which failed earlier in the compiler
+	// pipeline.  This is necessary because we want to produce as many errors as
+	// possible (i.e. producing errors even when other parts fail for some
+	// reaosn).
+	if e == nil {
+		return nil, nil
+	}
+	// Decide what kind of expression we have.
 	switch e := e.(type) {
 	case *expr.Cast[symbol.Resolved]:
 		actual, errs = p.typeCastExpression(expected, e, env, effects)
@@ -415,19 +458,23 @@ func (p *TypeChecker) typeUintExpressions(t Type, exprs []expr.Resolved, env Var
 	for i, e := range exprs {
 		ith_t, errs := p.typeExpression(t, e, env, effects)
 		//
-		if len(errs) > 0 {
+		if len(errs) > 0 || !wellFormed(ith_t, p.env) {
 			errors = append(errors, errs...)
 		} else if i == 0 && ith_t.AsUint(p.env) == nil {
 			return nil, append(errors, *p.srcmaps.SyntaxError(exprs[i], "expected uint"))
 		} else if i == 0 {
 			res = ith_t.AsUint(p.env)
-		} else if len(errors) > 0 {
+		} else if res == nil {
 			// skip type checking
 		} else if errs := p.checkEquiTypes(ith_t, res, exprs[i]); len(errs) > 0 {
 			errors = append(errors, errs...)
 		} else {
 			res = res.Join(exprs[i].Type().AsUint(p.env))
 		}
+	}
+	// Return true nil
+	if res == nil {
+		return nil, errors
 	}
 	//
 	return res, errors
@@ -443,8 +490,9 @@ func (p *TypeChecker) typeArithmeticExpression(t Type, exprs []expr.Resolved, en
 func (p *TypeChecker) typeConcatExpression(t Type, e *expr.Concat[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	var (
-		errors   []source.SyntaxError
-		bitwidth uint
+		errors     []source.SyntaxError
+		bitwidth   uint
+		untypeable bool
 	)
 	//
 	for _, e := range e.Exprs {
@@ -452,6 +500,10 @@ func (p *TypeChecker) typeConcatExpression(t Type, e *expr.Concat[symbol.Resolve
 		//
 		if len(errs) > 0 {
 			errors = append(errors, errs...)
+		} else if !wellFormed(ith_t, p.env) {
+			// This expression is untypeable because it contains a component
+			// which is untypeable due to some earlier error in the pipeline.
+			untypeable = true
 		} else if ith_t := ith_t.AsUint(p.env); ith_t == nil {
 			return nil, append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
 		} else if ith_t := ith_t.AsUint(p.env); ith_t.IsOpen() {
@@ -461,17 +513,21 @@ func (p *TypeChecker) typeConcatExpression(t Type, e *expr.Concat[symbol.Resolve
 		}
 	}
 	//
-	return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), nil
+	if untypeable {
+		return nil, errors
+	}
+	//
+	return data.NewUnsignedInt[symbol.Resolved](bitwidth, false), errors
 }
 
-func (p *TypeChecker) typeCastExpression(t Type, e *expr.Cast[symbol.Resolved], env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeCastExpression(_ Type, e *expr.Cast[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	var (
 		srcType, errors = p.typeExpression(nil, e.Expr, env, effects)
 	)
-	//
-	if len(errors) == 0 && !data.SubtypeOf(e.CastType, srcType, p.env) && !data.SubtypeOf(srcType, e.CastType, p.env) {
-		errors = p.srcmaps.SyntaxErrors(e.Expr, fmt.Sprintf("expected type %s", e.CastType.String(p.env)))
+	// Sanity check whether the cast makes sense (or not).
+	if len(errors) == 0 {
+		errors = p.checkCastType(e.CastType, srcType, e.Expr)
 	}
 	//
 	return e.CastType, errors
@@ -483,15 +539,21 @@ func (p *TypeChecker) typeCastExpression(t Type, e *expr.Cast[symbol.Resolved], 
 func (p *TypeChecker) typeShiftExpression(t Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	var (
-		arg, errors = p.typeExpression(t, exprs[0], env, effects)
-		_, errs2    = p.typeUintExpressions(nil, exprs[1:], env, effects)
-		res         *data.UnsignedInt[symbol.Resolved]
+		arg_t, errors = p.typeExpression(t, exprs[0], env, effects)
+		_, errs2      = p.typeUintExpressions(nil, exprs[1:], env, effects)
+		res           *data.UnsignedInt[symbol.Resolved]
 	)
 	// Sanity check argument
 	if len(errors) > 0 {
 		// don't type check as other problems
-	} else if res = arg.AsUint(p.env); res == nil {
+	} else if !wellFormed(arg_t, p.env) {
+		// silently skip - error already reported earlier in pipeline
+	} else if res = arg_t.AsUint(p.env); res == nil {
 		return nil, append(errors, *p.srcmaps.SyntaxError(exprs[0], "expected uint"))
+	}
+	// Return true nil
+	if res == nil {
+		return nil, append(errors, errs2...)
 	}
 	//
 	return res, append(errors, errs2...)
@@ -503,6 +565,9 @@ func (p *TypeChecker) typeBitwiseNot(t Type, e *expr.BitwiseNot[symbol.Resolved]
 	//
 	if len(errs) > 0 {
 		return nil, errs
+	} else if !wellFormed(t, p.env) {
+		// silently skip - error already reported earlier in pipeline
+		return nil, nil
 	} else if t.AsUint(p.env) == nil {
 		return nil, p.srcmaps.SyntaxErrors(e.Expr, "expected uint")
 	}
@@ -531,7 +596,12 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
-	// Lookup the symbol
+	// Unknown external access cannot be typed.  This case handles some kind of
+	// linking error earlier in the compilation pipeline.
+	if e.Name.IsUnknown() {
+		return nil, nil
+	}
+	// Known external access, therefore lookup symbol
 	var extern = p.lookup(e.Name)
 	// Decide what kind of symbol it is
 	switch t := extern.(type) {
@@ -618,10 +688,54 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 	return variable.DescriptorsToType(c.Outputs()...), errors
 }
 
+// For an expression "(T1) e" where "e : T2" under the given environment, check
+// that either "T1 <: T2" or "T1 :> T2".  In order to undertake this check
+// safely, it must be the case that both T1 and T2 are "well-formed".  The
+// assumption is that, if either type is not well-formed, some error was already
+// reported upstream for this.
+func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxError {
+	if wellFormed(to, p.env) && wellFormed(from, p.env) &&
+		!data.SubtypeOf(to, from, p.env) && !data.SubtypeOf(from, to, p.env) {
+		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", to.String(p.env)))
+	}
+	//
+	return nil
+}
+
+// For two expressions "e1", "e2" where "e1 : T1" and "e2 : T2" under the given
+// environment, check that "T1 ~ T2.  In order to undertake this check safely,
+// it must be the case that both T1 and T2 are "well-formed".  The assumption is
+// that, if either type is not well-formed, some error was already reported
+// upstream for this.
 func (p *TypeChecker) checkEquiTypes(lhs, rhs Type, node any) []source.SyntaxError {
-	if !data.EquiTypes(lhs, rhs, p.env) {
+	if wellFormed(lhs, p.env) && wellFormed(rhs, p.env) && !data.EquiTypes(lhs, rhs, p.env) {
 		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", rhs.String(p.env)))
 	}
 	//
 	return nil
+}
+
+// WellFormed is used to check whether a given type is well-formed under the
+// given environment.  This is necessary to protected against various problems
+// in methods such as Bitwidth, SubtypeOf and EquiTypes.
+func wellFormed[S symbol.Symbol[S]](t data.Type[S], env data.Environment[S]) bool {
+	//
+	switch t := t.(type) {
+	case nil:
+		return false
+	case *data.UnsignedInt[S]:
+		return true
+	case *data.Alias[S]:
+		return wellFormed(env.TypeOf(t.Name), env)
+	case *data.Tuple[S]:
+		for i := range t.Width() {
+			if !wellFormed(t.Ith(i), env) {
+				return false
+			}
+		}
+		//
+		return true
+	}
+	//
+	panic(fmt.Sprintf("unknown type encountered (%s)", t.String(env)))
 }

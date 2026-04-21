@@ -36,6 +36,11 @@ func (p Resolved) IsFunction() bool {
 	return p.Kind == FUNCTION
 }
 
+// IsUnknown implementation
+func (p Resolved) IsUnknown() bool {
+	return p.Kind == UNKNOWN
+}
+
 // Cmp implementation for set.Comparable interface
 func (p Resolved) Cmp(o Resolved) int {
 	return cmp.Compare(p.Index, o.Index)

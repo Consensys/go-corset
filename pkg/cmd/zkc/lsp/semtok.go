@@ -116,7 +116,7 @@ func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 	var prevLine, prevChar uint32
 	// prevMeaningfulKind tracks the kind of the last non-comment token seen.
 	// Initialised to END_OF (0) which matches no special case.
-	prevMeaningfulKind := parser.END_OF
+	prevMeaningfulKind := parser.EOF
 
 	for i, tok := range tokens {
 		var (
@@ -126,7 +126,7 @@ func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 
 		if tok.Kind == parser.IDENTIFIER {
 			// Look ahead past any intervening comment to the next meaningful token.
-			nextKind := parser.END_OF
+			nextKind := parser.EOF
 
 			for j := i + 1; j < len(tokens); j++ {
 				if tokens[j].Kind != parser.COMMENT {

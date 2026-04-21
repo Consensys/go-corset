@@ -14,10 +14,11 @@ package compiler
 
 import (
 	"path/filepath"
-	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/lower"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/validate"
@@ -49,31 +50,30 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 		)
 		//
 		files = files[1:]
-		// Parse source file
-		if cs, errs = parser.Parse(&asm); len(errs) == 0 {
+		// Parse source file; keep partial results even on error.
+		cs, errs = parser.Parse(&asm)
+		if len(cs.Components) > 0 {
 			items = append(items, cs)
-			// Process included source files
-			included, errs = readIncludedFiles(asm, cs, visited)
-			// Append any new files for processing
+
+			var inclErrs []source.SyntaxError
+
+			included, inclErrs = readIncludedFiles(asm, cs, visited)
+			errs = append(errs, inclErrs...)
 			files = append(files, included...)
 		}
-		// Include all errors
+
 		errors = append(errors, errs...)
 	}
-	// Link assembly
-	if len(errors) != 0 {
-		return ast.Program{}, srcmaps, errors
-	}
-	// Link assembly and resolve buses
-	program, srcmaps, errors = Link(items...)
-	// Error check
-	if len(errors) != 0 {
-		return ast.Program{}, srcmaps, errors
-	}
+	// Link assembly and resolve buses.
+	var linkErrs []source.SyntaxError
+	// Link assembly and resolve external accesses
+	program, srcmaps, linkErrs = Link(items...)
+	//
+	errors = append(errors, linkErrs...)
 	// Lower block-level constructs (if/else, while, for) into flat if-goto form
 	lower.FlatternStatements(program, srcmaps)
 	// Well-formedness checks (assuming unlimited field width).
-	errors = validateProgram(program, srcmaps)
+	errors = append(errors, validateProgram(program, srcmaps)...)
 	// Done
 	return program, srcmaps, errors
 }
@@ -87,98 +87,38 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 		errors []source.SyntaxError
 	)
 	//
-	for _, include := range item.Includes {
-		if strings.ContainsAny(*include, "*?[") {
-			// Glob pattern: expand to matching files.
-			pattern := filepath.Join(dir, *include)
-
-			matches, err := filepath.Glob(pattern)
+	for _, d := range item.Components {
+		if inc, ok := d.(*decl.Include[symbol.Unresolved]); ok {
+			var (
+				pattern      = filepath.Join(dir, inc.Pattern())
+				matches, err = filepath.Glob(pattern)
+			)
+			//
 			if err != nil {
-				errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
+				errors = append(errors, *item.SourceMap.SyntaxError(inc, err.Error()))
+				continue
+			} else if len(matches) == 0 {
+				// failed to match anythuing
+				errors = append(errors, *item.SourceMap.SyntaxError(inc, "failed to match anything"))
 				continue
 			}
-
-			if len(matches) == 0 {
-				errors = append(errors, *item.SourceMap.SyntaxError(include, "no files matched glob pattern"))
-				continue
-			}
-
+			//
 			for _, filename := range matches {
+				// Check filename not already parsed
 				if seen, ok := visited[filename]; seen && ok {
-					continue
-				}
-
-				if fs, err := source.ReadFiles(filename); err == nil {
+					// file already loaded, therefore ignore.
+				} else if fs, err := source.ReadFiles(filename); err == nil {
 					files = append(files, fs...)
 				} else {
-					errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
+					errors = append(errors, *item.SourceMap.SyntaxError(inc, err.Error()))
 				}
-
+				// Record that we've seen this file now.
 				visited[filename] = true
 			}
-		} else {
-			filename := filepath.Join(dir, *include)
-			// Check filename not already parsed
-			if seen, ok := visited[filename]; seen && ok {
-				// file already loaded, therefore ignore.
-			} else if fs, err := source.ReadFiles(filename); err == nil {
-				files = append(files, fs...)
-			} else {
-				errors = append(errors, *item.SourceMap.SyntaxError(include, err.Error()))
-			}
-			// Record that we've seen this file now.
-			visited[filename] = true
 		}
 	}
 	//
 	return files, errors
-}
-
-// CompileBestEffort is like Compile but tolerates parse, include, and link
-// errors so it can still return partial results. It parses all files
-// (following includes), registers every discovered declaration, and then
-// performs best-effort linking across the resulting set. The returned program
-// may therefore be incomplete and may include declarations that did not link
-// cleanly. This is intended for IDE features (hover, go-to-definition) where
-// partial information is better than nothing.
-func CompileBestEffort(files ...source.File) (ast.Program, source.Maps[any]) {
-	var (
-		items   []parser.UnlinkedSourceFile
-		visited map[string]bool = make(map[string]bool)
-	)
-	// Initialise visited map with all top-level files
-	for _, sf := range files {
-		visited[sf.Filename()] = true
-	}
-	// Parse each file in turn, following includes.
-	for len(files) > 0 {
-		var (
-			asm      = files[0]
-			included []source.File
-			cs       parser.UnlinkedSourceFile
-		)
-
-		files = files[1:]
-
-		if cs, _ = parser.Parse(&asm); len(cs.Components) > 0 || len(cs.Includes) > 0 {
-			items = append(items, cs)
-			included, _ = readIncludedFiles(asm, cs, visited)
-			files = append(files, included...)
-		}
-	}
-	// Link all declarations regardless of errors.
-	linker := NewLinker()
-	for _, item := range items {
-		linker.Join(item.SourceMap)
-
-		for _, declaration := range item.Components {
-			if !linker.Exists(declaration.Name()) {
-				linker.Register(declaration)
-			}
-		}
-	}
-
-	return linker.LinkBestEffort()
 }
 
 // Validate checks that a given program is well-formed.  For example, an
@@ -187,19 +127,17 @@ func CompileBestEffort(files ...source.File) (ast.Program, source.Maps[any]) {
 // and all control-flow paths must reach a "return" instruction, etc. Finally,
 // we cannot assign to an input register under the current calling convention.
 func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
-	var (
-		errors []source.SyntaxError
-	)
-
-	// Check for cyclic definitions (constants and type aliases)
-	errors = append(errors, validate.CycleDetection(program, srcmaps)...)
-	// If a cycle is detected, we skip the typing and control flow phase
-	if len(errors) > 0 {
+	var errors []source.SyntaxError
+	// Check for cyclic definitions (constants and type aliases); if cycle is
+	// detected, skip remaining phases (for now).
+	if errors = validate.CycleDetection(program, srcmaps); len(errors) > 0 {
 		return errors
 	}
-	// Apply various checks
+	// Attempt to type the program; if this fails for some reaosn, skip
+	// remaining phases (for now).
 	errors = append(errors, validate.Typing(program, srcmaps)...)
+	// Perform final validation
 	errors = append(errors, validate.ControlFlow(program, srcmaps)...)
-	// Done
+	//
 	return errors
 }

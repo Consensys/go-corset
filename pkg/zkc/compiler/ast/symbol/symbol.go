@@ -32,6 +32,8 @@ type Symbol[S any] interface {
 type Kind uint8
 
 const (
+	// UNKNOWN indicates an unidentified external access which results due to some kind of linking failure.
+	UNKNOWN = 0
 	// READABLE_MEMORY identifies a memory which can be read (i.e. an input memory, or a static memory, etc).
 	READABLE_MEMORY = 1
 	// WRITEABLE_MEMORY identifies a memory which can be written (i.e. an

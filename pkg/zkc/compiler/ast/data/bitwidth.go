@@ -19,6 +19,9 @@ import (
 // BitWidthOf determines the bitwidth of the given type in the given
 // environment.  NOTE: should a typing cycle exist involving the given type,
 // then this will enter an infinite loop.
+//
+// NOTE: this function assumes that t1 and t2 are well-formed under the given
+// environment.
 func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
 	switch t := t.(type) {
 	case *UnsignedInt[S]:

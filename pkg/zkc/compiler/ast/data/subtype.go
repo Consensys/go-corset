@@ -27,6 +27,9 @@ import (
 // interpret "u4+" as saying "this can be any type which is at least a u4" Thus,
 // the query "u4+ <: u8" can be read as saying "is there a type which is at
 // least a u4 that is a subtype of u8?".  The answer, of course, is yes: u8.
+//
+// NOTE: this function assumes that t1 and t2 are well-formed under the given
+// environment.
 func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	// Resolve alias types so we compare underlying types from the Ref.
 	if at2 := t2.AsAlias(env); at2 != nil {
@@ -71,6 +74,9 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 // as saying "is there a type which is at least a u8 equivalent to a u16?".  The
 // answer, of course, is yes: u16. However, we note that "u16+ ~ u8" does not
 // hold.
+//
+// NOTE: this function assumes that t1 and t2 are well-formed under the given
+// environment.
 func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	// Resolve alias types so we compare underlying types from the Ref.
 	if at2 := t2.AsAlias(env); at2 != nil {

@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	// END_OF signals "end of file"
-	END_OF uint = iota
+	// EOF signals "end of file"
+	EOF uint = iota
 	// WHITESPACE signals whitespace
 	WHITESPACE
 	// COMMENT signals "// ... \n"
@@ -231,7 +231,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
 	lex.Rule(identifier, IDENTIFIER),
-	lex.Rule(lex.Eof[rune](), END_OF),
+	lex.Rule(lex.Eof[rune](), EOF),
 }
 
 // keywords maps exact identifier strings to their keyword token kinds.

@@ -24,6 +24,8 @@ const (
 	CONSTANT_KIND
 	// TYPE_ALIAS_KIND identifies a type alias declaration.
 	TYPE_ALIAS_KIND
+	// INCLUDE_KIND identifies an include declaration.
+	INCLUDE_KIND
 )
 
 // Annotation is a schema for a source-level annotation.  It records the
@@ -66,6 +68,8 @@ func (k DeclarationKind) String() string {
 		return "constant"
 	case TYPE_ALIAS_KIND:
 		return "type alias"
+	case INCLUDE_KIND:
+		return "include"
 	default:
 		return "unknown"
 	}

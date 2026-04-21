@@ -20,7 +20,6 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -33,32 +32,6 @@ import (
 // it should not be possible that such a declaration refers to unknown (or
 // otherwise incorrect) external components.
 type Declaration = decl.Declaration[symbol.Resolved]
-
-// Constant represents a constant whose expression uses only external
-// identifiers which are resolved. As such, it should not be possible that such
-// a declaration refers to unknown (or otherwise incorrect) external components.
-type Constant = decl.Constant[symbol.Resolved]
-
-// TypeAlias represents a type alias whose expression uses only external
-// identifiers which are resolved. As such, it should not be possible that such
-// a declaration refers to unknown (or otherwise incorrect) external components.
-type TypeAlias = decl.TypeAlias[symbol.Resolved]
-
-// Function represents a function which contains instructions whose external
-// identifiers are otherwise resolved. As such, it should not be possible that
-// such a declaration refers to unknown (or otherwise incorrect) external
-// components.
-type Function = decl.Function[symbol.Resolved]
-
-// Stmt represents a macro instruction  where external identifiers
-// are otherwise resolved. As such, it should not be possible that such a
-// declaration refers to unknown (or otherwise incorrect) external components.
-type Stmt = stmt.Stmt[symbol.Resolved]
-
-// Memory represents a memory whose external identifiers are otherwise resolved.
-// As such, it should not be possible that such a declaration refers to unknown
-// (or otherwise incorrect) external components.
-type Memory = decl.Memory[symbol.Resolved]
 
 // VariableDescriptor represents a descriptor whose external identifiers are
 // otherwise resolved. As such, it should not be possible that such a
@@ -84,7 +57,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 	// declarations after it is shifted down.
 	for i, d := range declarations {
 		switch d.(type) {
-		case *Function, *Memory:
+		case *decl.ResolvedFunction, *decl.ResolvedMemory:
 			mapping[i] = index
 			index++
 		default:
@@ -94,18 +67,20 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 	// Initialise components
 	for i, c := range declarations {
 		switch c := c.(type) {
-		case *Constant:
+		case *decl.ResolvedConstant:
 			// force detection of errors
 			_, errs := compileStaticInitialisers(declarations, env, srcmaps, c.ConstExpr)
 			//
 			errors = append(errors, errs...)
-		case *TypeAlias:
+		case *decl.ResolvedTypeAlias:
 			// ignore
-		case *Function:
+		case *decl.ResolvedFunction:
 			fn, errs := compileFunction(uint(i), mapping, declarations, srcmaps, env)
 			modules = append(modules, fn)
 			errors = append(errors, errs...)
-		case *Memory:
+		case *decl.ResolvedInclude:
+			// ignore
+		case *decl.ResolvedMemory:
 			var regs = toMemoryRegisters(c.Address, c.Data, env)
 			//
 			switch c.Kind {
