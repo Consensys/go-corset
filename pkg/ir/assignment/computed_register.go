@@ -216,6 +216,7 @@ func (s *fieldWordSplitter[F]) write(row uint, val word.BigEndian, data [][]F) b
 		array.ReverseInPlace(s.limbBuf[:n])
 
 		var element F
+
 		data[i][row] = element.SetBytes(s.limbBuf[:n])
 	}
 
