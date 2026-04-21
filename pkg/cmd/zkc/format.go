@@ -13,6 +13,13 @@
 package zkc
 
 import (
+	"bytes"
+	"fmt"
+	"os"
+
+	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/format"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -22,8 +29,66 @@ var formatCmd = &cobra.Command{
 	Short:   "Format zkc source files.",
 	Long:    `Format (pretty-print) a given set of zkc source file(s) in a canonical style.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: implement formatting
+		check := GetFlag(cmd, "check")
+		different := false
+
+		for _, filename := range args {
+			if runFormatFile(filename, check) {
+				different = true
+			}
+		}
+
+		if check && different {
+			os.Exit(1)
+		}
 	},
+}
+
+// runFormatFile formats a single file, returning true if the file differs from
+// the formatted output (relevant only when check=true).
+func runFormatFile(filename string, check bool) bool {
+	original, err := os.ReadFile(filename)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
+
+	src := source.NewSourceFile(filename, original)
+	file, errs := parser.Parse(src)
+
+	if len(errs) > 0 {
+		for _, e := range errs {
+			printSyntaxError(&e)
+		}
+
+		os.Exit(4)
+	}
+
+	var buf bytes.Buffer
+
+	if err := format.Format(&buf, file, *src); err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
+
+	formatted := buf.Bytes()
+
+	if check {
+		if !bytes.Equal(original, formatted) {
+			fmt.Println(filename)
+
+			return true
+		}
+
+		return false
+	}
+
+	if err := os.WriteFile(filename, formatted, 0600); err != nil {
+		fmt.Println(err)
+		os.Exit(3)
+	}
+
+	return false
 }
 
 // ============================================================================
@@ -33,4 +98,5 @@ var formatCmd = &cobra.Command{
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(formatCmd)
+	formatCmd.Flags().Bool("check", false, "report files that differ without rewriting")
 }
