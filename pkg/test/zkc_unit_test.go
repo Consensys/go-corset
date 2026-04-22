@@ -416,9 +416,9 @@ func Test_ZkcUnit_Ternary_03(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/ternary_03")
 }
 
-// func Test_ZkcUnit_Ternary_04(t *testing.T) {
-// 	checkZkcUnit(t, "zkc/unit/ternary_04")
-// }
+func Test_ZkcUnit_Ternary_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/ternary_04")
+}
 
 // ===================================================================
 // Printf Tests
