@@ -20,51 +20,43 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// SwitchCase represents a given branch
+// SwitchBranch represents a given branch.
 //
 // Note: the Cases slice should only contain Constants, no variables
-type SwitchCase[S symbol.Symbol[S]] struct {
-	Cases []expr.Const[S]
-	Body  []Stmt[S]
+type SwitchBranch[S symbol.Symbol[S]] struct {
+	IsDefault bool
+	Cases     []expr.Expr[S]
+	Body      []Stmt[S]
 }
 
 // Switch represents a switch block of the form:
 //
-//	switch (arg) {
-//		case a, b, ..., z: { branch_az }    // one SwitchCase
-//		case A, B, ..., Z: { branch_AZ }    // another SwitchCase
-//		default: { branch_default }
-//
-// default must always be provided
+//	switch (discr) {
+//		case a, b, ..., z: { branch_az }	// 1st case
+//		case A, B, ..., Z: { branch_AZ }	// 2nd case, etc ...
+//		default: { branch_default }		// optional default branch
+//	}
 type Switch[S symbol.Symbol[S]] struct {
-	// Argument dictates the case
-	Argument expr.Expr[S]
+	// Discriminant dictates the case
+	Discriminant expr.Expr[S]
 	// Branches contains all the non default branches
-	Branches []SwitchCase[S]
-	// DefaultBranch contains the default branch
-	DefaultBranch SwitchCase[S]
+	Branches []SwitchBranch[S]
 }
 
 // Uses implementation for Stmt interface.
 func (p *Switch[S]) Uses() []variable.Id {
 	var reads []variable.Id
 	// Collect variables read by the argument
-	bits := p.Argument.LocalUses()
+	bits := p.Discriminant.LocalUses()
 	for iter := bits.Iter(); iter.HasNext(); {
 		reads = append(reads, iter.Next())
 	}
 
 	// Collect variables from non default branches
-	//
 	for _, branch := range p.Branches {
 		for _, statement := range branch.Body {
 			reads = append(reads, statement.Uses()...)
 		}
-	}
-
-	// Collect from the default branch
-	for _, statement := range p.DefaultBranch.Body {
-		reads = append(reads, statement.Uses()...)
 	}
 
 	return reads
@@ -80,17 +72,13 @@ func (p *Switch[S]) Definitions() []variable.Id {
 		}
 	}
 
-	for _, statement := range p.DefaultBranch.Body {
-		writes = append(writes, statement.Definitions()...)
-	}
-
 	return writes
 }
 
 func (p *Switch[S]) String(env variable.Map[S]) string {
 	var b strings.Builder
 	b.WriteString("switch (")
-	b.WriteString(p.Argument.String(env))
+	b.WriteString(p.Discriminant.String(env))
 	b.WriteString(") {\n\t case _: { ... }\n\t default: { ... } }")
 
 	return b.String()
