@@ -456,7 +456,7 @@ func (p *Parser) parseArgsList(kind variable.Kind, env Environment) []source.Syn
 		//
 		env.DeclareVariable(kind, arg, datatype)
 	}
-	// Advance past "}"
+	// Advance past ")"
 	p.match(RBRACE)
 	//
 	return nil
@@ -753,6 +753,8 @@ func (p *Parser) parseStatement(env Environment,
 		returned, insn, errs = p.parseFor(env)
 	case KEYWORD_IF:
 		returned, insn, errs = p.parseIfElse(env)
+	case KEYWORD_SWITCH:
+		returned, insn, errs = p.parseSwitch(env)
 	case KEYWORD_PRINTF:
 		returned, insn, errs = p.parsePrintf(env)
 	case KEYWORD_RETURN:
@@ -825,6 +827,201 @@ func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.
 	}
 	// No, its some other kind of expression.
 	return nil, p.srcmap.SyntaxErrors(call, "expression unused")
+}
+
+// parseSwitch parses a switch statement.
+func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+	var (
+		errs         []source.SyntaxError
+		discriminant Expr
+	)
+	// parse the 'switch' keyword
+	if _, errs = p.expect(KEYWORD_SWITCH); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// parse discriminant of the switch statement
+	if discriminant, _, errs = p.parseDiscriminant(env); len(errs) > 0 {
+		return false, nil, errs
+	}
+
+	var (
+		res      bool
+		branches []stmt.SwitchBranch[symbol.Unresolved]
+	)
+
+	res, branches, errs = p.parseSwitchBody(env)
+
+	node := &stmt.Switch[symbol.Unresolved]{
+		Discriminant: discriminant,
+		Branches:     branches,
+	}
+
+	return res, node, errs
+}
+
+// parseDiscriminant parses the discriminant (i.e. argument) of a switch statement.
+// This will be implemented in installments depending on the discriminant. We will
+// want to support the following types of discriminants:
+//  1. a previously declared variable "switch x { ... }"
+//  2. an unmaned function call output "switch f(args) { ... }"
+//  3. a named function call output "switch y = f(args) { ... }"
+//  4. a named function call output with type annotation "switch y : type = f(args) { ... }"
+//
+// Note. It may be that only the first two are used in practice
+func (p *Parser) parseDiscriminant(env Environment) (Expr, stmt.Unresolved, []source.SyntaxError) {
+	var (
+		discriminant Expr
+		errs         []source.SyntaxError
+	)
+	if discriminant, errs = p.parseAccessExpr(env); len(errs) > 0 {
+		return nil, nil, errs
+	}
+	// the discriminant ought to be either
+	switch t := discriminant.(type) {
+	case *expr.LocalAccess[symbol.Unresolved]:
+		return discriminant, nil, nil
+	case *expr.ExternAccess[symbol.Unresolved]:
+		switch t.Name.Kind {
+		case symbol.FUNCTION:
+			return discriminant, nil, nil
+		default:
+			return nil, nil, p.syntaxErrors(p.lookahead(), "invalid discriminant")
+		}
+	default:
+		return nil, nil, p.syntaxErrors(p.lookahead(), "invalid discriminant")
+	}
+}
+
+func (p *Parser) parseSwitchBody(env Environment) (b bool,
+	branches []stmt.SwitchBranch[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	// we expect a curly brace
+	if _, errs = p.expect(LCURLY); len(errs) > 0 {
+		return false, nil, errs
+	}
+
+	var (
+		branch stmt.SwitchBranch[symbol.Unresolved]
+	)
+
+	for p.lookahead().Kind != RCURLY {
+		branch, errs = p.parseSwitchBranch(env)
+		if len(errs) > 0 {
+			return false, nil, errs
+		}
+
+		branches = append(branches, branch)
+	}
+
+	return
+}
+
+func (p *Parser) parseSwitchBranch(env Environment) (
+	branch stmt.SwitchBranch[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	var (
+		isCase    bool
+		isDefault bool
+	)
+
+	isCase = p.follows(KEYWORD_CASE)
+	isDefault = p.follows(KEYWORD_DEFAULT)
+
+	if !(isCase || isDefault) {
+		return branch, p.syntaxErrors(p.lookahead(), "'case' or 'default' keyword expected")
+	}
+
+	var (
+		cases []expr.Expr[symbol.Unresolved]
+		body  []stmt.Stmt[symbol.Unresolved]
+	)
+
+	if isCase {
+		if cases, body, errs = p.parseSwitchCase(env); len(errs) > 0 {
+			return
+		}
+	} else {
+		if body, errs = p.parseSwitchDefault(env); len(errs) > 0 {
+			return
+		}
+	}
+
+	branch.IsDefault = isDefault
+	branch.Cases = cases
+	branch.Body = body
+
+	return
+}
+
+// parseSwitchCase deals with the beginning of a switch case, either
+//
+//	case CASE_1, 42: { ... }
+//	default: { ... }
+func (p *Parser) parseSwitchCase(env Environment) (
+	cases []expr.Expr[symbol.Unresolved],
+	body []stmt.Stmt[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	if _, errs = p.expect(KEYWORD_CASE); len(errs) > 0 {
+		return cases, body, p.syntaxErrors(p.previousToken(), "expected 'case' keyword")
+	}
+
+	cases, errs = p.parseExprList(COLON, env)
+	if len(errs) > 0 {
+		return
+	}
+
+	if len(cases) == 0 {
+		return cases, body, p.syntaxErrors(p.previousToken(), "empty switch case list")
+	}
+
+	// we reject the expressions list if it contains anything but
+	//	- named constants
+	//	- numerical constants
+	for _, expression := range cases {
+		switch t := expression.(type) {
+		case *expr.ExternAccess[symbol.Unresolved]:
+			{
+				switch t.Name.Kind {
+				// the 'named constant' case
+				case symbol.CONSTANT:
+					continue
+				default:
+					return nil, nil, p.syntaxErrors(p.previousToken(), "switch case options should be constants, named or litteral")
+				}
+			}
+		// the 'numerical constant' case
+		case *expr.Const[symbol.Unresolved]:
+			{
+				continue
+			}
+		default:
+			return nil, nil, p.syntaxErrors(p.previousToken(), "switch case options should be constants, named or litteral")
+		}
+	}
+
+	// TODO: I have no idea whether the boolean parameter is the right one
+	_, body, errs = p.parseStatementBlock(env, env.InLoop())
+	if len(errs) > 0 {
+		return nil, nil, errs
+	}
+
+	return
+}
+
+func (p *Parser) parseSwitchDefault(env Environment) (body []stmt.Stmt[symbol.Unresolved], errs []source.SyntaxError) {
+	if _, errs = p.expect(KEYWORD_DEFAULT); len(errs) > 0 {
+		return
+	}
+
+	if _, errs = p.expect(COLON); len(errs) > 0 {
+		return
+	}
+
+	if _, body, errs = p.parseStatementBlock(env, env.InLoop()); len(errs) > 0 {
+		return
+	}
+
+	return
 }
 
 func (p *Parser) parseIfElse(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
@@ -1153,6 +1350,9 @@ func (p *Parser) parseContinue(env Environment) (bool, stmt.Unresolved, []source
 	return true, &stmt.Continue[symbol.Unresolved]{}, nil
 }
 
+// parseVar parses a variable declaration i.e. one of
+// var name_1:type_1, name_2:type_2, ..., name_n:type_n
+// var name:type = <expr>
 func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs  []source.SyntaxError
@@ -1475,7 +1675,7 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
 		}
-		// Fall through to check for trailing `as` cast.
+	// Fall through to check for trailing `as` cast.
 	default:
 		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
@@ -1497,6 +1697,11 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 	return nexpr, errors
 }
 
+// parseAccessExpr parses an expression of the form
+//   - memory[address]
+//   - function(arguments)
+//   - constant
+//   - variable
 func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		nexpr Expr
