@@ -23,6 +23,8 @@ const (
 	EOF uint = iota
 	// WHITESPACE signals whitespace
 	WHITESPACE
+	// NEWLINE signals a newline character
+	NEWLINE
 	// COMMENT signals "// ... \n"
 	COMMENT
 	// LBRACE signals "("
@@ -139,10 +141,28 @@ const (
 	QMARK
 	// AT signals "@"
 	AT
+	// UNKNOWN signals an unknown chunk of text
+	UNKNOWN
+	// SPACES signal a set of one or more spaces.  This is a virtual token only
+	// used by the formatter.
+	SPACES
+	// TABS signal a set of one or more tabs.  This is a virtual token only used
+	// by the formatter.
+	TABS
+	// MAX_TOKEN signals the maximum token index
+	MAX_TOKEN
 )
 
-// Rule for describing whitespace
-var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t'), lex.Unit('\n')))
+// Rule for describing whitespace (spaces and tabs only, not newlines)
+var whitespace lex.Scanner[rune] = lex.Many(lex.Or(lex.Unit(' '), lex.Unit('\t')))
+
+// Rule for describing a newline
+var newline lex.Scanner[rune] = lex.Unit('\n')
+
+// Rule for capturing everything upto the next bit of whitespace.  This is
+// useful as it allows lexing to continue even when encountering something not
+// matched by any rule.
+var notWhitespaceOrNewline lex.Scanner[rune] = lex.Many(lex.And(lex.Not(' '), lex.Not('\t'), lex.Not('\n')))
 
 // Rule for describing numbers
 // A number is either a hexadecimal, binary, or decimal one.
@@ -228,9 +248,11 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('?'), QMARK),
 	lex.Rule(lex.Unit('@'), AT),
 	lex.Rule(whitespace, WHITESPACE),
+	lex.Rule(newline, NEWLINE),
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
 	lex.Rule(identifier, IDENTIFIER),
+	lex.Rule(notWhitespaceOrNewline, UNKNOWN),
 	lex.Rule(lex.Eof[rune](), EOF),
 }
 
@@ -266,27 +288,28 @@ var keywords = map[string]uint{
 var MAX_KEYWORD_LENGTH int
 
 // Lex a given source file into a sequence of zero or more tokens, along with
-// any syntax errors arising. When includeComments is true, COMMENT tokens are
-// retained in the output (e.g. for syntax highlighting); otherwise they are
-// removed along with whitespace.
-func Lex(srcfile source.File, includeComments bool) ([]lex.Token, []source.SyntaxError) {
+// any syntax errors arising.  This can be configured to retain whitespace
+// and/or comments.
+func Lex(srcfile source.File, whitespace, comments bool) []lex.Token {
 	var (
 		lexer = lex.NewLexer(srcfile.Contents(), rules...)
 		// Lex as many tokens as possible
 		tokens = lexer.Collect()
 	)
-	// Check whether anything was left (if so this is an error)
-	if lexer.Remaining() != 0 {
-		start, end := lexer.Index(), lexer.Index()+lexer.Remaining()
-		err := srcfile.SyntaxError(source.NewSpan(int(start), int(end)), "unknown text encountered")
-		// errors
-		return nil, []source.SyntaxError{*err}
-	}
-	// Remove any whitespace
-	tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == WHITESPACE })
-	// Remove comments unless the caller wants them (e.g. for syntax highlighting)
-	if !includeComments {
-		tokens = array.RemoveMatching(tokens, func(t lex.Token) bool { return t.Kind == COMMENT })
+	// Remove whitespace and/or comments unless the caller wants them (e.g. for
+	// syntax highlighting)
+	if !whitespace || !comments {
+		// Remove any whitespace, newlines or comments
+		tokens = array.RemoveMatching(tokens, func(t lex.Token) bool {
+			switch t.Kind {
+			case WHITESPACE, NEWLINE:
+				return !whitespace
+			case COMMENT:
+				return !comments
+			}
+
+			return false
+		})
 	}
 	// Reclassify identifiers whose full text is an exact keyword match.
 	contents := srcfile.Contents()
@@ -301,7 +324,7 @@ func Lex(srcfile source.File, includeComments bool) ([]lex.Token, []source.Synta
 		}
 	}
 	// Done
-	return tokens, nil
+	return tokens
 }
 
 func init() {

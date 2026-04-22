@@ -3,6 +3,7 @@ GOCORSET_VERSION_PATH:="github.com/consensys/go-corset/pkg/cmd"
 GOLANGCI_VERSION:=2.4.0
 PROJECT_NAME:=go-corset
 GOPATH_BIN:=$(shell go env GOPATH)/bin
+ZKC_LINTABLE_FILES=$(shell find testdata/zkc -name "*.zkc" -not -path "*/invalid/*")
 # Define set of unit tests
 
 install:
@@ -59,7 +60,15 @@ unit-test:
 	@echo ">>> Running Unit Tests..."
 	go test --timeout 0 -skip "Test_Asm|Test_Agnostic|Test_Bench|Test_Valid|Test_Invalid|Test_Zkc" ./...
 
-zkc-test:
+build-zkc:
+	@echo ">>> Building zkc... ${GOCORSET_VERSION}"
+	go build -ldflags="-X 'github.com/consensys/go-corset/pkg/cmd/zkc.Version=${GOCORSET_VERSION}'" -o bin/zkc cmd/zkc/main.go
+
+zkc-lint: build-zkc
+	@echo ">>> Linting ZkC source files..."
+	./bin/zkc format --check $(ZKC_LINTABLE_FILES)
+
+zkc-test: zkc-lint
 	@echo ">>> Running ZkC Tests..."
 	go test --timeout 0 -run "Test_ZkcBench|Test_ZkcUnit|Test_ZkcInvalid" ./...
 

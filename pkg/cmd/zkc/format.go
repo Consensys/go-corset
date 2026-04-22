@@ -19,7 +19,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/format"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"github.com/spf13/cobra"
 )
 
@@ -30,10 +29,12 @@ var formatCmd = &cobra.Command{
 	Long:    `Format (pretty-print) a given set of zkc source file(s) in a canonical style.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		check := GetFlag(cmd, "check")
+		tabs := GetFlag(cmd, "tabs")
+		spaces := GetUint(cmd, "spaces")
 		different := false
 
 		for _, filename := range args {
-			if runFormatFile(filename, check) {
+			if runFormatFile(filename, check, tabs, spaces) {
 				different = true
 			}
 		}
@@ -46,15 +47,23 @@ var formatCmd = &cobra.Command{
 
 // runFormatFile formats a single file, returning true if the file differs from
 // the formatted output (relevant only when check=true).
-func runFormatFile(filename string, check bool) bool {
-	original, err := os.ReadFile(filename)
+func runFormatFile(filename string, check bool, tabs bool, spaces uint) bool {
+	// Attempt to read file
+	text, err := os.ReadFile(filename)
+	// Report error as necessary
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(3)
 	}
-
-	src := source.NewSourceFile(filename, original)
-	file, errs := parser.Parse(src)
+	//
+	var (
+		// temporary buffer for writing output
+		buf bytes.Buffer
+		// source file representation
+		src = source.NewSourceFile(filename, text)
+		// construct default formatter
+		formatter, errs = format.NewFormatter(&buf, src)
+	)
 
 	if len(errs) > 0 {
 		for _, e := range errs {
@@ -63,26 +72,30 @@ func runFormatFile(filename string, check bool) bool {
 
 		os.Exit(4)
 	}
-
-	var buf bytes.Buffer
-
-	if err := format.Format(&buf, file, *src); err != nil {
+	// Apply indentation style: --tabs takes priority over --spaces.
+	if tabs {
+		formatter.IndentWithTabs()
+	} else if spaces > 0 {
+		formatter.IndentWithSpaces(spaces)
+	}
+	// Run the formatter (finally)
+	if err := formatter.Format(); err != nil {
 		fmt.Println(err)
 		os.Exit(3)
 	}
-
+	// Extract formatted bytes
 	formatted := buf.Bytes()
-
+	// Apply check (if requested)
 	if check {
-		if !bytes.Equal(original, formatted) {
-			fmt.Println(filename)
+		if !bytes.Equal(text, formatted) {
+			fmt.Fprintf(os.Stderr, "%s: incorrectly formatted\n", filename)
 
 			return true
 		}
 
 		return false
 	}
-
+	// Write out formatted file
 	if err := os.WriteFile(filename, formatted, 0600); err != nil {
 		fmt.Println(err)
 		os.Exit(3)
@@ -99,4 +112,6 @@ func runFormatFile(filename string, check bool) bool {
 func init() {
 	rootCmd.AddCommand(formatCmd)
 	formatCmd.Flags().Bool("check", false, "report files that differ without rewriting")
+	formatCmd.Flags().Bool("tabs", false, "indent using tabs instead of spaces")
+	formatCmd.Flags().Uint("spaces", format.DEFAULT_INDENTATION, "number of spaces per indentation level")
 }
