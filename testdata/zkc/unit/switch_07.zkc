@@ -11,4 +11,6 @@ fn main() {
   switch case_expression {
     case CASE_A, CASE_B: { }
     default: { }
+    case CASE_C: { }
+    }
 }

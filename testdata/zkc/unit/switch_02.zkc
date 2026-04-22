@@ -5,6 +5,6 @@ fn main() {
   var case_expression:u8 = 13
 
   switch case_expression {
-    case CASE_A -> { }
-    default -> { }
+    case CASE_A: { }
+    default: { }
 }

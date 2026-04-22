@@ -9,11 +9,11 @@ fn main() {
   var arg : u8 = 7
 
   switch get_case(arg) {
-    case CASE_A, CASE_B -> { }
-    case CASE_C -> { }
-    default -> { }
+    case CASE_A, CASE_B: { }
+    case CASE_C: { }
+    default: { }
 }
 
-fn get_case(arg :u8) -> (res :u8) {
+fn get_case(arg :u8): (res :u8) {
   res = arg ^ 0xff
 }
