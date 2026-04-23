@@ -872,9 +872,14 @@ func (p *Parser) parseDiscriminant(env Environment) (Expr, stmt.Unresolved, []so
 	var (
 		discriminant Expr
 		errs         []source.SyntaxError
+		start        = p.index
 	)
 	if discriminant, errs = p.parseAccessExpr(env); len(errs) > 0 {
 		return nil, nil, errs
+	}
+
+	if !p.srcmap.Has(discriminant) {
+		p.srcmap.Put(discriminant, p.spanOf(start, p.index-1))
 	}
 	// the discriminant ought to be either
 	switch t := discriminant.(type) {
@@ -912,6 +917,8 @@ func (p *Parser) parseSwitchBody(env Environment) (b bool,
 
 		branches = append(branches, branch)
 	}
+	// Advance past closing "}"
+	p.match(RCURLY)
 
 	return
 }
