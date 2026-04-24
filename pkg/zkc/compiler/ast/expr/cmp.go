@@ -40,6 +40,12 @@ const (
 // CmpOp represents the set of possible operators for a comparison condition.
 type CmpOp uint8
 
+// Fieldable returns true for operators which are permitted on the field element
+// type.
+func (p CmpOp) Fieldable() bool {
+	return p == EQ || p == NEQ
+}
+
 // Cmp represents a comparison, such as "==", ">=", etc.
 type Cmp[S symbol.Symbol[S]] struct {
 	// Operator indicates the condition

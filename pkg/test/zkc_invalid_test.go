@@ -126,6 +126,29 @@ func Test_ZkcInvalid_Basic_27(t *testing.T) {
 }
 
 // ===================================================================
+// Native Field Tests
+// ===================================================================
+func Test_ZkcInvalid_Field_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_01")
+}
+
+func Test_ZkcInvalid_Field_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_02")
+}
+
+func Test_ZkcInvalid_Field_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_03")
+}
+
+func Test_ZkcInvalid_Field_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_04")
+}
+
+func Test_ZkcInvalid_Field_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_05")
+}
+
+// ===================================================================
 // If Tests
 // ===================================================================
 

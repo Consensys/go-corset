@@ -1,4 +1,4 @@
 fn f(x:𝔽) -> (r:𝔽) {
-    r = x + 1
+    r = 2 * x
     return
 }

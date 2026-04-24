@@ -1,0 +1,10 @@
+// Basic normalise function
+fn norm(x:𝔽) -> (r:𝔽) {
+    if x != 0 {
+        r = 1
+    } else {
+        r = 0
+    }
+    //
+    return
+}
