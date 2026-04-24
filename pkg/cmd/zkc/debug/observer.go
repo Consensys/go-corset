@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util/termio"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -120,7 +121,8 @@ func (p *TraceObserver[W]) writeStateFromFrame(machine *machine.Base[W], frame m
 	}
 	//
 	annotated := &annotatedMap[W]{base: base, values: values}
-	insnStr := fmt.Sprintf("[%02x.%02x] %s", p.pc.Macro(), p.pc.Micro(), p.insn.String(annotated))
+	pc := termio.NewFormattedText(fmt.Sprintf("[%02x.%02x]", p.pc.Macro(), p.pc.Micro()), termio.NewAnsiEscape().FgColour(termio.TERM_YELLOW))
+	insnStr := fmt.Sprintf("%s %s", string(pc.Bytes()), p.pc.Macro(), p.pc.Micro(), p.insn.String(annotated))
 	fmt.Print(insnStr)
 }
 
