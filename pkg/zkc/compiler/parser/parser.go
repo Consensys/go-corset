@@ -669,6 +669,10 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		errs  []source.SyntaxError
 		start = p.index
 	)
+	// Check for the native field element type "𝔽"
+	if p.match(FIELD_ELEMENT) {
+		return data.NewFieldElement[symbol.Unresolved](), nil
+	}
 	//
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs

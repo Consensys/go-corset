@@ -36,6 +36,8 @@ func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
 		}
 		//
 		return bitwidth
+	case *FieldElement[S]:
+		panic(fmt.Sprintf("field element type has no fixed bitwidth: %s", t.String(env)))
 	}
 	//
 	panic(fmt.Sprintf("unknown type encountered (%s)", t.String(env)))

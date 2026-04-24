@@ -33,6 +33,8 @@ func Flattern[S symbol.Symbol[S]](t Type[S], prefix string, env Environment[S],
 			ith := fmt.Sprintf("%s$%d", prefix, i)
 			Flattern(element, ith, env, constructor)
 		}
+	case *FieldElement[S]:
+		panic(fmt.Sprintf("field element type cannot be flattened to registers: %s", t.String(env)))
 	default:
 		//
 		panic(fmt.Sprintf("unknown type encountered: %s", t.String(env)))
