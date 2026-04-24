@@ -34,7 +34,7 @@ func SignatureHelpFor(uri protocol.URI, text string, pos protocol.Position) (*pr
 
 	// Lex the document without comments; the backward scan only needs the
 	// structural tokens, and token spans already refer to original source offsets.
-	tokens, _ := parser.Lex(*srcfile, false)
+	tokens := parser.Lex(*srcfile, false, false)
 
 	// Find the enclosing function call and active parameter index.
 	contents := srcfile.Contents()

@@ -164,9 +164,10 @@ func (s *zkcServer) Initialize(
 				Legend: lsp.SemTokLegend,
 				Full:   true,
 			},
-			HoverProvider:          true,
-			DocumentSymbolProvider: true,
-			DefinitionProvider:     true,
+			HoverProvider:              true,
+			DocumentSymbolProvider:     true,
+			DefinitionProvider:         true,
+			DocumentFormattingProvider: true,
 			SignatureHelpProvider: &protocol.SignatureHelpOptions{
 				TriggerCharacters: []string{"(", ","},
 			},
@@ -566,11 +567,20 @@ func (s *zkcServer) FoldingRanges(
 // when the user invokes "format document". The server returns a list of text
 // edits that, when applied, produce a fully formatted version of the document
 // according to the language's style rules.
-// Not yet implemented.
 func (s *zkcServer) Formatting(
-	_ context.Context, _ *protocol.DocumentFormattingParams,
+	_ context.Context, params *protocol.DocumentFormattingParams,
 ) ([]protocol.TextEdit, error) {
-	return nil, errNotImplemented
+	uri := params.TextDocument.URI
+
+	s.mu.RLock()
+	text, ok := s.docs[uri]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.FormattingFor(uri, text)
 }
 
 // Hover handles a textDocument/hover request. The client sends this when the

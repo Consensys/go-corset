@@ -6,6 +6,6 @@ pub output result(address:u16) -> (byte:u8)
 
 // Prove that a constant defined as a cast expression is folded correctly.
 fn main() {
-  result[0] = data[0] & MASK
-  return
+    result[0] = data[0] & MASK
+    return
 }

@@ -183,7 +183,7 @@ func encodeTokens(srcfile source.File, tokens []lex.Token) []uint32 {
 // response for the full document.
 func SemanticTokensFor(uri protocol.URI, text string) (*protocol.SemanticTokens, error) {
 	srcfile := source.NewSourceFile(string(uri), []byte(text))
-	tokens, _ := parser.Lex(*srcfile, true)
+	tokens := parser.Lex(*srcfile, false, true)
 
 	return &protocol.SemanticTokens{
 		Data: encodeTokens(*srcfile, tokens),

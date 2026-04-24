@@ -130,10 +130,19 @@ func lowerExpr(e expr.Resolved, srcmaps source.Maps[any]) expr.Resolved {
 
 	switch t := e.(type) {
 	case *expr.Ternary[symbol.Resolved]:
+		cond := lowerExpr(t.Cond, srcmaps)
 		ifTrue := lowerExpr(t.IfTrue, srcmaps)
 		ifFalse := lowerExpr(t.IfFalse, srcmaps)
 
-		return lowerTernaryCondition(t.Cond, ifTrue, ifFalse, srcmaps, e)
+		return lowerTernaryCondition(cond, ifTrue, ifFalse, srcmaps, e)
+	case *expr.Cmp[symbol.Resolved]:
+		ne = expr.NewCmp[symbol.Resolved](t.Operator, lowerExpr(t.Left, srcmaps), lowerExpr(t.Right, srcmaps))
+	case *expr.LogicalAnd[symbol.Resolved]:
+		ne = expr.NewLogicalAnd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.LogicalOr[symbol.Resolved]:
+		ne = expr.NewLogicalOr[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
+	case *expr.LogicalNot[symbol.Resolved]:
+		ne = expr.NewLogicalNot[symbol.Resolved](lowerExpr(t.Expr, srcmaps))
 	case *expr.Add[symbol.Resolved]:
 		ne = expr.NewAdd[symbol.Resolved](lowerExprs(t.Exprs, srcmaps)...)
 	case *expr.Sub[symbol.Resolved]:
