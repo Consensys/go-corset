@@ -80,3 +80,5 @@ clean:
 	@echo ">>> Removing old binaries and env files..."
 	@rm -rf bin/*
 	@rm -rf .env
+
+spotless: lint-apply zkc-lint
