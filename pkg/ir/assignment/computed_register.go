@@ -494,10 +494,12 @@ func fwdComputationParallelDirect[F field.Element[F]](height uint, data [][]F, w
 				val, err := expr.EvalAt(int(i), trMod, scMod)
 				if err != nil {
 					mu.Lock()
+
 					if firstErr == nil {
 						e := fmt.Sprintf("%s for %s", err.Error(), expr.Lisp(false, scMod).String(true))
 						firstErr = constraint.NewInternalFailure[word.BigEndian](scMod.Name().String(), ctx, i, expr, e)
 					}
+
 					mu.Unlock()
 
 					return

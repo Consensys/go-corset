@@ -108,9 +108,7 @@ func (p *Parser) Parse() (UnlinkedSourceFile, []source.SyntaxError) {
 		components   []decl.Unresolved
 	)
 	// Convert source file into tokens
-	if p.tokens, errors = Lex(*p.srcfile, false); len(errors) > 0 {
-		return item, errors
-	}
+	p.tokens = Lex(*p.srcfile, false, false)
 	// Continue going until all consumed
 	for p.lookahead().Kind != EOF {
 		// Parse declaration

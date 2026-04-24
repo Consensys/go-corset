@@ -2,5 +2,5 @@ include "includes/constants.zkc"
 include "includes/types.zkc"
 
 fn f() -> (r:UINT16) {
-   r = MAX_U16
+    r = MAX_U16
 }

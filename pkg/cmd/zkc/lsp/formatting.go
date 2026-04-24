@@ -17,7 +17,6 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/format"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"go.lsp.dev/protocol"
 )
 
@@ -25,17 +24,17 @@ import (
 // that replaces the entire document with its canonical form. Returns nil (no
 // edits) when the document has parse errors or is already correctly formatted.
 func FormattingFor(uri protocol.URI, text string) ([]protocol.TextEdit, error) {
-	src := source.NewSourceFile(uri.Filename(), []byte(text))
-	file, errs := parser.Parse(src)
-
-	if len(errs) > 0 {
-		return nil, nil
-	}
-
-	var buf bytes.Buffer
-
-	if err := format.Format(&buf, file, *src); err != nil {
-		return nil, nil
+	var (
+		// temporary buffer for writing output
+		buf bytes.Buffer
+		// source file representation
+		src = source.NewSourceFile(uri.Filename(), []byte(text))
+		// construct default formatter
+		formatter, _ = format.NewFormatter(&buf, src)
+	)
+	// apply formatting
+	if err := formatter.Format(); err != nil {
+		return nil, err
 	}
 
 	formatted := buf.String()

@@ -32,7 +32,7 @@ func DefinitionFor(uri protocol.URI, text string, pos protocol.Position) ([]prot
 	offset := posToOffset(*srcfile, pos)
 
 	// Lex the document to find the identifier token under the cursor.
-	tokens, _ := parser.Lex(*srcfile, false)
+	tokens := parser.Lex(*srcfile, false, false)
 
 	tok, ok := tokenAtOffset(tokens, offset)
 	if !ok || tok.Kind != parser.IDENTIFIER {

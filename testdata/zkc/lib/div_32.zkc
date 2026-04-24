@@ -1,4 +1,4 @@
-const MINUS_ONE:u32         = 0xffffffff
+const MINUS_ONE:u32 = 0xffffffff
 const OVERFLOW_DIVIDEND:u32 = 0x80000000
 
 // negate a u32 using two's complement
@@ -35,8 +35,8 @@ fn long_division_u32(a:u32, b:u32, get_remainder:u1) -> (result:u32) {
         return
     } // division by zero
     var q:u32 = 0
-    var r:u32  = 0
-    for i:u32 = 0; i < 32; i = i + 1 {
+    var r:u32 = 0
+    for i:u32 = 0; i<32; i = i + 1 {
         r = ((r << 1) | ((a >> (31 - i)) & 1))
         if r >= b {
             r = r - b
@@ -66,7 +66,7 @@ fn div(a:u32, b:u32) -> (c:u32) {
     } // division overflow
     var sign:u1 = ((a >> 31) as u1) ^ ((b >> 31) as u1)
     var q:u32 = divu(abs_u32(a), abs_u32(b))
-     if sign == 0 {
+    if sign == 0 {
         c = q
         return
     }
