@@ -270,6 +270,46 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 		ninsn = &stmt.IfElse[symbol.Resolved]{Cond: cond, TrueBranch: trueBranch, FalseBranch: falseBranch}
 		//
 		errors = append(append(errs1, errs2...), errs3...)
+	case *stmt.Switch[symbol.Unresolved]:
+		discriminant, errsDisc := p.linkExpr(s.Discriminant)
+
+		var (
+			branches  []stmt.SwitchBranch[symbol.Resolved]
+			errsCases []source.SyntaxError
+			errsBody  []source.SyntaxError
+		)
+		for _, branch := range s.Branches {
+			var (
+				cases []expr.Expr[symbol.Resolved]
+				body  []stmt.Stmt[symbol.Resolved]
+			)
+
+			for _, caseConstant := range branch.Cases {
+				exprCase, errCase := p.linkExpr(caseConstant)
+				errsCases = append(errsCases, errCase...)
+				cases = append(cases, exprCase)
+			}
+
+			for _, statement := range branch.Body {
+				exprBody, errBody := p.linkStatement(statement)
+				errsBody = append(errsBody, errBody...)
+				body = append(body, exprBody)
+			}
+
+			branches = append(branches, stmt.SwitchBranch[symbol.Resolved]{
+				IsDefault: branch.IsDefault,
+				Cases:     cases,
+				Body:      body,
+			})
+		}
+
+		errors = append(errors, errsDisc...)
+		errors = append(errors, errsCases...)
+		errors = append(errors, errsBody...)
+		ninsn = &stmt.Switch[symbol.Resolved]{
+			Discriminant: discriminant,
+			Branches:     branches,
+		}
 	case *stmt.Printf[symbol.Unresolved]:
 		var args []expr.Expr[symbol.Resolved]
 		//

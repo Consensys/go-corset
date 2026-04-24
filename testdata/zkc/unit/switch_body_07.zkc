@@ -1,0 +1,19 @@
+const CASE_A:u8 = 1
+const CASE_B:u8 = 2
+const CASE_C:u8 = 3
+
+// standard switch case statement with function call discriminant
+fn main() {
+
+  var arg : u8 = 7
+
+  switch get_case(arg) {
+    case CASE_A, CASE_B: { }
+    case CASE_C: { }
+    default: { }
+  }
+}
+
+fn get_case(arg :u8) -> (res :u8) {
+  res = arg ^ 0xff
+}
