@@ -168,6 +168,10 @@ func (s *zkcServer) Initialize(
 			DocumentSymbolProvider:     true,
 			DefinitionProvider:         true,
 			DocumentFormattingProvider: true,
+			DocumentOnTypeFormattingProvider: &protocol.DocumentOnTypeFormattingOptions{
+				FirstTriggerCharacter: "}",
+				MoreTriggerCharacter:  []string{"\n"},
+			},
 			SignatureHelpProvider: &protocol.SignatureHelpOptions{
 				TriggerCharacters: []string{"(", ","},
 			},
@@ -611,14 +615,23 @@ func (s *zkcServer) Implementation(
 }
 
 // OnTypeFormatting handles a textDocument/onTypeFormatting request. The client
-// sends this as the user types certain trigger characters (e.g. "}", ";") that
-// should cause the server to return formatting edits applied immediately,
-// without requiring the user to explicitly invoke format.
-// Not yet implemented.
+// sends this as the user types certain trigger characters ("}" or "\n") to
+// correct the indentation of the affected line immediately, without requiring
+// the user to explicitly invoke format.
 func (s *zkcServer) OnTypeFormatting(
-	_ context.Context, _ *protocol.DocumentOnTypeFormattingParams,
+	_ context.Context, params *protocol.DocumentOnTypeFormattingParams,
 ) ([]protocol.TextEdit, error) {
-	return nil, errNotImplemented
+	uri := params.TextDocument.URI
+
+	s.mu.RLock()
+	text, ok := s.docs[uri]
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.OnTypeFormattingFor(uri, text, params.Position, params.Ch, params.Options)
 }
 
 // PrepareRename handles a textDocument/prepareRename request. Before
