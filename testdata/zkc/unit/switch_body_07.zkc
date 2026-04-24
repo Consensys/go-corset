@@ -1,9 +1,8 @@
-const CASE_A:u8 = 0
-const CASE_B:u8 = 1
-const CASE_C:u8 = 2
-const CASE_D:u8 = 3
-const CASE_E:u8 = 4
+const CASE_A:u8 = 1
+const CASE_B:u8 = 2
+const CASE_C:u8 = 3
 
+// standard switch case statement with function call discriminant
 fn main() {
 
   var arg : u8 = 7

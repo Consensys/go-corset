@@ -425,7 +425,7 @@ func Test_ZkcUnit_Ternary_03(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Switch_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/switch_01")
+	checkZkcUnit(t, "zkc/unit/switch_body_01")
 }
 
 // ===================================================================
