@@ -185,6 +185,7 @@ func (s *zkcServer) Initialize(
 // point at which the server may begin sending requests and notifications to
 // the client (e.g. register dynamic capabilities, fetch configuration).
 func (s *zkcServer) Initialized(_ context.Context, _ *protocol.InitializedParams) error {
+	log.Printf("LSP server initialised")
 	return nil
 }
 
@@ -195,7 +196,7 @@ func (s *zkcServer) Initialized(_ context.Context, _ *protocol.InitializedParams
 // Responding to requests other than exit after shutdown should return an
 // error.
 func (s *zkcServer) Shutdown(_ context.Context) error {
-	log.Printf("SHUTDOWN")
+	log.Printf("LSP server shutdown")
 	return nil
 }
 
@@ -575,7 +576,6 @@ func (s *zkcServer) Formatting(
 	_ context.Context, params *protocol.DocumentFormattingParams,
 ) ([]protocol.TextEdit, error) {
 	uri := params.TextDocument.URI
-
 	s.mu.RLock()
 	text, ok := s.docs[uri]
 	s.mu.RUnlock()
@@ -584,7 +584,7 @@ func (s *zkcServer) Formatting(
 		return nil, nil
 	}
 
-	return lsp.FormattingFor(uri, text)
+	return lsp.FormattingFor(uri, text, params.Options)
 }
 
 // Hover handles a textDocument/hover request. The client sends this when the
@@ -622,7 +622,6 @@ func (s *zkcServer) OnTypeFormatting(
 	_ context.Context, params *protocol.DocumentOnTypeFormattingParams,
 ) ([]protocol.TextEdit, error) {
 	uri := params.TextDocument.URI
-
 	s.mu.RLock()
 	text, ok := s.docs[uri]
 	s.mu.RUnlock()
@@ -885,7 +884,7 @@ func (s *zkcServer) Request(_ context.Context, method string, _ interface{}) (in
 
 //nolint:errcheck
 func init() {
-	lspCmd.Flags().BoolVarP(&lspVerbose, "verbose", "v", false, "increase logging verbosity")
+	lspCmd.Flags().BoolVarP(&lspVerbose, "verbose", "v", true, "increase logging verbosity")
 	lspCmd.Flags().Uint16VarP(&lspPort, "port", "p", 0, "TCP port to listen on (default 0: use stdio)")
 	lspCmd.Flags().StringVarP(&lspLog, "log", "l", "", "write log output to this file (default: no logging)")
 	rootCmd.AddCommand(lspCmd)
