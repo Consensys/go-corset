@@ -13,7 +13,6 @@
 package assignment
 
 import (
-	"encoding/gob"
 	"fmt"
 	"math"
 	"runtime"
@@ -687,12 +686,4 @@ func (p *recursiveColumn) Data() array.Array[word.BigEndian] {
 // Padding implementation for trace.Column interface.
 func (p *recursiveColumn) Padding() word.BigEndian {
 	panic("unreachable")
-}
-
-// ============================================================================
-// Encoding / Decoding
-// ============================================================================
-
-func init() {
-	gob.Register(sc.Assignment[word.BigEndian](&ComputedRegister[word.BigEndian]{}))
 }

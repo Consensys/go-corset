@@ -15,6 +15,7 @@ package util
 import (
 	"bytes"
 	"encoding/gob"
+	"reflect"
 )
 
 // Option provides a simple encoding for an optional value.  A key advantage
@@ -62,7 +63,7 @@ func (o Option[T]) Unwrap() T {
 // ============================================================================
 
 // GobEncode an option.  This allows it to be marshalled into a binary form.
-func (o *Option[T]) GobEncode() (data []byte, err error) {
+func (o Option[T]) GobEncode() (data []byte, err error) {
 	var (
 		buffer     bytes.Buffer
 		gobEncoder = gob.NewEncoder(&buffer)
@@ -73,8 +74,12 @@ func (o *Option[T]) GobEncode() (data []byte, err error) {
 	}
 	// Decide whether need anything else.
 	if o.some {
-		// Value
-		if err := gobEncoder.Encode(&o.value); err != nil {
+		// Use EncodeValue with the dereferenced reflect.Value to avoid a
+		// double-pointer when T is itself a pointer type (e.g. *RegisterAccess).
+		// Passing &o.value when T=*Foo gives gob **Foo, which causes gob to
+		// deref all the way to the base value type and then fail the
+		// BinaryMarshaler interface assertion.
+		if err := gobEncoder.EncodeValue(reflect.ValueOf(&o.value).Elem()); err != nil {
 			return nil, err
 		}
 	}
