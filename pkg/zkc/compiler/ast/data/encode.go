@@ -54,6 +54,8 @@ func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v word.Uint
 	switch datatype.(type) {
 	case *UnsignedInt[S], *Alias[S]:
 		encodeUnsignedInt(bitwidth, v, buf)
+	case *FieldElement[S]:
+		panic(fmt.Sprintf("field element type cannot be encoded to bytes: %s", datatype.String(env)))
 	default:
 		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String(env)))
 	}

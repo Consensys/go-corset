@@ -72,6 +72,11 @@ func (p *UnsignedInt[S]) AsAlias(Environment[S]) *Alias[S] {
 	return nil
 }
 
+// AsField implementation for Type interface
+func (p *UnsignedInt[S]) AsField(Environment[S]) *FieldElement[S] {
+	return nil
+}
+
 func (p *UnsignedInt[S]) String(_ Environment[S]) string {
 	if p.open {
 		return fmt.Sprintf("u%d+", p.bitwidth)

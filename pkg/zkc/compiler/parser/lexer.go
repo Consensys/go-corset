@@ -149,6 +149,8 @@ const (
 	// TABS signal a set of one or more tabs.  This is a virtual token only used
 	// by the formatter.
 	TABS
+	// FIELD_ELEMENT signals the "𝔽" field element type token.
+	FIELD_ELEMENT
 	// MAX_TOKEN signals the maximum token index
 	MAX_TOKEN
 )
@@ -252,6 +254,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(number, NUMBER),
 	lex.Rule(strung, STRING),
 	lex.Rule(identifier, IDENTIFIER),
+	lex.Rule(lex.Unit('𝔽'), FIELD_ELEMENT),
 	lex.Rule(notWhitespaceOrNewline, UNKNOWN),
 	lex.Rule(lex.Eof[rune](), EOF),
 }

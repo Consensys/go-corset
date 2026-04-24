@@ -506,6 +506,8 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 		}
 
 		return data.NewAlias[symbol.Resolved](name), nil
+	case *data.FieldElement[symbol.Unresolved]:
+		return data.NewFieldElement[symbol.Resolved](), nil
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}

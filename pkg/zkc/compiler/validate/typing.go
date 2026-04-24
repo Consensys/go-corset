@@ -735,6 +735,8 @@ func wellFormed[S symbol.Symbol[S]](t data.Type[S], env data.Environment[S]) boo
 		}
 		//
 		return true
+	case *data.FieldElement[S]:
+		return true
 	}
 	//
 	panic(fmt.Sprintf("unknown type encountered (%s)", t.String(env)))

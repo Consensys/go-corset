@@ -59,6 +59,9 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 			//
 			return true
 		}
+	case *FieldElement[S]:
+		_, isField := t2.(*FieldElement[S])
+		return isField
 	}
 	//
 	return false
@@ -108,6 +111,9 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 			//
 			return true
 		}
+	case *FieldElement[S]:
+		_, isField := t2.(*FieldElement[S])
+		return isField
 	}
 	//
 	return false

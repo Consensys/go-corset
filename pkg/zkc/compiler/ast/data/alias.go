@@ -58,6 +58,11 @@ func (p *Alias[I]) AsAlias(Environment[I]) *Alias[I] {
 	return p
 }
 
+// AsField implementation for Type interface
+func (p *Alias[I]) AsField(Environment[I]) *FieldElement[I] {
+	return nil
+}
+
 func (p *Alias[I]) String(Environment[I]) string {
 	return p.Name.String()
 }
