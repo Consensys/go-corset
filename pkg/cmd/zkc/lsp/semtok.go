@@ -64,6 +64,7 @@ func semTokForKind(kind uint) (uint32, bool) {
 	case parser.KEYWORD_AS, parser.KEYWORD_BREAK, parser.KEYWORD_CONST,
 		parser.KEYWORD_CONTINUE, parser.KEYWORD_ELSE, parser.KEYWORD_FAIL,
 		parser.KEYWORD_FN, parser.KEYWORD_FOR, parser.KEYWORD_IF,
+		parser.KEYWORD_SWITCH, parser.KEYWORD_CASE, parser.KEYWORD_DEFAULT,
 		parser.KEYWORD_INCLUDE, parser.KEYWORD_INPUT, parser.KEYWORD_MEMORY,
 		parser.KEYWORD_OUTPUT, parser.KEYWORD_PRINTF, parser.KEYWORD_PUB,
 		parser.KEYWORD_RETURN, parser.KEYWORD_STATIC, parser.KEYWORD_TYPE,
