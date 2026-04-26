@@ -22,11 +22,30 @@ import (
 
 // SwitchBranch represents a given branch.
 //
-// Note: the Cases slice should only contain Constants, no variables
+// Note: the Labels slice should only contain constants or numerical values
+// The name 'Labels' was suggested by Claude
 type SwitchBranch[S symbol.Symbol[S]] struct {
 	IsDefault bool
-	Cases     []expr.Expr[S]
+	Labels    []expr.Expr[S]
 	Body      []Stmt[S]
+}
+
+// LogicalOrOfCases takes a branch of a switch statement, say
+//
+//	switch (discr) {
+//		case a, b, ..., z: { ... }	// 1st case
+//		...
+//	}
+//
+// and returns the logical disjunction (discr == a) ∨ … ∨ (discr == z)
+func (s *SwitchBranch[S]) LogicalOrOfCases(discriminant expr.Expr[S]) (logicalOrOfCases expr.LogicalOr[S]) {
+	var labelComparisons = make([]expr.Expr[S], len(s.Labels))
+
+	for i, label := range s.Labels {
+		labelComparisons[i] = expr.NewCmp(expr.EQ, discriminant, label)
+	}
+
+	return expr.LogicalOr[S]{Exprs: labelComparisons}
 }
 
 // Switch represents a switch block of the form:
@@ -41,6 +60,18 @@ type Switch[S symbol.Symbol[S]] struct {
 	Discriminant expr.Expr[S]
 	// Branches contains all the non default branches
 	Branches []SwitchBranch[S]
+}
+
+// DefaultCaseCount returns the nubmer of default case declarations in a switch statement
+// a valid switch statement should contain 0 or 1 default cases
+func (p *Switch[S]) DefaultCaseCount() (nDefaultCases uint) {
+	for _, branch := range p.Branches {
+		if branch.IsDefault {
+			nDefaultCases++
+		}
+	}
+
+	return
 }
 
 // Uses implementation for Stmt interface.

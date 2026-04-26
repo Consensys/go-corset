@@ -280,14 +280,14 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 		)
 		for _, branch := range s.Branches {
 			var (
-				cases []expr.Expr[symbol.Resolved]
-				body  []stmt.Stmt[symbol.Resolved]
+				labels []expr.Expr[symbol.Resolved]
+				body   []stmt.Stmt[symbol.Resolved]
 			)
 
-			for _, caseConstant := range branch.Cases {
+			for _, caseConstant := range branch.Labels {
 				exprCase, errCase := p.linkExpr(caseConstant)
 				errsCases = append(errsCases, errCase...)
-				cases = append(cases, exprCase)
+				labels = append(labels, exprCase)
 			}
 
 			for _, statement := range branch.Body {
@@ -298,7 +298,7 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 
 			branches = append(branches, stmt.SwitchBranch[symbol.Resolved]{
 				IsDefault: branch.IsDefault,
-				Cases:     cases,
+				Labels:    labels,
 				Body:      body,
 			})
 		}

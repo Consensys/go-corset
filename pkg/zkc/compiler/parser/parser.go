@@ -937,12 +937,12 @@ func (p *Parser) parseSwitchBranch(env Environment) (
 	}
 
 	var (
-		cases []expr.Expr[symbol.Unresolved]
-		body  []stmt.Stmt[symbol.Unresolved]
+		labels []expr.Expr[symbol.Unresolved]
+		body   []stmt.Stmt[symbol.Unresolved]
 	)
 
 	if isCase {
-		if cases, body, errs = p.parseSwitchCase(env); len(errs) > 0 {
+		if labels, body, errs = p.parseSwitchCase(env); len(errs) > 0 {
 			return
 		}
 	} else {
@@ -952,7 +952,7 @@ func (p *Parser) parseSwitchBranch(env Environment) (
 	}
 
 	branch.IsDefault = isDefault
-	branch.Cases = cases
+	branch.Labels = labels
 	branch.Body = body
 
 	return
