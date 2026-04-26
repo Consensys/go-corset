@@ -1,0 +1,30 @@
+type exmp = u8
+
+const CASE_A     :exmp = 1
+const CASE_B     :exmp = 2
+const CASE_MATCH :exmp = 13
+
+// tests to test behaviour wrt pathological switch statements
+//  * duplicate cases
+fn main() {
+
+  var discr :exmp = CASE_MATCH
+
+  // duplicate default
+  switch discr {
+    default: {}
+    default: {}
+  }
+
+  // duplicate no match
+  switch discr {
+    case CASE_A: { }
+    case CASE_A, CASE_B: { }
+  }
+
+  // duplicate with match
+  switch discr {
+    case CASE_MATCH: { }
+    case CASE_MATCH, CASE_B: { }
+  }
+}

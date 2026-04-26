@@ -1,0 +1,1 @@
+- switch: type consistency between discriminant and cases (numeric or constants)

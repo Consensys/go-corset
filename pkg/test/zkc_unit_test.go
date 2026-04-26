@@ -429,7 +429,23 @@ func Test_ZkcUnit_Ternary_05(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Switch_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/switch_body_01")
+	checkZkcUnit(t, "zkc/unit/switch_01")
+}
+
+func Test_ZkcUnit_Switch_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_02")
+}
+
+func Test_ZkcUnit_Switch_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_03")
+}
+
+func Test_ZkcUnit_Switch_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_04")
+}
+
+func Test_ZkcUnit_Switch_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_05")
 }
 
 // ===================================================================

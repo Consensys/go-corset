@@ -1,0 +1,41 @@
+type exmp = u16
+
+// tests to test valid albeit pathological switch statements
+//  * empty or not
+//  * default present or not
+//  * position of the default keyword
+fn main() {
+
+  var discr :exmp = 65535
+
+  // no match
+  switch discr {
+    case 13: { }
+  }
+  switch discr {
+    case 13: { }
+    default: {}
+  }
+
+  // no match
+  switch discr {
+    case 13, 33: { }
+  }
+  switch discr {
+    case 13, 33: { }
+    default: {}
+  }
+
+  // no match
+  switch discr {
+    case 13: { }
+    case 33: { }
+  }
+  switch discr {
+    default: {}
+    case 13: { }
+    case 65535: { }
+  }
+
+  printf "success"
+}
