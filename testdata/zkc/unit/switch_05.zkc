@@ -1,44 +1,36 @@
 const CASE_A:u8 = 1
 const CASE_B:u8 = 2
-const CASE_C:u8 = 3
-const CASE_D:u8 = 4
 
-// standard switch case statement with function call discriminant
+input input_case      (c :u1) -> (d   :u8)
+input expected_output (c :u1) -> (out :u8)
+
+// standard switch case statement doing actual computations
+// computations are checked against inputs
 fn main() {
 
-  var arg :u8 = 1
+  var discr :u8 = input_case[0]
 
-  switch get_case(arg) {
+  switch discr {
     case 0: {
-      arg = arg + 1
+      discr = 255
     }
-    case CASE_A, CASE_B: {
-    deal_with(arg)
+    case CASE_A: {
+      discr = deal_with(discr)
     }
-    case CASE_C: {
-    deal_with(arg + 1)
+    case CASE_B: {
+      discr = deal_with(discr) + 1
     }
     default: {
-    deal_with(arg + 2)
+      discr = 17
     }
+  }
+
+  if discr != expected_output[0] {
+    fail
   }
 }
 
-fn get_case(arg :u8) -> (res :u8) {
-  res = arg ^ 0xff
-}
-
-fn deal_with(discr :u8) {
-  var variable :u8 = 128
-  switch get_case(discr) {
-    case CASE_A, CASE_B: {
-      variable = discr * discr
-    }
-    case CASE_C: {
-      variable = variable + discr
-    }
-    default: {
-      variable = (discr + 14) >> 3
-    }
-  }
+fn deal_with(discr :u8) -> (res :u8) {
+  res = 4 * discr
+  return
 }

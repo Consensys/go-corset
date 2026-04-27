@@ -22,16 +22,16 @@ fn main_switch_01() {
 
   // no match
   switch discr {
-    case CASE_A: { }
+    case CASE_A: {}
   }
   switch discr {
-    case CASE_A: { }
+    case CASE_A: {}
     default: {}
   }
 
   // no match
   switch discr {
-    case CASE_A, CASE_B: { }
+    case CASE_A, CASE_B: {}
   }
   switch discr {
     case CASE_A, CASE_B: { }
@@ -40,11 +40,11 @@ fn main_switch_01() {
 
   // no match
   switch discr {
-    case CASE_A: { }
+    case CASE_A: {}
     case CASE_B: { }
   }
   switch discr {
-    case CASE_A: { }
+    case CASE_A: {}
     default: {}
     case CASE_B: { }
   }
@@ -60,15 +60,15 @@ fn main_switch_01() {
   }
 
   switch discr {
-    default: { }
+    default: {}
     case CASE_MATCH: {}
   }
 
   // generic case
   switch discr {
-    case CASE_A, CASE_MATCH: { }
-    default: { }
-    case CASE_B: { }
+    case CASE_A, CASE_MATCH: {}
+    default: {}
+    case CASE_B: {}
   }
 
   printf "success"
