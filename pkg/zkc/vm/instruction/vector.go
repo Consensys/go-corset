@@ -217,7 +217,7 @@ func writeDfaTransfer[W word.Word[W]](offset uint, code MicroInstruction[W], sta
 		// fall through
 	}
 	// Construct state after this code
-	nState := state.Write(code.Uses()...)
+	nState := state.Write(code.Definitions()...)
 	// Transfer to following instruction
 	arcs = append(arcs, dfa.NewTransfer(nState, offset+1))
 	// Done
