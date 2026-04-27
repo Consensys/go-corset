@@ -172,18 +172,18 @@ type checkConfig struct {
 
 // Check raw constraints using the legacy pipeline.
 func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, tracefile string,
-	schemas cmd_util.SchemaStacker[F]) {
+	stack cmd_util.SchemaStack[F]) {
 	//
 	var (
 		errors    []error
 		traces    []lt.TraceFile
 		ok        bool = true
-		expanding      = schemas.TraceBuilder().Expanding()
+		expanding      = stack.TraceBuilder().Expanding()
 	)
 	//
 	stats := util.NewPerfStats()
 	// Extract debug information (if available)
-	cfg.corsetSourceMap, _ = binfile.GetAttribute[*corset.SourceMap](schemas.BinaryFile())
+	cfg.corsetSourceMap, _ = binfile.FindAttribute[*corset.SourceMap](stack.Attributes())
 	//
 	stats.Log("Reading constraints file")
 	// Parse trace file(s)
@@ -194,19 +194,17 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 		// unbatched (i.e. normal) mode
 		traces = []lt.TraceFile{ReadTraceFile(tracefile)}
 	}
-	//
-	schema := schemas.BinaryFile().Schema
 	// Apply trace propagation
 	if expanding {
 		perf := util.NewPerfStats()
 		//
-		traces, errors = asm.PropagateAll(schema, traces)
+		traces, errors = asm.PropagateAll(stack.AbstractSchema(), traces)
 		//
 		perf.Log("Trace propagation")
 	}
 	// Go!
 	if len(errors) == 0 {
-		ok = checkTraces(traces, schemas, cfg) && ok
+		ok = checkTraces(traces, stack, cfg) && ok
 	}
 	// Handle errors
 	if !ok || len(errors) > 0 {
@@ -218,27 +216,24 @@ func checkWithLegacyPipeline[F field.Element[F]](cfg checkConfig, batched bool, 
 	}
 }
 
-func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.SchemaStacker[F], cfg checkConfig) bool {
+func checkTraces[F field.Element[F]](traces []lt.TraceFile, stack cmd_util.SchemaStack[F], cfg checkConfig) bool {
 	//
 	for _, tf := range traces {
 		//
 		for n := cfg.padding.Left; n <= cfg.padding.Right; n++ {
-			// Configure stack.  This is important to ensure true separation
-			// between runs (e.g. for the io.Executor).
-			stack := stacker.Build()
 			// configure trace builder
 			builder := stack.TraceBuilder().WithPadding(n)
 			// identify concrete schema separately
-			schema := stack.ConcreteSchema()
-			// identify schema name
-			ir := stack.ConcreteIrName()
+			compiled := stack.ConcreteSchema()
+			// Extract the compiled schema
+			schema := binfile.ExtractSchema[F](compiled)
 			// begin performance measurement
 			stats := util.NewPerfStats()
 			trace, errs := builder.Build(schema, tf)
 			// Log cost of expansion
 			stats.Log("Expanding trace columns")
 			// Report any errors
-			reportErrors(ir, errs)
+			reportErrors(compiled.Name, errs)
 			// Check whether considered unrecoverable
 			if trace == nil || len(errs) > 0 {
 				return false
@@ -247,7 +242,7 @@ func checkTraces[F field.Element[F]](traces []lt.TraceFile, stacker cmd_util.Sch
 			stats = util.NewPerfStats()
 			// Check constraints
 			if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
-				reportFailures(ir, errs, trace, builder.Mapping(), cfg)
+				reportFailures(compiled.Name, errs, trace, builder.Mapping(), cfg)
 				return false
 			}
 

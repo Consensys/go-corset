@@ -15,8 +15,8 @@ package register
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
+	"math"
 	"math/big"
 )
 
@@ -33,7 +33,7 @@ type Register struct {
 	// Given name of this register.
 	name string
 	// Width (in bits) of this register
-	width uint
+	width uint32
 	// Determines what value will be used to pad this register.
 	padding big.Int
 }
@@ -41,25 +41,48 @@ type Register struct {
 // New constructs a new register of a given kind (i.e. input, output or
 // computed) with the given name and bitwidth.
 func New(kind Type, name string, bitwidth uint, padding big.Int) Register {
-	return Register{kind, name, bitwidth, padding}
+	if bitwidth > math.MaxUint32 {
+		panic(fmt.Sprintf("invalid register bitwidth (u%d)", bitwidth))
+	}
+	//
+	return Register{kind, name, uint32(bitwidth), padding}
 }
 
 // NewInput constructs a new input register with the given name and
 // bitwidth.
 func NewInput(name string, bitwidth uint, padding big.Int) Register {
-	return Register{INPUT_REGISTER, name, bitwidth, padding}
+	if bitwidth > math.MaxUint32 {
+		panic(fmt.Sprintf("invalid register bitwidth (u%d)", bitwidth))
+	}
+	//
+	return Register{INPUT_REGISTER, name, uint32(bitwidth), padding}
 }
 
 // NewOutput constructs a new output register with the given name and
 // bitwidth.
 func NewOutput(name string, bitwidth uint, padding big.Int) Register {
-	return Register{OUTPUT_REGISTER, name, bitwidth, padding}
+	if bitwidth > math.MaxUint32 {
+		panic(fmt.Sprintf("invalid register bitwidth (u%d)", bitwidth))
+	}
+	//
+	return Register{OUTPUT_REGISTER, name, uint32(bitwidth), padding}
 }
 
 // NewComputed constructs a new computed register with the given name and
 // bitwidth.
 func NewComputed(name string, bitwidth uint, padding big.Int) Register {
-	return Register{COMPUTED_REGISTER, name, bitwidth, padding}
+	if bitwidth > math.MaxUint32 {
+		panic(fmt.Sprintf("invalid register bitwidth (u%d)", bitwidth))
+	}
+	//
+	return Register{COMPUTED_REGISTER, name, uint32(bitwidth), padding}
+}
+
+// NewNative constructs a new computed register which operates over native
+// fields.
+func NewNative(name string, padding big.Int) Register {
+	//
+	return Register{COMPUTED_REGISTER, name, math.MaxUint32, padding}
 }
 
 // NewConst constructs a new "constant register".  That is a register which
@@ -104,11 +127,18 @@ func (p *Register) IsOutput() bool {
 	return p.kind == OUTPUT_REGISTER
 }
 
-// IsComputed determines whether or not this is a computed register.  Observer
+// IsComputed determines whether or not this is a computed register.  Observe
 // that "zero" registers are included in this, since they are neither input nor
 // output registers.
 func (p *Register) IsComputed() bool {
 	return p.kind == COMPUTED_REGISTER || p.IsConst()
+}
+
+// IsNative determines whether or not this is a native register.  A native
+// register is a computed register whose bitwidth is the maximum permitted
+// value.
+func (p *Register) IsNative() bool {
+	return p.kind == COMPUTED_REGISTER && p.width == math.MaxUint32
 }
 
 // IsConst determines whether or not this is a constant "zero" or "one" register
@@ -187,7 +217,11 @@ func (p Register) String() string {
 
 // Width determines the bitwidth of this register.
 func (p Register) Width() uint {
-	return p.width
+	if p.IsNative() {
+		panic("native registers have no width")
+	}
+	//
+	return uint(p.width)
 }
 
 // ============================================================================
@@ -204,7 +238,7 @@ func (p *Register) MarshalBinary() (data []byte, err error) {
 		return nil, err
 	}
 	// Register bitwidth
-	if err := binary.Write(buffer, binary.BigEndian, uint16(p.width)); err != nil {
+	if err := binary.Write(buffer, binary.BigEndian, p.width); err != nil {
 		return nil, err
 	}
 	// Write register name
@@ -224,7 +258,7 @@ func (p *Register) UnmarshalBinary(data []byte) error {
 	var (
 		buffer        = bytes.NewBuffer(data)
 		kind          uint8
-		width         uint16
+		width         uint32
 		name, padding []byte
 		err           error
 	)
@@ -246,7 +280,7 @@ func (p *Register) UnmarshalBinary(data []byte) error {
 	}
 	//
 	p.kind = Type{kind}
-	p.width = uint(width)
+	p.width = width
 	p.name = string(name)
 	p.padding.SetBytes(padding)
 	// Success!
@@ -255,7 +289,7 @@ func (p *Register) UnmarshalBinary(data []byte) error {
 
 func readByteArray(buf *bytes.Buffer) ([]byte, error) {
 	var (
-		len  uint8
+		len  uint32
 		data []byte
 	)
 	//
@@ -269,23 +303,27 @@ func readByteArray(buf *bytes.Buffer) ([]byte, error) {
 	if n, err := buf.Read(data); err != nil {
 		return nil, err
 	} else if n != int(len) {
-		return nil, errors.New("malformed register encoding")
+		return nil, fmt.Errorf("malformed register (read) encoding (%d vs %d)", n, len)
 	}
 	//
 	return data, nil
 }
 
 func writeByteArray(buf *bytes.Buffer, data []byte) error {
-	var len uint8 = uint8(len(data))
+	var m uint32 = uint32(len(data))
+	//
+	if len(data) > math.MaxUint32 {
+		return fmt.Errorf("malformed register (write) encoding (%d bytes)", len(data))
+	}
 	// Data length
-	if err := binary.Write(buf, binary.BigEndian, len); err != nil {
+	if err := binary.Write(buf, binary.BigEndian, m); err != nil {
 		return err
 	}
 	// Data itself
 	if n, err := buf.Write(data); err != nil {
 		return err
-	} else if n != int(len) {
-		return errors.New("malformed register encoding")
+	} else if n != int(m) {
+		return fmt.Errorf("malformed register (write) encoding (%d vs %d)", n, m)
 	}
 	// Success
 	return nil

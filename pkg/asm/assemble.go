@@ -191,17 +191,17 @@ func checkMultiLineLookups(program MicroProgram, externs []hir.Module) {
 	for _, m := range externs {
 		for _, c := range m.RawConstraints() {
 			switch c := c.Unwrap().(type) {
-			case hir.LookupConstraint:
+			case *hir.LookupConstraint:
 				handle := fmt.Sprintf("%s.%s", m.Name(), c.Handle)
 				checkMultiLineLookup(program, c, handle)
-			case hir.FunctionCall:
+			case *hir.FunctionCall:
 				checkMultiLineFnCall(program, c, m.Name().String())
 			}
 		}
 	}
 }
 
-func checkMultiLineLookup(program MicroProgram, c hir.LookupConstraint, handle string) {
+func checkMultiLineLookup(program MicroProgram, c *hir.LookupConstraint, handle string) {
 	for _, src := range c.Sources {
 		checkMultiLineLookupVector(program, src, handle, "source")
 	}
@@ -221,7 +221,7 @@ func checkMultiLineLookupVector(program MicroProgram, c lookup.Vector[word.BigEn
 	}
 }
 
-func checkMultiLineFnCall(program MicroProgram, c hir.FunctionCall, handle string) {
+func checkMultiLineFnCall(program MicroProgram, c *hir.FunctionCall, handle string) {
 	var (
 		callee = program.Component(c.Callee)
 	)

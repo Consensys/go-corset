@@ -14,7 +14,6 @@ package gadgets
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
@@ -55,13 +54,11 @@ func applyPseudoInverseGadget[F field.Element[F]](e air.Term[F], module air.Modu
 		index, ok = module.HasRegister(name)
 		// Default padding (for now)
 		padding = ir.PaddingFor[F](ie, module)
-		// Indicate column has "field element width".
-		bitwidth uint = math.MaxUint
 	)
 	// Add new column (if it does not already exist)
 	if !ok {
 		// Add computed register.
-		index = module.NewRegister(register.NewComputed(name, bitwidth, padding))
+		index = module.NewRegister(register.NewNative(name, padding))
 		target := register.NewRef(module.Id(), index)
 		// Add inverse assignment
 		module.AddAssignment(assignment.NewPseudoInverse(target, e))

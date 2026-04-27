@@ -43,25 +43,25 @@ import (
 // constraints added as necessary to ensure this.
 type LexicographicSortingGadget[F field.Element[F]] struct {
 	// Prefix is used to construct the delta column name.
-	prefix string
+	Prefix string
 	// Identifies column(s) being sorted
-	columns []register.Id
+	Columns []register.Id
 	// Sort direction given for columns (true = ascending, false = descending).
 	// Observe that it is not required for all columns to have a sort direction.
 	// Columns without a sort direction can be ordered arbitrarily.
-	signs []bool
+	Signs []bool
 	// Bitwidth of delta column.  This restricts the maximum distance between
 	// any two sorted values.  A key requirement is to ensure the delta value is
 	// "small" to prevent overflow.
-	bitwidth uint
+	Bitwidth uint
 	// Strict implies that equal elements are not permitted.
-	strict bool
-	// Constraint active when selector is non-zero.
-	selector air.Term[F]
+	Strict bool
+	// Constraint active when Selector is non-zero.
+	Selector air.Term[F]
 	// Determines the largest bitwidth for which range constraints are
 	// translated into AIR range constraints, versus  using a horizontal
 	// bitwidth gadget.
-	maxRangeConstraint uint
+	MaxRangeConstraint uint
 }
 
 // NewLexicographicSortingGadget constructs a default sorting gadget which can
@@ -82,30 +82,30 @@ func NewLexicographicSortingGadget[F field.Element[F]](prefix string, columns []
 
 // WithSigns configures the directions for all columns being sorted.
 func (p *LexicographicSortingGadget[F]) WithSigns(signs ...bool) *LexicographicSortingGadget[F] {
-	if len(p.columns) < len(signs) {
+	if len(p.Columns) < len(signs) {
 		panic("Inconsistent number of columns and signs for lexicographic sort.")
 	}
 
-	p.signs = signs
+	p.Signs = signs
 	//
 	return p
 }
 
 // WithStrictness configures strictness
 func (p *LexicographicSortingGadget[F]) WithStrictness(strict bool) *LexicographicSortingGadget[F] {
-	p.strict = strict
+	p.Strict = strict
 	return p
 }
 
 // WithSelector sets the selector for this constraint.
 func (p *LexicographicSortingGadget[F]) WithSelector(selector air.Term[F]) *LexicographicSortingGadget[F] {
-	p.selector = selector
+	p.Selector = selector
 	return p
 }
 
 // WithMaxRangeConstraint determines the cutoff for range cosntraints.
 func (p *LexicographicSortingGadget[F]) WithMaxRangeConstraint(width uint) *LexicographicSortingGadget[F] {
-	p.maxRangeConstraint = width
+	p.MaxRangeConstraint = width
 	return p
 }
 
@@ -114,7 +114,7 @@ func (p *LexicographicSortingGadget[F]) Apply(mid sc.ModuleId, schema *air.Schem
 	var (
 		module = schema.Module(mid)
 		//
-		deltaName = fmt.Sprintf("%s:delta", p.prefix)
+		deltaName = fmt.Sprintf("%s:delta", p.Prefix)
 		// Look up register
 		deltaIndex, ok = module.HasRegister(deltaName)
 	)
@@ -122,12 +122,12 @@ func (p *LexicographicSortingGadget[F]) Apply(mid sc.ModuleId, schema *air.Schem
 	if !ok {
 		// Allocate registers
 		var (
-			regs    = assignment.LexicographicSortRegisters(uint(len(p.signs)), p.prefix, p.bitwidth)
-			sources = make([]register.Ref, len(p.columns))
+			regs    = assignment.LexicographicSortRegisters(uint(len(p.Signs)), p.Prefix, p.Bitwidth)
+			sources = make([]register.Ref, len(p.Columns))
 			targets = make([]register.Ref, len(regs))
 		)
 		// Construct source refs
-		for i, rid := range p.columns {
+		for i, rid := range p.Columns {
 			sources[i] = register.NewRef(mid, rid)
 		}
 		// Construct target refs
@@ -138,7 +138,7 @@ func (p *LexicographicSortingGadget[F]) Apply(mid sc.ModuleId, schema *air.Schem
 		deltaIndex = targets[0].Register()
 		//
 		module.AddAssignment(
-			assignment.NewLexicographicSort[F](targets, p.signs, sources, p.bitwidth))
+			assignment.NewLexicographicSort[F](targets, p.Signs, sources, p.Bitwidth))
 		// Construct selector bits.
 		p.addLexicographicSelectorBits(deltaIndex, mid, schema)
 		// Add necessary bitwidth constraints.  Note, we don't need to consider
@@ -149,14 +149,14 @@ func (p *LexicographicSortingGadget[F]) Apply(mid sc.ModuleId, schema *air.Schem
 		ref := register.NewRef(mid, deltaIndex)
 		// Constrict gadget
 		gadget := NewBitwidthGadget(schema).
-			WithMaxRangeConstraint(p.maxRangeConstraint)
+			WithMaxRangeConstraint(p.MaxRangeConstraint)
 		// Apply bitwidth constraint
-		gadget.Constrain(ref, p.bitwidth)
+		gadget.Constrain(ref, p.Bitwidth)
 	}
 	// Construct delta terms
-	constraint := constructLexicographicDeltaConstraint[F](deltaIndex, p.columns, p.signs, module)
+	constraint := constructLexicographicDeltaConstraint[F](deltaIndex, p.Columns, p.Signs, module)
 	// Apply selector
-	constraint = term.Product(p.selector, constraint)
+	constraint = term.Product(p.Selector, constraint)
 	// Add delta constraint
 	module.AddConstraint(
 		air.NewVanishingConstraint(deltaName, module.Id(), util.None[int](), constraint))
@@ -175,7 +175,7 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 	var (
 		module = schema.Module(mid)
 		one    = term.Const64[F, air.Term[F]](1)
-		ncols  = uint(len(p.signs))
+		ncols  = uint(len(p.Signs))
 		// Calculate column index of first selector bit
 		bitIndex = deltaIndex.Unwrap() + 1
 	)
@@ -184,7 +184,7 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 		ref := register.NewRef(mid, register.NewId(bitIndex+i))
 		// Add binarity constraints (i.e. to enforce that this column is a bit).
 		NewBitwidthGadget(schema).
-			WithMaxRangeConstraint(p.maxRangeConstraint).
+			WithMaxRangeConstraint(p.MaxRangeConstraint).
 			Constrain(ref, 1)
 	}
 	// Apply constraints to ensure at most one is set.
@@ -193,11 +193,11 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 	for i := uint(0); i < ncols; i++ {
 		var (
 			ith_id  = register.NewId(bitIndex + i)
-			ith_col = module.Register(p.columns[i])
+			ith_col = module.Register(p.Columns[i])
 			pterms  = make([]air.Term[F], i+1)
 			qterms  = make([]air.Term[F], i)
-			c_i     = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width(), 0)
-			c_pi    = term.NewRegisterAccess[F, air.Term[F]](p.columns[i], ith_col.Width(), -1)
+			c_i     = term.NewRegisterAccess[F, air.Term[F]](p.Columns[i], ith_col.Width(), 0)
+			c_pi    = term.NewRegisterAccess[F, air.Term[F]](p.Columns[i], ith_col.Width(), -1)
 		)
 
 		terms[i] = term.NewRegisterAccess[F, air.Term[F]](ith_id, 1, 0)
@@ -210,13 +210,13 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 		// (∀j<=i.Bj=0) ==> C[k]=C[k-1]
 		pterms[i] = term.NewRegisterAccess[F, air.Term[F]](ith_id, 1, 0)
 		pDiff := term.Subtract(c_i, c_pi)
-		pName := fmt.Sprintf("%s:%d", p.prefix, i)
+		pName := fmt.Sprintf("%s:%d", p.Prefix, i)
 		module.AddConstraint(
 			air.NewVanishingConstraint(pName, module.Id(),
-				util.None[int](), term.Product(p.selector, term.Subtract(one, term.Sum(pterms...)), pDiff)))
+				util.None[int](), term.Product(p.Selector, term.Subtract(one, term.Sum(pterms...)), pDiff)))
 		// (∀j<i.Bj=0) ∧ Bi=1 ==> C[k]≠C[k-1]
 		qDiff := Normalise(term.Subtract(c_i, c_pi), module)
-		qName := fmt.Sprintf("%s:%d", p.prefix, i)
+		qName := fmt.Sprintf("%s:%d", p.Prefix, i)
 		// bi = 0 || C[k]≠C[k-1]
 		constraint := term.Product(pterms[i], term.Subtract(one, qDiff))
 		if i != 0 {
@@ -225,7 +225,7 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 		}
 
 		module.AddConstraint(
-			air.NewVanishingConstraint(qName, module.Id(), util.None[int](), term.Product(p.selector, constraint)))
+			air.NewVanishingConstraint(qName, module.Id(), util.None[int](), term.Product(p.Selector, constraint)))
 	}
 	//
 	var (
@@ -233,7 +233,7 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 		constraint air.Term[F]
 	)
 	// Apply strictness
-	if p.strict {
+	if p.Strict {
 		// (sum = 1)
 		constraint = term.Subtract(sum, one)
 	} else {
@@ -241,9 +241,9 @@ func (p *LexicographicSortingGadget[F]) addLexicographicSelectorBits(deltaIndex 
 		constraint = term.Product(sum, term.Subtract(sum, one))
 	}
 	//
-	name := fmt.Sprintf("%s:xor", p.prefix)
+	name := fmt.Sprintf("%s:xor", p.Prefix)
 	module.AddConstraint(
-		air.NewVanishingConstraint(name, module.Id(), util.None[int](), term.Product(p.selector, constraint)))
+		air.NewVanishingConstraint(name, module.Id(), util.None[int](), term.Product(p.Selector, constraint)))
 }
 
 // Construct the lexicographic delta constraint.  This states that the delta

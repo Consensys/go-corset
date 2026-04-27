@@ -22,10 +22,10 @@ import (
 )
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Subdivider[F]) subdivideLookup(c LookupConstraint[F]) LookupConstraint[F] {
+func (p *Subdivider[F]) subdivideLookup(c *LookupConstraint[F]) *LookupConstraint[F] {
 	var (
 		// Determine overall geometry for this lookup.
-		geometry = lookup.NewGeometry(c, p.mapping)
+		geometry = lookup.NewGeometry(*c, p.mapping)
 		// Split all registers in the source vectors
 		vSources = p.mapLookupVectors(c.Sources)
 		// Split all registers in the target vectors

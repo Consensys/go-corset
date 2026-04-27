@@ -31,8 +31,8 @@ import (
 // Assignment represents a wrapper around an instruction in order for it to
 // conform to the schema.Assignment interface.
 type Assignment[F field.Element[F], T io.Instruction] struct {
-	id sc.ModuleId
-	fn *io.Function[T]
+	ModuleId sc.ModuleId
+	Function *io.Function[T]
 }
 
 // NewAssignment constructs a new assignment capable of trace filling for a
@@ -52,15 +52,15 @@ func (p Assignment[F, T]) Bounds(module uint) util.Bounds {
 func (p Assignment[F, T]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]) ([]array.MutArray[F], error) {
 	//
 	var (
-		trModule   = trace.Module(p.id)
+		trModule   = trace.Module(p.ModuleId)
 		states     []io.State
 		iomap      = NewTraceIoMap(trace)
-		numInputs  = p.fn.NumInputs()
-		numOutputs = p.fn.NumOutputs()
+		numInputs  = p.Function.NumInputs()
+		numOutputs = p.Function.NumOutputs()
 	)
 	// Trace given rows
 	for i := range trModule.Height() {
-		inputs := extractValues(i, trModule, 0, p.fn.NumInputs())
+		inputs := extractValues(i, trModule, 0, p.Function.NumInputs())
 		outputs := extractValues(i, trModule, numInputs, numInputs+numOutputs)
 		sts := p.trace(inputs, outputs, iomap)
 		states = append(states, sts...)
@@ -79,13 +79,13 @@ func (p Assignment[F, T]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 	//
 	var cols []sexp.SExp
 	//
-	for _, r := range p.fn.Registers() {
+	for _, r := range p.Function.Registers() {
 		cols = append(cols, sexp.NewSymbol(r.Name()))
 	}
 	//
 	return sexp.NewList([]sexp.SExp{
 		sexp.NewSymbol("compute"),
-		sexp.NewSymbol(p.fn.Name().String()),
+		sexp.NewSymbol(p.Function.Name().String()),
 		sexp.NewList(cols),
 	})
 }
@@ -99,10 +99,10 @@ func (p Assignment[F, T]) RegistersExpanded() []register.Ref {
 func (p Assignment[F, T]) RegistersRead() []register.Ref {
 	var regs []register.Ref
 	//
-	for i, reg := range p.fn.Registers() {
+	for i, reg := range p.Function.Registers() {
 		if reg.IsInputOutput() {
 			rid := register.NewId(uint(i))
-			regs = append(regs, register.NewRef(p.id, rid))
+			regs = append(regs, register.NewRef(p.ModuleId, rid))
 		}
 	}
 	//
@@ -113,8 +113,8 @@ func (p Assignment[F, T]) RegistersRead() []register.Ref {
 func (p Assignment[F, T]) RegistersWritten() []register.Ref {
 	var (
 		regs       []register.Ref
-		nRegisters = len(p.fn.Registers())
-		multiLine  = len(p.fn.Code()) > 1
+		nRegisters = len(p.Function.Registers())
+		multiLine  = len(p.Function.Code()) > 1
 	)
 	// Include control registers for multi-line functions.
 	if multiLine {
@@ -124,7 +124,7 @@ func (p Assignment[F, T]) RegistersWritten() []register.Ref {
 	// This is because it may expand the I/O registers.
 	for i := range nRegisters {
 		rid := register.NewId(uint(i))
-		regs = append(regs, register.NewRef(p.id, rid))
+		regs = append(regs, register.NewRef(p.ModuleId, rid))
 	}
 	//
 	return regs
@@ -143,10 +143,10 @@ func (p Assignment[F, T]) Substitute(map[string]F) {
 // ensure internal consistency.
 func (p Assignment[F, T]) trace(inputs, outputs []big.Int, iomap io.Map) []io.State {
 	var (
-		code   = p.fn.Code()
+		code   = p.Function.Code()
 		states []io.State
 		// Construct local state
-		state = io.InitialState(inputs, p.fn.Registers(), p.fn.Buses(), iomap)
+		state = io.InitialState(inputs, p.Function.Registers(), p.Function.Buses(), iomap)
 		// Program counter position
 		pc uint = 0
 	)
@@ -169,16 +169,16 @@ func (p Assignment[F, T]) states2columns(width uint, states []io.State, builder 
 	var (
 		cols      = make([]array.MutArray[F], width)
 		nrows     = uint(len(states))
-		multiLine = len(p.fn.Code()) > 1
+		multiLine = len(p.Function.Code()) > 1
 	)
 	// Initialise register columns
-	for i, r := range p.fn.Registers() {
+	for i, r := range p.Function.Registers() {
 		cols[i] = builder.NewArray(nrows, r.Width())
 	}
 	// Initialise control columns (if applicable)
 	// transcribe values
 	for row, st := range states {
-		for i := range p.fn.Registers() {
+		for i := range p.Function.Registers() {
 			var (
 				val F
 				rid = register.NewId(uint(i))
@@ -204,10 +204,10 @@ func (p Assignment[F, T]) assignControlRegisters(cols []array.MutArray[F], state
 		zero  = field.Zero[F]()
 		one   = field.One[F]()
 		nrows = uint(len(states))
-		pc    = uint(len(p.fn.Registers()))
+		pc    = uint(len(p.Function.Registers()))
 		ret   = pc + 1
 		// Calculate minimum size of PC; NOTE: +1 because PC==0 is reserved for padding.
-		pcWidth = bit.Width(uint(len(p.fn.Code()) + 1))
+		pcWidth = bit.Width(uint(len(p.Function.Code()) + 1))
 	)
 	// Initialise columns
 	cols[pc] = builder.NewArray(nrows, pcWidth)

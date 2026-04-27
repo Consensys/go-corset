@@ -34,7 +34,7 @@ import (
 // are permitted.  As such, we want to try and ensure that arbitrary constraints
 // are not found at the Constraint[F] level.
 type Constraint[F field.Element[F]] struct {
-	constraint schema.Constraint[F]
+	Constraint schema.Constraint[F]
 }
 
 // NewAssertion constructs a new assertion
@@ -90,7 +90,7 @@ func NewSortedConstraint[F field.Element[F]](handle string, context schema.Modul
 func (p Constraint[F]) Accepts(trace trace.Trace[F],
 	schema schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	//
-	return p.constraint.Accepts(trace, schema)
+	return p.Constraint.Accepts(trace, schema)
 }
 
 // Bounds determines the well-definedness bounds for this constraint in both the
@@ -99,14 +99,14 @@ func (p Constraint[F]) Accepts(trace trace.Trace[F],
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass)
 func (p Constraint[F]) Bounds(module uint) util.Bounds {
-	return p.constraint.Bounds(module)
+	return p.Constraint.Bounds(module)
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
 func (p Constraint[F]) Consistent(schema schema.AnySchema[F]) []error {
-	return p.constraint.Consistent(schema)
+	return p.Constraint.Consistent(schema)
 }
 
 // Complexity implementation for constraint interface
@@ -120,13 +120,13 @@ func (p Constraint[F]) Complexity() uint {
 // constraints have at least one context (which we can call the "primary"
 // context).
 func (p Constraint[F]) Contexts() []schema.ModuleId {
-	return p.constraint.Contexts()
+	return p.Constraint.Contexts()
 }
 
 // Name returns a unique name and case number for a given constraint.  This
 // is useful purely for identifying constraints in reports, etc.
 func (p Constraint[F]) Name() string {
-	return p.constraint.Name()
+	return p.Constraint.Name()
 }
 
 // Lisp converts this schema element into a simple S-Expression, for example
@@ -134,15 +134,15 @@ func (p Constraint[F]) Name() string {
 //
 //nolint:revive
 func (p Constraint[F]) Lisp(schema schema.AnySchema[F]) sexp.SExp {
-	return p.constraint.Lisp(schema)
+	return p.Constraint.Lisp(schema)
 }
 
 // Substitute any matchined labelled constants within this constraint
 func (p Constraint[F]) Substitute(mapping map[string]F) {
-	p.constraint.Substitute(mapping)
+	p.Constraint.Substitute(mapping)
 }
 
 // Unwrap provides access to the underlying constraint.
 func (p Constraint[F]) Unwrap() schema.Constraint[F] {
-	return p.constraint
+	return p.Constraint
 }

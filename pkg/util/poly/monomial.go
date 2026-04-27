@@ -26,8 +26,8 @@ var zero big.Int
 
 // Monomial represents a monomial within an array polynomial.
 type Monomial[S util.Comparable[S]] struct {
-	coefficient big.Int
-	vars        []S
+	Coeff big.Int
+	Vars  []S
 }
 
 // NewMonomial constructs a new array term with a given coefficient and zero or
@@ -45,26 +45,26 @@ func NewMonomial[S util.Comparable[S]](coefficient big.Int, vars ...S) Monomial[
 func (p Monomial[S]) Clone() Monomial[S] {
 	var (
 		val   big.Int
-		nvars = make([]S, len(p.vars))
+		nvars = make([]S, len(p.Vars))
 	)
 	// Copy variables
-	copy(nvars, p.vars)
+	copy(nvars, p.Vars)
 	// Copy coefficient
-	val.Set(&p.coefficient)
+	val.Set(&p.Coeff)
 	//
 	return Monomial[S]{val, nvars}
 }
 
 // Coefficient returns the coefficient of this term.
 func (p Monomial[S]) Coefficient() big.Int {
-	return p.coefficient
+	return p.Coeff
 }
 
 // Contains checks whether this monomial contains the given variable, or not.
 func (p Monomial[S]) Contains(v S) bool {
 	// employ binary search to find the item
-	_, res := sort.Find(len(p.vars), func(i int) int {
-		return v.Cmp(p.vars[i])
+	_, res := sort.Find(len(p.Vars), func(i int) int {
+		return v.Cmp(p.Vars[i])
 	})
 	//
 	return res
@@ -76,11 +76,11 @@ func (p Monomial[S]) Cmp(other Monomial[S]) int {
 	// operation of the ArrayPoly.  That's because we have an invariant which
 	// says we can change the coefficient of any moninial without changing its
 	// position in the sorted set of monomials.
-	if c := array.Compare(p.vars, other.vars); c != 0 {
+	if c := array.Compare(p.Vars, other.Vars); c != 0 {
 		return c
 	}
 	//
-	return p.coefficient.Cmp(&other.coefficient)
+	return p.Coeff.Cmp(&other.Coeff)
 }
 
 // FactorOut produces a fresh monomial containing one less occurrence of the
@@ -88,15 +88,15 @@ func (p Monomial[S]) Cmp(other Monomial[S]) int {
 // identical monomial.
 func (p Monomial[S]) FactorOut(v S) Monomial[S] {
 	// employ binary search to find the item
-	index, res := sort.Find(len(p.vars), func(i int) int {
-		return v.Cmp(p.vars[i])
+	index, res := sort.Find(len(p.Vars), func(i int) int {
+		return v.Cmp(p.Vars[i])
 	})
 	//
 	if res {
 		// Remove occurrence at matched index
-		nvars := array.RemoveAt(p.vars, uint(index))
+		nvars := array.RemoveAt(p.Vars, uint(index))
 		// Construct fresh monomial
-		return NewMonomial(p.coefficient, nvars...)
+		return NewMonomial(p.Coeff, nvars...)
 	}
 	// Not contained, therefore construct fresh (but otherwise identical)
 	// monomial
@@ -106,14 +106,14 @@ func (p Monomial[S]) FactorOut(v S) Monomial[S] {
 // Equal performs structural equality between two mononomials.  That is, they
 // are consider the same provide they have identical structure.
 func (p Monomial[S]) Equal(other Monomial[S]) bool {
-	if len(p.vars) != len(other.vars) {
+	if len(p.Vars) != len(other.Vars) {
 		return false
-	} else if p.coefficient.Cmp(&other.coefficient) != 0 {
+	} else if p.Coeff.Cmp(&other.Coeff) != 0 {
 		return false
 	}
 	//
-	for i := range p.vars {
-		if p.vars[i].Cmp(other.vars[i]) != 0 {
+	for i := range p.Vars {
+		if p.Vars[i].Cmp(other.Vars[i]) != 0 {
 			return false
 		}
 	}
@@ -124,40 +124,40 @@ func (p Monomial[S]) Equal(other Monomial[S]) bool {
 // IsZero checks whether or not this monomial is zero.  Or, put another way,
 // whether or not the coefficient of this monomial is zero.
 func (p Monomial[S]) IsZero() bool {
-	c := p.coefficient
+	c := p.Coeff
 	return c.BitLen() == 0
 }
 
 // IsNegative checks whether or not the coefficient for this monomial is
 // negative.
 func (p Monomial[S]) IsNegative() bool {
-	c := p.coefficient
+	c := p.Coeff
 	return c.Cmp(&zero) < 0
 }
 
 // Negate the coefficient of this monomial
 func (p Monomial[S]) Negate() Monomial[S] {
 	c := p.Clone()
-	c.coefficient.Neg(&c.coefficient)
+	c.Coeff.Neg(&c.Coeff)
 	//
 	return c
 }
 
 // Len returns the number of variables in this polynomial term.
 func (p Monomial[S]) Len() uint {
-	return uint(len(p.vars))
+	return uint(len(p.Vars))
 }
 
 // Nth returns the nth variable in this polynomial term.
 func (p Monomial[S]) Nth(index uint) S {
-	return p.vars[index]
+	return p.Vars[index]
 }
 
 // Neg returns a negated copy of this monomial
 func (p Monomial[S]) Neg() Monomial[S] {
 	var res = p.Clone()
 	// Negate Coefficient
-	res.coefficient.Neg(&res.coefficient)
+	res.Coeff.Neg(&res.Coeff)
 	// Done
 	return res
 }
@@ -167,9 +167,9 @@ func (p Monomial[S]) Neg() Monomial[S] {
 func (p Monomial[S]) Mul(other Monomial[S]) Monomial[S] {
 	var res Monomial[S]
 	// Multiply coefficients
-	res.coefficient.Mul(&p.coefficient, &other.coefficient)
+	res.Coeff.Mul(&p.Coeff, &other.Coeff)
 	// Append variables
-	res.vars = array.MergeSorted(p.vars, other.vars)
+	res.Vars = array.MergeSorted(p.Vars, other.Vars)
 	// Done
 	return res
 }
@@ -178,7 +178,7 @@ func (p Monomial[S]) Mul(other Monomial[S]) Monomial[S] {
 func (p Monomial[S]) MulScalar(scalar *big.Int) Monomial[S] {
 	var res = p.Clone()
 	// Multiply coefficients
-	res.coefficient.Mul(&res.coefficient, scalar)
+	res.Coeff.Mul(&res.Coeff, scalar)
 	// Done
 	return res
 }
@@ -191,7 +191,7 @@ func (p Monomial[S]) Matches(other Monomial[S]) bool {
 	}
 	//
 	for i := uint(0); i < p.Len(); i++ {
-		if p.vars[i].Cmp(other.Nth(i)) != 0 {
+		if p.Vars[i].Cmp(other.Nth(i)) != 0 {
 			return false
 		}
 	}
@@ -204,13 +204,13 @@ func (p Monomial[S]) Shr(n uint) (quot Monomial[S], rem Monomial[S]) {
 	var (
 		coeff               big.Int
 		quotient, remainder big.Int
-		neg                 = p.coefficient.Sign() < 0
+		neg                 = p.Coeff.Sign() < 0
 	)
 	// Handle negative values
 	if neg {
-		coeff.Abs(&p.coefficient)
+		coeff.Abs(&p.Coeff)
 	} else {
-		coeff = p.coefficient
+		coeff = p.Coeff
 	}
 	// Determine quotient and remainder
 	quotient.Rsh(&coeff, n)
@@ -222,7 +222,7 @@ func (p Monomial[S]) Shr(n uint) (quot Monomial[S], rem Monomial[S]) {
 		remainder.Neg(&remainder)
 	}
 	// Done
-	return Monomial[S]{quotient, p.vars}, Monomial[S]{remainder, p.vars}
+	return Monomial[S]{quotient, p.Vars}, Monomial[S]{remainder, p.Vars}
 }
 
 // String constructs a suitable string representation for a given polynomial
@@ -265,9 +265,9 @@ func (p Monomial[S]) String(env func(S) string) string {
 	return buf.String()
 }
 
-// Vars retursnt the variables of this monomial as an array.
-func (p Monomial[S]) Vars() []S {
-	return p.vars
+// Variables retursnt the variables of this monomial as an array.
+func (p Monomial[S]) Variables() []S {
+	return p.Vars
 }
 
 func sortVars[S util.Comparable[S]](vars []S) {

@@ -44,25 +44,25 @@ type Constraint[F field.Element[F]] struct {
 
 // NewConstraint creates a new permutation
 func NewConstraint[F field.Element[F]](handle string, context schema.ModuleId, targets []register.Id,
-	sources []register.Id) Constraint[F] {
+	sources []register.Id) *Constraint[F] {
 	if len(targets) != len(sources) {
 		panic("differeng number of target / source permutation columns")
 	}
 
-	return Constraint[F]{handle, context, targets, sources}
+	return &Constraint[F]{handle, context, targets, sources}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F]) Consistent(schema schema.AnySchema[F]) []error {
+func (p *Constraint[F]) Consistent(schema schema.AnySchema[F]) []error {
 	// TODO: check column access, and widths, etc.
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[F]) Name() string {
+func (p *Constraint[F]) Name() string {
 	return p.Handle
 }
 
@@ -71,7 +71,7 @@ func (p Constraint[F]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[F]) Contexts() []schema.ModuleId {
+func (p *Constraint[F]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -80,13 +80,13 @@ func (p Constraint[F]) Contexts() []schema.ModuleId {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p Constraint[F]) Bounds(module uint) util.Bounds {
+func (p *Constraint[F]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a permutation holds between the source and
 // target columns.
-func (p Constraint[F]) Accepts(tr trace.Trace[F], _ schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p *Constraint[F]) Accepts(tr trace.Trace[F], _ schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		// Coverage currently always empty for permutation constraints.
 		coverage bit.Set
@@ -113,7 +113,7 @@ func (p Constraint[F]) Accepts(tr trace.Trace[F], _ schema.AnySchema[F]) (bit.Se
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[F]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+func (p *Constraint[F]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
 		module  = mapping.Module(p.Context)
 		targets = sexp.EmptyList()
@@ -138,7 +138,7 @@ func (p Constraint[F]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[F]) Substitute(map[string]F) {
+func (p *Constraint[F]) Substitute(map[string]F) {
 	// nothing to do here
 }
 

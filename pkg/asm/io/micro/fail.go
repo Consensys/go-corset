@@ -20,9 +20,9 @@ import (
 
 // Fail signals a return from the enclosing function.
 type Fail struct {
-	// dummy is included to force Fail structs to be stored in the heap.
+	// Dummy is included to force Fail structs to be stored in the heap.
 	//nolint
-	dummy uint
+	Dummy uint
 }
 
 // Clone this micro code.

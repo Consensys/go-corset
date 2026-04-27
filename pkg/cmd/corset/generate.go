@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/corset/generate"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/corset/util"
 	sc "github.com/consensys/go-corset/pkg/schema"
@@ -64,7 +65,7 @@ func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	intrface := GetString(cmd, "interface")
 	// Parse constraints
 	files := splitConstraintSets(args)
-	schemas := make([]cmd_util.SchemaStacker[F], len(files))
+	schemas := make([]cmd_util.SchemaStack[F], len(files))
 	//
 	for i := range schemas {
 		schemas[i] = *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, files[i]...)
@@ -87,15 +88,16 @@ func runGenerateCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		super = strings.TrimSuffix(filename, ".java")
 	}
 	//
-	for i, stacker := range schemas {
+	for i, stack := range schemas {
 		var (
 			filename = outputs[i]
-			binf     = stacker.BinaryFile()
+			//
+			binf = stack.BinaryFile()
+			// Extract the compiled schema
+			schema = binfile.ExtractSchema[F](stack.ConcreteSchema())
 		)
-		// build schema stack
-		stack := stacker.Build()
 		// NOTE: assume defensive padding is enabled.
-		spillage := determineSpillage(stack.ConcreteSchema(), true)
+		spillage := determineSpillage(schema, true)
 		// Generate appropriate Java source
 		source, err = generate.JavaTraceClass(filename, pkgname, super, spillage, binf)
 		// check for errors

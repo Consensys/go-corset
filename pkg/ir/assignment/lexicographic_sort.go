@@ -33,11 +33,11 @@ import (
 type LexicographicSort[F field.Element[F]] struct {
 	// The target columns to be filled.  The first entry is for the delta
 	// column, and the remaining n entries are for the selector columns.
-	targets []register.Ref
+	Targets []register.Ref
 	// Source columns being sorted
-	sources  []register.Ref
-	signs    []bool
-	bitwidth uint
+	Sources  []register.Ref
+	Signs    []bool
+	Bitwidth uint
 }
 
 // LexicographicSortRegisters is a helper for allocated the registers needed for
@@ -86,19 +86,19 @@ func (p *LexicographicSort[F]) Compute(trace tr.Trace[F], schema sc.AnySchema[F]
 ) ([]array.MutArray[F], error) {
 	var (
 		// Exact number of (signed) columns involved in the sort
-		nbits = len(p.signs)
+		nbits = len(p.Signs)
 		// Byte width records the largest width of any column.
 		bitwidth = uint(0)
 	)
 	// Compute maximum bitwidth of all source columns, as this determines the
 	// width required for the delta column.
 	for i := 0; i < nbits; i++ {
-		bitwidth = max(bitwidth, schema.Register(p.sources[i]).Width())
+		bitwidth = max(bitwidth, schema.Register(p.Sources[i]).Width())
 	}
 	// Read input columns
-	inputs := ReadRegistersRef(trace, p.sources...)
+	inputs := ReadRegistersRef(trace, p.Sources...)
 	// Apply native function
-	data := lexSortNativeFunction(inputs, p.signs, trace.Builder())
+	data := lexSortNativeFunction(inputs, p.Signs, trace.Builder())
 	//
 	return data, nil
 }
@@ -112,10 +112,10 @@ func (p *LexicographicSort[F]) Consistent(schema sc.AnySchema[F]) []error {
 		bitwidth = uint(0)
 	)
 	// Sanity check source types
-	for i := range p.sources {
-		source := schema.Register(p.sources[i])
+	for i := range p.Sources {
+		source := schema.Register(p.Sources[i])
 		// i+1 because first target is selector
-		target := schema.Register(p.targets[i+1])
+		target := schema.Register(p.Targets[i+1])
 		// Sanit checkout
 		if source.Width() != target.Width() {
 			errors = append(errors,
@@ -126,9 +126,9 @@ func (p *LexicographicSort[F]) Consistent(schema sc.AnySchema[F]) []error {
 		bitwidth = max(bitwidth, source.Width())
 	}
 	// sanity check bitwidth
-	if bitwidth != p.bitwidth {
+	if bitwidth != p.Bitwidth {
 		errors = append(errors,
-			fmt.Errorf("lexicographic sort has inconsistent bitwidth (was u%d, expected u%d)", p.bitwidth, bitwidth))
+			fmt.Errorf("lexicographic sort has inconsistent bitwidth (was u%d, expected u%d)", p.Bitwidth, bitwidth))
 	}
 	//
 	return errors
@@ -142,12 +142,12 @@ func (p *LexicographicSort[F]) RegistersExpanded() []register.Ref {
 // RegistersRead returns the set of columns that this assignment depends upon.
 // That can include both input columns, as well as other computed columns.
 func (p *LexicographicSort[F]) RegistersRead() []register.Ref {
-	return p.sources
+	return p.Sources
 }
 
 // RegistersWritten identifies registers assigned by this assignment.
 func (p *LexicographicSort[F]) RegistersWritten() []register.Ref {
-	return p.targets
+	return p.Targets
 }
 
 // Substitute any matchined labelled constants within this assignment
@@ -167,21 +167,21 @@ func (p *LexicographicSort[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 		sources = sexp.EmptyList()
 	)
 
-	for _, t := range p.targets {
+	for _, t := range p.Targets {
 		ith_module := schema.Module(t.Module())
 		ith := ith_module.Register(t.Column())
 		ith_name := ith.QualifiedName(ith_module)
 		targets.Append(sexp.NewSymbol(ith_name))
 	}
 
-	for i, s := range p.sources {
+	for i, s := range p.Sources {
 		ith_module := schema.Module(s.Module())
 		ith := ith_module.Register(s.Column())
 		ith_name := ith.QualifiedName(ith_module)
 		//
-		if i >= len(p.signs) {
+		if i >= len(p.Signs) {
 			// unsigned column
-		} else if p.signs[i] {
+		} else if p.Signs[i] {
 			ith_name = fmt.Sprintf("+%s", ith_name)
 		} else {
 			ith_name = fmt.Sprintf("-%s", ith_name)

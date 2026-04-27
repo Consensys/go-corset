@@ -431,7 +431,7 @@ func splitAssignmentRhs(regWidth uint, field field.Config, p StaticPolynomial,
 // than the given register width.  This is therefore a candidate for splitting.
 // nolint
 func hasCandidate(m StaticMonomial, regWidth uint, mapping register.Map) bool {
-	for _, id := range m.Vars() {
+	for _, id := range m.Variables() {
 		reg := mapping.Register(id)
 		// Check for candidate
 		if reg.Width() > regWidth {
@@ -448,7 +448,7 @@ func hasCandidate(m StaticMonomial, regWidth uint, mapping register.Map) bool {
 func getCandidates(m StaticMonomial, regWidth uint, mapping register.Map) bit.Set {
 	var candidates bit.Set
 
-	for _, id := range m.Vars() {
+	for _, id := range m.Variables() {
 		reg := mapping.Register(id)
 		// Check for candidate
 		if reg.Width() > regWidth {

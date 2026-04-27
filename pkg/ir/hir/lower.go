@@ -120,36 +120,36 @@ func (p *MirLowering) lowerModule(hirIndex, mirIndex uint) {
 // Lower a constraint to the MIR level.
 func (p *MirLowering) lowerConstraint(c Constraint, mirModule mirModuleBuilder) {
 	// Check what kind of constraint we have
-	switch v := c.constraint.(type) {
-	case Assertion:
+	switch v := c.Constraint.(type) {
+	case *Assertion:
 		p.lowerAssertion(v, mirModule)
-	case FunctionCall:
+	case *FunctionCall:
 		p.lowerFunctionCall(v, mirModule)
-	case InterleavingConstraint:
+	case *InterleavingConstraint:
 		p.lowerInterleavingConstraint(v, mirModule)
-	case LookupConstraint:
+	case *LookupConstraint:
 		p.lowerLookupConstraint(v, mirModule)
-	case PermutationConstraint:
+	case *PermutationConstraint:
 		p.lowerPermutationConstraint(v, mirModule)
-	case RangeConstraint:
+	case *RangeConstraint:
 		p.lowerRangeConstraint(v, mirModule)
-	case SortedConstraint:
+	case *SortedConstraint:
 		p.lowerSortedConstraint(v, mirModule)
-	case VanishingConstraint:
+	case *VanishingConstraint:
 		p.lowerVanishingConstraint(v, mirModule)
 	default:
 		// Should be unreachable as no other constraint types can be added to a
 		// schema.
-		panic("unreachable")
+		panic(fmt.Sprintf("unknown constraint encountered: %s", reflect.TypeOf(v).String()))
 	}
 }
 
 // Lowering an assertion is straightforward since its not a true constraint.
-func (p *MirLowering) lowerAssertion(v Assertion, module mirModuleBuilder) {
+func (p *MirLowering) lowerAssertion(v *Assertion, module mirModuleBuilder) {
 	module.AddConstraint(mir.NewAssertion[word.BigEndian](v.Handle, v.Context, v.Domain, v.Property))
 }
 
-func (p *MirLowering) lowerFunctionCall(v FunctionCall, module mirModuleBuilder) {
+func (p *MirLowering) lowerFunctionCall(v *FunctionCall, module mirModuleBuilder) {
 	var (
 		nargs        = len(v.Arguments)
 		nrets        = len(v.Returns)
@@ -187,7 +187,7 @@ func (p *MirLowering) lowerFunctionCall(v FunctionCall, module mirModuleBuilder)
 // Lower a vanishing constraint to the MIR level.  This is relatively
 // straightforward and simply relies on lowering the expression being
 // constrained.
-func (p *MirLowering) lowerVanishingConstraint(v VanishingConstraint, module mirModuleBuilder) {
+func (p *MirLowering) lowerVanishingConstraint(v *VanishingConstraint, module mirModuleBuilder) {
 	var term = p.lowerLogical(v.Constraint, module)
 	//
 	module.AddConstraint(
@@ -196,7 +196,7 @@ func (p *MirLowering) lowerVanishingConstraint(v VanishingConstraint, module mir
 
 // Lower a permutation constraint to the MIR level.  This is trivial because
 // permutation constraints do not currently support complex forms.
-func (p *MirLowering) lowerPermutationConstraint(v PermutationConstraint, module mirModuleBuilder) {
+func (p *MirLowering) lowerPermutationConstraint(v *PermutationConstraint, module mirModuleBuilder) {
 	module.AddConstraint(
 		mir.NewPermutationConstraint[word.BigEndian](v.Handle, v.Context, v.Targets, v.Sources),
 	)
@@ -205,7 +205,7 @@ func (p *MirLowering) lowerPermutationConstraint(v PermutationConstraint, module
 // Lower a range constraint to the MIR level.  Since range constraints at the
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerRangeConstraint(v RangeConstraint, module mirModuleBuilder) {
+func (p *MirLowering) lowerRangeConstraint(v *RangeConstraint, module mirModuleBuilder) {
 	var term = p.expandTerms(module, v.Sources...)
 	//
 	module.AddConstraint(
@@ -215,7 +215,7 @@ func (p *MirLowering) lowerRangeConstraint(v RangeConstraint, module mirModuleBu
 // Lower an interleaving constraint to the MIR level.  Since interleaving
 // constraints at the MIR level can only access columns directly, we must expand
 // the source expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerInterleavingConstraint(c InterleavingConstraint, mod mirModuleBuilder) {
+func (p *MirLowering) lowerInterleavingConstraint(c *InterleavingConstraint, mod mirModuleBuilder) {
 	//
 	// Lower sources
 	sources := p.expandTermsAsVectors(c.Sources, mod)
@@ -229,7 +229,7 @@ func (p *MirLowering) lowerInterleavingConstraint(c InterleavingConstraint, mod 
 // Lower a lookup constraint to the MIR level.  Since lookup constraints at the
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerLookupConstraint(c LookupConstraint, mirModule mirModuleBuilder) {
+func (p *MirLowering) lowerLookupConstraint(c *LookupConstraint, mirModule mirModuleBuilder) {
 	var (
 		sources = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], len(c.Sources))
 		targets = make([]lookup.Vector[word.BigEndian, *mirRegisterAccess], len(c.Targets))
@@ -279,7 +279,7 @@ func (p *MirLowering) lowerLookupVector(vec lookup.Vector[word.BigEndian, Term],
 // Lower a sorted constraint to the MIR level.  Since sorting constraints at the
 // MIR level can only access columns directly, we must expand the source
 // expressions into computed columns with corresponding constraints.
-func (p *MirLowering) lowerSortedConstraint(c SortedConstraint, module mirModuleBuilder) {
+func (p *MirLowering) lowerSortedConstraint(c *SortedConstraint, module mirModuleBuilder) {
 	var (
 		terms    = p.expandTerms(module, c.Sources...)
 		selector util.Option[*mirRegisterAccess]

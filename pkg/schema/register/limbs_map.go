@@ -13,6 +13,7 @@
 package register
 
 import (
+	"encoding/gob"
 	"fmt"
 	"strings"
 
@@ -92,53 +93,53 @@ func NewLimbsMap[F any](field field.Config, module Map) limbsMap {
 // if the original register was computed, then the limbs should be also, etc.
 type limbsMap struct {
 	// Name of the module to which this mapping corresponds
-	name trace.ModuleName
+	ModuleName trace.ModuleName
 	// Field configuration in play
-	field field.Config
-	// Set of registers in the original schema (i.e. as they were before the
+	FieldConfig field.Config
+	// Set of Regs in the original schema (i.e. as they were before the
 	// split)
-	registers []Register
-	// Set of "limbs" (i.e registers) in the split schema.
-	limbs []Limb
+	Regs []Register
+	// Set of "RegLimbs" (i.e registers) in the split schema.
+	RegLimbs []Limb
 	// Mapping for each register above to its corresponding set of limbs.
-	mapping [][]LimbId
+	Mapping [][]LimbId
 }
 
 // Field implementation for register.Map interface
 func (p limbsMap) Field() field.Config {
-	return p.field
+	return p.FieldConfig
 }
 
 // Limbs implementation for the register.Map interface
 func (p limbsMap) LimbIds(reg Id) []LimbId {
-	return p.mapping[reg.Unwrap()]
+	return p.Mapping[reg.Unwrap()]
 }
 
 // Limb implementation for the register.Map interface
 func (p limbsMap) Limb(reg LimbId) Limb {
-	return p.limbs[reg.Unwrap()]
+	return p.RegLimbs[reg.Unwrap()]
 }
 
 // Limbs implementation for the register.Map interface
 func (p limbsMap) Limbs() []Limb {
-	return p.limbs
+	return p.RegLimbs
 }
 
 // LimbsMap implementation for the register.Map interface
 func (p limbsMap) LimbsMap() Map {
 	return limbsMap{
-		p.name, p.field, p.limbs, nil, nil,
+		p.ModuleName, p.FieldConfig, p.RegLimbs, nil, nil,
 	}
 }
 
 // Name implementation for register.Map interface
 func (p limbsMap) Name() trace.ModuleName {
-	return p.name
+	return p.ModuleName
 }
 
 // RegisterOf determines a register's ID based on its name.
 func (p limbsMap) RegisterOf(name string) Id {
-	for i, reg := range p.registers {
+	for i, reg := range p.Regs {
 		if reg.Name() == name {
 			return NewId(uint(i))
 		}
@@ -149,7 +150,7 @@ func (p limbsMap) RegisterOf(name string) Id {
 
 // HasRegister implementation for RegisterMap interface.
 func (p limbsMap) HasRegister(name string) (Id, bool) {
-	for i, reg := range p.registers {
+	for i, reg := range p.Regs {
 		if reg.Name() == name {
 			return NewId(uint(i)), true
 		}
@@ -160,12 +161,12 @@ func (p limbsMap) HasRegister(name string) (Id, bool) {
 
 // Register implementation for RegisterMap interface.
 func (p limbsMap) Register(rid Id) Register {
-	return p.registers[rid.Unwrap()]
+	return p.Regs[rid.Unwrap()]
 }
 
 // Registers implementation for RegisterMap interface.
 func (p limbsMap) Registers() []Register {
-	return p.registers
+	return p.Regs
 }
 
 func (p limbsMap) String() string {
@@ -249,4 +250,8 @@ func LimbsMapToString(p LimbsMap) string {
 	builder.WriteString("}")
 	//
 	return builder.String()
+}
+
+func init() {
+	gob.Register(LimbsMap(limbsMap{}))
 }

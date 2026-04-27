@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/cmd/corset/verify/picus"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
@@ -56,9 +57,9 @@ func runVerifyCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	// Construct schema stack
-	stack := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...).Build()
+	stack := getSchemaStack[F](cmd, SCHEMA_DEFAULT_MIR, args...)
 	// Identify concrete (i.e. lowest) schema
-	schema := stack.ConcreteSchema()
+	schema := binfile.ExtractSchema[F](stack.ConcreteSchema())
 	//
 	switch v := schema.(type) {
 	case mir.Schema[F]:

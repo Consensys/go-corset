@@ -11,6 +11,7 @@
 package micro
 
 import (
+	"encoding/gob"
 	"fmt"
 	"strings"
 
@@ -330,4 +331,16 @@ func retargetInsn(oldIndex uint, pktIndex, pktSize uint, code Code, mapping []ui
 	default:
 		return code
 	}
+}
+
+func init() {
+	gob.Register(Code(&Assign{}))
+	gob.Register(Code(&InOut{}))
+	gob.Register(Code(&Cast{}))
+	gob.Register(Code(&Division{}))
+	gob.Register(Code(&Fail{}))
+	gob.Register(Code(&Jmp{}))
+	gob.Register(Code(&Skip{}))
+	gob.Register(Code(&SkipIf{}))
+	gob.Register(Code(&Ret{}))
 }

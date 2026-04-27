@@ -79,9 +79,9 @@ func (p *MirPicusTranslator[F]) translateConstraint(c mir.Constraint[F],
 ) {
 	// Check what kind of constraint we have
 	switch v := c.Unwrap().(type) {
-	case mir.RangeConstraint[F]:
+	case *mir.RangeConstraint[F]:
 		p.translateRangeConstraint(v, picusModule, mirModule)
-	case mir.VanishingConstraint[F]:
+	case *mir.VanishingConstraint[F]:
 		p.translateVanishing(v, picusModule, mirModule)
 	default:
 		panic(fmt.Sprintf("Unhandled constraint: %s", c.Unwrap()))
@@ -89,7 +89,7 @@ func (p *MirPicusTranslator[F]) translateConstraint(c mir.Constraint[F],
 }
 
 // translateRangeConstraint translates a MIR range constraint `r` to a PCL less than constraint.
-func (p *MirPicusTranslator[F]) translateRangeConstraint(r mir.RangeConstraint[F],
+func (p *MirPicusTranslator[F]) translateRangeConstraint(r *mir.RangeConstraint[F],
 	picusModule *pcl.Module[F], mirModule schema.Module[F],
 ) {
 	for i, e := range r.Sources {
@@ -104,7 +104,7 @@ func (p *MirPicusTranslator[F]) translateRangeConstraint(r mir.RangeConstraint[F
 }
 
 // translateVanishing translates an MIR vanishing constraint into one or more PCL constraints.
-func (p *MirPicusTranslator[F]) translateVanishing(v mir.VanishingConstraint[F],
+func (p *MirPicusTranslator[F]) translateVanishing(v *mir.VanishingConstraint[F],
 	picusModule *pcl.Module[F], mirModule schema.Module[F],
 ) {
 	if v.Domain.HasValue() {

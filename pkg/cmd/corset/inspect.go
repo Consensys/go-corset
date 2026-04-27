@@ -71,16 +71,13 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	cellWidth := GetUint(cmd, "cell-width")
 	titleWidth := GetUint(cmd, "title-width")
 	// Read in constraint files
-	stacker := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
-	stack := stacker.Build()
+	stack := *getSchemaStack[F](cmd, SCHEMA_DEFAULT_AIR, args[1:]...)
 	//
 	stats := util.NewPerfStats()
-	// Parse constraints
-	binf := stacker.BinaryFile()
 	// Determine whether expansion is being performed
 	expanding := stack.TraceBuilder().Expanding()
 	// Sanity check debug information is available.
-	srcmap, srcmap_ok := binfile.GetAttribute[*corset.SourceMap](binf)
+	srcmap, srcmap_ok := binfile.FindAttribute[*corset.SourceMap](stack.Attributes())
 	//
 	if !srcmap_ok {
 		fmt.Printf("binary file \"%s\" missing source map", args[1])
@@ -90,13 +87,14 @@ func runInspectCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	// Parse trace file
 	tracefile := ReadTraceFile(args[0])
 	// Extract schema
-	schema := stack.ConcreteSchema()
+	// Extract the compiled schema
+	schema := binfile.ExtractSchema[F](stack.ConcreteSchema())
 	//
 	stats.Log("Reading trace file")
 	//
 	if expanding {
 		// Apply trace propagation
-		tracefile, errors = asm.Propagate(binf.Schema, tracefile)
+		tracefile, errors = asm.Propagate(stack.AbstractSchema(), tracefile)
 	}
 	// Apply trace expansion
 	if len(errors) != 0 && validate {

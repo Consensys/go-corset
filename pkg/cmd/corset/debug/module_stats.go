@@ -17,6 +17,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/consensys/go-corset/pkg/binfile"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/corset/util"
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -29,7 +30,7 @@ import (
 func PrintModuleStats[F field.Element[F]](stack cmd_util.SchemaStack[F], maxCellWidth uint, sorter uint) {
 	var (
 		//
-		schema      = stack.ConcreteSchema()
+		schema      = binfile.ExtractSchema[F](stack.ConcreteSchema())
 		summarisers = getModuleSummarisers[F]()
 		m           = 1 + uint(len(summarisers))
 		n           = schema.Width()

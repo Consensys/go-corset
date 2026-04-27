@@ -263,6 +263,18 @@ func (p *Table[F, M]) GobEncode() (data []byte, err error) {
 	if err := gobEncoder.Encode(p.padding); err != nil {
 		return nil, err
 	}
+	// Public
+	if err := gobEncoder.Encode(p.public); err != nil {
+		return nil, err
+	}
+	// Synthetic
+	if err := gobEncoder.Encode(p.synthetic); err != nil {
+		return nil, err
+	}
+	// Keys
+	if err := gobEncoder.Encode(p.keys); err != nil {
+		return nil, err
+	}
 	// registers
 	if err := gobEncoder.Encode(p.registers); err != nil {
 		return nil, err
@@ -293,6 +305,18 @@ func (p *Table[F, M]) GobDecode(data []byte) error {
 	}
 	// Padding
 	if err := gobDecoder.Decode(&p.padding); err != nil {
+		return err
+	}
+	// Public
+	if err := gobDecoder.Decode(&p.public); err != nil {
+		return err
+	}
+	// Synthetic
+	if err := gobDecoder.Decode(&p.synthetic); err != nil {
+		return err
+	}
+	// Keys
+	if err := gobDecoder.Decode(&p.keys); err != nil {
 		return err
 	}
 	// Registers

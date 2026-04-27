@@ -13,11 +13,9 @@
 package util
 
 import (
-	"fmt"
-
+	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/binfile"
 	"github.com/consensys/go-corset/pkg/ir"
-	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -30,69 +28,86 @@ import (
 // Intermediate Representation is a refinement of the Mid-level Intermediate
 // Representation, etc.
 type SchemaStack[F field.Element[F]] struct {
-	// Binfile represents the top of this stack.
-	binfile util.Option[binfile.BinaryFile]
-	// The various (abstract) layers which are refined from the binfile.
-	abstractSchemas []schema.AnySchema[word.BigEndian]
-	// The various (concrete) layers which are refined from the abstract layers.
-	concreteSchemas []schema.AnySchema[F]
-	// Register mapping used
-	mapping module.LimbsMap
-	// Name of IR used for corresponding schema
-	names []string
+	header     binfile.Header
+	attributes []binfile.Attribute
+	compiled   []binfile.CompiledSchema
+	mapping    module.LimbsMap
 	// Configuration for trace expansion
 	traceBuilder ir.TraceBuilder[F]
 }
 
-// AbstractSchemas returns the stack of abstract schemas according to the
-// selected layers, where higher-level layers come first.
-func (p *SchemaStack[F]) AbstractSchemas() []schema.AnySchema[word.BigEndian] {
-	return p.abstractSchemas
+// Attributes returns the set of attributes for the binary file being generated.
+func (p *SchemaStack[F]) Attributes() []binfile.Attribute {
+	return p.attributes
 }
 
-// BinaryFile returns the binary file representing the top of this stack.
+// BinaryFile constructs a suitable binary file from this schema.
 func (p *SchemaStack[F]) BinaryFile() *binfile.BinaryFile {
-	bf := p.binfile.Unwrap()
-	return &bf
-}
-
-// HasConcreteSchema returns true if there is at least one concrete schema..
-func (p *SchemaStack[F]) HasConcreteSchema() bool {
-	return len(p.concreteSchemas) > 0
-}
-
-// ConcreteSchema returns the stack of concrete schemas according to the selected
-// layers, where higher-level layers come first.
-func (p *SchemaStack[F]) ConcreteSchema() schema.AnySchema[F] {
-	var n = len(p.concreteSchemas) - 1
-	return p.concreteSchemas[n]
-}
-
-// ConcreteSchemaOf returns the schema associated with the given IR representation.  If
-// there is no match, this will panic.
-func (p *SchemaStack[F]) ConcreteSchemaOf(ir string) schema.AnySchema[F] {
-	m := len(p.abstractSchemas)
+	var (
+		root     = p.AbstractSchema()
+		compiled util.Option[binfile.CompiledSchema]
+	)
 	//
-	for i, n := range p.names[m:] {
-		if n == ir {
-			return p.concreteSchemas[i]
+	if len(p.compiled) > 1 {
+		compiled = util.Some[binfile.CompiledSchema](p.ConcreteSchema())
+	}
+	//
+	return binfile.NewBinaryFile(p.header.MetaData, p.attributes, root, compiled)
+}
+
+// Header returns a suitable header for the binary file to be generated
+func (p *SchemaStack[F]) Header() binfile.Header {
+	return p.header
+}
+
+// AbstractSchema returns the top-level (i.e. most abstract) schema for system of
+// constraints being described.
+func (p *SchemaStack[F]) AbstractSchema() asm.MacroHirProgram {
+	var (
+		schema = binfile.ExtractSchema[word.BigEndian](p.compiled[0])
+		// Should always be safe as schema stacker enforces invariant that
+		// top-level program comes first.
+		program = schema.(*asm.MacroHirProgram)
+	)
+	//
+	return *program
+}
+
+// HasConcreteSchema determines whether or not a schema was requested which
+// operates over the concrete field F.
+func (p *SchemaStack[F]) HasConcreteSchema() bool {
+	for _, c := range p.compiled {
+		if c.Name == "MIR" || c.Name == "AIR" {
+			return true
 		}
 	}
 	//
-	panic(fmt.Sprintf("schema for %s not found", ir))
+	return false
 }
 
-// RegisterMapping returns the register mapping used to split registers
-// according to the given field configuration.
-func (p *SchemaStack[F]) RegisterMapping() module.LimbsMap {
+// ConcreteMapping returns the mapping of registers at the abstract level down
+// to those at the concrete level.  This only makes sense when
+// HasConcreteSchema() holds.
+func (p *SchemaStack[F]) ConcreteMapping() module.LimbsMap {
 	return p.mapping
 }
 
-// ConcreteIrName returns a human-readable anacronym of the IR used to generate the
-// corresponding SCHEMA.
-func (p *SchemaStack[F]) ConcreteIrName() string {
-	var n = len(p.concreteSchemas) - 1
-	return p.names[len(p.abstractSchemas)+n]
+// FindSchema returns the compiled schema corresponding to the given name.
+func (p *SchemaStack[F]) FindSchema(name string) binfile.CompiledSchema {
+	for _, c := range p.compiled {
+		if c.Name == name {
+			return c
+		}
+	}
+	//
+	panic("schema not found")
+}
+
+// ConcreteSchema returns the most concrete schema within this stack.
+func (p *SchemaStack[F]) ConcreteSchema() binfile.CompiledSchema {
+	n := len(p.compiled)
+	//
+	return p.compiled[n-1]
 }
 
 // TraceBuilder returns a configured trace builder.

@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/asm"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/typed"
 )
 
@@ -42,27 +43,47 @@ type BinaryFile struct {
 	// Schema is the compiled constraint program, combining macro-level assembly
 	// instructions with a HIR constraint schema.
 	Schema asm.MacroHirProgram
+	// Compiled schema
+	Compiled util.Option[CompiledSchema]
 }
 
 // NewBinaryFile constructs a BinaryFile with a header stamped at the current
 // major/minor version.  metadata is an optional JSON blob stored verbatim in
 // the header (pass nil for none).
-func NewBinaryFile(metadata []byte, attributes []Attribute, schema asm.MacroHirProgram,
-) *BinaryFile {
+func NewBinaryFile(metadata []byte, attributes []Attribute, program asm.MacroHirProgram,
+	compiled util.Option[CompiledSchema]) *BinaryFile {
 	//
 	return &BinaryFile{
 		Header{ZKBINARY, BINFILE_MAJOR_VERSION, BINFILE_MINOR_VERSION, metadata},
 		attributes,
-		schema,
+		program,
+		compiled,
 	}
+}
+
+// Clone this binary file producing an identical, but physically disjoint copy.
+func (p BinaryFile) Clone() (r BinaryFile) {
+	if bytes, err := p.MarshalBinary(); err != nil {
+		panic(err.Error())
+	} else if err := r.UnmarshalBinary(bytes); err != nil {
+		panic(err.Error())
+	}
+	//
+	return r
 }
 
 // GetAttribute returns the first instance of a given attribute, or nil if none
 // exists.
 func GetAttribute[T Attribute](binf *BinaryFile) (T, bool) {
+	return FindAttribute[T](binf.Attributes)
+}
+
+// FindAttribute returns the first instance of a given attribute, or nil if none
+// exists.
+func FindAttribute[T Attribute](attributes []Attribute) (T, bool) {
 	var empty T
 	//
-	for _, attr := range binf.Attributes {
+	for _, attr := range attributes {
 		if a, ok := attr.(T); ok {
 			return a, true
 		}
@@ -218,7 +239,7 @@ func (p *Header) IsCompatible() bool {
 // Regardless of version, the file always begins with the ZKBINARY identifier
 // followed by a hand-rolled binary Header.  The encoding of everything after
 // the header is determined by the major version.
-const BINFILE_MAJOR_VERSION uint16 = 10
+const BINFILE_MAJOR_VERSION uint16 = 11
 
 // BINFILE_MINOR_VERSION is the minor version of the binary file format.  Files
 // with a lower minor version remain readable by this implementation, but files
@@ -266,6 +287,10 @@ func (p *BinaryFile) MarshalBinary() ([]byte, error) {
 	if err := gobEncoder.Encode(&p.Schema); err != nil {
 		return nil, err
 	}
+	// Encode (optional) compiled schema
+	if err := gobEncoder.Encode(&p.Compiled); err != nil {
+		return nil, err
+	}
 	// Done
 	return buffer.Bytes(), nil
 }
@@ -282,8 +307,11 @@ func (p *BinaryFile) UnmarshalBinary(data []byte) error {
 		decoder := gob.NewDecoder(buffer)
 		// Proceed to decoding any attributes.
 		if err = decoder.Decode(&p.Attributes); err == nil {
-			// Finally, decode the schema itself
-			err = decoder.Decode(&p.Schema)
+			// Next, decode the schema itself
+			if err = decoder.Decode(&p.Schema); err == nil {
+				// Finally, decode  the compiled schema itself
+				err = decoder.Decode(&p.Compiled)
+			}
 		}
 	} else if err == nil {
 		err = fmt.Errorf("incompatible binary file was v%d.%d, but expected v%d.%d)",

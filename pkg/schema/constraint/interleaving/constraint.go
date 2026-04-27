@@ -42,22 +42,22 @@ type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 
 // NewConstraint creates a new Interleave
 func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, targetContext schema.ModuleId,
-	sourceContext schema.ModuleId, target E, sources []E) Constraint[F, E] {
+	sourceContext schema.ModuleId, target E, sources []E) *Constraint[F, E] {
 	//
-	return Constraint[F, E]{handle, targetContext, sourceContext, target, sources}
+	return &Constraint[F, E]{handle, targetContext, sourceContext, target, sources}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
+func (p *Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
 	// TODO: check column access, and widths, etc.
 	return nil
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[F, E]) Name() string {
+func (p *Constraint[F, E]) Name() string {
 	return p.Handle
 }
 
@@ -66,7 +66,7 @@ func (p Constraint[F, E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[F, E]) Contexts() []schema.ModuleId {
+func (p *Constraint[F, E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.TargetContext, p.SourceContext}
 }
 
@@ -75,13 +75,13 @@ func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 // expression such as "(shift X -1)".  This is technically undefined for the
 // first row of any trace and, by association, any constraint evaluating this
 // expression on that first row is also undefined (and hence must pass).
-func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
+func (p *Constraint[F, E]) Bounds(module uint) util.Bounds {
 	return util.EMPTY_BOUND
 }
 
 // Accepts checks whether a Interleave holds between the source and
 // target columns.
-func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p *Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		srcTrMod = tr.Module(p.SourceContext)
@@ -124,7 +124,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 
 // Lisp converts this schema element into a simple S-Expression, for example
 // so it can be printed.
-func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+func (p *Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
 		sourceModule = mapping.Module(p.SourceContext)
 		targetModule = mapping.Module(p.TargetContext)
@@ -154,7 +154,7 @@ func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[F, E]) Substitute(mapping map[string]F) {
+func (p *Constraint[F, E]) Substitute(mapping map[string]F) {
 	for _, s := range p.Sources {
 		s.Substitute(mapping)
 	}

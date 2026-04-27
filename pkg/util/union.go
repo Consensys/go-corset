@@ -12,6 +12,11 @@
 // SPDX-License-Identifier: Apache-2.0
 package util
 
+import (
+	"bytes"
+	"encoding/gob"
+)
+
 // Comparable interface which can be implemented by non-primitive types.
 type Comparable[T any] interface {
 	// Cmp returns < 0 if this is less than other, or 0 if they are equal, or >
@@ -23,7 +28,7 @@ type Comparable[T any] interface {
 // type.
 type Union[S, T any] struct {
 	// Indicates first present
-	sign bool
+	Sign bool
 	// Left value
 	first S
 	// Right value
@@ -47,19 +52,19 @@ func Union2[S, T any](value T) Union[S, T] {
 // HasFirst indicates whether this union holds a value of the first type (or
 // not).
 func (u Union[S, T]) HasFirst() bool {
-	return u.sign
+	return u.Sign
 }
 
 // HasSecond indicates whether this union holds a value of the second type (or
 // not).
 func (u Union[S, T]) HasSecond() bool {
-	return !u.sign
+	return !u.Sign
 }
 
 // First returns the contained value of the first type.  If the union does not
 // hold a value of the first type, then this will panic.
 func (u Union[S, T]) First() S {
-	if u.sign {
+	if u.Sign {
 		return u.first
 	}
 	//
@@ -69,9 +74,63 @@ func (u Union[S, T]) First() S {
 // Second returns the contained value of the second type.  If the union does not
 // hold a value of the second type, then this will panic.
 func (u Union[S, T]) Second() T {
-	if !u.sign {
+	if !u.Sign {
 		return u.second
 	}
 	//
 	panic("cannot take second item, as union holds first")
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// GobEncode an option.  This allows it to be marshalled into a binary form.
+func (u Union[S, T]) GobEncode() (data []byte, err error) {
+	var (
+		buffer     bytes.Buffer
+		gobEncoder = gob.NewEncoder(&buffer)
+	)
+	// Some
+	if err := gobEncoder.Encode(&u.Sign); err != nil {
+		return nil, err
+	}
+	// Decide whether need anything else.
+	if u.Sign {
+		// FirstValue
+		if err := gobEncoder.Encode(&u.first); err != nil {
+			return nil, err
+		}
+	} else {
+		// SecondValue
+		if err := gobEncoder.Encode(&u.second); err != nil {
+			return nil, err
+		}
+	}
+	// Success
+	return buffer.Bytes(), nil
+}
+
+// GobDecode a previously encoded option
+func (u *Union[S, T]) GobDecode(data []byte) error {
+	buffer := bytes.NewBuffer(data)
+	gobDecoder := gob.NewDecoder(buffer)
+	// Some
+	if err := gobDecoder.Decode(&u.Sign); err != nil {
+		return err
+	}
+	// Check whether value provided
+	if u.Sign {
+		// FirstValue
+		if err := gobDecoder.Decode(&u.first); err != nil {
+			return err
+		}
+	} else {
+		// SecondValue
+		if err := gobDecoder.Decode(&u.second); err != nil {
+			return err
+		}
+	}
+	// Success!
+	return nil
 }

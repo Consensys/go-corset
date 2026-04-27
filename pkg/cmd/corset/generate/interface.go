@@ -28,19 +28,19 @@ import (
 // JavaTraceInterfaceUnion generates a suitable interface capturing the given schema,
 // as outlined in the source map.
 func JavaTraceInterfaceUnion[F field.Element[F]](filename string, pkgname string,
-	stacks []cmd_util.SchemaStacker[F]) (string, error) {
+	stacks []cmd_util.SchemaStack[F]) (string, error) {
 	//
 	return javaTraceInterface(filename, pkgname, true, stacks)
 }
 
 func javaTraceInterface[F field.Element[F]](filename string, pkgname string, union bool,
-	stacks []cmd_util.SchemaStacker[F]) (string, error) {
+	stacks []cmd_util.SchemaStack[F]) (string, error) {
 	//
 	var root corset.SourceModule
 	// Combine roots to determine set of common functionality.
 	for i, stack := range stacks {
 		// Extract source map (which we assume is present)
-		srcmap, _ := binfile.GetAttribute[*corset.SourceMap](stack.BinaryFile())
+		srcmap, _ := binfile.FindAttribute[*corset.SourceMap](stack.Attributes())
 		//
 		if i == 0 {
 			root = srcmap.Root

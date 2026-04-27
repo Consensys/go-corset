@@ -28,7 +28,7 @@ import (
 var EXPLODING_MULTIPLIER = uint(10)
 
 // Subdivide implementation for the FieldAgnostic interface.
-func (p *Subdivider[F]) subdivideVanishing(vc VanishingConstraint[F]) VanishingConstraint[F] {
+func (p *Subdivider[F]) subdivideVanishing(vc *VanishingConstraint[F]) *VanishingConstraint[F] {
 	//
 	var (
 		modmap = p.mapping.Module(vc.Context)

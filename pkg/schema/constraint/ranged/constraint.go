@@ -45,14 +45,14 @@ type Constraint[F field.Element[F], E term.Evaluable[F]] struct {
 
 // NewConstraint constructs a new Range constraint!
 func NewConstraint[F field.Element[F], E term.Evaluable[F]](handle string, context schema.ModuleId,
-	exprs []E, bitwidths []uint) Constraint[F, E] {
-	return Constraint[F, E]{handle, context, exprs, bitwidths}
+	exprs []E, bitwidths []uint) *Constraint[F, E] {
+	return &Constraint[F, E]{handle, context, exprs, bitwidths}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
+func (p *Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
 	var errors []error
 	//
 	if len(p.Bitwidths) != len(p.Sources) {
@@ -70,7 +70,7 @@ func (p Constraint[F, E]) Consistent(schema schema.AnySchema[F]) []error {
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[F, E]) Name() string {
+func (p *Constraint[F, E]) Name() string {
 	return p.Handle
 }
 
@@ -79,7 +79,7 @@ func (p Constraint[F, E]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[F, E]) Contexts() []schema.ModuleId {
+func (p *Constraint[F, E]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -90,7 +90,7 @@ func (p Constraint[F, E]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
+func (p *Constraint[F, E]) Bounds(module uint) util.Bounds {
 	var bound util.Bounds
 	//
 	if module == p.Context {
@@ -107,7 +107,7 @@ func (p Constraint[F, E]) Bounds(module uint) util.Bounds {
 // nil otherwise return an error.
 //
 //nolint:revive
-func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p *Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var coverage bit.Set
 	//
 	for i := range p.Sources {
@@ -125,7 +125,7 @@ func (p Constraint[F, E]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bi
 // it can be printed.
 //
 //nolint:revive
-func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
+func (p *Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 	var (
 		module = mapping.Module(p.Context)
 		pairs  = make([]sexp.SExp, len(p.Sources))
@@ -145,13 +145,13 @@ func (p Constraint[F, E]) Lisp(mapping schema.AnySchema[F]) sexp.SExp {
 }
 
 // Substitute any matchined labelled constants within this constraint
-func (p Constraint[F, E]) Substitute(mapping map[string]F) {
+func (p *Constraint[F, E]) Substitute(mapping map[string]F) {
 	for _, s := range p.Sources {
 		s.Substitute(mapping)
 	}
 }
 
-func (p Constraint[F, E]) accepts(i int, tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p *Constraint[F, E]) accepts(i int, tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		coverage bit.Set
 		trModule = tr.Module(p.Context)

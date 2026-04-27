@@ -13,6 +13,7 @@
 package module
 
 import (
+	"encoding/gob"
 	"fmt"
 	"strings"
 
@@ -45,23 +46,23 @@ func NewLimbsMap[F any, M register.Map](field field.Config, modules ...M) LimbsM
 // limbsMap provides a straightforward implementation of the schema.LimbMap
 // interface.
 type limbsMap[T register.Map] struct {
-	field   field.Config
-	modules []T
+	FieldConfig field.Config
+	Modules     []T
 }
 
 // Field implementation for schema.LimbMap interface
 func (p limbsMap[T]) Field() field.Config {
-	return p.field
+	return p.FieldConfig
 }
 
 // Module implementation for register.RegisterMappings interface
 func (p limbsMap[T]) Module(mid Id) T {
-	return p.modules[mid]
+	return p.Modules[mid]
 }
 
 // ModuleOf implementation for register.RegisterMappings interface
 func (p limbsMap[T]) ModuleOf(name Name) T {
-	for _, m := range p.modules {
+	for _, m := range p.Modules {
 		if m.Name() == name {
 			return m
 		}
@@ -72,17 +73,17 @@ func (p limbsMap[T]) ModuleOf(name Name) T {
 
 // Width returns the number of modules in this map
 func (p limbsMap[T]) Width() uint {
-	return uint(len(p.modules))
+	return uint(len(p.Modules))
 }
 
 func (p limbsMap[T]) String() string {
 	var builder strings.Builder
 	//
 	builder.WriteString("[")
-	builder.WriteString(p.field.Name)
+	builder.WriteString(p.FieldConfig.Name)
 	builder.WriteString(":")
 	//
-	for i, m := range p.modules {
+	for i, m := range p.Modules {
 		if i != 0 {
 			builder.WriteString(";")
 		}
@@ -93,4 +94,8 @@ func (p limbsMap[T]) String() string {
 	builder.WriteString("]")
 
 	return builder.String()
+}
+
+func init() {
+	gob.Register(LimbsMap(limbsMap[register.LimbsMap]{}))
 }

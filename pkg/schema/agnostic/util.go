@@ -167,7 +167,7 @@ func (p *VariableSplitter) Apply(poly DynamicPolynomial) DynamicPolynomial {
 				return rp
 			}
 			// No, so build and cache
-			rp := LimbPolynomial(reg.MaskWidth(), reg.RelativeShift(), p.limbs[index], p.limbWidths[index])
+			rp := LimbPolynomial(reg.MaskWidth, reg.RelativeShift(), p.limbs[index], p.limbWidths[index])
 			// Cache result
 			cache[reg] = rp
 			// Done

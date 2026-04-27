@@ -13,6 +13,8 @@
 package air
 
 import (
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema"
@@ -27,6 +29,10 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/source/sexp"
 )
 
@@ -68,22 +74,22 @@ type (
 	// Assertion captures the notion of an arbitrary property which should hold for
 	// all acceptable traces.  However, such a property is not enforced by the
 	// prover.
-	Assertion[F field.Element[F]] = Air[F, constraint.Assertion[F]]
+	Assertion[F field.Element[F]] = Air[F, *constraint.Assertion[F]]
 	// InterleavingConstraint captures the essence of an interleaving constraint
 	// at the MIR level.
-	InterleavingConstraint[F field.Element[F]] = Air[F, interleaving.Constraint[F, *ColumnAccess[F]]]
+	InterleavingConstraint[F field.Element[F]] = Air[F, *interleaving.Constraint[F, *ColumnAccess[F]]]
 	// LookupConstraint captures the essence of a lookup constraint at the AIR
 	// level.  At the AIR level, lookup constraints are only permitted between
 	// columns (i.e. not arbitrary expressions).
-	LookupConstraint[F field.Element[F]] = Air[F, lookup.Constraint[F, *ColumnAccess[F]]]
+	LookupConstraint[F field.Element[F]] = Air[F, *lookup.Constraint[F, *ColumnAccess[F]]]
 	// PermutationConstraint captures the essence of a permutation constraint at the
 	// AIR level. Specifically, it represents a constraint that one (or more)
 	// columns are a permutation of another.
-	PermutationConstraint[F field.Element[F]] = Air[F, permutation.Constraint[F]]
+	PermutationConstraint[F field.Element[F]] = Air[F, *permutation.Constraint[F]]
 	// RangeConstraint captures the essence of a range constraints at the AIR level.
-	RangeConstraint[F field.Element[F]] = Air[F, ranged.Constraint[F, *ColumnAccess[F]]]
+	RangeConstraint[F field.Element[F]] = Air[F, *ranged.Constraint[F, *ColumnAccess[F]]]
 	// VanishingConstraint captures the essence of a vanishing constraint at the AIR level.
-	VanishingConstraint[F field.Element[F]] = Air[F, vanishing.Constraint[F, LogicalTerm[F]]]
+	VanishingConstraint[F field.Element[F]] = Air[F, *vanishing.Constraint[F, LogicalTerm[F]]]
 )
 
 // Following types capture permitted expression forms at the AIR level.
@@ -146,4 +152,28 @@ func (p LogicalTerm[F]) RequiredCells(row int, mid trace.ModuleId) *set.AnySorte
 // Substitute implementation for Substitutable interface.
 func (p LogicalTerm[F]) Substitute(mapping map[string]F) {
 	p.Term.Substitute(mapping)
+}
+
+func init() {
+	initForField[bls12_377.Element]()
+	initForField[koalabear.Element]()
+	initForField[gf8209.Element]()
+	initForField[gf251.Element]()
+}
+
+func initForField[F field.Element[F]]() {
+	gob.Register(schema.AnySchema[F](Schema[F]{}))
+	//
+	gob.Register(schema.Constraint[F](&Assertion[F]{}))
+	gob.Register(schema.Constraint[F](&VanishingConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&InterleavingConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&RangeConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&PermutationConstraint[F]{}))
+	gob.Register(schema.Constraint[F](&LookupConstraint[F]{}))
+	//
+	gob.Register(Term[F](&Add[F]{}))
+	gob.Register(Term[F](&Mul[F]{}))
+	gob.Register(Term[F](&Sub[F]{}))
+	gob.Register(Term[F](&Constant[F]{}))
+	gob.Register(Term[F](&ColumnAccess[F]{}))
 }

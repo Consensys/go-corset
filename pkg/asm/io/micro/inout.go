@@ -22,10 +22,10 @@ import (
 
 // InOut captures input / output instructions for reading / writing to a bus.
 type InOut struct {
-	// Indicates whether input or output instruction.
-	input bool
-	// Local bus
-	bus io.Bus
+	// Indicates whether Input or output instruction.
+	Input bool
+	// Local DataBus
+	DataBus io.Bus
 }
 
 // NewIoRead constructs an instruction responsible for reading data to a given
@@ -43,12 +43,12 @@ func NewIoWrite(bus io.Bus) *InOut {
 // Bus returns information about the bus.  Observe that prior to Link being
 // called, this will return an unlinked bus.
 func (p *InOut) Bus() io.Bus {
-	return p.bus
+	return p.DataBus
 }
 
 // Clone this micro code.
 func (p *InOut) Clone() Code {
-	return &InOut{p.input, p.bus}
+	return &InOut{p.Input, p.DataBus}
 }
 
 // MicroExecute a given micro-code, using a given local state.  This may update
@@ -56,10 +56,10 @@ func (p *InOut) Clone() Code {
 // over" when executing the enclosing instruction or, if skip==0, a destination
 // program counter (which can signal return of enclosing function).
 func (p *InOut) MicroExecute(state io.State) (uint, uint) {
-	if p.input {
-		state.In(p.bus)
+	if p.Input {
+		state.In(p.DataBus)
 	} else {
-		state.Out(p.bus)
+		state.Out(p.DataBus)
 	}
 	//
 	return 1, 0
@@ -67,17 +67,17 @@ func (p *InOut) MicroExecute(state io.State) (uint, uint) {
 
 // RegistersRead returns the set of registers read by this instruction.
 func (p *InOut) RegistersRead() []io.RegisterId {
-	if p.input {
-		return p.bus.Address()
+	if p.Input {
+		return p.DataBus.Address()
 	}
 	//
-	return append(p.bus.Address(), p.bus.Data()...)
+	return append(p.DataBus.Address(), p.DataBus.Data()...)
 }
 
 // RegistersWritten returns the set of registers written by this instruction.
 func (p *InOut) RegistersWritten() []io.RegisterId {
-	if p.input {
-		return p.bus.Data()
+	if p.Input {
+		return p.DataBus.Data()
 	}
 	//
 	return nil
@@ -87,19 +87,19 @@ func (p *InOut) RegistersWritten() []io.RegisterId {
 // micro codes using registers of a fixed maximum width.
 func (p *InOut) Split(mapping register.LimbsMap, _ agnostic.RegisterAllocator) []Code {
 	// Split bus
-	address := register.ApplyLimbsMap(mapping, p.bus.Address()...)
-	data := register.ApplyLimbsMap(mapping, p.bus.Data()...)
-	bus := io.NewBus(p.bus.Name, p.bus.BusId, address, data)
+	address := register.ApplyLimbsMap(mapping, p.DataBus.Address()...)
+	data := register.ApplyLimbsMap(mapping, p.DataBus.Data()...)
+	bus := io.NewBus(p.DataBus.Name, p.DataBus.BusId, address, data)
 	// Done
-	return []Code{&InOut{p.input, bus}}
+	return []Code{&InOut{p.Input, bus}}
 }
 
 func (p *InOut) String(fn register.Map) string {
-	if p.input {
-		return fmt.Sprintf("in %s", p.bus.Name)
+	if p.Input {
+		return fmt.Sprintf("in %s", p.DataBus.Name)
 	}
 
-	return fmt.Sprintf("out %s", p.bus.Name)
+	return fmt.Sprintf("out %s", p.DataBus.Name)
 }
 
 // Validate checks whether or not this instruction is correctly balanced.

@@ -18,6 +18,8 @@ import (
 	"math"
 
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/asm/io/macro"
+	"github.com/consensys/go-corset/pkg/asm/io/micro"
 	"github.com/consensys/go-corset/pkg/asm/program"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -25,6 +27,11 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/iter"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/word"
 )
 
 // MixedProgram represents the composition of an assembly program along with
@@ -189,4 +196,17 @@ func (p *MixedProgram[F, T, M]) GobDecode(data []byte) error {
 
 func init() {
 	gob.Register(MacroComponent(&MacroFunction{}))
+	gob.Register(MicroComponent(&MicroFunction{}))
+	gob.Register(schema.AnySchema[word.BigEndian](&MacroHirProgram{}))
+	gob.Register(schema.AnySchema[word.BigEndian](&MicroHirProgram{}))
+	// Field specific initialisation
+	initForField[bls12_377.Element]()
+	initForField[koalabear.Element]()
+	initForField[gf8209.Element]()
+	initForField[gf251.Element]()
+}
+
+func initForField[F field.Element[F]]() {
+	gob.Register(schema.Assignment[F](&program.Assignment[F, macro.Instruction]{}))
+	gob.Register(schema.Assignment[F](&program.Assignment[F, micro.Instruction]{}))
 }

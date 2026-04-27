@@ -49,20 +49,20 @@ type Constraint[F field.Element[F], T term.Testable[F]] struct {
 
 // NewConstraint constructs a new vanishing constraint!
 func NewConstraint[F field.Element[F], T term.Testable[F]](handle string, context schema.ModuleId,
-	domain util.Option[int], constraint T) Constraint[F, T] {
-	return Constraint[F, T]{handle, context, domain, constraint}
+	domain util.Option[int], constraint T) *Constraint[F, T] {
+	return &Constraint[F, T]{handle, context, domain, constraint}
 }
 
 // Consistent applies a number of internal consistency checks.  Whilst not
 // strictly necessary, these can highlight otherwise hidden problems as an aid
 // to debugging.
-func (p Constraint[F, T]) Consistent(schema schema.AnySchema[F]) []error {
+func (p *Constraint[F, T]) Consistent(schema schema.AnySchema[F]) []error {
 	return constraint.CheckConsistent(p.Context, schema, p.Constraint)
 }
 
 // Name returns a unique name for a given constraint.  This is useful
 // purely for identifying constraints in reports, etc.
-func (p Constraint[F, T]) Name() string {
+func (p *Constraint[F, T]) Name() string {
 	return p.Handle
 }
 
@@ -71,7 +71,7 @@ func (p Constraint[F, T]) Name() string {
 // evaluation context, though some (e.g. lookups) have more.  Note that all
 // constraints have at least one context (which we can call the "primary"
 // context).
-func (p Constraint[F, T]) Contexts() []schema.ModuleId {
+func (p *Constraint[F, T]) Contexts() []schema.ModuleId {
 	return []schema.ModuleId{p.Context}
 }
 
@@ -82,7 +82,7 @@ func (p Constraint[F, T]) Contexts() []schema.ModuleId {
 // expression on that first row is also undefined (and hence must pass).
 //
 //nolint:revive
-func (p Constraint[F, T]) Bounds(module uint) util.Bounds {
+func (p *Constraint[F, T]) Bounds(module uint) util.Bounds {
 	if p.Context == module {
 		return p.Constraint.Bounds()
 	}
@@ -94,7 +94,7 @@ func (p Constraint[F, T]) Bounds(module uint) util.Bounds {
 // of a table.  If so, return nil otherwise return an error.
 //
 //nolint:revive
-func (p Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
+func (p *Constraint[F, T]) Accepts(tr trace.Trace[F], sc schema.AnySchema[F]) (bit.Set, schema.Failure) {
 	var (
 		// Handle is used for error reporting.
 		handle = constraint.DetermineHandle(p.Handle, p.Context, tr)

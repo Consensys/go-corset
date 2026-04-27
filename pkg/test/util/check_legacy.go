@@ -230,22 +230,27 @@ func checkTraces[F field.Element[F]](t *testing.T, test string, maxPadding uint,
 			t.Parallel()
 			//
 			for _, ir := range []string{"MIR", "AIR"} {
+				var concreteSchema = stack.FindSchema(ir)
+				//
 				for i, tf := range traces {
-					// Only enable parallel expansion/checking for one trace.  This is
-					// because parallel expansion/checking slows testing down overall.
-					// However, we still want to test the pipeline (i.e. since that is used
-					// in production); therefore, we just restrict how much its used.
-					var parallel = (i == 0)
+					var (
+						// Only enable parallel expansion/checking for one trace.  This is
+						// because parallel expansion/checking slows testing down overall.
+						// However, we still want to test the pipeline (i.e. since that is used
+						// in production); therefore, we just restrict how much its used.
+						parallel = (i == 0)
+					)
 					//
 					if tf.RawModules() != nil {
 						// Construct trace identifier
-						id := traceId{stack.RegisterMapping().Field().Name, ir, test,
+						id := traceId{stack.ConcreteMapping().Field().Name, ir, test,
 							cfg.expected, cfg.expand, cfg.validate, opt, parallel, i + 1, padding}
-						//
+						// Always check if expansion required, otherwise
+						// only check AIR constraints.
 						if cfg.expand || ir == "AIR" {
-							// Always check if expansion required, otherwise
-							// only check AIR constraints.
-							checkTrace(t, tf, id, stack.ConcreteSchemaOf(ir), stack.RegisterMapping())
+							schema := binfile.ExtractSchema[F](concreteSchema)
+							//
+							checkTrace(t, tf, id, schema, stack.ConcreteMapping())
 						}
 					}
 				}

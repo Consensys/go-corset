@@ -20,9 +20,9 @@ import (
 
 // Ret signals a return from the enclosing function.
 type Ret struct {
-	// dummy is included to force Ret structs to be stored in the heap.
+	// Dummy is included to force Ret structs to be stored in the heap.
 	//nolint
-	dummy uint
+	Dummy uint
 }
 
 // Clone this micro code.
