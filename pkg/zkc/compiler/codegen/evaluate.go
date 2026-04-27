@@ -116,11 +116,15 @@ func EvalConstant(e Expr, definition bool, declarations []Declaration, env data.
 
 		return sliced, errorMessage
 	case *expr.ExternAccess[symbol.Resolved]:
-		var decl = declarations[e.Name.Index].(*decl.ResolvedConstant)
-		res, _ = EvalConstant(decl.ConstExpr, false, declarations, env)
+		c, ok := declarations[e.Name.Index].(*decl.ResolvedConstant)
+		if !ok {
+			return res, "not a constant expression"
+		}
+
+		res, _ = EvalConstant(c.ConstExpr, false, declarations, env)
 
 		return res, ""
 	default:
-		panic("unknown expression encountered")
+		return res, "not a constant expression"
 	}
 }
