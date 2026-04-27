@@ -208,13 +208,13 @@ func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor,
 	)
 	// Flattern address lines
 	for _, v := range address {
-		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewInput(name, bitwidth, padding))
 		})
 	}
 	// Flattern data lines
 	for _, v := range datas {
-		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewOutput(name, bitwidth, padding))
 		})
 	}

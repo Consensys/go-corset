@@ -426,7 +426,7 @@ func (p *ComputedRegister[F]) Lisp(schema sc.AnySchema[F]) sexp.SExp {
 			datatype = "𝔽"
 			ith      = module.Register(t)
 		)
-		if ith.Width() != math.MaxUint {
+		if !ith.IsNative() {
 			datatype = fmt.Sprintf("u%d", ith.Width())
 		}
 

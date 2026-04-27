@@ -8,33 +8,35 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package data
+package codegen
 
 import (
 	"fmt"
+	"math"
 
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// Flattern this type into a set of one or more registers, using a given
+// flattern this type into a set of one or more registers, using a given
 // prefix.  For example, a variable "x [2]u8" is flatterned into "x$0 u8"
 // and "x$1 u8", etc.   NOTE: should a typing cycle exist involving the given type,
 // then this will enter an infinite loop.
-func Flattern[S symbol.Symbol[S]](t Type[S], prefix string, env Environment[S],
+func flattern[S symbol.Symbol[S]](t data.Type[S], prefix string, env data.Environment[S],
 	constructor func(name string, bitwidth uint)) {
 	//
 	switch t := t.(type) {
-	case *UnsignedInt[S]:
-		constructor(prefix, t.bitwidth)
-	case *Alias[S]:
-		Flattern(t.Resolve(env), prefix, env, constructor)
-	case *Tuple[S]:
-		for i, element := range t.elements {
+	case *data.UnsignedInt[S]:
+		constructor(prefix, t.BitWidth())
+	case *data.Alias[S]:
+		flattern(t.Resolve(env), prefix, env, constructor)
+	case *data.Tuple[S]:
+		for i := uint(0); i < t.Width(); i++ {
 			ith := fmt.Sprintf("%s$%d", prefix, i)
-			Flattern(element, ith, env, constructor)
+			flattern(t.Ith(i), ith, env, constructor)
 		}
-	case *FieldElement[S]:
-		panic(fmt.Sprintf("field element type cannot be flattened to registers: %s", t.String(env)))
+	case *data.FieldElement[S]:
+		constructor(prefix, math.MaxUint)
 	default:
 		//
 		panic(fmt.Sprintf("unknown type encountered: %s", t.String(env)))
