@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 )
 
 // Stmt is a convenient alias.
@@ -834,69 +835,17 @@ func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxErro
 }
 
 func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, size uint) []source.SyntaxError {
-	val, ok := p.evalConstantExpr(arg)
-	if !ok {
+	val, ko := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
+	if ko != "" {
 		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant expression")
 	}
 	//
-	if val.Sign() < 0 || !val.IsUint64() || val.Uint64() >= uint64(size) {
+	if val.Uint64() >= uint64(size) {
 		return p.srcmaps.SyntaxErrors(arg,
-			fmt.Sprintf("index %s out of bounds for array of size %d", val.String(), size))
+			fmt.Sprintf("index %s out of bounds for array of size %d", val.Text(10), size))
 	}
 	//
 	return nil
-}
-
-// evalConstantExpr attempts to evaluate an expression as a compile-time
-// constant, returning the value and true on success.  This supports literal
-// constants, references to declared constants, and arithmetic over them.
-func (p *TypeChecker) evalConstantExpr(e expr.Resolved) (*big.Int, bool) {
-	switch e := e.(type) {
-	case *expr.Const[symbol.Resolved]:
-		return &e.Constant, true
-	case *expr.ExternAccess[symbol.Resolved]:
-		if c, ok := p.lookup(e.Name).(*decl.ResolvedConstant); ok {
-			return p.evalConstantExpr(c.ConstExpr)
-		}
-
-		return nil, false
-	case *expr.Add[symbol.Resolved]:
-		return p.foldConstantExprs(e.Exprs, (*big.Int).Add)
-	case *expr.Sub[symbol.Resolved]:
-		return p.foldConstantExprs(e.Exprs, (*big.Int).Sub)
-	case *expr.Mul[symbol.Resolved]:
-		return p.foldConstantExprs(e.Exprs, (*big.Int).Mul)
-	case *expr.Div[symbol.Resolved]:
-		return p.foldConstantExprs(e.Exprs, (*big.Int).Div)
-	case *expr.Rem[symbol.Resolved]:
-		return p.foldConstantExprs(e.Exprs, (*big.Int).Rem)
-	default:
-		return nil, false
-	}
-}
-
-// foldConstantExprs evaluates a slice of expressions as compile-time constants,
-// left-folding them with the given binary operation.
-func (p *TypeChecker) foldConstantExprs(
-	exprs []expr.Resolved, op func(*big.Int, *big.Int, *big.Int) *big.Int,
-) (*big.Int, bool) {
-	result, ok := p.evalConstantExpr(exprs[0])
-	if !ok {
-		return nil, false
-	}
-
-	result = new(big.Int).Set(result)
-
-	for _, e := range exprs[1:] {
-		val, ok := p.evalConstantExpr(e)
-		if !ok {
-			return nil, false
-		}
-
-		op(result, result, val)
-	}
-
-	return result, true
 }
 
 // For two expressions "e1", "e2" where "e1 : T1" and "e2 : T2" under the given
