@@ -20,8 +20,21 @@ import (
 
 // flattern this type into a set of one or more registers, using a given
 // prefix.  For example, a variable "x [2]u8" is flatterned into "x$0 u8"
-// and "x$1 u8", etc.   NOTE: should a typing cycle exist involving the given type,
-// then this will enter an infinite loop.
+// and "x$1 u8", etc.
+//
+// The constructor callback is invoked once per leaf register produced by the
+// flattening.  Its arguments are:
+//
+//   - name: the fully-qualified register name, formed from the supplied prefix
+//     plus a "$<index>" suffix for each tuple element traversed.
+//   - bitwidth: the register's bitwidth.  For an UnsignedInt leaf this is the
+//     declared bit-width (e.g. 8 for a u8).  For a FieldElement leaf this is
+//     math.MaxUint, signalling that the register should be allocated as a
+//     "native" register (i.e. one backed by a field element with no fixed
+//     bit-width — see register.NewNative / register.IsNative).
+//
+// NOTE: should a typing cycle exist involving the given type, then this will
+// enter an infinite loop.
 func flattern[S symbol.Symbol[S]](t data.Type[S], prefix string, env data.Environment[S],
 	constructor func(name string, bitwidth uint)) {
 	//

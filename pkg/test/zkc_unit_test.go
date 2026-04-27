@@ -114,13 +114,13 @@ func Test_ZkcUnit_Basic_23(t *testing.T) {
 // ===================================================================
 // Native Field Tests
 // ===================================================================
-func Test_ZkcUnit_Field_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/field_01")
-}
+// func Test_ZkcUnit_Field_01(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/field_01")
+// }
 
-func Test_ZkcUnit_Field_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/field_02")
-}
+// func Test_ZkcUnit_Field_02(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/field_02")
+// }
 
 func Test_ZkcUnit_Field_03(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/field_03")

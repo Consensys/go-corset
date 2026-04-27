@@ -72,13 +72,13 @@ func (p *StmtCompiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruc
 	case *stmt.IfGoto[symbol.Resolved]:
 		return p.compileCondition(pc, s.Cond, mapping, s.Target)
 	case *stmt.Goto[symbol.Resolved]:
-		return &instruction.Jmp[word.Uint]{Target: s.Target}
+		return instruction.NewJmp[word.Uint](s.Target)
 	case *stmt.Fail[symbol.Resolved]:
-		return &instruction.Fail[word.Uint]{}
+		return instruction.NewFail[word.Uint]()
 	case *stmt.Printf[symbol.Resolved]:
 		return p.compilePrintf(mapping, s.Chunks, s.Arguments)
 	case *stmt.Return[symbol.Resolved]:
-		return &instruction.Return[word.Uint]{}
+		return instruction.NewReturn[word.Uint]()
 	default:
 		panic("unknown statement encountered")
 	}
@@ -314,16 +314,16 @@ func (p *StmtCompiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping 
 	insns = append(insns, condInsns...)
 	insns = append(insns, instruction.NewSkipIf[word.Uint](
 		instruction.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
-	insns = append(insns, instruction.NewAdd(target, []register.Id{falseRegs[0]}, zero))
+	insns = append(insns, instruction.NewIntAdd(target, []register.Id{falseRegs[0]}, zero))
 	insns = append(insns, &instruction.Skip[word.Uint]{Skip: 1})
 
-	return insns, instruction.NewAdd(target, []register.Id{trueRegs[0]}, zero)
+	return insns, instruction.NewIntAdd(target, []register.Id{trueRegs[0]}, zero)
 }
 
 func (p *StmtCompiler) compileConst(c word.Uint, _ []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
-	return nil, instruction.NewAdd(target, nil, c)
+	return nil, instruction.NewIntAdd(target, nil, c)
 }
 
 func (p *StmtCompiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, target register.Id,
@@ -343,10 +343,10 @@ func (p *StmtCompiler) compileConcat(args []Expr, mapping []uint, target registe
 	nargs = append(nargs, args...)
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
-	// Reverse sources (as NewConcat requires them in little endian order)
+	// Reverse sources (as NewBitConcat requires them in little endian order)
 	sources = array.Reverse(sources)
 	// Done
-	return insns, instruction.NewConcat[word.Uint](target, sources)
+	return insns, instruction.NewBitConcat[word.Uint](target, sources)
 }
 
 func (p *StmtCompiler) compileAdd(args []Expr, mapping []uint, target register.Id,
@@ -378,7 +378,7 @@ func (p *StmtCompiler) compileAdd(args []Expr, mapping []uint, target register.I
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
-	return insns, instruction.NewAdd(target, sources, constant)
+	return insns, instruction.NewIntAdd(target, sources, constant)
 }
 
 func (p *StmtCompiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], mapping []uint,
@@ -400,7 +400,7 @@ func (p *StmtCompiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], 
 		reg  = []register.Id{register.NewId(e.Variable)}
 	)
 	//
-	return nil, instruction.NewAdd(target, reg, zero)
+	return nil, instruction.NewIntAdd(target, reg, zero)
 }
 
 func (p *StmtCompiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mapping []uint,
@@ -444,7 +444,7 @@ func (p *StmtCompiler) compileMul(args []Expr, mapping []uint, target register.I
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
-	return insns, instruction.NewMul(target, sources, constant)
+	return insns, instruction.NewIntMul(target, sources, constant)
 }
 
 func (p *StmtCompiler) compileDiv(args []Expr, mapping []uint, target register.Id,
@@ -456,11 +456,11 @@ func (p *StmtCompiler) compileDiv(args []Expr, mapping []uint, target register.I
 	//
 	for i := 1; i < len(sources)-1; i++ {
 		tmp := p.allocate(p.registers[target.Unwrap()].Width())
-		insns = append(insns, instruction.NewDiv[word.Uint](tmp, value, sources[i]))
+		insns = append(insns, instruction.NewIntDiv[word.Uint](tmp, value, sources[i]))
 		value = tmp
 	}
 	//
-	return insns, instruction.NewDiv[word.Uint](target, value, sources[len(sources)-1])
+	return insns, instruction.NewIntDiv[word.Uint](target, value, sources[len(sources)-1])
 }
 
 func (p *StmtCompiler) compileRem(args []Expr, mapping []uint, target register.Id,
@@ -472,11 +472,11 @@ func (p *StmtCompiler) compileRem(args []Expr, mapping []uint, target register.I
 	//
 	for i := 1; i < len(sources)-1; i++ {
 		tmp := p.allocate(p.registers[target.Unwrap()].Width())
-		insns = append(insns, instruction.NewRem[word.Uint](tmp, value, sources[i]))
+		insns = append(insns, instruction.NewIntRem[word.Uint](tmp, value, sources[i]))
 		value = tmp
 	}
 	//
-	return insns, instruction.NewRem[word.Uint](target, value, sources[len(sources)-1])
+	return insns, instruction.NewIntRem[word.Uint](target, value, sources[len(sources)-1])
 }
 
 func (p *StmtCompiler) compileShl(args []Expr, mapping []uint, target register.Id,
@@ -488,11 +488,11 @@ func (p *StmtCompiler) compileShl(args []Expr, mapping []uint, target register.I
 	//
 	for i := 1; i < len(sources)-1; i++ {
 		tmp := p.allocate(p.registers[target.Unwrap()].Width())
-		insns = append(insns, instruction.NewShl[word.Uint](tmp, value, sources[i]))
+		insns = append(insns, instruction.NewBitShl[word.Uint](tmp, value, sources[i]))
 		value = tmp
 	}
 	//
-	return insns, instruction.NewShl[word.Uint](target, value, sources[len(sources)-1])
+	return insns, instruction.NewBitShl[word.Uint](target, value, sources[len(sources)-1])
 }
 
 func (p *StmtCompiler) compileShr(args []Expr, mapping []uint, target register.Id,
@@ -504,11 +504,11 @@ func (p *StmtCompiler) compileShr(args []Expr, mapping []uint, target register.I
 	//
 	for i := 1; i < len(sources)-1; i++ {
 		tmp := p.allocate(p.registers[target.Unwrap()].Width())
-		insns = append(insns, instruction.NewShr[word.Uint](tmp, value, sources[i]))
+		insns = append(insns, instruction.NewBitShr[word.Uint](tmp, value, sources[i]))
 		value = tmp
 	}
 	//
-	return insns, instruction.NewShr[word.Uint](target, value, sources[len(sources)-1])
+	return insns, instruction.NewBitShr[word.Uint](target, value, sources[len(sources)-1])
 }
 
 func (p *StmtCompiler) compileSub(args []Expr, mapping []uint, target register.Id,
@@ -540,7 +540,7 @@ func (p *StmtCompiler) compileSub(args []Expr, mapping []uint, target register.I
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
-	return insns, instruction.NewSub(target, sources, constant)
+	return insns, instruction.NewIntSub(target, sources, constant)
 }
 
 func (p *StmtCompiler) compileAnd(args []Expr, mapping []uint, target register.Id,
@@ -568,7 +568,7 @@ func (p *StmtCompiler) compileAnd(args []Expr, mapping []uint, target register.I
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	//
-	return insns, instruction.NewAnd(target, sources, constant)
+	return insns, instruction.NewBitAnd(target, sources, constant)
 }
 
 func (p *StmtCompiler) compileNot(e *expr.BitwiseNot[symbol.Resolved], mapping []uint, target register.Id,
@@ -576,7 +576,7 @@ func (p *StmtCompiler) compileNot(e *expr.BitwiseNot[symbol.Resolved], mapping [
 	//
 	sources, insns := p.compileArgs(mapping, e.Expr)
 	//
-	return insns, instruction.NewNot[word.Uint](target, sources[0])
+	return insns, instruction.NewBitNot[word.Uint](target, sources[0])
 }
 
 func (p *StmtCompiler) compileOr(args []Expr, mapping []uint, target register.Id,
@@ -601,7 +601,7 @@ func (p *StmtCompiler) compileOr(args []Expr, mapping []uint, target register.Id
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	//
-	return insns, instruction.NewOr(target, sources, constant)
+	return insns, instruction.NewBitOr(target, sources, constant)
 }
 
 func (p *StmtCompiler) compileXor(args []Expr, mapping []uint, target register.Id,
@@ -626,7 +626,7 @@ func (p *StmtCompiler) compileXor(args []Expr, mapping []uint, target register.I
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	//
-	return insns, instruction.NewXor(target, sources, constant)
+	return insns, instruction.NewBitXor(target, sources, constant)
 }
 
 func (p *StmtCompiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []MicroInstruction) {

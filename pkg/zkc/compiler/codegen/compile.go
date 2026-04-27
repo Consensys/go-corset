@@ -137,7 +137,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 		Vectorize(modules, p.srcmaps)
 	}
 	// Construct machine
-	return machine.New(modules...), errors
+	return machine.New(p.config.field, modules...), errors
 }
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
@@ -186,7 +186,7 @@ func (p *Compiler) compileFunction(
 			panic(fmt.Sprintf("unexpected variable kind %d", v.Kind))
 		}
 
-		data.Flattern(v.DataType, v.Name, p.env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, p.env, func(name string, bitwidth uint) {
 			registers = append(registers, register.New(kind, name, bitwidth, padding))
 		})
 	}
