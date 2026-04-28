@@ -20,7 +20,7 @@ lint:
 	@echo ">>> Performing golang code linting.."
 	golangci-lint run --config=.golangci.yml
 
-lint-apply:
+go-lint-apply:
 	@echo ">>> Applying golang code linting fixes..."
 	golangci-lint run --config=.golangci.yml --fix
 
@@ -68,6 +68,10 @@ zkc-lint: build-zkc
 	@echo ">>> Linting ZkC source files..."
 	./bin/zkc format --check $(ZKC_LINTABLE_FILES)
 
+zkc-lint-apply:
+	@echo ">>> Applying zkc code linting fixes..."
+	go run ./cmd/zkc format $(ZKC_LINTABLE_FILES)
+
 zkc-test: zkc-lint
 	@echo ">>> Running ZkC Tests..."
 	go test --timeout 0 -run "Test_ZkcBench|Test_ZkcUnit|Test_ZkcInvalid" ./...
@@ -81,4 +85,4 @@ clean:
 	@rm -rf bin/*
 	@rm -rf .env
 
-spotless: lint-apply zkc-lint
+spotless: go-lint-apply zkc-lint-apply
