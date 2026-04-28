@@ -863,6 +863,8 @@ func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.S
 //	switch (discriminant) {
 //		<switch body>
 //	}
+//
+// TODO: check for duplicate labels across all cases
 func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	branches []stmt.SwitchBranch[symbol.Unresolved],
 	errs []source.SyntaxError) {
@@ -886,10 +888,7 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 
 		// we flag the presence of multiple default cases
 		if branch.IsDefault && bodyContainsDefaultBranch {
-			// TODO: improve syntax error
-			return false, nil, []source.SyntaxError{*p.srcmap.SyntaxError(
-				p.lookahead(),
-				"multiple default cases in switch statement")}
+			return false, nil, p.syntaxErrors(p.lookahead(), "multiple default cases in switch statement")
 		}
 
 		if !branchReturns {
