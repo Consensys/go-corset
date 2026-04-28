@@ -688,8 +688,8 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		//
 		lookahead := p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
-		if _, errs := p.expect(COMMA); len(errs) != 0 {
-			return nil, p.srcmap.SyntaxErrors(lookahead, "expected comma to define array size")
+		if _, errs := p.expect(SEMICOLON); len(errs) != 0 {
+			return nil, p.srcmap.SyntaxErrors(lookahead, "expected semicolon to define array size")
 		}
 		//
 		lookahead = p.lookahead()
