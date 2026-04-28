@@ -96,7 +96,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 		switch c := c.(type) {
 		case *decl.ResolvedConstant:
 			// force detection of errors
-			_, errs := p.compileStaticInitialisers(declarations, c.ConstExpr)
+			_, errs := p.compileStaticInitialisers(declarations, p.env, p.srcmaps, c.ConstExpr)
 			//
 			errors = append(errors, errs...)
 		case *decl.ResolvedTypeAlias:
@@ -117,7 +117,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				// Compile the static initialiser
-				words, errs := p.compileStaticInitialisers(declarations, c.Contents...)
+				words, errs := p.compileStaticInitialisers(declarations, p.env, p.srcmaps, c.Contents...)
 				//
 				if len(errs) == 0 {
 					// Construct the read-only memory
