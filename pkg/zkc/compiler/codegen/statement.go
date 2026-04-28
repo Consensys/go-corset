@@ -40,10 +40,16 @@ type Expr = expr.Expr[symbol.Resolved]
 // LVal is a convenient alias
 type LVal = lval.LVal[symbol.Resolved]
 
-// Compiler provides a working environment for compiling individual statements
+// Instruction provides a convenient alias
+type Instruction = instruction.Instruction[word.Uint]
+
+// MicroInstruction provides a convenient alias
+type MicroInstruction = instruction.MicroInstruction[word.Uint]
+
+// StmtCompiler provides a working environment for compiling individual statements
 // within a given function.  For example, it provides the ability to allocate
 // new temporary registers as required.
-type Compiler struct {
+type StmtCompiler struct {
 	components  []Declaration
 	variables   []VariableDescriptor
 	registers   []register.Register
@@ -52,7 +58,7 @@ type Compiler struct {
 	errors      []source.SyntaxError
 }
 
-func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction {
+func (p *StmtCompiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction {
 	var insns []MicroInstruction
 	//
 	switch s := s.(type) {
@@ -77,7 +83,7 @@ func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction
 		panic("unknown statement encountered")
 	}
 	//
-	return instruction.NewVector[word.Uint](insns...)
+	return instruction.NewVector(insns...)
 }
 
 // Map lvals down to their corresponding registers.  For example, consider the
@@ -95,7 +101,7 @@ func (p *Compiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction
 //
 // Here, we have compiled out variable tmp into two registers, one for each
 // field.
-func (p *Compiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []MicroInstruction, []MicroInstruction) {
+func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []MicroInstruction, []MicroInstruction) {
 	var (
 		regs                = make([]register.Id, len(lvals))
 		preInsns, postInsns []MicroInstruction
@@ -156,7 +162,7 @@ func (p *Compiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []Micr
 	return regs, preInsns, postInsns
 }
 
-func (p *Compiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, args []Expr) Instruction {
+func (p *StmtCompiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, args []Expr) Instruction {
 	var (
 		nchunks     []instruction.FormattedChunk
 		regs, insns = p.compileArgs(mapping, args...)
@@ -181,10 +187,10 @@ func (p *Compiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, a
 	//
 	insns = append(insns, &instruction.Debug[word.Uint]{Chunks: nchunks})
 	//
-	return instruction.NewVector[word.Uint](insns...)
+	return instruction.NewVector(insns...)
 }
 
-func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target uint) Instruction {
+func (p *StmtCompiler) compileCondition(pc uint, e Condition, mapping []uint, target uint) Instruction {
 	var (
 		insns []MicroInstruction
 		args  []register.Id
@@ -200,10 +206,10 @@ func (p *Compiler) compileCondition(pc uint, e Condition, mapping []uint, target
 		panic("unknown condition encountered")
 	}
 	//
-	return instruction.NewVector[word.Uint](insns...)
+	return instruction.NewVector(insns...)
 }
 
-func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) []MicroInstruction {
+func (p *StmtCompiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) []MicroInstruction {
 	var (
 		insns    []MicroInstruction
 		insn     MicroInstruction
@@ -239,9 +245,9 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 				panic(fmt.Sprintf("unreadable memory \"%s\" encountered", e.Name.String()))
 			}
 			//
-			insns, insn = p.compileMemoryRead(e, ext, mapping, targets...)
+			insns, insn = p.compileMemoryRead(e, mapping, targets...)
 		case *decl.ResolvedFunction:
-			insns, insn = p.compileFunctionCall(e, ext, mapping, targets...)
+			insns, insn = p.compileFunctionCall(e, mapping, targets...)
 		default:
 			panic(fmt.Sprintf("unknown symbol \"%s\" encountered", e.Name.String()))
 		}
@@ -289,7 +295,7 @@ func (p *Compiler) compileExpr(e Expr, mapping []uint, targets ...register.Id) [
 	return append(insns, insn)
 }
 
-func (p *Compiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping []uint, target register.Id,
+func (p *StmtCompiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	cmp := e.Cond.(*expr.Cmp[symbol.Resolved])
 	// Eagerly evaluate both branches into temporaries.
@@ -308,19 +314,19 @@ func (p *Compiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping []ui
 	insns = append(insns, condInsns...)
 	insns = append(insns, instruction.NewSkipIf[word.Uint](
 		instruction.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
-	insns = append(insns, instruction.NewAdd[word.Uint](target, []register.Id{falseRegs[0]}, zero))
+	insns = append(insns, instruction.NewAdd(target, []register.Id{falseRegs[0]}, zero))
 	insns = append(insns, &instruction.Skip[word.Uint]{Skip: 1})
 
-	return insns, instruction.NewAdd[word.Uint](target, []register.Id{trueRegs[0]}, zero)
+	return insns, instruction.NewAdd(target, []register.Id{trueRegs[0]}, zero)
 }
 
-func (p *Compiler) compileConst(c word.Uint, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileConst(c word.Uint, _ []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
-	return nil, instruction.NewAdd[word.Uint](target, nil, c)
+	return nil, instruction.NewAdd(target, nil, c)
 }
 
-func (p *Compiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, target register.Id,
+func (p *StmtCompiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	var (
 		castWidth      = e.CastType.AsUint(p.environment).BitWidth()
@@ -330,7 +336,7 @@ func (p *Compiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, ta
 	return insns, instruction.NewCast[word.Uint](target, sources[0], castWidth)
 }
 
-func (p *Compiler) compileConcat(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileConcat(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	var nargs []Expr
 	//
@@ -343,7 +349,7 @@ func (p *Compiler) compileConcat(args []Expr, mapping []uint, target register.Id
 	return insns, instruction.NewConcat[word.Uint](target, sources)
 }
 
-func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileAdd(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	var (
@@ -372,10 +378,10 @@ func (p *Compiler) compileAdd(args []Expr, mapping []uint, target register.Id,
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
-	return insns, instruction.NewAdd[word.Uint](target, sources, constant)
+	return insns, instruction.NewAdd(target, sources, constant)
 }
 
-func (p *Compiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], fn *decl.ResolvedFunction, mapping []uint,
+func (p *StmtCompiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], mapping []uint,
 	targets ...register.Id) ([]MicroInstruction, MicroInstruction) {
 	var (
 		// Determine vm module identifier
@@ -387,17 +393,17 @@ func (p *Compiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], fn
 	return insns, instruction.NewCall[word.Uint](id, targets, sources)
 }
 
-func (p *Compiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], mapping []uint, target register.Id,
+func (p *StmtCompiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], _ []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	var (
 		zero word.Uint
 		reg  = []register.Id{register.NewId(e.Variable)}
 	)
 	//
-	return nil, instruction.NewAdd[word.Uint](target, reg, zero)
+	return nil, instruction.NewAdd(target, reg, zero)
 }
 
-func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem *decl.ResolvedMemory, mapping []uint,
+func (p *StmtCompiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mapping []uint,
 	targets ...register.Id) ([]MicroInstruction, MicroInstruction) {
 	var (
 		// Determine vm module identifier
@@ -409,7 +415,7 @@ func (p *Compiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mem 
 	return insns, instruction.NewMemRead[word.Uint](id, targets, sources)
 }
 
-func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileMul(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	var (
@@ -438,10 +444,10 @@ func (p *Compiler) compileMul(args []Expr, mapping []uint, target register.Id,
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
-	return insns, instruction.NewMul[word.Uint](target, sources, constant)
+	return insns, instruction.NewMul(target, sources, constant)
 }
 
-func (p *Compiler) compileDiv(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileDiv(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
@@ -457,7 +463,7 @@ func (p *Compiler) compileDiv(args []Expr, mapping []uint, target register.Id,
 	return insns, instruction.NewDiv[word.Uint](target, value, sources[len(sources)-1])
 }
 
-func (p *Compiler) compileRem(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileRem(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
@@ -473,7 +479,7 @@ func (p *Compiler) compileRem(args []Expr, mapping []uint, target register.Id,
 	return insns, instruction.NewRem[word.Uint](target, value, sources[len(sources)-1])
 }
 
-func (p *Compiler) compileShl(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileShl(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
@@ -489,7 +495,7 @@ func (p *Compiler) compileShl(args []Expr, mapping []uint, target register.Id,
 	return insns, instruction.NewShl[word.Uint](target, value, sources[len(sources)-1])
 }
 
-func (p *Compiler) compileShr(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileShr(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
@@ -505,7 +511,7 @@ func (p *Compiler) compileShr(args []Expr, mapping []uint, target register.Id,
 	return insns, instruction.NewShr[word.Uint](target, value, sources[len(sources)-1])
 }
 
-func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileSub(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	var (
@@ -534,10 +540,10 @@ func (p *Compiler) compileSub(args []Expr, mapping []uint, target register.Id,
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
-	return insns, instruction.NewSub[word.Uint](target, sources, constant)
+	return insns, instruction.NewSub(target, sources, constant)
 }
 
-func (p *Compiler) compileAnd(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileAnd(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	var (
 		bitwidth = p.registers[target.Unwrap()].Width()
@@ -562,10 +568,10 @@ func (p *Compiler) compileAnd(args []Expr, mapping []uint, target register.Id,
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	//
-	return insns, instruction.NewAnd[word.Uint](target, sources, constant)
+	return insns, instruction.NewAnd(target, sources, constant)
 }
 
-func (p *Compiler) compileNot(e *expr.BitwiseNot[symbol.Resolved], mapping []uint, target register.Id,
+func (p *StmtCompiler) compileNot(e *expr.BitwiseNot[symbol.Resolved], mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
 	sources, insns := p.compileArgs(mapping, e.Expr)
@@ -573,7 +579,7 @@ func (p *Compiler) compileNot(e *expr.BitwiseNot[symbol.Resolved], mapping []uin
 	return insns, instruction.NewNot[word.Uint](target, sources[0])
 }
 
-func (p *Compiler) compileOr(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileOr(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	var (
 		bitwidth = p.registers[target.Unwrap()].Width()
@@ -595,10 +601,10 @@ func (p *Compiler) compileOr(args []Expr, mapping []uint, target register.Id,
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	//
-	return insns, instruction.NewOr[word.Uint](target, sources, constant)
+	return insns, instruction.NewOr(target, sources, constant)
 }
 
-func (p *Compiler) compileXor(args []Expr, mapping []uint, target register.Id,
+func (p *StmtCompiler) compileXor(args []Expr, mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	var (
 		bitwidth = p.registers[target.Unwrap()].Width()
@@ -620,10 +626,10 @@ func (p *Compiler) compileXor(args []Expr, mapping []uint, target register.Id,
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	//
-	return insns, instruction.NewXor[word.Uint](target, sources, constant)
+	return insns, instruction.NewXor(target, sources, constant)
 }
 
-func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []MicroInstruction) {
+func (p *StmtCompiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []MicroInstruction) {
 	var (
 		insns   []MicroInstruction
 		targets = make([]register.Id, len(exprs))
@@ -648,7 +654,7 @@ func (p *Compiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id, []
 // evalConstant evaluates a compile-time constant expression using the
 // provided declaration list and type environment.  It is used both during
 // function code generation and when initialising static memory contents.
-func (p *Compiler) evalConstant(e Expr, definition bool) word.Uint {
+func (p *StmtCompiler) evalConstant(e Expr, definition bool) word.Uint {
 	bitwidth := data.BitWidthOf(e.Type(), p.environment)
 	//
 	switch e := e.(type) {
@@ -730,7 +736,7 @@ func (p *Compiler) evalConstant(e Expr, definition bool) word.Uint {
 	}
 }
 
-func (p *Compiler) evalConstants(es []Expr, definition bool) []word.Uint {
+func (p *StmtCompiler) evalConstants(es []Expr, definition bool) []word.Uint {
 	var words = make([]word.Uint, len(es))
 	//
 	for i, e := range es {
@@ -740,7 +746,7 @@ func (p *Compiler) evalConstants(es []Expr, definition bool) []word.Uint {
 	return words
 }
 
-func (p *Compiler) allocate(bitwidth uint) register.Id {
+func (p *StmtCompiler) allocate(bitwidth uint) register.Id {
 	var (
 		padding big.Int
 		n       = len(p.registers)
@@ -752,7 +758,7 @@ func (p *Compiler) allocate(bitwidth uint) register.Id {
 	return register.NewId(uint(n))
 }
 
-func (p *Compiler) isConstantAccess(e Expr) bool {
+func (p *StmtCompiler) isConstantAccess(e Expr) bool {
 	ne, ok := e.(*expr.ExternAccess[symbol.Resolved])
 	//
 	if !ok {

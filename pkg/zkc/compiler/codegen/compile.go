@@ -22,6 +22,8 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
@@ -38,11 +40,36 @@ type Declaration = decl.Declaration[symbol.Resolved]
 // declaration refers to unknown (or otherwise incorrect) external components.
 type VariableDescriptor = variable.Descriptor[symbol.Resolved]
 
+// Compiler is responsible for compiling high-level programs into low-level
+// machines which can be used (for example) to execute this program with some
+// given inputs.  A compile is configurable in certain aspects.
+type Compiler struct {
+	env     data.ResolvedEnvironment
+	srcmaps source.Maps[any]
+	// configuration
+	config Config
+}
+
+// NewCompiler constructs a code generator parameterised by a configuration,
+// the resolved type environment, and the source maps recorded by earlier
+// pipeline stages.  The configuration controls optional passes such as
+// vectorisation; cfg=DEFAULT_CONFIG matches the prover-facing defaults.  The
+// environment supplies type information needed when lowering expressions
+// (e.g. bit-widths of named types), and the source maps allow generated
+// instructions and any errors raised during compilation to be tied back to
+// their originating source positions.
+func NewCompiler(cfg Config, env data.ResolvedEnvironment, srcmaps source.Maps[any]) *Compiler {
+	return &Compiler{
+		env:     env,
+		srcmaps: srcmaps,
+		config:  cfg,
+	}
+}
+
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps source.Maps[any],
-) (*machine.Base[word.Uint], []source.SyntaxError) {
+func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint], []source.SyntaxError) {
 	//
 	var (
 		modules []machine.Module[word.Uint]
@@ -69,19 +96,19 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 		switch c := c.(type) {
 		case *decl.ResolvedConstant:
 			// force detection of errors
-			_, errs := compileStaticInitialisers(declarations, env, srcmaps, c.ConstExpr)
+			_, errs := p.compileStaticInitialisers(declarations, c.ConstExpr)
 			//
 			errors = append(errors, errs...)
 		case *decl.ResolvedTypeAlias:
 			// ignore
 		case *decl.ResolvedFunction:
-			fn, errs := compileFunction(uint(i), mapping, declarations, srcmaps, env)
+			fn, errs := p.compileFunction(uint(i), mapping, declarations)
 			modules = append(modules, fn)
 			errors = append(errors, errs...)
 		case *decl.ResolvedInclude:
 			// ignore
 		case *decl.ResolvedMemory:
-			var regs = toMemoryRegisters(c.Address, c.Data, env)
+			var regs = toMemoryRegisters(c.Address, c.Data, p.env)
 			//
 			switch c.Kind {
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
@@ -90,7 +117,7 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				// Compile the static initialiser
-				words, errs := compileStaticInitialisers(declarations, env, srcmaps, c.Contents...)
+				words, errs := p.compileStaticInitialisers(declarations, c.Contents...)
 				//
 				if len(errs) == 0 {
 					// Construct the read-only memory
@@ -105,18 +132,22 @@ func Compile(env data.ResolvedEnvironment, declarations []Declaration, srcmaps s
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))
 		}
 	}
-	// Construct machine (if no errors)
+	// Vectorize modules (if no errors)
+	if len(errors) == 0 && p.config.vectorize {
+		Vectorize(modules, p.srcmaps)
+	}
+	// Construct machine
 	return machine.New(modules...), errors
 }
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
 // memory declaration into the word.Uint representation required by the VM.
-func compileStaticInitialisers(components []Declaration, env data.ResolvedEnvironment,
-	srcmaps source.Maps[any], contents ...expr.Resolved) ([]word.Uint, []source.SyntaxError) {
+func (p *Compiler) compileStaticInitialisers(components []Declaration, contents ...expr.Resolved,
+) ([]word.Uint, []source.SyntaxError) {
 	//
 	var (
 		words    = make([]word.Uint, len(contents))
-		compiler = Compiler{components, nil, nil, env, srcmaps, nil}
+		compiler = StmtCompiler{components, nil, nil, p.env, p.srcmaps, nil}
 	)
 	//
 	for i, v := range contents {
@@ -124,6 +155,49 @@ func compileStaticInitialisers(components []Declaration, env data.ResolvedEnviro
 	}
 
 	return words, compiler.errors
+}
+
+// Convert a decl.Function instance into a fun.Function instance by flattening
+// the variable descriptors into register descriptors.  Each variable may
+// expand into one or more registers (e.g. a tuple variable produces one
+// register per element).
+func (p *Compiler) compileFunction(
+	id uint, mapping []uint, program []Declaration,
+) (*function.Boot[word.Uint], []source.SyntaxError) {
+	//
+	var (
+		fn        = program[id].(*decl.ResolvedFunction)
+		registers []register.Register
+		padding   big.Int // zero padding
+		bootCode  = make([]instruction.Instruction[word.Uint], len(fn.Code))
+	)
+	//
+	for _, v := range fn.Variables {
+		var kind register.Type
+
+		switch v.Kind {
+		case variable.PARAMETER:
+			kind = register.INPUT_REGISTER
+		case variable.RETURN:
+			kind = register.OUTPUT_REGISTER
+		case variable.LOCAL:
+			kind = register.COMPUTED_REGISTER
+		default:
+			panic(fmt.Sprintf("unexpected variable kind %d", v.Kind))
+		}
+
+		data.Flattern(v.DataType, v.Name, p.env, func(name string, bitwidth uint) {
+			registers = append(registers, register.New(kind, name, bitwidth, padding))
+		})
+	}
+	//
+	compiler := StmtCompiler{program, fn.Variables, registers, p.env, p.srcmaps, nil}
+	//
+	for i, stmt := range fn.Code {
+		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
+	}
+	//
+	return function.New(fn.Name(), compiler.registers, bootCode), compiler.errors
 }
 
 func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,

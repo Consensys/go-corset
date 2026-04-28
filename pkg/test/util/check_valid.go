@@ -19,6 +19,7 @@ import (
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/zkc"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
@@ -33,7 +34,7 @@ func CheckValid(t *testing.T, test, ext string, compiler ErrorCompiler) {
 	// Compile source file into Abstract Syntax Tree form.
 	program := cmd_util.CompileSourceFiles(filename)
 	// Compile program into boot machine
-	vm, errs := program.Compile()
+	vm, errs := program.Compile(codegen.DEFAULT_CONFIG)
 	for _, err := range errs {
 		t.Errorf("%s", err.Error())
 	}
