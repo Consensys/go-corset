@@ -24,7 +24,6 @@ import (
 type ArrayAccess[S symbol.Symbol[S]] struct {
 	Id   variable.Id
 	Args []Expr[S]
-	// TODO instantiate ?
 	Datatype data.Type[S]
 }
 

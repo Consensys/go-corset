@@ -1678,7 +1678,7 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 		//
 		lv = lval.NewVariable[symbol.Unresolved](vars...)
 	} else if !isDeclared && !p.match(LSQUARE) {
-		return lv, p.syntaxErrors(lookahead, "unknown register")
+		return lv, p.syntaxErrors(lookahead, "unknown variable")
 	} else if index, errs = p.parseExprList(RSQUARE, env); len(errs) > 0 {
 		return lv, errs
 	} else if isDeclared {
