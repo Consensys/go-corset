@@ -85,4 +85,4 @@ clean:
 	@rm -rf bin/*
 	@rm -rf .env
 
-spotless: go-lint-apply zkc-lint-apply
+lint-apply: go-lint-apply zkc-lint-apply
