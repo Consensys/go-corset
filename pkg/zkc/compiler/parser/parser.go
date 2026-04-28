@@ -827,7 +827,7 @@ func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.
 	return nil, p.srcmap.SyntaxErrors(call, "expression unused")
 }
 
-// parseSwitch parses a switch statement.
+// parseSwitch parses a switch statement as a whole.
 func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs         []source.SyntaxError
@@ -838,90 +838,83 @@ func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.S
 		return false, nil, errs
 	}
 	// parse discriminant of the switch statement
-	if discriminant, _, errs = p.parseDiscriminant(env); len(errs) > 0 {
+	if discriminant, errs = p.parseExpr(env); len(errs) > 0 {
 		return false, nil, errs
 	}
 
 	var (
-		res      bool
+		returned bool
 		branches []stmt.SwitchBranch[symbol.Unresolved]
 	)
 
-	res, branches, errs = p.parseSwitchBody(env)
+	returned, branches, errs = p.parseSwitchBody(env)
 
 	node := &stmt.Switch[symbol.Unresolved]{
 		Discriminant: discriminant,
 		Branches:     branches,
 	}
 
-	return res, node, errs
+	return returned, node, errs
 }
 
-// parseDiscriminant parses the discriminant (i.e. argument) of a switch statement.
-// This will be implemented in installments depending on the discriminant. We will
-// want to support the following types of discriminants:
-//  1. a previously declared variable "switch x { ... }"
-//  2. an unmaned function call output "switch f(args) { ... }"
-//  3. a named function call output "switch y = f(args) { ... }"
-//  4. a named function call output with type annotation "switch y : type = f(args) { ... }"
+// parseSwitchBody parses the "body" of a switch statement as in
+// the <switch body> below
 //
-// Note. It may be that only the first two are used in practice
-func (p *Parser) parseDiscriminant(env Environment) (Expr, stmt.Unresolved, []source.SyntaxError) {
-	var (
-		discriminant Expr
-		errs         []source.SyntaxError
-		start        = p.index
-	)
-	if discriminant, errs = p.parseAccessExpr(env); len(errs) > 0 {
-		return nil, nil, errs
-	}
-
-	if !p.srcmap.Has(discriminant) {
-		p.srcmap.Put(discriminant, p.spanOf(start, p.index-1))
-	}
-	// the discriminant ought to be either
-	switch t := discriminant.(type) {
-	case *expr.LocalAccess[symbol.Unresolved]:
-		return discriminant, nil, nil
-	case *expr.ExternAccess[symbol.Unresolved]:
-		switch t.Name.Kind {
-		case symbol.FUNCTION:
-			return discriminant, nil, nil
-		default:
-			return nil, nil, p.syntaxErrors(p.lookahead(), "invalid discriminant")
-		}
-	default:
-		return nil, nil, p.syntaxErrors(p.lookahead(), "invalid discriminant")
-	}
-}
-
-func (p *Parser) parseSwitchBody(env Environment) (b bool,
+//	switch (discriminant) {
+//		<switch body>
+//	}
+func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	branches []stmt.SwitchBranch[symbol.Unresolved],
 	errs []source.SyntaxError) {
-	// we expect a curly brace
+	// we expect an opening curly brace
 	if _, errs = p.expect(LCURLY); len(errs) > 0 {
 		return false, nil, errs
 	}
 
 	var (
-		branch stmt.SwitchBranch[symbol.Unresolved]
+		branch                    stmt.SwitchBranch[symbol.Unresolved]
+		branchReturns             bool
+		everyBranchReturns        = true
+		bodyContainsDefaultBranch = false
 	)
 
 	for p.lookahead().Kind != RCURLY {
-		branch, errs = p.parseSwitchBranch(env)
+		branchReturns, branch, errs = p.parseSwitchBranch(env)
 		if len(errs) > 0 {
 			return false, nil, errs
 		}
 
+		if !branchReturns {
+			everyBranchReturns = false
+		}
+
+		if branch.IsDefault {
+			bodyContainsDefaultBranch = true
+		}
+
 		branches = append(branches, branch)
 	}
-	// Advance past closing "}"
-	p.match(RCURLY)
+
+	// we expect a closing curly brace
+	p.expect(RCURLY)
+
+	// for a switch statement to "return" as a whole it must hold that
+	//	- every branch returns
+	//	- its body contains a default branch
+	//
+	// Note. The required presence of a default branch prevents switch
+	// statements with "empty" body from "returning".
+	//
+	// TODO: exhaustivity analysis of switch statements would make the
+	// presence of a default branch optional in view of determining
+	// whether it returns or not.
+	returned = bodyContainsDefaultBranch && everyBranchReturns
 
 	return
 }
 
 func (p *Parser) parseSwitchBranch(env Environment) (
+	returned bool,
 	branch stmt.SwitchBranch[symbol.Unresolved],
 	errs []source.SyntaxError) {
 	var (
@@ -933,7 +926,7 @@ func (p *Parser) parseSwitchBranch(env Environment) (
 	isDefault = p.follows(KEYWORD_DEFAULT)
 
 	if !(isCase || isDefault) {
-		return branch, p.syntaxErrors(p.lookahead(), "'case' or 'default' keyword expected")
+		return false, branch, p.syntaxErrors(p.lookahead(), "'case' or 'default' keyword expected")
 	}
 
 	var (

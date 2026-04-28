@@ -58,7 +58,7 @@ func (s *SwitchBranch[S]) LogicalOrOfCases(discriminant expr.Expr[S]) (logicalOr
 type Switch[S symbol.Symbol[S]] struct {
 	// Discriminant dictates the case
 	Discriminant expr.Expr[S]
-	// Branches contains all the non default branches
+	// Branches contains all branches of the body, including any default branches
 	Branches []SwitchBranch[S]
 }
 
