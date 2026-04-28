@@ -14,8 +14,11 @@ package debug
 
 import (
 	"bufio"
+	"fmt"
+	"io"
 
 	"github.com/consensys/go-corset/pkg/util/termio"
+	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
@@ -29,8 +32,9 @@ type TracePrinter[W word.Word[W]] struct {
 	valueFormat termio.AnsiEscape
 }
 
-func NewInstructionPrinter[W word.Word[W]]() TracePrinter[W] {
+func NewTracePrinter[W word.Word[W]](out io.Writer) TracePrinter[W] {
 	return TracePrinter[W]{
+		out:         *bufio.NewWriter(out),
 		pcFormat:    termio.NewAnsiEscape().FgColour(termio.TERM_YELLOW),
 		insnFormat:  termio.NewAnsiEscape().FgColour(termio.TERM_WHITE),
 		valueFormat: termio.NewAnsiEscape().Fg256Colour(250),
@@ -38,11 +42,28 @@ func NewInstructionPrinter[W word.Word[W]]() TracePrinter[W] {
 }
 
 // PrintAll prints one (or more) execution steps.
-func (p *TracePrinter[W]) PrintAll(steps []ExecutionStep[W]) {
-
+func (p *TracePrinter[W]) PrintAll(steps []ExecutionStep[W]) error {
+	//
+	for _, step := range steps {
+		p.print(step)
+		// Write new line
+		if _, err := p.out.WriteString("\n"); err != nil {
+			return err
+		}
+	}
+	//
+	return p.out.Flush()
 }
 
-// Print exactly one execution step
-func (p *TracePrinter[W]) Print(step ExecutionStep[W]) {
+func (p *TracePrinter[W]) print(step ExecutionStep[W]) {
+	p.printPc(step.Pc)
+}
 
+func (p *TracePrinter[W]) printPc(pc machine.ProgramCounter) {
+	// Construct string representation of PC
+	pcStr := fmt.Sprintf("[%02x.%02x]", pc.Macro(), pc.Micro())
+	// Add formatting
+	ansi := termio.NewFormattedText(pcStr, p.pcFormat)
+	// Write out
+	p.out.WriteString(string(ansi.Bytes()))
 }

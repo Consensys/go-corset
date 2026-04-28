@@ -62,10 +62,18 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		runInteractiveDebugger[F](input, program)
 		return
 	}
-	//
-	observer := debug.TraceObserver[word.Uint]{}
-	//
+	// Generate & print trace
+	var (
+		// Construct trace printer
+		printer = debug.NewTracePrinter[word.Uint](os.Stdout)
+		// Initialise tracer
+		observer = debug.Tracer[word.Uint]{}
+	)
+	// Execute program to generate trace
 	executeIrProgram("main", config, program, input, &observer)
+	fmt.Printf("Got %d steps\n", len(observer.Steps))
+	// Print steps of trace
+	printer.PrintAll(observer.Steps)
 	//
 	fmt.Println()
 }
