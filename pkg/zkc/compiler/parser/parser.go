@@ -1575,6 +1575,7 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	)
 	//
 	name, errs = p.parseIdentifier()
+
 	isDeclared := env.IsDeclaredVariable(name)
 	if !isDeclared {
 		// now, extern access check for function call or memory access
