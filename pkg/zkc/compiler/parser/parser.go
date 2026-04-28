@@ -884,6 +884,14 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 			return false, nil, errs
 		}
 
+		// we flag the presence of multiple default cases
+		if branch.IsDefault && bodyContainsDefaultBranch {
+			// TODO: improve syntax error
+			return false, nil, []source.SyntaxError{*p.srcmap.SyntaxError(
+				p.lookahead(),
+				"multiple default cases in switch statement")}
+		}
+
 		if !branchReturns {
 			everyBranchReturns = false
 		}
