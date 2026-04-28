@@ -70,18 +70,16 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 	program, srcmaps, linkErrs = Link(items...)
 	//
 	errors = append(errors, linkErrs...)
-	// Flatten block-level constructs (if/else, while, for) into flat if-goto form
-	lower.Flatten(program, srcmaps)
-	// Well-formedness checks (assuming unlimited field width).
-	errors = append(errors, validateProgram(program, srcmaps)...)
 	// Error check
 	if len(errors) != 0 {
 		return ast.Program{}, srcmaps, errors
 	}
-	// Lowering
-	lowering := Lowering{expandFixedArrays: true}
-	program, errors = lowering.Lower(program)
-
+	// Lower block-level constructs (if/else, while, for) into flat if-goto form
+	// Lower fixed-size arrays into flat local access registers
+	lowering := lower.Lowering{}.ExpandFixedArrays(true)
+	lowering.FlatternProgram(program, srcmaps)
+	// Well-formedness checks (assuming unlimited field width).
+	errors = append(errors, validateProgram(program, srcmaps)...)
 	// Done
 	return program, srcmaps, errors
 }

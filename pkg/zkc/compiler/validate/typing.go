@@ -873,6 +873,8 @@ func wellFormed[S symbol.Symbol[S]](t data.Type[S], env data.Environment[S]) boo
 		return true
 	case *data.Alias[S]:
 		return wellFormed(env.TypeOf(t.Name), env)
+	case *data.FixedArray[S]:
+		return wellFormed(t.DataType, env)
 	case *data.Tuple[S]:
 		for i := range t.Width() {
 			if !wellFormed(t.Ith(i), env) {
