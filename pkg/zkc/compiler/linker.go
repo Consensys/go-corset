@@ -525,7 +525,7 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 			return data.NewFixedArray[symbol.Resolved](elem, size), nil
 		case *data.Alias[symbol.Unresolved]:
 			// resolve symbol
-			name, err := p.resolve(d.Name, d)
+			name, err := p.resolve(d.Name, datatype)
 			//
 			if err != nil {
 				return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")

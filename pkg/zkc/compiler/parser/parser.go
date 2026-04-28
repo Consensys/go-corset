@@ -727,7 +727,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		}
 		//
 		switch {
-		case strings.HasPrefix(name, "u") && err != nil:
+		case strings.HasPrefix(name, "u") && err == nil:
 			elem := data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
 			fa := data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64()))
 			fa.SizeName = sizeName
