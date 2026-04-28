@@ -280,7 +280,7 @@ func rewriteFixedArrayExprs(
 }
 
 // expandFixedArrayArgs rewrites a slice of expressions, expanding any bare
-// LocalAccess to an array variabltypinge into one LocalAccess per element.  This
+// LocalAccess to an array variable into one LocalAccess per element.  This
 // handles the case where an entire fixed-size array is passed as a function
 // argument (e.g. sum(items) becomes sum(items$0, items$1, items$2)).
 func expandFixedArrayArgs(

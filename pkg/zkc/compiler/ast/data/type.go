@@ -31,7 +31,7 @@ type Type[S symbol.Symbol[S]] interface {
 	AsAlias(Environment[S]) *Alias[S]
 	// AsField determines whether or not this is a field element.
 	AsField(Environment[S]) *FieldElement[S]
-	// AsAlias determines whether or not this is a fixed-size array.
+	// AsFixedArray determines whether or not this is a fixed-size array.
 	AsFixedArray(Environment[S]) *FixedArray[S]
 	// String returns a string representation of this type.
 	String(Environment[S]) string

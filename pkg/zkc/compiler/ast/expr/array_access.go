@@ -22,8 +22,8 @@ import (
 
 // ArrayAccess represents an array access within an expression.
 type ArrayAccess[S symbol.Symbol[S]] struct {
-	Id   variable.Id
-	Args []Expr[S]
+	Id       variable.Id
+	Args     []Expr[S]
 	Datatype data.Type[S]
 }
 

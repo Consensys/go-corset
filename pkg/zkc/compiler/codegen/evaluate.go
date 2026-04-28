@@ -65,7 +65,7 @@ func EvalConstant(
 		res, overflow = word.Subtract(bitwidth, args...)
 
 		if overflow && definition {
-			errorMessage = "arithmetic overflow"
+			errorMessage = "arithmetic underflow"
 		}
 
 		return
