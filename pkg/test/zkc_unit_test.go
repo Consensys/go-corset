@@ -448,6 +448,10 @@ func Test_ZkcUnit_Switch_05(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/switch_05")
 }
 
+func Test_ZkcUnit_Switch_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_06")
+}
+
 // ===================================================================
 // Printf Tests
 // ===================================================================

@@ -1,0 +1,37 @@
+// =============================================
+// switch statements that return
+// =============================================
+
+const CASE_A       :u8 = 1
+const CASE_B       :u8 = 2
+const CASE_DEFAULT :u8 = 3
+
+// standard switch case statement doing actual computations
+// computations are checked against inputs
+fn main() {
+
+  var x :u8
+  var y :u8
+  x = CASE_B
+  y = do_sthg(x)
+
+  printf "in  = %d\n", x
+  printf "out = %d\n", y
+}
+
+fn do_sthg(x :u8) -> (y :u8) {
+
+    switch x {
+        case CASE_A: {
+        y = 0x10
+        }
+        // case CASE_B: {
+        // y = 0x11
+        // }
+        default: {
+        y = 0x12
+        }
+    }
+
+    return
+}

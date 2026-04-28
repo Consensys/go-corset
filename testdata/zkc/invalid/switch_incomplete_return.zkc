@@ -1,0 +1,34 @@
+//error:33:3-8:return y possibly undefined
+
+
+// ===========================================================
+// switch statements that don't construct a full return value
+// ===========================================================
+
+const CASE_A       :u8 = 1
+const CASE_B       :u8 = 2
+
+fn main() {
+
+  var x :u8
+  var y :u8
+  x = CASE_B
+  y = do_sthg(x)
+}
+
+fn do_sthg(x :u8) -> (y :u8) {
+
+  switch x {
+    case CASE_A: {
+      y = 0x10
+    }
+    case CASE_B: {
+      y = 0x11
+    }
+    // default: {
+    // y = 0x12
+    // }
+  }
+
+  return
+}
