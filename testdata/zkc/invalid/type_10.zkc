@@ -1,8 +1,7 @@
-//error:10:20-21:unknown type alias
-//error:6:8-9:unknown type alias
-//error:6:17-18:unknown type alias
-//error:7:11-12:unknown type alias
-//error:12:2-3:return y possibly undefined
+//error:9:20-21:unknown type alias
+//error:5:8-9:unknown type alias
+//error:5:17-18:unknown type alias
+//error:6:11-12:unknown type alias
 fn f(x:T) -> (y:T) {
     var t:S = 1
     //

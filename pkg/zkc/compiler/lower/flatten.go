@@ -26,6 +26,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 )
 
 // Lowering is the configuration options to lower the ast program.
@@ -58,7 +59,7 @@ func (p Lowering) FlattenFixedArrays(program ast.Program, srcmaps source.Maps[an
 	for _, d := range program.Components() {
 		if fn, ok := d.(*decl.ResolvedFunction); ok {
 			if p.expandFixedArrays {
-				lowerFixedArrays(fn, env)
+				lowerFixedArrays(fn, program.Components(), env)
 			}
 		}
 	}
@@ -75,7 +76,7 @@ type varMapping struct {
 
 // lowerFixedArrays expands fixed-size array variables in a single function into
 // scalars and rewrites all variable references accordingly.
-func lowerFixedArrays(fn *decl.ResolvedFunction, env data.ResolvedEnvironment) {
+func lowerFixedArrays(fn *decl.ResolvedFunction, declarations []codegen.Declaration, env data.ResolvedEnvironment) {
 	var (
 		newVars  []variable.ResolvedDescriptor
 		mapping  = make([]varMapping, len(fn.Variables))
@@ -106,7 +107,7 @@ func lowerFixedArrays(fn *decl.ResolvedFunction, env data.ResolvedEnvironment) {
 	}
 
 	for i, s := range fn.Code {
-		fn.Code[i] = rewriteFixedArrayStmt(s, mapping)
+		fn.Code[i] = rewriteFixedArrayStmt(s, mapping, declarations, env)
 	}
 
 	fn.Variables = newVars
@@ -130,24 +131,24 @@ func countVarsOfKind(vars []variable.ResolvedDescriptor, kind variable.Kind) uin
 // Statement rewriting
 // ---------------------------------------------------------------------------
 
-func rewriteFixedArrayStmt(s stmt.Resolved, mapping []varMapping) stmt.Resolved {
+func rewriteFixedArrayStmt(s stmt.Resolved, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) stmt.Resolved {
 	switch s := s.(type) {
 	case *stmt.Assign[symbol.Resolved]:
 		for i, lv := range s.Targets {
 
-			s.Targets[i] = rewriteFixedArrayLVal(lv, mapping)
+			s.Targets[i] = rewriteFixedArrayLVal(lv, mapping, declarations, env)
 		}
 
-		s.Source = rewriteFixedArrayExpr(s.Source, mapping)
+		s.Source = rewriteFixedArrayExpr(s.Source, mapping, declarations, env)
 
 		return s
 	case *stmt.IfGoto[symbol.Resolved]:
-		s.Cond = rewriteFixedArrayCondition(s.Cond, mapping)
+		s.Cond = rewriteFixedArrayCondition(s.Cond, mapping, declarations, env)
 
 		return s
 	case *stmt.Printf[symbol.Resolved]:
 		for i, arg := range s.Arguments {
-			s.Arguments[i] = rewriteFixedArrayExpr(arg, mapping)
+			s.Arguments[i] = rewriteFixedArrayExpr(arg, mapping, declarations, env)
 		}
 
 		return s
@@ -162,7 +163,7 @@ func rewriteFixedArrayStmt(s stmt.Resolved, mapping []varMapping) stmt.Resolved 
 // Expression rewriting
 // ---------------------------------------------------------------------------
 
-func rewriteFixedArrayExpr(e expr.Resolved, mapping []varMapping) expr.Resolved {
+func rewriteFixedArrayExpr(e expr.Resolved, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) expr.Resolved {
 	switch e := e.(type) {
 	case *expr.LocalAccess[symbol.Resolved]:
 		m := mapping[e.Variable]
@@ -174,7 +175,7 @@ func rewriteFixedArrayExpr(e expr.Resolved, mapping []varMapping) expr.Resolved 
 
 		return e
 	case *expr.ArrayAccess[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Args, mapping)
+		rewriteFixedArrayExprs(e.Args, mapping, declarations, env)
 
 		m := mapping[e.Id]
 		if !m.isArray {
@@ -186,75 +187,73 @@ func rewriteFixedArrayExpr(e expr.Resolved, mapping []varMapping) expr.Resolved 
 			panic("expected exactly one index for fixed array access")
 		}
 
-		c, ok := e.Args[0].(*expr.Const[symbol.Resolved])
-		if !ok {
+		val, ko := codegen.EvalConstant(e.Args[0], false, declarations, env)
+		if ko != "" {
+			// This should have been checked in the typing phase already
 			panic("expected constant index for fixed array access during lowering")
 		}
 
-		idx := uint(c.Constant.Uint64())
-		if idx >= m.size {
-			panic(fmt.Sprintf("array index %d out of bounds (size %d)", idx, m.size))
-		}
+		idx := uint(val.Uint64())
 
 		result := &expr.LocalAccess[symbol.Resolved]{Variable: m.newBase + idx}
 		result.SetType(e.Type())
 
 		return result
 	case *expr.Add[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Sub[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Mul[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Div[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Rem[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Shl[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Shr[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.BitwiseAnd[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.BitwiseOr[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Xor[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.BitwiseNot[symbol.Resolved]:
-		e.Expr = rewriteFixedArrayExpr(e.Expr, mapping)
+		e.Expr = rewriteFixedArrayExpr(e.Expr, mapping, declarations, env)
 		return e
 	case *expr.LogicalAnd[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.LogicalOr[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.LogicalNot[symbol.Resolved]:
-		e.Expr = rewriteFixedArrayExpr(e.Expr, mapping)
+		e.Expr = rewriteFixedArrayExpr(e.Expr, mapping, declarations, env)
 		return e
 	case *expr.Cast[symbol.Resolved]:
-		e.Expr = rewriteFixedArrayExpr(e.Expr, mapping)
+		e.Expr = rewriteFixedArrayExpr(e.Expr, mapping, declarations, env)
 		return e
 	case *expr.Concat[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Exprs, mapping)
+		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 		return e
 	case *expr.Ternary[symbol.Resolved]:
-		e.Cond = rewriteFixedArrayExpr(e.Cond, mapping)
-		e.IfTrue = rewriteFixedArrayExpr(e.IfTrue, mapping)
-		e.IfFalse = rewriteFixedArrayExpr(e.IfFalse, mapping)
+		e.Cond = rewriteFixedArrayExpr(e.Cond, mapping, declarations, env)
+		e.IfTrue = rewriteFixedArrayExpr(e.IfTrue, mapping, declarations, env)
+		e.IfFalse = rewriteFixedArrayExpr(e.IfFalse, mapping, declarations, env)
 		return e
 	case *expr.ExternAccess[symbol.Resolved]:
-		e.Args = expandFixedArrayArgs(e.Args, mapping)
+		e.Args = expandFixedArrayArgs(e.Args, mapping, declarations, env)
 		return e
 	case *expr.Const[symbol.Resolved]:
 		return e
@@ -263,17 +262,17 @@ func rewriteFixedArrayExpr(e expr.Resolved, mapping []varMapping) expr.Resolved 
 	}
 }
 
-func rewriteFixedArrayExprs(exprs []expr.Resolved, mapping []varMapping) {
+func rewriteFixedArrayExprs(exprs []expr.Resolved, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) {
 	for i, e := range exprs {
-		exprs[i] = rewriteFixedArrayExpr(e, mapping)
+		exprs[i] = rewriteFixedArrayExpr(e, mapping, declarations, env)
 	}
 }
 
 // expandFixedArrayArgs rewrites a slice of expressions, expanding any bare
-// LocalAccess to an array variable into one LocalAccess per element.  This
+// LocalAccess to an array variabltypinge into one LocalAccess per element.  This
 // handles the case where an entire fixed-size array is passed as a function
 // argument (e.g. sum(items) becomes sum(items$0, items$1, items$2)).
-func expandFixedArrayArgs(args []expr.Resolved, mapping []varMapping) []expr.Resolved {
+func expandFixedArrayArgs(args []expr.Resolved, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) []expr.Resolved {
 	var result []expr.Resolved
 
 	for _, arg := range args {
@@ -290,7 +289,7 @@ func expandFixedArrayArgs(args []expr.Resolved, mapping []varMapping) []expr.Res
 			}
 		}
 
-		result = append(result, rewriteFixedArrayExpr(arg, mapping))
+		result = append(result, rewriteFixedArrayExpr(arg, mapping, declarations, env))
 	}
 
 	return result
@@ -300,11 +299,11 @@ func expandFixedArrayArgs(args []expr.Resolved, mapping []varMapping) []expr.Res
 // Condition rewriting
 // ---------------------------------------------------------------------------
 
-func rewriteFixedArrayCondition(c expr.ResolvedCondition, mapping []varMapping) expr.ResolvedCondition {
+func rewriteFixedArrayCondition(c expr.ResolvedCondition, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) expr.ResolvedCondition {
 	switch c := c.(type) {
 	case *expr.Cmp[symbol.Resolved]:
-		c.Left = rewriteFixedArrayExpr(c.Left, mapping)
-		c.Right = rewriteFixedArrayExpr(c.Right, mapping)
+		c.Left = rewriteFixedArrayExpr(c.Left, mapping, declarations, env)
+		c.Right = rewriteFixedArrayExpr(c.Right, mapping, declarations, env)
 		return c
 	default:
 		panic(fmt.Sprintf("unknown condition encountered during fixed-array lowering: %T", c))
@@ -315,7 +314,7 @@ func rewriteFixedArrayCondition(c expr.ResolvedCondition, mapping []varMapping) 
 // LVal rewriting
 // ---------------------------------------------------------------------------
 
-func rewriteFixedArrayLVal(l lval.Resolved, mapping []varMapping) lval.Resolved {
+func rewriteFixedArrayLVal(l lval.Resolved, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) lval.Resolved {
 	switch l := l.(type) {
 	case *lval.Variable[symbol.Resolved]:
 		for i, id := range l.Ids {
@@ -329,7 +328,7 @@ func rewriteFixedArrayLVal(l lval.Resolved, mapping []varMapping) lval.Resolved 
 
 		return l
 	case *lval.Array[symbol.Resolved]:
-		rewriteFixedArrayExprs(l.Args, mapping)
+		rewriteFixedArrayExprs(l.Args, mapping, declarations, env)
 
 		m := mapping[l.Id]
 		if !m.isArray {
@@ -341,19 +340,17 @@ func rewriteFixedArrayLVal(l lval.Resolved, mapping []varMapping) lval.Resolved 
 			panic("expected exactly one index for fixed array lval")
 		}
 
-		c, ok := l.Args[0].(*expr.Const[symbol.Resolved])
-		if !ok {
+		val, ko := codegen.EvalConstant(l.Args[0], false, declarations, env)
+		if ko != "" {
+			// This should have already been checked in the typing phase
 			panic("expected constant index for fixed array lval during lowering")
 		}
 
-		idx := uint(c.Constant.Uint64())
-		if idx >= m.size {
-			panic(fmt.Sprintf("array lval index %d out of bounds (size %d)", idx, m.size))
-		}
+		idx := uint(val.Uint64())
 
 		return &lval.Variable[symbol.Resolved]{Ids: []variable.Id{m.newBase + idx}}
 	case *lval.MemAccess[symbol.Resolved]:
-		rewriteFixedArrayExprs(l.Args, mapping)
+		rewriteFixedArrayExprs(l.Args, mapping, declarations, env)
 		return l
 	default:
 		panic(fmt.Sprintf("unknown lval encountered during fixed-array lowering: %T", l))

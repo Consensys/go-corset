@@ -1021,17 +1021,18 @@ func (p *Parser) parseForInit(env Environment) (stmt.Unresolved, []source.Syntax
 			return nil, errs
 		}
 
-		env.DeclareVariable(variable.LOCAL, name, dt)
-
 		if _, errs = p.expect(EQUALS); len(errs) > 0 {
 			return nil, errs
 		}
 
+		// Parse the initialiser before declaring the variable so that names
+		// resolve to the outer scope (same rationale as parseVarDecls).
 		rhs, errs := p.parseExpr(env)
 		if len(errs) > 0 {
 			return nil, errs
 		}
 
+		env.DeclareVariable(variable.LOCAL, name, dt)
 		id := env.LookupVariable(name)
 
 		return &stmt.VarDecl[symbol.Unresolved]{
@@ -1234,15 +1235,15 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 		names = append(names, name)
 		types = append(types, dt)
 	}
-	// Declare all variables before parsing any initialiser, so the
-	// initialiser expression can reference other already-declared variables.
-	varIds := make([]variable.Id, len(names))
-	for i, name := range names {
-		env.DeclareVariable(variable.LOCAL, name, types[i])
-		varIds[i] = env.LookupVariable(name)
-	}
 	// Check for optional initialiser
 	if !p.match(EQUALS) {
+		// No initialiser — declare all variables now.
+		varIds := make([]variable.Id, len(names))
+		for i, name := range names {
+			env.DeclareVariable(variable.LOCAL, name, types[i])
+			varIds[i] = env.LookupVariable(name)
+		}
+
 		insn := &stmt.VarDecl[symbol.Unresolved]{
 			Variables: varIds,
 			Init:      util.None[Expr](),
@@ -1254,14 +1255,19 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 	if len(names) > 1 {
 		return nil, p.syntaxErrors(p.lookahead(), "initialiser requires single variable declaration")
 	}
-	// Parse the initialiser expression
+	// Parse the initialiser expression BEFORE declaring the variable so that
+	// names in the initialiser resolve to the outer scope (e.g. a memory with
+	// the same name) rather than the not-yet-assigned local.
 	rhs, errs := p.parseExpr(env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
+	// Now declare the variable.
+	env.DeclareVariable(variable.LOCAL, names[0], types[0])
+	varId := env.LookupVariable(names[0])
 	// Build the variable declaration with initialiser
 	insn := &stmt.VarDecl[symbol.Unresolved]{
-		Variables: varIds,
+		Variables: []variable.Id{varId},
 		Init:      util.Some[Expr](rhs),
 	}
 	//
