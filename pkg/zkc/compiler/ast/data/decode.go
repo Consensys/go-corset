@@ -78,14 +78,19 @@ func decodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, reader *bit
 func decodeUnsignedInt(bitwidth uint, reader *bit.Reader, buffer []byte) ([]big.Int, []byte) {
 	var (
 		val big.Int
-		n   = bit.BytesRequiredFor(bitwidth)
+		// Determine number of bytes required to hold value
+		n = bit.BytesRequiredFor(bitwidth)
+		// Calculate excess bits (needed for alignment)
+		m = (n * 8) - bitwidth
 	)
 	// Expand buffer to ensure enough space
 	buffer = expandBufferAsNeeded(bitwidth, buffer)
 	// Read bitwidth bits out
 	reader.BigEndianReadInto(bitwidth, buffer)
-	// FIXME: broken!!!
+	// Assign (unaligned) bytes
 	val.SetBytes(buffer[:n])
+	// Right shift to fix alignment
+	val.Rsh(&val, m)
 	//
 	return []big.Int{val}, buffer
 }
