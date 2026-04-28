@@ -15,19 +15,24 @@ package lsp
 import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
-	"github.com/consensys/go-corset/pkg/zkc/compiler"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"go.lsp.dev/protocol"
 )
 
-// SignatureHelpFor compiles the given document and returns signature help for
-// the function call the cursor is inside. It returns nil when the cursor is not
-// inside a function-call argument list or the callee cannot be resolved.
-func SignatureHelpFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.SignatureHelp, error) {
+// SignatureHelpFor returns signature help for the function call the cursor
+// is inside.  The caller supplies an already-compiled program (typically
+// taken from an IncrementalCompiler); this function only lexes the supplied
+// document text to locate the enclosing call and active parameter.  Returns
+// nil when the cursor is not inside a function-call argument list or the
+// callee cannot be resolved.
+func SignatureHelpFor(
+	uri protocol.URI, text string, pos protocol.Position,
+	program ast.Program,
+) (*protocol.SignatureHelp, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, _, _ := compiler.Compile(*srcfile)
 
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)

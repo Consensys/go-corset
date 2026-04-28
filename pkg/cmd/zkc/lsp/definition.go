@@ -14,19 +14,27 @@ package lsp
 
 import (
 	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/zkc/compiler"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"go.lsp.dev/protocol"
 	lspuri "go.lsp.dev/uri"
 )
 
-// DefinitionFor compiles the given document and returns the source location of
-// the top-level declaration named by the identifier under the cursor at pos. It
-// returns nil when no definition is available (e.g. the cursor is on a keyword,
-// the name is not a top-level declaration, or the document cannot be compiled).
-func DefinitionFor(uri protocol.URI, text string, pos protocol.Position) ([]protocol.Location, error) {
+// DefinitionFor returns the source location of the top-level declaration
+// named by the identifier under the cursor at pos.  The caller supplies an
+// already-compiled program and its associated source maps (typically taken
+// from an IncrementalCompiler), so this function does not itself parse or
+// compile the source — it only lexes the supplied document text to find the
+// identifier under the cursor.
+//
+// Returns nil when no definition is available, e.g. the cursor is on a
+// keyword or whitespace, or the identifier does not name a top-level
+// declaration in program.
+func DefinitionFor(
+	uri protocol.URI, text string, pos protocol.Position,
+	program ast.Program, srcmaps source.Maps[any],
+) ([]protocol.Location, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps, _ := compiler.Compile(*srcfile)
 
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)
