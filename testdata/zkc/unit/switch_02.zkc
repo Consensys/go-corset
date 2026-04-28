@@ -1,10 +1,14 @@
+// ===================================================================
+// fallthrough behaviour of switches with respect to the discriminant
+// and failing in non matching cases
+// ===================================================================
+
 type exmp = u8
 
 const CASE_A     :exmp = 1
 const CASE_B     :exmp = 2
 const CASE_MATCH :exmp = 13
 
-// fallthrough behaviour of switches with respect to the discriminant
 fn main() {
 
   var discr :exmp = CASE_MATCH

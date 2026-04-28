@@ -1,36 +1,44 @@
-const CASE_A:u8 = 1
-const CASE_B:u8 = 2
+// =============================================
+// using a general expression as a discriminant
+// =============================================
 
-input input_case      (c :u1) -> (d   :u8)
-input expected_output (c :u1) -> (out :u8)
+const CASE_TRUE :u8 = 1
+const CASE_FALSE :u8 = 2
+const CASE_DEFAULT :u8 = 3
+
+input  inputs(c :u1) -> (d   :u8)
+input  results(c :u1) -> (res :u8)
 
 // standard switch case statement doing actual computations
 // computations are checked against inputs
 fn main() {
 
-  var discr :u8 = input_case[0]
+  var cond   :u8
+  var result :u8 = 0
+  cond = inputs[0]
 
-  switch discr {
-    case 0: {
-      discr = 255
+  printf "\n"
+  printf "result = %d\n", result
+  printf "cond   = %d\n", cond
+
+  switch ( cond == 1 ? CASE_TRUE : CASE_FALSE ) {
+    case CASE_TRUE: {
+      result = CASE_TRUE
     }
-    case CASE_A: {
-      discr = deal_with(discr)
-    }
-    case CASE_B: {
-      discr = deal_with(discr) + 1
+    case CASE_FALSE: {
+      result = CASE_FALSE
     }
     default: {
-      discr = 17
+      result = CASE_DEFAULT
     }
   }
 
-  if discr != expected_output[0] {
+  printf "input  = %d\n", cond
+  printf "result = %d\n\n", result
+
+  if results[0] != result { fail }
+
+  if result == CASE_DEFAULT {
     fail
   }
-}
-
-fn deal_with(discr :u8) -> (res :u8) {
-  res = 4 * discr
-  return
 }

@@ -1,0 +1,4 @@
+{ "input_case": "0x00", "expected_output": "0xff" }
+{ "input_case": "0x01", "expected_output": "0x04" }
+{ "input_case": "0x02", "expected_output": "0x09" }
+{ "input_case": "0x03", "expected_output": "0x11" }

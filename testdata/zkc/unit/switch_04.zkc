@@ -1,73 +1,36 @@
-type exmp = u8
+const CASE_A:u8 = 1
+const CASE_B:u8 = 2
 
-const CASE_A     :exmp = 1
-const CASE_B     :exmp = 2
-const CASE_MATCH :exmp = 13
-const INITIAL_X  :u16  = 1000
+input input_case      (c :u1) -> (d   :u8)
+input expected_output (c :u1) -> (out :u8)
 
+// standard switch case statement doing actual computations
+// computations are checked against inputs
 fn main() {
 
-  var case_expression :exmp = CASE_MATCH
-  var x :u16 = INITIAL_X
+  var discr :u8 = input_case[0]
 
-  // empty switch case statement
-  // default case applies
-  printf "x = %d", x
-  switch case_expression {
-    default: { x = add_one(x) }
-  }
-  printf "x = %d expected to have incremented by 1", x
-
-  // only default case
-  switch case_expression {
-    case CASE_MATCH: { x = add_one(x) }
-  }
-  printf "x = %d expected to have incremented by 1", x
-
-  // no default case
-  switch case_expression {
-    case CASE_A: { }
-  }
-  printf "x = %d expected to not have changed", x
-
-  // no default case
-  switch case_expression {
-    case CASE_A, CASE_B: { }
-  }
-  printf "x = %d expected to not have changed", x
-
-  x = reset(x)
-
-  // no fall through
-  switch case_expression {
-    case CASE_MATCH: {
-      x = add_one(x)
+  switch discr {
+    case 0: {
+      discr = 255
     }
-    default: { x = add_one(x) }
+    case CASE_A: {
+      discr = deal_with(discr)
+    }
+    case CASE_B: {
+      discr = deal_with(discr) + 1
+    }
+    default: {
+      discr = 17
+    }
   }
-  printf "x = %d expected to have incremented by 1, not 2", x
 
-  // generic case
-  switch case_expression {
-    case CASE_A: { }
-    case CASE_B: { }
-    default: { x = add_one(x) }
+  if discr != expected_output[0] {
+    fail
   }
-  printf "x = %d expected to have incremented by 1", x
-
-  // several cases for one body
-  switch case_expression {
-    case CASE_A, CASE_B: { }
-    default: { x = add_one(x) }
-  }
-  printf "x = %d expected to have incremented by 1", x
 }
 
-fn add_one(x: u16) -> (x_plus_one :u16) {
-  x_plus_one = x + 1
-}
-
-fn reset(x: u16) -> (x_reset :u16) {
-  x_reset = INITIAL_X
-  printf "x reset to %d", x_reset
+fn deal_with(discr :u8) -> (res :u8) {
+  res = 4 * discr
+  return
 }
