@@ -78,7 +78,7 @@ func init() {
 	DEFAULT_INSERTION_RULES[parser.BITWISE_SHR] = InsertSpaceAround()
 	// Space after separators.
 	DEFAULT_INSERTION_RULES[parser.COMMA] = InsertSpaceAfter()
-	DEFAULT_INSERTION_RULES[parser.SEMICOLON] = InsertSpaceAfter()
+	DEFAULT_INSERTION_RULES[parser.SEMICOLON] = InsertSemicolonSpace()
 	DEFAULT_INSERTION_RULES[parser.QMARK] = InsertSpaceAround()
 	// Space before opening braces (unless already spaced), newline+indent after (unless one follows already).
 	DEFAULT_INSERTION_RULES[parser.LCURLY] = InsertForOpenCurly(DEFAULT_INDENTATION)
@@ -149,6 +149,13 @@ func InsertForCloseCurly(indent uint) InsertionRule {
 // trailing space when the operator appears at the end of a line).
 func InsertSpaceAround() InsertionRule {
 	return &insertSpaceAround{}
+}
+
+// InsertSemicolonSpace constructs a rule for ';' that inserts a space after
+// the semicolon in most contexts (e.g. for-loop headers) but suppresses it
+// inside square brackets (fixed-size array types like [u8;3]).
+func InsertSemicolonSpace() InsertionRule {
+	return &insertSemicolonSpace{}
 }
 
 // InsertIndent constructs a rule which always inserts the given token
@@ -353,4 +360,49 @@ func (p *insertIndent) After(level uint, next iter.Iterator[lex.Token]) []lex.To
 	}
 
 	return []lex.Token{{Kind: parser.SPACES, Span: source.NewSpan(0, int(level*p.indent))}}
+}
+
+// ===================================================================
+// InsertSemicolonSpace
+// ===================================================================
+
+type insertSemicolonSpace struct {
+	inBrackets bool
+}
+
+func (p *insertSemicolonSpace) Before(_ uint, prev iter.Iterator[lex.Token]) []lex.Token {
+	depth := 0
+
+	for prev.HasNext() {
+		switch prev.Next().Kind {
+		case parser.RSQUARE:
+			depth++
+		case parser.LSQUARE:
+			if depth == 0 {
+				p.inBrackets = true
+				return nil
+			}
+
+			depth--
+		case parser.NEWLINE, parser.LCURLY, parser.RCURLY:
+			p.inBrackets = false
+			return nil
+		}
+	}
+
+	p.inBrackets = false
+
+	return nil
+}
+
+func (p *insertSemicolonSpace) After(_ uint, next iter.Iterator[lex.Token]) []lex.Token {
+	if p.inBrackets {
+		return nil
+	}
+
+	if next.HasNext() && next.Next().Kind == parser.NEWLINE {
+		return nil
+	}
+
+	return []lex.Token{ONE_SPACE}
 }
