@@ -74,16 +74,18 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 	if len(errors) != 0 {
 		return ast.Program{}, srcmaps, errors
 	}
+	// Lower block-level constructs (if/else, while, for) into flat if-goto form
+	// so that the type checker sees IfGoto statements (not IfElse).
+	lower.Flatten(program, srcmaps)
 	// Well-formedness checks (assuming unlimited field width).
 	errors = append(errors, validateProgram(program, srcmaps)...)
 	// Error check
 	if len(errors) != 0 {
 		return ast.Program{}, srcmaps, errors
 	}
-	// Lower block-level constructs (if/else, while, for) into flat if-goto form
 	// Lower fixed-size arrays into flat local access registers
 	lowering := lower.Lowering{}.ExpandFixedArrays(true)
-	lowering.FlatternProgram(program, srcmaps)
+	lowering.FlattenFixedArrays(program, srcmaps)
 	// Done
 	return program, srcmaps, errors
 }

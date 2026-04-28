@@ -28,19 +28,12 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-
 // Lowering is the configuration options to lower the ast program.
 type Lowering struct {
 	expandFixedArrays bool
 }
 
 func (p Lowering) ExpandFixedArrays(flag bool) Lowering { return Lowering{expandFixedArrays: flag} }
-
-
-func (p Lowering) FlatternProgram(program ast.Program, srcmaps source.Maps[any]) {
-	Flatten(program, srcmaps)
-	p.FlatternFixedArrays(program, srcmaps)
-}
 
 // Flatten flattens all block-level statements (IfElse, While, For,
 // Break, Continue) in each function of the program into the flat if-goto form
@@ -54,12 +47,12 @@ func Flatten(program ast.Program, srcmaps source.Maps[any]) {
 	}
 }
 
-// FlatternFixedArrays walks every component in the program and expands
+// FlattenFixedArrays walks every component in the program and expands
 // fixed-size array variables into individual scalar variables.  A variable
 // arrayName of type uM[n] is replaced by n scalars arrayName$0 .. arrayName$(n-1),
 // each of type uM.  Corresponding expr.ArrayAccess and lval.Array nodes are
 // rewritten to plain LocalAccess / lval.Variable references.
-func (p Lowering) FlatternFixedArrays(program ast.Program, srcmaps source.Maps[any]) {
+func (p Lowering) FlattenFixedArrays(program ast.Program, srcmaps source.Maps[any]) {
 	env := program.Environment()
 
 	for _, d := range program.Components() {
