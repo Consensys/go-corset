@@ -59,55 +59,14 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
-	//
-	executeIrProgram[EmptyBaseObserver]("main", config, program, input, EmptyBaseObserver{})
-}
-
-func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.Config, program ast.Program,
-	input map[string][]byte, view V,
-) {
-	var (
-		vm        *machine.Base[word.Uint]
-		bigInputs map[string][]word.Uint
-		errors    []error
-	)
-	// Execute machine in chunks of 1K steps
-	if bigInputs, _, errors = program.DecodeInputsOutputs(input); len(errors) == 0 {
-		// Build our machine
-		var compileErrs []source.SyntaxError
-
-		vm, compileErrs = program.Compile(config)
-		for _, e := range compileErrs {
-			errors = append(errors, &e)
-		}
-		//
-		if len(errors) == 0 {
-			if err := vm.Boot(mainFn, bigInputs); err != nil {
-				errors = append(errors, err)
-			} else if _, err := execute[word.Uint, V](vm, 1, view); err != nil {
-				errors = append(errors, err)
-			}
-		}
-	}
-	// Exit with failure (if errors)
-	if len(errors) > 0 {
-		// Log errors
-		for _, e := range errors {
-			log.Error(fmt.Sprintf("%s (IR)", e))
-		}
-		//
-		os.Exit(4)
-	}
-	// Collect raw outputs from write-once memories
-	rawOutputs := make(map[string][]word.Uint)
-
-	for _, m := range vm.Modules() {
-		if output, ok := m.(*memory.WriteOnce[word.Uint]); ok {
-			rawOutputs[output.Name()] = output.Contents()
-		}
-	}
+	// Compile AST into VM program
+	vm := compileProgram(config, program)
+	// Decode provided inputs
+	inputs := decodeInputsOutputs(program, input)
+	// Execute VM program producing raw output
+	outputs := executeVmProgram[word.Uint, EmptyBaseObserver]("main", inputs, vm, EmptyBaseObserver{})
 	// Encode outputs back to bytes
-	encodedOutputs, encErrors := program.EncodeInputsOutputs(rawOutputs)
+	encodedOutputs, encErrors := program.EncodeInputsOutputs(outputs)
 	//
 	for _, e := range encErrors {
 		log.Error(fmt.Sprintf("%s (IR)", e))
@@ -116,6 +75,56 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.C
 	for name, bytes := range encodedOutputs {
 		fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
 	}
+}
+
+func decodeInputsOutputs(program ast.Program, input map[string][]byte) (inputs map[string][]word.Uint) {
+	var errors []error
+	// Execute machine in chunks of 1K steps
+	if inputs, _, errors = program.DecodeInputsOutputs(input); len(errors) != 0 {
+		failWithErrors(errors)
+	}
+	//
+	return inputs
+}
+
+func compileProgram(config codegen.Config, program ast.Program) (vm *machine.Base[word.Uint]) {
+	var (
+		errors      []error
+		compileErrs []source.SyntaxError
+	)
+	// compile program with given config
+	if vm, compileErrs = program.Compile(config); len(compileErrs) == 0 {
+		return vm
+	}
+	// transfer errors (for now)
+	for _, e := range compileErrs {
+		errors = append(errors, &e)
+	}
+	// Exit with failure
+	failWithErrors(errors)
+	panic("unreachable")
+}
+
+func executeVmProgram[W word.Word[W], V BaseObserver[W]](mainFn string, inputs map[string][]W, vm *machine.Base[W], view V) (outputs map[string][]W) {
+	var (
+		errors []error
+	)
+	// Boot & execute machine
+	if err := vm.Boot(mainFn, inputs); err != nil {
+		errors = append(errors, err)
+	} else if _, err := execute(vm, 1, view); err != nil {
+
+	}
+	// Collect raw outputs from write-once memories
+	outputs = make(map[string][]W)
+
+	for _, m := range vm.Modules() {
+		if output, ok := m.(*memory.WriteOnce[W]); ok {
+			outputs[output.Name()] = output.Contents()
+		}
+	}
+	//
+	return outputs
 }
 
 func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Base[W], n uint, observer V) (uint, error) {
@@ -137,6 +146,15 @@ func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Base[W], n uint
 			return nsteps, err
 		}
 	}
+}
+
+func failWithErrors(errors []error) {
+	// Log errors
+	for _, e := range errors {
+		log.Error(fmt.Sprintf("%s (IR)", e))
+	}
+	//
+	os.Exit(4)
 }
 
 // ============================================================================

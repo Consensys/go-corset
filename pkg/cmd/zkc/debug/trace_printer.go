@@ -17,13 +17,19 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/termio"
+	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 type TracePrinter[W word.Word[W]] struct {
 	out bufio.Writer
+	// Underlying machine
+	vm machine.Base[W]
 	// Formatting to use for the Program Counter
 	pcFormat termio.AnsiEscape
 	// Formatting to use for the body of the instruction
@@ -32,9 +38,10 @@ type TracePrinter[W word.Word[W]] struct {
 	valueFormat termio.AnsiEscape
 }
 
-func NewTracePrinter[W word.Word[W]](out io.Writer) TracePrinter[W] {
+func NewTracePrinter[W word.Word[W]](out io.Writer, vm *machine.Base[W]) TracePrinter[W] {
 	return TracePrinter[W]{
 		out:         *bufio.NewWriter(out),
+		vm:          *vm,
 		pcFormat:    termio.NewAnsiEscape().FgColour(termio.TERM_YELLOW),
 		insnFormat:  termio.NewAnsiEscape().FgColour(termio.TERM_WHITE),
 		valueFormat: termio.NewAnsiEscape().Fg256Colour(250),
@@ -56,14 +63,54 @@ func (p *TracePrinter[W]) PrintAll(steps []ExecutionStep[W]) error {
 }
 
 func (p *TracePrinter[W]) print(step ExecutionStep[W]) {
+	var (
+		fun = p.vm.Module(step.Fun).(*function.Boot[W])
+	)
+	//
 	p.printPc(step.Pc)
+	p.printInstruction(step.Pc, *fun)
 }
 
 func (p *TracePrinter[W]) printPc(pc machine.ProgramCounter) {
 	// Construct string representation of PC
-	pcStr := fmt.Sprintf("[%02x.%02x]", pc.Macro(), pc.Micro())
+	pcStr := fmt.Sprintf("[%02x.%02x] ", pc.Macro(), pc.Micro())
 	// Add formatting
 	ansi := termio.NewFormattedText(pcStr, p.pcFormat)
 	// Write out
 	p.out.WriteString(string(ansi.Bytes()))
+}
+
+func (p *TracePrinter[W]) printInstruction(pc machine.ProgramCounter, fun function.Boot[W]) {
+	var (
+		insn = fun.CodeAt(pc.Macro())
+		m, n = pc.Micro(), uint(1)
+	)
+	// Handle vector instructions
+	if vec, ok := insn.(*instruction.Vector[W]); ok {
+		insn = vec.Codes[pc.Micro()]
+		n = uint(len(vec.Codes))
+	}
+	//
+	p.printMicroInstruction(m, n, insn.(instruction.MicroInstruction[W]), fun)
+}
+
+func (p *TracePrinter[W]) printMicroInstruction(m, n uint, insn instruction.MicroInstruction[W], fun function.Boot[W]) {
+	var (
+		name = trace.ModuleName{Name: fun.Name(), Multiplier: 1}
+		base = instruction.NewSystemMap(register.ArrayMap(name, fun.Registers()...), p.vm.Modules())
+	)
+	//
+	if n == 1 {
+		p.out.WriteString(insn.String(base))
+	} else if m == 0 {
+		p.out.WriteString(insn.String(base))
+		p.out.WriteString(" ; ... ")
+	} else if m+1 == n {
+		p.out.WriteString("... ; ")
+		p.out.WriteString(insn.String(base))
+	} else {
+		p.out.WriteString("... ; ")
+		p.out.WriteString(insn.String(base))
+		p.out.WriteString(" ; ... ")
+	}
 }

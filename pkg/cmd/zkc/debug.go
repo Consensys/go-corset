@@ -64,13 +64,18 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	// Generate & print trace
 	var (
-		// Construct trace printer
-		printer = debug.NewTracePrinter[word.Uint](os.Stdout)
 		// Initialise tracer
 		observer = debug.Tracer[word.Uint]{}
+		// Compile AST into VM program
+		vm = compileProgram(config, program)
+		// Decode provided inputs
+		inputs = decodeInputsOutputs(program, input)
+		// Construct trace printer
+		printer = debug.NewTracePrinter[word.Uint](os.Stdout, vm)
 	)
-	// Execute program to generate trace
-	executeIrProgram("main", config, program, input, &observer)
+	// Execute VM program producing raw output
+	executeVmProgram("main", inputs, vm, &observer)
+	//
 	fmt.Printf("Got %d steps\n", len(observer.Steps))
 	// Print steps of trace
 	printer.PrintAll(observer.Steps)

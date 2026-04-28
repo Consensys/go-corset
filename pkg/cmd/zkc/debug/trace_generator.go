@@ -13,17 +13,12 @@
 package debug
 
 import (
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
-	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 type Tracer[W word.Word[W]] struct {
 	depth uint
-	fun   *function.Function[instruction.Instruction[W]]
-	insn  instruction.MicroInstruction[W]
-	pc    machine.ProgramCounter
 	// list of steps being constructed by this tracer.
 	Steps []ExecutionStep[W]
 }
@@ -41,10 +36,10 @@ func (p *Tracer[W]) PostExecution(machine *machine.Base[W]) {
 	//
 	if depth > 0 {
 		frame := machine.StackFrame(depth - 1)
-		p.NewStep(frame.PC())
+		p.newStep(frame.Function(), frame.PC())
 	}
 }
 
-func (p *Tracer[W]) NewStep(pc machine.ProgramCounter) {
-	p.Steps = append(p.Steps, ExecutionStep[W]{Pc: pc})
+func (p *Tracer[W]) newStep(fun uint, pc machine.ProgramCounter) {
+	p.Steps = append(p.Steps, ExecutionStep[W]{Kind: EXEC, Fun: fun, Pc: pc})
 }
