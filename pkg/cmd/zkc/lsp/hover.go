@@ -16,20 +16,24 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/zkc/compiler"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/parser"
 	"go.lsp.dev/protocol"
 )
 
-// HoverFor compiles the given document and returns hover information for the
-// symbol under the cursor at pos.  It returns nil when no hover content is
-// available (e.g. the cursor is on punctuation or the document cannot be
-// compiled).
-func HoverFor(uri protocol.URI, text string, pos protocol.Position) (*protocol.Hover, error) {
+// HoverFor returns hover information for the symbol under the cursor at pos.
+// The caller supplies an already-compiled program and source maps (typically
+// taken from an IncrementalCompiler); this function only lexes the supplied
+// document text to find the identifier under the cursor.  Returns nil when
+// no hover content is available (e.g. the cursor is on punctuation or the
+// identifier names neither a local nor a top-level declaration).
+func HoverFor(
+	uri protocol.URI, text string, pos protocol.Position,
+	program ast.Program, srcmaps source.Maps[any],
+) (*protocol.Hover, error) {
 	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps, _ := compiler.Compile(*srcfile)
 
 	// Convert LSP cursor position to a rune offset in the source file.
 	offset := posToOffset(*srcfile, pos)

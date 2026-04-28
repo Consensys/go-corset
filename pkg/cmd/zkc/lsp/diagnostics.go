@@ -14,30 +14,24 @@ package lsp
 
 import (
 	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 )
 
-// DiagnosticsFor parses the given document text and returns a
-// PublishDiagnosticsParams ready to send to the client as a
-// textDocument/publishDiagnostics notification.
-func DiagnosticsFor(uri protocol.URI, text string) *protocol.PublishDiagnosticsParams {
-	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	_, _, errs := compiler.Compile(*srcfile)
+// DiagnosticsByFile groups the given syntax errors by their source file and
+// converts each to a protocol.Diagnostic.  The returned map is keyed by the
+// URI of every affected file; files with no errors do not appear, so callers
+// that need to clear previously-published diagnostics must track that
+// separately.
+func DiagnosticsByFile(errs []source.SyntaxError) map[protocol.URI][]protocol.Diagnostic {
+	out := make(map[protocol.URI][]protocol.Diagnostic)
 
-	// compiler.Compile also processes included files from disk and may return
-	// errors for them.  Only report errors that belong to the current document.
-	diags := make([]protocol.Diagnostic, 0, len(errs))
 	for _, err := range errs {
-		if err.SourceFile().Filename() == srcfile.Filename() {
-			diags = append(diags, syntaxErrToDiagnostic(err))
-		}
+		u := uri.File(err.SourceFile().Filename())
+		out[u] = append(out[u], syntaxErrToDiagnostic(err))
 	}
 
-	return &protocol.PublishDiagnosticsParams{
-		URI:         uri,
-		Diagnostics: diags,
-	}
+	return out
 }
 
 // syntaxErrToDiagnostic converts a source.SyntaxError into a protocol.Diagnostic.
