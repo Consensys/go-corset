@@ -248,6 +248,7 @@ func (s *zkcServer) Initialize(
 			HoverProvider:              true,
 			DocumentSymbolProvider:     true,
 			DefinitionProvider:         true,
+			ReferencesProvider:         true,
 			DocumentFormattingProvider: true,
 			SignatureHelpProvider: &protocol.SignatureHelpOptions{
 				TriggerCharacters: []string{"(", ","},
@@ -778,11 +779,23 @@ func (s *zkcServer) RangeFormatting(
 // when the user invokes "find all references" on a symbol. The server returns
 // every location in the workspace where that symbol is used, optionally
 // including the declaration site itself.
-// Not yet implemented.
 func (s *zkcServer) References(
-	_ context.Context, _ *protocol.ReferenceParams,
+	_ context.Context, params *protocol.ReferenceParams,
 ) ([]protocol.Location, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
+	srcmaps := s.compiler.SourceMaps()
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.ReferencesFor(
+		params.TextDocument.URI, text, params.Position,
+		params.Context.IncludeDeclaration, program, srcmaps,
+	)
 }
 
 // Rename handles a textDocument/rename request. The client sends this when
