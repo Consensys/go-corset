@@ -20,12 +20,16 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-func evalConstants(es []Expr, definition bool, declarations []Declaration, env data.ResolvedEnvironment) ([]word.Uint, string) {
-	var words = make([]word.Uint, len(es))
+func evalConstants(
+	es []Expr, definition bool, declarations []Declaration, env data.ResolvedEnvironment,
+) ([]word.Uint, string) {
+	words := make([]word.Uint, len(es))
+
 	var errorMessage string
-	//
+
 	for i, e := range es {
 		var errorMsg string
+
 		words[i], errorMsg = EvalConstant(e, definition, declarations, env)
 
 		if errorMsg != "" {
@@ -36,10 +40,12 @@ func evalConstants(es []Expr, definition bool, declarations []Declaration, env d
 	return words, errorMessage
 }
 
-// evalConstant evaluates a compile-time constant expression using the
+// EvalConstant evaluates a compile-time constant expression using the
 // provided declaration list and type environment.  It is used both during
 // function code generation and when initialising static memory contents.
-func EvalConstant(e Expr, definition bool, declarations []Declaration, env data.ResolvedEnvironment) (res word.Uint, errorMessage string) {
+func EvalConstant(
+	e Expr, definition bool, declarations []Declaration, env data.ResolvedEnvironment,
+) (res word.Uint, errorMessage string) {
 	var overflow bool
 
 	bitwidth := data.BitWidthOf(e.Type(), env)

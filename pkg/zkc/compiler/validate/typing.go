@@ -205,9 +205,9 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		}
 		// Consider destructurings
 		return p.typeDestructuringLval(t, env)
-		// TODO check
 	case *lval.Array[symbol.Resolved]:
 		var errors []source.SyntaxError
+
 		varType := env.Variable(t.Id).DataType
 		fixedArr := varType.AsFixedArray(p.env)
 
@@ -222,6 +222,7 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 				errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
 			}
 		}
+
 		return fixedArr.DataType, errors
 	case *lval.MemAccess[symbol.Resolved]:
 		// Unknown external access cannot be typed.  This case handles some kind of

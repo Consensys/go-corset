@@ -71,12 +71,13 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 			if t1.Size != t.Size {
 				return false
 			}
-			//
+
 			return SubtypeOf(t1.DataType, t.DataType, env)
 		}
+
 		return SubtypeOf(t1.DataType, t2, env)
 	}
-	//
+
 	return false
 }
 
@@ -136,11 +137,12 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 			if t1.Size != t.Size {
 				return false
 			}
-			//
+
 			return EquiTypes(t1.DataType, t.DataType, env)
 		}
+
 		return EquiTypes(t1.DataType, t2, env)
 	}
-	//
+
 	return false
 }

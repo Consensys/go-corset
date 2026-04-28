@@ -33,7 +33,7 @@ func NewFixedArray[I symbol.Symbol[I]](datatype Type[I], size uint) *FixedArray[
 	return &FixedArray[I]{datatype, size}
 }
 
-// FixedArray implementation for Type interface
+// AsUint implementation for Type interface
 func (p *FixedArray[I]) AsUint(env Environment[I]) *UnsignedInt[I] {
 	return nil
 }

@@ -142,12 +142,14 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
 // memory declaration into the word.Uint representation required by the VM.
-func (p *Compiler) compileStaticInitialisers(components []Declaration, env data.ResolvedEnvironment, srcmaps source.Maps[any], contents ...expr.Resolved,
+func (p *Compiler) compileStaticInitialisers(
+	components []Declaration, env data.ResolvedEnvironment,
+	srcmaps source.Maps[any], contents ...expr.Resolved,
 ) ([]word.Uint, []source.SyntaxError) {
 	//
 	var (
-		words    = make([]word.Uint, len(contents))
-		errors   []source.SyntaxError
+		words  = make([]word.Uint, len(contents))
+		errors []source.SyntaxError
 	)
 	//
 	for i, v := range contents {

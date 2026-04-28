@@ -684,27 +684,30 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	switch {
 	case isArray && err == nil:
 		var size big.Int
+
 		var nbErrs []source.SyntaxError
-		//
+
 		lookahead := p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
+
 		if _, errs := p.expect(SEMICOLON); len(errs) != 0 {
 			return nil, p.srcmap.SyntaxErrors(lookahead, "expected semicolon to define array size")
 		}
-		//
+
 		lookahead = p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
+
 		switch lookahead.Kind {
 		case NUMBER:
-			//
 			p.match(NUMBER)
-			//
+
 			size, nbErrs = p.number(lookahead)
 			base := p.baserOfNumber(lookahead)
-			//
+
 			if len(nbErrs) != 0 || base != 10 {
 				return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
 			}
+
 			if size.BitLen() == 0 {
 				return nil, p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
 			}
@@ -719,11 +722,13 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		//
 		switch {
 		case strings.HasPrefix(name, "u"):
-			fa := data.NewFixedArray[symbol.Unresolved](data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), uint(size.Uint64()))
-			return fa, nil
+			elem := data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
+			return data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64())), nil
 		default:
-			fa := data.NewFixedArray[symbol.Unresolved](data.NewAlias[symbol.Unresolved](symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)), uint(size.Uint64()))
-			return fa, nil
+			alias := symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)
+			elem := data.NewAlias[symbol.Unresolved](alias)
+
+			return data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64())), nil
 		}
 	case strings.HasPrefix(name, "u") && err == nil:
 		//

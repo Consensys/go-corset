@@ -117,6 +117,7 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 			if i != 0 {
 				b.WriteString(",")
 			}
+
 			b.WriteString(String[S](arg, mapping))
 		}
 		//

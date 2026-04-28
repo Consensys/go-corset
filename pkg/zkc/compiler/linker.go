@@ -509,7 +509,9 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	case *data.FixedArray[symbol.Unresolved]:
 		switch d := t.DataType.(type) {
 		case *data.UnsignedInt[symbol.Unresolved]:
-			return data.NewFixedArray[symbol.Resolved](data.NewUnsignedInt[symbol.Resolved](d.BitWidth(), d.IsOpen()), t.Size), nil
+			elem := data.NewUnsignedInt[symbol.Resolved](d.BitWidth(), d.IsOpen())
+
+			return data.NewFixedArray[symbol.Resolved](elem, t.Size), nil
 		case *data.Alias[symbol.Unresolved]:
 			// resolve symbol
 			name, err := p.resolve(d.Name, d)
@@ -534,6 +536,7 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}
+
 	return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 }
 

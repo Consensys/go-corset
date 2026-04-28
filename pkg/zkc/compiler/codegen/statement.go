@@ -695,16 +695,6 @@ func (p *StmtCompiler) evalConstant(e Expr, definition bool) word.Uint {
 	return res
 }
 
-func (p *StmtCompiler) evalConstants(es []Expr, definition bool) []word.Uint {
-	var words = make([]word.Uint, len(es))
-	//
-	for i, e := range es {
-		words[i] = p.evalConstant(e, definition)
-	}
-	//
-	return words
-}
-
 func (p *StmtCompiler) allocate(bitwidth uint) register.Id {
 	var (
 		padding big.Int
