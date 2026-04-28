@@ -240,7 +240,7 @@ func lowerTernaryCondition(
 	}
 }
 
-// lowerSwitch converts a switch statement to a long if-(else-if)-else statement, e.g.
+// lowerSwitch converts a switch statement to a nested if-(else-if)-else statement, e.g.
 //
 //	switch discr {
 //		case A, B: { stmts_AB }
@@ -254,19 +254,18 @@ func lowerTernaryCondition(
 //	if (discr == A || discr == B) {
 //		stmts_AB
 //	} else if (discr == C) {
-//
 //		stmts_C
 //	} else if (discr == D || discr == E || discr == F) {
-//
 //		stmts_DEF
 //	} else {
-//
 //		stmts_default
 //	}
 //
-// and applies the lowering to the resulting if-then-else statement
+// and applies the lowering to the resulting if-then-else statement.
+//
+// Note: the default statement, if present, is moved to the deepest nesting level.
 func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmaps source.Maps[any]) []stmt.Resolved {
-	// empty switch statement
+	// special case: empty switch statement
 	if len(s.Branches) == 0 {
 		return []stmt.Resolved{}
 	}
@@ -275,7 +274,6 @@ func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmap
 		err              error
 		defaultCaseCount uint
 		containsDefault  bool
-		// defaultBranch stmt.SwitchBranch[symbol.Resolved]
 	)
 
 	// pathological case with more than one default cases
@@ -288,7 +286,7 @@ func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmap
 
 	containsDefault = defaultCaseCount == 1
 
-	// single case switch statement containing only the default case
+	// special case: the default case is the only case in the switch statement
 	if len(s.Branches) == 1 && containsDefault {
 		return s.Branches[0].Body
 	}
@@ -301,8 +299,9 @@ func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmap
 		falseBranch          *stmt.IfElse[symbol.Resolved]
 	)
 
+	// this loop builds a nested if-then-else statement
 	for _, branch := range s.Branches {
-		// we store the default statement if and when we come across it
+		// if we come across the default statement we store it
 		// and continue to the next branch
 		if branch.IsDefault {
 			defaultStatement = &branch.Body

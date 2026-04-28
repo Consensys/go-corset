@@ -20,10 +20,26 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 )
 
-// SwitchBranch represents a given branch.
+// Switch represents a switch statement of the form:
+//
+//	switch (discr) {
+//		case a, b, ..., z: { branch_az }	// 1st case
+//		case A, B, ..., Z: { branch_AZ }	// 2nd case, etc ...
+//		default: { branch_default }		// optional default branch
+//	}
+//
+// the discriminant is allowed to be any expression, there may be no branches
+// at all, the default branch in particular is optional.
+type Switch[S symbol.Symbol[S]] struct {
+	// Discriminant dictates the case
+	Discriminant expr.Expr[S]
+	// Branches contains all branches of the body, including any default branches
+	Branches []SwitchBranch[S]
+}
+
+// SwitchBranch represents a branch in a switch statement.
 //
 // Note: the Labels slice should only contain constants or numerical values
-// The name 'Labels' was suggested by Claude
 type SwitchBranch[S symbol.Symbol[S]] struct {
 	IsDefault bool
 	Labels    []expr.Expr[S]
@@ -33,11 +49,16 @@ type SwitchBranch[S symbol.Symbol[S]] struct {
 // LogicalOrOfCases takes a branch of a switch statement, say
 //
 //	switch (discr) {
-//		case a, b, ..., z: { ... }	// 1st case
+//		...
+//		case a, b, ..., z: { ... }	// sample branch
 //		...
 //	}
 //
-// and returns the logical disjunction (discr == a) ∨ … ∨ (discr == z)
+// and returns the logical disjunction
+//
+//	logicalOrOfCases  ≡  (discr == a) ∨ … ∨ (discr == z)
+//
+// This function is used to build an equivalent if-then-else statement
 func (s *SwitchBranch[S]) LogicalOrOfCases(discriminant expr.Expr[S]) (logicalOrOfCases expr.LogicalOr[S]) {
 	var labelComparisons = make([]expr.Expr[S], len(s.Labels))
 
@@ -46,20 +67,6 @@ func (s *SwitchBranch[S]) LogicalOrOfCases(discriminant expr.Expr[S]) (logicalOr
 	}
 
 	return expr.LogicalOr[S]{Exprs: labelComparisons}
-}
-
-// Switch represents a switch block of the form:
-//
-//	switch (discr) {
-//		case a, b, ..., z: { branch_az }	// 1st case
-//		case A, B, ..., Z: { branch_AZ }	// 2nd case, etc ...
-//		default: { branch_default }		// optional default branch
-//	}
-type Switch[S symbol.Symbol[S]] struct {
-	// Discriminant dictates the case
-	Discriminant expr.Expr[S]
-	// Branches contains all branches of the body, including any default branches
-	Branches []SwitchBranch[S]
 }
 
 // DefaultCaseCount returns the nubmer of default case declarations in a switch statement

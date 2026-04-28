@@ -857,14 +857,16 @@ func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.S
 	return returned, node, errs
 }
 
-// parseSwitchBody parses the "body" of a switch statement as in
-// the <switch body> below
+// parseSwitchBody parses the 'body' of a switch statement:
 //
 //	switch (discriminant) {
-//		<switch body>
+//		...	// the 'switch body'
 //	}
 //
 // TODO: check for duplicate labels across all cases
+//
+// TODO: case exhaustivity analysis of switch statements would allow
+// switch statements without a default branch to have returned ≡ true
 func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	branches []stmt.SwitchBranch[symbol.Unresolved],
 	errs []source.SyntaxError) {
@@ -905,16 +907,13 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	// we expect a closing curly brace
 	p.expect(RCURLY)
 
-	// for a switch statement to "return" as a whole it must hold that
-	//	- every branch returns
-	//	- its body contains a default branch
+	// for a switch statement to 'return' as a whole, and in the absence of
+	// exhaustivity analysis, it must hold that
+	//	- every branch 'returns'
+	//	- its body contains a default branch which similarly 'returns'
 	//
 	// Note. The required presence of a default branch prevents switch
-	// statements with "empty" body from "returning".
-	//
-	// TODO: exhaustivity analysis of switch statements would make the
-	// presence of a default branch optional in view of determining
-	// whether it returns or not.
+	// statements with "empty" body from 'returning'.
 	returned = bodyContainsDefaultBranch && everyBranchReturns
 
 	return
