@@ -1,4 +1,4 @@
-//error:3:17-18:array size is not a number or a constant
+//error:3:13-19:unknown constant a used as array size
 fn main() {
   var items:[u8;a]
   return

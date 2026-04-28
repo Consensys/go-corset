@@ -731,6 +731,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 			elem := data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
 			fa := data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64()))
 			fa.SizeName = sizeName
+			p.srcmap.Put(fa, p.spanOf(start, p.index-1))
 
 			return fa, nil
 		default:
@@ -738,6 +739,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 			elem := data.NewAlias[symbol.Unresolved](alias)
 			fa := data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64()))
 			fa.SizeName = sizeName
+			p.srcmap.Put(fa, p.spanOf(start, p.index-1))
 
 			return fa, nil
 		}
