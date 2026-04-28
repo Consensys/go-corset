@@ -99,10 +99,6 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	if at2 := t2.AsAlias(env); at2 != nil {
 		return EquiTypes(t1, at2.Resolve(env), env)
 	}
-	// Resolve array types so we compare underlying types from the array.
-	if at2 := t2.AsFixedArray(env); at2 != nil {
-		return EquiTypes(t1, at2.Resolve(env), env)
-	}
 
 	switch t1 := t1.(type) {
 	case *UnsignedInt[S]:

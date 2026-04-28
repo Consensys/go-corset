@@ -507,11 +507,22 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
 	case *data.FixedArray[symbol.Unresolved]:
+		size := t.Size
+
+		if t.SizeName != "" {
+			resolved, errs := p.resolveConstantSize(t.SizeName, datatype)
+			if len(errs) != 0 {
+				return nil, errs
+			}
+
+			size = resolved
+		}
+
 		switch d := t.DataType.(type) {
 		case *data.UnsignedInt[symbol.Unresolved]:
 			elem := data.NewUnsignedInt[symbol.Resolved](d.BitWidth(), d.IsOpen())
 
-			return data.NewFixedArray[symbol.Resolved](elem, t.Size), nil
+			return data.NewFixedArray[symbol.Resolved](elem, size), nil
 		case *data.Alias[symbol.Unresolved]:
 			// resolve symbol
 			name, err := p.resolve(d.Name, d)
@@ -520,7 +531,7 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 				return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
 			}
 
-			return data.NewFixedArray[symbol.Resolved](data.NewAlias[symbol.Resolved](name), t.Size), nil
+			return data.NewFixedArray[symbol.Resolved](data.NewAlias[symbol.Resolved](name), size), nil
 		}
 	case *data.Alias[symbol.Unresolved]:
 		// resolve symbol
@@ -538,6 +549,43 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	}
 
 	return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
+}
+
+// resolveConstantSize resolves constant value for use as a
+// fixed-array size.
+func (p *Linker) resolveConstantSize(name string, node any) (uint, []source.SyntaxError) {
+	for _, c := range p.components {
+		if c.Name() != name {
+			continue
+		}
+
+		cn, ok := c.(*decl.UnresolvedConstant)
+		if !ok {
+			return 0, p.srcmap.SyntaxErrors(node,
+				fmt.Sprintf("%s is not a constant", name))
+		}
+
+		linked, errs := p.linkExpr(cn.ConstExpr)
+		if len(errs) != 0 {
+			return 0, errs
+		}
+
+		if c, ok := linked.(*expr.Const[symbol.Resolved]); ok {
+			val := c.Constant.Uint64()
+			if val == 0 {
+				return 0, p.srcmap.SyntaxErrors(node,
+					"arrays are restricted to non zero constant value")
+			}
+
+			return uint(val), nil
+		}
+
+		return 0, p.srcmap.SyntaxErrors(node,
+			fmt.Sprintf("constant %s must be a numeric literal for array size", name))
+	}
+
+	return 0, p.srcmap.SyntaxErrors(node,
+		fmt.Sprintf("unknown constant %s used as array size", name))
 }
 
 // Resolve the symbol referred to by an external access into a resolved symbol,

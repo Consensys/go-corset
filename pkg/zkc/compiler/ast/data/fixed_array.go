@@ -26,11 +26,15 @@ type UnresolvedFixedArray = FixedArray[symbol.Unresolved]
 type FixedArray[I symbol.Symbol[I]] struct {
 	DataType Type[I]
 	Size     uint
+	// SizeName holds the name of a constant used as the array size (empty when
+	// size was given as a numeric literal).  It is resolved to a concrete Size
+	// value during linking.
+	SizeName string
 }
 
 // NewFixedArray constructs a fixed-size array Type.
 func NewFixedArray[I symbol.Symbol[I]](datatype Type[I], size uint) *FixedArray[I] {
-	return &FixedArray[I]{datatype, size}
+	return &FixedArray[I]{DataType: datatype, Size: size}
 }
 
 // AsUint implementation for Type interface

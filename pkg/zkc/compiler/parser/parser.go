@@ -682,10 +682,12 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	// Parse to check if bitwidth is present
 	bw, err := strconv.Atoi(name[1:])
 	switch {
-	case isArray && err == nil:
-		var size big.Int
-
-		var nbErrs []source.SyntaxError
+	case isArray && errs == nil:
+		var (
+			size     big.Int
+			sizeName string
+			nbErrs   []source.SyntaxError
+		)
 
 		lookahead := p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
@@ -711,7 +713,11 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 			if size.BitLen() == 0 {
 				return nil, p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
 			}
-			// TODO add constant
+		case IDENTIFIER:
+			sizeName, nbErrs = p.parseIdentifier()
+			if len(nbErrs) != 0 {
+				return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
+			}
 		default:
 			return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
 		}
@@ -723,12 +729,17 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		switch {
 		case strings.HasPrefix(name, "u"):
 			elem := data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
-			return data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64())), nil
+			fa := data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64()))
+			fa.SizeName = sizeName
+
+			return fa, nil
 		default:
 			alias := symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)
 			elem := data.NewAlias[symbol.Unresolved](alias)
+			fa := data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64()))
+			fa.SizeName = sizeName
 
-			return data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64())), nil
+			return fa, nil
 		}
 	case strings.HasPrefix(name, "u") && err == nil:
 		//
@@ -1563,7 +1574,6 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	//
 	name, errs = p.parseIdentifier()
 	isDeclared := env.IsDeclaredVariable(name)
-	// TODO : issue if variable has same name as input
 	if !isDeclared {
 		// now, extern access check for function call or memory access
 		if len(errs) == 0 && p.match(LSQUARE) {
