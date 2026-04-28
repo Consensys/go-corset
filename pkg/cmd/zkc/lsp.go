@@ -16,15 +16,20 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
+	"go.lsp.dev/uri"
 
 	"github.com/consensys/go-corset/pkg/cmd/zkc/lsp"
+	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +75,7 @@ func openLspLog(path string) *os.File {
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "zkc-lsp: cannot open log file %s: %v\n", path, err)
+		fmt.Fprintf(os.Stderr, "cannot open log file %s: %v\n", path, err)
 		os.Exit(1)
 	}
 
@@ -105,15 +110,15 @@ func runLspServerTCP(port uint16) {
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Fatalf("zkc-lsp: cannot listen on %s: %v\n", addr, err)
+		log.Fatalf("cannot listen on %s: %v\n", addr, err)
 	}
 
-	log.Printf("zkc-lsp: listening on %s\n", addr)
+	log.Printf("listening on %s\n", addr)
 
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Printf("zkc-lsp: accept error: %v\n", err)
+			log.Printf("accept error: %v\n", err)
 			return
 		}
 
@@ -131,11 +136,82 @@ func runLspConn(rwc io.ReadWriteCloser) {
 	<-conn.Done()
 }
 
+// workspaceRoot extracts the workspace root directory from the parameters
+// passed by the client at initialize time.  It prefers WorkspaceFolders (the
+// modern LSP convention), falling back to the deprecated RootURI and then
+// RootPath fields.  Returns the empty string when the client did not provide
+// any of them, in which case no files are loaded up-front.
+func workspaceRoot(params *protocol.InitializeParams) string {
+	if len(params.WorkspaceFolders) > 0 {
+		return uri.URI(params.WorkspaceFolders[0].URI).Filename()
+	}
+
+	// RootURI / RootPath are deprecated by LSP but still emitted by some
+	// clients, so fall back to them when WorkspaceFolders is absent.
+	//nolint:staticcheck
+	if params.RootURI != "" {
+		//nolint:staticcheck
+		return params.RootURI.Filename()
+	}
+	//nolint:staticcheck
+	return params.RootPath
+}
+
+// discoverZkcFiles walks root recursively and returns a ChangedFile update
+// for each .zkc file it finds.  Files that cannot be read are logged and
+// skipped; an empty root yields no updates.
+func discoverZkcFiles(root string) []compiler.FileUpdate {
+	if root == "" {
+		return nil
+	}
+
+	var updates []compiler.FileUpdate
+
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			log.Printf("walk error at %s: %v", path, err)
+			return nil
+		}
+
+		if d.IsDir() || filepath.Ext(path) != ".zkc" {
+			return nil
+		}
+
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			log.Printf("zkc-lsp: cannot read %s: %v", path, err)
+			return nil
+		}
+
+		updates = append(updates, compiler.ChangedFile(path, string(contents)))
+
+		return nil
+	})
+	if err != nil {
+		log.Printf("walk under %s failed: %v", root, err)
+	}
+
+	return updates
+}
+
 // zkcServer implements protocol.Server for the ZkC language.
 type zkcServer struct {
-	mu   sync.RWMutex
-	docs map[protocol.URI]string
-	conn jsonrpc2.Conn // retained so the server can push notifications to the client
+	mu sync.RWMutex
+	// compiler holds the in-memory view of every .zkc file the server is
+	// tracking — those discovered under the workspace root at startup plus
+	// any opened by the editor since.  It is recompiled in full on each
+	// document change.
+	compiler *compiler.IncrementalCompiler
+	// dirtyDiagnostics is the set of file URIs for which the server most
+	// recently published a non-empty diagnostics list.  When a subsequent
+	// publish does not include such a file, an empty notification is sent
+	// for it so that previously-displayed squiggles are cleared.
+	dirtyDiagnostics map[protocol.URI]struct{}
+	// pendingDiagnostics buffers errors discovered during Initialize so
+	// they can be published from Initialized — the LSP spec forbids
+	// arbitrary notifications before the Initialize response is sent.
+	pendingDiagnostics []source.SyntaxError
+	conn               jsonrpc2.Conn // retained so the server can push notifications to the client
 }
 
 // ============================================================================
@@ -148,11 +224,16 @@ type zkcServer struct {
 // of features it supports. Clients must not send any further requests until
 // they have received this response.
 func (s *zkcServer) Initialize(
-	_ context.Context, _ *protocol.InitializeParams,
+	_ context.Context, params *protocol.InitializeParams,
 ) (*protocol.InitializeResult, error) {
 	s.mu.Lock()
-	s.docs = make(map[protocol.URI]string)
+	s.compiler = compiler.NewIncrementalCompiler()
+	s.dirtyDiagnostics = make(map[protocol.URI]struct{})
+	updates := discoverZkcFiles(workspaceRoot(params))
+	s.pendingDiagnostics = s.compiler.Apply(updates...)
 	s.mu.Unlock()
+
+	log.Printf("initialised %d file(s) from workspace", len(updates))
 
 	return &protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
@@ -180,7 +261,14 @@ func (s *zkcServer) Initialize(
 // immediately after it has processed the initialize response. This marks the
 // point at which the server may begin sending requests and notifications to
 // the client (e.g. register dynamic capabilities, fetch configuration).
-func (s *zkcServer) Initialized(_ context.Context, _ *protocol.InitializedParams) error {
+func (s *zkcServer) Initialized(ctx context.Context, _ *protocol.InitializedParams) error {
+	s.mu.Lock()
+	errs := s.pendingDiagnostics
+	s.pendingDiagnostics = nil
+	s.mu.Unlock()
+
+	s.publishDiagnostics(ctx, errs)
+
 	return nil
 }
 
@@ -191,7 +279,7 @@ func (s *zkcServer) Initialized(_ context.Context, _ *protocol.InitializedParams
 // Responding to requests other than exit after shutdown should return an
 // error.
 func (s *zkcServer) Shutdown(_ context.Context) error {
-	log.Printf("SHUTDOWN")
+	log.Printf("Shutdown")
 	return nil
 }
 
@@ -231,12 +319,38 @@ func (s *zkcServer) LogTrace(_ context.Context, _ *protocol.LogTraceParams) erro
 // trace level negotiated during initialization and takes effect immediately.
 func (s *zkcServer) SetTrace(_ context.Context, _ *protocol.SetTraceParams) error { return nil }
 
-// publishDiagnostics compiles uri from text and pushes a
-// textDocument/publishDiagnostics notification to the client.
-func (s *zkcServer) publishDiagnostics(ctx context.Context, uri protocol.URI, text string) {
-	params := lsp.DiagnosticsFor(uri, text)
-	if err := s.conn.Notify(ctx, "textDocument/publishDiagnostics", params); err != nil {
-		log.Printf("zkc-lsp: publishDiagnostics notify error: %v", err)
+// publishDiagnostics groups the given syntax errors by source file and
+// pushes a textDocument/publishDiagnostics notification per affected file.
+//
+// To avoid stale squiggles, files that previously had diagnostics but no
+// longer appear in errs are sent an explicit empty notification: this is
+// tracked via s.dirtyDiagnostics, which always reflects the set of files for
+// which the server's last publish was non-empty.
+func (s *zkcServer) publishDiagnostics(ctx context.Context, errs []source.SyntaxError) {
+	byFile := lsp.DiagnosticsByFile(errs)
+
+	s.mu.Lock()
+	// Schedule a clear for any previously-dirty file that is now clean.
+	for u := range s.dirtyDiagnostics {
+		if _, still := byFile[u]; !still {
+			byFile[u] = []protocol.Diagnostic{}
+		}
+	}
+	// Refresh the dirty set to reflect what we are about to publish.
+	s.dirtyDiagnostics = make(map[protocol.URI]struct{}, len(byFile))
+	for u, diags := range byFile {
+		if len(diags) > 0 {
+			s.dirtyDiagnostics[u] = struct{}{}
+		}
+	}
+
+	s.mu.Unlock()
+
+	for u, diags := range byFile {
+		params := &protocol.PublishDiagnosticsParams{URI: u, Diagnostics: diags}
+		if err := s.conn.Notify(ctx, "textDocument/publishDiagnostics", params); err != nil {
+			log.Printf("publishDiagnostics notify error: %v", err)
+		}
 	}
 }
 
@@ -245,11 +359,14 @@ func (s *zkcServer) publishDiagnostics(ctx context.Context, uri protocol.URI, te
 // content. From this point the server is responsible for maintaining an
 // up-to-date view of the document until the corresponding didClose is received.
 func (s *zkcServer) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
+	uri := params.TextDocument.URI
+	text := params.TextDocument.Text
+
 	s.mu.Lock()
-	s.docs[params.TextDocument.URI] = params.TextDocument.Text
+	errs := s.compiler.Apply(compiler.ChangedFile(uri.Filename(), text))
 	s.mu.Unlock()
 
-	s.publishDiagnostics(ctx, params.TextDocument.URI, params.TextDocument.Text)
+	s.publishDiagnostics(ctx, errs)
 
 	return nil
 }
@@ -265,12 +382,13 @@ func (s *zkcServer) DidChange(ctx context.Context, params *protocol.DidChangeTex
 
 	// Use the last change; in full-sync mode this carries the entire updated text.
 	text := params.ContentChanges[len(params.ContentChanges)-1].Text
+	uri := params.TextDocument.URI
 
 	s.mu.Lock()
-	s.docs[params.TextDocument.URI] = text
+	errs := s.compiler.Apply(compiler.ChangedFile(uri.Filename(), text))
 	s.mu.Unlock()
 
-	s.publishDiagnostics(ctx, params.TextDocument.URI, text)
+	s.publishDiagnostics(ctx, errs)
 
 	return nil
 }
@@ -280,17 +398,23 @@ func (s *zkcServer) DidChange(ctx context.Context, params *protocol.DidChangeTex
 // point the server should discard any in-memory state for the document; the
 // source of truth reverts to the file system.
 func (s *zkcServer) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
+	filename := params.TextDocument.URI.Filename()
+
+	// On close the source of truth reverts to disk: re-read the saved file
+	// so that any unsaved edits the user discarded are dropped from the
+	// compiler's view.  If the file has been deleted from disk, evict it.
+	var update compiler.FileUpdate
+	if contents, err := os.ReadFile(filename); err == nil {
+		update = compiler.ChangedFile(filename, string(contents))
+	} else {
+		update = compiler.RemovedFile(filename)
+	}
+
 	s.mu.Lock()
-	delete(s.docs, params.TextDocument.URI)
+	errs := s.compiler.Apply(update)
 	s.mu.Unlock()
 
-	// Clear any squiggles the editor is displaying for this document.
-	if err := s.conn.Notify(ctx, "textDocument/publishDiagnostics", &protocol.PublishDiagnosticsParams{
-		URI:         params.TextDocument.URI,
-		Diagnostics: []protocol.Diagnostic{},
-	}); err != nil {
-		log.Printf("zkc-lsp: clear diagnostics: %v", err)
-	}
+	s.publishDiagnostics(ctx, errs)
 
 	return nil
 }
@@ -468,14 +592,16 @@ func (s *zkcServer) Definition(
 	_ context.Context, params *protocol.DefinitionParams,
 ) ([]protocol.Location, error) {
 	s.mu.RLock()
-	text, ok := s.docs[params.TextDocument.URI]
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
+	srcmaps := s.compiler.SourceMaps()
 	s.mu.RUnlock()
 
 	if !ok {
 		return nil, nil
 	}
 
-	return lsp.DefinitionFor(params.TextDocument.URI, text, params.Position)
+	return lsp.DefinitionFor(params.TextDocument.URI, text, params.Position, program, srcmaps)
 }
 
 // DocumentColor handles a textDocument/documentColor request. The client
@@ -530,14 +656,16 @@ func (s *zkcServer) DocumentSymbol(
 	_ context.Context, params *protocol.DocumentSymbolParams,
 ) ([]interface{}, error) {
 	s.mu.RLock()
-	text, ok := s.docs[params.TextDocument.URI]
+	_, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
+	srcmaps := s.compiler.SourceMaps()
 	s.mu.RUnlock()
 
 	if !ok {
 		return nil, nil
 	}
 
-	return lsp.DocumentSymbolsFor(params.TextDocument.URI, text)
+	return lsp.DocumentSymbolsFor(params.TextDocument.URI, program, srcmaps)
 }
 
 // ExecuteCommand handles a workspace/executeCommand request. Servers
@@ -573,7 +701,7 @@ func (s *zkcServer) Formatting(
 	uri := params.TextDocument.URI
 
 	s.mu.RLock()
-	text, ok := s.docs[uri]
+	text, ok := s.compiler.Source(uri.Filename())
 	s.mu.RUnlock()
 
 	if !ok {
@@ -589,14 +717,16 @@ func (s *zkcServer) Formatting(
 // or an evaluated value.
 func (s *zkcServer) Hover(_ context.Context, params *protocol.HoverParams) (*protocol.Hover, error) {
 	s.mu.RLock()
-	text, ok := s.docs[params.TextDocument.URI]
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
+	srcmaps := s.compiler.SourceMaps()
 	s.mu.RUnlock()
 
 	if !ok {
 		return nil, nil
 	}
 
-	return lsp.HoverFor(params.TextDocument.URI, text, params.Position)
+	return lsp.HoverFor(params.TextDocument.URI, text, params.Position, program, srcmaps)
 }
 
 // Implementation handles a textDocument/implementation request. The client
@@ -674,14 +804,15 @@ func (s *zkcServer) SignatureHelp(
 	_ context.Context, params *protocol.SignatureHelpParams,
 ) (*protocol.SignatureHelp, error) {
 	s.mu.RLock()
-	text, ok := s.docs[params.TextDocument.URI]
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
 	s.mu.RUnlock()
 
 	if !ok {
 		return nil, nil
 	}
 
-	return lsp.SignatureHelpFor(params.TextDocument.URI, text, params.Position)
+	return lsp.SignatureHelpFor(params.TextDocument.URI, text, params.Position, program)
 }
 
 // Symbols handles a workspace/symbol request. The client sends this when the
@@ -805,7 +936,7 @@ func (s *zkcServer) SemanticTokensFull(
 	_ context.Context, params *protocol.SemanticTokensParams,
 ) (*protocol.SemanticTokens, error) {
 	s.mu.RLock()
-	text, ok := s.docs[params.TextDocument.URI]
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
 	s.mu.RUnlock()
 
 	if !ok {
