@@ -39,7 +39,7 @@ func NewReadOnly[W word.Word[W]](name string, registers []register.Register, ini
 	}
 }
 
-// FrameWrite implementation for Memory interface.
+// Write implementation for Memory interface.
 func (p *ReadOnly[W]) Write(frame []W, address []register.Id, data []register.Id) error {
 	panic("unsupported operation for read-only memory")
 }

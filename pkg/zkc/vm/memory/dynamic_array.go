@@ -37,7 +37,7 @@ func newDynamicArray[W word.Word[W]](name string, registers []register.Register,
 	return DynamicArray[W]{StaticArray[W]{geometry, name, init}}
 }
 
-// FrameRead implementation for Memory interface.
+// Read implementation for Memory interface.
 func (p *DynamicArray[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	var start, _ = p.geometry.FrameDecode(frame, address)
 	//

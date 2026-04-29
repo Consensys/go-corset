@@ -54,7 +54,7 @@ func (p *StaticArray[W]) Geometry() Geometry[W] {
 	return p.geometry
 }
 
-// FrameRead implementation for Memory interface.
+// Read implementation for Memory interface.
 func (p *StaticArray[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	var start, _ = p.geometry.FrameDecode(frame, address)
 	//
@@ -65,7 +65,7 @@ func (p *StaticArray[W]) Read(frame []W, address []register.Id, data []register.
 	return nil
 }
 
-// FrameWrite implementation for Memory interface.
+// Write implementation for Memory interface.
 func (p *StaticArray[W]) Write(frame []W, address []register.Id, data []register.Id) error {
 	var (
 		n          = uint64(len(p.data))
