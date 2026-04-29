@@ -62,7 +62,6 @@ func PrepareRenameFor(
 func RenameFor(
 	uri protocol.URI, text string, pos protocol.Position, newName string,
 	program ast.Program, srcmaps source.Maps[any],
-	sourceOf func(filename string) (string, bool),
 ) (*protocol.WorkspaceEdit, error) {
 	if !parser.IsValidIdentifier(newName) {
 		return nil, fmt.Errorf("invalid identifier: %q", newName)
@@ -94,7 +93,7 @@ func RenameFor(
 	if !externAccess {
 		if fn, fnFile, fnSpan := enclosingFunction(offset, *srcfile, program, srcmaps); fn != nil {
 			if hasLocal(fn, oldName) {
-				return renameLocal(fnFile, fnSpan, oldName, newName, sourceOf), nil
+				return renameLocal(fnFile, fnSpan, oldName, newName), nil
 			}
 		}
 	}
@@ -116,22 +115,9 @@ func renameTopLevel(
 	target decl.Resolved, targetIdx uint, oldName, newName string,
 	program ast.Program, srcmaps source.Maps[any],
 ) *protocol.WorkspaceEdit {
-	// Collect AST nodes that reference the target — same traversal as
-	// ReferencesFor, but always including the declaration site.
-	var refs []any
-
-	for _, d := range program.Components() {
-		switch d := d.(type) {
-		case *decl.ResolvedFunction:
-			collectFunctionRefs(d, targetIdx, &refs)
-		case *decl.ResolvedConstant:
-			collectExprRefs(d.ConstExpr, targetIdx, &refs)
-		case *decl.ResolvedMemory:
-			for _, c := range d.Contents {
-				collectExprRefs(c, targetIdx, &refs)
-			}
-		}
-	}
+	// Collect AST nodes that reference the target — the declaration site
+	// itself is added separately below.
+	refs := collectProgramRefs(program, targetIdx)
 
 	changes := make(map[protocol.DocumentURI][]protocol.TextEdit)
 
@@ -166,15 +152,8 @@ func renameTopLevel(
 // and memory reads/writes) which cannot refer to a local.
 func renameLocal(
 	fnFile source.File, fnSpan source.Span, oldName, newName string,
-	sourceOf func(filename string) (string, bool),
 ) *protocol.WorkspaceEdit {
-	contents, ok := sourceOf(fnFile.Filename())
-	if !ok {
-		contents = string(fnFile.Contents())
-	}
-
-	full := source.NewSourceFile(fnFile.Filename(), []byte(contents))
-	tokens := parser.Lex(*full, false, false)
+	tokens := parser.Lex(fnFile, false, false)
 
 	var edits []protocol.TextEdit
 
@@ -187,7 +166,7 @@ func renameLocal(
 			continue
 		}
 
-		text := string(full.Contents()[t.Span.Start():t.Span.End()])
+		text := string(fnFile.Contents()[t.Span.Start():t.Span.End()])
 		if text != oldName {
 			continue
 		}
@@ -200,7 +179,7 @@ func renameLocal(
 		}
 
 		edits = append(edits, protocol.TextEdit{
-			Range:   spanToRange(*full, t.Span),
+			Range:   spanToRange(fnFile, t.Span),
 			NewText: newName,
 		})
 	}

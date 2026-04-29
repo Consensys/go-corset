@@ -336,7 +336,13 @@ func IsValidIdentifier(s string) bool {
 		n     = identifier(runes)
 	)
 	//
-	return n == uint(len(runes)) && len(runes) > 0
+	if n != uint(len(runes)) || len(runes) == 0 {
+		return false
+	}
+	//
+	_, isKeyword := keywords[s]
+
+	return !isKeyword
 }
 
 func init() {

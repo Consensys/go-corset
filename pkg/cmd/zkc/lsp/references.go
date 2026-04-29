@@ -74,20 +74,7 @@ func ReferencesFor(
 	}
 
 	// Walk every declaration collecting AST nodes that reference the target.
-	var refs []any
-
-	for _, d := range program.Components() {
-		switch d := d.(type) {
-		case *decl.ResolvedFunction:
-			collectFunctionRefs(d, targetIdx, &refs)
-		case *decl.ResolvedConstant:
-			collectExprRefs(d.ConstExpr, targetIdx, &refs)
-		case *decl.ResolvedMemory:
-			for _, c := range d.Contents {
-				collectExprRefs(c, targetIdx, &refs)
-			}
-		}
-	}
+	refs := collectProgramRefs(program, targetIdx)
 
 	// Convert collected nodes to LSP locations, optionally prepending the
 	// declaration site itself.
@@ -140,6 +127,29 @@ func narrowToName(file source.File, span source.Span, name string) source.Span {
 	}
 
 	return span
+}
+
+// collectProgramRefs walks every declaration in the program and returns
+// the AST nodes which reference the declaration at index target. Used by
+// both find-references and rename to discover the use sites of a top-level
+// declaration.
+func collectProgramRefs(program ast.Program, target uint) []any {
+	var refs []any
+
+	for _, d := range program.Components() {
+		switch d := d.(type) {
+		case *decl.ResolvedFunction:
+			collectFunctionRefs(d, target, &refs)
+		case *decl.ResolvedConstant:
+			collectExprRefs(d.ConstExpr, target, &refs)
+		case *decl.ResolvedMemory:
+			for _, c := range d.Contents {
+				collectExprRefs(c, target, &refs)
+			}
+		}
+	}
+
+	return refs
 }
 
 // collectFunctionRefs gathers references to the target declaration appearing

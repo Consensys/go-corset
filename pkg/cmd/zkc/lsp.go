@@ -819,7 +819,6 @@ func (s *zkcServer) Rename(
 	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
 	program := s.compiler.Program()
 	srcmaps := s.compiler.SourceMaps()
-	sourceOf := s.compiler.Source
 	s.mu.RUnlock()
 
 	if !ok {
@@ -828,7 +827,7 @@ func (s *zkcServer) Rename(
 
 	return lsp.RenameFor(
 		params.TextDocument.URI, text, params.Position, params.NewName,
-		program, srcmaps, sourceOf,
+		program, srcmaps,
 	)
 }
 
