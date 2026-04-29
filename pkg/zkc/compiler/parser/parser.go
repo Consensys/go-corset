@@ -963,27 +963,27 @@ func (p *Parser) parseSwitchBranch(env Environment) (
 //	case CASE_1, 42: { ... }
 //	default: { ... }
 func (p *Parser) parseSwitchCase(env Environment) (
-	cases []expr.Expr[symbol.Unresolved],
+	labels []expr.Expr[symbol.Unresolved],
 	body []stmt.Stmt[symbol.Unresolved],
 	errs []source.SyntaxError) {
 	if _, errs = p.expect(KEYWORD_CASE); len(errs) > 0 {
-		return cases, body, p.syntaxErrors(p.previousToken(), "expected 'case' keyword")
+		return labels, body, p.syntaxErrors(p.previousToken(), "expected 'case' keyword")
 	}
 
-	cases, errs = p.parseExprList(COLON, env)
+	labels, errs = p.parseExprList(COLON, env)
 	if len(errs) > 0 {
 		return
 	}
 
-	if len(cases) == 0 {
-		return cases, body, p.syntaxErrors(p.previousToken(), "empty switch case list")
+	if len(labels) == 0 {
+		return labels, body, p.syntaxErrors(p.previousToken(), "empty switch case list")
 	}
 
-	// we reject the expressions list if it contains anything but
-	//	- named constants
-	//	- numerical constants
-	for _, expression := range cases {
-		switch t := expression.(type) {
+	// we reject any label that isn't
+	//	- a named constant or
+	//	- a numerical constant
+	for _, label := range labels {
+		switch t := label.(type) {
 		case *expr.ExternAccess[symbol.Unresolved]:
 			{
 				switch t.Name.Kind {
@@ -991,7 +991,7 @@ func (p *Parser) parseSwitchCase(env Environment) (
 				case symbol.CONSTANT:
 					continue
 				default:
-					return nil, nil, p.syntaxErrors(p.previousToken(), "switch case options should be constants, named or litteral")
+					return nil, nil, p.srcmap.SyntaxErrors(label, "labels in a switch statement must be constants (named or litteral)")
 				}
 			}
 		// the 'numerical constant' case

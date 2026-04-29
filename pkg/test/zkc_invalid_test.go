@@ -202,6 +202,10 @@ func Test_ZkcInvalid_Switch_Two_Defaults_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/switch_two_defaults_03")
 }
 
+func Test_ZkcInvalid_Switch_Invalid_Label(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_invalid_label_01")
+}
+
 // ===================================================================
 // Constant Tests
 // ===================================================================
