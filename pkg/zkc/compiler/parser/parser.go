@@ -883,6 +883,7 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	)
 
 	for p.lookahead().Kind != RCURLY {
+		lookahead := p.lookahead()
 		branchReturns, branch, errs = p.parseSwitchBranch(env)
 		if len(errs) > 0 {
 			return false, nil, errs
@@ -890,7 +891,7 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 
 		// we flag the presence of multiple default cases
 		if branch.IsDefault && bodyContainsDefaultBranch {
-			return false, nil, p.syntaxErrors(p.lookahead(), "multiple default cases in switch statement")
+			return false, nil, p.syntaxErrors(lookahead, "multiple default cases in switch statement")
 		}
 
 		if !branchReturns {

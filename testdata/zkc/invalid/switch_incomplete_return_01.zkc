@@ -1,4 +1,4 @@
-//error:30:3-8:return y possibly undefined
+//error:30:3-9:return y possibly undefined
 
 // ===========================================================
 // switch statements that don't construct a full return value
