@@ -3,36 +3,55 @@ type exmp = u16
 // tests involving numerical values as switch case labels
 fn main() {
 
-  var discr :exmp = 65535
+    var discr:exmp = 65535
 
-  // no match
-  switch discr {
-    case 13: { fail }
-  }
-  switch discr {
-    case 13: { fail }
-    default: {}
-  }
+    // no match
+    switch discr {
+        case 13: {
+            fail
+        }
+    }
+    switch discr {
+        case 13: {
+            fail
+        }
+        default: {
+            }
+    }
 
-  // no match
-  switch discr {
-    case 13, 33: { fail }
-  }
-  switch discr {
-    case 13, 33: { fail }
-    default: {}
-  }
+    // no match
+    switch discr {
+        case 13, 33: {
+            fail
+        }
+    }
+    switch discr {
+        case 13, 33: {
+            fail
+        }
+        default: {
+            }
+    }
 
-  // no match
-  switch discr {
-    case 13: { fail }
-    case 33: { fail }
-  }
-  switch discr {
-    default: { fail}
-    case 13: { fail }
-    case 65535: { }
-  }
+    // no match
+    switch discr {
+        case 13: {
+            fail
+        }
+        case 33: {
+            fail
+        }
+    }
+    switch discr {
+        default: {
+            fail
+        }
+        case 13: {
+            fail
+        }
+        case 65535: {
+            }
+    }
 
-  printf "success"
+    printf "success"
 }

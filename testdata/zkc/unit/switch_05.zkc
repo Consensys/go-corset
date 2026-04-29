@@ -2,43 +2,45 @@
 // using a general expression as a discriminant
 // =============================================
 
-const CASE_TRUE :u8 = 1
-const CASE_FALSE :u8 = 2
-const CASE_DEFAULT :u8 = 3
+const CASE_TRUE:u8 = 1
+const CASE_FALSE:u8 = 2
+const CASE_DEFAULT:u8 = 3
 
-input  inputs(c :u1) -> (d   :u8)
-input  results(c :u1) -> (res :u8)
+input inputs(c:u1) -> (d:u8)
+input results(c:u1) -> (res:u8)
 
 // standard switch case statement doing actual computations
 // computations are checked against inputs
 fn main() {
 
-  var cond   :u8
-  var result :u8 = 0
-  cond = inputs[0]
+    var cond:u8
+    var result:u8 = 0
+    cond = inputs[0]
 
-  // printf "\n"
-  // printf "result = %d\n", result
-  // printf "cond   = %d\n", cond
+    // printf "\n"
+    // printf "result = %d\n", result
+    // printf "cond   = %d\n", cond
 
-  switch ( cond == 1 ? CASE_TRUE : CASE_FALSE ) {
-    case CASE_TRUE: {
-      result = CASE_TRUE
+    switch (cond == 1 ? CASE_TRUE:CASE_FALSE) {
+        case CASE_TRUE: {
+            result = CASE_TRUE
+        }
+        case CASE_FALSE: {
+            result = CASE_FALSE
+        }
+        default: {
+            result = CASE_DEFAULT
+        }
     }
-    case CASE_FALSE: {
-      result = CASE_FALSE
+
+    // printf "input  = %d\n", cond
+    // printf "result = %d\n\n", result
+
+    if results[0] != result {
+        fail
     }
-    default: {
-      result = CASE_DEFAULT
+
+    if result == CASE_DEFAULT {
+        fail
     }
-  }
-
-  // printf "input  = %d\n", cond
-  // printf "result = %d\n\n", result
-
-  if results[0] != result { fail }
-
-  if result == CASE_DEFAULT {
-    fail
-  }
 }
