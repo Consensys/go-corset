@@ -717,7 +717,7 @@ func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env 
 	if len(errs) == 0 && arg_t.AsUint(p.env) == nil {
 		errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
 	} else if len(errs) == 0 {
-		errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
+		errors = append(errors, p.checkFixedArrayBounds(e.Arg, fixedArr.Size)...)
 	}
 
 	return fixedArr.DataType, errors
