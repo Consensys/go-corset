@@ -680,13 +680,13 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		return nil, errs
 	}
 	// Parse to check if bitwidth is present
-	bw, err := strconv.Atoi(name[1:])
+	bw, bwErr := strconv.Atoi(name[1:])
 	switch {
 	case isArray && errs == nil:
 		// parse array type
 		var arrayType Type
 		switch {
-		case strings.HasPrefix(name, "u") && err == nil:
+		case strings.HasPrefix(name, "u") && bwErr == nil:
 			arrayType = data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
 		default:
 			alias := symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)
@@ -705,7 +705,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 
 		size, sizeName, errors := p.parseArraySize(lookahead)
 		if len(errors) > 0 {
-			return nil, errs
+			return nil, errors
 		}
 		//
 		if !p.match(RSQUARE) {
@@ -715,7 +715,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		fa := data.NewFixedArray[symbol.Unresolved](arrayType, uint(size), sizeName)
 		p.srcmap.Put(fa, p.spanOf(start, p.index-1))
 		return fa, nil
-	case strings.HasPrefix(name, "u") && err == nil:
+	case strings.HasPrefix(name, "u") && bwErr == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
 	// we assume that if not a fundamental type, it is an alias
