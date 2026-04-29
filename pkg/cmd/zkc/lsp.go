@@ -248,6 +248,8 @@ func (s *zkcServer) Initialize(
 			HoverProvider:              true,
 			DocumentSymbolProvider:     true,
 			DefinitionProvider:         true,
+			ReferencesProvider:         true,
+			RenameProvider:             &protocol.RenameOptions{PrepareProvider: true},
 			DocumentFormattingProvider: true,
 			SignatureHelpProvider: &protocol.SignatureHelpOptions{
 				TriggerCharacters: []string{"(", ","},
@@ -756,11 +758,20 @@ func (s *zkcServer) OnTypeFormatting(
 // rename is valid at the given position and, if so, what range should be
 // pre-selected in the rename input box. The server may reject the request if
 // the symbol cannot be renamed (e.g. it is a built-in).
-// Not yet implemented.
 func (s *zkcServer) PrepareRename(
-	_ context.Context, _ *protocol.PrepareRenameParams,
+	_ context.Context, params *protocol.PrepareRenameParams,
 ) (*protocol.Range, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
+	srcmaps := s.compiler.SourceMaps()
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.PrepareRenameFor(params.TextDocument.URI, text, params.Position, program, srcmaps)
 }
 
 // RangeFormatting handles a textDocument/rangeFormatting request. The client
@@ -778,22 +789,46 @@ func (s *zkcServer) RangeFormatting(
 // when the user invokes "find all references" on a symbol. The server returns
 // every location in the workspace where that symbol is used, optionally
 // including the declaration site itself.
-// Not yet implemented.
 func (s *zkcServer) References(
-	_ context.Context, _ *protocol.ReferenceParams,
+	_ context.Context, params *protocol.ReferenceParams,
 ) ([]protocol.Location, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
+	srcmaps := s.compiler.SourceMaps()
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.ReferencesFor(
+		params.TextDocument.URI, text, params.Position,
+		params.Context.IncludeDeclaration, program, srcmaps,
+	)
 }
 
 // Rename handles a textDocument/rename request. The client sends this when
 // the user confirms a rename operation (following an optional PrepareRename).
 // The server returns a workspace edit — a set of text changes across all
 // affected files — that renames every occurrence of the symbol.
-// Not yet implemented.
 func (s *zkcServer) Rename(
-	_ context.Context, _ *protocol.RenameParams,
+	_ context.Context, params *protocol.RenameParams,
 ) (*protocol.WorkspaceEdit, error) {
-	return nil, errNotImplemented
+	s.mu.RLock()
+	text, ok := s.compiler.Source(params.TextDocument.URI.Filename())
+	program := s.compiler.Program()
+	srcmaps := s.compiler.SourceMaps()
+	s.mu.RUnlock()
+
+	if !ok {
+		return nil, nil
+	}
+
+	return lsp.RenameFor(
+		params.TextDocument.URI, text, params.Position, params.NewName,
+		program, srcmaps,
+	)
 }
 
 // SignatureHelp handles a textDocument/signatureHelp request. The client
