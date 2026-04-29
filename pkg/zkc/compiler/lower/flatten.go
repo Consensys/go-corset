@@ -14,6 +14,7 @@ package lower
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 
 	"github.com/consensys/go-corset/pkg/util"
@@ -29,19 +30,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 )
 
-// Flatten flattens all block-level statements (IfElse, While, For,
-// Break, Continue) in each function of the program into the flat if-goto form
-// expected by subsequent validation and code generation passes.  Source map
-// entries for generated nodes are inherited from the original block node.
-func Flatten(program ast.Program, srcmaps source.Maps[any]) {
-	for _, d := range program.Components() {
-		if fn, ok := d.(*decl.ResolvedFunction); ok {
-			fn.Code = lowerStatements(0, fn.Code, newLowerEnv(), srcmaps)
-		}
-	}
-}
-
-// FlattenFixedArrays walks every component in the program and expands
+// FlattenFixedArrays expands
 // fixed-size array variables into individual scalar variables.  A variable
 // arrayName of type uM[n] is replaced by n scalars arrayName$0 .. arrayName$(n-1),
 // each of type uM.  Corresponding expr.ArrayAccess and lval.Array nodes are
@@ -51,7 +40,23 @@ func FlattenFixedArrays(program ast.Program, srcmaps source.Maps[any]) {
 
 	for _, d := range program.Components() {
 		if fn, ok := d.(*decl.ResolvedFunction); ok {
-			lowerFixedArrays(fn, program.Components(), env)
+		    mapping  := make([]varMapping, len(fn.Variables))
+
+			// Expand fixed-size array variables into scalars and whole-array assignments into element-wise assignments
+			expandedVars, expandedCode, hasArray := expandFixedArrays(fn, mapping, env)
+			// If no fixed-size array variables were found, skip the rewrite
+			if !hasArray {
+				continue
+			}
+			
+			// Rewrite the expanded code to replace array accesses with scalar references
+			rewrittenCode := rewriteFixedArrays(expandedCode, mapping, program.Components(), env)
+
+			// After rewriting, update fn's code, variables, input and output counts to reflect the expanded scalars
+			fn.Code = rewrittenCode
+			fn.Variables = expandedVars
+			fn.NumInputs = countVarsOfKind(expandedVars, variable.PARAMETER)
+			fn.NumOutputs = countVarsOfKind(expandedVars, variable.RETURN)
 		}
 	}
 }
@@ -65,31 +70,27 @@ type varMapping struct {
 	size    uint
 }
 
-// lowerFixedArrays expands fixed-size array variables in a single function into
-// scalars and rewrites all variable references accordingly.
-func lowerFixedArrays(fn *decl.ResolvedFunction, declarations []codegen.Declaration, env data.ResolvedEnvironment) {
-	var (
-		newVars  []variable.ResolvedDescriptor
-		mapping  = make([]varMapping, len(fn.Variables))
-		hasArray bool
-	)
+// expandFixedArrays expands fixed-size array variables in a single function into
+// scalars and expands whole-array assignment statements into element-wise
+// scalar assignments.
+func expandFixedArrays(fn *decl.ResolvedFunction, mapping []varMapping, env data.ResolvedEnvironment) (expandedVars []variable.ResolvedDescriptor, expandedCode []stmt.Resolved, hasArray bool) {
 
 	for oldID, v := range fn.Variables {
 		switch vType := v.DataType.(type) {
 		case *data.ResolvedFixedArray:
 			hasArray = true
-			base := uint(len(newVars))
+			base := uint(len(expandedVars))
 
 			for j := range vType.Size {
 				name := v.Name + "$" + strconv.FormatUint(uint64(j), 10)
 				elemType := data.NewUnsignedInt[symbol.Resolved](data.BitWidthOf(vType, env), false)
-				newVars = append(newVars, variable.New[symbol.Resolved](v.Kind, name, elemType))
+				expandedVars = append(expandedVars, variable.New[symbol.Resolved](v.Kind, name, elemType))
 			}
 
 			mapping[oldID] = varMapping{newBase: base, isArray: true, size: vType.Size}
 		default:
-			mapping[oldID] = varMapping{newBase: uint(len(newVars))}
-			newVars = append(newVars, v)
+			mapping[oldID] = varMapping{newBase: uint(len(expandedVars))}
+			expandedVars = append(expandedVars, v)
 		}
 	}
 
@@ -97,17 +98,26 @@ func lowerFixedArrays(fn *decl.ResolvedFunction, declarations []codegen.Declarat
 		return
 	}
 
-	var newCode []stmt.Resolved
-
 	for _, s := range fn.Code {
-		newCode = append(newCode, rewriteFixedArrayStmts(s, mapping, declarations, env)...)
+		if a, ok := s.(*stmt.Assign[symbol.Resolved]); ok {
+			if expanded := expandWholeArrayAssign(a, mapping); expanded != nil {
+				expandedCode = append(expandedCode, expanded...)
+				continue
+			}
+		}
+
+		expandedCode = append(expandedCode, s)
 	}
 
-	fn.Code = newCode
+	return
+}
 
-	fn.Variables = newVars
-	fn.NumInputs = countVarsOfKind(newVars, variable.PARAMETER)
-	fn.NumOutputs = countVarsOfKind(newVars, variable.RETURN)
+func rewriteFixedArrays(expandedCode []stmt.Resolved, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) (newCode []stmt.Resolved) {
+	for _, s := range expandedCode {
+		newCode = append(newCode, rewriteFixedArrayStmt(s, mapping, declarations, env))
+	}
+
+	return
 }
 
 func countVarsOfKind(vars []variable.ResolvedDescriptor, kind variable.Kind) uint {
@@ -122,28 +132,10 @@ func countVarsOfKind(vars []variable.ResolvedDescriptor, kind variable.Kind) uin
 	return n
 }
 
-// ---------------------------------------------------------------------------
-// Statement rewriting
-// ---------------------------------------------------------------------------
-
-// rewriteFixedArrayStmts rewrites a statement, potentially expanding it into
-// multiple statements when a whole-array assignment is encountered.
-func rewriteFixedArrayStmts(
-	s stmt.Resolved, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
-) []stmt.Resolved {
-	if a, ok := s.(*stmt.Assign[symbol.Resolved]); ok {
-		if expanded := expandWholeArrayAssign(a, mapping); expanded != nil {
-			return expanded
-		}
-	}
-
-	return []stmt.Resolved{rewriteFixedArrayStmt(s, mapping, declarations, env)}
-}
-
 // expandWholeArrayAssign detects assignments of the form `r = x` where both
-// sides are bare array variables and expands them into element-wise scalar
-// assignments (r$0 = x$0, r$1 = x$1, ...).
+// sides are bare array variables and expands them into element-wise array
+// access assignments (r[0] = x[0], r[1] = x[1], ...) using the original
+// variable IDs.  The rewriting phase will then remap these into scalar accesses.
 func expandWholeArrayAssign(
 	s *stmt.Assign[symbol.Resolved], mapping []varMapping,
 ) []stmt.Resolved {
@@ -171,10 +163,15 @@ func expandWholeArrayAssign(
 	result := make([]stmt.Resolved, lm.size)
 
 	for i := range lm.size {
-		access := &expr.LocalAccess[symbol.Resolved]{Variable: rm.newBase + i}
-		access.SetType(src.Type())
+		idx := *big.NewInt(int64(i))
 
-		target := &lval.Variable[symbol.Resolved]{Ids: []variable.Id{lm.newBase + i}}
+		access := &expr.ArrayAccess[symbol.Resolved]{
+			Id:       src.Variable,
+			Arg:      expr.NewConstant[symbol.Resolved](idx, 10),
+			Datatype: src.Type(),
+		}
+
+		target := lval.NewArray[symbol.Resolved](lv.Ids[0], expr.NewConstant[symbol.Resolved](idx, 10))
 
 		result[i] = &stmt.Assign[symbol.Resolved]{
 			Targets: []lval.LVal[symbol.Resolved]{target},
@@ -214,10 +211,6 @@ func rewriteFixedArrayStmt(
 		panic(fmt.Sprintf("unknown statement encountered during fixed-array lowering: %T", s))
 	}
 }
-
-// ---------------------------------------------------------------------------
-// Expression rewriting
-// ---------------------------------------------------------------------------
 
 func rewriteFixedArrayExpr(
 	e expr.Resolved, mapping []varMapping,
@@ -363,9 +356,6 @@ func expandFixedArrayArgs(
 	return result
 }
 
-// ---------------------------------------------------------------------------
-// Condition rewriting
-// ---------------------------------------------------------------------------
 
 func rewriteFixedArrayCondition(
 	c expr.ResolvedCondition, mapping []varMapping,
@@ -381,10 +371,6 @@ func rewriteFixedArrayCondition(
 		panic(fmt.Sprintf("unknown condition encountered during fixed-array lowering: %T", c))
 	}
 }
-
-// ---------------------------------------------------------------------------
-// LVal rewriting
-// ---------------------------------------------------------------------------
 
 func rewriteFixedArrayLVal(
 	l lval.Resolved, mapping []varMapping,
@@ -425,6 +411,18 @@ func rewriteFixedArrayLVal(
 		return l
 	default:
 		panic(fmt.Sprintf("unknown lval encountered during fixed-array lowering: %T", l))
+	}
+}
+
+// Flatten flattens all block-level statements (IfElse, While, For,
+// Break, Continue) in each function of the program into the flat if-goto form
+// expected by subsequent validation and code generation passes.  Source map
+// entries for generated nodes are inherited from the original block node.
+func Flatten(program ast.Program, srcmaps source.Maps[any]) {
+	for _, d := range program.Components() {
+		if fn, ok := d.(*decl.ResolvedFunction); ok {
+			fn.Code = lowerStatements(0, fn.Code, newLowerEnv(), srcmaps)
+		}
 	}
 }
 
