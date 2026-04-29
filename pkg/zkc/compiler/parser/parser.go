@@ -685,6 +685,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	case isArray && errs == nil:
 		// parse array type
 		var arrayType Type
+
 		switch {
 		case strings.HasPrefix(name, "u") && bwErr == nil:
 			arrayType = data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
@@ -715,6 +716,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		//
 		fa := data.NewFixedArray[symbol.Unresolved](arrayType, uint(size), sizeName)
 		p.srcmap.Put(fa, p.spanOf(start, p.index-1))
+
 		return fa, nil
 	case strings.HasPrefix(name, "u") && bwErr == nil:
 		//
@@ -744,12 +746,14 @@ func (p *Parser) parseArraySize(lookahead lex.Token) (size uint64, sizeName stri
 		if size.BitLen() == 0 {
 			return 0, "", p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
 		}
+
 		return size.Uint64(), "", nil
 	case IDENTIFIER:
 		sizeName, idErrs := p.parseIdentifier()
 		if len(idErrs) != 0 {
 			return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
 		}
+
 		return 0, sizeName, nil
 	default:
 		return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
@@ -1702,6 +1706,7 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 		if len(index) != 1 {
 			return lv, p.syntaxErrors(lookahead, "incorrect number of array access arguments")
 		}
+
 		lv = lval.NewArray(env.LookupVariable(reg), index[0])
 	} else {
 		// construct name symbol

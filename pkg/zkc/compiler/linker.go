@@ -511,6 +511,7 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 		if errs != nil {
 			return nil, errs
 		}
+
 		return data.NewFixedArray[symbol.Resolved](datatype, t.Size, t.SizeName), nil
 	case *data.Alias[symbol.Unresolved]:
 		// resolve symbol

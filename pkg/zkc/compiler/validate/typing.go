@@ -206,29 +206,7 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		// Consider destructurings
 		return p.typeDestructuringLval(t, env)
 	case *lval.Array[symbol.Resolved]:
-		var errors []source.SyntaxError
-
-		varType := env.Variable(t.Id).DataType
-		if varType == nil {
-			return nil, p.srcmaps.SyntaxErrors(t, "fixed-array has unresolved type")
-		}
-
-		fixedArr := varType.AsFixedArray(p.env)
-		if fixedArr == nil {
-			return nil, p.srcmaps.SyntaxErrors(t, "variable is not a fixed-size array")
-		}
-
-		// check argument  is unsigned integers
-		arg_t, errs := p.typeExpression(nil, t.Arg, variable.ArrayMap[symbol.Resolved](), effects)
-		errors = append(errors, errs...)
-
-		if len(errs) == 0 && arg_t.AsUint(p.env) == nil {
-			errors = append(errors, *p.srcmaps.SyntaxError(t.Arg, "expected uint"))
-		} else if len(errs) == 0 {
-			errors = append(errors, p.checkFixedArrayBounds(t.Arg, fixedArr)...)
-		}
-
-		return fixedArr.DataType, errors
+		return p.typeArray(t.Id, t.Arg, env, effects)
 	case *lval.MemAccess[symbol.Resolved]:
 		// Unknown external access cannot be typed.  This case handles some kind of
 		// linking error earlier in the compilation pipeline.
@@ -468,7 +446,7 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	case *expr.LocalAccess[symbol.Resolved]:
 		actual, errs = p.typeLocalAccess(e, env)
 	case *expr.ArrayAccess[symbol.Resolved]:
-		actual, errs = p.typeArrayAccess(e, env)
+		actual, errs = p.typeArray(e.Id, e.Arg, env, bit.Set{})
 	case *expr.Mul[symbol.Resolved]:
 		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
@@ -707,34 +685,30 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 	return env.Variable(e.Variable).DataType, nil
 }
 
-func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env VariableMap,
+func (p *TypeChecker) typeArray(id variable.Id, arg expr.Resolved, env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
-	var (
-		errors  []source.SyntaxError
-		effects bit.Set
-	)
+	var errors []source.SyntaxError
 
-	varType := env.Variable(e.Id).DataType
-	if varType == nil {
-		return nil, p.srcmaps.SyntaxErrors(e, "fixed-array has unresolved type")
-	}
+	varType := env.Variable(id).DataType
+	// Check well-formedness of this variable
+	varType_ok := wellFormed(varType, p.env)
 
-	fixedArr := varType.AsFixedArray(p.env)
-	if fixedArr == nil {
-		return nil, p.srcmaps.SyntaxErrors(e, "variable is not a fixed-size array")
-	}
-
-	// check argument is unsigned integers
-	arg_t, errs := p.typeExpression(nil, e.Arg, variable.ArrayMap[symbol.Resolved](), effects)
+	// Check argument is unsigned integers and well-formed
+	arg_t, errs := p.typeExpression(nil, arg, variable.ArrayMap[symbol.Resolved](), effects)
+	arg_t_ok := wellFormed(arg_t, p.env)
 	errors = append(errors, errs...)
 
-	if len(errs) == 0 && arg_t.AsUint(p.env) == nil {
-		errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
-	} else if len(errs) == 0 {
-		errors = append(errors, p.checkFixedArrayBounds(e.Arg, fixedArr)...)
+	//
+	if !varType_ok {
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "fixed-array has unresolved type"))
+	} else if arg_t.AsUint(p.env) == nil {
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "expected uint"))
+	} else if arg_t_ok && varType.AsFixedArray(p.env) != nil {
+		errors = append(errors, p.checkFixedArrayBounds(arg, varType.AsFixedArray(p.env))...)
+		return varType.AsFixedArray(p.env), errors
 	}
 
-	return fixedArr.DataType, errors
+	return nil, errors
 }
 
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,
@@ -845,7 +819,9 @@ func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxErro
 	return nil
 }
 
-func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, fixedArray *data.ResolvedFixedArray) []source.SyntaxError {
+func (p *TypeChecker) checkFixedArrayBounds(
+	arg expr.Resolved, fixedArray *data.ResolvedFixedArray,
+) []source.SyntaxError {
 	val, ko := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
 	if ko != "" {
 		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant expression")
@@ -858,11 +834,14 @@ func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, fixedArray *data.
 				if ko != "" {
 					return p.srcmaps.SyntaxErrors(arg, "array size must be a constant expression")
 				}
+
 				fixedArray.Size = uint(valSize.Uint64())
+
 				break
 			}
 		}
 	}
+
 	if val.Uint64() >= uint64(fixedArray.Size) {
 		return p.srcmaps.SyntaxErrors(arg,
 			fmt.Sprintf("index %s out of bounds for array of size %d", val.Text(10), fixedArray.Size))
