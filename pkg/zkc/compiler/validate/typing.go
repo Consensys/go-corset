@@ -704,8 +704,10 @@ func (p *TypeChecker) typeArray(id variable.Id, arg expr.Resolved, env VariableM
 	} else if arg_t.AsUint(p.env) == nil {
 		errors = append(errors, *p.srcmaps.SyntaxError(arg, "expected uint"))
 	} else if arg_t_ok && varType.AsFixedArray(p.env) != nil {
-		errors = append(errors, p.checkFixedArrayBounds(arg, varType.AsFixedArray(p.env))...)
-		return varType.AsFixedArray(p.env), errors
+		fixedArr := varType.AsFixedArray(p.env)
+		errors = append(errors, p.checkFixedArrayBounds(arg, fixedArr)...)
+
+		return fixedArr.DataType, errors
 	}
 
 	return nil, errors
