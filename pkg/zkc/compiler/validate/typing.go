@@ -831,6 +831,7 @@ func (p *TypeChecker) checkFixedArrayBounds(
 	}
 	// Resolve Size from SizeName
 	resolved := false
+
 	if fixedArray.SizeName != "" {
 		for _, d := range p.program.Components() {
 			if c, ok := d.(*decl.ResolvedConstant); ok && c.Name() == fixedArray.SizeName {
@@ -838,12 +839,14 @@ func (p *TypeChecker) checkFixedArrayBounds(
 				if ko != "" {
 					return p.srcmaps.SyntaxErrors(arg, "array size must be a constant expression")
 				}
+
 				resolved = true
 				fixedArray.Size = uint(valSize.Uint64())
 
 				break
 			}
 		}
+
 		if !resolved {
 			return p.srcmaps.SyntaxErrors(arg,
 				fmt.Sprintf("unknown constant %s used as array size", fixedArray.SizeName))
