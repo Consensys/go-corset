@@ -97,9 +97,13 @@ func lowerFixedArrays(fn *decl.ResolvedFunction, declarations []codegen.Declarat
 		return
 	}
 
-	for i, s := range fn.Code {
-		fn.Code[i] = rewriteFixedArrayStmt(s, mapping, declarations, env)
+	var newCode []stmt.Resolved
+
+	for _, s := range fn.Code {
+		newCode = append(newCode, rewriteFixedArrayStmts(s, mapping, declarations, env)...)
 	}
+
+	fn.Code = newCode
 
 	fn.Variables = newVars
 	fn.NumInputs = countVarsOfKind(newVars, variable.PARAMETER)
@@ -121,6 +125,64 @@ func countVarsOfKind(vars []variable.ResolvedDescriptor, kind variable.Kind) uin
 // ---------------------------------------------------------------------------
 // Statement rewriting
 // ---------------------------------------------------------------------------
+
+// rewriteFixedArrayStmts rewrites a statement, potentially expanding it into
+// multiple statements when a whole-array assignment is encountered.
+func rewriteFixedArrayStmts(
+	s stmt.Resolved, mapping []varMapping,
+	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+) []stmt.Resolved {
+	if a, ok := s.(*stmt.Assign[symbol.Resolved]); ok {
+		if expanded := expandWholeArrayAssign(a, mapping); expanded != nil {
+			return expanded
+		}
+	}
+
+	return []stmt.Resolved{rewriteFixedArrayStmt(s, mapping, declarations, env)}
+}
+
+// expandWholeArrayAssign detects assignments of the form `r = x` where both
+// sides are bare array variables and expands them into element-wise scalar
+// assignments (r$0 = x$0, r$1 = x$1, ...).
+func expandWholeArrayAssign(
+	s *stmt.Assign[symbol.Resolved], mapping []varMapping,
+) []stmt.Resolved {
+	if len(s.Targets) != 1 {
+		return nil
+	}
+
+	lv, ok := s.Targets[0].(*lval.Variable[symbol.Resolved])
+	if !ok || len(lv.Ids) != 1 {
+		return nil
+	}
+
+	src, ok := s.Source.(*expr.LocalAccess[symbol.Resolved])
+	if !ok {
+		return nil
+	}
+
+	lm := mapping[lv.Ids[0]]
+	rm := mapping[src.Variable]
+
+	if !lm.isArray || !rm.isArray || lm.size != rm.size {
+		return nil
+	}
+
+	result := make([]stmt.Resolved, lm.size)
+
+	for i := range lm.size {
+		access := &expr.LocalAccess[symbol.Resolved]{Variable: rm.newBase + i}
+		access.SetType(src.Type())
+		target := &lval.Variable[symbol.Resolved]{Ids: []variable.Id{lm.newBase + i}}
+
+		result[i] = &stmt.Assign[symbol.Resolved]{
+			Targets: []lval.LVal[symbol.Resolved]{target},
+			Source:  access,
+		}
+	}
+
+	return result
+}
 
 func rewriteFixedArrayStmt(
 	s stmt.Resolved, mapping []varMapping,
