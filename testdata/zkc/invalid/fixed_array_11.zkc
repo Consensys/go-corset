@@ -1,0 +1,6 @@
+//error:4:12-16:unknown type alias
+//error:5:5-9:fixed-array has unresolved type
+ fn main() -> () {
+    var r:[my_t;2]
+    r[0] = 1
+ }

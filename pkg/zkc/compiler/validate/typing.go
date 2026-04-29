@@ -209,7 +209,14 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		var errors []source.SyntaxError
 
 		varType := env.Variable(t.Id).DataType
+		if varType == nil {
+			return nil, p.srcmaps.SyntaxErrors(t, "fixed-array has unresolved type")
+		}
+
 		fixedArr := varType.AsFixedArray(p.env)
+		if fixedArr == nil {
+			return nil, p.srcmaps.SyntaxErrors(t, "variable is not a fixed-size array")
+		}
 
 		// check argument  is unsigned integers
 		arg_t, errs := p.typeExpression(nil, t.Arg, variable.ArrayMap[symbol.Resolved](), effects)

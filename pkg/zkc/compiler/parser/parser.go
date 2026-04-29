@@ -691,6 +691,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		default:
 			alias := symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)
 			arrayType = data.NewAlias[symbol.Unresolved](alias)
+			p.srcmap.Put(arrayType, p.spanOf(start+1, p.index-1))
 		}
 		//
 		lookahead := p.lookahead()
