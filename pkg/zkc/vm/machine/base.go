@@ -264,6 +264,15 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	case instruction.INT_SUB:
 		insn := insn.(*instruction.IntSub[W])
 		err = executeSub(insn.Target, insn.Sources, insn.Constant, frame, regs)
+	case instruction.FIELD_ADD:
+		insn := insn.(*instruction.FieldAdd[W])
+		err = executeFieldAdd(insn.Target, insn.Sources, insn.Constant, frame, p.field)
+	case instruction.FIELD_SUB:
+		insn := insn.(*instruction.FieldSub[W])
+		err = executeFieldSub(insn.Target, insn.Sources, insn.Constant, frame, p.field)
+	case instruction.FIELD_MUL:
+		insn := insn.(*instruction.FieldMul[W])
+		err = executeFieldMul(insn.Target, insn.Sources, insn.Constant, frame, p.field)
 
 	// ==============================================================
 	// Bitwise Instructions
@@ -296,7 +305,7 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 			rom  = p.modules[insn.Id].(memory.Memory[W])
 		)
 		// Read data words from tiven address
-		err = rom.Read(frame, insn.Arguments, insn.Returns)
+		err = rom.Read(frame, insn.Address(), insn.Data())
 		// Fall thru
 	case instruction.MEMORY_WRITE:
 		var (
@@ -304,7 +313,7 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 			rom  = p.modules[insn.Id].(memory.Memory[W])
 		)
 		// Read data words from tiven address
-		err = rom.Write(frame, insn.Arguments, insn.Returns)
+		err = rom.Write(frame, insn.Address(), insn.Data())
 		// Fall thru
 
 	// ==============================================================
@@ -416,6 +425,69 @@ func executeSub[W word.Word[W]](target register.Id, sources []register.Id, const
 	// Subtract constant
 	if val, underflow = val.Sub(bitwidth, constant); underflow {
 		return errors.New("arithmetic underflow")
+	}
+	//
+	frame[target.Unwrap()] = val
+	//
+	return nil
+}
+
+// executeFieldAdd computes the field sum of the source registers and the
+// given constant, storing the result in the target register.  Reduction is
+// performed implicitly within the field's bandwidth — the underlying word
+// type is responsible for wrapping at the field's prime characteristic.
+func executeFieldAdd[W word.Word[W]](target register.Id, sources []register.Id, constant W, frame []W,
+	field field.Config) error {
+	//
+	var bandwidth = field.BandWidth
+	//
+	for _, arg := range sources {
+		constant, _ = constant.Add(bandwidth, frame[arg.Unwrap()])
+	}
+	//
+	frame[target.Unwrap()] = constant
+	//
+	return nil
+}
+
+// executeFieldSub computes the chained field difference of the source
+// registers minus the given constant, storing the result in the target
+// register.
+func executeFieldSub[W word.Word[W]](target register.Id, sources []register.Id, constant W, frame []W,
+	field field.Config) error {
+	//
+	var (
+		val       W
+		bandwidth = field.BandWidth
+	)
+	//
+	for i, arg := range sources {
+		if i == 0 {
+			val = frame[arg.Unwrap()]
+		} else {
+			val, _ = val.Sub(bandwidth, frame[arg.Unwrap()])
+		}
+	}
+	// Subtract constant
+	val, _ = val.Sub(bandwidth, constant)
+	//
+	frame[target.Unwrap()] = val
+	//
+	return nil
+}
+
+// executeFieldMul computes the field product of the source registers and
+// the given constant, storing the result in the target register.
+func executeFieldMul[W word.Word[W]](target register.Id, sources []register.Id, constant W, frame []W,
+	field field.Config) error {
+	//
+	var (
+		val       W = constant
+		bandwidth   = field.BandWidth
+	)
+	//
+	for _, arg := range sources {
+		val, _ = val.Mul(bandwidth, frame[arg.Unwrap()])
 	}
 	//
 	frame[target.Unwrap()] = val

@@ -147,7 +147,7 @@ func (p *Compiler) compileStaticInitialisers(components []Declaration, contents 
 	//
 	var (
 		words    = make([]word.Uint, len(contents))
-		compiler = StmtCompiler{components, nil, nil, p.env, p.srcmaps, nil}
+		compiler = StmtCompiler{components, nil, nil, p.env, p.config.field, p.srcmaps, nil}
 	)
 	//
 	for i, v := range contents {
@@ -191,7 +191,7 @@ func (p *Compiler) compileFunction(
 		})
 	}
 	//
-	compiler := StmtCompiler{program, fn.Variables, registers, p.env, p.srcmaps, nil}
+	compiler := StmtCompiler{program, fn.Variables, registers, p.env, p.config.field, p.srcmaps, nil}
 	//
 	for i, stmt := range fn.Code {
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)

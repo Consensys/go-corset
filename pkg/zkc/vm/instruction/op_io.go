@@ -34,8 +34,8 @@ import (
 type Call[W any] struct{ OpIo[W] }
 
 // NewCall constructs a new function call instruction.
-func NewCall[W any](id uint, targets []register.Id, sources []register.Id) *Call[W] {
-	return &Call[W]{OpIo[W]{CALL, id, targets, sources}}
+func NewCall[W any](id uint, arguments []register.Id, returns []register.Id) *Call[W] {
+	return &Call[W]{OpIo[W]{CALL, id, arguments, returns}}
 }
 
 // ============================================================================
@@ -50,8 +50,8 @@ type MemRead[W any] struct{ OpIo[W] }
 
 // NewMemRead constructs a new instruction which reads the value from either a
 // Random Access Memory (RAM) or a Read-Only Memory (ROM).
-func NewMemRead[W any](id uint, data []register.Id, address []register.Id) *MemRead[W] {
-	return &MemRead[W]{OpIo[W]{MEMORY_READ, id, data, address}}
+func NewMemRead[W any](id uint, address []register.Id, data []register.Id) *MemRead[W] {
+	return &MemRead[W]{OpIo[W]{MEMORY_READ, id, address, data}}
 }
 
 // ============================================================================
@@ -68,8 +68,8 @@ type MemWrite[W any] struct{ OpIo[W] }
 
 // NewMemWrite constructs a new instruction which writes data values to either
 // a Random Access Memory (RAM) or a Write-Once Memory (WOM).
-func NewMemWrite[W any](id uint, targets []register.Id, sources []register.Id) *MemWrite[W] {
-	return &MemWrite[W]{OpIo[W]{MEMORY_WRITE, id, targets, sources}}
+func NewMemWrite[W any](id uint, address []register.Id, data []register.Id) *MemWrite[W] {
+	return &MemWrite[W]{OpIo[W]{MEMORY_WRITE, id, address, data}}
 }
 
 // ============================================================================
@@ -86,15 +86,27 @@ type OpIo[W any] struct {
 	Op OpCode
 	// Module identifier for the target of the operation.
 	Id uint
-	// Return registers which receive the outputs of the operation.
-	Returns []register.Id
 	// Argument registers providing the inputs to the operation.
 	Arguments []register.Id
+	// Return registers which receive the outputs of the operation.
+	Returns []register.Id
 }
 
 // OpCode implementation for Instruction interface
 func (p *OpIo[W]) OpCode() OpCode {
 	return p.Op
+}
+
+// Address is an alias to help identify which are the data lines for a memory
+// operation.
+func (p *OpIo[W]) Address() []register.Id {
+	return p.Arguments
+}
+
+// Data is an alias to help identify which are the data lines for a memory
+// operation.
+func (p *OpIo[W]) Data() []register.Id {
+	return p.Returns
 }
 
 // Uses implementation for Instruction interface

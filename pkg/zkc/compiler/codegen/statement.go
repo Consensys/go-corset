@@ -12,10 +12,12 @@ package codegen
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
@@ -54,6 +56,7 @@ type StmtCompiler struct {
 	variables   []VariableDescriptor
 	registers   []register.Register
 	environment data.Environment[symbol.Resolved]
+	field       field.Config
 	srcmaps     source.Maps[any]
 	errors      []source.SyntaxError
 }
@@ -140,8 +143,8 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 				panic(fmt.Sprintf("unreadable memory \"%s\" encountered", ext.Name()))
 			}
 			//
-			sources := make([]register.Id, len(ext.Data))
-			targets, pre := p.compileArgs(mapping, lv.Args...)
+			dataLines := make([]register.Id, len(ext.Data))
+			addressLines, pre := p.compileArgs(mapping, lv.Args...)
 			// Sanity check (for now)
 			if len(ext.Data) > 1 {
 				panic("multiple data lines not (currently) supported")
@@ -149,13 +152,13 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 			// Allocate data lines as needed
 			for j, t := range ext.Data {
 				bitwidth := data.BitWidthOf(t.DataType, p.environment)
-				sources[j] = p.allocate(bitwidth)
+				dataLines[j] = p.allocate(bitwidth)
 				// FIXME: broken when len(ext.Data) > 1
-				regs[i+j] = sources[j]
+				regs[i+j] = dataLines[j]
 			}
 			//
 			preInsns = append(preInsns, pre...)
-			postInsns = append(postInsns, instruction.NewMemWrite[word.Uint](id, targets, sources))
+			postInsns = append(postInsns, instruction.NewMemWrite[word.Uint](id, addressLines, dataLines))
 		}
 	}
 	//
@@ -314,16 +317,16 @@ func (p *StmtCompiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping 
 	insns = append(insns, condInsns...)
 	insns = append(insns, instruction.NewSkipIf[word.Uint](
 		instruction.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
-	insns = append(insns, instruction.NewIntAdd(target, []register.Id{falseRegs[0]}, zero))
+	insns = append(insns, p.newAdd(target, []register.Id{falseRegs[0]}, zero))
 	insns = append(insns, &instruction.Skip[word.Uint]{Skip: 1})
 
-	return insns, instruction.NewIntAdd(target, []register.Id{trueRegs[0]}, zero)
+	return insns, p.newAdd(target, []register.Id{trueRegs[0]}, zero)
 }
 
 func (p *StmtCompiler) compileConst(c word.Uint, _ []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
 	//
-	return nil, instruction.NewIntAdd(target, nil, c)
+	return nil, p.newAdd(target, nil, c)
 }
 
 func (p *StmtCompiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, target register.Id,
@@ -356,7 +359,8 @@ func (p *StmtCompiler) compileAdd(args []Expr, mapping []uint, target register.I
 		constant word.Uint
 		nargs    []Expr
 		w        word.Uint
-		bitwidth = p.registers[target.Unwrap()].Width()
+		isField  = p.registers[target.Unwrap()].IsNative()
+		bitwidth = p.addBitWidth(target)
 	)
 	//
 	for _, e := range args {
@@ -371,26 +375,26 @@ func (p *StmtCompiler) compileAdd(args []Expr, mapping []uint, target register.I
 		}
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
-		if overflow {
+		if overflow && !isField {
 			panic("compileAdd arithmetic overflow")
 		}
 	}
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
-	return insns, instruction.NewIntAdd(target, sources, constant)
+	return insns, p.newAdd(target, sources, constant)
 }
 
 func (p *StmtCompiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved], mapping []uint,
-	targets ...register.Id) ([]MicroInstruction, MicroInstruction) {
+	returns ...register.Id) ([]MicroInstruction, MicroInstruction) {
 	var (
 		// Determine vm module identifier
 		id = mapping[e.Name.Index]
 	)
 	// Compile arguments
-	sources, insns := p.compileArgs(mapping, e.Args...)
+	arguments, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return insns, instruction.NewCall[word.Uint](id, targets, sources)
+	return insns, instruction.NewCall[word.Uint](id, arguments, returns)
 }
 
 func (p *StmtCompiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], _ []uint, target register.Id,
@@ -400,19 +404,19 @@ func (p *StmtCompiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], 
 		reg  = []register.Id{register.NewId(e.Variable)}
 	)
 	//
-	return nil, instruction.NewIntAdd(target, reg, zero)
+	return nil, p.newAdd(target, reg, zero)
 }
 
 func (p *StmtCompiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mapping []uint,
-	targets ...register.Id) ([]MicroInstruction, MicroInstruction) {
+	data ...register.Id) ([]MicroInstruction, MicroInstruction) {
 	var (
 		// Determine vm module identifier
 		id = mapping[e.Name.Index]
 	)
 	// Compile arguments
-	sources, insns := p.compileArgs(mapping, e.Args...)
+	address, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return insns, instruction.NewMemRead[word.Uint](id, targets, sources)
+	return insns, instruction.NewMemRead[word.Uint](id, address, data)
 }
 
 func (p *StmtCompiler) compileMul(args []Expr, mapping []uint, target register.Id,
@@ -422,7 +426,8 @@ func (p *StmtCompiler) compileMul(args []Expr, mapping []uint, target register.I
 		constant word.Uint = word.Uint64[word.Uint](1)
 		nargs    []Expr
 		w        word.Uint
-		bitwidth = p.registers[target.Unwrap()].Width()
+		isField  = p.registers[target.Unwrap()].IsNative()
+		bitwidth = p.addBitWidth(target)
 	)
 	//
 	for _, e := range args {
@@ -437,13 +442,17 @@ func (p *StmtCompiler) compileMul(args []Expr, mapping []uint, target register.I
 		}
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
-		if overflow {
+		if overflow && !isField {
 			panic("compileMul arithmetic overflow")
 		}
 	}
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
+	if isField {
+		return insns, instruction.NewFieldMul(target, sources, constant)
+	}
+	//
 	return insns, instruction.NewIntMul(target, sources, constant)
 }
 
@@ -518,7 +527,8 @@ func (p *StmtCompiler) compileSub(args []Expr, mapping []uint, target register.I
 		constant word.Uint
 		nargs    []Expr
 		w        word.Uint
-		bitwidth = p.registers[target.Unwrap()].Width()
+		isField  = p.registers[target.Unwrap()].IsNative()
+		bitwidth = p.addBitWidth(target)
 	)
 	//
 	for i, e := range args {
@@ -533,13 +543,17 @@ func (p *StmtCompiler) compileSub(args []Expr, mapping []uint, target register.I
 		}
 		// NOTE: this error should be caught and reported earlier in the
 		// pipeline.
-		if overflow {
+		if overflow && !isField {
 			panic("compileSub arithmetic overflow")
 		}
 	}
 	// Compile arguments
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Done
+	if isField {
+		return insns, instruction.NewFieldSub(target, sources, constant)
+	}
+	//
 	return insns, instruction.NewIntSub(target, sources, constant)
 }
 
@@ -640,7 +654,14 @@ func (p *StmtCompiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id
 		if r, ok := e.(*expr.LocalAccess[symbol.Resolved]); ok {
 			targets[i] = register.NewId(r.Variable)
 		} else {
-			bitwidth := data.BitWidthOf(e.Type(), p.environment)
+			var bitwidth uint
+			//
+			if e.Type().AsField(p.environment) != nil {
+				// Field-typed sub-expression — allocate a native register.
+				bitwidth = math.MaxUint
+			} else {
+				bitwidth = data.BitWidthOf(e.Type(), p.environment)
+			}
 			// Allocate temporary variable
 			targets[i] = p.allocate(bitwidth)
 			// Compile expression, storing result in temporary
@@ -756,6 +777,31 @@ func (p *StmtCompiler) allocate(bitwidth uint) register.Id {
 	p.registers = append(p.registers, register.NewComputed(name, bitwidth, padding))
 	//
 	return register.NewId(uint(n))
+}
+
+// newAdd emits either an integer or field addition instruction depending on
+// whether the target register is native (field-typed) or has a fixed bit
+// width.  Used by the compileX helpers that fall back on addition to copy or
+// load values into the target register.
+func (p *StmtCompiler) newAdd(target register.Id, sources []register.Id, constant word.Uint) MicroInstruction {
+	if p.registers[target.Unwrap()].IsNative() {
+		return instruction.NewFieldAdd(target, sources, constant)
+	}
+	//
+	return instruction.NewIntAdd(target, sources, constant)
+}
+
+// addBitWidth returns the bit-width to use when folding compile-time
+// constants into a target register.  For integer-typed targets this is the
+// register's declared width; for field-typed (native) targets this is the
+// configured field bandwidth, since field elements have no fixed bit-width
+// and only need enough room to hold a representative.
+func (p *StmtCompiler) addBitWidth(target register.Id) uint {
+	if p.registers[target.Unwrap()].IsNative() {
+		return p.field.BandWidth
+	}
+	//
+	return p.registers[target.Unwrap()].Width()
 }
 
 func (p *StmtCompiler) isConstantAccess(e Expr) bool {

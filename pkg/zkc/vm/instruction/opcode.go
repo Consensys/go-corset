@@ -30,6 +30,12 @@ const (
 	INT_DIV
 	// INT_REM instruction
 	INT_REM
+	// FIELD_ADD instruction
+	FIELD_ADD
+	// FIELD_SUB instruction
+	FIELD_SUB
+	// FIELD_MUL instruction
+	FIELD_MUL
 	// BIT_AND instruction
 	BIT_AND
 	// BIT_OR instruction

@@ -103,6 +103,54 @@ func NewIntRem[W word.Word[W]](target, dividend, divisor register.Id) *IntRem[W]
 }
 
 // ============================================================================
+// Field Addition
+// ============================================================================
+
+// FieldAdd computes the sum of the source registers and a constant within
+// the prime field of the surrounding machine, assigning the result to the
+// target register.  The value assigned is sources[0] + ... + sources[n-1] +
+// constant, reduced modulo the field's prime characteristic.  The source
+// slice may be empty, in which case the instruction simply loads the
+// constant.
+type FieldAdd[W word.Word[W]] struct{ OpArith[W] }
+
+// NewFieldAdd constructs a new field addition instruction
+func NewFieldAdd[W word.Word[W]](target register.Id, sources []register.Id, constant W) *FieldAdd[W] {
+	return &FieldAdd[W]{OpArith[W]{FIELD_ADD, target, sources, constant}}
+}
+
+// ============================================================================
+// Field Subtraction
+// ============================================================================
+
+// FieldSub computes a chained subtraction of the source registers and a
+// constant within the prime field of the surrounding machine, assigning the
+// result to the target register.  The value assigned is sources[0] -
+// sources[1] - ... - sources[n-1] - constant, reduced modulo the field's
+// prime characteristic.
+type FieldSub[W word.Word[W]] struct{ OpArith[W] }
+
+// NewFieldSub constructs a new field subtraction instruction
+func NewFieldSub[W word.Word[W]](target register.Id, sources []register.Id, constant W) *FieldSub[W] {
+	return &FieldSub[W]{OpArith[W]{FIELD_SUB, target, sources, constant}}
+}
+
+// ============================================================================
+// Field Multiplication
+// ============================================================================
+
+// FieldMul computes the product of the source registers and a constant
+// within the prime field of the surrounding machine, assigning the result
+// to the target register.  The value assigned is constant * sources[0] *
+// ... * sources[n-1], reduced modulo the field's prime characteristic.
+type FieldMul[W word.Word[W]] struct{ OpArith[W] }
+
+// NewFieldMul constructs a new field multiplication instruction
+func NewFieldMul[W word.Word[W]](target register.Id, sources []register.Id, constant W) *FieldMul[W] {
+	return &FieldMul[W]{OpArith[W]{FIELD_MUL, target, sources, constant}}
+}
+
+// ============================================================================
 // Bitwise And
 // ============================================================================
 
@@ -281,6 +329,12 @@ func aType2Operation(op OpCode) string {
 		return "/"
 	case INT_REM:
 		return "%"
+	case FIELD_ADD:
+		return "+f"
+	case FIELD_SUB:
+		return "-f"
+	case FIELD_MUL:
+		return "*f"
 	case BIT_AND:
 		return "&"
 	case BIT_NOT:
