@@ -37,7 +37,7 @@ func PrepareRenameFor(
 	offset := posToOffset(*srcfile, pos)
 	tokens := parser.Lex(*srcfile, false, false)
 
-	tok, ok := tokenAtOffset(tokens, offset)
+	tok, _, ok := tokenAtOffset(tokens, offset)
 	if !ok || tok.Kind != parser.IDENTIFIER {
 		return nil, nil
 	}
@@ -72,7 +72,7 @@ func RenameFor(
 	offset := posToOffset(*srcfile, pos)
 	tokens := parser.Lex(*srcfile, false, false)
 
-	tok, ok := tokenAtOffset(tokens, offset)
+	tok, idx, ok := tokenAtOffset(tokens, offset)
 	if !ok || tok.Kind != parser.IDENTIFIER {
 		return nil, nil
 	}
@@ -84,20 +84,25 @@ func RenameFor(
 		return nil, nil
 	}
 
-	// Top-level declarations take precedence: they're shared across files
-	// and shadow any same-named local visible at the cursor (the parser
-	// would have rejected such a clash anyway).
-	for i, d := range program.Components() {
-		if d.Name() == oldName {
-			return renameTopLevel(d, uint(i), oldName, newName, program, srcmaps), nil
+	// An identifier directly followed by `(` or `[` is always an extern
+	// access — a function call or memory read/write — and so refers to a
+	// top-level declaration regardless of any same-named local in scope.
+	externAccess := isExternAccess(tokens, idx)
+
+	// Inside a function, a local of the same name shadows any top-level
+	// declaration — so prefer the local unless we're on an extern access.
+	if !externAccess {
+		if fn, fnFile, fnSpan := enclosingFunction(offset, *srcfile, program, srcmaps); fn != nil {
+			if hasLocal(fn, oldName) {
+				return renameLocal(fnFile, fnSpan, oldName, newName, sourceOf), nil
+			}
 		}
 	}
 
-	// Otherwise see whether the cursor is inside a function with a local of
-	// that name and rename within that function only.
-	if fn, fnFile, fnSpan := enclosingFunction(offset, *srcfile, program, srcmaps); fn != nil {
-		if hasLocal(fn, oldName) {
-			return renameLocal(fnFile, fnSpan, oldName, newName, sourceOf), nil
+	// Otherwise the identifier names a top-level declaration.
+	for i, d := range program.Components() {
+		if d.Name() == oldName {
+			return renameTopLevel(d, uint(i), oldName, newName, program, srcmaps), nil
 		}
 	}
 
@@ -187,13 +192,11 @@ func renameLocal(
 			continue
 		}
 
-		// Skip extern accesses — name(...) and name[...] are always resolved
-		// against top-level declarations regardless of any local of the same
-		// name (the parser refuses to declare a local clashing with one).
-		if next, ok := nextSignificantToken(tokens, i); ok {
-			if next.Kind == parser.LBRACE || next.Kind == parser.LSQUARE {
-				continue
-			}
+		// Skip extern accesses — name(...) and name[...] are always
+		// resolved against top-level declarations even when a local of
+		// the same name is in scope.
+		if isExternAccess(tokens, i) {
+			continue
 		}
 
 		edits = append(edits, protocol.TextEdit{
@@ -313,13 +316,16 @@ func hasLocal(fn *decl.ResolvedFunction, name string) bool {
 	return false
 }
 
-// nextSignificantToken returns the next token in tokens after index i,
-// skipping nothing — Lex(false, false) already strips whitespace and
-// comments. Returns ok=false when there is no following token.
-func nextSignificantToken(tokens []lex.Token, i int) (lex.Token, bool) {
-	if i+1 < len(tokens) {
-		return tokens[i+1], true
+// isExternAccess reports whether the token at index i in tokens is followed
+// by `(` or `[` — the syntactic shapes for a function call and a memory
+// read/write respectively. Such a use always resolves to a top-level
+// declaration even when a same-named local is in scope.
+func isExternAccess(tokens []lex.Token, i int) bool {
+	if i < 0 || i+1 >= len(tokens) {
+		return false
 	}
 
-	return lex.Token{}, false
+	next := tokens[i+1].Kind
+
+	return next == parser.LBRACE || next == parser.LSQUARE
 }

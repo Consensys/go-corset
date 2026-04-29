@@ -42,7 +42,7 @@ func DefinitionFor(
 	// Lex the document to find the identifier token under the cursor.
 	tokens := parser.Lex(*srcfile, false, false)
 
-	tok, ok := tokenAtOffset(tokens, offset)
+	tok, _, ok := tokenAtOffset(tokens, offset)
 	if !ok || tok.Kind != parser.IDENTIFIER {
 		return nil, nil
 	}
