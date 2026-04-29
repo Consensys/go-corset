@@ -173,6 +173,7 @@ func expandWholeArrayAssign(
 	for i := range lm.size {
 		access := &expr.LocalAccess[symbol.Resolved]{Variable: rm.newBase + i}
 		access.SetType(src.Type())
+
 		target := &lval.Variable[symbol.Resolved]{Ids: []variable.Id{lm.newBase + i}}
 
 		result[i] = &stmt.Assign[symbol.Resolved]{
