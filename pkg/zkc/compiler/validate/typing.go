@@ -218,7 +218,7 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		if len(errs) == 0 && arg_t.AsUint(p.env) == nil {
 			errors = append(errors, *p.srcmaps.SyntaxError(t.Arg, "expected uint"))
 		} else if len(errs) == 0 {
-			errors = append(errors, p.checkFixedArrayBounds(t.Arg, fixedArr.Size)...)
+			errors = append(errors, p.checkFixedArrayBounds(t.Arg, fixedArr)...)
 		}
 
 		return fixedArr.DataType, errors
@@ -717,7 +717,7 @@ func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env 
 	if len(errs) == 0 && arg_t.AsUint(p.env) == nil {
 		errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
 	} else if len(errs) == 0 {
-		errors = append(errors, p.checkFixedArrayBounds(e.Arg, fixedArr.Size)...)
+		errors = append(errors, p.checkFixedArrayBounds(e.Arg, fixedArr)...)
 	}
 
 	return fixedArr.DataType, errors
@@ -831,15 +831,22 @@ func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxErro
 	return nil
 }
 
-func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, size uint) []source.SyntaxError {
+func (p *TypeChecker) checkFixedArrayBounds(arg expr.Resolved, fixedArray *data.ResolvedFixedArray) []source.SyntaxError {
 	val, ko := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
 	if ko != "" {
 		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant expression")
 	}
 	//
-	if val.Uint64() >= uint64(size) {
+	if fixedArray.SizeName != "" {
+		valSize, ko := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
+		if ko != "" {
+			return p.srcmaps.SyntaxErrors(arg, "array size must be a constant expression")
+		}
+		fixedArray.Size = uint(valSize.Uint64())
+	}
+	if val.Uint64() >= uint64(fixedArray.Size) {
 		return p.srcmaps.SyntaxErrors(arg,
-			fmt.Sprintf("index %s out of bounds for array of size %d", val.Text(10), size))
+			fmt.Sprintf("index %s out of bounds for array of size %d", val.Text(10), fixedArray.Size))
 	}
 	//
 	return nil

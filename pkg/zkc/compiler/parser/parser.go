@@ -683,66 +683,38 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	bw, err := strconv.Atoi(name[1:])
 	switch {
 	case isArray && errs == nil:
-		var (
-			size     big.Int
-			sizeName string
-			nbErrs   []source.SyntaxError
-		)
-
+		// parse array type
+		var arrayType Type
+		switch {
+		case strings.HasPrefix(name, "u") && err == nil:
+			arrayType = data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
+		default:
+			alias := symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)
+			arrayType = data.NewAlias[symbol.Unresolved](alias)
+		}
+		//
 		lookahead := p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
 
 		if _, errs := p.expect(SEMICOLON); len(errs) != 0 {
 			return nil, p.srcmap.SyntaxErrors(lookahead, "expected semicolon to define array size")
 		}
-
+		//
 		lookahead = p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
 
-		switch lookahead.Kind {
-		case NUMBER:
-			p.match(NUMBER)
-
-			size, nbErrs = p.number(lookahead)
-			base := p.baserOfNumber(lookahead)
-
-			if len(nbErrs) != 0 || base != 10 {
-				return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
-			}
-
-			if size.BitLen() == 0 {
-				return nil, p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
-			}
-		case IDENTIFIER:
-			sizeName, nbErrs = p.parseIdentifier()
-			if len(nbErrs) != 0 {
-				return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
-			}
-		default:
-			return nil, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
+		size, sizeName, errors := p.parseArraySize(lookahead)
+		if len(errors) > 0 {
+			return nil, errs
 		}
 		//
 		if !p.match(RSQUARE) {
 			return nil, p.srcmap.SyntaxErrors(lookahead, "expected closing bracket")
 		}
 		//
-		switch {
-		case strings.HasPrefix(name, "u") && err == nil:
-			elem := data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
-			fa := data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64()))
-			fa.SizeName = sizeName
-			p.srcmap.Put(fa, p.spanOf(start, p.index-1))
-
-			return fa, nil
-		default:
-			alias := symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)
-			elem := data.NewAlias[symbol.Unresolved](alias)
-			fa := data.NewFixedArray[symbol.Unresolved](elem, uint(size.Uint64()))
-			fa.SizeName = sizeName
-			p.srcmap.Put(fa, p.spanOf(start, p.index-1))
-
-			return fa, nil
-		}
+		fa := data.NewFixedArray[symbol.Unresolved](arrayType, uint(size), sizeName)
+		p.srcmap.Put(fa, p.spanOf(start, p.index-1))
+		return fa, nil
 	case strings.HasPrefix(name, "u") && err == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
@@ -753,6 +725,33 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		p.srcmap.Put(alias, p.spanOf(start, p.index-1))
 		//
 		return alias, nil
+	}
+}
+
+func (p *Parser) parseArraySize(lookahead lex.Token) (size uint64, sizeName string, errors []source.SyntaxError) {
+	switch lookahead.Kind {
+	case NUMBER:
+		p.match(NUMBER)
+
+		size, nbErrs := p.number(lookahead)
+		base := p.baserOfNumber(lookahead)
+
+		if len(nbErrs) != 0 || base != 10 {
+			return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
+		}
+
+		if size.BitLen() == 0 {
+			return 0, "", p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
+		}
+		return size.Uint64(), "", nil
+	case IDENTIFIER:
+		sizeName, idErrs := p.parseIdentifier()
+		if len(idErrs) != 0 {
+			return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
+		}
+		return 0, sizeName, nil
+	default:
+		return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
 	}
 }
 

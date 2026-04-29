@@ -33,8 +33,8 @@ type FixedArray[I symbol.Symbol[I]] struct {
 }
 
 // NewFixedArray constructs a fixed-size array Type.
-func NewFixedArray[I symbol.Symbol[I]](datatype Type[I], size uint) *FixedArray[I] {
-	return &FixedArray[I]{DataType: datatype, Size: size}
+func NewFixedArray[I symbol.Symbol[I]](datatype Type[I], size uint, sizeName string) *FixedArray[I] {
+	return &FixedArray[I]{DataType: datatype, Size: size, SizeName: sizeName}
 }
 
 // AsUint implementation for Type interface
