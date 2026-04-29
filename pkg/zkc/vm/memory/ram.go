@@ -22,12 +22,12 @@ import (
 // dynamically to include any cell which is written, where cells are initialised
 // with zero.
 type RandomAccess[W word.Word[W]] struct {
-	Array[W]
+	DynamicArray[W]
 }
 
 // NewRandomAccess constructs an empty random-access memory.
 func NewRandomAccess[W word.Word[W]](name string, registers []register.Register) *RandomAccess[W] {
 	return &RandomAccess[W]{
-		newArray[W](name, registers),
+		newDynamicArray[W](name, registers),
 	}
 }

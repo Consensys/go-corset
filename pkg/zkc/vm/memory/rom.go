@@ -29,22 +29,17 @@ import (
 // to fixed tables used within the program (e.g. in a hash function such as
 // BLAKE or KECCAK, there are fixed lookup tables used as part of the program).
 type ReadOnly[W word.Word[W]] struct {
-	Array[W]
+	StaticArray[W]
 }
 
 // NewReadOnly constructs a new read-only memory initialised with a given set of values.
 func NewReadOnly[W word.Word[W]](name string, registers []register.Register, init ...W) *ReadOnly[W] {
 	return &ReadOnly[W]{
-		newArray[W](name, registers, init...),
+		newStaticArray[W](name, registers, init...),
 	}
 }
 
 // Write implementation for Memory interface.
-func (p *ReadOnly[W]) Write(address []W, data []W) {
-	panic("unsupported operation for read-only memory")
-}
-
-// FrameWrite implementation for Memory interface.
-func (p *ReadOnly[W]) FrameWrite(frame []W, address []register.Id, data []register.Id) error {
+func (p *ReadOnly[W]) Write(frame []W, address []register.Id, data []register.Id) error {
 	panic("unsupported operation for read-only memory")
 }

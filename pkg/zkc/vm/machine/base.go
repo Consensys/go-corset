@@ -129,20 +129,6 @@ func (p *Base[W]) Modules() []Module[W] {
 	return p.modules
 }
 
-// Read implementation of machine.Core interface
-func (p *Base[W]) Read(id uint, address []W) (data []W) {
-	var rm = p.modules[id].(memory.Memory[W])
-	// Perform read
-	return rm.Read(address)
-}
-
-// Write implementation of machine.Core interface
-func (p *Base[W]) Write(id uint, address []W, data []W) {
-	var wm = p.modules[id].(memory.Memory[W])
-	// Perform write
-	wm.Write(address, data)
-}
-
 // Depth returns the depth of the call stack.
 func (p *Base[W]) Depth() uint {
 	return uint(len(p.callstack))
@@ -296,12 +282,12 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	case *instruction.MemRead[W]:
 		var rom = p.modules[insn.Id].(memory.Memory[W])
 		// Read data words from tiven address
-		err = rom.FrameRead(frame, insn.Address, insn.Data)
+		err = rom.Read(frame, insn.Address, insn.Data)
 		// Fall thru
 	case *instruction.MemWrite[W]:
 		var rom = p.modules[insn.Id].(memory.Memory[W])
 		// Read data words from tiven address
-		err = rom.FrameWrite(frame, insn.Address, insn.Data)
+		err = rom.Write(frame, insn.Address, insn.Data)
 		// Fall thru
 
 	// ==============================================================

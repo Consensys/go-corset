@@ -61,12 +61,6 @@ type Core[W any] interface {
 	// true if the last frame was popped off the stack (i.e. the machine has
 	// terminated).
 	Leave() bool
-	// Read location from ith module.  This must be a readable memory, otherwise
-	// this will panic.
-	Read(id uint, address []W) (data []W)
-	// Write location in ith module.  This must be a writeable memory, otherwise
-	// this will panic.
-	Write(id uint, address []W, data []W)
 }
 
 // Module represents an either a function or memory within the machine.

@@ -22,22 +22,17 @@ import (
 // starting from zero.  Thus, a WOM can be viewed as an output stream (which is
 // exactly what they are typically used for).
 type WriteOnce[W word.Word[W]] struct {
-	Array[W]
+	StaticArray[W]
 }
 
 // NewWriteOnce constructs an empty write-once memory.
 func NewWriteOnce[W word.Word[W]](name string, registers []register.Register) *WriteOnce[W] {
 	return &WriteOnce[W]{
-		newArray[W](name, registers),
+		newStaticArray[W](name, registers),
 	}
 }
 
 // Read implementation for Memory interface.
-func (p *WriteOnce[W]) Read(address []W) []W {
-	panic("unsupported operation for write-once memory")
-}
-
-// FrameRead implementation for Memory interface.
-func (p *WriteOnce[W]) FrameRead(frame []W, address []register.Id, data []register.Id) error {
+func (p *WriteOnce[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	panic("unsupported operation for write-once memory")
 }
