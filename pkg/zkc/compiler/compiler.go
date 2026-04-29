@@ -84,8 +84,7 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 		return ast.Program{}, srcmaps, errors
 	}
 	// Lower fixed-size arrays into flat local access registers
-	lowering := lower.Lowering{}.ExpandFixedArrays(true)
-	lowering.FlattenFixedArrays(program, srcmaps)
+	lower.FlattenFixedArrays(program, srcmaps)
 	// Done
 	return program, srcmaps, errors
 }

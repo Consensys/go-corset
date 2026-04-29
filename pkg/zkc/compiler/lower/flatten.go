@@ -29,14 +29,6 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 )
 
-// Lowering is the configuration options to lower the ast program.
-type Lowering struct {
-	expandFixedArrays bool
-}
-
-// ExpandFixedArrays returns a new Lowering with fixed-array expansion enabled or disabled.
-func (p Lowering) ExpandFixedArrays(flag bool) Lowering { return Lowering{expandFixedArrays: flag} }
-
 // Flatten flattens all block-level statements (IfElse, While, For,
 // Break, Continue) in each function of the program into the flat if-goto form
 // expected by subsequent validation and code generation passes.  Source map
@@ -54,14 +46,12 @@ func Flatten(program ast.Program, srcmaps source.Maps[any]) {
 // arrayName of type uM[n] is replaced by n scalars arrayName$0 .. arrayName$(n-1),
 // each of type uM.  Corresponding expr.ArrayAccess and lval.Array nodes are
 // rewritten to plain LocalAccess / lval.Variable references.
-func (p Lowering) FlattenFixedArrays(program ast.Program, srcmaps source.Maps[any]) {
+func FlattenFixedArrays(program ast.Program, srcmaps source.Maps[any]) {
 	env := program.Environment()
 
 	for _, d := range program.Components() {
 		if fn, ok := d.(*decl.ResolvedFunction); ok {
-			if p.expandFixedArrays {
-				lowerFixedArrays(fn, program.Components(), env)
-			}
+			lowerFixedArrays(fn, program.Components(), env)
 		}
 	}
 }
