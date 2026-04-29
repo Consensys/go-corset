@@ -240,6 +240,11 @@ func rewriteFixedArrayExpr(
 		rewriteFixedArrayExprs(e.Exprs, mapping, declarations, env)
 
 		return e
+	case *expr.Cmp[symbol.Resolved]:
+		e.Left = rewriteFixedArrayExpr(e.Left, mapping, declarations, env)
+		e.Right = rewriteFixedArrayExpr(e.Right, mapping, declarations, env)
+
+		return e
 	case *expr.Ternary[symbol.Resolved]:
 		e.Cond = rewriteFixedArrayExpr(e.Cond, mapping, declarations, env)
 		e.IfTrue = rewriteFixedArrayExpr(e.IfTrue, mapping, declarations, env)
