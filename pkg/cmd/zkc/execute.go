@@ -24,6 +24,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
@@ -50,15 +51,21 @@ var executeCmds = []FieldAgnosticCmd{
 }
 
 func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var (
+		// compiler config
+		config = codegen.DEFAULT_CONFIG.Vectorize(GetFlag(cmd, "vectorize"))
+	)
 	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
 	//
-	executeIrProgram[EmptyBaseObserver]("main", program, input, EmptyBaseObserver{})
+	executeIrProgram[EmptyBaseObserver]("main", config, program, input, EmptyBaseObserver{})
 }
 
-func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, program ast.Program, input map[string][]byte, view V) {
+func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.Config, program ast.Program,
+	input map[string][]byte, view V,
+) {
 	var (
 		vm        *machine.Base[word.Uint]
 		bigInputs map[string][]word.Uint
@@ -69,7 +76,7 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, program ast.Prog
 		// Build our machine
 		var compileErrs []source.SyntaxError
 
-		vm, compileErrs = program.Compile()
+		vm, compileErrs = program.Compile(config)
 		for _, e := range compileErrs {
 			errors = append(errors, &e)
 		}

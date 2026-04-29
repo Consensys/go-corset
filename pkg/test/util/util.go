@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/util"
 )
 
@@ -49,7 +50,7 @@ func CompileMachine(srcfiles ...source.File) []source.SyntaxError {
 func CompileZkc(srcfile source.File) []source.SyntaxError {
 	program, _, errors := compiler.Compile(srcfile)
 	if len(errors) == 0 {
-		_, errors = program.Compile()
+		_, errors = program.Compile(codegen.DEFAULT_CONFIG)
 	}
 	//
 	return errors

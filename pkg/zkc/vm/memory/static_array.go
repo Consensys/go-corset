@@ -17,52 +17,45 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-// Array is a flat-slice implementation of ReadOnlyMemory backed by a []W.
-// Reads are performed by delegating address decoding to a D (an AddressDecoder)
-// which translates the incoming multi-word address tuple into a (start, end)
-// index range, and then returning the corresponding sub-slice of the backing
-// data.
+// StaticArray is a memory implementation backed by a fixed-size []W, meaning
+// that an out-of-bound read will panic. Reads are performed by delegating
+// address decoding to a D (an AddressDecoder) which translates the incoming
+// multi-word address tuple into a (start, end) index range, and then returning
+// the corresponding sub-slice of the backing data.
 //
 // The type parameter W is the word type (e.g. a field element or big.Int), and
 // D is the AddressDecoder strategy that encodes the layout of rows within the
 // flat slice.
-type Array[W word.Word[W]] struct {
+type StaticArray[W word.Word[W]] struct {
 	geometry Geometry[W]
 	name     string
 	data     []W
 }
 
-// newArray constructs a new array initialised with a given set of values.
-func newArray[W word.Word[W]](name string, registers []register.Register, init ...W) Array[W] {
+// newStaticArray constructs a new array initialised with a given set of values.
+func newStaticArray[W word.Word[W]](name string, registers []register.Register, init ...W) StaticArray[W] {
 	var geometry = NewGeometry[W](registers)
 	//
-	return Array[W]{geometry, name, init}
+	return StaticArray[W]{geometry, name, init}
 }
 
 // Name implementation for Memory interface.
-func (p *Array[W]) Name() string {
+func (p *StaticArray[W]) Name() string {
 	return p.name
 }
 
 // Initialise implementation for Memory interface.
-func (p *Array[W]) Initialise(contents []W) {
+func (p *StaticArray[W]) Initialise(contents []W) {
 	p.data = contents
 }
 
 // Geometry implementation for Memory interface.
-func (p *Array[W]) Geometry() Geometry[W] {
+func (p *StaticArray[W]) Geometry() Geometry[W] {
 	return p.geometry
 }
 
 // Read implementation for Memory interface.
-func (p *Array[W]) Read(address []W) []W {
-	var start, end = p.geometry.Decode(address)
-	//
-	return p.data[start:end]
-}
-
-// FrameRead implementation for Memory interface.
-func (p *Array[W]) FrameRead(frame []W, address []register.Id, data []register.Id) error {
+func (p *StaticArray[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	var start, _ = p.geometry.FrameDecode(frame, address)
 	//
 	for i := range data {
@@ -72,8 +65,8 @@ func (p *Array[W]) FrameRead(frame []W, address []register.Id, data []register.I
 	return nil
 }
 
-// FrameWrite implementation for Memory interface.
-func (p *Array[W]) FrameWrite(frame []W, address []register.Id, data []register.Id) error {
+// Write implementation for Memory interface.
+func (p *StaticArray[W]) Write(frame []W, address []register.Id, data []register.Id) error {
 	var (
 		n          = uint64(len(p.data))
 		start, end = p.geometry.FrameDecode(frame, address)
@@ -92,23 +85,7 @@ func (p *Array[W]) FrameWrite(frame []W, address []register.Id, data []register.
 	return nil
 }
 
-// Write implementation for Memory interface.
-func (p *Array[W]) Write(address []W, data []W) {
-	var (
-		n          = uint64(len(p.data))
-		start, end = p.geometry.Decode(address)
-	)
-	// expand memory if needed
-	if n <= end {
-		ndata := make([]W, end)
-		copy(ndata, p.data)
-		p.data = ndata
-	}
-	//
-	copy(p.data[start:end], data)
-}
-
 // Contents implementation for Memory interface.
-func (p *Array[W]) Contents() []W {
+func (p *StaticArray[W]) Contents() []W {
 	return p.data
 }

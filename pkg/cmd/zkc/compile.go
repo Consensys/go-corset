@@ -28,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -55,6 +56,10 @@ var compileCmds = []FieldAgnosticCmd{
 }
 
 func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var (
+		// compiler config
+		config = codegen.DEFAULT_CONFIG.Vectorize(GetFlag(cmd, "vectorize"))
+	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
 		log.SetLevel(log.DebugLevel)
@@ -70,7 +75,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	}
 	//
 	if ir {
-		vm, errs := program.Compile()
+		vm, errs := program.Compile(config)
 		for _, err := range errs {
 			printSyntaxError(&err)
 		}

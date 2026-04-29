@@ -336,6 +336,24 @@ func Lex(srcfile source.File, whitespace, comments bool) []lex.Token {
 	return tokens
 }
 
+// IsValidIdentifier reports whether s parses as a single IDENTIFIER token,
+// rejecting empty strings, keywords, and anything containing whitespace or
+// punctuation.
+func IsValidIdentifier(s string) bool {
+	var (
+		runes = []rune(s)
+		n     = identifier(runes)
+	)
+	//
+	if n != uint(len(runes)) || len(runes) == 0 {
+		return false
+	}
+	//
+	_, isKeyword := keywords[s]
+
+	return !isKeyword
+}
+
 func init() {
 	// Statically compute maximum length of any keyword
 	for k := range keywords {

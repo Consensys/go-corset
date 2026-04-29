@@ -14,32 +14,33 @@ package lsp
 
 import (
 	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/zkc/compiler"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"go.lsp.dev/protocol"
 )
 
-// DocumentSymbolsFor compiles the given document and returns a
-// protocol.DocumentSymbol for each top-level declaration defined in this file.
-// Declarations from included files are filtered out.  If the document cannot
-// be compiled (e.g. due to parse errors), an empty slice is returned with no
-// error; diagnostics for those failures are already reported separately.
-func DocumentSymbolsFor(uri protocol.URI, text string) ([]interface{}, error) {
-	srcfile := source.NewSourceFile(uri.Filename(), []byte(text))
-	program, srcmaps, _ := compiler.Compile(*srcfile)
-
+// DocumentSymbolsFor returns a protocol.DocumentSymbol for each top-level
+// declaration defined in the file identified by uri.  Declarations from
+// included files are filtered out by comparing the source file recorded in
+// srcmaps against uri.  The caller supplies an already-compiled program and
+// its source maps (typically taken from an IncrementalCompiler), so this
+// function does no parsing or compilation of its own.
+func DocumentSymbolsFor(
+	uri protocol.URI, program ast.Program, srcmaps source.Maps[any],
+) ([]interface{}, error) {
+	filename := uri.Filename()
 	env := program.Environment()
 
 	var symbols []interface{}
 
 	for _, d := range program.Components() {
 		srcFile, span, ok := srcmaps.Lookup(d)
-		if !ok || srcFile.Filename() != srcfile.Filename() {
+		if !ok || srcFile.Filename() != filename {
 			continue
 		}
 
-		rng := spanToRange(*srcfile, span)
+		rng := spanToRange(srcFile, span)
 
 		symbols = append(symbols, protocol.DocumentSymbol{
 			Name:           d.Name(),

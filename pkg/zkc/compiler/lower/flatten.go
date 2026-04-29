@@ -26,11 +26,11 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
-// FlatternStatements flattens all block-level statements (IfElse, Switch, While,
-// For, Break, Continue) in each function of the program into the flat if-goto form
-// expected by subsequent validation and codegen passes.  Source map entries for
-// generated nodes are inherited from the original block node.
-func FlatternStatements(program ast.Program, srcmaps source.Maps[any]) {
+// Flatten flattens all block-level statements (IfElse, Switch, While, For,
+// Break, Continue) in each function of the program into the flat if-goto form
+// expected by subsequent validation and code generation passes.  Source map
+// entries for generated nodes are inherited from the original block node.
+func Flatten(program ast.Program, srcmaps source.Maps[any]) {
 	for _, d := range program.Components() {
 		if fn, ok := d.(*decl.ResolvedFunction); ok {
 			fn.Code = lowerStatements(0, fn.Code, newLowerEnv(), srcmaps)

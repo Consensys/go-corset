@@ -21,6 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	"github.com/spf13/cobra"
 )
@@ -43,13 +44,18 @@ var debugCmds = []FieldAgnosticCmd{
 }
 
 func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+	var (
+		// compiler config
+		config = codegen.DEFAULT_CONFIG.Vectorize(GetFlag(cmd, "vectorize"))
+	)
+	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(args[1:]...)
 	//
 	observer := debug.TraceObserver[word.Uint]{}
 	//
-	executeIrProgram("main", program, input, &observer)
+	executeIrProgram("main", config, program, input, &observer)
 	//
 	fmt.Println()
 }

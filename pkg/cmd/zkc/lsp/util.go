@@ -63,16 +63,16 @@ func posToOffset(srcfile source.File, pos protocol.Position) int {
 }
 
 // tokenAtOffset finds the token whose span contains the given rune offset,
-// returning it and true.  If no token spans that offset, a zero Token and
-// false are returned.
-func tokenAtOffset(tokens []lex.Token, offset int) (lex.Token, bool) {
-	for _, tok := range tokens {
+// returning it, its index in tokens, and true.  If no token spans that
+// offset, a zero Token, -1, and false are returned.
+func tokenAtOffset(tokens []lex.Token, offset int) (lex.Token, int, bool) {
+	for i, tok := range tokens {
 		if tok.Span.Start() <= offset && offset < tok.Span.End() {
-			return tok, true
+			return tok, i, true
 		}
 	}
 
-	return lex.Token{}, false
+	return lex.Token{}, -1, false
 }
 
 // dataTypeToString converts a data type to its string representation. A nil
