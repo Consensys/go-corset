@@ -694,17 +694,19 @@ func (p *TypeChecker) typeArray(id variable.Id, arg expr.Resolved, env VariableM
 	varType_ok := wellFormed(varType, p.env)
 
 	// Check argument is unsigned integers and well-formed
-	arg_t, errs := p.typeExpression(nil, arg, variable.ArrayMap[symbol.Resolved](), effects)
+	arg_t, errs := p.typeExpression(nil, arg, env, effects)
 	arg_t_ok := wellFormed(arg_t, p.env)
 
 	errors = append(errors, errs...)
 
 	//
 	if !varType_ok {
-		errors = append(errors, *p.srcmaps.SyntaxError(arg, "fixed-array has unresolved type"))
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "fixed-sized array has unresolved type"))
 	} else if arg_t_ok && arg_t.AsUint(p.env) == nil {
 		errors = append(errors, *p.srcmaps.SyntaxError(arg, "expected uint"))
-	} else if arg_t_ok && varType.AsFixedArray(p.env) != nil {
+	} else if varType.AsFixedArray(p.env) == nil {
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "variable is not a fixed-size array"))
+	} else if arg_t_ok {
 		fixedArr := varType.AsFixedArray(p.env)
 		errors = append(errors, p.checkFixedArrayBounds(arg, fixedArr)...)
 
