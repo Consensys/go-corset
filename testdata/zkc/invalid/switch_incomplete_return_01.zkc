@@ -4,8 +4,8 @@
 // switch statements that don't construct a full return value
 // ===========================================================
 
-const CASE_A       :u8 = 1
-const CASE_B       :u8 = 2
+const CASE_A :u8 = 1
+const CASE_B :u8 = 2
 
 fn main() {
 

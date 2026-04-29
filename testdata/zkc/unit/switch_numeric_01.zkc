@@ -1,9 +1,6 @@
 type exmp = u16
 
-// tests to test valid albeit pathological switch statements
-//  * empty or not
-//  * default present or not
-//  * position of the default keyword
+// tests involving numerical values as switch case labels
 fn main() {
 
   var discr :exmp = 65535

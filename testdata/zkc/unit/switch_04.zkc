@@ -1,5 +1,6 @@
 const CASE_A:u8 = 1
 const CASE_B:u8 = 2
+const CASE_C:u8 = 3
 
 input input_case      (c :u1) -> (d   :u8)
 input expected_output (c :u1) -> (out :u8)
@@ -22,6 +23,9 @@ fn main() {
     }
     default: {
       discr = 17
+    }
+    case CASE_C: {
+      discr = deal_with(discr) + 3
     }
   }
 

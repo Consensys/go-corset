@@ -2,34 +2,49 @@
 // switch statements that return
 // =============================================
 
-const CASE_A       :u8 = 1
-const CASE_B       :u8 = 2
-const CASE_DEFAULT :u8 = 3
+const CASE_A :u8 = 1
+const CASE_B :u8 = 2
+const CASE_C :u8 = 3
+
+input inputs  (c :u1) -> (d   :u8)
+input results (c :u1) -> (out :u8)
 
 // standard switch case statement doing actual computations
 // computations are checked against inputs
 fn main() {
 
   var x :u8
-  var y :u8
-  x = CASE_B
-  y = do_sthg(x)
+  var r :u8
+  x = inputs[0]
+  r = results[0]
 
-  printf "in  = %d\n", x
-  printf "out = %d\n", y
+  var y :u8
+  y = do_something(x)
+
+
+  if y != r {
+    printf "x = %d\n", x
+    printf "y = %d\n", y
+    printf "r = %d\n", r
+    printf "fuck ...\n"
+    fail
+  }
 }
 
-fn do_sthg(x :u8) -> (y :u8) {
+fn do_something(x :u8) -> (y :u8) {
 
     switch x {
         case CASE_A: {
         y = 0x10
         }
-        // case CASE_B: {
-        // y = 0x11
-        // }
-        default: {
+        case CASE_B: {
+        y = 0x11
+        }
+        case CASE_C: {
         y = 0x12
+        }
+        default: {
+        y = 0x13
         }
     }
 
