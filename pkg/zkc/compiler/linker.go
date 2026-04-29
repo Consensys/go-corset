@@ -452,8 +452,8 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		errors = errs
 	case *expr.ArrayAccess[symbol.Unresolved]:
 		// resolve arguments
-		args, errors = p.linkExprs(e.Args...)
-		nexpr = expr.NewArrayAccess[symbol.Resolved](e.Id, args...)
+		arg, errors = p.linkExpr(e.Arg)
+		nexpr = expr.NewArrayAccess[symbol.Resolved](e.Id, arg)
 	case *expr.Div[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewDiv[symbol.Resolved](args...)

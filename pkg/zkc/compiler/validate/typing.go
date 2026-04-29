@@ -710,16 +710,14 @@ func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env 
 	varType := env.Variable(e.Id).DataType
 	fixedArr := varType.AsFixedArray(p.env)
 
-	// check argument are equiTypes and are unsigned integers
-	for _, e := range e.Args {
-		ith_t, errs := p.typeExpression(nil, e, variable.ArrayMap[symbol.Resolved](), effects)
-		errors = append(errors, errs...)
+	// check argument is unsigned integers
+	arg_t, errs := p.typeExpression(nil, e.Arg, variable.ArrayMap[symbol.Resolved](), effects)
+	errors = append(errors, errs...)
 
-		if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
-			errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
-		} else if len(errs) == 0 {
-			errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
-		}
+	if len(errs) == 0 && arg_t.AsUint(p.env) == nil {
+		errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
+	} else if len(errs) == 0 {
+		errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
 	}
 
 	return fixedArr.DataType, errors

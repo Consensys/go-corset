@@ -111,17 +111,7 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *LocalAccess[S]:
 		return mapping.Variable(e.Variable).Name
 	case *ArrayAccess[S]:
-		var b strings.Builder
-		//
-		for i, arg := range e.Args {
-			if i != 0 {
-				b.WriteString(",")
-			}
-
-			b.WriteString(String[S](arg, mapping))
-		}
-		//
-		return fmt.Sprintf("%s[%s]", mapping.Variable(e.Id).Name, b.String())
+		return fmt.Sprintf("%s[%s]", mapping.Variable(e.Id).Name, e.Arg.String(mapping))
 	case *Mul[S]:
 		exprs = e.Exprs
 		operator = "*"

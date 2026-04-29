@@ -1700,7 +1700,7 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 		return lv, errs
 	} else if isDeclared {
 		if len(index) != 1 {
-			p.syntaxErrors(lookahead, "incorrect number of array access arguments")
+			return lv, p.syntaxErrors(lookahead, "incorrect number of array access arguments")
 		}
 		lv = lval.NewArray(env.LookupVariable(reg), index[0])
 	} else {

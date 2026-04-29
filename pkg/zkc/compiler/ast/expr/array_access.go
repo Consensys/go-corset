@@ -23,13 +23,13 @@ import (
 // ArrayAccess represents an array access within an expression.
 type ArrayAccess[S symbol.Symbol[S]] struct {
 	Id       variable.Id
-	Args     []Expr[S]
+	Arg      Expr[S]
 	Datatype data.Type[S]
 }
 
 // NewArrayAccess constructs an expression representing an array access.
-func NewArrayAccess[S symbol.Symbol[S]](id variable.Id, args ...Expr[S]) Expr[S] {
-	return &ArrayAccess[S]{Id: id, Args: args}
+func NewArrayAccess[S symbol.Symbol[S]](id variable.Id, arg Expr[S]) Expr[S] {
+	return &ArrayAccess[S]{Id: id, Arg: arg}
 }
 
 // ExternUses implementation for the Expr interface.
@@ -41,7 +41,7 @@ func (p *ArrayAccess[S]) ExternUses() set.AnySortedSet[S] {
 func (p *ArrayAccess[S]) LocalUses() bit.Set {
 	var read bit.Set
 	read.Insert(p.Id)
-	read.Union(localUses(p.Args...))
+	read.Union(p.Arg.LocalUses())
 	//
 	return read
 }

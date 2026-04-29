@@ -181,7 +181,7 @@ func rewriteFixedArrayExpr(
 
 		return e
 	case *expr.ArrayAccess[symbol.Resolved]:
-		rewriteFixedArrayExprs(e.Args, mapping, declarations, env)
+		rewriteFixedArrayExpr(e.Arg, mapping, declarations, env)
 
 		m := mapping[e.Id]
 		if !m.isArray {
@@ -189,11 +189,7 @@ func rewriteFixedArrayExpr(
 			return e
 		}
 
-		if len(e.Args) != 1 {
-			panic("expected exactly one index for fixed array access")
-		}
-
-		val, ko := codegen.EvalConstant(e.Args[0], false, declarations, env)
+		val, ko := codegen.EvalConstant(e.Arg, false, declarations, env)
 		if ko != "" {
 			// This should have been checked in the typing phase already
 			panic("expected constant index for fixed array access during lowering")

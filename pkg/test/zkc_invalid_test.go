@@ -287,6 +287,10 @@ func Test_ZkcInvalid_FixedArray_09(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/fixed_array_09")
 }
 
+func Test_ZkcInvalid_FixedArray_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_10")
+}
+
 // ===================================================================
 // Break Tests
 // ===================================================================
