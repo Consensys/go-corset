@@ -1602,11 +1602,15 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 			nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
 		} else {
 			// Array access
-			var args []Expr
+			var arg Expr
 			//
-			args, errs = p.parseExprList(RSQUARE, env)
+			if arg, errs = p.parseExpr(env); len(errs) > 0 {
+				return nil, errs
+			} else if _, errs = p.expect(RSQUARE); len(errs) > 0 {
+				return nil, errs
+			}
 			//
-			nexpr = expr.NewArrayAccess(rid, args...)
+			nexpr = expr.NewArrayAccess(rid, arg)
 		}
 	}
 	//
@@ -1695,7 +1699,10 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	} else if index, errs = p.parseExprList(RSQUARE, env); len(errs) > 0 {
 		return lv, errs
 	} else if isDeclared {
-		lv = lval.NewArray(env.LookupVariable(reg), index)
+		if len(index) != 1 {
+			p.syntaxErrors(lookahead, "incorrect number of array access arguments")
+		}
+		lv = lval.NewArray(env.LookupVariable(reg), index[0])
 	} else {
 		// construct name symbol
 		var name = symbol.NewUnresolved(reg, symbol.WRITEABLE_MEMORY, 1)

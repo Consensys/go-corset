@@ -211,16 +211,14 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		varType := env.Variable(t.Id).DataType
 		fixedArr := varType.AsFixedArray(p.env)
 
-		// check argument are the same type and are unsigned integers
-		for _, e := range t.Args {
-			ith_t, errs := p.typeExpression(nil, e, variable.ArrayMap[symbol.Resolved](), effects)
-			errors = append(errors, errs...)
+		// check argument  is unsigned integers
+		arg_t, errs := p.typeExpression(nil, t.Arg, variable.ArrayMap[symbol.Resolved](), effects)
+		errors = append(errors, errs...)
 
-			if len(errs) == 0 && ith_t.AsUint(p.env) == nil {
-				errors = append(errors, *p.srcmaps.SyntaxError(e, "expected uint"))
-			} else if len(errs) == 0 {
-				errors = append(errors, p.checkFixedArrayBounds(e, fixedArr.Size)...)
-			}
+		if len(errs) == 0 && arg_t.AsUint(p.env) == nil {
+			errors = append(errors, *p.srcmaps.SyntaxError(t.Arg, "expected uint"))
+		} else if len(errs) == 0 {
+			errors = append(errors, p.checkFixedArrayBounds(t.Arg, fixedArr.Size)...)
 		}
 
 		return fixedArr.DataType, errors

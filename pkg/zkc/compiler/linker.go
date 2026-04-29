@@ -352,7 +352,7 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	case *lval.Variable[symbol.Unresolved]:
 		nlval = lval.NewVariable[symbol.Resolved](lv.Ids...)
 	case *lval.Array[symbol.Unresolved]:
-		index, errs1 := p.linkExprs(lv.Args...)
+		index, errs1 := p.linkExpr(lv.Arg)
 		nlval = lval.NewArray[symbol.Resolved](lv.Id, index)
 		//
 		errs = append(errs, errs1...)

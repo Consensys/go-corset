@@ -349,7 +349,7 @@ func rewriteFixedArrayLVal(
 
 		return l
 	case *lval.Array[symbol.Resolved]:
-		rewriteFixedArrayExprs(l.Args, mapping, declarations, env)
+		rewriteFixedArrayExpr(l.Arg, mapping, declarations, env)
 
 		m := mapping[l.Id]
 		if !m.isArray {
@@ -357,11 +357,7 @@ func rewriteFixedArrayLVal(
 			return l
 		}
 
-		if len(l.Args) != 1 {
-			panic("expected exactly one index for fixed array lval")
-		}
-
-		val, ko := codegen.EvalConstant(l.Args[0], false, declarations, env)
+		val, ko := codegen.EvalConstant(l.Arg, false, declarations, env)
 		if ko != "" {
 			// This should have already been checked in the typing phase
 			panic("expected constant index for fixed array lval during lowering")

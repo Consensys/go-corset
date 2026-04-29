@@ -25,12 +25,12 @@ type Array[S symbol.Symbol[S]] struct {
 	// name of the array being written
 	Id variable.Id
 	// identifies location being written
-	Args []expr.Expr[S]
+	Arg expr.Expr[S]
 }
 
 // NewArray constructs an expression representing an array access.
-func NewArray[S symbol.Symbol[S]](variable variable.Id, args []expr.Expr[S]) LVal[S] {
-	return &Array[S]{variable, args}
+func NewArray[S symbol.Symbol[S]](variable variable.Id, arg expr.Expr[S]) LVal[S] {
+	return &Array[S]{variable, arg}
 }
 
 // ExternUses implementation for the LVal interface.
@@ -40,13 +40,7 @@ func (p *Array[S]) ExternUses() set.AnySortedSet[S] {
 
 // LocalUses implementation for the LVal interface.
 func (p *Array[S]) LocalUses() bit.Set {
-	var reads bit.Set
-	//
-	for _, e := range p.Args {
-		reads.Union(e.LocalUses())
-	}
-	//
-	return reads
+	return p.Arg.LocalUses()
 }
 
 // LocalDefs implementation for the LVal interface.
