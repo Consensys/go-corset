@@ -318,6 +318,7 @@ func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmap
 				TrueBranch:  branch.Body,
 				FalseBranch: []stmt.Stmt[symbol.Resolved]{},
 			}
+			srcmaps.Copy(s, equivalentIfThenElse)
 			mostNestedIfThenElse = equivalentIfThenElse
 		} else {
 			falseBranch = &stmt.IfElse[symbol.Resolved]{
@@ -325,6 +326,7 @@ func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmap
 				TrueBranch:  branch.Body,
 				FalseBranch: []stmt.Stmt[symbol.Resolved]{},
 			}
+			srcmaps.Copy(s, falseBranch)
 			mostNestedIfThenElse.FalseBranch = append(mostNestedIfThenElse.FalseBranch, falseBranch)
 			mostNestedIfThenElse = falseBranch
 		}
