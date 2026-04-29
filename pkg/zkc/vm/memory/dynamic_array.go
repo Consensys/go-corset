@@ -60,7 +60,7 @@ func (p *DynamicArray[W]) Read(address []W) []W {
 		values = p.data[start:n]
 	}
 	// done
-	return array.BackPad(values, uint(start-end), zero)
+	return array.BackPad(values, uint(end-start), zero)
 }
 
 // FrameRead implementation for Memory interface.
