@@ -884,8 +884,7 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 
 	for p.lookahead().Kind != RCURLY {
 		lookahead := p.lookahead()
-		branchReturns, branch, errs = p.parseSwitchBranch(env)
-		if len(errs) > 0 {
+		if branchReturns, branch, errs = p.parseSwitchBranch(env); len(errs) > 0 {
 			return false, nil, errs
 		}
 
