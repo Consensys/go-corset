@@ -29,13 +29,13 @@ import (
 // to fixed tables used within the program (e.g. in a hash function such as
 // BLAKE or KECCAK, there are fixed lookup tables used as part of the program).
 type ReadOnly[W word.Word[W]] struct {
-	Array[W]
+	StaticArray[W]
 }
 
 // NewReadOnly constructs a new read-only memory initialised with a given set of values.
 func NewReadOnly[W word.Word[W]](name string, registers []register.Register, init ...W) *ReadOnly[W] {
 	return &ReadOnly[W]{
-		newArray[W](name, registers, init...),
+		newStaticArray[W](name, registers, init...),
 	}
 }
 
