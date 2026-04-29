@@ -10,30 +10,30 @@ fn main() {
 
   // no match
   switch discr {
-    case 13: { }
+    case 13: { fail }
   }
   switch discr {
-    case 13: { }
+    case 13: { fail }
     default: {}
   }
 
   // no match
   switch discr {
-    case 13, 33: { }
+    case 13, 33: { fail }
   }
   switch discr {
-    case 13, 33: { }
+    case 13, 33: { fail }
     default: {}
   }
 
   // no match
   switch discr {
-    case 13: { }
-    case 33: { }
+    case 13: { fail }
+    case 33: { fail }
   }
   switch discr {
-    default: {}
-    case 13: { }
+    default: { fail}
+    case 13: { fail }
     case 65535: { }
   }
 
