@@ -696,6 +696,7 @@ func (p *TypeChecker) typeArray(id variable.Id, arg expr.Resolved, env VariableM
 	// Check argument is unsigned integers and well-formed
 	arg_t, errs := p.typeExpression(nil, arg, variable.ArrayMap[symbol.Resolved](), effects)
 	arg_t_ok := wellFormed(arg_t, p.env)
+
 	errors = append(errors, errs...)
 
 	//
@@ -829,6 +830,7 @@ func (p *TypeChecker) checkFixedArrayBounds(
 		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant expression")
 	}
 	// Resolve Size from SizeName
+	resolved := false
 	if fixedArray.SizeName != "" {
 		for _, d := range p.program.Components() {
 			if c, ok := d.(*decl.ResolvedConstant); ok && c.Name() == fixedArray.SizeName {
@@ -836,11 +838,15 @@ func (p *TypeChecker) checkFixedArrayBounds(
 				if ko != "" {
 					return p.srcmaps.SyntaxErrors(arg, "array size must be a constant expression")
 				}
-
+				resolved = true
 				fixedArray.Size = uint(valSize.Uint64())
 
 				break
 			}
+		}
+		if !resolved {
+			return p.srcmaps.SyntaxErrors(arg,
+				fmt.Sprintf("unknown constant %s used as array size", fixedArray.SizeName))
 		}
 	}
 
