@@ -518,21 +518,11 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 			size = resolved
 		}
 
-		switch d := t.DataType.(type) {
-		case *data.UnsignedInt[symbol.Unresolved]:
-			elem := data.NewUnsignedInt[symbol.Resolved](d.BitWidth(), d.IsOpen())
-
-			return data.NewFixedArray[symbol.Resolved](elem, size), nil
-		case *data.Alias[symbol.Unresolved]:
-			// resolve symbol
-			name, err := p.resolve(d.Name, datatype)
-			//
-			if err != nil {
-				return nil, p.srcmap.SyntaxErrors(datatype, "unknown type alias")
-			}
-
-			return data.NewFixedArray[symbol.Resolved](data.NewAlias[symbol.Resolved](name), size), nil
+		datatype, errs := p.linkType(t.DataType)
+		if errs != nil {
+			return nil, errs
 		}
+		return data.NewFixedArray[symbol.Resolved](datatype, size), nil
 	case *data.Alias[symbol.Unresolved]:
 		// resolve symbol
 		name, err := p.resolve(t.Name, t)
@@ -547,8 +537,6 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	default:
 		return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 	}
-
-	return nil, p.srcmap.SyntaxErrors(datatype, "unknown type encountered")
 }
 
 // resolveConstantSize resolves constant value for use as a
