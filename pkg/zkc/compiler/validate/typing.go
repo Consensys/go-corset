@@ -715,7 +715,14 @@ func (p *TypeChecker) typeArrayAccess(e *expr.ArrayAccess[symbol.Resolved], env 
 	)
 
 	varType := env.Variable(e.Id).DataType
+	if varType == nil {
+		return nil, p.srcmaps.SyntaxErrors(e, "fixed-array has unresolved type")
+	}
+
 	fixedArr := varType.AsFixedArray(p.env)
+	if fixedArr == nil {
+		return nil, p.srcmaps.SyntaxErrors(e, "variable is not a fixed-size array")
+	}
 
 	// check argument is unsigned integers
 	arg_t, errs := p.typeExpression(nil, e.Arg, variable.ArrayMap[symbol.Resolved](), effects)
