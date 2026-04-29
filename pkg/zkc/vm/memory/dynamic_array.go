@@ -14,7 +14,6 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
@@ -38,33 +37,8 @@ func newDynamicArray[W word.Word[W]](name string, registers []register.Register,
 	return DynamicArray[W]{StaticArray[W]{geometry, name, init}}
 }
 
-// Read implementation for Memory interface.
-func (p *DynamicArray[W]) Read(address []W) []W {
-	var (
-		n          = uint64(len(p.data))
-		start, end = p.geometry.Decode(address)
-	)
-	// Check for out-of-bounds read
-	if end <= n {
-		// In-bounds
-		return p.data[start:end]
-	}
-	// Out-of-bounds case
-	var (
-		zero   W
-		values []W
-	)
-	//
-	if start < n {
-		// Partially out-of-bounds
-		values = p.data[start:n]
-	}
-	// done
-	return array.BackPad(values, uint(end-start), zero)
-}
-
 // FrameRead implementation for Memory interface.
-func (p *DynamicArray[W]) FrameRead(frame []W, address []register.Id, data []register.Id) error {
+func (p *DynamicArray[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	var start, _ = p.geometry.FrameDecode(frame, address)
 	//
 	for i := range data {

@@ -54,15 +54,8 @@ func (p *StaticArray[W]) Geometry() Geometry[W] {
 	return p.geometry
 }
 
-// Read implementation for Memory interface.
-func (p *StaticArray[W]) Read(address []W) []W {
-	var start, end = p.geometry.Decode(address)
-	//
-	return p.data[start:end]
-}
-
 // FrameRead implementation for Memory interface.
-func (p *StaticArray[W]) FrameRead(frame []W, address []register.Id, data []register.Id) error {
+func (p *StaticArray[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	var start, _ = p.geometry.FrameDecode(frame, address)
 	//
 	for i := range data {
@@ -73,7 +66,7 @@ func (p *StaticArray[W]) FrameRead(frame []W, address []register.Id, data []regi
 }
 
 // FrameWrite implementation for Memory interface.
-func (p *StaticArray[W]) FrameWrite(frame []W, address []register.Id, data []register.Id) error {
+func (p *StaticArray[W]) Write(frame []W, address []register.Id, data []register.Id) error {
 	var (
 		n          = uint64(len(p.data))
 		start, end = p.geometry.FrameDecode(frame, address)
@@ -90,22 +83,6 @@ func (p *StaticArray[W]) FrameWrite(frame []W, address []register.Id, data []reg
 	}
 	//
 	return nil
-}
-
-// Write implementation for Memory interface.
-func (p *StaticArray[W]) Write(address []W, data []W) {
-	var (
-		n          = uint64(len(p.data))
-		start, end = p.geometry.Decode(address)
-	)
-	// expand memory if needed
-	if n <= end {
-		ndata := make([]W, end)
-		copy(ndata, p.data)
-		p.data = ndata
-	}
-	//
-	copy(p.data[start:end], data)
 }
 
 // Contents implementation for Memory interface.

@@ -29,21 +29,16 @@ type Memory[W word.Word[W]] interface {
 	// Initialise this memory with the given contents.  This will overwrite any
 	// existing contents.
 	Initialise(contents []W)
-	// Read a given data-tuple from a given address-tuple.
-	Read(address []W) []W
-	// Write a given data-tuple to a given address-tuple, overwriting the
-	// previous value stored at that address.
-	Write(address []W, value []W)
-	// Read (indirect) a given data-tuple from a given address-tuple.  The key
-	// difference from Read() is that the address tuple is formed from the
-	// "frame" (i.e. the register-file) using the given register identifiers
-	// and, likewise, the target registers are given in data.
-	FrameRead(frame []W, address []register.Id, data []register.Id) error
-	// Write (indirect) a given data-tuple at a given address-tuple.  The key
-	// difference from Write() is that the address tuple is formed from the
-	// "frame" (i.e. the register-file) using the given register identifiers
-	// and, likewise, the source registers are given in data.
-	FrameWrite(frame []W, address []register.Id, data []register.Id) error
+	// Read (indirect) a given data-tuple from a given address-tuple. The
+	// address tuple is formed from the "frame" (i.e. the register-file) using
+	// the given register identifiers and, likewise, the target registers are
+	// given in data.
+	Read(frame []W, address []register.Id, data []register.Id) error
+	// Write (indirect) a given data-tuple at a given address-tuple.  The
+	// address tuple is formed from the "frame" (i.e. the register-file) using
+	// the given register identifiers and, likewise, the source registers are
+	// given in data.
+	Write(frame []W, address []register.Id, data []register.Id) error
 	// Return the contents of this memory as a sequence of words, where all rows
 	// are simply appended together.
 	Contents() []W
