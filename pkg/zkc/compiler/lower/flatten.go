@@ -40,15 +40,15 @@ func FlattenFixedArrays(program ast.Program, srcmaps source.Maps[any]) {
 
 	for _, d := range program.Components() {
 		if fn, ok := d.(*decl.ResolvedFunction); ok {
-		    mapping  := make([]varMapping, len(fn.Variables))
+			mapping := make([]varMapping, len(fn.Variables))
 
-			// Expand fixed-size array variables into scalars and whole-array assignments into element-wise assignments
+			// Expand for variables and assignments
 			expandedVars, expandedCode, hasArray := expandFixedArrays(fn, mapping, env)
 			// If no fixed-size array variables were found, skip the rewrite
 			if !hasArray {
 				continue
 			}
-			
+
 			// Rewrite the expanded code to replace array accesses with scalar references
 			rewrittenCode := rewriteFixedArrays(expandedCode, mapping, program.Components(), env)
 
@@ -70,11 +70,15 @@ type varMapping struct {
 	size    uint
 }
 
-// expandFixedArrays expands fixed-size array variables in a single function into
-// scalars and expands whole-array assignment statements into element-wise
-// scalar assignments.
-func expandFixedArrays(fn *decl.ResolvedFunction, mapping []varMapping, env data.ResolvedEnvironment) (expandedVars []variable.ResolvedDescriptor, expandedCode []stmt.Resolved, hasArray bool) {
-
+// expandFixedArrays expands fixed-size array variables into
+// scalars, expands whole-array assignment statements into element-wise array
+// access assignments, and expands bare array arguments in ExternAccess calls
+// into individual indexed accesses (e.g. sum(items) becomes
+// sum(items[0], items[1], items[2])).  All expanded nodes use the original
+// variable IDs so that the subsequent rewriting phase can remap them.
+func expandFixedArrays(
+	fn *decl.ResolvedFunction, mapping []varMapping, env data.ResolvedEnvironment,
+) (expandedVars []variable.ResolvedDescriptor, expandedCode []stmt.Resolved, hasArray bool) {
 	for oldID, v := range fn.Variables {
 		switch vType := v.DataType.(type) {
 		case *data.ResolvedFixedArray:
@@ -99,10 +103,23 @@ func expandFixedArrays(fn *decl.ResolvedFunction, mapping []varMapping, env data
 	}
 
 	for _, s := range fn.Code {
-		if a, ok := s.(*stmt.Assign[symbol.Resolved]); ok {
-			if expanded := expandWholeArrayAssign(a, mapping); expanded != nil {
+		switch s := s.(type) {
+		case *stmt.Assign[symbol.Resolved]:
+			if expanded := expandWholeArrayAssign(s, mapping); expanded != nil {
 				expandedCode = append(expandedCode, expanded...)
 				continue
+			}
+
+			for i, lv := range s.Targets {
+				s.Targets[i] = expandLValArrayArgs(lv, mapping)
+			}
+
+			s.Source = expandExprArrayArgs(s.Source, mapping)
+		case *stmt.IfGoto[symbol.Resolved]:
+			expandCondArrayArgs(s.Cond, mapping)
+		case *stmt.Printf[symbol.Resolved]:
+			for i, arg := range s.Arguments {
+				s.Arguments[i] = expandExprArrayArgs(arg, mapping)
 			}
 		}
 
@@ -112,7 +129,131 @@ func expandFixedArrays(fn *decl.ResolvedFunction, mapping []varMapping, env data
 	return
 }
 
-func rewriteFixedArrays(expandedCode []stmt.Resolved, mapping []varMapping, declarations []codegen.Declaration, env data.ResolvedEnvironment) (newCode []stmt.Resolved) {
+func expandExprArrayArgs(e expr.Resolved, mapping []varMapping) expr.Resolved {
+	switch e := e.(type) {
+	case *expr.ExternAccess[symbol.Resolved]:
+		e.Args = expandArrayArgs(e.Args, mapping)
+		return e
+	case *expr.Add[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Sub[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Mul[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Div[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Rem[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Shl[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Shr[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.BitwiseAnd[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.BitwiseOr[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Xor[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.BitwiseNot[symbol.Resolved]:
+		e.Expr = expandExprArrayArgs(e.Expr, mapping)
+		return e
+	case *expr.LogicalAnd[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.LogicalOr[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.LogicalNot[symbol.Resolved]:
+		e.Expr = expandExprArrayArgs(e.Expr, mapping)
+		return e
+	case *expr.Cast[symbol.Resolved]:
+		e.Expr = expandExprArrayArgs(e.Expr, mapping)
+		return e
+	case *expr.Concat[symbol.Resolved]:
+		expandExprSliceArrayArgs(e.Exprs, mapping)
+		return e
+	case *expr.Cmp[symbol.Resolved]:
+		e.Left = expandExprArrayArgs(e.Left, mapping)
+		e.Right = expandExprArrayArgs(e.Right, mapping)
+
+		return e
+	case *expr.Ternary[symbol.Resolved]:
+		e.Cond = expandExprArrayArgs(e.Cond, mapping)
+		e.IfTrue = expandExprArrayArgs(e.IfTrue, mapping)
+		e.IfFalse = expandExprArrayArgs(e.IfFalse, mapping)
+
+		return e
+	default:
+		return e
+	}
+}
+
+func expandExprSliceArrayArgs(exprs []expr.Resolved, mapping []varMapping) {
+	for i, e := range exprs {
+		exprs[i] = expandExprArrayArgs(e, mapping)
+	}
+}
+
+func expandCondArrayArgs(c expr.ResolvedCondition, mapping []varMapping) {
+	if cmp, ok := c.(*expr.Cmp[symbol.Resolved]); ok {
+		cmp.Left = expandExprArrayArgs(cmp.Left, mapping)
+		cmp.Right = expandExprArrayArgs(cmp.Right, mapping)
+	}
+}
+
+func expandLValArrayArgs(l lval.Resolved, mapping []varMapping) lval.Resolved {
+	switch l := l.(type) {
+	case *lval.MemAccess[symbol.Resolved]:
+		expandExprSliceArrayArgs(l.Args, mapping)
+		return l
+	default:
+		return l
+	}
+}
+
+// expandArrayArgs expands bare array variable arguments into individual
+// ArrayAccess expressions using the original variable IDs.
+func expandArrayArgs(args []expr.Resolved, mapping []varMapping) []expr.Resolved {
+	var result []expr.Resolved
+
+	for _, arg := range args {
+		if la, ok := arg.(*expr.LocalAccess[symbol.Resolved]); ok {
+			m := mapping[la.Variable]
+			if m.isArray {
+				for i := range m.size {
+					idx := *big.NewInt(int64(i))
+					access := &expr.ArrayAccess[symbol.Resolved]{
+						Id:       la.Variable,
+						Arg:      expr.NewConstant[symbol.Resolved](idx, 10),
+						Datatype: la.Type(),
+					}
+					result = append(result, access)
+				}
+
+				continue
+			}
+		}
+
+		result = append(result, expandExprArrayArgs(arg, mapping))
+	}
+
+	return result
+}
+
+func rewriteFixedArrays(
+	expandedCode []stmt.Resolved, mapping []varMapping,
+	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+) (newCode []stmt.Resolved) {
 	for _, s := range expandedCode {
 		newCode = append(newCode, rewriteFixedArrayStmt(s, mapping, declarations, env))
 	}
@@ -308,7 +449,7 @@ func rewriteFixedArrayExpr(
 
 		return e
 	case *expr.ExternAccess[symbol.Resolved]:
-		e.Args = expandFixedArrayArgs(e.Args, mapping, declarations, env)
+		rewriteFixedArrayExprs(e.Args, mapping, declarations, env)
 		return e
 	case *expr.Const[symbol.Resolved]:
 		return e
@@ -325,37 +466,6 @@ func rewriteFixedArrayExprs(
 		exprs[i] = rewriteFixedArrayExpr(e, mapping, declarations, env)
 	}
 }
-
-// expandFixedArrayArgs rewrites a slice of expressions, expanding any bare
-// LocalAccess to an array variable into one LocalAccess per element.  This
-// handles the case where an entire fixed-size array is passed as a function
-// argument (e.g. sum(items) becomes sum(items$0, items$1, items$2)).
-func expandFixedArrayArgs(
-	args []expr.Resolved, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
-) []expr.Resolved {
-	var result []expr.Resolved
-
-	for _, arg := range args {
-		if la, ok := arg.(*expr.LocalAccess[symbol.Resolved]); ok {
-			m := mapping[la.Variable]
-			if m.isArray {
-				for i := uint(0); i < m.size; i++ {
-					expanded := &expr.LocalAccess[symbol.Resolved]{Variable: m.newBase + i}
-					expanded.SetType(la.Type())
-					result = append(result, expanded)
-				}
-
-				continue
-			}
-		}
-
-		result = append(result, rewriteFixedArrayExpr(arg, mapping, declarations, env))
-	}
-
-	return result
-}
-
 
 func rewriteFixedArrayCondition(
 	c expr.ResolvedCondition, mapping []varMapping,

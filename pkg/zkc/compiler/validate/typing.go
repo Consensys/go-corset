@@ -446,7 +446,7 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	case *expr.LocalAccess[symbol.Resolved]:
 		actual, errs = p.typeLocalAccess(e, env)
 	case *expr.ArrayAccess[symbol.Resolved]:
-		actual, errs = p.typeArray(e.Id, e.Arg, env, bit.Set{})
+		actual, errs = p.typeArray(e.Id, e.Arg, env, effects)
 	case *expr.Mul[symbol.Resolved]:
 		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
