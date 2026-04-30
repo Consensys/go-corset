@@ -881,6 +881,7 @@ func (p *TypeChecker) checkFaAndResolve(d data.Type[symbol.Resolved], node any) 
 	if ok {
 		return p.resolveFixedArraySize(fa, node)
 	}
+
 	return nil
 }
 
