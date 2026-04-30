@@ -32,6 +32,8 @@ type SystemMap[W any] interface {
 
 // Instruction provides an abstract notion of a "machine instruction".  That is, a single atomic unit which can be
 type Instruction[W any] interface {
+	// OpCode returns the opcode for this instruction.
+	OpCode() OpCode
 	// Uses returns the set of variables used (i.e. read) by this instruction.
 	Uses() []register.Id
 	// Definitions returns the set of variables registers defined (i.e. written)

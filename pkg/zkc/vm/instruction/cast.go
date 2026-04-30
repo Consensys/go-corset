@@ -41,6 +41,11 @@ func NewCast[W word.Word[W]](target register.Id, source register.Id, width uint)
 	return &Cast[W]{target, source, width}
 }
 
+// OpCode implementation for Instruction interface
+func (p *Cast[W]) OpCode() OpCode {
+	return CAST
+}
+
 // Uses implementation for Instruction interface.
 func (p *Cast[W]) Uses() []register.Id {
 	return []register.Id{p.Source}

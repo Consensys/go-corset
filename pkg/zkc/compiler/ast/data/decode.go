@@ -70,6 +70,8 @@ func decodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, reader *bit
 	switch datatype.(type) {
 	case *UnsignedInt[S], *Alias[S]:
 		return decodeUnsignedInt(bitwidth, reader, buffer)
+	case *FieldElement[S]:
+		panic(fmt.Sprintf("field element type cannot be decoded from bytes: %s", datatype.String(env)))
 	default:
 		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String(env)))
 	}

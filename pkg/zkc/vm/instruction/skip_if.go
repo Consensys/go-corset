@@ -58,6 +58,11 @@ func NewSkipIf[W any](condition Condition, left, right register.Id, skip uint) *
 	return &SkipIf[W]{condition, left, right, skip}
 }
 
+// OpCode implementation for Instruction interface
+func (p *SkipIf[W]) OpCode() OpCode {
+	return SKIP_IF
+}
+
 // Uses implementation for Instruction interface
 func (p *SkipIf[W]) Uses() []register.Id {
 	var regs []io.RegisterId

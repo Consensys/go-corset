@@ -29,6 +29,8 @@ type Type[S symbol.Symbol[S]] interface {
 	AsTuple(Environment[S]) *Tuple[S]
 	// AsAlias determines whether or not this is an alias.
 	AsAlias(Environment[S]) *Alias[S]
+	// AsField determines whether or not this is a field element.
+	AsField(Environment[S]) *FieldElement[S]
 	// String returns a string representation of this type.
 	String(Environment[S]) string
 }

@@ -137,7 +137,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 		Vectorize(modules, p.srcmaps)
 	}
 	// Construct machine
-	return machine.New(modules...), errors
+	return machine.New(p.config.field, modules...), errors
 }
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
@@ -147,7 +147,7 @@ func (p *Compiler) compileStaticInitialisers(components []Declaration, contents 
 	//
 	var (
 		words    = make([]word.Uint, len(contents))
-		compiler = StmtCompiler{components, nil, nil, p.env, p.srcmaps, nil}
+		compiler = StmtCompiler{components, nil, nil, p.env, p.config.field, p.srcmaps, nil}
 	)
 	//
 	for i, v := range contents {
@@ -186,12 +186,12 @@ func (p *Compiler) compileFunction(
 			panic(fmt.Sprintf("unexpected variable kind %d", v.Kind))
 		}
 
-		data.Flattern(v.DataType, v.Name, p.env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, p.env, func(name string, bitwidth uint) {
 			registers = append(registers, register.New(kind, name, bitwidth, padding))
 		})
 	}
 	//
-	compiler := StmtCompiler{program, fn.Variables, registers, p.env, p.srcmaps, nil}
+	compiler := StmtCompiler{program, fn.Variables, registers, p.env, p.config.field, p.srcmaps, nil}
 	//
 	for i, stmt := range fn.Code {
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
@@ -208,13 +208,13 @@ func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor,
 	)
 	// Flattern address lines
 	for _, v := range address {
-		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewInput(name, bitwidth, padding))
 		})
 	}
 	// Flattern data lines
 	for _, v := range datas {
-		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewOutput(name, bitwidth, padding))
 		})
 	}

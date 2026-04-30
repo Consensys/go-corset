@@ -43,6 +43,11 @@ func NewDestruct[W word.Word[W]](targets []register.Id, source register.Id) *Des
 	return &Destruct[W]{targets, source}
 }
 
+// OpCode implementation for Instruction interface
+func (p *Destruct[W]) OpCode() OpCode {
+	return BIT_DESTRUCT
+}
+
 // Uses implementation for Instruction interface
 func (p *Destruct[W]) Uses() []register.Id {
 	return []register.Id{p.Source}

@@ -77,6 +77,8 @@ type Vector[W word.Word[W]] struct {
 // instructions which are not valid micro-instructions and, likewise,
 // micro-instructions which are not valid instructions.
 type MicroInstruction[W word.Word[W]] interface {
+	// OpCode returns the opcode for this instruction.
+	OpCode() OpCode
 	// Uses returns the set of variables used (i.e. read) by this instruction.
 	Uses() []register.Id
 	// Definitions returns the set of variables registers defined (i.e. written)
@@ -97,6 +99,11 @@ func NewVector[W word.Word[W], I MicroInstruction[W]](insns ...I) *Vector[W] {
 	array := array.Map(insns, func(_ uint, insn I) MicroInstruction[W] { return insn })
 	//
 	return &Vector[W]{array}
+}
+
+// OpCode implementation for Instruction interface
+func (p *Vector[W]) OpCode() OpCode {
+	return VECTOR
 }
 
 // Uses implementation for Instruction interface
@@ -205,13 +212,15 @@ func writeDfaTransfer[W word.Word[W]](offset uint, code MicroInstruction[W], sta
 	//
 	var arcs []dfa.Transfer[dfa.Writes]
 	//
-	switch code := code.(type) {
-	case *Fail[W], *Return[W], *Jmp[W]:
+	switch code.OpCode() {
+	case FAIL, RETURN, JUMP:
 		return nil
-	case *Skip[W]:
+	case SKIP:
+		code := code.(*Skip[W])
 		// join into branch target
 		return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
-	case *SkipIf[W]:
+	case SKIP_IF:
+		code := code.(*SkipIf[W])
 		// join into branch target
 		arcs = append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
 		// fall through

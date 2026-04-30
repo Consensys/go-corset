@@ -33,10 +33,8 @@ func NewAlias[I symbol.Symbol[I]](name I) *Alias[I] {
 
 // AsUint implementation for Type interface
 func (p *Alias[I]) AsUint(env Environment[I]) *UnsignedInt[I] {
-	var t Type[I]
-
-	t = p
-
+	var t Type[I] = p
+	//
 	for t.AsAlias(env) != nil {
 		// cast type to Alias to resolve
 		a, _ := t.(*Alias[I])
@@ -44,7 +42,7 @@ func (p *Alias[I]) AsUint(env Environment[I]) *UnsignedInt[I] {
 		// back to Type
 		t = r
 	}
-
+	//
 	return t.AsUint(env)
 }
 
@@ -56,6 +54,21 @@ func (p *Alias[I]) AsTuple(Environment[I]) *Tuple[I] {
 // AsAlias implementation for Type interface
 func (p *Alias[I]) AsAlias(Environment[I]) *Alias[I] {
 	return p
+}
+
+// AsField implementation for Type interface
+func (p *Alias[I]) AsField(env Environment[I]) *FieldElement[I] {
+	var t Type[I] = p
+	//
+	for t.AsAlias(env) != nil {
+		// cast type to Alias to resolve
+		a, _ := t.(*Alias[I])
+		r := a.Resolve(env)
+		// back to Type
+		t = r
+	}
+	//
+	return t.AsField(env)
 }
 
 func (p *Alias[I]) String(Environment[I]) string {

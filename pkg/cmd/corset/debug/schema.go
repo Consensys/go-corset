@@ -14,7 +14,6 @@ package debug
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/consensys/go-corset/pkg/asm"
 	"github.com/consensys/go-corset/pkg/asm/io"
@@ -134,10 +133,10 @@ func printRegisters[F any](module schema.Module[F], prefix string, filter func(r
 		//
 		for _, r := range module.Registers() {
 			if filter(r) {
-				if r.Width() != math.MaxUint {
-					regT = fmt.Sprintf("u%d", r.Width())
-				} else {
+				if r.IsNative() {
 					regT = "𝔽"
+				} else {
+					regT = fmt.Sprintf("u%d", r.Width())
 				}
 				// construct name string whilst applying quotes when necessary.
 				name := sexp.NewSymbol(r.Name()).String(true)

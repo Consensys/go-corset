@@ -164,7 +164,7 @@ func prepareCode[W word.Word[W]](
 		}
 		// Append fall-through Jmp if the vector doesn't already terminate.
 		if !endsInTerminator(codes) && uint(pc)+1 < n {
-			codes = append(codes, &instruction.Jmp[W]{Target: uint(pc) + 1})
+			codes = append(codes, instruction.NewJmp[W](uint(pc)+1))
 		}
 		//
 		prepared[pc] = &instruction.Vector[W]{Codes: codes}
@@ -180,8 +180,8 @@ func endsInTerminator[W word.Word[W]](codes []instruction.MicroInstruction[W]) b
 		return false
 	}
 	//
-	switch codes[len(codes)-1].(type) {
-	case *instruction.Jmp[W], *instruction.Return[W], *instruction.Fail[W]:
+	switch codes[len(codes)-1].OpCode() {
+	case instruction.JUMP, instruction.RETURN, instruction.FAIL:
 		return true
 	}
 	//
@@ -209,12 +209,12 @@ func vectorizeInstruction[W word.Word[W]](
 		index, ok := lastJump(vec.Codes, uint(len(vec.Codes)))
 		// Try the right-most non-conflicting jump.
 		for ok {
-			jmp := vec.Codes[index].(*instruction.Jmp[W])
+			jmpTarget := vec.Codes[index].(*instruction.Jmp[W]).Immediate
 			// Skip back-edges into ourselves and absorbs that would shift
 			// backwards (which would otherwise unfold a loop).
-			if offset := externs[jmp.Target]; offset > index && jmp.Target != pc {
+			if offset := externs[jmpTarget]; offset > index && jmpTarget != pc {
 				var (
-					target = code[jmp.Target]
+					target = code[jmpTarget]
 					nvec   *instruction.Vector[W]
 				)
 				//
@@ -230,7 +230,7 @@ func vectorizeInstruction[W word.Word[W]](
 				// Accept the merge only if it stays valid.
 				if validateConflicts(nvec, mapping) == nil {
 					if offset == math.MaxUint {
-						updateMicroMap(externs, index, jmp.Target, uint(len(target.Codes)))
+						updateMicroMap(externs, index, jmpTarget, uint(len(target.Codes)))
 					}
 					//
 					vec = nvec
@@ -253,7 +253,7 @@ func lastJump[W word.Word[W]](codes []instruction.MicroInstruction[W], n uint) (
 	for i := n; i > 0; {
 		i--
 		//
-		if _, ok := codes[i].(*instruction.Jmp[W]); ok {
+		if codes[i].OpCode() == instruction.JUMP {
 			return i, true
 		}
 	}
@@ -273,11 +273,11 @@ func markJumpTargets[W word.Word[W]](
 	//
 	index, found := lastJump(vec.Codes, uint(len(vec.Codes)))
 	for found {
-		jmp := vec.Codes[index].(*instruction.Jmp[W])
+		target := vec.Codes[index].(*instruction.Jmp[W]).Immediate
 		//
-		if !visited[jmp.Target] {
-			visited[jmp.Target] = true
-			worklist.Push(jmp.Target)
+		if !visited[target] {
+			visited[target] = true
+			worklist.Push(target)
 		}
 		//
 		index, found = lastJump(vec.Codes, index)
@@ -400,8 +400,11 @@ func pruneUnreachableInstructions[W word.Word[W]](
 		vec := insn.(*instruction.Vector[W])
 		//
 		for i, code := range vec.Codes {
-			if jmp, ok := code.(*instruction.Jmp[W]); ok {
-				vec.Codes[i] = &instruction.Jmp[W]{Target: mapping[jmp.Target]}
+			if code.OpCode() == instruction.JUMP {
+				// Determine original jump target
+				var jmpTarget = code.(*instruction.Jmp[W]).Immediate
+				// construct replacement jump
+				vec.Codes[i] = instruction.NewJmp[W](mapping[jmpTarget])
 			}
 		}
 	}
