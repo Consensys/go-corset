@@ -1,17 +1,17 @@
-{ "ins": "0x00", "outs": "0x00", "nodes_val": "0x", "nodes_left": "0xff", "nodes_right": "0xff" }
-{ "ins": "0x01_00", "outs": "0x03_01_23_e0", "nodes_val": "0x00", "nodes_left": "0xff", "nodes_right": "0xff" }
+{ "ins": "0x00", "outs": "0x00", "nodes": "0x" }
+{ "ins": "0x01_00", "outs": "0x03_01_23_e0", "nodes": "0x00ffff" }
 ;;
 ;;   00
 ;;     \
 ;;      ab
 ;;
-{ "ins": "0x02_00_ab", "outs": "0x03_01_88_ac", "nodes_val": "0x00_ab", "nodes_left": "0xff_ff", "nodes_right": "0x01_ff" }
+{ "ins": "0x02_00_ab", "outs": "0x03_01_88_ac", "nodes": "0x00ff01_abffff" }
 ;;
 ;;   0a
 ;;  /  \
 ;; 01  ab
 ;;
-{ "ins": "0x03_01_ab_0a", "outs": "0x09_00_02_03_04_05_06_07_08_09", "nodes_val": "0x0a_ab_01", "nodes_left": "0x02_ff_ff", "nodes_right": "0x01_ff_ff" }
+{ "ins": "0x03_01_ab_0a", "outs": "0x09_00_02_03_04_05_06_07_08_09", "nodes": "0x0a0201_abffff_01ffff" }
 ;;
 ;;     0a
 ;;    /  \
@@ -19,4 +19,4 @@
 ;;  /  \
 ;; 01  08
 ;;
-{ "ins": "0x05_01_ab_0a_05_08", "outs": "0x0a_00_02_03_04_06_07_09_0b_aa_ac", "nodes_val": "0x0a_ab_05_01_08", "nodes_left": "0x02_ff_03_ff_ff", "nodes_right": "0x01_ff_04_ff_ff" }
+{ "ins": "0x05_01_ab_0a_05_08", "outs": "0x0a_00_02_03_04_06_07_09_0b_aa_ac", "nodes": "0x0a0201_abffff_050304_01ffff_08ffff" }
