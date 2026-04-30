@@ -187,8 +187,8 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 			errors = append(errors, rhsErrs...)
 		} else {
 			// resolve fixed-array size in whole assignments
-			p.checkFaAndResolve(lval_t, lval)
-			p.checkFaAndResolve(rhs_t, rhs)
+			errors = append(errors, p.checkFaAndResolve(lval_t, lval)...)
+			errors = append(errors, p.checkFaAndResolve(rhs_t, rhs)...)
 			errors = append(errors, p.checkEquiTypes(rhs_t, lval_t, rhs)...)
 		}
 	}
@@ -798,7 +798,7 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 		// Subtype check (if no other errors)
 		if len(errs) == 0 {
 			// resolve fixed-array size in function arguments
-			p.checkFaAndResolve(ith, arg)
+			errors = append(errors, p.checkFaAndResolve(ith, arg)...)
 			errors = append(errors, p.checkEquiTypes(ith_t, ith, e.Args[i])...)
 		}
 	}
@@ -876,11 +876,12 @@ func (p *TypeChecker) resolveFixedArraySize(fixedArray *data.ResolvedFixedArray,
 	return nil
 }
 
-func (p *TypeChecker) checkFaAndResolve(d data.Type[symbol.Resolved], node any) {
+func (p *TypeChecker) checkFaAndResolve(d data.Type[symbol.Resolved], node any) []source.SyntaxError {
 	fa, ok := d.(*data.ResolvedFixedArray)
 	if ok {
-		p.resolveFixedArraySize(fa, node)
+		return p.resolveFixedArraySize(fa, node)
 	}
+	return nil
 }
 
 // For two expressions "e1", "e2" where "e1 : T1" and "e2 : T2" under the given
