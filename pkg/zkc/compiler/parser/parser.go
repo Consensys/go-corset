@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
@@ -865,8 +864,6 @@ func (p *Parser) parseAssignment(env Environment) (stmt.Unresolved, []source.Syn
 	if lhs, errs = p.parseLVals(env); len(errs) > 0 {
 		return nil, errs
 	}
-	// Reverse items so that least significant comes first.
-	lhs = array.Reverse(lhs)
 	// Parse '='
 	if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs

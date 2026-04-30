@@ -43,15 +43,15 @@ func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environme
 		buffer []byte
 	)
 	// Decode array into
-	values, _ := bit.DecodeArray[[]big.Int](bitwidth, bytes, func(bytes []byte) (ints []big.Int) {
+	values, _ := bit.DecodeArray(bitwidth, bytes, func(bytes []byte) (ints []big.Int) {
 		var reader = bit.NewReader(bytes)
 		// Decode the type using the given buffer
-		ints, buffer = decodeType(datatype, bitwidth, &reader, buffer, env)
+		ints, buffer = decodeType(datatype, &reader, buffer, env)
 		// Done
 		return ints
 	})
 	// Flattern decoded tuples
-	return array.FlatMap[[]big.Int, word.Uint](values, func(ints []big.Int) []word.Uint {
+	return array.FlatMap(values, func(ints []big.Int) []word.Uint {
 		var words = make([]word.Uint, len(ints))
 		//
 		for i, v := range ints {
@@ -64,17 +64,39 @@ func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environme
 	})
 }
 
-func decodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, reader *bit.Reader, buffer []byte,
+func decodeType[S symbol.Symbol[S]](datatype Type[S], reader *bit.Reader, buffer []byte,
 	env Environment[S]) ([]big.Int, []byte) {
 	//
-	switch datatype.(type) {
-	case *UnsignedInt[S], *Alias[S]:
-		return decodeUnsignedInt(bitwidth, reader, buffer)
+	switch dt := datatype.(type) {
+	case *Alias[S]:
+		return decodeType(dt.Resolve(env), reader, buffer, env)
 	case *FieldElement[S]:
 		panic(fmt.Sprintf("field element type cannot be decoded from bytes: %s", datatype.String(env)))
+	case *UnsignedInt[S]:
+		return decodeUnsignedInt(dt.bitwidth, reader, buffer)
+	case *Tuple[S]:
+		return decodeTuple(dt.elements, reader, buffer, env)
 	default:
 		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String(env)))
 	}
+}
+
+func decodeTuple[S symbol.Symbol[S]](types []Type[S], reader *bit.Reader, buffer []byte,
+	env Environment[S]) ([]big.Int, []byte) {
+	//
+	var (
+		vals []big.Int
+	)
+	//
+	for _, t := range types {
+		var vs []big.Int
+		//
+		vs, buffer = decodeType(t, reader, buffer, env)
+		//
+		vals = append(vals, vs...)
+	}
+	//
+	return vals, buffer
 }
 
 func decodeUnsignedInt(bitwidth uint, reader *bit.Reader, buffer []byte) ([]big.Int, []byte) {

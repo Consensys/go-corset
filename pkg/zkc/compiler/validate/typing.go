@@ -158,15 +158,11 @@ func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
 func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env VariableMap, effects bit.Set,
 ) []source.SyntaxError {
 	var (
-		errors  []source.SyntaxError
-		sources = []expr.Expr[symbol.Resolved]{s.Source}
+		errors []source.SyntaxError
+		types  = make([]Type, len(s.Targets))
 	)
 	// Sanity check assignment arity
-	if len(s.Targets) != 0 && len(s.Targets) < len(sources) {
-		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("insufficient target variables (expected %d)", len(sources)))
-	} else if len(s.Targets) > len(sources) {
-		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("too many target variables (expected %d)", len(sources)))
-	} else if len(s.Targets) == 0 {
+	if len(s.Targets) == 0 {
 		// Special case for empty targets.  This can only arise for a function
 		// call which does not assign any return values.  This ensures that, in
 		// such case, the source expression is typed.
@@ -174,23 +170,28 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 		//
 		return errors
 	}
-	// Check each in turn
+	// Type check left-hand side
 	for i, lval := range s.Targets {
-		var (
-			rhs             = sources[i]
-			lval_t, lhsErrs = p.typeLval(lval, env, effects)
-			rhs_t, rhsErrs  = p.typeExpression(lval_t, rhs, env, effects)
-		)
-		//
-		if len(lhsErrs) != 0 || len(rhsErrs) != 0 {
-			errors = append(errors, lhsErrs...)
-			errors = append(errors, rhsErrs...)
-		} else {
-			// resolve fixed-array size in whole assignments
-			errors = append(errors, p.checkFaAndResolve(lval_t, lval)...)
-			errors = append(errors, p.checkFaAndResolve(rhs_t, rhs)...)
-			errors = append(errors, p.checkEquiTypes(rhs_t, lval_t, rhs)...)
-		}
+		var lhsErrs []source.SyntaxError
+		// type lval
+		types[i], lhsErrs = p.typeLval(lval, env, effects)
+		// Accumulate lhs errors
+		errors = append(errors, lhsErrs...)
+	}
+	// Type check right-hand side
+	var (
+		// Construct lhs type (potentially as a tuple)
+		lhs_t          = data.FromTypes(types...)
+		rhs_t, rhsErrs = p.typeExpression(lhs_t, s.Source, env, effects)
+	)
+	// Account for rhs errrors
+	errors = append(errors, rhsErrs...)
+	// accumulate errors
+	if wellFormed(lhs_t, p.env) && wellFormed(rhs_t, p.env) {
+		// resolve fixed-array size in whole assignments
+		errors = append(errors, p.checkFaAndResolve(lhs_t, s)...) // FIXME: this is broken
+		errors = append(errors, p.checkFaAndResolve(rhs_t, s.Source)...)
+		errors = append(errors, p.checkEquiTypes(rhs_t, lhs_t, s.Source)...)
 	}
 	//
 	return append(errors, checkTargets(s, env, p.srcmaps)...)
