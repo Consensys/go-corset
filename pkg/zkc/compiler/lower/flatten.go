@@ -230,12 +230,13 @@ func expandArrayArgs(args []expr.Resolved, mapping []varMapping) []expr.Resolved
 		if la, ok := arg.(*expr.LocalAccess[symbol.Resolved]); ok {
 			m := mapping[la.Variable]
 			if m.isArray {
+				arrayType := la.Type().(*data.FixedArray[symbol.Resolved])
 				for i := range m.size {
 					idx := *big.NewInt(int64(i))
 					access := &expr.ArrayAccess[symbol.Resolved]{
 						Id:       la.Variable,
 						Arg:      expr.NewConstant[symbol.Resolved](idx, 10),
-						Datatype: la.Type(),
+						Datatype: arrayType.DataType,
 					}
 					result = append(result, access)
 				}
