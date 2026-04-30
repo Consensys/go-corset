@@ -231,6 +231,7 @@ func expandArrayArgs(args []expr.Resolved, mapping []varMapping) []expr.Resolved
 			m := mapping[la.Variable]
 			if m.isArray {
 				arrayType := la.Type().(*data.FixedArray[symbol.Resolved])
+
 				for i := range m.size {
 					idx := *big.NewInt(int64(i))
 					access := &expr.ArrayAccess[symbol.Resolved]{
