@@ -62,8 +62,16 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	case *FieldElement[S]:
 		_, isField := t2.(*FieldElement[S])
 		return isField
+	case *FixedArray[S]:
+		if t, ok := t2.(*FixedArray[S]); ok {
+			if t1.Size != t.Size {
+				return false
+			}
+
+			return SubtypeOf(t1.DataType, t.DataType, env)
+		}
 	}
-	//
+
 	return false
 }
 
@@ -114,7 +122,15 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	case *FieldElement[S]:
 		_, isField := t2.(*FieldElement[S])
 		return isField
+	case *FixedArray[S]:
+		if t := t2.AsFixedArray(env); t != nil {
+			if t1.Size != t.Size {
+				return false
+			}
+
+			return EquiTypes(t1.DataType, t.DataType, env)
+		}
 	}
-	//
+
 	return false
 }

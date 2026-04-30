@@ -1,0 +1,6 @@
+//error:4:9-10:unknown constant a used as array size
+fn main() {
+  var items:[u8;a]
+  items[0] = 1
+  return
+}

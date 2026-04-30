@@ -351,6 +351,11 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	switch lv := lv.(type) {
 	case *lval.Variable[symbol.Unresolved]:
 		nlval = lval.NewVariable[symbol.Resolved](lv.Ids...)
+	case *lval.Array[symbol.Unresolved]:
+		index, errs1 := p.linkExpr(lv.Arg)
+		nlval = lval.NewArray[symbol.Resolved](lv.Id, index)
+		//
+		errs = append(errs, errs1...)
 	case *lval.MemAccess[symbol.Unresolved]:
 		// resolve symbols in memory name
 		name, errs1 := p.resolve(lv.Name, lv)
@@ -445,6 +450,10 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		inner, errs := p.linkExpr(e.Expr)
 		nexpr = expr.NewLogicalNot[symbol.Resolved](inner)
 		errors = errs
+	case *expr.ArrayAccess[symbol.Unresolved]:
+		// resolve arguments
+		arg, errors = p.linkExpr(e.Arg)
+		nexpr = expr.NewArrayAccess[symbol.Resolved](e.Id, arg)
 	case *expr.Div[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewDiv[symbol.Resolved](args...)
@@ -497,6 +506,13 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	switch t := datatype.(type) {
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
+	case *data.FixedArray[symbol.Unresolved]:
+		datatype, errs := p.linkType(t.DataType)
+		if errs != nil {
+			return nil, errs
+		}
+
+		return data.NewFixedArray[symbol.Resolved](datatype, t.Size, t.SizeName), nil
 	case *data.Alias[symbol.Unresolved]:
 		// resolve symbol
 		name, err := p.resolve(t.Name, t)

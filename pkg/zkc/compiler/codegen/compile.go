@@ -96,7 +96,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 		switch c := c.(type) {
 		case *decl.ResolvedConstant:
 			// force detection of errors
-			_, errs := p.compileStaticInitialisers(declarations, c.ConstExpr)
+			_, errs := p.compileStaticInitialisers(declarations, p.env, p.srcmaps, c.ConstExpr)
 			//
 			errors = append(errors, errs...)
 		case *decl.ResolvedTypeAlias:
@@ -117,7 +117,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				// Compile the static initialiser
-				words, errs := p.compileStaticInitialisers(declarations, c.Contents...)
+				words, errs := p.compileStaticInitialisers(declarations, p.env, p.srcmaps, c.Contents...)
 				//
 				if len(errs) == 0 {
 					// Construct the read-only memory
@@ -142,19 +142,26 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
 // memory declaration into the word.Uint representation required by the VM.
-func (p *Compiler) compileStaticInitialisers(components []Declaration, contents ...expr.Resolved,
+func (p *Compiler) compileStaticInitialisers(
+	components []Declaration, env data.ResolvedEnvironment,
+	srcmaps source.Maps[any], contents ...expr.Resolved,
 ) ([]word.Uint, []source.SyntaxError) {
 	//
 	var (
-		words    = make([]word.Uint, len(contents))
-		compiler = StmtCompiler{components, nil, nil, p.env, p.config.field, p.srcmaps, nil}
+		words  = make([]word.Uint, len(contents))
+		errors []source.SyntaxError
 	)
 	//
 	for i, v := range contents {
-		words[i] = compiler.evalConstant(v, true)
+		var errMsg string
+
+		words[i], errMsg = EvalConstant(v, true, components, env)
+		if errMsg != "" {
+			errors = append(errors, srcmaps.SyntaxErrors(v, errMsg)...)
+		}
 	}
 
-	return words, compiler.errors
+	return words, errors
 }
 
 // Convert a decl.Function instance into a fun.Function instance by flattening

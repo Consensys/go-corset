@@ -74,6 +74,10 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 	lower.Flatten(program, srcmaps)
 	// Well-formedness checks (assuming unlimited field width).
 	errors = append(errors, validateProgram(program, srcmaps)...)
+	// Lower fixed-size arrays into flat local access registers
+	if len(errors) == 0 {
+		lower.FlattenFixedArrays(program, srcmaps)
+	}
 	// Done
 	return program, srcmaps, errors
 }

@@ -183,6 +183,46 @@ func Test_ZkcUnit_Const_04(t *testing.T) {
 }
 
 // ===================================================================
+// Fixed-size array Tests
+// ===================================================================
+
+func Test_ZkcUnit_FixedArray_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_01")
+}
+
+func Test_ZkcUnit_FixedArray_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_02")
+}
+
+func Test_ZkcUnit_FixedArray_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_03")
+}
+
+func Test_ZkcUnit_FixedArray_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_04")
+}
+
+func Test_ZkcUnit_FixedArray_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_05")
+}
+
+func Test_ZkcUnit_FixedArray_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_06")
+}
+
+func Test_ZkcUnit_FixedArray_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_07")
+}
+
+func Test_ZkcUnit_FixedArray_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_08")
+}
+
+func Test_ZkcUnit_FixedArray_09(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_09")
+}
+
+// ===================================================================
 // Type Tests
 // ===================================================================
 

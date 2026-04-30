@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 )
 
 // Stmt is a convenient alias.
@@ -185,7 +186,9 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 			errors = append(errors, lhsErrs...)
 			errors = append(errors, rhsErrs...)
 		} else {
-			//
+			// resolve fixed-array size in whole assignments
+			errors = append(errors, p.checkFaAndResolve(lval_t, lval)...)
+			errors = append(errors, p.checkFaAndResolve(rhs_t, rhs)...)
 			errors = append(errors, p.checkEquiTypes(rhs_t, lval_t, rhs)...)
 		}
 	}
@@ -203,6 +206,8 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		}
 		// Consider destructurings
 		return p.typeDestructuringLval(t, env)
+	case *lval.Array[symbol.Resolved]:
+		return p.typeArray(t.Id, t.Arg, env, effects)
 	case *lval.MemAccess[symbol.Resolved]:
 		// Unknown external access cannot be typed.  This case handles some kind of
 		// linking error earlier in the compilation pipeline.
@@ -441,6 +446,8 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 		actual, errs = p.typeConst(expected, e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
 		actual, errs = p.typeLocalAccess(e, env)
+	case *expr.ArrayAccess[symbol.Resolved]:
+		actual, errs = p.typeArray(e.Id, e.Arg, env, effects)
 	case *expr.Mul[symbol.Resolved]:
 		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
@@ -679,6 +686,37 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 	return env.Variable(e.Variable).DataType, nil
 }
 
+func (p *TypeChecker) typeArray(id variable.Id, arg expr.Resolved, env VariableMap, effects bit.Set,
+) (Type, []source.SyntaxError) {
+	var errors []source.SyntaxError
+
+	varType := env.Variable(id).DataType
+	// Check well-formedness of this variable
+	varType_ok := wellFormed(varType, p.env)
+
+	// Check argument is unsigned integers and well-formed
+	arg_t, errs := p.typeExpression(nil, arg, env, effects)
+	arg_t_ok := wellFormed(arg_t, p.env)
+
+	errors = append(errors, errs...)
+
+	//
+	if !varType_ok {
+		return nil, errors
+	} else if arg_t_ok && arg_t.AsUint(p.env) == nil {
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "expected uint"))
+	} else if varType.AsFixedArray(p.env) == nil {
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "variable is not a fixed-size array"))
+	} else if arg_t_ok {
+		fixedArr := varType.AsFixedArray(p.env)
+		errors = append(errors, p.checkFixedArrayBounds(arg, fixedArr)...)
+
+		return fixedArr.DataType, errors
+	}
+
+	return nil, errors
+}
+
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
 	// Unknown external access cannot be typed.  This case handles some kind of
@@ -759,6 +797,8 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 		errors = append(errors, errs...)
 		// Subtype check (if no other errors)
 		if len(errs) == 0 {
+			// resolve fixed-array size in function arguments
+			errors = append(errors, p.checkFaAndResolve(ith, arg)...)
 			errors = append(errors, p.checkEquiTypes(ith_t, ith, e.Args[i])...)
 		}
 	}
@@ -787,6 +827,64 @@ func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxErro
 	return nil
 }
 
+func (p *TypeChecker) checkFixedArrayBounds(
+	arg expr.Resolved, fixedArray *data.ResolvedFixedArray,
+) []source.SyntaxError {
+	val, errMsg := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
+	if errMsg != "" {
+		return p.srcmaps.SyntaxErrors(arg, errMsg)
+	}
+
+	// Resolve Fixed-array size when define by SizeName
+	if err := p.resolveFixedArraySize(fixedArray, arg); err != nil {
+		return err
+	}
+
+	if val.Uint64() >= uint64(fixedArray.Size) {
+		return p.srcmaps.SyntaxErrors(arg,
+			fmt.Sprintf("index %s out of bounds for array of size %d", val.Text(10), fixedArray.Size))
+	}
+	//
+	return nil
+}
+
+func (p *TypeChecker) resolveFixedArraySize(fixedArray *data.ResolvedFixedArray, node any) []source.SyntaxError {
+	resolved := false
+
+	// Resolve Size from SizeName
+	if fixedArray.SizeName != "" {
+		for _, d := range p.program.Components() {
+			if c, ok := d.(*decl.ResolvedConstant); ok && c.Name() == fixedArray.SizeName {
+				valSize, errMsg := codegen.EvalConstant(c.ConstExpr, false, p.program.Components(), p.env)
+				if errMsg != "" {
+					return p.srcmaps.SyntaxErrors(node, errMsg)
+				}
+
+				resolved = true
+				fixedArray.Size = uint(valSize.Uint64())
+
+				break
+			}
+		}
+
+		if !resolved {
+			return p.srcmaps.SyntaxErrors(node,
+				fmt.Sprintf("unknown constant %s used as array size", fixedArray.SizeName))
+		}
+	}
+
+	return nil
+}
+
+func (p *TypeChecker) checkFaAndResolve(d data.Type[symbol.Resolved], node any) []source.SyntaxError {
+	fa, ok := d.(*data.ResolvedFixedArray)
+	if ok {
+		return p.resolveFixedArraySize(fa, node)
+	}
+
+	return nil
+}
+
 // For two expressions "e1", "e2" where "e1 : T1" and "e2 : T2" under the given
 // environment, check that "T1 ~ T2.  In order to undertake this check safely,
 // it must be the case that both T1 and T2 are "well-formed".  The assumption is
@@ -812,6 +910,8 @@ func wellFormed[S symbol.Symbol[S]](t data.Type[S], env data.Environment[S]) boo
 		return true
 	case *data.Alias[S]:
 		return wellFormed(env.TypeOf(t.Name), env)
+	case *data.FixedArray[S]:
+		return wellFormed(t.DataType, env)
 	case *data.Tuple[S]:
 		for i := range t.Width() {
 			if !wellFormed(t.Ith(i), env) {
