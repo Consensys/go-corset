@@ -38,6 +38,22 @@ func NewCall[W any](id uint, arguments []register.Id, returns []register.Id) *Ca
 	return &Call[W]{OpIo[W]{CALL, id, arguments, returns}}
 }
 
+// String renders the call as "returns = ModuleName(arguments)".  The leading
+// assignment is omitted when the callee produces no return values.
+func (p *Call[W]) String(mapping SystemMap[W]) string {
+	var builder strings.Builder
+	//
+	if len(p.Returns) > 0 {
+		builder.WriteString(registersToString(mapping, array.Reverse(p.Returns)...))
+		builder.WriteString(" = ")
+	}
+	//
+	fmt.Fprintf(&builder, "%s(%s)", mapping.Module(p.Id).Name(),
+		registersToString(mapping, p.Arguments...))
+	//
+	return builder.String()
+}
+
 // ============================================================================
 // Memory Read
 // ============================================================================
@@ -52,6 +68,19 @@ type MemRead[W any] struct{ OpIo[W] }
 // Random Access Memory (RAM) or a Read-Only Memory (ROM).
 func NewMemRead[W any](id uint, address []register.Id, data []register.Id) *MemRead[W] {
 	return &MemRead[W]{OpIo[W]{MEMORY_READ, id, address, data}}
+}
+
+// String renders the read as "data = ModuleName[address]".
+func (p *MemRead[W]) String(mapping SystemMap[W]) string {
+	var builder strings.Builder
+	//
+	builder.WriteString(registersToString(mapping, array.Reverse(p.Returns)...))
+	builder.WriteString(" = ")
+	//
+	fmt.Fprintf(&builder, "%s[%s]", mapping.Module(p.Id).Name(),
+		registersToString(mapping, p.Arguments...))
+	//
+	return builder.String()
 }
 
 // ============================================================================
@@ -70,6 +99,17 @@ type MemWrite[W any] struct{ OpIo[W] }
 // a Random Access Memory (RAM) or a Write-Once Memory (WOM).
 func NewMemWrite[W any](id uint, address []register.Id, data []register.Id) *MemWrite[W] {
 	return &MemWrite[W]{OpIo[W]{MEMORY_WRITE, id, address, data}}
+}
+
+// String renders the write as "ModuleName[address] = data".
+func (p *MemWrite[W]) String(mapping SystemMap[W]) string {
+	var builder strings.Builder
+	//
+	fmt.Fprintf(&builder, "%s[%s] = %s", mapping.Module(p.Id).Name(),
+		registersToString(mapping, array.Reverse(p.Arguments)...),
+		registersToString(mapping, p.Returns...))
+	//
+	return builder.String()
 }
 
 // ============================================================================
@@ -137,62 +177,6 @@ func (p *OpIo[W]) Definitions() []register.Id {
 	}
 	//
 	return p.Returns
-}
-
-func (p *OpIo[W]) String(mapping SystemMap[W]) string {
-	var builder strings.Builder
-	//
-	switch p.Op {
-	case MEMORY_WRITE:
-		// mem[address] = data
-		fmt.Fprintf(&builder, "%s[", mapping.Module(p.Id).Name())
-		builder.WriteString(registersToString(mapping, array.Reverse(p.Returns)...))
-		builder.WriteString("] = ")
-		//
-		for i, rid := range p.Arguments {
-			if i != 0 {
-				builder.WriteString(", ")
-			}
-			//
-			builder.WriteString(mapping.Register(rid).Name())
-		}
-	case MEMORY_READ:
-		// data = mem[address]
-		builder.WriteString(registersToString(mapping, array.Reverse(p.Returns)...))
-		builder.WriteString(" = ")
-		//
-		fmt.Fprintf(&builder, "%s[", mapping.Module(p.Id).Name())
-		//
-		for i, rid := range p.Arguments {
-			if i != 0 {
-				builder.WriteString(", ")
-			}
-			//
-			builder.WriteString(mapping.Register(rid).Name())
-		}
-		//
-		builder.WriteString("]")
-	default:
-		// returns = ModuleName(arguments)
-		if len(p.Returns) > 0 {
-			builder.WriteString(registersToString(mapping, array.Reverse(p.Returns)...))
-			builder.WriteString(" = ")
-		}
-		//
-		fmt.Fprintf(&builder, "%s(", mapping.Module(p.Id).Name())
-		//
-		for i, rid := range p.Arguments {
-			if i != 0 {
-				builder.WriteString(", ")
-			}
-			//
-			builder.WriteString(mapping.Register(rid).Name())
-		}
-		//
-		builder.WriteString(")")
-	}
-	//
-	return builder.String()
 }
 
 // MicroValidate implementation for MicroInstruction interface.
