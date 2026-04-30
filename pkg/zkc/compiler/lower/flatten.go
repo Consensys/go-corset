@@ -301,6 +301,7 @@ func expandWholeArrayAssign(
 		return nil
 	}
 
+	arrayType := src.Type().(*data.FixedArray[symbol.Resolved])
 	result := make([]stmt.Resolved, lm.size)
 
 	for i := range lm.size {
@@ -309,7 +310,7 @@ func expandWholeArrayAssign(
 		access := &expr.ArrayAccess[symbol.Resolved]{
 			Id:       src.Variable,
 			Arg:      expr.NewConstant[symbol.Resolved](idx, 10),
-			Datatype: src.Type(),
+			Datatype: arrayType.DataType,
 		}
 
 		target := lval.NewArray[symbol.Resolved](lv.Ids[0], expr.NewConstant[symbol.Resolved](idx, 10))
