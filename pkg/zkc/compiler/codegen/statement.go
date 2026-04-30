@@ -416,9 +416,9 @@ func (p *StmtCompiler) compileArrayAccess(e *expr.ArrayAccess[symbol.Resolved], 
 		zero word.Uint
 		reg  = []register.Id{register.NewId(e.Id)}
 	)
-	p.compileArgs(mapping, e.Arg)
-	//
-	return nil, instruction.NewAdd[word.Uint](target, reg, zero)
+	_, insns := p.compileArgs(mapping, e.Arg)
+
+	return insns, p.newAdd(target, reg, zero)
 }
 
 func (p *StmtCompiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mapping []uint,

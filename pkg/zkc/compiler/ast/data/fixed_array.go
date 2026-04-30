@@ -52,6 +52,9 @@ func (p *FixedArray[I]) AsAlias(Environment[I]) *Alias[I] {
 	return nil
 }
 
+// AsField implementation for Type interface
+func (p *FixedArray[S]) AsField(Environment[S]) *FieldElement[S] { return nil }
+
 // AsFixedArray implementation for Type interface
 func (p *FixedArray[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
 	return p
