@@ -138,6 +138,14 @@ func Test_ZkcInvalid_Basic_31(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_31")
 }
 
+func Test_ZkcInvalid_Basic_32(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_32")
+}
+
+func Test_ZkcInvalid_Basic_33(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_33")
+}
+
 // ===================================================================
 // Native Field Tests
 // ===================================================================

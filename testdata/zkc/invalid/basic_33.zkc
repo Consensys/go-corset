@@ -1,0 +1,16 @@
+//error:9:15-22:expected type (u16,u16)
+//error:11:5-28:variable res possibly undefined
+pub input data(address:u16) -> (lhs:u16, rhs:u16, val:u16)
+
+// prove that two numbers add up to a third.
+fn main() {
+    var lhs:u16, rhs:u16, res:u16
+    //
+    lhs,rhs = data[0]
+
+    if (lhs + rhs) != res {
+        fail
+    }
+
+    return
+}
