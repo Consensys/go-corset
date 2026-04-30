@@ -72,8 +72,18 @@ func (p *Alias[I]) AsField(env Environment[I]) *FieldElement[I] {
 }
 
 // AsFixedArray implementation for Type interface
-func (p *Alias[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
-	return nil
+func (p *Alias[I]) AsFixedArray(env Environment[I]) *FixedArray[I] {
+	var t Type[I] = p
+	//
+	for t.AsAlias(env) != nil {
+		// cast type to Alias to resolve
+		a, _ := t.(*Alias[I])
+		r := a.Resolve(env)
+		// back to Type
+		t = r
+	}
+	//
+	return t.AsFixedArray(env)
 }
 
 func (p *Alias[I]) String(Environment[I]) string {
