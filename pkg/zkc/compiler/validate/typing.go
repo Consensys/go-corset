@@ -836,9 +836,9 @@ func (p *TypeChecker) checkFixedArrayBounds(
 	if fixedArray.SizeName != "" {
 		for _, d := range p.program.Components() {
 			if c, ok := d.(*decl.ResolvedConstant); ok && c.Name() == fixedArray.SizeName {
-				valSize, ko := codegen.EvalConstant(c.ConstExpr, false, p.program.Components(), p.env)
+				valSize, errMsg := codegen.EvalConstant(c.ConstExpr, false, p.program.Components(), p.env)
 				if ko != "" {
-					return p.srcmaps.SyntaxErrors(arg, "array size must be a constant expression")
+					return p.srcmaps.SyntaxErrors(arg, errMsg)
 				}
 
 				resolved = true
