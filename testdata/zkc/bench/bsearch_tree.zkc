@@ -42,7 +42,7 @@ fn contains(value:u8, ptr:u8) -> (res:u1) {
         return
     }
     // Access node infor
-    v,l,r = nodes[ptr]
+    v, l, r = nodes[ptr]
     // Check whether we found it or, if not, which branch to traverse.
     if v == value {
         res = 1
