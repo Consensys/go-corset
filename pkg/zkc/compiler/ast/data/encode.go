@@ -12,6 +12,7 @@ package data
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -60,13 +61,22 @@ func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v word.Uint
 }
 
 func encodeUnsignedInt(bitwidth uint, v word.Uint, buf []byte) {
-	n := bit.BytesRequiredFor(bitwidth)
+	var (
+		w big.Int
+		// Determine number of bytes required to hold value
+		n = bit.BytesRequiredFor(bitwidth)
+		// Calculate excess bits (needed for alignment)
+		m = (n * 8) - bitwidth
+	)
 	// Clear buffer
 	for i := range buf {
 		buf[i] = 0
 	}
+	// Left-shift to account for alignment
+	w.Lsh(v.BigInt(), m)
 	// Fill with big-endian bytes of v, right-aligned in buf
-	valBytes := v.BigInt().Bytes()
+	valBytes := w.Bytes()
+	//
 	if len(valBytes) > 0 {
 		copy(buf[n-uint(len(valBytes)):], valBytes)
 	}
