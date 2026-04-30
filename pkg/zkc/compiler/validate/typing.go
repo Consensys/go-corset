@@ -700,7 +700,7 @@ func (p *TypeChecker) typeArray(id variable.Id, arg expr.Resolved, env VariableM
 
 	//
 	if !varType_ok {
-		errors = append(errors, *p.srcmaps.SyntaxError(arg, "fixed-sized array has unresolved type"))
+		return nil, errors
 	} else if arg_t_ok && arg_t.AsUint(p.env) == nil {
 		errors = append(errors, *p.srcmaps.SyntaxError(arg, "expected uint"))
 	} else if varType.AsFixedArray(p.env) == nil {
