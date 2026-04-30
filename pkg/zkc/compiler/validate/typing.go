@@ -186,7 +186,9 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 			errors = append(errors, lhsErrs...)
 			errors = append(errors, rhsErrs...)
 		} else {
-			//
+			// resolve fixed-array size in whole assignments
+			p.checkFaAndResolve(lval_t, lval)
+			p.checkFaAndResolve(rhs_t, rhs)
 			errors = append(errors, p.checkEquiTypes(rhs_t, lval_t, rhs)...)
 		}
 	}
@@ -795,6 +797,8 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 		errors = append(errors, errs...)
 		// Subtype check (if no other errors)
 		if len(errs) == 0 {
+			// resolve fixed-array size in function arguments
+			p.checkFaAndResolve(ith, arg)
 			errors = append(errors, p.checkEquiTypes(ith_t, ith, e.Args[i])...)
 		}
 	}
@@ -826,19 +830,34 @@ func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxErro
 func (p *TypeChecker) checkFixedArrayBounds(
 	arg expr.Resolved, fixedArray *data.ResolvedFixedArray,
 ) []source.SyntaxError {
-	val, ko := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
-	if ko != "" {
-		return p.srcmaps.SyntaxErrors(arg, "array index must be a constant expression")
+	val, errMsg := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
+	if errMsg != "" {
+		return p.srcmaps.SyntaxErrors(arg, errMsg)
 	}
-	// Resolve Size from SizeName
+
+	// Resolve Fixed-array size when define by SizeName
+	if err := p.resolveFixedArraySize(fixedArray, arg); err != nil {
+		return err
+	}
+
+	if val.Uint64() >= uint64(fixedArray.Size) {
+		return p.srcmaps.SyntaxErrors(arg,
+			fmt.Sprintf("index %s out of bounds for array of size %d", val.Text(10), fixedArray.Size))
+	}
+	//
+	return nil
+}
+
+func (p *TypeChecker) resolveFixedArraySize(fixedArray *data.ResolvedFixedArray, node any) []source.SyntaxError {
 	resolved := false
 
+	// Resolve Size from SizeName
 	if fixedArray.SizeName != "" {
 		for _, d := range p.program.Components() {
 			if c, ok := d.(*decl.ResolvedConstant); ok && c.Name() == fixedArray.SizeName {
 				valSize, errMsg := codegen.EvalConstant(c.ConstExpr, false, p.program.Components(), p.env)
 				if errMsg != "" {
-					return p.srcmaps.SyntaxErrors(arg, errMsg)
+					return p.srcmaps.SyntaxErrors(node, errMsg)
 				}
 
 				resolved = true
@@ -849,17 +868,19 @@ func (p *TypeChecker) checkFixedArrayBounds(
 		}
 
 		if !resolved {
-			return p.srcmaps.SyntaxErrors(arg,
+			return p.srcmaps.SyntaxErrors(node,
 				fmt.Sprintf("unknown constant %s used as array size", fixedArray.SizeName))
 		}
 	}
 
-	if val.Uint64() >= uint64(fixedArray.Size) {
-		return p.srcmaps.SyntaxErrors(arg,
-			fmt.Sprintf("index %s out of bounds for array of size %d", val.Text(10), fixedArray.Size))
-	}
-	//
 	return nil
+}
+
+func (p *TypeChecker) checkFaAndResolve(d data.Type[symbol.Resolved], node any) {
+	fa, ok := d.(*data.ResolvedFixedArray)
+	if ok {
+		p.resolveFixedArraySize(fa, node)
+	}
 }
 
 // For two expressions "e1", "e2" where "e1 : T1" and "e2 : T2" under the given

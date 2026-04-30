@@ -412,14 +412,7 @@ func (p *StmtCompiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], 
 
 func (p *StmtCompiler) compileArrayAccess(e *expr.ArrayAccess[symbol.Resolved], mapping []uint, target register.Id,
 ) ([]MicroInstruction, MicroInstruction) {
-	var (
-		zero word.Uint
-		reg  = []register.Id{register.NewId(e.Id)}
-	)
-
-	_, insns := p.compileArgs(mapping, e.Arg)
-
-	return insns, p.newAdd(target, reg, zero)
+	panic(fmt.Sprintf("unexpected ArrayAccess node reached codegen (variable %d)", e.Id))
 }
 
 func (p *StmtCompiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], mapping []uint,

@@ -218,6 +218,10 @@ func Test_ZkcUnit_FixedArray_08(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/fixed_array_08")
 }
 
+func Test_ZkcUnit_FixedArray_09(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_09")
+}
+
 // ===================================================================
 // Type Tests
 // ===================================================================
