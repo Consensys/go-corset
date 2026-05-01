@@ -21,7 +21,7 @@ fn main() {
     var y:u8
     y = do_something(x)
 
-if y != r {
+    if y != r {
         printf "x = %d\n", x
         printf "y = %d\n", y
         printf "r = %d\n", r

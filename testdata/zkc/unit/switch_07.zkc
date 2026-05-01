@@ -1,0 +1,26 @@
+fn imain() {
+    var x:u32 = 12
+    var y:u32 = 23
+    var r:u32
+    var b:u1 = 1
+
+    r = identity(x)
+    r = choose(b, x, y)
+}
+
+fn choose(b:u1, x:u32, y:u32) -> (r:u32) {
+    if b == 1 {
+        r = x
+    } else {
+        r = y
+    }
+}
+
+fn identity(x:u32) -> (r:u32) {
+    switch x {
+        default: {
+            r = x + 1
+            return
+        }
+    }
+}

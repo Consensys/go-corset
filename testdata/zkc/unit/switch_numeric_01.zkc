@@ -16,7 +16,7 @@ fn main() {
             fail
         }
         default: {
-            }
+        }
     }
 
     // no match
@@ -30,7 +30,7 @@ fn main() {
             fail
         }
         default: {
-            }
+        }
     }
 
     // no match
@@ -50,7 +50,7 @@ fn main() {
             fail
         }
         case 65535: {
-            }
+        }
     }
 
     printf "success"

@@ -23,7 +23,7 @@ fn main() {
     // no fall through
     switch discr {
         case CASE_MATCH: {
-            }
+        }
         default: {
             fail
         }

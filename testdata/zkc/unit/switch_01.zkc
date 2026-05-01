@@ -14,82 +14,82 @@ fn main_switch_01() {
 
     // no cases at all
     switch discr {
-        }
+    }
 
     // only default case
     switch discr {
         default: {
-            }
+        }
     }
 
     // no match
     switch discr {
         case CASE_A: {
-            }
+        }
     }
     switch discr {
         case CASE_A: {
-            }
+        }
         default: {
-            }
+        }
     }
 
     // no match
     switch discr {
         case CASE_A, CASE_B: {
-            }
+        }
     }
     switch discr {
         case CASE_A, CASE_B: {
-            }
+        }
         default: {
-            }
+        }
     }
 
     // no match
     switch discr {
         case CASE_A: {
-            }
+        }
         case CASE_B: {
-            }
+        }
     }
     switch discr {
         case CASE_A: {
-            }
+        }
         default: {
-            }
+        }
         case CASE_B: {
-            }
+        }
     }
 
     // no default case
     switch discr {
         case CASE_MATCH: {
-            }
+        }
     }
 
     switch discr {
         case CASE_MATCH: {
-            }
+        }
         default: {
-            }
+        }
     }
 
     switch discr {
         default: {
-            }
+        }
         case CASE_MATCH: {
-            }
+        }
     }
 
     // generic case
     switch discr {
         case CASE_A, CASE_MATCH: {
-            }
+        }
         default: {
-            }
+        }
         case CASE_B: {
-            }
+        }
     }
 
     printf "success"

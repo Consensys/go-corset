@@ -31,14 +31,14 @@ fn main() {
     // no default case
     switch case_expression {
         case CASE_A: {
-            }
+        }
     }
     printf "x = %d expected to not have changed", x
 
     // no default case
     switch case_expression {
         case CASE_A, CASE_B: {
-            }
+        }
     }
     printf "x = %d expected to not have changed", x
 
@@ -58,9 +58,9 @@ fn main() {
     // generic case
     switch case_expression {
         case CASE_A: {
-            }
+        }
         case CASE_B: {
-            }
+        }
         default: {
             x = add_one(x)
         }
@@ -70,7 +70,7 @@ fn main() {
     // several cases for one body
     switch case_expression {
         case CASE_A, CASE_B: {
-            }
+        }
         default: {
             x = add_one(x)
         }
