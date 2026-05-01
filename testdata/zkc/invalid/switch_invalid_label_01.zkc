@@ -1,4 +1,4 @@
-//error:8:10-14:labels in a switch statement must be constants (named or litteral)
+//error:8:10-14:labels in a switch statement must be constants (named or literal)
 
 fn main() {
   var x :u8 = 13

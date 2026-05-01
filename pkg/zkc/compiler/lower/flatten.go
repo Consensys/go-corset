@@ -13,9 +13,6 @@
 package lower
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
@@ -271,16 +268,12 @@ func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmap
 	}
 
 	var (
-		err              error
 		defaultCaseCount uint
 		containsDefault  bool
 	)
 
 	// pathological case with more than one default cases
 	if defaultCaseCount = s.DefaultCaseCount(); defaultCaseCount > 1 {
-		err = fmt.Errorf("warning: switch statement has %d default cases, it should be 0 or 1", defaultCaseCount)
-		fmt.Fprintln(os.Stderr, err.Error())
-
 		return nil
 	}
 

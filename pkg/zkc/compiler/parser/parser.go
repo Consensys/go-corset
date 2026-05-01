@@ -883,6 +883,11 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	)
 
 	for p.lookahead().Kind != RCURLY {
+		// 'lookahead' remembers (what is expected to be) the upcoming case or default
+		// keyword
+		//
+		// Note: parseSwitchBranch below expects one of these keywords; if that
+		// expectation isn't met 'lookahead' won't get used
 		lookahead := p.lookahead()
 		if branchReturns, branch, errs = p.parseSwitchBranch(env); len(errs) > 0 {
 			return false, nil, errs
@@ -913,7 +918,7 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	//	- its body contains a default branch which similarly 'returns'
 	//
 	// Note. The required presence of a default branch prevents switch
-	// statements with "empty" body from 'returning'.
+	// statements with empty body from 'returning'
 	returned = bodyContainsDefaultBranch && everyBranchReturns
 
 	return
@@ -990,7 +995,8 @@ func (p *Parser) parseSwitchCase(env Environment) (
 				case symbol.CONSTANT:
 					continue
 				default:
-					return nil, nil, p.srcmap.SyntaxErrors(label, "labels in a switch statement must be constants (named or litteral)")
+					return nil, nil, p.srcmap.SyntaxErrors(label,
+						"labels in a switch statement must be constants (named or literal)")
 				}
 			}
 		// the 'numerical constant' case
@@ -999,7 +1005,8 @@ func (p *Parser) parseSwitchCase(env Environment) (
 				continue
 			}
 		default:
-			return nil, nil, p.syntaxErrors(p.previousToken(), "switch case options should be constants, named or litteral")
+			return nil, nil, p.syntaxErrors(p.previousToken(),
+				"labels in a switch statement must be constants (named or literal)")
 		}
 	}
 

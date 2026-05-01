@@ -1,4 +1,4 @@
-fn imain() {
+fn main() {
     var x:u32 = 12
     var y:u32 = 23
     var r:u32

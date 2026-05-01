@@ -69,7 +69,7 @@ func (s *SwitchBranch[S]) LogicalOrOfCases(discriminant expr.Expr[S]) (logicalOr
 	return expr.LogicalOr[S]{Exprs: labelComparisons}
 }
 
-// DefaultCaseCount returns the nubmer of default case declarations in a switch statement
+// DefaultCaseCount returns the number of default case declarations in a switch statement
 // a valid switch statement should contain 0 or 1 default cases
 func (p *Switch[S]) DefaultCaseCount() (nDefaultCases uint) {
 	for _, branch := range p.Branches {

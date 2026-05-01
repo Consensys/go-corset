@@ -1,0 +1,22 @@
+// ======================================================================
+// unknown variable when the discriminant comes from a function argument
+// ======================================================================
+
+fn f(x:u32) -> (r:u32) {
+    var y:u32 = x
+    switch y {
+        default: {
+            r = x
+            return
+        }
+    }
+}
+
+fn g(x:u32) -> (r:u32) {
+    switch x {
+        default: {
+            r = x
+            return
+        }
+    }
+}
