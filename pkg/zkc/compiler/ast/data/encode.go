@@ -12,6 +12,7 @@ package data
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -33,13 +34,13 @@ import (
 // | 0x31 | 0xf0 | 0x0e | 0x1d |
 func EncodeAll[S symbol.Symbol[S]](datatype Type[S], values []word.Uint, env Environment[S]) []byte {
 	var (
-		bitwidth   = BitWidthOf(datatype, env)
-		nElems     = uint(len(values))
-		totalBits  = nElems * bitwidth
-		totalBytes = (totalBits + 7) / 8
-		result     = make([]byte, totalBytes)
-		n          = bit.BytesRequiredFor(bitwidth)
-		buf        = make([]byte, n)
+		bitwidth, _ = BitWidthOf(datatype, env)
+		nElems      = uint(len(values))
+		totalBits   = nElems * bitwidth
+		totalBytes  = (totalBits + 7) / 8
+		result      = make([]byte, totalBytes)
+		n           = bit.BytesRequiredFor(bitwidth)
+		buf         = make([]byte, n)
 	)
 
 	for i, v := range values {
@@ -54,19 +55,30 @@ func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v word.Uint
 	switch datatype.(type) {
 	case *UnsignedInt[S], *Alias[S]:
 		encodeUnsignedInt(bitwidth, v, buf)
+	case *FieldElement[S]:
+		panic(fmt.Sprintf("field element type cannot be encoded to bytes: %s", datatype.String(env)))
 	default:
 		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String(env)))
 	}
 }
 
 func encodeUnsignedInt(bitwidth uint, v word.Uint, buf []byte) {
-	n := bit.BytesRequiredFor(bitwidth)
+	var (
+		w big.Int
+		// Determine number of bytes required to hold value
+		n = bit.BytesRequiredFor(bitwidth)
+		// Calculate excess bits (needed for alignment)
+		m = (n * 8) - bitwidth
+	)
 	// Clear buffer
 	for i := range buf {
 		buf[i] = 0
 	}
+	// Left-shift to account for alignment
+	w.Lsh(v.BigInt(), m)
 	// Fill with big-endian bytes of v, right-aligned in buf
-	valBytes := v.BigInt().Bytes()
+	valBytes := w.Bytes()
+	//
 	if len(valBytes) > 0 {
 		copy(buf[n-uint(len(valBytes)):], valBytes)
 	}

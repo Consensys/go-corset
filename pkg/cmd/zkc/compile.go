@@ -91,11 +91,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 // ============================================================================
 
 func writeAbstractSyntaxTree(program ast.Program) {
-	var (
-		env = data.NewEnvironment(func(id symbol.Resolved) data.ResolvedType {
-			return nil
-		})
-	)
+	var env = ast.NewEnvironment()
 	//
 	for i, d := range program.Components() {
 		if i != 0 {
@@ -338,7 +334,7 @@ func writeIrFunctionArgs(kind register.Type, regs []register.Register) {
 				first = false
 			}
 			//
-			fmt.Printf("u%d %s", r.Width(), r.Name())
+			fmt.Printf("%s %s", registerType(r), r.Name())
 		}
 	}
 }
@@ -346,9 +342,17 @@ func writeIrFunctionArgs(kind register.Type, regs []register.Register) {
 func writeIrFunctionVariables[W word.Word[W]](f *function.Boot[W]) {
 	for _, r := range f.Registers() {
 		if !r.IsInputOutput() {
-			fmt.Printf("\tu%d %s\n", r.Width(), r.Name())
+			fmt.Printf("\t%s %s\n", registerType(r), r.Name())
 		}
 	}
+}
+
+func registerType(r register.Register) string {
+	if r.IsNative() {
+		return "𝔽"
+	}
+	//
+	return fmt.Sprintf("u%d", r.Width())
 }
 
 // ============================================================================

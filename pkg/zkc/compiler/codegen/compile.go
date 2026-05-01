@@ -96,7 +96,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 		switch c := c.(type) {
 		case *decl.ResolvedConstant:
 			// force detection of errors
-			_, errs := p.compileStaticInitialisers(declarations, c.ConstExpr)
+			_, errs := p.compileStaticInitialisers(declarations, p.env, p.srcmaps, c.ConstExpr)
 			//
 			errors = append(errors, errs...)
 		case *decl.ResolvedTypeAlias:
@@ -117,7 +117,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
 				// Compile the static initialiser
-				words, errs := p.compileStaticInitialisers(declarations, c.Contents...)
+				words, errs := p.compileStaticInitialisers(declarations, p.env, p.srcmaps, c.Contents...)
 				//
 				if len(errs) == 0 {
 					// Construct the read-only memory
@@ -137,24 +137,31 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 		Vectorize(modules, p.srcmaps)
 	}
 	// Construct machine
-	return machine.New(modules...), errors
+	return machine.New(p.config.field, modules...), errors
 }
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
 // memory declaration into the word.Uint representation required by the VM.
-func (p *Compiler) compileStaticInitialisers(components []Declaration, contents ...expr.Resolved,
+func (p *Compiler) compileStaticInitialisers(
+	components []Declaration, env data.ResolvedEnvironment,
+	srcmaps source.Maps[any], contents ...expr.Resolved,
 ) ([]word.Uint, []source.SyntaxError) {
 	//
 	var (
-		words    = make([]word.Uint, len(contents))
-		compiler = StmtCompiler{components, nil, nil, p.env, p.srcmaps, nil}
+		words  = make([]word.Uint, len(contents))
+		errors []source.SyntaxError
 	)
 	//
 	for i, v := range contents {
-		words[i] = compiler.evalConstant(v, true)
+		var errMsg string
+
+		words[i], errMsg = EvalConstant(v, true, components, env)
+		if errMsg != "" {
+			errors = append(errors, srcmaps.SyntaxErrors(v, errMsg)...)
+		}
 	}
 
-	return words, compiler.errors
+	return words, errors
 }
 
 // Convert a decl.Function instance into a fun.Function instance by flattening
@@ -186,12 +193,12 @@ func (p *Compiler) compileFunction(
 			panic(fmt.Sprintf("unexpected variable kind %d", v.Kind))
 		}
 
-		data.Flattern(v.DataType, v.Name, p.env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, p.env, func(name string, bitwidth uint) {
 			registers = append(registers, register.New(kind, name, bitwidth, padding))
 		})
 	}
 	//
-	compiler := StmtCompiler{program, fn.Variables, registers, p.env, p.srcmaps, nil}
+	compiler := StmtCompiler{program, fn.Variables, registers, p.env, p.config.field, p.srcmaps, nil}
 	//
 	for i, stmt := range fn.Code {
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
@@ -208,13 +215,13 @@ func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor,
 	)
 	// Flattern address lines
 	for _, v := range address {
-		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewInput(name, bitwidth, padding))
 		})
 	}
 	// Flattern data lines
 	for _, v := range datas {
-		data.Flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
+		flattern(v.DataType, v.Name, env, func(name string, bitwidth uint) {
 			registers = append(registers, register.NewOutput(name, bitwidth, padding))
 		})
 	}

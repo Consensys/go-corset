@@ -34,20 +34,29 @@ const (
 type Annotation struct {
 	// name is the annotation identifier (e.g. "inline" for "@inline").
 	name string
+	// description explains what the annotation is for, used in documentation
+	// and error messages.
+	description string
 	// permitted is a bitmask of the DeclarationKind values on which this
 	// annotation is allowed.
 	permitted DeclarationKind
 }
 
-// NewAnnotation constructs an Annotation schema with the given name and the
-// set of declaration kinds on which it is permitted.
-func NewAnnotation(name string, permitted DeclarationKind) Annotation {
-	return Annotation{name: name, permitted: permitted}
+// NewAnnotation constructs an Annotation schema with the given name,
+// description, and the set of declaration kinds on which it is permitted.
+func NewAnnotation(name, description string, permitted DeclarationKind) Annotation {
+	return Annotation{name: name, description: description, permitted: permitted}
 }
 
 // Name returns the annotation's name without the leading '@'.
 func (a Annotation) Name() string {
 	return a.name
+}
+
+// Description returns a human-readable description of what the annotation is
+// for.
+func (a Annotation) Description() string {
+	return a.description
 }
 
 // Permits reports whether this annotation is allowed on a declaration of the
@@ -80,5 +89,5 @@ func (k DeclarationKind) String() string {
 // appear.
 var ANNOTATIONS = []Annotation{
 	// @inline is permitted only on function declarations.
-	NewAnnotation("inline", FUNCTION_KIND),
+	NewAnnotation("inline", "marks a function to be inlined at every call site", FUNCTION_KIND),
 }

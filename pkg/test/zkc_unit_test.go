@@ -99,6 +99,44 @@ func Test_ZkcUnit_Basic_19(t *testing.T) {
 func Test_ZkcUnit_Basic_20(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_20")
 }
+func Test_ZkcUnit_Basic_21(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_21")
+}
+
+func Test_ZkcUnit_Basic_22(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_22")
+}
+
+func Test_ZkcUnit_Basic_23(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_23")
+}
+
+func Test_ZkcUnit_Basic_24(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_24")
+}
+
+func Test_ZkcUnit_Basic_25(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_25")
+}
+
+// ===================================================================
+// Native Field Tests
+// ===================================================================
+func Test_ZkcUnit_Field_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/field_01")
+}
+
+func Test_ZkcUnit_Field_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/field_02")
+}
+
+func Test_ZkcUnit_Field_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/field_03")
+}
+
+func Test_ZkcUnit_Field_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/field_04")
+}
 
 // ===================================================================
 // If-Else-If Tests
@@ -151,6 +189,61 @@ func Test_ZkcUnit_Const_03(t *testing.T) {
 func Test_ZkcUnit_Const_04(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/const_04")
 }
+
+// ===================================================================
+// Fixed-size array Tests
+// ===================================================================
+
+func Test_ZkcUnit_FixedArray_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_01")
+}
+
+func Test_ZkcUnit_FixedArray_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_02")
+}
+
+func Test_ZkcUnit_FixedArray_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_03")
+}
+
+func Test_ZkcUnit_FixedArray_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_04")
+}
+
+func Test_ZkcUnit_FixedArray_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_05")
+}
+
+func Test_ZkcUnit_FixedArray_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_06")
+}
+
+func Test_ZkcUnit_FixedArray_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_07")
+}
+
+func Test_ZkcUnit_FixedArray_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_08")
+}
+
+func Test_ZkcUnit_FixedArray_09(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/fixed_array_09")
+}
+
+// see #1711
+// func Test_ZkcUnit_FixedArray_10(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/fixed_array_10")
+// }
+
+// see #1711
+// func Test_ZkcUnit_FixedArray_11(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/fixed_array_11")
+// }
+
+// see #1711
+// func Test_ZkcUnit_FixedArray_12(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/fixed_array_12")
+// }
 
 // ===================================================================
 // Type Tests

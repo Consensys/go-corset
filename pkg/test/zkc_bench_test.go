@@ -24,7 +24,9 @@ import (
 func Test_ZkcBench_Blake(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/blake")
 }
-
+func Test_ZkcBench_BinarySearchTree(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/bsearch_tree")
+}
 func Test_ZkcBench_Fnv1aHash(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/fnv1a_hash")
 }

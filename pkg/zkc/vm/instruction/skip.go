@@ -25,6 +25,11 @@ type Skip[W any] struct {
 	Skip uint
 }
 
+// OpCode implementation for Instruction interface
+func (p *Skip[W]) OpCode() OpCode {
+	return SKIP
+}
+
 // Uses implementation for Instruction interface.
 func (p *Skip[W]) Uses() []register.Id {
 	return nil

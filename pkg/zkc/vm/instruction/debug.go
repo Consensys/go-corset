@@ -34,6 +34,11 @@ type Debug[W any] struct {
 	Chunks []FormattedChunk
 }
 
+// OpCode implementation for Instruction interface
+func (p *Debug[W]) OpCode() OpCode {
+	return DEBUG
+}
+
 // Uses implementation for Instruction interface.
 func (p *Debug[W]) Uses() []register.Id {
 	var uses []register.Id

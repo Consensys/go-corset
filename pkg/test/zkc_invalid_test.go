@@ -138,6 +138,45 @@ func Test_ZkcInvalid_Basic_31(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_31")
 }
 
+func Test_ZkcInvalid_Basic_32(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_32")
+}
+
+func Test_ZkcInvalid_Basic_33(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_33")
+}
+
+func Test_ZkcInvalid_Basic_34(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_34")
+}
+
+func Test_ZkcInvalid_Basic_35(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_35")
+}
+
+// ===================================================================
+// Native Field Tests
+// ===================================================================
+func Test_ZkcInvalid_Field_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_01")
+}
+
+func Test_ZkcInvalid_Field_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_02")
+}
+
+func Test_ZkcInvalid_Field_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_03")
+}
+
+func Test_ZkcInvalid_Field_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_04")
+}
+
+func Test_ZkcInvalid_Field_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_05")
+}
+
 // ===================================================================
 // If Tests
 // ===================================================================
@@ -270,6 +309,78 @@ func Test_ZkcInvalid_For_02(t *testing.T) {
 
 func Test_ZkcInvalid_For_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/for_03")
+}
+
+// ===================================================================
+// Fixed-size array Tests
+// ===================================================================
+
+func Test_ZkcInvalid_FixedArray_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_01")
+}
+
+func Test_ZkcInvalid_FixedArray_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_02")
+}
+
+func Test_ZkcInvalid_FixedArray_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_03")
+}
+
+func Test_ZkcInvalid_FixedArray_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_04")
+}
+
+func Test_ZkcInvalid_FixedArray_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_05")
+}
+
+func Test_ZkcInvalid_FixedArray_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_06")
+}
+
+func Test_ZkcInvalid_FixedArray_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_07")
+}
+
+func Test_ZkcInvalid_FixedArray_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_08")
+}
+
+func Test_ZkcInvalid_FixedArray_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_09")
+}
+
+func Test_ZkcInvalid_FixedArray_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_10")
+}
+
+func Test_ZkcInvalid_FixedArray_11(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_11")
+}
+
+func Test_ZkcInvalid_FixedArray_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_12")
+}
+
+func Test_ZkcInvalid_FixedArray_13(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_13")
+}
+
+func Test_ZkcInvalid_FixedArray_14(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_14")
+}
+
+func Test_ZkcInvalid_FixedArray_15(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_15")
+}
+
+func Test_ZkcInvalid_FixedArray_16(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_16")
+}
+
+func Test_ZkcInvalid_FixedArray_17(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_17")
 }
 
 // ===================================================================
@@ -623,6 +734,7 @@ func Test_ZkcInvalid_Type_08(t *testing.T) {
 func Test_ZkcInvalid_Type_09(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_09")
 }
+
 func Test_ZkcInvalid_Type_10(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_10")
 }

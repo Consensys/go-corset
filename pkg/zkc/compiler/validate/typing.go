@@ -14,8 +14,10 @@ package validate
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
@@ -26,6 +28,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 )
 
 // Stmt is a convenient alias.
@@ -62,11 +65,32 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 		errors []source.SyntaxError
 		typer  = TypeChecker{program, program.Environment(), srcmaps}
 	)
-	//
+	// NOTE: finalising constants must be done first to ensure their expressions
+	// are given types.  Otherwise, finalising components could fail.
 	for _, d := range program.Components() {
+		//nolint
 		switch d := d.(type) {
 		case *decl.ResolvedConstant:
 			errors = append(errors, typer.typeConstant(*d)...)
+		}
+	}
+	// finalise declared types
+	for _, d := range program.Components() {
+		switch d := d.(type) {
+		case *decl.ResolvedFunction:
+			errors = append(errors, typer.finaliseVariableDescriptors(d.Variables)...)
+		case *decl.ResolvedMemory:
+			errors = append(errors, typer.finaliseVariableDescriptors(d.Address)...)
+			errors = append(errors, typer.finaliseVariableDescriptors(d.Data)...)
+		case *decl.ResolvedTypeAlias:
+			errors = append(errors, typer.finaliseDeclaredType(d.DataType)...)
+		}
+	}
+	// type all components
+	for _, d := range program.Components() {
+		switch d := d.(type) {
+		case *decl.ResolvedConstant:
+			// skip: already done above
 		case *decl.ResolvedFunction:
 			errors = append(errors, typer.typeFunction(*d)...)
 		case *decl.ResolvedInclude:
@@ -85,12 +109,66 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 // TypeChecker embodies information needed for type checking a given program.
 type TypeChecker struct {
 	program ast.Program
-	env     data.ResolvedEnvironment
+	env     ast.Environment
 	srcmaps source.Maps[any]
 }
 
 func (p *TypeChecker) lookup(id symbol.Resolved) decl.Resolved {
 	return p.program.Component(id.Index)
+}
+
+func (p *TypeChecker) finaliseVariableDescriptors(vars []variable.Descriptor[symbol.Resolved]) []source.SyntaxError {
+	var errors []source.SyntaxError
+	//
+	for _, v := range vars {
+		errors = append(errors, p.finaliseDeclaredType(v.DataType)...)
+	}
+	//
+	return errors
+}
+
+func (p *TypeChecker) finaliseDeclaredType(datatype data.ResolvedType) (errors []source.SyntaxError) {
+	switch t := datatype.(type) {
+	case nil:
+		// signals an upstream error occurred, so do nothing.
+		return nil
+	case *data.UnsignedInt[symbol.Resolved]:
+		return nil
+	case *data.ResolvedAlias:
+		return p.finaliseDeclaredType(p.env.TypeOf(t.Name))
+	case *data.ResolvedFixedArray:
+		return p.finaliseDeclaredArrayType(t)
+	case *data.ResolvedFieldElement:
+		return nil
+	case *data.Tuple[symbol.Resolved]:
+		for i := range t.Width() {
+			errors = append(errors, p.finaliseDeclaredType(t.Ith(i))...)
+		}
+	}
+	//
+	panic(fmt.Sprintf("unknown type encountered (%s)", datatype.String(p.env)))
+}
+
+func (p *TypeChecker) finaliseDeclaredArrayType(datatype *data.ResolvedFixedArray) (errors []source.SyntaxError) {
+	// Finalise datatype itself
+	errors = p.finaliseDeclaredType(datatype.DataType)
+	// Check whether we have a symbolic bound (or not)
+	if datatype.Size.HasSecond() {
+		var (
+			// resolve symbolic bound
+			expr = p.env.ConstOf(datatype.Size.Second())
+			// evaluate symbolic bound
+			valSize, errMsg = codegen.EvalConstant(expr, false, p.program.Components(), p.env)
+		)
+		// check for errors arising
+		if errMsg != "" {
+			errors = append(errors, p.srcmaps.SyntaxErrors(datatype, errMsg)...)
+		} else {
+			datatype.Size = util.Union1[uint, symbol.Resolved](uint(valSize.Uint64()))
+		}
+	}
+	//
+	return errors
 }
 
 func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError {
@@ -131,22 +209,20 @@ func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxErro
 }
 
 func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
-	if !c.IsStatic() {
-		return nil
-	}
-
 	var (
 		errors       []source.SyntaxError
 		dataType     = variable.DescriptorsToType(c.Data...)
 		emptyEffects bit.Set
 	)
-	//
-	for _, v := range c.Contents {
-		valType, errs := p.typeExpression(dataType, v, variable.ArrayMap[symbol.Resolved](), emptyEffects)
-		if len(errs) != 0 {
-			errors = append(errors, errs...)
-		} else {
-			errors = append(errors, p.checkEquiTypes(valType, dataType, v)...)
+	// Check static initialiser (if applicable)
+	if c.IsStatic() {
+		for _, v := range c.Contents {
+			valType, errs := p.typeExpression(dataType, v, variable.ArrayMap[symbol.Resolved](), emptyEffects)
+			if len(errs) != 0 {
+				errors = append(errors, errs...)
+			} else {
+				errors = append(errors, p.checkEquiTypes(valType, dataType, v)...)
+			}
 		}
 	}
 	//
@@ -156,15 +232,11 @@ func (p *TypeChecker) typeMemory(c decl.ResolvedMemory) []source.SyntaxError {
 func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env VariableMap, effects bit.Set,
 ) []source.SyntaxError {
 	var (
-		errors  []source.SyntaxError
-		sources = []expr.Expr[symbol.Resolved]{s.Source}
+		errors []source.SyntaxError
+		types  = make([]Type, len(s.Targets))
 	)
 	// Sanity check assignment arity
-	if len(s.Targets) != 0 && len(s.Targets) < len(sources) {
-		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("insufficient target variables (expected %d)", len(sources)))
-	} else if len(s.Targets) > len(sources) {
-		return p.srcmaps.SyntaxErrors(s, fmt.Sprintf("too many target variables (expected %d)", len(sources)))
-	} else if len(s.Targets) == 0 {
+	if len(s.Targets) == 0 {
 		// Special case for empty targets.  This can only arise for a function
 		// call which does not assign any return values.  This ensures that, in
 		// such case, the source expression is typed.
@@ -172,21 +244,26 @@ func (p *TypeChecker) typeAssignment(s *stmt.Assign[symbol.Resolved], env Variab
 		//
 		return errors
 	}
-	// Check each in turn
+	// Type check left-hand side
 	for i, lval := range s.Targets {
-		var (
-			rhs             = sources[i]
-			lval_t, lhsErrs = p.typeLval(lval, env, effects)
-			rhs_t, rhsErrs  = p.typeExpression(lval_t, rhs, env, effects)
-		)
-		//
-		if len(lhsErrs) != 0 || len(rhsErrs) != 0 {
-			errors = append(errors, lhsErrs...)
-			errors = append(errors, rhsErrs...)
-		} else {
-			//
-			errors = append(errors, p.checkEquiTypes(rhs_t, lval_t, rhs)...)
-		}
+		var lhsErrs []source.SyntaxError
+		// type lval
+		types[i], lhsErrs = p.typeLval(lval, env, effects)
+		// Accumulate lhs errors
+		errors = append(errors, lhsErrs...)
+	}
+	// Type check right-hand side
+	var (
+		// Construct lhs type (potentially as a tuple)
+		lhs_t          = data.FromTypes(types...)
+		rhs_t, rhsErrs = p.typeExpression(lhs_t, s.Source, env, effects)
+	)
+	// Account for rhs errrors
+	errors = append(errors, rhsErrs...)
+	// accumulate errors
+	if wellFormed(lhs_t, p.env) && wellFormed(rhs_t, p.env) {
+		// resolve fixed-array size in whole assignments
+		errors = append(errors, p.checkEquiTypes(rhs_t, lhs_t, s.Source)...)
 	}
 	//
 	return append(errors, checkTargets(s, env, p.srcmaps)...)
@@ -202,6 +279,8 @@ func (p *TypeChecker) typeLval(target LVal, env VariableMap, effects bit.Set) (T
 		}
 		// Consider destructurings
 		return p.typeDestructuringLval(t, env)
+	case *lval.Array[symbol.Resolved]:
+		return p.typeArrayAccess(t.Id, t.Arg, env, effects)
 	case *lval.MemAccess[symbol.Resolved]:
 		// Unknown external access cannot be typed.  This case handles some kind of
 		// linking error earlier in the compilation pipeline.
@@ -347,7 +426,7 @@ func (p *TypeChecker) typePrintf(s *stmt.Printf[symbol.Resolved], env VariableMa
 func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap, effects bit.Set) []source.SyntaxError {
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
-		return p.typeCmp(e, env, effects)
+		return p.typeComparison(e, env, effects)
 	default:
 		return p.srcmaps.SyntaxErrors(e, "unknown condition")
 	}
@@ -357,17 +436,24 @@ func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap, e
 // After lowering, the condition is always a single Cmp node.
 func (p *TypeChecker) typeTernaryCondition(e expr.Resolved, env VariableMap, effects bit.Set) []source.SyntaxError {
 	if cmp, ok := e.(*expr.Cmp[symbol.Resolved]); ok {
-		return p.typeCmp(cmp, env, effects)
+		return p.typeComparison(cmp, env, effects)
 	}
 
 	return p.srcmaps.SyntaxErrors(e, "invalid ternary condition")
 }
 
-func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap, effects bit.Set) []source.SyntaxError {
+func (p *TypeChecker) typeComparison(e *expr.Cmp[symbol.Resolved], env VariableMap,
+	effects bit.Set) []source.SyntaxError {
+	//
 	var (
 		lhs, lerrs = p.typeExpression(nil, e.Left, env, effects)
 		rhs, rerrs = p.typeExpression(lhs, e.Right, env, effects)
+		anchor, _  = p.determineTypeAnchor(lhs, rhs)
 	)
+	// disambiguate field comparison from other
+	if wellFormed(anchor, p.env) && anchor.AsField(p.env) != nil && e.Operator.Fieldable() {
+		return p.typeFieldComparison(e, env, effects)
+	}
 	// Check left-hand side
 	if len(lerrs) == 0 && wellFormed(lhs, p.env) && lhs.AsUint(p.env) == nil {
 		lerrs = p.srcmaps.SyntaxErrors(e.Left, "expected uint")
@@ -375,6 +461,31 @@ func (p *TypeChecker) typeCmp(e *expr.Cmp[symbol.Resolved], env VariableMap, eff
 	// Check right-hand side
 	if len(rerrs) == 0 && wellFormed(rhs, p.env) && rhs.AsUint(p.env) == nil {
 		rerrs = p.srcmaps.SyntaxErrors(e.Right, "expected uint")
+	}
+	// Check matching types
+	if len(lerrs)+len(rerrs) == 0 {
+		// Equivalence check
+		return p.checkEquiTypes(rhs, lhs, e.Right)
+	}
+	//
+	return append(lerrs, rerrs...)
+}
+
+func (p *TypeChecker) typeFieldComparison(e *expr.Cmp[symbol.Resolved], env VariableMap,
+	effects bit.Set) []source.SyntaxError {
+	//
+	var (
+		field_t    = data.NewFieldElement[symbol.Resolved]()
+		lhs, lerrs = p.typeExpression(field_t, e.Left, env, effects)
+		rhs, rerrs = p.typeExpression(field_t, e.Right, env, effects)
+	)
+	// Check left-hand side
+	if len(lerrs) == 0 && wellFormed(lhs, p.env) && lhs.AsField(p.env) == nil {
+		lerrs = p.srcmaps.SyntaxErrors(e.Left, "expected field")
+	}
+	// Check right-hand side
+	if len(rerrs) == 0 && wellFormed(rhs, p.env) && rhs.AsField(p.env) == nil {
+		rerrs = p.srcmaps.SyntaxErrors(e.Right, "expected field")
 	}
 	// Check matching types
 	if len(lerrs)+len(rerrs) == 0 {
@@ -401,19 +512,21 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	case *expr.Concat[symbol.Resolved]:
 		actual, errs = p.typeConcatExpression(expected, e, env, effects)
 	case *expr.Add[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseAnd[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
 	case *expr.Const[symbol.Resolved]:
 		actual, errs = p.typeConst(expected, e, env)
 	case *expr.LocalAccess[symbol.Resolved]:
 		actual, errs = p.typeLocalAccess(e, env)
+	case *expr.ArrayAccess[symbol.Resolved]:
+		actual, errs = p.typeArrayAccess(e.Id, e.Arg, env, effects)
 	case *expr.Mul[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.BitwiseNot[symbol.Resolved]:
 		actual, errs = p.typeBitwiseNot(expected, e, env, effects)
 	case *expr.BitwiseOr[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
 	case *expr.ExternAccess[symbol.Resolved]:
 		actual, errs = p.typeExternAccess(e, env, effects)
 	case *expr.Shl[symbol.Resolved]:
@@ -421,13 +534,13 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	case *expr.Shr[symbol.Resolved]:
 		actual, errs = p.typeShiftExpression(expected, e.Exprs, env, effects)
 	case *expr.Div[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
 	case *expr.Rem[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
 	case *expr.Sub[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.Xor[symbol.Resolved]:
-		actual, errs = p.typeArithmeticExpression(expected, e.Exprs, env, effects)
+		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
 	case *expr.Ternary[symbol.Resolved]:
 		errs = append(errs, p.typeTernaryCondition(e.Cond, env, effects)...)
 		tt, terrs := p.typeExpression(expected, e.IfTrue, env, effects)
@@ -480,11 +593,61 @@ func (p *TypeChecker) typeUintExpressions(t Type, exprs []expr.Resolved, env Var
 	return res, errors
 }
 
-func (p *TypeChecker) typeArithmeticExpression(t Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeUintOrFieldExpression(t Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
 ) (Type, []source.SyntaxError) {
-	var res, errors = p.typeUintExpressions(t, exprs, env, effects)
+	var (
+		// Type arguments
+		types, errors = p.typeExpressions(t, exprs, env, effects)
+		// Attempt to determine anchor
+		anchor, index = p.determineTypeAnchor(types...)
+	)
+	// Attempt to distinguish cases
+	if anchor != nil && anchor.AsUint(p.env) != nil {
+		// We have an integer term here, therefore,
+		return p.typeUintExpressions(anchor.AsUint(p.env), exprs, env, effects)
+	} else if anchor != nil {
+		// Retype expressions.  This is necessary to ensure that constants are
+		// given field element type.
+		types, errors = p.typeExpressions(data.NewFieldElement[symbol.Resolved](), exprs, env, effects)
+		// Check arguments compatible with anchor
+		for i, ith_t := range types {
+			if i != index && wellFormed(ith_t, p.env) {
+				if errs := p.checkEquiTypes(ith_t, anchor, exprs[i]); len(errs) > 0 {
+					errors = append(errors, errs...)
+				}
+			}
+		}
+	}
 	//
-	return res, errors
+	return anchor, errors
+}
+
+func (p *TypeChecker) determineTypeAnchor(types ...Type) (Type, int) {
+	//
+	for i, t := range types {
+		if wellFormed(t, p.env) {
+			// Constants cannot be anchors.
+			if ut := t.AsUint(p.env); ut == nil || !ut.IsOpen() {
+				return t, i
+			}
+		}
+	}
+	//
+	return nil, math.MaxInt
+}
+
+func (p *TypeChecker) typeExpressions(t Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
+) ([]Type, []source.SyntaxError) {
+	var (
+		errors, errs []source.SyntaxError
+		types        = make([]Type, len(exprs))
+	)
+	for i, e := range exprs {
+		types[i], errs = p.typeExpression(t, e, env, effects)
+		errors = append(errors, errs...)
+	}
+	//
+	return types, errors
 }
 
 func (p *TypeChecker) typeConcatExpression(t Type, e *expr.Concat[symbol.Resolved], env VariableMap, effects bit.Set,
@@ -580,8 +743,10 @@ func (p *TypeChecker) typeConst(t Type, e *expr.Const[symbol.Resolved], env Vari
 		bitwidth = uint(e.Constant.BitLen())
 		actual   = data.NewUnsignedInt[symbol.Resolved](bitwidth, true)
 	)
-	//
-	if t == nil {
+	// Sanity check for field type
+	if wellFormed(t, p.env) && t.AsField(p.env) != nil {
+		return t, nil
+	} else if t == nil {
 		return actual, nil
 	}
 	//
@@ -592,6 +757,37 @@ func (p *TypeChecker) typeLocalAccess(e *expr.LocalAccess[symbol.Resolved], env 
 ) (Type, []source.SyntaxError) {
 	//
 	return env.Variable(e.Variable).DataType, nil
+}
+
+func (p *TypeChecker) typeArrayAccess(id variable.Id, arg expr.Resolved, env VariableMap, effects bit.Set,
+) (Type, []source.SyntaxError) {
+	var errors []source.SyntaxError
+
+	varType := env.Variable(id).DataType
+	// Check well-formedness of this variable
+	varType_ok := wellFormed(varType, p.env)
+
+	// Check argument is unsigned integers and well-formed
+	arg_t, errs := p.typeExpression(nil, arg, env, effects)
+	arg_t_ok := wellFormed(arg_t, p.env)
+
+	errors = append(errors, errs...)
+
+	//
+	if !varType_ok {
+		return nil, errors
+	} else if arg_t_ok && arg_t.AsUint(p.env) == nil {
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "expected uint"))
+	} else if varType.AsFixedArray(p.env) == nil {
+		errors = append(errors, *p.srcmaps.SyntaxError(arg, "variable is not a fixed-size array"))
+	} else if arg_t_ok {
+		fixedArr := varType.AsFixedArray(p.env)
+		errors = append(errors, p.checkArrayBounds(arg, fixedArr)...)
+
+		return fixedArr.DataType, errors
+	}
+
+	return nil, errors
 }
 
 func (p *TypeChecker) typeExternAccess(e *expr.ExternAccess[symbol.Resolved], env VariableMap, effects bit.Set,
@@ -674,6 +870,7 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 		errors = append(errors, errs...)
 		// Subtype check (if no other errors)
 		if len(errs) == 0 {
+			// resolve fixed-array size in function arguments
 			errors = append(errors, p.checkEquiTypes(ith_t, ith, e.Args[i])...)
 		}
 	}
@@ -702,6 +899,24 @@ func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxErro
 	return nil
 }
 
+func (p *TypeChecker) checkArrayBounds(arg expr.Resolved, fixedArray *data.ResolvedFixedArray,
+) []source.SyntaxError {
+	// Evaluate argument as a comptime expression.
+	val, errMsg := codegen.EvalConstant(arg, false, p.program.Components(), p.env)
+	// Check for any errors (e.g. arithmetic overflow)
+	if errMsg != "" {
+		return p.srcmaps.SyntaxErrors(arg, errMsg)
+	}
+	// Check within bounds (note fixed array size finalised already in
+	// finaliseDeclaredType())
+	if val.Uint64() >= uint64(fixedArray.Size.First()) {
+		return p.srcmaps.SyntaxErrors(arg,
+			fmt.Sprintf("index %s out of bounds for array of size %s", val.Text(10), fixedArray.SizeString()))
+	}
+	//
+	return nil
+}
+
 // For two expressions "e1", "e2" where "e1 : T1" and "e2 : T2" under the given
 // environment, check that "T1 ~ T2.  In order to undertake this check safely,
 // it must be the case that both T1 and T2 are "well-formed".  The assumption is
@@ -718,22 +933,26 @@ func (p *TypeChecker) checkEquiTypes(lhs, rhs Type, node any) []source.SyntaxErr
 // WellFormed is used to check whether a given type is well-formed under the
 // given environment.  This is necessary to protected against various problems
 // in methods such as Bitwidth, SubtypeOf and EquiTypes.
-func wellFormed[S symbol.Symbol[S]](t data.Type[S], env data.Environment[S]) bool {
+func wellFormed(t data.ResolvedType, env ast.Environment) bool {
 	//
 	switch t := t.(type) {
 	case nil:
 		return false
-	case *data.UnsignedInt[S]:
+	case *data.UnsignedInt[symbol.Resolved]:
 		return true
-	case *data.Alias[S]:
+	case *data.Alias[symbol.Resolved]:
 		return wellFormed(env.TypeOf(t.Name), env)
-	case *data.Tuple[S]:
+	case *data.FixedArray[symbol.Resolved]:
+		return wellFormed(t.DataType, env)
+	case *data.Tuple[symbol.Resolved]:
 		for i := range t.Width() {
 			if !wellFormed(t.Ith(i), env) {
 				return false
 			}
 		}
 		//
+		return true
+	case *data.FieldElement[symbol.Resolved]:
 		return true
 	}
 	//
