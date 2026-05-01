@@ -55,7 +55,7 @@ type StmtCompiler struct {
 	components  []Declaration
 	variables   []VariableDescriptor
 	registers   []register.Register
-	environment data.Environment[symbol.Resolved]
+	environment data.ResolvedEnvironment
 	field       field.Config
 	srcmaps     source.Maps[any]
 	errors      []source.SyntaxError
@@ -151,7 +151,7 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 			}
 			// Allocate data lines as needed
 			for j, t := range ext.Data {
-				bitwidth := data.BitWidthOf(t.DataType, p.environment)
+				bitwidth, _ := data.BitWidthOf(t.DataType, p.environment)
 				dataLines[j] = p.allocate(bitwidth)
 				// FIXME: broken when len(ext.Data) > 1
 				regs[i+j] = dataLines[j]
@@ -668,7 +668,7 @@ func (p *StmtCompiler) compileArgs(mapping []uint, exprs ...Expr) ([]register.Id
 				// Field-typed sub-expression — allocate a native register.
 				bitwidth = math.MaxUint
 			} else {
-				bitwidth = data.BitWidthOf(e.Type(), p.environment)
+				bitwidth, _ = data.BitWidthOf(e.Type(), p.environment)
 			}
 			// Allocate temporary variable
 			targets[i] = p.allocate(bitwidth)

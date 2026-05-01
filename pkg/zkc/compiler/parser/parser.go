@@ -704,7 +704,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		lookahead = p.lookahead()
 		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
 
-		size, sizeName, errors := p.parseArraySize(lookahead)
+		size, errors := p.parseArraySize(lookahead)
 		if len(errors) > 0 {
 			return nil, errors
 		}
@@ -713,7 +713,7 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 			return nil, p.srcmap.SyntaxErrors(lookahead, "expected closing bracket")
 		}
 		//
-		fa := data.NewFixedArray[symbol.Unresolved](arrayType, uint(size), sizeName)
+		fa := data.NewFixedArray[symbol.Unresolved](arrayType, size)
 		p.srcmap.Put(fa, p.spanOf(start, p.index-1))
 
 		return fa, nil
@@ -730,32 +730,34 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	}
 }
 
-func (p *Parser) parseArraySize(lookahead lex.Token) (size uint64, sizeName string, errors []source.SyntaxError) {
+func (p *Parser) parseArraySize(lookahead lex.Token,
+) (size util.Union[uint, symbol.Unresolved], errors []source.SyntaxError) {
+	//
 	switch lookahead.Kind {
 	case NUMBER:
 		p.match(NUMBER)
 
-		size, nbErrs := p.number(lookahead)
+		bound, nbErrs := p.number(lookahead)
 		base := p.baserOfNumber(lookahead)
 
 		if len(nbErrs) != 0 || base != 10 {
-			return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
+			return size, p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
 		}
 
-		if size.BitLen() == 0 {
-			return 0, "", p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
+		if bound.BitLen() == 0 {
+			return size, p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
 		}
 
-		return size.Uint64(), "", nil
+		return util.Union1[uint, symbol.Unresolved](uint(bound.Uint64())), nil
 	case IDENTIFIER:
-		sizeName, idErrs := p.parseIdentifier()
+		name, idErrs := p.parseIdentifier()
 		if len(idErrs) != 0 {
-			return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
+			return size, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
 		}
 
-		return 0, sizeName, nil
+		return util.Union2[uint](symbol.NewUnresolved(name, symbol.CONSTANT, 0)), nil
 	default:
-		return 0, "", p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
+		return size, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
 	}
 }
 

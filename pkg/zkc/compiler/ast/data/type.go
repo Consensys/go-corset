@@ -40,9 +40,7 @@ type Type[S symbol.Symbol[S]] interface {
 // FromTypes constructs a single type representing the combination of
 // potentially one or more types.
 func FromTypes[S symbol.Symbol[S]](types ...Type[S]) Type[S] {
-	if len(types) == 0 {
-		panic("one or more types required")
-	} else if len(types) == 1 {
+	if len(types) == 1 {
 		return types[0]
 	}
 	//

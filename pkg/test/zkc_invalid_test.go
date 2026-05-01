@@ -311,6 +311,30 @@ func Test_ZkcInvalid_FixedArray_11(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/fixed_array_11")
 }
 
+func Test_ZkcInvalid_FixedArray_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_12")
+}
+
+func Test_ZkcInvalid_FixedArray_13(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_13")
+}
+
+func Test_ZkcInvalid_FixedArray_14(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_14")
+}
+
+func Test_ZkcInvalid_FixedArray_15(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_15")
+}
+
+func Test_ZkcInvalid_FixedArray_16(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_16")
+}
+
+func Test_ZkcInvalid_FixedArray_17(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_17")
+}
+
 // ===================================================================
 // Break Tests
 // ===================================================================

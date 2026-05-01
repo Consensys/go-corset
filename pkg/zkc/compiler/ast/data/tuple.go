@@ -45,7 +45,7 @@ func (p *Tuple[S]) AsField(Environment[S]) *FieldElement[S] {
 }
 
 // AsFixedArray implementation for Type interface
-func (p *Tuple[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
+func (p *Tuple[S]) AsFixedArray(Environment[S]) *FixedArray[S] {
 	return nil
 }
 

@@ -11,6 +11,7 @@
 package data
 
 import (
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
@@ -64,7 +65,7 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 		return isField
 	case *FixedArray[S]:
 		if t, ok := t2.(*FixedArray[S]); ok {
-			if t1.Size != t.Size {
+			if !arraySizeEquals(t1.Size, t.Size) {
 				return false
 			}
 
@@ -124,7 +125,7 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 		return isField
 	case *FixedArray[S]:
 		if t := t2.AsFixedArray(env); t != nil {
-			if t1.Size != t.Size {
+			if !arraySizeEquals(t1.Size, t.Size) {
 				return false
 			}
 
@@ -132,5 +133,18 @@ func EquiTypes[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 		}
 	}
 
+	return false
+}
+
+// Check whether two array sizes are equal.  This only matches symbols exactly
+// and, therefore, two arrays with symbolic sizes that are the same, but differ
+// in name are considered different.
+func arraySizeEquals[S symbol.Symbol[S]](lhs, rhs util.Union[uint, S]) bool {
+	if lhs.HasFirst() && rhs.HasFirst() {
+		return lhs.First() == rhs.First()
+	} else if lhs.HasSecond() && rhs.HasSecond() {
+		return lhs.Second().Cmp(rhs.Second()) == 0
+	}
+	//
 	return false
 }

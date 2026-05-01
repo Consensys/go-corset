@@ -507,12 +507,27 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
 	case *data.FixedArray[symbol.Unresolved]:
-		datatype, errs := p.linkType(t.DataType)
-		if errs != nil {
-			return nil, errs
+		var (
+			// Link data type
+			datatype, errors = p.linkType(t.DataType)
+			//
+			size util.Union[uint, symbol.Resolved]
+		)
+		// resolve size symbol (if applicable)
+		if t.Size.HasFirst() {
+			size = util.Union1[uint, symbol.Resolved](t.Size.First())
+		} else {
+			var sym, errs = p.resolve(t.Size.Second(), t)
+			//
+			if len(errs) > 0 {
+				// include all errors
+				return nil, append(errors, errs...)
+			}
+			//
+			size = util.Union2[uint](sym)
 		}
-
-		return data.NewFixedArray[symbol.Resolved](datatype, t.Size, t.SizeName), nil
+		//
+		return data.NewFixedArray(datatype, size), errors
 	case *data.Alias[symbol.Unresolved]:
 		// resolve symbol
 		name, err := p.resolve(t.Name, t)
