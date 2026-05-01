@@ -2,7 +2,18 @@
 // unknown variable when the discriminant comes from a function argument
 // ======================================================================
 
-fn f(x:u32) -> (r:u32) {
+fn main() {
+    var x:u32 = 12
+    var y:u32 = 42
+
+    var ffx:u32
+    var ggy:u32
+
+    ffx = ff(x)
+    ggy = gg(y)
+}
+
+fn ff(x:u32) -> (r:u32) {
     var y:u32 = x
     switch y {
         default: {
@@ -12,7 +23,7 @@ fn f(x:u32) -> (r:u32) {
     }
 }
 
-fn g(x:u32) -> (r:u32) {
+fn gg(x:u32) -> (r:u32) {
     switch x {
         default: {
             r = x
