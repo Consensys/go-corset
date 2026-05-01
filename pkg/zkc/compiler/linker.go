@@ -278,6 +278,7 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 			errsCases []source.SyntaxError
 			errsBody  []source.SyntaxError
 		)
+
 		for _, branch := range s.Branches {
 			var (
 				labels []expr.Expr[symbol.Resolved]
