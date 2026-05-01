@@ -230,17 +230,17 @@ func Test_ZkcUnit_FixedArray_09(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/fixed_array_09")
 }
 
-// see #????
+// see #1711
 // func Test_ZkcUnit_FixedArray_10(t *testing.T) {
 // 	checkZkcUnit(t, "zkc/unit/fixed_array_10")
 // }
 
-// see #????
+// see #1711
 // func Test_ZkcUnit_FixedArray_11(t *testing.T) {
 // 	checkZkcUnit(t, "zkc/unit/fixed_array_11")
 // }
 
-// see #????
+// see #1711
 // func Test_ZkcUnit_FixedArray_12(t *testing.T) {
 // 	checkZkcUnit(t, "zkc/unit/fixed_array_12")
 // }

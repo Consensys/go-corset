@@ -150,6 +150,8 @@ func (p *TypeChecker) finaliseDeclaredType(datatype data.ResolvedType) (errors [
 }
 
 func (p *TypeChecker) finaliseDeclaredArrayType(datatype *data.ResolvedFixedArray) (errors []source.SyntaxError) {
+	// Finalise datatype itself
+	errors = p.finaliseDeclaredType(datatype.DataType)
 	// Check whether we have a symbolic bound (or not)
 	if datatype.Size.HasSecond() {
 		var (
@@ -160,13 +162,13 @@ func (p *TypeChecker) finaliseDeclaredArrayType(datatype *data.ResolvedFixedArra
 		)
 		// check for errors arising
 		if errMsg != "" {
-			return p.srcmaps.SyntaxErrors(datatype, errMsg)
+			errors = append(errors, p.srcmaps.SyntaxErrors(datatype, errMsg)...)
+		} else {
+			datatype.Size = util.Union1[uint, symbol.Resolved](uint(valSize.Uint64()))
 		}
-		//
-		datatype.Size = util.Union1[uint, symbol.Resolved](uint(valSize.Uint64()))
 	}
 	//
-	return nil
+	return errors
 }
 
 func (p *TypeChecker) typeConstant(c decl.ResolvedConstant) []source.SyntaxError {
