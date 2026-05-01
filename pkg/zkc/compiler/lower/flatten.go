@@ -77,21 +77,26 @@ type varMapping struct {
 // sum(items[0], items[1], items[2])).  All expanded nodes use the original
 // variable IDs so that the subsequent rewriting phase can remap them.
 func expandFixedArrays(
-	fn *decl.ResolvedFunction, mapping []varMapping, env data.ResolvedEnvironment,
+	fn *decl.ResolvedFunction, mapping []varMapping, env ast.Environment,
 ) (expandedVars []variable.ResolvedDescriptor, expandedCode []stmt.Resolved, hasArray bool) {
 	for oldID, v := range fn.Variables {
 		switch vType := v.DataType.(type) {
 		case *data.ResolvedFixedArray:
+			var (
+				size = vType.Size.First()
+				base = uint(len(expandedVars))
+			)
+			//
 			hasArray = true
-			base := uint(len(expandedVars))
-
-			for j := range vType.Size {
+			//
+			for j := range size {
 				name := v.Name + "$" + strconv.FormatUint(uint64(j), 10)
-				elemType := data.NewUnsignedInt[symbol.Resolved](data.BitWidthOf(vType, env), false)
+				bitwidth, _ := data.BitWidthOf(vType, env)
+				elemType := data.NewUnsignedInt[symbol.Resolved](bitwidth, false)
 				expandedVars = append(expandedVars, variable.New[symbol.Resolved](v.Kind, name, elemType))
 			}
-
-			mapping[oldID] = varMapping{newBase: base, isArray: true, size: vType.Size}
+			//
+			mapping[oldID] = varMapping{newBase: base, isArray: true, size: size}
 		default:
 			mapping[oldID] = varMapping{newBase: uint(len(expandedVars))}
 			expandedVars = append(expandedVars, v)
@@ -254,7 +259,7 @@ func expandArrayArgs(args []expr.Resolved, mapping []varMapping) []expr.Resolved
 
 func rewriteFixedArrays(
 	expandedCode []stmt.Resolved, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+	declarations []codegen.Declaration, env ast.Environment,
 ) (newCode []stmt.Resolved) {
 	for _, s := range expandedCode {
 		newCode = append(newCode, rewriteFixedArrayStmt(s, mapping, declarations, env))
@@ -328,7 +333,7 @@ func expandWholeArrayAssign(
 
 func rewriteFixedArrayStmt(
 	s stmt.Resolved, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+	declarations []codegen.Declaration, env ast.Environment,
 ) stmt.Resolved {
 	switch s := s.(type) {
 	case *stmt.Assign[symbol.Resolved]:
@@ -358,17 +363,12 @@ func rewriteFixedArrayStmt(
 
 func rewriteFixedArrayExpr(
 	e expr.Resolved, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+	declarations []codegen.Declaration, env ast.Environment,
 ) expr.Resolved {
 	switch e := e.(type) {
 	case *expr.LocalAccess[symbol.Resolved]:
-		m := mapping[e.Variable]
-		if m.isArray {
-			panic(fmt.Sprintf("bare access to array variable %d without index", e.Variable))
-		}
-
-		e.Variable = m.newBase
-
+		e.Variable = mapping[e.Variable].newBase
+		//
 		return e
 	case *expr.ArrayAccess[symbol.Resolved]:
 		rewriteFixedArrayExpr(e.Arg, mapping, declarations, env)
@@ -463,7 +463,7 @@ func rewriteFixedArrayExpr(
 
 func rewriteFixedArrayExprs(
 	exprs []expr.Resolved, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+	declarations []codegen.Declaration, env ast.Environment,
 ) {
 	for i, e := range exprs {
 		exprs[i] = rewriteFixedArrayExpr(e, mapping, declarations, env)
@@ -472,7 +472,7 @@ func rewriteFixedArrayExprs(
 
 func rewriteFixedArrayCondition(
 	c expr.ResolvedCondition, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+	declarations []codegen.Declaration, env ast.Environment,
 ) expr.ResolvedCondition {
 	switch c := c.(type) {
 	case *expr.Cmp[symbol.Resolved]:
@@ -487,7 +487,7 @@ func rewriteFixedArrayCondition(
 
 func rewriteFixedArrayLVal(
 	l lval.Resolved, mapping []varMapping,
-	declarations []codegen.Declaration, env data.ResolvedEnvironment,
+	declarations []codegen.Declaration, env ast.Environment,
 ) lval.Resolved {
 	switch l := l.(type) {
 	case *lval.Variable[symbol.Resolved]:

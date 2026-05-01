@@ -91,11 +91,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 // ============================================================================
 
 func writeAbstractSyntaxTree(program ast.Program) {
-	var (
-		env = data.NewEnvironment(func(id symbol.Resolved) data.ResolvedType {
-			return nil
-		})
-	)
+	var env = ast.NewEnvironment()
 	//
 	for i, d := range program.Components() {
 		if i != 0 {

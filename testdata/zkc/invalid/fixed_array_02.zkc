@@ -1,4 +1,4 @@
-//error:4:9-10:unknown constant a used as array size
+//error:3:13-19:unknown symbol
 fn main() {
   var items:[u8;a]
   items[0] = 1

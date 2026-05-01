@@ -24,11 +24,6 @@ type Tuple[S symbol.Symbol[S]] struct {
 	elements []Type[S]
 }
 
-// NewTuple constructs a new tuple type.
-func NewTuple[S symbol.Symbol[S]](elements ...Type[S]) *Tuple[S] {
-	return &Tuple[S]{elements}
-}
-
 // AsTuple implementation for Type interface
 func (p *Tuple[S]) AsTuple(Environment[S]) *Tuple[S] {
 	return p
@@ -50,7 +45,7 @@ func (p *Tuple[S]) AsField(Environment[S]) *FieldElement[S] {
 }
 
 // AsFixedArray implementation for Type interface
-func (p *Tuple[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
+func (p *Tuple[S]) AsFixedArray(Environment[S]) *FixedArray[S] {
 	return nil
 }
 

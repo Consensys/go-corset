@@ -78,7 +78,7 @@ func (p *UnsignedInt[S]) AsField(Environment[S]) *FieldElement[S] {
 }
 
 // AsFixedArray implementation for Type interface
-func (p *UnsignedInt[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
+func (p *UnsignedInt[S]) AsFixedArray(Environment[S]) *FixedArray[S] {
 	return nil
 }
 

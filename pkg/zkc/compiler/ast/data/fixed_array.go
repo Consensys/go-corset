@@ -13,6 +13,7 @@ package data
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
 
@@ -25,16 +26,14 @@ type UnresolvedFixedArray = FixedArray[symbol.Unresolved]
 // FixedArray captures a fixed sized array type.
 type FixedArray[I symbol.Symbol[I]] struct {
 	DataType Type[I]
-	Size     uint
-	// SizeName holds the name of a constant used as the array size (empty when
-	// size was given as a numeric literal).  It is resolved to a concrete Size
-	// value during linking.
-	SizeName string
+	// Size holds either a numeric literal or a symbolic name for the array
+	// size.  The latter (if present) must be resolved during linking.
+	Size util.Union[uint, I]
 }
 
 // NewFixedArray constructs a fixed-size array Type.
-func NewFixedArray[I symbol.Symbol[I]](datatype Type[I], size uint, sizeName string) *FixedArray[I] {
-	return &FixedArray[I]{DataType: datatype, Size: size, SizeName: sizeName}
+func NewFixedArray[I symbol.Symbol[I]](datatype Type[I], size util.Union[uint, I]) *FixedArray[I] {
+	return &FixedArray[I]{DataType: datatype, Size: size}
 }
 
 // AsUint implementation for Type interface
@@ -61,7 +60,16 @@ func (p *FixedArray[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
 }
 
 func (p *FixedArray[I]) String(env Environment[I]) string {
-	return fmt.Sprintf("[%s;%d]", p.DataType.String(env), p.Size)
+	return fmt.Sprintf("[%s;%s]", p.DataType.String(env), p.SizeString())
+}
+
+// SizeString returns the size of this string as a symbol.
+func (p *FixedArray[I]) SizeString() string {
+	if p.Size.HasFirst() {
+		return fmt.Sprintf("%d", p.Size.First())
+	} else {
+		return p.Size.Second().String()
+	}
 }
 
 // Resolve returns the type that this fixed-size array refers to in the given environment.

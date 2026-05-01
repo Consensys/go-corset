@@ -138,6 +138,22 @@ func Test_ZkcInvalid_Basic_31(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_31")
 }
 
+func Test_ZkcInvalid_Basic_32(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_32")
+}
+
+func Test_ZkcInvalid_Basic_33(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_33")
+}
+
+func Test_ZkcInvalid_Basic_34(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_34")
+}
+
+func Test_ZkcInvalid_Basic_35(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_35")
+}
+
 // ===================================================================
 // Native Field Tests
 // ===================================================================
@@ -293,6 +309,30 @@ func Test_ZkcInvalid_FixedArray_10(t *testing.T) {
 
 func Test_ZkcInvalid_FixedArray_11(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/fixed_array_11")
+}
+
+func Test_ZkcInvalid_FixedArray_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_12")
+}
+
+func Test_ZkcInvalid_FixedArray_13(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_13")
+}
+
+func Test_ZkcInvalid_FixedArray_14(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_14")
+}
+
+func Test_ZkcInvalid_FixedArray_15(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_15")
+}
+
+func Test_ZkcInvalid_FixedArray_16(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_16")
+}
+
+func Test_ZkcInvalid_FixedArray_17(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_17")
 }
 
 // ===================================================================

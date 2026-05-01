@@ -40,15 +40,26 @@ func evalConstants(
 	return words, errorMessage
 }
 
-// EvalConstant evaluates a compile-time constant expression using the
-// provided declaration list and type environment.  It is used both during
-// function code generation and when initialising static memory contents.
+// EvalConstant evaluates a compile-time constant expression using the provided
+// declaration list and type environment.  It is used during function code
+// generation and when initialising static memory contents, and also during
+// typing (for array type size expressions).  As a result of the latter, it must
+// be robust against error.  That is, it may be called on a malformed expression
+// and, hence, it must handle this gracefully.
 func EvalConstant(
 	e Expr, definition bool, declarations []Declaration, env data.ResolvedEnvironment,
 ) (res word.Uint, errorMessage string) {
-	var overflow bool
-
-	bitwidth := data.BitWidthOf(e.Type(), env)
+	var (
+		overflow, ok bool
+		bitwidth     uint
+	)
+	// NOTE: we must sanity check the bitwidth identified is valid in order to
+	// ensure this function is robust against errors.  This is necessary because
+	// it is used during typing and, thus, could be called on a malformed
+	// expression as a result.
+	if bitwidth, ok = data.BitWidthOf(e.Type(), env); !ok {
+		return res, "invalid constant"
+	}
 	//
 	switch e := e.(type) {
 	case *expr.Add[symbol.Resolved]:
