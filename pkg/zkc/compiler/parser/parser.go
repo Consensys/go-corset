@@ -1572,6 +1572,7 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 
 func (p *Parser) parseTupleExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
+		start = p.index
 		errs  []source.SyntaxError
 		exprs = make([]Expr, 1)
 	)
@@ -1594,7 +1595,10 @@ func (p *Parser) parseTupleExpr(env Environment) (Expr, []source.SyntaxError) {
 		return exprs[0], nil
 	}
 	//
-	panic("got here")
+	init := expr.NewTupleInitialiser(exprs...)
+	p.srcmap.Put(init, p.spanOf(start, p.index-1))
+	//
+	return init, nil
 }
 
 func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {

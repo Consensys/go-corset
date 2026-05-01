@@ -542,16 +542,9 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	case *expr.Xor[symbol.Resolved]:
 		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
 	case *expr.Ternary[symbol.Resolved]:
-		errs = append(errs, p.typeTernaryCondition(e.Cond, env, effects)...)
-		tt, terrs := p.typeExpression(expected, e.IfTrue, env, effects)
-		ft, ferrs := p.typeExpression(expected, e.IfFalse, env, effects)
-
-		errs = append(append(errs, terrs...), ferrs...)
-		if len(errs) == 0 {
-			errs = p.checkEquiTypes(ft, tt, e.IfFalse)
-			actual = tt
-		}
-
+		actual, errs = p.typeTernaryExpr(expected, e, env, effects)
+	case *expr.TupleInitialiser[symbol.Resolved]:
+		actual, errs = p.typeTupleExpr(expected, e, env, effects)
 	default:
 		return nil, p.srcmaps.SyntaxErrors(e, "invalid expression")
 	}
@@ -883,6 +876,36 @@ func (p *TypeChecker) typeFunctionCall(c *decl.ResolvedFunction, e *expr.ExternA
 	}
 	// Done
 	return variable.DescriptorsToType(c.Outputs()...), errors
+}
+
+func (p *TypeChecker) typeTernaryExpr(expected Type, e *expr.Ternary[symbol.Resolved], env VariableMap,
+	effects bit.Set) (Type, []source.SyntaxError) {
+	//
+	var (
+		errs      = p.typeTernaryCondition(e.Cond, env, effects)
+		tt, terrs = p.typeExpression(expected, e.IfTrue, env, effects)
+		ft, ferrs = p.typeExpression(expected, e.IfFalse, env, effects)
+	)
+	// Combine all errors
+	errs = append(append(errs, terrs...), ferrs...)
+	//
+	if len(errs) == 0 {
+		errs = p.checkEquiTypes(ft, tt, e.IfFalse)
+		return tt, errs
+	}
+	//
+	return nil, errs
+}
+
+func (p *TypeChecker) typeTupleExpr(expected Type, e *expr.TupleInitialiser[symbol.Resolved], env VariableMap,
+	effects bit.Set) (Type, []source.SyntaxError) {
+	//
+	var (
+		types, errs = p.typeExpressions(expected, e.Exprs, env, effects)
+		tuple       = data.FromTypes(types...)
+	)
+	//
+	return tuple, errs
 }
 
 // For an expression "(T1) e" where "e : T2" under the given environment, check
