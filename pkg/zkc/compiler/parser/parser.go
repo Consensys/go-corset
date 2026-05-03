@@ -994,7 +994,7 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 }
 
 func (p *Parser) parseSwitchBranch(env Environment) (
-	returned bool,
+	returns bool,
 	branch stmt.SwitchBranch[symbol.Unresolved],
 	errs []source.SyntaxError) {
 	var (
@@ -1015,11 +1015,11 @@ func (p *Parser) parseSwitchBranch(env Environment) (
 	)
 
 	if isCase {
-		if labels, body, errs = p.parseSwitchCase(env); len(errs) > 0 {
+		if returns, labels, body, errs = p.parseSwitchCase(env); len(errs) > 0 {
 			return
 		}
 	} else {
-		if body, errs = p.parseSwitchDefault(env); len(errs) > 0 {
+		if returns, body, errs = p.parseSwitchDefault(env); len(errs) > 0 {
 			return
 		}
 	}
@@ -1036,11 +1036,12 @@ func (p *Parser) parseSwitchBranch(env Environment) (
 //	case CASE_1, 42: { ... }
 //	default: { ... }
 func (p *Parser) parseSwitchCase(env Environment) (
+	returns bool,
 	labels []expr.Expr[symbol.Unresolved],
 	body []stmt.Stmt[symbol.Unresolved],
 	errs []source.SyntaxError) {
 	if _, errs = p.expect(KEYWORD_CASE); len(errs) > 0 {
-		return labels, body, p.syntaxErrors(p.previousToken(), "expected 'case' keyword")
+		return false, labels, body, p.syntaxErrors(p.previousToken(), "expected 'case' keyword")
 	}
 
 	labels, errs = p.parseExprList(COLON, env)
@@ -1049,7 +1050,7 @@ func (p *Parser) parseSwitchCase(env Environment) (
 	}
 
 	if len(labels) == 0 {
-		return labels, body, p.syntaxErrors(p.previousToken(), "empty switch case list")
+		return false, labels, body, p.syntaxErrors(p.previousToken(), "empty switch case list")
 	}
 
 	// we reject any label that isn't
@@ -1064,7 +1065,7 @@ func (p *Parser) parseSwitchCase(env Environment) (
 				case symbol.CONSTANT:
 					continue
 				default:
-					return nil, nil, p.srcmap.SyntaxErrors(label,
+					return false, nil, nil, p.srcmap.SyntaxErrors(label,
 						"labels in a switch statement must be constants (named or literal)")
 				}
 			}
@@ -1074,21 +1075,24 @@ func (p *Parser) parseSwitchCase(env Environment) (
 				continue
 			}
 		default:
-			return nil, nil, p.syntaxErrors(p.previousToken(),
+			return false, nil, nil, p.syntaxErrors(p.previousToken(),
 				"labels in a switch statement must be constants (named or literal)")
 		}
 	}
 
 	// TODO: I have no idea whether the boolean parameter is the right one
-	_, body, errs = p.parseStatementBlock(env, env.InLoop())
+	returns, body, errs = p.parseStatementBlock(env, env.InLoop())
 	if len(errs) > 0 {
-		return nil, nil, errs
+		return false, nil, nil, errs
 	}
 
 	return
 }
 
-func (p *Parser) parseSwitchDefault(env Environment) (body []stmt.Stmt[symbol.Unresolved], errs []source.SyntaxError) {
+func (p *Parser) parseSwitchDefault(env Environment) (
+	returns bool,
+	body []stmt.Stmt[symbol.Unresolved],
+	errs []source.SyntaxError) {
 	if _, errs = p.expect(KEYWORD_DEFAULT); len(errs) > 0 {
 		return
 	}
@@ -1097,7 +1101,7 @@ func (p *Parser) parseSwitchDefault(env Environment) (body []stmt.Stmt[symbol.Un
 		return
 	}
 
-	if _, body, errs = p.parseStatementBlock(env, env.InLoop()); len(errs) > 0 {
+	if returns, body, errs = p.parseStatementBlock(env, env.InLoop()); len(errs) > 0 {
 		return
 	}
 
