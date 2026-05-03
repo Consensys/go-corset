@@ -6,14 +6,14 @@ fn main() {
     var x:u32 = 12
     var y:u32 = 42
 
-    var ffx:u32
-    var ggy:u32
+    var fffx:u32
+    var gggy:u32
 
-    ffx = ff(x)
-    ggy = gg(y)
+    fffx = fff(x)
+    gggy = ggg(y)
 }
 
-fn ff(x:u32) -> (r:u32) {
+fn fff(x:u32) -> (r:u32) {
     var y:u32 = x
     switch y {
         default: {
@@ -23,7 +23,7 @@ fn ff(x:u32) -> (r:u32) {
     }
 }
 
-fn gg(x:u32) -> (r:u32) {
+fn ggg(x:u32) -> (r:u32) {
     switch x {
         default: {
             r = x
