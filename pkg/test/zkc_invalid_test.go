@@ -175,7 +175,7 @@ func Test_ZkcInvalid_Basic_40(t *testing.T) {
 }
 
 func Test_ZkcInvalid_Basic_41(t *testing.T) {
-	checkZkcInvalid(t, "zkc/invalid/basic_42")
+	checkZkcInvalid(t, "zkc/invalid/basic_41")
 }
 
 // ===================================================================
