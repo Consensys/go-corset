@@ -9,7 +9,9 @@ fn main() {
     var fffx:u32 = fff(x)
     var gggy:u32 = ggg(y)
 
-    if fffx != x || gggy != y { fail }
+    if fffx != x || gggy != y {
+        fail
+    }
 
     printf "success"
 }

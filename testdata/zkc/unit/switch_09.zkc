@@ -4,13 +4,13 @@
 
 type exmp = u32
 
-input inputs  (c :u1) -> (in  :exmp)
-input outputs (c :u1) -> (out :exmp)
+input inputs(c:u1) -> (in:exmp)
+input outputs(c:u1) -> (out:exmp)
 
 fn main() {
 
-    var discr :exmp = inputs[0]
-    var res   :exmp = 23
+    var discr:exmp = inputs[0]
+    var res:exmp = 23
 
     // no match
     switch discr {
@@ -61,5 +61,7 @@ fn main() {
         }
     }
 
-    if res != outputs[0] && res != outputs[1] { fail }
+    if res != outputs[0] && res != outputs[1] {
+        fail
+    }
 }

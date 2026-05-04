@@ -1,5 +1,5 @@
-input inputs  (c :u1) -> (in  :u8)
-input outputs (c :u1) -> (out :u32)
+input inputs(c:u1) -> (in:u8)
+input outputs(c:u1) -> (out:u32)
 
 fn main() {
     var x:u32 = 12
@@ -13,7 +13,9 @@ fn main() {
     r_switch = choose_switch(b, x, y)
     r_ifelse = choose_ifelse(b, x, y)
 
-    if r_switch != r_ifelse { fail }
+    if r_switch != r_ifelse {
+        fail
+    }
 }
 
 fn choose_ifelse(b:u8, x:u32, y:u32) -> (r:u32) {
@@ -28,7 +30,7 @@ fn choose_switch(b:u8, x:u32, y:u32) -> (r:u32) {
     switch b {
         case 1: {
             r = x
-            }
+        }
         default: {
             r = y
             return
