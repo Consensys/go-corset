@@ -1,18 +1,25 @@
-type exmp = u16
+// ============================================================================
+// switch statements involving numerical constants with failures in some cases
+// ============================================================================
 
-// tests involving numerical values as switch case labels
+type exmp = u32
+
+input inputs  (c :u1) -> (in  :exmp)
+input outputs (c :u1) -> (out :exmp)
+
 fn main() {
 
-    var discr:exmp = 65535
+    var discr :exmp = inputs[0]
+    var res   :exmp = 23
 
     // no match
     switch discr {
-        case 13: {
+        case 0xfa1701: {
             fail
         }
     }
     switch discr {
-        case 13: {
+        case 0xfa1702: {
             fail
         }
         default: {
@@ -21,12 +28,12 @@ fn main() {
 
     // no match
     switch discr {
-        case 13, 33: {
+        case 0xfa1703, 0xfa1704: {
             fail
         }
     }
     switch discr {
-        case 13, 33: {
+        case 0xfa1705, 0xfa1706: {
             fail
         }
         default: {
@@ -35,23 +42,24 @@ fn main() {
 
     // no match
     switch discr {
-        case 13: {
+        case 0xfa1707: {
             fail
         }
-        case 33: {
+        case 0xfa1708: {
             fail
         }
     }
     switch discr {
+        case 0xfa1709: {
+            fail
+        }
         default: {
-            fail
+            res = outputs[0]
         }
-        case 13: {
-            fail
-        }
-        case 65535: {
+        case 0xbeef: {
+            res = outputs[1]
         }
     }
 
-    printf "success"
+    if res != outputs[0] && res != outputs[1] { fail }
 }

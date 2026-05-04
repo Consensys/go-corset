@@ -1,16 +1,17 @@
-// ======================================================================
-// unknown variable when the discriminant comes from a function argument
-// ======================================================================
+// ================================================
+// the discriminant comes from a function argument
+// ================================================
 
 fn main() {
     var x:u32 = 12
     var y:u32 = 42
 
-    var fffx:u32
-    var gggy:u32
+    var fffx:u32 = fff(x)
+    var gggy:u32 = ggg(y)
 
-    fffx = fff(x)
-    gggy = ggg(y)
+    if fffx != x || gggy != y { fail }
+
+    printf "success"
 }
 
 fn fff(x:u32) -> (r:u32) {

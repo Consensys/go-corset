@@ -1,14 +1,22 @@
+input inputs  (c :u1) -> (in  :u8)
+input outputs (c :u1) -> (out :u32)
+
 fn main() {
     var x:u32 = 12
     var y:u32 = 23
-    var r:u32
-    var b:u1 = 1
+    var r_switch:u32
+    var r_ifelse:u32
+    var b:u8
 
-    r = identity(x)
-    r = choose(b, x, y)
+    b = inputs[0]
+
+    r_switch = choose_switch(b, x, y)
+    r_ifelse = choose_ifelse(b, x, y)
+
+    if r_switch != r_ifelse { fail }
 }
 
-fn choose(b:u1, x:u32, y:u32) -> (r:u32) {
+fn choose_ifelse(b:u8, x:u32, y:u32) -> (r:u32) {
     if b == 1 {
         r = x
     } else {
@@ -16,10 +24,13 @@ fn choose(b:u1, x:u32, y:u32) -> (r:u32) {
     }
 }
 
-fn identity(x:u32) -> (r:u32) {
-    switch x {
+fn choose_switch(b:u8, x:u32, y:u32) -> (r:u32) {
+    switch b {
+        case 1: {
+            r = x
+            }
         default: {
-            r = x + 1
+            r = y
             return
         }
     }
