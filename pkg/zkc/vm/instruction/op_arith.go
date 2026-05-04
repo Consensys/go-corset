@@ -308,11 +308,17 @@ func (p *OpArith[W]) String(mapping SystemMap[W]) string {
 	var (
 		builder strings.Builder
 		op      = aType2Operation(p.Op)
+		zero    W
 	)
 	//
 	builder.WriteString(registersToString(mapping, p.Target))
 	builder.WriteString(" = ")
-	builder.WriteString(expressionToString(op, p.Sources, p.Constant, mapping))
+	//
+	if p.Constant.Cmp(zero) == 0 && (p.Op == INT_ADD || p.Op == INT_SUB || p.Op == FIELD_ADD || p.Op == FIELD_SUB) {
+		builder.WriteString(expressionToStringWithoutConst(op, p.Sources, mapping))
+	} else {
+		builder.WriteString(expressionToString(op, p.Sources, p.Constant, mapping))
+	}
 	//
 	return builder.String()
 }

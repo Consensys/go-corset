@@ -13,6 +13,7 @@
 package compiler
 
 import (
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/lower"
@@ -51,6 +52,7 @@ func RemovedFile(filename string) FileUpdate {
 // The compiler is not safe for concurrent use; callers are responsible for
 // serialising access (e.g. through a single document-update goroutine).
 type IncrementalCompiler struct {
+	field field.Config
 	// files holds the current contents of every source file known to the
 	// compiler, keyed by filename.  This map is the sole source of truth:
 	// include directives are not resolved against the filesystem, so any
@@ -135,7 +137,7 @@ func (p *IncrementalCompiler) Apply(updates ...FileUpdate) []source.SyntaxError 
 	// Flatten block-level constructs (if/else, while, for) into flat if-goto form.
 	lower.Flatten(program, srcmaps)
 	// Well-formedness checks (assuming unlimited field width).
-	errors = append(errors, validateProgram(program, srcmaps)...)
+	errors = append(errors, validateProgram(program, p.field, srcmaps)...)
 	// Update internal program state.
 	p.program = program
 	p.srcmaps = srcmaps

@@ -18,6 +18,7 @@ import (
 
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/zkc"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -27,26 +28,41 @@ import (
 
 // CheckValid checks that a given source file compiles without any errors.
 // nolint
-func CheckValid(t *testing.T, test, ext string, compiler ErrorCompiler) {
-	var filename = fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
+func CheckValid(t *testing.T, test, ext string, fields ...field.Config) {
 	// Enable testing each trace in parallel
 	t.Parallel()
+	//
+	if len(fields) == 0 {
+		panic("at least one target field is required")
+	}
+	// Check for each field requested
+	for _, field := range fields {
+		checkValidInternal(t, test, ext, field)
+	}
+}
+
+func checkValidInternal(t *testing.T, test, ext string, field field.Config) {
+	var filename = fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
 	// Compile source file into Abstract Syntax Tree form.
-	program := cmd_util.CompileSourceFiles(filename)
+	program := cmd_util.CompileSourceFiles(field, filename)
 	// Compile program into boot machine
-	vm, errs := program.Compile(codegen.DEFAULT_CONFIG)
+	vm, errs := program.Compile(codegen.DEFAULT_CONFIG.Field(field))
 	for _, err := range errs {
 		t.Errorf("%s", err.Error())
 	}
+	//
 	if len(errs) > 0 {
 		return
 	}
 	// Search for tests
 	for _, cfg := range TESTFILE_EXTENSIONS {
-		// Read tests from file
-		tests := ReadTestsFile(cfg, test)
-		// Run all tests
-		runTestCases(t, program, vm, tests)
+		// Check suitable field
+		if cfg.field == nil || *cfg.field == field {
+			// Read tests from file
+			tests := ReadTestsFile(cfg, test)
+			// Run all tests
+			runTestCases(t, program, vm, tests)
+		}
 	}
 }
 
@@ -105,15 +121,26 @@ func checkExpectedOutputs(outputs map[string][]word.Uint, vm *machine.Base[word.
 type TestConfig struct {
 	extension string
 	expected  bool
+	// Indicates extension only suitable for specific field.  If nil, then
+	// suitable for all fields.
+	field *field.Config
 }
 
 // TESTFILE_EXTENSIONS identifies the possible file extensions used for
 // different test inputs.
 var TESTFILE_EXTENSIONS []TestConfig = []TestConfig{
 	// should all pass
-	{"accepts", true},
-	{"accepts.bz2", true},
+	{"accepts", true, nil},
+	{"accepts.bz2", true, nil},
+	{"gf_251.accepts", true, &field.GF_251},
+	{"gf_8209.accepts", true, &field.GF_8209},
+	{"koalabear_16.accepts", true, &field.KOALABEAR_16},
+	{"bls12_377.accepts", true, &field.BLS12_377},
 	// should all fail
-	{"rejects", false},
-	{"rejects.bz2", false},
+	{"rejects", false, nil},
+	{"rejects.bz2", false, nil},
+	{"gf_251.rejects", false, &field.GF_251},
+	{"gf_8209.rejects", false, &field.GF_8209},
+	{"koalabear_16.rejects", false, &field.KOALABEAR_16},
+	{"bls12_377.rejects", false, &field.BLS12_377},
 }

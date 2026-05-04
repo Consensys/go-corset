@@ -15,6 +15,7 @@ package compiler
 import (
 	"path/filepath"
 
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
@@ -27,7 +28,7 @@ import (
 // Compile takes a given set of source files, and parses them into a given set
 // of (linked) declarations.  This includes performing various checks on the
 // files, such as type checking, etc.
-func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.SyntaxError) {
+func Compile(field field.Config, files ...source.File) (ast.Program, source.Maps[any], []source.SyntaxError) {
 	//
 	var (
 		items   []parser.UnlinkedSourceFile
@@ -73,7 +74,7 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 	// Flatten block-level constructs (if/else, switch, while, for) into flat if-goto form
 	lower.Flatten(program, srcmaps)
 	// Well-formedness checks (assuming unlimited field width).
-	errors = append(errors, validateProgram(program, srcmaps)...)
+	errors = append(errors, validateProgram(program, field, srcmaps)...)
 	// Lower fixed-size arrays into flat local access registers
 	if len(errors) == 0 {
 		lower.FlattenFixedArrays(program, srcmaps)
@@ -130,7 +131,7 @@ func readIncludedFiles(file source.File, item parser.UnlinkedSourceFile,
 // number on rhs).  Likewise, variables cannot be used before they are defined,
 // and all control-flow paths must reach a "return" instruction, etc. Finally,
 // we cannot assign to an input register under the current calling convention.
-func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
+func validateProgram(program ast.Program, field field.Config, srcmaps source.Maps[any]) []source.SyntaxError {
 	var errors []source.SyntaxError
 	// Check for cyclic definitions (constants and type aliases); if cycle is
 	// detected, skip remaining phases (for now).
@@ -139,7 +140,7 @@ func validateProgram(program ast.Program, srcmaps source.Maps[any]) []source.Syn
 	}
 	// Attempt to type the program; if this fails for some reaosn, skip
 	// remaining phases (for now).
-	errors = append(errors, validate.Typing(program, srcmaps)...)
+	errors = append(errors, validate.Typing(program, field, srcmaps)...)
 	// Perform final validation
 	errors = append(errors, validate.ControlFlow(program, srcmaps)...)
 	//

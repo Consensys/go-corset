@@ -50,15 +50,17 @@ var executeCmds = []FieldAgnosticCmd{
 	{field.BLS12_377, runExecuteCmd[bls12_377.Element]},
 }
 
-func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
 		// compiler config
-		config = codegen.DEFAULT_CONFIG.Vectorize(GetFlag(cmd, "vectorize"))
+		config = codegen.DEFAULT_CONFIG.
+			Vectorize(GetFlag(cmd, "vectorize")).
+			Field(field)
 	)
 	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
-	program := CompileSourceFiles(args[1:]...)
+	program := CompileSourceFiles(field, args[1:]...)
 	//
 	executeIrProgram[EmptyBaseObserver]("main", config, program, input, EmptyBaseObserver{})
 }

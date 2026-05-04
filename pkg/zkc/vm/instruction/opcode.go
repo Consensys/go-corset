@@ -30,12 +30,16 @@ const (
 	INT_DIV
 	// INT_REM instruction
 	INT_REM
+	// INT_CAST instruction
+	INT_CAST
 	// FIELD_ADD instruction
 	FIELD_ADD
 	// FIELD_SUB instruction
 	FIELD_SUB
 	// FIELD_MUL instruction
 	FIELD_MUL
+	// FIELD_CAST instruction
+	FIELD_CAST
 	// BIT_AND instruction
 	BIT_AND
 	// BIT_OR instruction
@@ -62,8 +66,6 @@ const (
 	FAIL
 	// CALL instruction
 	CALL
-	// CAST instruction
-	CAST
 	// MEMORY_READ instruction
 	MEMORY_READ
 	// MEMORY_WRITE instruction

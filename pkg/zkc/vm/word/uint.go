@@ -50,6 +50,16 @@ func (p Uint) Add(width uint, w Uint) (Uint, bool) {
 	return Uint{res}, carry
 }
 
+// AddMod implementation for Word interface.
+func (p Uint) AddMod(w, m Uint) Uint {
+	var res big.Int
+	//
+	res.Add(&p.value, &w.value)
+	res.Mod(&res, &m.value)
+	//
+	return Uint{res}
+}
+
 // Div implementation for Word interface.
 func (p Uint) Div(_ uint, w Uint) Uint {
 	if w.value.Sign() == 0 {
@@ -107,6 +117,16 @@ func (p Uint) Mul(width uint, w Uint) (Uint, bool) {
 	}
 	//
 	return Uint{res}, overflow
+}
+
+// MulMod implementation for Word interface.
+func (p Uint) MulMod(w, m Uint) Uint {
+	var res big.Int
+	//
+	res.Mul(&p.value, &w.value)
+	res.Mod(&res, &m.value)
+	//
+	return Uint{res}
 }
 
 // Rem implementation for Word interface.
@@ -211,6 +231,16 @@ func (p Uint) Sub(width uint, w Uint) (Uint, bool) {
 	}
 	//
 	return Uint{res}, underflow
+}
+
+// SubMod implementation for Word interface.
+func (p Uint) SubMod(w, m Uint) Uint {
+	var res big.Int
+	//
+	res.Sub(&p.value, &w.value)
+	res.Mod(&res, &m.value)
+	//
+	return Uint{res}
 }
 
 // Xor implementation for Word interface.
