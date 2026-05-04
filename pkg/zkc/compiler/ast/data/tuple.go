@@ -11,6 +11,7 @@
 package data
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -57,6 +58,12 @@ func (p *Tuple[S]) Ith(index uint) Type[S] {
 // Width returns the number of elements in this tuple.
 func (p *Tuple[S]) Width() uint {
 	return uint(len(p.elements))
+}
+
+// Types provides access to the underlying array of types.  This has been
+// defensively cloned before returning.
+func (p *Tuple[S]) Types() []Type[S] {
+	return slices.Clone(p.elements)
 }
 
 // Flattern implementation for Type interface

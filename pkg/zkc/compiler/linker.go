@@ -475,6 +475,9 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 
 		errors = append(append(append(errors, cerrs...), terrs...), ferrs...)
 
+	case *expr.TupleInitialiser[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewTupleInitialiser[symbol.Resolved](args...)
 	default:
 		return nil, p.srcmap.SyntaxErrors(e, "invalid expression")
 	}

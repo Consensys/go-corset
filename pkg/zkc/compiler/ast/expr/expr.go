@@ -143,6 +143,9 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Sub[S]:
 		exprs = e.Exprs
 		operator = "-"
+	case *TupleInitialiser[S]:
+		args := stringOfArguments(e.Exprs, mapping)
+		return fmt.Sprintf("(%s)", args)
 	case *Div[S]:
 		exprs = e.Exprs
 		operator = "/"
