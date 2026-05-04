@@ -91,8 +91,20 @@ func (p *BiPartiteArray[W]) Read(frame []W, address []register.Id, data []regist
 			frame[data[i].Unwrap()] = p.readLower(start + uint64(i))
 		}
 	} else {
+		// Cap addressable cells at TOP_POS-start+1; positions beyond TOP_POS
+		// are out of range and yield zero (avoids relying on uint64
+		// wraparound in start+i).
+		var (
+			needed = TOP_POS - start + 1
+			zero   W
+		)
+		//
 		for i := range data {
-			frame[data[i].Unwrap()] = p.readUpper(start + uint64(i))
+			if uint64(i) < needed {
+				frame[data[i].Unwrap()] = p.readUpper(start + uint64(i))
+			} else {
+				frame[data[i].Unwrap()] = zero
+			}
 		}
 	}
 	//
@@ -125,9 +137,14 @@ func (p *BiPartiteArray[W]) Write(frame []W, address []register.Id, data []regis
 			copy(ndata, p.upper)
 			p.upper = ndata
 		}
+		// Cap iteration at `needed`: any cell whose position would exceed
+		// TOP_POS lies outside the addressable range (start+i would wrap
+		// uint64) and is silently dropped, mirroring the zero returned by
+		// readUpper for the same positions.
+		n := min(uint64(len(data)), needed)
 		//
-		for i := range data {
-			p.upper[TOP_POS-(start+uint64(i))] = frame[data[i].Unwrap()]
+		for i := range n {
+			p.upper[TOP_POS-(start+i)] = frame[data[i].Unwrap()]
 		}
 	}
 	//

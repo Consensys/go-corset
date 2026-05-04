@@ -204,6 +204,60 @@ func Test_BiPartite_MultiWord(t *testing.T) {
 	checkReadWriteDoubleWords(t, writes, []uint64{6})
 }
 
+// Test_BiPartite_Upper_Overflow regression-tests the case where a multi-word
+// write near TOP_POS extends past the end of the addressable range.  Without
+// the bounds cap in Write, `start + i` wraps uint64 and indexes the upper
+// slice at a huge value, panicking.  Cells whose position would exceed
+// TOP_POS must be silently dropped on write and read back as zero.
+//
+// We use numOutputs=3 with a 64-bit address: there exists an address such
+// that 3*addr mod 2^64 == TOP_POS, so the row's positions are TOP_POS,
+// TOP_POS+1 (wrap), TOP_POS+2 (wrap) — only the first fits.
+func Test_BiPartite_Upper_Overflow(t *testing.T) {
+	regs := []register.Register{
+		register.NewInput("addr", 64, *big.NewInt(0)),
+		register.NewOutput("d0", 64, *big.NewInt(0)),
+		register.NewOutput("d1", 64, *big.NewInt(0)),
+		register.NewOutput("d2", 64, *big.NewInt(0)),
+	}
+	//
+	mem := NewBiPartiteArray[word.Uint]("test", regs)
+	frame := make([]word.Uint, 4)
+	// 3 * 6148914691236517205 == 2^64 - 1 == TOP_POS (mod 2^64), so start
+	// lands exactly at TOP_POS and only one cell fits.
+	const addr uint64 = 6148914691236517205
+	//
+	frame[0] = uint64W(addr)
+	frame[1] = uint64W(11)
+	frame[2] = uint64W(22)
+	frame[3] = uint64W(33)
+	//
+	if err := mem.Write(frame, addrIds(), dataIds(3)); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+	// Clear data slots, then read back.
+	frame[1] = uint64W(0)
+	frame[2] = uint64W(0)
+	frame[3] = uint64W(0)
+	//
+	if err := mem.Read(frame, addrIds(), dataIds(3)); err != nil {
+		t.Fatalf("Read failed: %v", err)
+	}
+	// First cell is in range and must round-trip; the other two are past
+	// TOP_POS and must read as zero.
+	if got := frame[1].Uint64(); got != 11 {
+		t.Errorf("data[0]: expected 11, got %d", got)
+	}
+	//
+	if got := frame[2].Uint64(); got != 0 {
+		t.Errorf("data[1] (overflow): expected 0, got %d", got)
+	}
+	//
+	if got := frame[3].Uint64(); got != 0 {
+		t.Errorf("data[2] (overflow): expected 0, got %d", got)
+	}
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
