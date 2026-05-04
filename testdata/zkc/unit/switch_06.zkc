@@ -22,10 +22,6 @@ fn main() {
     y = do_something(x)
 
     if y != r {
-        printf "x = %d\n", x
-        printf "y = %d\n", y
-        printf "r = %d\n", r
-        printf "fuck ...\n"
         fail
     }
 }

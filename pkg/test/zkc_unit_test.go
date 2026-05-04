@@ -557,8 +557,8 @@ func Test_ZkcUnit_Switch_08(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/switch_08")
 }
 
-func Test_ZkcUnit_Switch_Numeric_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/switch_numeric_01")
+func Test_ZkcUnit_Switch_09(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_09")
 }
 
 // ===================================================================

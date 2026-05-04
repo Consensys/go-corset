@@ -1080,7 +1080,6 @@ func (p *Parser) parseSwitchCase(env Environment) (
 		}
 	}
 
-	// TODO: I have no idea whether the boolean parameter is the right one
 	returns, body, errs = p.parseStatementBlock(env, env.InLoop())
 	if len(errs) > 0 {
 		return false, nil, nil, errs
