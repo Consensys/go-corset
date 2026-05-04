@@ -118,6 +118,29 @@ func Test_ZkcUnit_Basic_24(t *testing.T) {
 func Test_ZkcUnit_Basic_25(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_25")
 }
+func Test_ZkcUnit_Basic_26(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_26")
+}
+
+func Test_ZkcUnit_Basic_27(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_27")
+}
+
+func Test_ZkcUnit_Basic_28(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_28")
+}
+
+func Test_ZkcUnit_Basic_29(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_29")
+}
+
+func Test_ZkcUnit_Basic_30(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_30")
+}
+
+func Test_ZkcUnit_Basic_31(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_31")
+}
 
 // ===================================================================
 // Native Field Tests

@@ -873,7 +873,7 @@ func (p *Parser) parseAssignment(env Environment) (stmt.Unresolved, []source.Syn
 		return nil, errs
 	}
 	// Parse right-hand side
-	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseTupleExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -1758,7 +1758,7 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 		}
 	case LBRACE:
 		p.match(LBRACE)
-		nexpr, errors = p.parseExpr(env)
+		nexpr, errors = p.parseTupleExpr(env)
 		//
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
@@ -1790,6 +1790,37 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 //   - function(arguments)
 //   - constant
 //   - variable
+func (p *Parser) parseTupleExpr(env Environment) (Expr, []source.SyntaxError) {
+	var (
+		start = p.index
+		errs  []source.SyntaxError
+		exprs = make([]Expr, 1)
+	)
+	// match initial expression
+	if exprs[0], errs = p.parseExpr(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// continue matching whilst there are commas
+	for p.match(COMMA) {
+		var expr Expr
+		//
+		if expr, errs = p.parseExpr(env); len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		exprs = append(exprs, expr)
+	}
+	//
+	if len(exprs) == 1 {
+		return exprs[0], nil
+	}
+	//
+	init := expr.NewTupleInitialiser(exprs...)
+	p.srcmap.Put(init, p.spanOf(start, p.index-1))
+	//
+	return init, nil
+}
+
 func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		nexpr Expr

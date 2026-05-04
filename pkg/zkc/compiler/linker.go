@@ -157,8 +157,10 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 			contents, errs3 = p.linkExprs(d.Contents...)
 		}
 
-		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, contents),
-			append(append(errs1, errs2...), errs3...)
+		resolved := decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, contents)
+		resolved.SetAnnotations(d.Annotations())
+
+		return resolved, append(append(errs1, errs2...), errs3...)
 	case *decl.UnresolvedTypeAlias:
 		datatype, errs := p.linkType(d.DataType)
 		//
@@ -516,6 +518,9 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 
 		errors = append(append(append(errors, cerrs...), terrs...), ferrs...)
 
+	case *expr.TupleInitialiser[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewTupleInitialiser[symbol.Resolved](args...)
 	default:
 		return nil, p.srcmap.SyntaxErrors(e, "invalid expression")
 	}

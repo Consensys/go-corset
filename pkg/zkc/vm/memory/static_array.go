@@ -84,8 +84,3 @@ func (p *StaticArray[W]) Write(frame []W, address []register.Id, data []register
 	//
 	return nil
 }
-
-// Contents implementation for Memory interface.
-func (p *StaticArray[W]) Contents() []W {
-	return p.data
-}
