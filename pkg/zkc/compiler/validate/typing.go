@@ -901,11 +901,35 @@ func (p *TypeChecker) typeTupleExpr(expected Type, e *expr.TupleInitialiser[symb
 	effects bit.Set) (Type, []source.SyntaxError) {
 	//
 	var (
-		types, errs = p.typeExpressions(expected, e.Exprs, env, effects)
-		tuple       = data.FromTypes(types...)
+		errors, errs []source.SyntaxError
+		tupTypes     = p.destructTupleType(expected)
+		types        = make([]Type, len(e.Exprs))
 	)
 	//
-	return tuple, errs
+	for i, e := range e.Exprs {
+		var ith_t Type
+		//
+		if i < len(tupTypes) {
+			ith_t = tupTypes[i]
+		}
+		//
+		types[i], errs = p.typeExpression(ith_t, e, env, effects)
+		errors = append(errors, errs...)
+	}
+	//
+	return data.FromTypes(types...), errors
+}
+
+// DestructTupleTypes attempts to break the given type into a tuple.  If it
+// cannot do this, then it simple returns an empty array.
+func (p *TypeChecker) destructTupleType(t Type) []Type {
+	if wellFormed(t, p.env) {
+		if tt := t.AsTuple(p.env); tt != nil {
+			return tt.Types()
+		}
+	}
+	//
+	return nil
 }
 
 // For an expression "(T1) e" where "e : T2" under the given environment, check

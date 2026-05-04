@@ -110,7 +110,7 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 		preInsns, postInsns []MicroInstruction
 	)
 	//
-	for i, lv := range lvals {
+	for _, lv := range lvals {
 		switch lv := lv.(type) {
 		case *lval.Variable[symbol.Resolved]:
 			// Check for destructuring case
@@ -128,11 +128,12 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 					bitwidth += p.registers[id].Width()
 				}
 				// allocate temporary register to store result
-				regs = append(regs, p.allocate(bitwidth))
+				rid := p.allocate(bitwidth)
+				regs = append(regs, rid)
 				// reverse ids as NewDestruct expects them in little endian order
 				ids = array.Reverse(ids)
 				// include write to temporary after its assigned
-				postInsns = append(postInsns, instruction.NewDestruct[word.Uint](ids, regs[i]))
+				postInsns = append(postInsns, instruction.NewDestruct[word.Uint](ids, rid))
 			}
 		case *lval.MemAccess[symbol.Resolved]:
 			var (
