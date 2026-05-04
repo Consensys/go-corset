@@ -90,4 +90,7 @@ func (k DeclarationKind) String() string {
 var ANNOTATIONS = []Annotation{
 	// @inline is permitted only on function declarations.
 	NewAnnotation("inline", "marks a function to be inlined at every call site", FUNCTION_KIND),
+	// @bipartite is permitted only on memory declarations.
+	NewAnnotation("bipartite",
+		"marks a read/write memory to use the bipartite (split heap/stack) layout", MEMORY_KIND),
 }

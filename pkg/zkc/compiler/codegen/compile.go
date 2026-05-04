@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -126,7 +127,11 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 				// Include all errors
 				errors = append(errors, errs...)
 			case decl.RANDOM_ACCESS_MEMORY:
-				modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
+				if slices.Contains(c.Annotations(), "bipartite") {
+					modules = append(modules, memory.NewBiPartiteArray[word.Uint](c.Name(), regs))
+				} else {
+					modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
+				}
 			}
 		default:
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))
