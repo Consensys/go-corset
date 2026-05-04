@@ -17,10 +17,6 @@ fn main() {
     var result:u8 = 0
     cond = inputs[0]
 
-    // printf "\n"
-    // printf "result = %d\n", result
-    // printf "cond   = %d\n", cond
-
     switch (cond == 1 ? CASE_TRUE:CASE_FALSE) {
         case CASE_TRUE: {
             result = CASE_TRUE
@@ -32,9 +28,6 @@ fn main() {
             result = CASE_DEFAULT
         }
     }
-
-    // printf "input  = %d\n", cond
-    // printf "result = %d\n\n", result
 
     if results[0] != result {
         fail

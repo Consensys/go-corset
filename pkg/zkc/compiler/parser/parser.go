@@ -932,10 +932,9 @@ func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.S
 //		...	// the 'switch body'
 //	}
 //
-// TODO: check for duplicate labels across all cases
-//
-// TODO: case exhaustivity analysis of switch statements would allow
-// switch statements without a default branch to have returned ≡ true
+// Note: parseSwitchBody currently doesn't
+//   - scan for / flag label duplication
+//   - perform exhaustivity analysis
 func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	branches []stmt.SwitchBranch[symbol.Unresolved],
 	errs []source.SyntaxError) {
@@ -986,7 +985,7 @@ func (p *Parser) parseSwitchBody(env Environment) (returned bool,
 	//	- every branch 'returns'
 	//	- its body contains a default branch which similarly 'returns'
 	//
-	// Note. The required presence of a default branch prevents switch
+	// Note: the required presence of a default branch prevents switch
 	// statements with empty body from 'returning'
 	returned = bodyContainsDefaultBranch && everyBranchReturns
 

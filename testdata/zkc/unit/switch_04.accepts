@@ -1,7 +1,7 @@
-{ "input_case": "0x00", "expected_output": "0xff" }
-{ "input_case": "0x01", "expected_output": "0x04" }
-{ "input_case": "0x02", "expected_output": "0x09" }
-{ "input_case": "0x03", "expected_output": "0x0f" }
-{ "input_case": "0x11", "expected_output": "0x11" }
-{ "input_case": "0xc3", "expected_output": "0x11" }
-{ "input_case": "0xff", "expected_output": "0x11" }
+{ "inputs": "0x00", "outputs": "0xff" }
+{ "inputs": "0x01", "outputs": "0x04" }
+{ "inputs": "0x02", "outputs": "0x09" }
+{ "inputs": "0x03", "outputs": "0x0f" }
+{ "inputs": "0x11", "outputs": "0x11" }
+{ "inputs": "0xc3", "outputs": "0x11" }
+{ "inputs": "0xff", "outputs": "0x11" }
