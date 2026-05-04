@@ -39,7 +39,4 @@ type Memory[W word.Word[W]] interface {
 	// the given register identifiers and, likewise, the source registers are
 	// given in data.
 	Write(frame []W, address []register.Id, data []register.Id) error
-	// Return the contents of this memory as a sequence of words, where all rows
-	// are simply appended together.
-	Contents() []W
 }

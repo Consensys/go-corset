@@ -134,11 +134,6 @@ func (p *BiPartiteArray[W]) Write(frame []W, address []register.Id, data []regis
 	return nil
 }
 
-// Contents implementation for Memory interface.  This is currently unsupported.
-func (p *BiPartiteArray[W]) Contents() []W {
-	panic("unsupported operation")
-}
-
 // readLower returns the word at the given absolute position in the lower
 // partition, returning zero for out-of-bounds accesses.
 func (p *BiPartiteArray[W]) readLower(pos uint64) W {
