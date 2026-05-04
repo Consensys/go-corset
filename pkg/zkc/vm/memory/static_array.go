@@ -14,7 +14,7 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // StaticArray is a memory implementation backed by a fixed-size []W, meaning
@@ -26,14 +26,14 @@ import (
 // The type parameter W is the word type (e.g. a field element or big.Int), and
 // D is the AddressDecoder strategy that encodes the layout of rows within the
 // flat slice.
-type StaticArray[W word.Word[W]] struct {
+type StaticArray[W util.Uinter64] struct {
 	geometry Geometry[W]
 	name     string
 	data     []W
 }
 
 // newStaticArray constructs a new array initialised with a given set of values.
-func newStaticArray[W word.Word[W]](name string, registers []register.Register, init ...W) StaticArray[W] {
+func newStaticArray[W util.Uinter64](name string, registers []register.Register, init ...W) StaticArray[W] {
 	var geometry = NewGeometry[W](registers)
 	//
 	return StaticArray[W]{geometry, name, init}

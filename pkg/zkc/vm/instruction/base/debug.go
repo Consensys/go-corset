@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package base
 
 import (
 	"fmt"
@@ -19,6 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/util"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
 
 // FormattedChunk represents a chunk of a printf string which consists of some
@@ -30,17 +31,17 @@ type FormattedChunk struct {
 }
 
 // Debug performs an unconditional branch to a given target instructon.
-type Debug[W any] struct {
+type Debug struct {
 	Chunks []FormattedChunk
 }
 
 // OpCode implementation for Instruction interface
-func (p *Debug[W]) OpCode() OpCode {
-	return DEBUG
+func (p *Debug) OpCode() opcode.OpCode {
+	return opcode.DEBUG
 }
 
 // Uses implementation for Instruction interface.
-func (p *Debug[W]) Uses() []register.Id {
+func (p *Debug) Uses() []register.Id {
 	var uses []register.Id
 	//
 	for _, c := range p.Chunks {
@@ -53,11 +54,11 @@ func (p *Debug[W]) Uses() []register.Id {
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Debug[W]) Definitions() []register.Id {
+func (p *Debug) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Debug[W]) String(mapping SystemMap[W]) string {
+func (p *Debug) String(mapping SystemMap) string {
 	var (
 		tBuilder  strings.Builder
 		builder   strings.Builder
@@ -84,11 +85,11 @@ func (p *Debug[W]) String(mapping SystemMap[W]) string {
 }
 
 // Validate implementation for Instruction interface.
-func (p *Debug[W]) Validate(_ field.Config, _ SystemMap[W]) []error {
+func (p *Debug) Validate(_ field.Config, _ SystemMap) []error {
 	return nil
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Debug[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
+func (p *Debug) MicroValidate(_ uint, _ field.Config, _ SystemMap) []error {
 	return nil
 }

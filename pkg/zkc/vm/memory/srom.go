@@ -14,20 +14,20 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // StaticReadOnly is a ReadOnly memory whose contents are fixed at construction
 // time and are never overwritten by Boot.  Specifically, its Initialise method
 // is a no-op, so the pre-loaded data survives across multiple executions of the
 // same machine.
-type StaticReadOnly[W word.Word[W]] struct {
+type StaticReadOnly[W util.Uinter64] struct {
 	ReadOnly[W]
 }
 
 // NewStaticReadOnly constructs a static read-only memory pre-loaded with the
 // given values.
-func NewStaticReadOnly[W word.Word[W]](name string, registers []register.Register, init ...W) *StaticReadOnly[W] {
+func NewStaticReadOnly[W util.Uinter64](name string, registers []register.Register, init ...W) *StaticReadOnly[W] {
 	return &StaticReadOnly[W]{
 		ReadOnly: *NewReadOnly(name, registers, init...),
 	}

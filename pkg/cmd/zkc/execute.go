@@ -69,7 +69,7 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.C
 	input map[string][]byte, view V,
 ) {
 	var (
-		vm        *machine.Base[word.Uint]
+		vm        *machine.Word[word.Uint]
 		bigInputs map[string][]word.Uint
 		errors    []error
 	)
@@ -120,7 +120,7 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.C
 	}
 }
 
-func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Base[W], n uint, observer V) (uint, error) {
+func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Word[W], n uint, observer V) (uint, error) {
 	var (
 		nsteps uint
 	)
@@ -146,10 +146,10 @@ func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Base[W], n uint
 // ============================================================================
 
 // BaseObserver is an observer for a base machin
-type BaseObserver[W word.Word[W]] = VmObserver[W, *machine.Base[W]]
+type BaseObserver[W word.Word[W]] = VmObserver[W, *machine.Word[W]]
 
 // EmptyBaseObserver is an empty observer for a base machine.
-type EmptyBaseObserver = EmptyObserver[word.Uint, *machine.Base[word.Uint]]
+type EmptyBaseObserver = EmptyObserver[word.Uint, *machine.Word[word.Uint]]
 
 // VmObserver is a generic interface for extract information before and after an
 // execution step of the VM.  For example, to generate debugging information.

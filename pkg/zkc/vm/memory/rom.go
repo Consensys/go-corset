@@ -14,7 +14,7 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // ReadOnly (ROM) represents a form of memory that can only be read during
@@ -28,12 +28,12 @@ import (
 // same program with different input data.  In constrast, static ROMs correspond
 // to fixed tables used within the program (e.g. in a hash function such as
 // BLAKE or KECCAK, there are fixed lookup tables used as part of the program).
-type ReadOnly[W word.Word[W]] struct {
+type ReadOnly[W util.Uinter64] struct {
 	StaticArray[W]
 }
 
 // NewReadOnly constructs a new read-only memory initialised with a given set of values.
-func NewReadOnly[W word.Word[W]](name string, registers []register.Register, init ...W) *ReadOnly[W] {
+func NewReadOnly[W util.Uinter64](name string, registers []register.Register, init ...W) *ReadOnly[W] {
 	return &ReadOnly[W]{
 		newStaticArray[W](name, registers, init...),
 	}

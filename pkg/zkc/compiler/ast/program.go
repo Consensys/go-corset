@@ -167,7 +167,7 @@ func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func (p *Program) Compile(config codegen.Config) (*machine.Base[word.Uint], []source.SyntaxError) {
+func (p *Program) Compile(config codegen.Config) (*machine.Word[word.Uint], []source.SyntaxError) {
 	var compiler = codegen.NewCompiler(config, p.Environment(), p.srcmaps)
 	// Compile all decalarations
 	return compiler.Compile(p.declarations)

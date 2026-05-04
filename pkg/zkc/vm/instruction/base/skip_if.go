@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package base
 
 import (
 	"fmt"
@@ -18,33 +18,15 @@ import (
 	"github.com/consensys/go-corset/pkg/asm/io"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
-
-const (
-	// EQ indicates an equality condition
-	EQ Condition = 0
-	// NEQ indicates a non-equality condition
-	NEQ Condition = 1
-	// LT indicates a less-than condition
-	LT Condition = 2
-	// GT indicates a greater-than condition
-	GT Condition = 3
-	// LTEQ indicates a less-than-or-equals condition
-	LTEQ Condition = 4
-	// GTEQ indicates a greater-than-or-equals condition
-	GTEQ Condition = 5
-)
-
-// Condition represents the set of permission comparitors for a SkipIf
-// instruction.
-type Condition uint
 
 // SkipIf microcode performs a conditional skip over a given number of codes. The
 // condition is either that two registers are equal, or that they are not equal.
 // This has two variants: register-register; and, register-constant.  The latter
 // is indiciated when the right register is marked as UNUSED.
-type SkipIf[W any] struct {
-	Cond Condition
+type SkipIf struct {
+	Cond opcode.Condition
 	// Left and right comparisons
 	Left register.Id
 	//
@@ -53,18 +35,13 @@ type SkipIf[W any] struct {
 	Skip uint
 }
 
-// NewSkipIf constructs a fresh conditional skip instruction.
-func NewSkipIf[W any](condition Condition, left, right register.Id, skip uint) *SkipIf[W] {
-	return &SkipIf[W]{condition, left, right, skip}
-}
-
 // OpCode implementation for Instruction interface
-func (p *SkipIf[W]) OpCode() OpCode {
-	return SKIP_IF
+func (p *SkipIf) OpCode() opcode.OpCode {
+	return opcode.SKIP_IF
 }
 
 // Uses implementation for Instruction interface
-func (p *SkipIf[W]) Uses() []register.Id {
+func (p *SkipIf) Uses() []register.Id {
 	var regs []io.RegisterId
 	// Add all registers on the left-hand side
 	regs = append(regs, p.Left)
@@ -75,11 +52,11 @@ func (p *SkipIf[W]) Uses() []register.Id {
 }
 
 // Definitions implementation for Instruction interface
-func (p *SkipIf[W]) Definitions() []io.RegisterId {
+func (p *SkipIf) Definitions() []io.RegisterId {
 	return nil
 }
 
-func (p *SkipIf[W]) String(mapping SystemMap[W]) string {
+func (p *SkipIf) String(mapping SystemMap) string {
 	var (
 		l = mapping.Register(p.Left).Name()
 		r = mapping.Register(p.Right).Name()
@@ -87,17 +64,17 @@ func (p *SkipIf[W]) String(mapping SystemMap[W]) string {
 	)
 	//
 	switch p.Cond {
-	case EQ:
+	case opcode.EQ:
 		o = "=="
-	case NEQ:
+	case opcode.NEQ:
 		o = "!="
-	case LT:
+	case opcode.LT:
 		o = "<"
-	case LTEQ:
+	case opcode.LTEQ:
 		o = "<="
-	case GT:
+	case opcode.GT:
 		o = ">"
-	case GTEQ:
+	case opcode.GTEQ:
 		o = ">="
 	default:
 		panic("unknown skip condition encountered")
@@ -107,7 +84,7 @@ func (p *SkipIf[W]) String(mapping SystemMap[W]) string {
 }
 
 // MicroValidate iumplementation for MicroInstruction interface
-func (p *SkipIf[W]) MicroValidate(n uint, _ field.Config, fn SystemMap[W]) []error {
+func (p *SkipIf) MicroValidate(n uint, _ field.Config, fn SystemMap) []error {
 	var (
 		errors []error
 		lw     = fn.Register(p.Left).Width()

@@ -70,10 +70,10 @@ func NewCompiler(cfg Config, env data.ResolvedEnvironment, srcmaps source.Maps[a
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint], []source.SyntaxError) {
+func (p *Compiler) Compile(declarations []Declaration) (*machine.Word[word.Uint], []source.SyntaxError) {
 	//
 	var (
-		modules []machine.Module[word.Uint]
+		modules []machine.Module
 		mapping = make([]uint, len(declarations))
 		index   = uint(0)
 		errors  []source.SyntaxError
@@ -142,7 +142,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 		Vectorize(modules, p.srcmaps)
 	}
 	// Construct machine
-	return machine.New(p.config.field, modules...), errors
+	return machine.NewWord[word.Uint](p.config.field, modules...), errors
 }
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
@@ -173,15 +173,14 @@ func (p *Compiler) compileStaticInitialisers(
 // the variable descriptors into register descriptors.  Each variable may
 // expand into one or more registers (e.g. a tuple variable produces one
 // register per element).
-func (p *Compiler) compileFunction(
-	id uint, mapping []uint, program []Declaration,
-) (*function.Boot[word.Uint], []source.SyntaxError) {
+func (p *Compiler) compileFunction(id uint, mapping []uint, program []Declaration,
+) (*function.Boot, []source.SyntaxError) {
 	//
 	var (
 		fn        = program[id].(*decl.ResolvedFunction)
 		registers []register.Register
 		padding   big.Int // zero padding
-		bootCode  = make([]instruction.Instruction[word.Uint], len(fn.Code))
+		bootCode  = make([]instruction.Vector[MicroInstruction], len(fn.Code))
 	)
 	//
 	for _, v := range fn.Variables {

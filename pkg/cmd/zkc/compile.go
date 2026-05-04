@@ -258,7 +258,7 @@ func writeFunctionVariables(f *decl.ResolvedFunction, env data.ResolvedEnvironme
 // Intermediate Representation (IR)
 // ============================================================================
 
-func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Base[W]) {
+func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Word[W]) {
 	// Write memories
 	for i, m := range machine.Modules() {
 		if i != 0 {
@@ -274,7 +274,7 @@ func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Base[W]) {
 			writeIrMemory("memory", m)
 		case *memory.WriteOnce[W]:
 			writeIrMemory("output", m)
-		case *function.Boot[W]:
+		case *function.Boot:
 			name := trace.ModuleName{Name: m.Name(), Multiplier: 1}
 			mapping := instruction.NewSystemMap(register.ArrayMap(name, m.Registers()...), machine.Modules())
 			writeIrFunction[W](m, mapping)
@@ -298,7 +298,7 @@ func writeIrMemory[W word.Word[W]](kind string, m memory.Memory[W]) {
 	fmt.Println(")")
 }
 
-func writeIrFunction[W word.Word[W]](f *function.Boot[W], mapping instruction.SystemMap[W]) {
+func writeIrFunction[W word.Word[W]](f *function.Boot, mapping instruction.SystemMap) {
 	fmt.Printf("fn %s(", f.Name())
 	// parameters
 	writeIrFunctionArgs(register.INPUT_REGISTER, f.Registers())
@@ -341,7 +341,7 @@ func writeIrFunctionArgs(kind register.Type, regs []register.Register) {
 	}
 }
 
-func writeIrFunctionVariables[W word.Word[W]](f *function.Boot[W]) {
+func writeIrFunctionVariables[W word.Word[W]](f *function.Boot) {
 	for _, r := range f.Registers() {
 		if !r.IsInputOutput() {
 			fmt.Printf("\t%s %s\n", registerType(r), r.Name())
