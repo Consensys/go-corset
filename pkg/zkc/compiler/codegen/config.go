@@ -18,8 +18,10 @@ import "github.com/consensys/go-corset/pkg/util/field"
 // debugging, for example) should derive a custom Config via the chainable
 // setters below.
 var DEFAULT_CONFIG = Config{
-	field:     field.KOALABEAR_16,
-	vectorize: true,
+	field:              field.KOALABEAR_16,
+	lowerBitwise:       false,
+	lowerBitwiseStrict: false,
+	vectorize:          true,
 }
 
 // Config captures the tunable aspects of the ZkC code generator.  Instances
@@ -39,7 +41,9 @@ type Config struct {
 	// compact program but leaves the macro instruction stream identical to
 	// the codegen output, which is useful when debugging the codegen or
 	// inspecting the un-merged IR.
-	vectorize bool
+	lowerBitwise       bool
+	lowerBitwiseStrict bool
+	vectorize          bool
 }
 
 // Field sets the target field configuration to use for this compiler.
@@ -58,6 +62,26 @@ func (p Config) Vectorize(flag bool) Config {
 	var q = p
 	//
 	q.vectorize = flag
+	//
+	return q
+}
+
+// LowerBitwise returns a copy of this Config with VM-level bitwise lowering
+// enabled (flag=true) or disabled (flag=false).
+func (p Config) LowerBitwise(flag bool) Config {
+	var q = p
+	//
+	q.lowerBitwise = flag
+	//
+	return q
+}
+
+// LowerBitwiseStrict toggles strict validation that no bitwise opcodes remain
+// in the machine after lowering.
+func (p Config) LowerBitwiseStrict(flag bool) Config {
+	var q = p
+	//
+	q.lowerBitwiseStrict = flag
 	//
 	return q
 }

@@ -57,8 +57,12 @@ var compileCmds = []FieldAgnosticCmd{
 
 func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	var (
+		strict = GetFlag(cmd, "lower-bitwise-strict")
 		// compiler config
-		config = codegen.DEFAULT_CONFIG.Vectorize(GetFlag(cmd, "vectorize"))
+		config = codegen.DEFAULT_CONFIG.
+			LowerBitwise(GetFlag(cmd, "lower-bitwise") || strict).
+			LowerBitwiseStrict(strict).
+			Vectorize(GetFlag(cmd, "vectorize"))
 	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
@@ -81,6 +85,10 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 		}
 
 		if len(errs) == 0 {
+			if GetFlag(cmd, "lower-bitwise-strict") && codegen.HasBitwiseOps[word.Uint](vm.Modules()) {
+				log.Fatal("bitwise VM opcodes remain after lowering")
+			}
+
 			writeIntermediateRepresentation[word.Uint](vm)
 		}
 	}
@@ -368,4 +376,6 @@ func init() {
 	rootCmd.AddCommand(compileCmd)
 	compileCmd.Flags().Bool("ast", false, "Output abstract syntax tree (AST)")
 	compileCmd.Flags().Bool("ir", false, "Output intermediate representation (IR)")
+	compileCmd.Flags().Bool("lower-bitwise", false, "Lower bitwise VM instructions into helper-function calls")
+	compileCmd.Flags().Bool("lower-bitwise-strict", false, "Fail if bitwise VM opcodes remain after lowering")
 }
