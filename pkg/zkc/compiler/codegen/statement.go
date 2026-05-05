@@ -344,11 +344,15 @@ func (p *StmtCompiler) compileConst(c word.Uint, _ []uint, target register.Id,
 func (p *StmtCompiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint, target register.Id,
 ) []MicroInstruction {
 	var (
-		castWidth      = e.CastType.AsUint(p.environment).BitWidth()
 		sources, insns = p.compileArgs(mapping, e.Expr)
 	)
 	//
-	return append(insns, instruction.NewCast[word.Uint](target, sources[0], castWidth))
+	if t := e.CastType.AsUint(p.environment); t != nil {
+		// uint cast
+		return append(insns, instruction.NewCast[word.Uint](target, sources[0], t.BitWidth()))
+	}
+	// field cast
+	return append(insns, instruction.NewCast[word.Uint](target, sources[0], math.MaxUint))
 }
 
 func (p *StmtCompiler) compileConcat(args []Expr, mapping []uint, target register.Id) []MicroInstruction {

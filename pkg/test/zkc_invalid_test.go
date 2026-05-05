@@ -16,6 +16,8 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // ===================================================================
@@ -788,5 +790,10 @@ func Test_ZkcInvalid_Printf_04(t *testing.T) {
 // ===================================================================
 
 func checkZkcInvalid(t *testing.T, test string) {
-	util.CheckInvalid(t, test, "zkc", "//error", util.CompileZkc)
+	// Construct default compiler (for now)
+	var compiler = func(srcfile source.File) []source.SyntaxError {
+		return util.CompileZkc(field.KOALABEAR_16, srcfile)
+	}
+	//
+	util.CheckInvalid(t, test, "zkc", "//error", compiler)
 }

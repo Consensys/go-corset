@@ -14,6 +14,7 @@ package instruction
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -32,7 +33,8 @@ type Cast[W word.Word[W]] struct {
 	Target register.Id
 	// Source register
 	Source register.Id
-	// Width is the target bit width for truncation.
+	// Width is the target bit width for truncation, where MaxUint signals field
+	// cast.
 	Width uint
 }
 
@@ -43,7 +45,11 @@ func NewCast[W word.Word[W]](target register.Id, source register.Id, width uint)
 
 // OpCode implementation for Instruction interface
 func (p *Cast[W]) OpCode() OpCode {
-	return CAST
+	if p.Width == math.MaxUint {
+		return FIELD_CAST
+	}
+	//
+	return INT_CAST
 }
 
 // Uses implementation for Instruction interface.
@@ -61,7 +67,13 @@ func (p *Cast[W]) String(mapping SystemMap[W]) string {
 	var builder strings.Builder
 	//
 	builder.WriteString(registersToString(mapping, p.Target))
-	fmt.Fprintf(&builder, " = (u%d) ", p.Width)
+	//
+	if p.Width != math.MaxUint {
+		fmt.Fprintf(&builder, " = (u%d) ", p.Width)
+	} else {
+		fmt.Fprintf(&builder, " = (𝔽) ")
+	}
+	//
 	builder.WriteString(registersToString(mapping, p.Source))
 	//
 	return builder.String()

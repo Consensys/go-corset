@@ -55,10 +55,12 @@ var compileCmds = []FieldAgnosticCmd{
 	{field.BLS12_377, runCompileCmd[bls12_377.Element]},
 }
 
-func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
 		// compiler config
-		config = codegen.DEFAULT_CONFIG.Vectorize(GetFlag(cmd, "vectorize"))
+		config = codegen.DEFAULT_CONFIG.
+			Vectorize(GetFlag(cmd, "vectorize")).
+			Field(field)
 	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
@@ -68,7 +70,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	ir := GetFlag(cmd, "ir")
 	as := GetFlag(cmd, "ast")
 	// Compile source files, or print errors
-	program := CompileSourceFiles(args...)
+	program := CompileSourceFiles(field, args...)
 	//
 	if as {
 		writeAbstractSyntaxTree(program)

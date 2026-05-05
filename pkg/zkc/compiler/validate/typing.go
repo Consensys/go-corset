@@ -19,6 +19,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
@@ -60,10 +61,10 @@ type VariableMap = variable.Map[symbol.Resolved]
 //
 // The problem above is that ROM is an input memory and, hence, ROM+1 does not
 // make sense.
-func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError {
+func Typing(program ast.Program, field field.Config, srcmaps source.Maps[any]) []source.SyntaxError {
 	var (
 		errors []source.SyntaxError
-		typer  = TypeChecker{program, program.Environment(), srcmaps}
+		typer  = TypeChecker{program, field, program.Environment(), srcmaps}
 	)
 	// NOTE: finalising constants must be done first to ensure their expressions
 	// are given types.  Otherwise, finalising components could fail.
@@ -109,6 +110,7 @@ func Typing(program ast.Program, srcmaps source.Maps[any]) []source.SyntaxError 
 // TypeChecker embodies information needed for type checking a given program.
 type TypeChecker struct {
 	program ast.Program
+	field   field.Config
 	env     ast.Environment
 	srcmaps source.Maps[any]
 }
@@ -413,9 +415,9 @@ func (p *TypeChecker) typePrintf(s *stmt.Printf[symbol.Resolved], env VariableMa
 			errs = append(errs, ierrs...)
 		} else if !wellFormed(ith, p.env) {
 			// silently skip - error already reported earlier in pipeline
-		} else if ith.AsUint(p.env) == nil {
-			errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint"))
-		} else if ith.AsUint(p.env).IsOpen() {
+		} else if ith_t := ith.AsUint(p.env); ith_t == nil && ith.AsField(p.env) == nil {
+			errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint (or 𝔽)"))
+		} else if ith_t != nil && ith.AsUint(p.env).IsOpen() {
 			errs = append(errs, *p.srcmaps.SyntaxError(e, "concrete type required"))
 		}
 	}
@@ -938,12 +940,20 @@ func (p *TypeChecker) destructTupleType(t Type) []Type {
 // assumption is that, if either type is not well-formed, some error was already
 // reported upstream for this.
 func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxError {
-	if wellFormed(to, p.env) && wellFormed(from, p.env) &&
-		!data.SubtypeOf(to, from, p.env) && !data.SubtypeOf(from, to, p.env) {
-		return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", to.String(p.env)))
+	if !wellFormed(to, p.env) || !wellFormed(from, p.env) {
+		return nil
+	} else if data.SubtypeOf(to, from, p.env) || data.SubtypeOf(from, to, p.env) {
+		return nil
+	} else if f := to.AsField(p.env); f != nil {
+		// construct suitable type
+		var field_t = data.NewUnsignedInt[symbol.Resolved](p.field.BandWidth, false)
+		// Check value can be casted into a single field element.
+		if data.SubtypeOf(from, field_t, p.env) || data.SubtypeOf(field_t, from, p.env) {
+			return nil
+		}
 	}
 	//
-	return nil
+	return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", to.String(p.env)))
 }
 
 func (p *TypeChecker) checkArrayBounds(arg expr.Resolved, fixedArray *data.ResolvedFixedArray,

@@ -61,3 +61,21 @@ func expressionToString[W word.Word[W]](op string, regs []register.Id, constant 
 	//
 	return builder.String()
 }
+
+func expressionToStringWithoutConst(op string, regs []register.Id, env register.Map) string {
+	var builder strings.Builder
+	//
+	for i := 0; i < len(regs); i++ {
+		var rid = regs[i]
+		//
+		if i != 0 {
+			builder.WriteString(" ")
+			builder.WriteString(op)
+			builder.WriteString(" ")
+		}
+		//
+		builder.WriteString(env.Register(rid).Name())
+	}
+	//
+	return builder.String()
+}

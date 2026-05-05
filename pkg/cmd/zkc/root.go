@@ -62,7 +62,7 @@ func Execute() {
 // FieldAgnosticCmd represents a command to be executed for a given field.
 type FieldAgnosticCmd struct {
 	Field    field.Config
-	Function func(*cobra.Command, []string)
+	Function func(*cobra.Command, []string, field.Config)
 }
 
 // Run a field agnostic top-level command.
@@ -81,7 +81,7 @@ func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnostic
 	for _, c := range cmds {
 		if c.Field == *config {
 			// Match
-			c.Function(cmd, args)
+			c.Function(cmd, args, c.Field)
 			// Done
 			return
 		}
