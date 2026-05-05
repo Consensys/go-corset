@@ -18,6 +18,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
@@ -57,7 +58,7 @@ func ParseInputFile(filename string) map[string][]byte {
 
 // CompileSourceFiles accepts a set of source files and compiles them into a
 // program.  This can result, for example, in one or more syntax errors, etc.
-func CompileSourceFiles(filenames ...string) ast.Program {
+func CompileSourceFiles(field field.Config, filenames ...string) ast.Program {
 	//
 	var (
 		errors   []source.SyntaxError
@@ -77,7 +78,7 @@ func CompileSourceFiles(filenames ...string) ast.Program {
 		srcfiles[i] = *source.NewSourceFile(n, bytes)
 	}
 	// Compile source files
-	macroProgram, _, errors := compiler.Compile(srcfiles...)
+	macroProgram, _, errors := compiler.Compile(field, srcfiles...)
 	// Check for errors
 	if len(errors) != 0 {
 		// Report errors

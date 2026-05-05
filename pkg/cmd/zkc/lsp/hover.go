@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util/source"
+	"github.com/consensys/go-corset/pkg/util/source/lex"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
@@ -41,13 +42,24 @@ func HoverFor(
 	// Lex the document to find the identifier token under the cursor.
 	tokens := parser.Lex(*srcfile, false, false)
 
-	tok, _, ok := tokenAtOffset(tokens, offset)
-	if !ok || tok.Kind != parser.IDENTIFIER {
+	tok, idx, ok := tokenAtOffset(tokens, offset)
+	if !ok {
+		return nil, nil
+	}
+
+	contents := srcfile.Contents()
+
+	// Annotations (e.g. @inline) take precedence: the cursor may be on the
+	// '@' symbol or on the identifier immediately following it.
+	if h := hoverAnnotation(tokens, idx, contents); h != nil {
+		return h, nil
+	}
+
+	if tok.Kind != parser.IDENTIFIER {
 		return nil, nil
 	}
 
 	// Extract the identifier text.
-	contents := srcfile.Contents()
 	name := string(contents[tok.Span.Start():tok.Span.End()])
 
 	env := program.Environment()
@@ -83,6 +95,40 @@ func HoverFor(
 	}
 
 	return nil, nil
+}
+
+// hoverAnnotation returns hover content if the token at idx is part of an
+// annotation usage — either the '@' symbol itself or the identifier
+// immediately after it. Returns nil otherwise, or when the annotation name is
+// not registered in decl.ANNOTATIONS.
+func hoverAnnotation(tokens []lex.Token, idx int, contents []rune) *protocol.Hover {
+	var nameTok lex.Token
+
+	switch {
+	case tokens[idx].Kind == parser.AT && idx+1 < len(tokens) && tokens[idx+1].Kind == parser.IDENTIFIER:
+		nameTok = tokens[idx+1]
+	case tokens[idx].Kind == parser.IDENTIFIER && idx > 0 && tokens[idx-1].Kind == parser.AT:
+		nameTok = tokens[idx]
+	default:
+		return nil
+	}
+
+	name := string(contents[nameTok.Span.Start():nameTok.Span.End()])
+
+	for _, ann := range decl.ANNOTATIONS {
+		if ann.Name() == name {
+			value := "```zkc\n@" + ann.Name() + "\n```\n\n" + ann.Description()
+			//
+			return &protocol.Hover{
+				Contents: protocol.MarkupContent{
+					Kind:  protocol.Markdown,
+					Value: value,
+				},
+			}
+		}
+	}
+
+	return nil
 }
 
 // hoverLocalVariable searches for a local variable named name inside the

@@ -11,6 +11,7 @@
 package data
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -22,11 +23,6 @@ import (
 // therefore the sum of the widths of the elements.
 type Tuple[S symbol.Symbol[S]] struct {
 	elements []Type[S]
-}
-
-// NewTuple constructs a new tuple type.
-func NewTuple[S symbol.Symbol[S]](elements ...Type[S]) *Tuple[S] {
-	return &Tuple[S]{elements}
 }
 
 // AsTuple implementation for Type interface
@@ -49,6 +45,11 @@ func (p *Tuple[S]) AsField(Environment[S]) *FieldElement[S] {
 	return nil
 }
 
+// AsFixedArray implementation for Type interface
+func (p *Tuple[S]) AsFixedArray(Environment[S]) *FixedArray[S] {
+	return nil
+}
+
 // Ith returns the ith element in this tuple
 func (p *Tuple[S]) Ith(index uint) Type[S] {
 	return p.elements[index]
@@ -57,6 +58,12 @@ func (p *Tuple[S]) Ith(index uint) Type[S] {
 // Width returns the number of elements in this tuple.
 func (p *Tuple[S]) Width() uint {
 	return uint(len(p.elements))
+}
+
+// Types provides access to the underlying array of types.  This has been
+// defensively cloned before returning.
+func (p *Tuple[S]) Types() []Type[S] {
+	return slices.Clone(p.elements)
 }
 
 // Flattern implementation for Type interface

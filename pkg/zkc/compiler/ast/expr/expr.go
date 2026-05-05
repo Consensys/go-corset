@@ -41,7 +41,7 @@ type Expr[S symbol.Symbol[S]] interface {
 	// ExternUses returns the set of non-local declarations accessed by this
 	// expression.  For example, external constants or memories used within.
 	ExternUses() set.AnySortedSet[S]
-	// RegistersRead returns the set of variables used (i.e. read) by this expression
+	// LocalUses returns the set of variables used (i.e. read) by this expression
 	LocalUses() bit.Set
 	// String returns a string representation of this expression.
 	String(mapping variable.Map[S]) string
@@ -110,6 +110,8 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 		return stringOfConstant(e.Constant, e.Base)
 	case *LocalAccess[S]:
 		return mapping.Variable(e.Variable).Name
+	case *ArrayAccess[S]:
+		return fmt.Sprintf("%s[%s]", mapping.Variable(e.Id).Name, e.Arg.String(mapping))
 	case *Mul[S]:
 		exprs = e.Exprs
 		operator = "*"
@@ -141,6 +143,9 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Sub[S]:
 		exprs = e.Exprs
 		operator = "-"
+	case *TupleInitialiser[S]:
+		args := stringOfArguments(e.Exprs, mapping)
+		return fmt.Sprintf("(%s)", args)
 	case *Div[S]:
 		exprs = e.Exprs
 		operator = "/"
@@ -204,6 +209,8 @@ func needsBraces[S symbol.Symbol[S]](e Expr[S]) bool {
 	case *Const[S]:
 		return false
 	case *LocalAccess[S]:
+		return false
+	case *ArrayAccess[S]:
 		return false
 	case *ExternAccess[S]:
 		return false

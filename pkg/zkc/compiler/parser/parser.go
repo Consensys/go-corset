@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/util"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/util/source/lex"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
@@ -162,6 +161,8 @@ func (p *Parser) parseDeclaration() ([]decl.Declaration[symbol.Unresolved], []so
 	case KEYWORD_TYPE:
 		kind = decl.TYPE_ALIAS_KIND
 		components[0], errors = p.parseTypeAlias()
+	case EOF:
+		return nil, p.syntaxErrors(lookahead, "unexpected end-of-file")
 	default:
 		return nil, p.syntaxErrors(lookahead, "unknown declaration")
 	}
@@ -409,7 +410,7 @@ func (p *Parser) parseMemoryEffects(env Environment) []source.SyntaxError {
 		//
 		env.DeclareEffect(effect)
 	}
-	// Advance past "}"
+	// Advance past ">"
 	p.match(GREATER_THAN)
 	//
 	return nil
@@ -454,7 +455,7 @@ func (p *Parser) parseArgsList(kind variable.Kind, env Environment) []source.Syn
 		//
 		env.DeclareVariable(kind, arg, datatype)
 	}
-	// Advance past "}"
+	// Advance past ")"
 	p.match(RBRACE)
 	//
 	return nil
@@ -673,15 +674,52 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 	if p.match(FIELD_ELEMENT) {
 		return data.NewFieldElement[symbol.Unresolved](), nil
 	}
+	// Check for arrays
+	isArray := p.match(LSQUARE)
 	//
 	if name, errs = p.parseIdentifier(); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse to check if bitwidth is present
-	bw, err := strconv.Atoi(name[1:])
-	//
+	bw, bwErr := strconv.Atoi(name[1:])
 	switch {
-	case strings.HasPrefix(name, "u") && err == nil:
+	case isArray && errs == nil:
+		// parse array type
+		var arrayType Type
+
+		switch {
+		case strings.HasPrefix(name, "u") && bwErr == nil:
+			arrayType = data.NewUnsignedInt[symbol.Unresolved](uint(bw), false)
+		default:
+			alias := symbol.NewUnresolved(name, symbol.TYPE_ALIAS, 0)
+			arrayType = data.NewAlias[symbol.Unresolved](alias)
+			p.srcmap.Put(arrayType, p.spanOf(start+1, p.index-1))
+		}
+		//
+		lookahead := p.lookahead()
+		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
+
+		if _, errs := p.expect(SEMICOLON); len(errs) != 0 {
+			return nil, p.srcmap.SyntaxErrors(lookahead, "expected semicolon to define array size")
+		}
+		//
+		lookahead = p.lookahead()
+		p.srcmap.Put(lookahead, p.spanOf(p.index, p.index))
+
+		size, errors := p.parseArraySize(lookahead)
+		if len(errors) > 0 {
+			return nil, errors
+		}
+		//
+		if !p.match(RSQUARE) {
+			return nil, p.srcmap.SyntaxErrors(lookahead, "expected closing bracket")
+		}
+		//
+		fa := data.NewFixedArray[symbol.Unresolved](arrayType, size)
+		p.srcmap.Put(fa, p.spanOf(start, p.index-1))
+
+		return fa, nil
+	case strings.HasPrefix(name, "u") && bwErr == nil:
 		//
 		return data.NewUnsignedInt[symbol.Unresolved](uint(bw), false), nil
 	// we assume that if not a fundamental type, it is an alias
@@ -691,6 +729,37 @@ func (p *Parser) parseType() (Type, []source.SyntaxError) {
 		p.srcmap.Put(alias, p.spanOf(start, p.index-1))
 		//
 		return alias, nil
+	}
+}
+
+func (p *Parser) parseArraySize(lookahead lex.Token,
+) (size util.Union[uint, symbol.Unresolved], errors []source.SyntaxError) {
+	//
+	switch lookahead.Kind {
+	case NUMBER:
+		p.match(NUMBER)
+
+		bound, nbErrs := p.number(lookahead)
+		base := p.baserOfNumber(lookahead)
+
+		if len(nbErrs) != 0 || base != 10 {
+			return size, p.srcmap.SyntaxErrors(lookahead, "array size is not a number in base 10")
+		}
+
+		if bound.BitLen() == 0 {
+			return size, p.srcmap.SyntaxErrors(lookahead, "arrays are restricted to non zero constant value")
+		}
+
+		return util.Union1[uint, symbol.Unresolved](uint(bound.Uint64())), nil
+	case IDENTIFIER:
+		name, idErrs := p.parseIdentifier()
+		if len(idErrs) != 0 {
+			return size, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
+		}
+
+		return util.Union2[uint](symbol.NewUnresolved(name, symbol.CONSTANT, 0)), nil
+	default:
+		return size, p.srcmap.SyntaxErrors(lookahead, "array size is not a number or a constant")
 	}
 }
 
@@ -755,6 +824,8 @@ func (p *Parser) parseStatement(env Environment,
 		returned, insn, errs = p.parseFor(env)
 	case KEYWORD_IF:
 		returned, insn, errs = p.parseIfElse(env)
+	case KEYWORD_SWITCH:
+		returned, insn, errs = p.parseSwitch(env)
 	case KEYWORD_PRINTF:
 		returned, insn, errs = p.parsePrintf(env)
 	case KEYWORD_RETURN:
@@ -799,14 +870,12 @@ func (p *Parser) parseAssignment(env Environment) (stmt.Unresolved, []source.Syn
 	if lhs, errs = p.parseLVals(env); len(errs) > 0 {
 		return nil, errs
 	}
-	// Reverse items so that least significant comes first.
-	lhs = array.Reverse(lhs)
 	// Parse '='
 	if _, errs = p.expect(EQUALS); len(errs) > 0 {
 		return nil, errs
 	}
 	// Parse right-hand side
-	if rhs, errs = p.parseExpr(env); len(errs) > 0 {
+	if rhs, errs = p.parseTupleExpr(env); len(errs) > 0 {
 		return nil, errs
 	}
 	// Done
@@ -827,6 +896,216 @@ func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.
 	}
 	// No, its some other kind of expression.
 	return nil, p.srcmap.SyntaxErrors(call, "expression unused")
+}
+
+// parseSwitch parses a switch statement as a whole.
+func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+	var (
+		errs         []source.SyntaxError
+		discriminant Expr
+	)
+	// parse the 'switch' keyword
+	if _, errs = p.expect(KEYWORD_SWITCH); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// parse discriminant of the switch statement
+	if discriminant, errs = p.parseExpr(env); len(errs) > 0 {
+		return false, nil, errs
+	}
+
+	var (
+		returned bool
+		branches []stmt.SwitchBranch[symbol.Unresolved]
+	)
+
+	returned, branches, errs = p.parseSwitchBody(env)
+
+	node := &stmt.Switch[symbol.Unresolved]{
+		Discriminant: discriminant,
+		Branches:     branches,
+	}
+
+	return returned, node, errs
+}
+
+// parseSwitchBody parses the 'body' of a switch statement:
+//
+//	switch (discriminant) {
+//		...	// the 'switch body'
+//	}
+//
+// Note: parseSwitchBody currently doesn't
+//   - scan for / flag label duplication
+//   - perform exhaustivity analysis
+func (p *Parser) parseSwitchBody(env Environment) (returned bool,
+	branches []stmt.SwitchBranch[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	// we expect an opening curly brace
+	if _, errs = p.expect(LCURLY); len(errs) > 0 {
+		return false, nil, errs
+	}
+
+	var (
+		branch                    stmt.SwitchBranch[symbol.Unresolved]
+		branchReturns             bool
+		everyBranchReturns        = true
+		bodyContainsDefaultBranch = false
+	)
+
+	for p.lookahead().Kind != RCURLY {
+		// 'lookahead' remembers (what is expected to be) the upcoming case or default
+		// keyword
+		//
+		// Note: parseSwitchBranch below expects one of these keywords; if that
+		// expectation isn't met 'lookahead' won't get used
+		lookahead := p.lookahead()
+		if branchReturns, branch, errs = p.parseSwitchBranch(env); len(errs) > 0 {
+			return false, nil, errs
+		}
+
+		// we flag the presence of multiple default cases
+		if branch.IsDefault && bodyContainsDefaultBranch {
+			return false, nil, p.syntaxErrors(lookahead, "multiple default cases in switch statement")
+		}
+
+		if !branchReturns {
+			everyBranchReturns = false
+		}
+
+		if branch.IsDefault {
+			bodyContainsDefaultBranch = true
+		}
+
+		branches = append(branches, branch)
+	}
+
+	// we expect a closing curly brace
+	p.expect(RCURLY)
+
+	// for a switch statement to 'return' as a whole, and in the absence of
+	// exhaustivity analysis, it must hold that
+	//	- every branch 'returns'
+	//	- its body contains a default branch which similarly 'returns'
+	//
+	// Note: the required presence of a default branch prevents switch
+	// statements with empty body from 'returning'
+	returned = bodyContainsDefaultBranch && everyBranchReturns
+
+	return
+}
+
+func (p *Parser) parseSwitchBranch(env Environment) (
+	returns bool,
+	branch stmt.SwitchBranch[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	var (
+		isCase    bool
+		isDefault bool
+	)
+
+	isCase = p.follows(KEYWORD_CASE)
+	isDefault = p.follows(KEYWORD_DEFAULT)
+
+	if !(isCase || isDefault) {
+		return false, branch, p.syntaxErrors(p.lookahead(), "'case' or 'default' keyword expected")
+	}
+
+	var (
+		labels []expr.Expr[symbol.Unresolved]
+		body   []stmt.Stmt[symbol.Unresolved]
+	)
+
+	if isCase {
+		if returns, labels, body, errs = p.parseSwitchCase(env); len(errs) > 0 {
+			return
+		}
+	} else {
+		if returns, body, errs = p.parseSwitchDefault(env); len(errs) > 0 {
+			return
+		}
+	}
+
+	branch.IsDefault = isDefault
+	branch.Labels = labels
+	branch.Body = body
+
+	return
+}
+
+// parseSwitchCase deals with the beginning of a switch case, either
+//
+//	case CASE_1, 42: { ... }
+//	default: { ... }
+func (p *Parser) parseSwitchCase(env Environment) (
+	returns bool,
+	labels []expr.Expr[symbol.Unresolved],
+	body []stmt.Stmt[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	if _, errs = p.expect(KEYWORD_CASE); len(errs) > 0 {
+		return false, labels, body, p.syntaxErrors(p.previousToken(), "expected 'case' keyword")
+	}
+
+	labels, errs = p.parseExprList(COLON, env)
+	if len(errs) > 0 {
+		return
+	}
+
+	if len(labels) == 0 {
+		return false, labels, body, p.syntaxErrors(p.previousToken(), "empty switch case list")
+	}
+
+	// we reject any label that isn't
+	//	- a named constant or
+	//	- a numerical constant
+	for _, label := range labels {
+		switch t := label.(type) {
+		case *expr.ExternAccess[symbol.Unresolved]:
+			{
+				switch t.Name.Kind {
+				// the 'named constant' case
+				case symbol.CONSTANT:
+					continue
+				default:
+					return false, nil, nil, p.srcmap.SyntaxErrors(label,
+						"labels in a switch statement must be constants (named or literal)")
+				}
+			}
+		// the 'numerical constant' case
+		case *expr.Const[symbol.Unresolved]:
+			{
+				continue
+			}
+		default:
+			return false, nil, nil, p.syntaxErrors(p.previousToken(),
+				"labels in a switch statement must be constants (named or literal)")
+		}
+	}
+
+	returns, body, errs = p.parseStatementBlock(env, env.InLoop())
+	if len(errs) > 0 {
+		return false, nil, nil, errs
+	}
+
+	return
+}
+
+func (p *Parser) parseSwitchDefault(env Environment) (
+	returns bool,
+	body []stmt.Stmt[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	if _, errs = p.expect(KEYWORD_DEFAULT); len(errs) > 0 {
+		return
+	}
+
+	if _, errs = p.expect(COLON); len(errs) > 0 {
+		return
+	}
+
+	if returns, body, errs = p.parseStatementBlock(env, env.InLoop()); len(errs) > 0 {
+		return
+	}
+
+	return
 }
 
 func (p *Parser) parseIfElse(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
@@ -977,17 +1256,18 @@ func (p *Parser) parseForInit(env Environment) (stmt.Unresolved, []source.Syntax
 			return nil, errs
 		}
 
-		env.DeclareVariable(variable.LOCAL, name, dt)
-
 		if _, errs = p.expect(EQUALS); len(errs) > 0 {
 			return nil, errs
 		}
 
+		// Parse the initialiser before declaring the variable so that names
+		// resolve to the outer scope (same rationale as parseVarDecls).
 		rhs, errs := p.parseExpr(env)
 		if len(errs) > 0 {
 			return nil, errs
 		}
 
+		env.DeclareVariable(variable.LOCAL, name, dt)
 		id := env.LookupVariable(name)
 
 		return &stmt.VarDecl[symbol.Unresolved]{
@@ -1155,6 +1435,9 @@ func (p *Parser) parseContinue(env Environment) (bool, stmt.Unresolved, []source
 	return true, &stmt.Continue[symbol.Unresolved]{}, nil
 }
 
+// parseVar parses a variable declaration i.e. one of
+// var name_1:type_1, name_2:type_2, ..., name_n:type_n
+// var name:type = <expr>
 func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs  []source.SyntaxError
@@ -1190,15 +1473,15 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 		names = append(names, name)
 		types = append(types, dt)
 	}
-	// Declare all variables before parsing any initialiser, so the
-	// initialiser expression can reference other already-declared variables.
-	varIds := make([]variable.Id, len(names))
-	for i, name := range names {
-		env.DeclareVariable(variable.LOCAL, name, types[i])
-		varIds[i] = env.LookupVariable(name)
-	}
 	// Check for optional initialiser
 	if !p.match(EQUALS) {
+		// No initialiser — declare all variables now.
+		varIds := make([]variable.Id, len(names))
+		for i, name := range names {
+			env.DeclareVariable(variable.LOCAL, name, types[i])
+			varIds[i] = env.LookupVariable(name)
+		}
+
 		insn := &stmt.VarDecl[symbol.Unresolved]{
 			Variables: varIds,
 			Init:      util.None[Expr](),
@@ -1210,14 +1493,19 @@ func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxEr
 	if len(names) > 1 {
 		return nil, p.syntaxErrors(p.lookahead(), "initialiser requires single variable declaration")
 	}
-	// Parse the initialiser expression
+	// Parse the initialiser expression BEFORE declaring the variable so that
+	// names in the initialiser resolve to the outer scope (e.g. a memory with
+	// the same name) rather than the not-yet-assigned local.
 	rhs, errs := p.parseExpr(env)
 	if len(errs) > 0 {
 		return nil, errs
 	}
+	// Now declare the variable.
+	env.DeclareVariable(variable.LOCAL, names[0], types[0])
+	varId := env.LookupVariable(names[0])
 	// Build the variable declaration with initialiser
 	insn := &stmt.VarDecl[symbol.Unresolved]{
-		Variables: varIds,
+		Variables: []variable.Id{varId},
 		Init:      util.Some[Expr](rhs),
 	}
 	//
@@ -1472,12 +1760,12 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 		}
 	case LBRACE:
 		p.match(LBRACE)
-		nexpr, errors = p.parseExpr(env)
+		nexpr, errors = p.parseTupleExpr(env)
 		//
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
 		}
-		// Fall through to check for trailing `as` cast.
+	// Fall through to check for trailing `as` cast.
 	default:
 		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
@@ -1499,6 +1787,42 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 	return nexpr, errors
 }
 
+// parseAccessExpr parses an expression of the form
+//   - memory[address]
+//   - function(arguments)
+//   - constant
+//   - variable
+func (p *Parser) parseTupleExpr(env Environment) (Expr, []source.SyntaxError) {
+	var (
+		start = p.index
+		errs  []source.SyntaxError
+		exprs = make([]Expr, 1)
+	)
+	// match initial expression
+	if exprs[0], errs = p.parseExpr(env); len(errs) > 0 {
+		return nil, errs
+	}
+	// continue matching whilst there are commas
+	for p.match(COMMA) {
+		var expr Expr
+		//
+		if expr, errs = p.parseExpr(env); len(errs) > 0 {
+			return nil, errs
+		}
+		//
+		exprs = append(exprs, expr)
+	}
+	//
+	if len(exprs) == 1 {
+		return exprs[0], nil
+	}
+	//
+	init := expr.NewTupleInitialiser(exprs...)
+	p.srcmap.Put(init, p.spanOf(start, p.index-1))
+	//
+	return init, nil
+}
+
 func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		nexpr Expr
@@ -1507,27 +1831,43 @@ func (p *Parser) parseAccessExpr(env Environment) (Expr, []source.SyntaxError) {
 	)
 	//
 	name, errs = p.parseIdentifier()
-	// now, check for function call or memory access
-	if len(errs) == 0 && p.match(LSQUARE) {
-		var args []Expr
-		//
-		args, errs = p.parseExprList(RSQUARE, env)
-		//
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.READABLE_MEMORY, uint(len(args))), args...)
-	} else if len(errs) == 0 && p.match(LBRACE) {
-		var args []Expr
-		//
-		args, errs = p.parseExprList(RBRACE, env)
-		//
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
-	} else if !env.IsDeclaredVariable(name) {
-		// Constant access
-		nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
+
+	isDeclared := env.IsDeclaredVariable(name)
+	if !isDeclared {
+		// now, extern access check for function call or memory access
+		if len(errs) == 0 && p.match(LSQUARE) {
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RSQUARE, env)
+			//
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.READABLE_MEMORY, uint(len(args))), args...)
+		} else if len(errs) == 0 && p.match(LBRACE) {
+			var args []Expr
+			//
+			args, errs = p.parseExprList(RBRACE, env)
+			//
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.FUNCTION, uint(len(args))), args...)
+		} else {
+			// Constant access
+			nexpr = expr.NewExternAccess(symbol.NewUnresolved(name, symbol.CONSTANT, 0))
+		}
 	} else {
-		// Register access
 		rid := env.LookupVariable(name)
-		// Done
-		nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
+		if !p.match(LSQUARE) {
+			// Register access
+			nexpr = expr.NewLocalAccess[symbol.Unresolved](rid)
+		} else {
+			// Array access
+			var arg Expr
+			//
+			if arg, errs = p.parseExpr(env); len(errs) > 0 {
+				return nil, errs
+			} else if _, errs = p.expect(RSQUARE); len(errs) > 0 {
+				return nil, errs
+			}
+			//
+			nexpr = expr.NewArrayAccess(rid, arg)
+		}
 	}
 	//
 	return nexpr, errs
@@ -1583,16 +1923,17 @@ func (p *Parser) parseLVals(env Environment) ([]LVal, []source.SyntaxError) {
 
 func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	var (
-		lv        LVal
-		start     = p.index
-		lookahead = p.lookahead()
-		reg, errs = p.parseIdentifier()
-		index     []Expr
+		lv         LVal
+		start      = p.index
+		lookahead  = p.lookahead()
+		reg, errs  = p.parseIdentifier()
+		isDeclared = env.IsDeclaredVariable(reg)
+		index      []Expr
 	)
 	//
 	if len(errs) > 0 {
 		return lv, errs
-	} else if env.IsDeclaredVariable(reg) {
+	} else if isDeclared && !p.match(LSQUARE) {
 		var vars = []variable.Id{env.LookupVariable(reg)}
 		// Look for destructuring lvals
 		for p.match(COLONCOLON) {
@@ -1609,10 +1950,16 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 		}
 		//
 		lv = lval.NewVariable[symbol.Unresolved](vars...)
-	} else if !p.match(LSQUARE) {
+	} else if !isDeclared && !p.match(LSQUARE) {
 		return lv, p.syntaxErrors(lookahead, "unknown variable")
 	} else if index, errs = p.parseExprList(RSQUARE, env); len(errs) > 0 {
 		return lv, errs
+	} else if isDeclared {
+		if len(index) != 1 {
+			return lv, p.syntaxErrors(lookahead, "incorrect number of array access arguments")
+		}
+
+		lv = lval.NewArray(env.LookupVariable(reg), index[0])
 	} else {
 		// construct name symbol
 		var name = symbol.NewUnresolved(reg, symbol.WRITEABLE_MEMORY, 1)
@@ -1625,6 +1972,7 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	return lv, nil
 }
 
+// parseIdentifier expects an IDENTIFIER token
 func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 	tok, errs := p.expect(IDENTIFIER)
 	//
@@ -1699,7 +2047,8 @@ func (p *Parser) previousToken() lex.Token {
 	return p.tokens[p.index-1]
 }
 
-// Expect reurns an arror if the next token is not what was expected.
+// Expect returns an error if the next token is not of the expected Kind.
+// Otherwise it returns the token and increments the index by 1.
 func (p *Parser) expect(kind uint) (lex.Token, []source.SyntaxError) {
 	lookahead := p.lookahead()
 	//

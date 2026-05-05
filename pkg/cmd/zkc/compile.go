@@ -55,14 +55,15 @@ var compileCmds = []FieldAgnosticCmd{
 	{field.BLS12_377, runCompileCmd[bls12_377.Element]},
 }
 
-func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
+func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
 		strict = GetFlag(cmd, "lower-bitwise-strict")
 		// compiler config
 		config = codegen.DEFAULT_CONFIG.
 			LowerBitwise(GetFlag(cmd, "lower-bitwise") || strict).
 			LowerBitwiseStrict(strict).
-			Vectorize(GetFlag(cmd, "vectorize"))
+			Vectorize(GetFlag(cmd, "vectorize")).
+			Field(field)
 	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
@@ -72,7 +73,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 	ir := GetFlag(cmd, "ir")
 	as := GetFlag(cmd, "ast")
 	// Compile source files, or print errors
-	program := CompileSourceFiles(args...)
+	program := CompileSourceFiles(field, args...)
 	//
 	if as {
 		writeAbstractSyntaxTree(program)
@@ -99,11 +100,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string) {
 // ============================================================================
 
 func writeAbstractSyntaxTree(program ast.Program) {
-	var (
-		env = data.NewEnvironment(func(id symbol.Resolved) data.ResolvedType {
-			return nil
-		})
-	)
+	var env = ast.NewEnvironment()
 	//
 	for i, d := range program.Components() {
 		if i != 0 {

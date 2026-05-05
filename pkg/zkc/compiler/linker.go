@@ -157,8 +157,10 @@ func (p *Linker) linkDeclaration(index uint) (decl.Resolved, []source.SyntaxErro
 			contents, errs3 = p.linkExprs(d.Contents...)
 		}
 
-		return decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, contents),
-			append(append(errs1, errs2...), errs3...)
+		resolved := decl.NewMemory[symbol.Resolved](d.Name(), d.Kind, address, data, contents)
+		resolved.SetAnnotations(d.Annotations())
+
+		return resolved, append(append(errs1, errs2...), errs3...)
 	case *decl.UnresolvedTypeAlias:
 		datatype, errs := p.linkType(d.DataType)
 		//
@@ -270,6 +272,47 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 		ninsn = &stmt.IfElse[symbol.Resolved]{Cond: cond, TrueBranch: trueBranch, FalseBranch: falseBranch}
 		//
 		errors = append(append(errs1, errs2...), errs3...)
+	case *stmt.Switch[symbol.Unresolved]:
+		discriminant, errsDisc := p.linkExpr(s.Discriminant)
+
+		var (
+			branches  []stmt.SwitchBranch[symbol.Resolved]
+			errsCases []source.SyntaxError
+			errsBody  []source.SyntaxError
+		)
+
+		for _, branch := range s.Branches {
+			var (
+				labels []expr.Expr[symbol.Resolved]
+				body   []stmt.Stmt[symbol.Resolved]
+			)
+
+			for _, caseConstant := range branch.Labels {
+				exprCase, errCase := p.linkExpr(caseConstant)
+				errsCases = append(errsCases, errCase...)
+				labels = append(labels, exprCase)
+			}
+
+			for _, statement := range branch.Body {
+				exprBody, errBody := p.linkStatement(statement)
+				errsBody = append(errsBody, errBody...)
+				body = append(body, exprBody)
+			}
+
+			branches = append(branches, stmt.SwitchBranch[symbol.Resolved]{
+				IsDefault: branch.IsDefault,
+				Labels:    labels,
+				Body:      body,
+			})
+		}
+
+		errors = append(errors, errsDisc...)
+		errors = append(errors, errsCases...)
+		errors = append(errors, errsBody...)
+		ninsn = &stmt.Switch[symbol.Resolved]{
+			Discriminant: discriminant,
+			Branches:     branches,
+		}
 	case *stmt.Printf[symbol.Unresolved]:
 		var args []expr.Expr[symbol.Resolved]
 		//
@@ -351,6 +394,11 @@ func (p *Linker) linkLVal(lv lval.Unresolved) (lval.Resolved, []source.SyntaxErr
 	switch lv := lv.(type) {
 	case *lval.Variable[symbol.Unresolved]:
 		nlval = lval.NewVariable[symbol.Resolved](lv.Ids...)
+	case *lval.Array[symbol.Unresolved]:
+		index, errs1 := p.linkExpr(lv.Arg)
+		nlval = lval.NewArray[symbol.Resolved](lv.Id, index)
+		//
+		errs = append(errs, errs1...)
 	case *lval.MemAccess[symbol.Unresolved]:
 		// resolve symbols in memory name
 		name, errs1 := p.resolve(lv.Name, lv)
@@ -445,6 +493,10 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 		inner, errs := p.linkExpr(e.Expr)
 		nexpr = expr.NewLogicalNot[symbol.Resolved](inner)
 		errors = errs
+	case *expr.ArrayAccess[symbol.Unresolved]:
+		// resolve arguments
+		arg, errors = p.linkExpr(e.Arg)
+		nexpr = expr.NewArrayAccess[symbol.Resolved](e.Id, arg)
 	case *expr.Div[symbol.Unresolved]:
 		args, errors = p.linkExprs(e.Exprs...)
 		nexpr = expr.NewDiv[symbol.Resolved](args...)
@@ -466,6 +518,9 @@ func (p *Linker) linkExpr(e expr.Unresolved) (expr.Resolved, []source.SyntaxErro
 
 		errors = append(append(append(errors, cerrs...), terrs...), ferrs...)
 
+	case *expr.TupleInitialiser[symbol.Unresolved]:
+		args, errors = p.linkExprs(e.Exprs...)
+		nexpr = expr.NewTupleInitialiser[symbol.Resolved](args...)
 	default:
 		return nil, p.srcmap.SyntaxErrors(e, "invalid expression")
 	}
@@ -497,6 +552,28 @@ func (p *Linker) linkType(datatype data.UnresolvedType) (data.ResolvedType, []so
 	switch t := datatype.(type) {
 	case *data.UnsignedInt[symbol.Unresolved]:
 		return data.NewUnsignedInt[symbol.Resolved](t.BitWidth(), t.IsOpen()), nil
+	case *data.FixedArray[symbol.Unresolved]:
+		var (
+			// Link data type
+			datatype, errors = p.linkType(t.DataType)
+			//
+			size util.Union[uint, symbol.Resolved]
+		)
+		// resolve size symbol (if applicable)
+		if t.Size.HasFirst() {
+			size = util.Union1[uint, symbol.Resolved](t.Size.First())
+		} else {
+			var sym, errs = p.resolve(t.Size.Second(), t)
+			//
+			if len(errs) > 0 {
+				// include all errors
+				return nil, append(errors, errs...)
+			}
+			//
+			size = util.Union2[uint](sym)
+		}
+		//
+		return data.NewFixedArray(datatype, size), errors
 	case *data.Alias[symbol.Unresolved]:
 		// resolve symbol
 		name, err := p.resolve(t.Name, t)

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
@@ -39,16 +40,16 @@ type TestCase struct {
 
 // CompileMachine compiles one or more zkc source files into a base machine for
 // executing tests with.
-func CompileMachine(srcfiles ...source.File) []source.SyntaxError {
-	_, _, errors := compiler.Compile(srcfiles...)
+func CompileMachine(field field.Config, srcfiles ...source.File) []source.SyntaxError {
+	_, _, errors := compiler.Compile(field, srcfiles...)
 	//
 	return errors
 }
 
 // CompileZkc compiles a single zkc source file, potentially producing errors.
 // This includes both the validation phase and the code generation phase.
-func CompileZkc(srcfile source.File) []source.SyntaxError {
-	program, _, errors := compiler.Compile(srcfile)
+func CompileZkc(field field.Config, srcfile source.File) []source.SyntaxError {
+	program, _, errors := compiler.Compile(field, srcfile)
 	if len(errors) == 0 {
 		_, errors = program.Compile(codegen.DEFAULT_CONFIG)
 	}

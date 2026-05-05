@@ -12,6 +12,7 @@ package data
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 )
@@ -22,23 +23,31 @@ import (
 //
 // NOTE: this function assumes that t1 and t2 are well-formed under the given
 // environment.
-func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) uint {
+func BitWidthOf[S symbol.Symbol[S]](t Type[S], env Environment[S]) (bitwidth uint, ok bool) {
 	switch t := t.(type) {
 	case *UnsignedInt[S]:
-		return t.bitwidth
+		return t.bitwidth, true
 	case *Alias[S]:
+		return BitWidthOf(t.Resolve(env), env)
+	case *FixedArray[S]:
 		return BitWidthOf(t.Resolve(env), env)
 	case *Tuple[S]:
 		var bitwidth uint
 		//
 		for _, f := range t.elements {
-			bitwidth += BitWidthOf(f, env)
+			bw, ok := BitWidthOf(f, env)
+			//
+			if !ok {
+				return math.MaxUint, false
+			}
+			//
+			bitwidth += bw
 		}
 		//
-		return bitwidth
+		return bitwidth, true
 	case *FieldElement[S]:
 		panic(fmt.Sprintf("field element type has no fixed bitwidth: %s", t.String(env)))
 	}
 	//
-	panic(fmt.Sprintf("unknown type encountered (%s)", t.String(env)))
+	return math.MaxUint, false
 }

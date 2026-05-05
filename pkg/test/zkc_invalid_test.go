@@ -16,6 +16,8 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/test/util"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/source"
 )
 
 // ===================================================================
@@ -138,6 +140,46 @@ func Test_ZkcInvalid_Basic_31(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/basic_31")
 }
 
+func Test_ZkcInvalid_Basic_32(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_32")
+}
+
+func Test_ZkcInvalid_Basic_33(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_33")
+}
+
+func Test_ZkcInvalid_Basic_34(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_34")
+}
+
+func Test_ZkcInvalid_Basic_35(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_35")
+}
+
+func Test_ZkcInvalid_Basic_36(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_36")
+}
+
+func Test_ZkcInvalid_Basic_37(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_37")
+}
+
+func Test_ZkcInvalid_Basic_38(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_38")
+}
+
+func Test_ZkcInvalid_Basic_39(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_39")
+}
+
+func Test_ZkcInvalid_Basic_40(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_40")
+}
+
+func Test_ZkcInvalid_Basic_41(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/basic_41")
+}
+
 // ===================================================================
 // Native Field Tests
 // ===================================================================
@@ -179,6 +221,54 @@ func Test_ZkcInvalid_If_03(t *testing.T) {
 
 func Test_ZkcInvalid_If_04(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/if_04")
+}
+
+// ===================================================================
+// Switch tests
+// ===================================================================
+
+// func Test_ZkcInvalid_Switch_Duplicate_Label_01(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_01")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_02(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_02")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_03(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_03")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_04(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_04")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_05(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_05")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_06(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_06")
+// }
+
+func Test_ZkcInvalid_Switch_Incomplete_Return_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_incomplete_return_01")
+}
+
+func Test_ZkcInvalid_Switch_Two_Defaults_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_two_defaults_01")
+}
+
+func Test_ZkcInvalid_Switch_Two_Defaults_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_two_defaults_02")
+}
+
+func Test_ZkcInvalid_Switch_Two_Defaults_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_two_defaults_03")
+}
+
+func Test_ZkcInvalid_Switch_Invalid_Label(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_invalid_label_01")
 }
 
 // ===================================================================
@@ -245,6 +335,78 @@ func Test_ZkcInvalid_For_02(t *testing.T) {
 
 func Test_ZkcInvalid_For_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/for_03")
+}
+
+// ===================================================================
+// Fixed-size array Tests
+// ===================================================================
+
+func Test_ZkcInvalid_FixedArray_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_01")
+}
+
+func Test_ZkcInvalid_FixedArray_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_02")
+}
+
+func Test_ZkcInvalid_FixedArray_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_03")
+}
+
+func Test_ZkcInvalid_FixedArray_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_04")
+}
+
+func Test_ZkcInvalid_FixedArray_05(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_05")
+}
+
+func Test_ZkcInvalid_FixedArray_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_06")
+}
+
+func Test_ZkcInvalid_FixedArray_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_07")
+}
+
+func Test_ZkcInvalid_FixedArray_08(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_08")
+}
+
+func Test_ZkcInvalid_FixedArray_09(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_09")
+}
+
+func Test_ZkcInvalid_FixedArray_10(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_10")
+}
+
+func Test_ZkcInvalid_FixedArray_11(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_11")
+}
+
+func Test_ZkcInvalid_FixedArray_12(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_12")
+}
+
+func Test_ZkcInvalid_FixedArray_13(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_13")
+}
+
+func Test_ZkcInvalid_FixedArray_14(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_14")
+}
+
+func Test_ZkcInvalid_FixedArray_15(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_15")
+}
+
+func Test_ZkcInvalid_FixedArray_16(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_16")
+}
+
+func Test_ZkcInvalid_FixedArray_17(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/fixed_array_17")
 }
 
 // ===================================================================
@@ -598,6 +760,7 @@ func Test_ZkcInvalid_Type_08(t *testing.T) {
 func Test_ZkcInvalid_Type_09(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_09")
 }
+
 func Test_ZkcInvalid_Type_10(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/type_10")
 }
@@ -627,5 +790,10 @@ func Test_ZkcInvalid_Printf_04(t *testing.T) {
 // ===================================================================
 
 func checkZkcInvalid(t *testing.T, test string) {
-	util.CheckInvalid(t, test, "zkc", "//error", util.CompileZkc)
+	// Construct default compiler (for now)
+	var compiler = func(srcfile source.File) []source.SyntaxError {
+		return util.CompileZkc(field.KOALABEAR_16, srcfile)
+	}
+	//
+	util.CheckInvalid(t, test, "zkc", "//error", compiler)
 }

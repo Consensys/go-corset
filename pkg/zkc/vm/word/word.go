@@ -24,6 +24,8 @@ import "math/big"
 type Word[W any] interface {
 	// Add two words together, producing another (along with an overflow bit).
 	Add(uint, W) (W, bool)
+	// AddMod adds two words together modulus a third.
+	AddMod(W, W) W
 	// Bitwise AND of two words.
 	And(uint, W) W
 	// Div divides this word by another within the given bit width.  Panics on
@@ -35,6 +37,8 @@ type Word[W any] interface {
 	Cmp(y W) int
 	// Multiply two words together, producing another (along with an overflow bit).
 	Mul(uint, W) (W, bool)
+	// MulMod multiplies two words together modulus a third.
+	MulMod(W, W) W
 	// Bitwise NOT of this word within the given bit width.
 	Not(uint) W
 	// Bitwise OR of two words.
@@ -52,11 +56,15 @@ type Word[W any] interface {
 	Shr64(uint64) W
 	// Slice number of bits from this word.
 	Slice(uint) W
+	// Initialise this word from a given big integer (which cannot be negative).
+	SetBigInt(*big.Int) W
 	// Construct a fresh word with the given uint64 value, or panic (if the
 	// value does not fit).
 	SetUint64(uint64) W
 	// Sub two words together, producing another (along with an underflow bit).
 	Sub(uint, W) (W, bool)
+	// SubMod subtracts two words together modulus a third.
+	SubMod(W, W) W
 	// Returns value of word as an unsigned integer and will panic if the value
 	// does not fit.
 	Uint64() uint64

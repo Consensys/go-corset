@@ -45,7 +45,7 @@ const (
 	COLON
 	// COLONCOLON signals "::"
 	COLONCOLON
-	// SEMICOLON signals ":"
+	// SEMICOLON signals ";"
 	SEMICOLON
 	// NUMBER signals an integer number
 	NUMBER
@@ -93,6 +93,12 @@ const (
 	KEYWORD_VAR
 	// KEYWORD_TYPE signals a type alias declaration
 	KEYWORD_TYPE
+	// KEYWORD_SWITCH signals the beginning of a switch statement
+	KEYWORD_SWITCH
+	// KEYWORD_CASE signals a case in a switch statement
+	KEYWORD_CASE
+	// KEYWORD_DEFAULT signals the default case in a switch statement
+	KEYWORD_DEFAULT
 	// RIGHTARROW signals "->"
 	RIGHTARROW
 	// EQUALS signals "="
@@ -285,6 +291,9 @@ var keywords = map[string]uint{
 	"type":     KEYWORD_TYPE,
 	"var":      KEYWORD_VAR,
 	"while":    KEYWORD_WHILE,
+	"switch":   KEYWORD_SWITCH,
+	"case":     KEYWORD_CASE,
+	"default":  KEYWORD_DEFAULT,
 }
 
 // MAX_KEYWORD_LENGTH is used to optimise lexing of keywords.

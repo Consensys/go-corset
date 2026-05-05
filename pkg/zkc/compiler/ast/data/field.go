@@ -39,6 +39,11 @@ func (p *FieldElement[S]) AsTuple(Environment[S]) *Tuple[S] { return nil }
 // AsAlias implementation for Type interface
 func (p *FieldElement[S]) AsAlias(Environment[S]) *Alias[S] { return nil }
 
+// AsFixedArray implementation for Type interface
+func (p *FieldElement[I]) AsFixedArray(Environment[I]) *FixedArray[I] {
+	return nil
+}
+
 // AsField implementation for Type interface
 func (p *FieldElement[S]) AsField(Environment[S]) *FieldElement[S] { return p }
 

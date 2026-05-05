@@ -32,15 +32,17 @@ import (
 // Base provides a fundamental implementation of a machine.  The intention is
 // that other machine variations would build off this.
 type Base[W word.Word[W]] struct {
-	field     field.Config
+	modulus   W
 	modules   []Module[W]
 	callstack []Frame[W]
 }
 
 // New constructs a new empty base machine
 func New[W word.Word[W]](field field.Config, modules ...Module[W]) *Base[W] {
+	var prime W
+	//
 	return &Base[W]{
-		field:     field,
+		modulus:   prime.SetBigInt(field.Modulus()),
 		modules:   modules,
 		callstack: nil,
 	}
@@ -264,15 +266,27 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	case instruction.INT_SUB:
 		insn := insn.(*instruction.IntSub[W])
 		err = executeSub(insn.Target, insn.Sources, insn.Constant, frame, regs)
+	case instruction.INT_CAST:
+		insn := insn.(*instruction.Cast[W])
+		err = executeCast(*insn, frame, regs)
+		// Fall thru
+
+	// ==============================================================
+	// Field Instructions
+	// ==============================================================
+
 	case instruction.FIELD_ADD:
 		insn := insn.(*instruction.FieldAdd[W])
-		err = executeFieldAdd(insn.Target, insn.Sources, insn.Constant, frame, p.field)
+		err = executeFieldAdd(insn.Target, insn.Sources, insn.Constant, p.modulus, frame)
 	case instruction.FIELD_SUB:
 		insn := insn.(*instruction.FieldSub[W])
-		err = executeFieldSub(insn.Target, insn.Sources, insn.Constant, frame, p.field)
+		err = executeFieldSub(insn.Target, insn.Sources, insn.Constant, p.modulus, frame)
 	case instruction.FIELD_MUL:
 		insn := insn.(*instruction.FieldMul[W])
-		err = executeFieldMul(insn.Target, insn.Sources, insn.Constant, frame, p.field)
+		err = executeFieldMul(insn.Target, insn.Sources, insn.Constant, p.modulus, frame)
+	case instruction.FIELD_CAST:
+		insn := insn.(*instruction.Cast[W])
+		err = executeFieldCast(*insn, p.modulus, frame)
 
 	// ==============================================================
 	// Bitwise Instructions
@@ -319,10 +333,6 @@ func (p *Base[W]) executeInstruction(insn instruction.MicroInstruction[W], width
 	// ==============================================================
 	// Misc Instructions
 	// ==============================================================
-	case instruction.CAST:
-		insn := insn.(*instruction.Cast[W])
-		err = executeCast(*insn, frame, regs)
-		// Fall thru
 	case instruction.BIT_CONCAT:
 		insn := insn.(*instruction.BitConcat[W])
 		err = executeConcat(insn.Target, insn.Sources, frame, regs)
@@ -436,13 +446,10 @@ func executeSub[W word.Word[W]](target register.Id, sources []register.Id, const
 // given constant, storing the result in the target register.  Reduction is
 // performed implicitly within the field's bandwidth — the underlying word
 // type is responsible for wrapping at the field's prime characteristic.
-func executeFieldAdd[W word.Word[W]](target register.Id, sources []register.Id, constant W, frame []W,
-	field field.Config) error {
-	//
-	var bandwidth = field.BandWidth
+func executeFieldAdd[W word.Word[W]](target register.Id, sources []register.Id, constant, modulus W, frame []W) error {
 	//
 	for _, arg := range sources {
-		constant, _ = constant.Add(bandwidth, frame[arg.Unwrap()])
+		constant = constant.AddMod(frame[arg.Unwrap()], modulus)
 	}
 	//
 	frame[target.Unwrap()] = constant
@@ -453,44 +460,47 @@ func executeFieldAdd[W word.Word[W]](target register.Id, sources []register.Id, 
 // executeFieldSub computes the chained field difference of the source
 // registers minus the given constant, storing the result in the target
 // register.
-func executeFieldSub[W word.Word[W]](target register.Id, sources []register.Id, constant W, frame []W,
-	field field.Config) error {
-	//
-	var (
-		val       W
-		bandwidth = field.BandWidth
-	)
+func executeFieldSub[W word.Word[W]](target register.Id, sources []register.Id, constant, modulus W, frame []W) error {
+	var val W
 	//
 	for i, arg := range sources {
 		if i == 0 {
 			val = frame[arg.Unwrap()]
 		} else {
-			val, _ = val.Sub(bandwidth, frame[arg.Unwrap()])
+			val = val.SubMod(frame[arg.Unwrap()], modulus)
 		}
 	}
-	// Subtract constant
-	val, _ = val.Sub(bandwidth, constant)
 	//
-	frame[target.Unwrap()] = val
+	frame[target.Unwrap()] = val.SubMod(constant, modulus)
 	//
 	return nil
 }
 
 // executeFieldMul computes the field product of the source registers and
 // the given constant, storing the result in the target register.
-func executeFieldMul[W word.Word[W]](target register.Id, sources []register.Id, constant W, frame []W,
-	field field.Config) error {
+func executeFieldMul[W word.Word[W]](target register.Id, sources []register.Id, constant, modulus W, frame []W) error {
 	//
 	var (
-		val       W = constant
-		bandwidth   = field.BandWidth
+		val W = constant
 	)
 	//
 	for _, arg := range sources {
-		val, _ = val.Mul(bandwidth, frame[arg.Unwrap()])
+		val = val.MulMod(frame[arg.Unwrap()], modulus)
 	}
 	//
 	frame[target.Unwrap()] = val
+	//
+	return nil
+}
+
+func executeFieldCast[W word.Word[W]](insn instruction.Cast[W], modulus W, frame []W) error {
+	src := frame[insn.Source.Unwrap()]
+	// Panic if the source value doesn't fit within the field.
+	if src.Cmp(modulus) >= 0 {
+		return errors.New("cast overflow")
+	}
+	//
+	frame[insn.Target.Unwrap()] = src
 	//
 	return nil
 }
