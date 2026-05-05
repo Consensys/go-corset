@@ -527,7 +527,7 @@ func rewriteFixedArrayLVal(
 	}
 }
 
-// Flatten flattens all block-level statements (IfElse, While, For,
+// Flatten flattens all block-level statements (IfElse, Switch, While, For,
 // Break, Continue) in each function of the program into the flat if-goto form
 // expected by subsequent validation and code generation passes.  Source map
 // entries for generated nodes are inherited from the original block node.
@@ -579,6 +579,8 @@ func lowerStatement(pc uint, s stmt.Resolved, env *lowerEnv, srcmaps source.Maps
 	switch t := s.(type) {
 	case *stmt.IfElse[symbol.Resolved]:
 		return lowerIfElse(pc, t, env, srcmaps)
+	case *stmt.Switch[symbol.Resolved]:
+		return lowerSwitch(pc, t, env, srcmaps)
 	case *stmt.While[symbol.Resolved]:
 		return lowerWhile(pc, t, env, srcmaps)
 	case *stmt.For[symbol.Resolved]:
@@ -737,6 +739,103 @@ func lowerTernaryCondition(
 	default:
 		panic("unexpected condition type in ternary lowering")
 	}
+}
+
+// lowerSwitch converts a switch statement to a nested if-(else-if)-else statement, e.g.
+//
+//	switch discr {
+//		case A, B: { stmts_AB }
+//		case C: { stmts_C }
+//		default: { stmts_default }	// 'misplaced' default
+//		case D, E, G { stmts_DEF }
+//	}
+//
+// should convert to
+//
+//	if (discr == A || discr == B) {
+//		stmts_AB
+//	} else if (discr == C) {
+//		stmts_C
+//	} else if (discr == D || discr == E || discr == F) {
+//		stmts_DEF
+//	} else {
+//		stmts_default
+//	}
+//
+// and applies the lowering to the resulting if-then-else statement.
+//
+// Note: the default statement, if present, is moved to the deepest nesting level.
+func lowerSwitch(pc uint, s *stmt.Switch[symbol.Resolved], env *lowerEnv, srcmaps source.Maps[any]) []stmt.Resolved {
+	// special case: empty switch statement
+	if len(s.Branches) == 0 {
+		return []stmt.Resolved{}
+	}
+
+	var (
+		defaultCaseCount uint
+		containsDefault  bool
+	)
+
+	// pathological case with more than one default cases
+	if defaultCaseCount = s.DefaultCaseCount(); defaultCaseCount > 1 {
+		return nil
+	}
+
+	containsDefault = defaultCaseCount == 1
+
+	// special case: the default case is the only case in the switch statement
+	if len(s.Branches) == 1 && containsDefault {
+		return s.Branches[0].Body
+	}
+
+	// beyond this point a proper (non default) case is present
+	var (
+		defaultStatement     *[]stmt.Stmt[symbol.Resolved]
+		equivalentIfThenElse *stmt.IfElse[symbol.Resolved]
+		mostNestedIfThenElse *stmt.IfElse[symbol.Resolved]
+		falseBranch          *stmt.IfElse[symbol.Resolved]
+	)
+
+	// this loop builds a nested if-then-else statement
+	for _, branch := range s.Branches {
+		// if we come across the default statement we store it
+		// and continue to the next branch
+		if branch.IsDefault {
+			defaultStatement = &branch.Body
+			continue
+		}
+
+		logicalOrOfCases := branch.LogicalOrOfCases(s.Discriminant)
+
+		// we initialize the equivalent if-then-else statement and point the
+		// 'most nested if-then-else statement' to it
+		if equivalentIfThenElse == nil {
+			equivalentIfThenElse = &stmt.IfElse[symbol.Resolved]{
+				Cond:        &logicalOrOfCases,
+				TrueBranch:  branch.Body,
+				FalseBranch: []stmt.Stmt[symbol.Resolved]{},
+			}
+			srcmaps.Copy(s, equivalentIfThenElse)
+			mostNestedIfThenElse = equivalentIfThenElse
+		} else {
+			falseBranch = &stmt.IfElse[symbol.Resolved]{
+				Cond:        &logicalOrOfCases,
+				TrueBranch:  branch.Body,
+				FalseBranch: []stmt.Stmt[symbol.Resolved]{},
+			}
+			srcmaps.Copy(s, falseBranch)
+			mostNestedIfThenElse.FalseBranch = append(mostNestedIfThenElse.FalseBranch, falseBranch)
+			mostNestedIfThenElse = falseBranch
+		}
+	}
+
+	// the default statement, if present, becomes the final "else"
+	// of the equivalent nested if-then-else statement
+	if containsDefault {
+		mostNestedIfThenElse.FalseBranch = *defaultStatement
+	}
+
+	return lowerIfElse(pc, equivalentIfThenElse, env, srcmaps)
 }
 
 func lowerIfElse(pc uint, s *stmt.IfElse[symbol.Resolved], env *lowerEnv, srcmaps source.Maps[any]) []stmt.Resolved {

@@ -222,6 +222,54 @@ func Test_ZkcInvalid_If_04(t *testing.T) {
 }
 
 // ===================================================================
+// Switch tests
+// ===================================================================
+
+// func Test_ZkcInvalid_Switch_Duplicate_Label_01(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_01")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_02(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_02")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_03(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_03")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_04(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_04")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_05(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_05")
+// }
+//
+// func Test_ZkcInvalid_Switch_Duplicate_Label_06(t *testing.T) {
+// 	checkZkcInvalid(t, "zkc/invalid/switch_duplicate_label_06")
+// }
+
+func Test_ZkcInvalid_Switch_Incomplete_Return_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_incomplete_return_01")
+}
+
+func Test_ZkcInvalid_Switch_Two_Defaults_01(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_two_defaults_01")
+}
+
+func Test_ZkcInvalid_Switch_Two_Defaults_02(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_two_defaults_02")
+}
+
+func Test_ZkcInvalid_Switch_Two_Defaults_03(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_two_defaults_03")
+}
+
+func Test_ZkcInvalid_Switch_Invalid_Label(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/switch_invalid_label_01")
+}
+
+// ===================================================================
 // Constant Tests
 // ===================================================================
 

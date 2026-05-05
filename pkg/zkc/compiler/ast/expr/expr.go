@@ -41,7 +41,7 @@ type Expr[S symbol.Symbol[S]] interface {
 	// ExternUses returns the set of non-local declarations accessed by this
 	// expression.  For example, external constants or memories used within.
 	ExternUses() set.AnySortedSet[S]
-	// RegistersRead returns the set of variables used (i.e. read) by this expression
+	// LocalUses returns the set of variables used (i.e. read) by this expression
 	LocalUses() bit.Set
 	// String returns a string representation of this expression.
 	String(mapping variable.Map[S]) string

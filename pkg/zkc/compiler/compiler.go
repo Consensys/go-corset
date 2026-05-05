@@ -70,7 +70,7 @@ func Compile(files ...source.File) (ast.Program, source.Maps[any], []source.Synt
 	program, srcmaps, linkErrs = Link(items...)
 	//
 	errors = append(errors, linkErrs...)
-	// Flatten block-level constructs (if/else, while, for) into flat if-goto form
+	// Flatten block-level constructs (if/else, switch, while, for) into flat if-goto form
 	lower.Flatten(program, srcmaps)
 	// Well-formedness checks (assuming unlimited field width).
 	errors = append(errors, validateProgram(program, srcmaps)...)

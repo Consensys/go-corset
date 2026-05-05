@@ -545,6 +545,46 @@ func Test_ZkcUnit_Ternary_05(t *testing.T) {
 }
 
 // ===================================================================
+// Switch Tests
+// ===================================================================
+
+func Test_ZkcUnit_Switch_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_01")
+}
+
+func Test_ZkcUnit_Switch_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_02")
+}
+
+func Test_ZkcUnit_Switch_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_03")
+}
+
+func Test_ZkcUnit_Switch_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_04")
+}
+
+func Test_ZkcUnit_Switch_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_05")
+}
+
+func Test_ZkcUnit_Switch_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_06")
+}
+
+func Test_ZkcUnit_Switch_07(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_07")
+}
+
+func Test_ZkcUnit_Switch_08(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_08")
+}
+
+func Test_ZkcUnit_Switch_09(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_09")
+}
+
+// ===================================================================
 // Printf Tests
 // ===================================================================
 

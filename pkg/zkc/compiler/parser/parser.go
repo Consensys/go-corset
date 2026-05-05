@@ -408,7 +408,7 @@ func (p *Parser) parseMemoryEffects(env Environment) []source.SyntaxError {
 		//
 		env.DeclareEffect(effect)
 	}
-	// Advance past "}"
+	// Advance past ">"
 	p.match(GREATER_THAN)
 	//
 	return nil
@@ -453,7 +453,7 @@ func (p *Parser) parseArgsList(kind variable.Kind, env Environment) []source.Syn
 		//
 		env.DeclareVariable(kind, arg, datatype)
 	}
-	// Advance past "}"
+	// Advance past ")"
 	p.match(RBRACE)
 	//
 	return nil
@@ -822,6 +822,8 @@ func (p *Parser) parseStatement(env Environment,
 		returned, insn, errs = p.parseFor(env)
 	case KEYWORD_IF:
 		returned, insn, errs = p.parseIfElse(env)
+	case KEYWORD_SWITCH:
+		returned, insn, errs = p.parseSwitch(env)
 	case KEYWORD_PRINTF:
 		returned, insn, errs = p.parsePrintf(env)
 	case KEYWORD_RETURN:
@@ -892,6 +894,216 @@ func (p *Parser) parseCallStatement(env Environment) (stmt.Unresolved, []source.
 	}
 	// No, its some other kind of expression.
 	return nil, p.srcmap.SyntaxErrors(call, "expression unused")
+}
+
+// parseSwitch parses a switch statement as a whole.
+func (p *Parser) parseSwitch(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
+	var (
+		errs         []source.SyntaxError
+		discriminant Expr
+	)
+	// parse the 'switch' keyword
+	if _, errs = p.expect(KEYWORD_SWITCH); len(errs) > 0 {
+		return false, nil, errs
+	}
+	// parse discriminant of the switch statement
+	if discriminant, errs = p.parseExpr(env); len(errs) > 0 {
+		return false, nil, errs
+	}
+
+	var (
+		returned bool
+		branches []stmt.SwitchBranch[symbol.Unresolved]
+	)
+
+	returned, branches, errs = p.parseSwitchBody(env)
+
+	node := &stmt.Switch[symbol.Unresolved]{
+		Discriminant: discriminant,
+		Branches:     branches,
+	}
+
+	return returned, node, errs
+}
+
+// parseSwitchBody parses the 'body' of a switch statement:
+//
+//	switch (discriminant) {
+//		...	// the 'switch body'
+//	}
+//
+// Note: parseSwitchBody currently doesn't
+//   - scan for / flag label duplication
+//   - perform exhaustivity analysis
+func (p *Parser) parseSwitchBody(env Environment) (returned bool,
+	branches []stmt.SwitchBranch[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	// we expect an opening curly brace
+	if _, errs = p.expect(LCURLY); len(errs) > 0 {
+		return false, nil, errs
+	}
+
+	var (
+		branch                    stmt.SwitchBranch[symbol.Unresolved]
+		branchReturns             bool
+		everyBranchReturns        = true
+		bodyContainsDefaultBranch = false
+	)
+
+	for p.lookahead().Kind != RCURLY {
+		// 'lookahead' remembers (what is expected to be) the upcoming case or default
+		// keyword
+		//
+		// Note: parseSwitchBranch below expects one of these keywords; if that
+		// expectation isn't met 'lookahead' won't get used
+		lookahead := p.lookahead()
+		if branchReturns, branch, errs = p.parseSwitchBranch(env); len(errs) > 0 {
+			return false, nil, errs
+		}
+
+		// we flag the presence of multiple default cases
+		if branch.IsDefault && bodyContainsDefaultBranch {
+			return false, nil, p.syntaxErrors(lookahead, "multiple default cases in switch statement")
+		}
+
+		if !branchReturns {
+			everyBranchReturns = false
+		}
+
+		if branch.IsDefault {
+			bodyContainsDefaultBranch = true
+		}
+
+		branches = append(branches, branch)
+	}
+
+	// we expect a closing curly brace
+	p.expect(RCURLY)
+
+	// for a switch statement to 'return' as a whole, and in the absence of
+	// exhaustivity analysis, it must hold that
+	//	- every branch 'returns'
+	//	- its body contains a default branch which similarly 'returns'
+	//
+	// Note: the required presence of a default branch prevents switch
+	// statements with empty body from 'returning'
+	returned = bodyContainsDefaultBranch && everyBranchReturns
+
+	return
+}
+
+func (p *Parser) parseSwitchBranch(env Environment) (
+	returns bool,
+	branch stmt.SwitchBranch[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	var (
+		isCase    bool
+		isDefault bool
+	)
+
+	isCase = p.follows(KEYWORD_CASE)
+	isDefault = p.follows(KEYWORD_DEFAULT)
+
+	if !(isCase || isDefault) {
+		return false, branch, p.syntaxErrors(p.lookahead(), "'case' or 'default' keyword expected")
+	}
+
+	var (
+		labels []expr.Expr[symbol.Unresolved]
+		body   []stmt.Stmt[symbol.Unresolved]
+	)
+
+	if isCase {
+		if returns, labels, body, errs = p.parseSwitchCase(env); len(errs) > 0 {
+			return
+		}
+	} else {
+		if returns, body, errs = p.parseSwitchDefault(env); len(errs) > 0 {
+			return
+		}
+	}
+
+	branch.IsDefault = isDefault
+	branch.Labels = labels
+	branch.Body = body
+
+	return
+}
+
+// parseSwitchCase deals with the beginning of a switch case, either
+//
+//	case CASE_1, 42: { ... }
+//	default: { ... }
+func (p *Parser) parseSwitchCase(env Environment) (
+	returns bool,
+	labels []expr.Expr[symbol.Unresolved],
+	body []stmt.Stmt[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	if _, errs = p.expect(KEYWORD_CASE); len(errs) > 0 {
+		return false, labels, body, p.syntaxErrors(p.previousToken(), "expected 'case' keyword")
+	}
+
+	labels, errs = p.parseExprList(COLON, env)
+	if len(errs) > 0 {
+		return
+	}
+
+	if len(labels) == 0 {
+		return false, labels, body, p.syntaxErrors(p.previousToken(), "empty switch case list")
+	}
+
+	// we reject any label that isn't
+	//	- a named constant or
+	//	- a numerical constant
+	for _, label := range labels {
+		switch t := label.(type) {
+		case *expr.ExternAccess[symbol.Unresolved]:
+			{
+				switch t.Name.Kind {
+				// the 'named constant' case
+				case symbol.CONSTANT:
+					continue
+				default:
+					return false, nil, nil, p.srcmap.SyntaxErrors(label,
+						"labels in a switch statement must be constants (named or literal)")
+				}
+			}
+		// the 'numerical constant' case
+		case *expr.Const[symbol.Unresolved]:
+			{
+				continue
+			}
+		default:
+			return false, nil, nil, p.syntaxErrors(p.previousToken(),
+				"labels in a switch statement must be constants (named or literal)")
+		}
+	}
+
+	returns, body, errs = p.parseStatementBlock(env, env.InLoop())
+	if len(errs) > 0 {
+		return false, nil, nil, errs
+	}
+
+	return
+}
+
+func (p *Parser) parseSwitchDefault(env Environment) (
+	returns bool,
+	body []stmt.Stmt[symbol.Unresolved],
+	errs []source.SyntaxError) {
+	if _, errs = p.expect(KEYWORD_DEFAULT); len(errs) > 0 {
+		return
+	}
+
+	if _, errs = p.expect(COLON); len(errs) > 0 {
+		return
+	}
+
+	if returns, body, errs = p.parseStatementBlock(env, env.InLoop()); len(errs) > 0 {
+		return
+	}
+
+	return
 }
 
 func (p *Parser) parseIfElse(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
@@ -1221,6 +1433,9 @@ func (p *Parser) parseContinue(env Environment) (bool, stmt.Unresolved, []source
 	return true, &stmt.Continue[symbol.Unresolved]{}, nil
 }
 
+// parseVar parses a variable declaration i.e. one of
+// var name_1:type_1, name_2:type_2, ..., name_n:type_n
+// var name:type = <expr>
 func (p *Parser) parseVar(env Environment) ([]stmt.Unresolved, []source.SyntaxError) {
 	var (
 		errs  []source.SyntaxError
@@ -1548,7 +1763,7 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 		if len(errors) == 0 && !p.match(RBRACE) {
 			return nil, p.syntaxErrors(lookahead, "expected )")
 		}
-		// Fall through to check for trailing `as` cast.
+	// Fall through to check for trailing `as` cast.
 	default:
 		return nil, p.syntaxErrors(lookahead, "unexpected token")
 	}
@@ -1570,6 +1785,11 @@ func (p *Parser) parseUnitExpr(env Environment) (Expr, []source.SyntaxError) {
 	return nexpr, errors
 }
 
+// parseAccessExpr parses an expression of the form
+//   - memory[address]
+//   - function(arguments)
+//   - constant
+//   - variable
 func (p *Parser) parseTupleExpr(env Environment) (Expr, []source.SyntaxError) {
 	var (
 		start = p.index
@@ -1750,6 +1970,7 @@ func (p *Parser) parseLVal(env Environment) (LVal, []source.SyntaxError) {
 	return lv, nil
 }
 
+// parseIdentifier expects an IDENTIFIER token
 func (p *Parser) parseIdentifier() (string, []source.SyntaxError) {
 	tok, errs := p.expect(IDENTIFIER)
 	//
