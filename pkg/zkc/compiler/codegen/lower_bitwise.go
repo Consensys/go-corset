@@ -91,76 +91,57 @@ func lowerBitwiseCode[W word.Word[W]](
 	registers []register.Register,
 	helpers *bitwiseHelpers[W],
 ) []instruction.MicroInstruction[W] {
+	width, powerOfTwo := lowerableWidth(registers, code.Definitions()[0], helpers.field.BandWidth)
+
+	if !powerOfTwo {
+		// TODO do some stuff
+	}
+
 	switch t := code.(type) {
 	case *instruction.BitAnd[W]:
-		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
-		if !ok {
-			return []instruction.MicroInstruction[W]{code}
-		}
-
 		id := helpers.ensure(t.OpCode(), width, len(t.Sources), t.Constant)
 
 		return []instruction.MicroInstruction[W]{
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitOr[W]:
-		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
-		if !ok {
-			return []instruction.MicroInstruction[W]{code}
-		}
-
 		id := helpers.ensure(t.OpCode(), width, len(t.Sources), t.Constant)
 
 		return []instruction.MicroInstruction[W]{
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitXor[W]:
-		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
-		if !ok {
-			return []instruction.MicroInstruction[W]{code}
-		}
-
 		id := helpers.ensure(t.OpCode(), width, len(t.Sources), t.Constant)
 
 		return []instruction.MicroInstruction[W]{
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitNot[W]:
-		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
-		if !ok {
-			return []instruction.MicroInstruction[W]{code}
-		}
-
 		id := helpers.ensure(t.OpCode(), width, len(t.Sources), zeroWord[W]())
 
 		return []instruction.MicroInstruction[W]{
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitShl[W]:
-		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
-		if !ok {
-			return []instruction.MicroInstruction[W]{code}
-		}
-
 		id := helpers.ensure(t.OpCode(), width, len(t.Sources), zeroWord[W]())
 
 		return []instruction.MicroInstruction[W]{
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitShr[W]:
-		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
-		if !ok {
-			return []instruction.MicroInstruction[W]{code}
-		}
-
 		id := helpers.ensure(t.OpCode(), width, len(t.Sources), zeroWord[W]())
 
 		return []instruction.MicroInstruction[W]{
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	default:
-		return []instruction.MicroInstruction[W]{code}
+		panic(fmt.Sprintf("unexpected non-bitwise opcode: %d", code.OpCode()))
 	}
+}
+
+func zeroWord[W word.Word[W]]() W {
+	var z W
+	return z
 }
 
 func lowerableWidth(registers []register.Register, target register.Id, bandWidth uint) (uint, bool) {
@@ -178,11 +159,6 @@ func lowerableWidth(registers []register.Register, target register.Id, bandWidth
 	}
 
 	return w, w&(w-1) == 0
-}
-
-func zeroWord[W word.Word[W]]() W {
-	var z W
-	return z
 }
 
 type bitwiseHelperKey struct {
