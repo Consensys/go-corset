@@ -91,10 +91,14 @@ func lowerBitwiseCode[W word.Word[W]](
 	registers []register.Register,
 	helpers *bitwiseHelpers[W],
 ) []instruction.MicroInstruction[W] {
+	if !isBitwiseOpcode(code.OpCode()) {
+		return []instruction.MicroInstruction[W]{code}
+	}
+
 	width, powerOfTwo := lowerableWidth(registers, code.Definitions()[0], helpers.field.BandWidth)
 
 	if !powerOfTwo {
-		// TODO do some stuff
+		width = nextPowerOfTwo(width)
 	}
 
 	switch t := code.(type) {
@@ -142,6 +146,15 @@ func lowerBitwiseCode[W word.Word[W]](
 func zeroWord[W word.Word[W]]() W {
 	var z W
 	return z
+}
+
+func nextPowerOfTwo(w uint) uint {
+	p := uint(1)
+	for p < w {
+		p <<= 1
+	}
+
+	return p
 }
 
 func lowerableWidth(registers []register.Register, target register.Id, bandWidth uint) (uint, bool) {
