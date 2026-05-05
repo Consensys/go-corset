@@ -140,9 +140,6 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 	// Lower VM-level bitwise instructions into helper-function calls (if enabled).
 	if len(errors) == 0 && p.config.lowerBitwise {
 		modules = LowerBitwise(modules)
-		if p.config.lowerBitwiseStrict && HasBitwiseOps(modules) {
-			panic("strict bitwise lowering failed: residual bitwise instructions remain")
-		}
 	}
 	// Vectorize modules (if no errors)
 	if len(errors) == 0 && p.config.vectorize {

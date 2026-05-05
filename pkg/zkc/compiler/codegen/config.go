@@ -20,7 +20,6 @@ import "github.com/consensys/go-corset/pkg/util/field"
 var DEFAULT_CONFIG = Config{
 	field:              field.KOALABEAR_16,
 	lowerBitwise:       false,
-	lowerBitwiseStrict: false,
 	vectorize:          true,
 }
 
@@ -42,7 +41,6 @@ type Config struct {
 	// the codegen output, which is useful when debugging the codegen or
 	// inspecting the un-merged IR.
 	lowerBitwise       bool
-	lowerBitwiseStrict bool
 	vectorize          bool
 }
 
@@ -72,16 +70,6 @@ func (p Config) LowerBitwise(flag bool) Config {
 	var q = p
 	//
 	q.lowerBitwise = flag
-	//
-	return q
-}
-
-// LowerBitwiseStrict toggles strict validation that no bitwise opcodes remain
-// in the machine after lowering.
-func (p Config) LowerBitwiseStrict(flag bool) Config {
-	var q = p
-	//
-	q.lowerBitwiseStrict = flag
 	//
 	return q
 }
