@@ -14,7 +14,7 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // DynamicArray is a memory implementation backed by a dynamically sizing []W,
@@ -26,12 +26,12 @@ import (
 // The type parameter W is the word type (e.g. a field element or big.Int), and
 // D is the AddressDecoder strategy that encodes the layout of rows within the
 // flat slice.
-type DynamicArray[W word.Word[W]] struct {
+type DynamicArray[W util.Uinter64] struct {
 	StaticArray[W]
 }
 
 // newDynamicArray constructs a new array initialised with a given set of values.
-func newDynamicArray[W word.Word[W]](name string, registers []register.Register, init ...W) DynamicArray[W] {
+func newDynamicArray[W util.Uinter64](name string, registers []register.Register, init ...W) DynamicArray[W] {
 	var geometry = NewGeometry[W](registers)
 	//
 	return DynamicArray[W]{StaticArray[W]{geometry, name, init}}

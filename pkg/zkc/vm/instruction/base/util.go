@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package base
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ import (
 
 // RegistersToString returns a string representation for zero or more registers
 // separated by a comma.
-func registersToString(env register.Map, regs ...register.Id) string {
+func RegistersToString(env register.Map, regs ...register.Id) string {
 	var (
 		builder strings.Builder
 		n       = uint(len(env.Registers()))
@@ -45,7 +45,8 @@ func registersToString(env register.Map, regs ...register.Id) string {
 	return builder.String()
 }
 
-func expressionToString[W word.Word[W]](op string, regs []register.Id, constant W, env register.Map) string {
+// ExpressionToString returns a string representation for an arithmetic expression involving a constant
+func ExpressionToString[W word.Word[W]](op string, regs []register.Id, constant W, env register.Map) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(regs); i++ {
@@ -62,7 +63,8 @@ func expressionToString[W word.Word[W]](op string, regs []register.Id, constant 
 	return builder.String()
 }
 
-func expressionToStringWithoutConst(op string, regs []register.Id, env register.Map) string {
+// ExpressionToStringWithoutConst returns a string representation for an arithmetic expression
+func ExpressionToStringWithoutConst(op string, regs []register.Id, env register.Map) string {
 	var builder strings.Builder
 	//
 	for i := 0; i < len(regs); i++ {

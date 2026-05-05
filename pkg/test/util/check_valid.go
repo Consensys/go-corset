@@ -66,13 +66,13 @@ func checkValidInternal(t *testing.T, test, ext string, field field.Config) {
 	}
 }
 
-func runTestCases(t *testing.T, program ast.Program, bootVm *machine.Base[word.Uint], tests []TestCase) {
+func runTestCases(t *testing.T, program ast.Program, bootVm *machine.Word[word.Uint], tests []TestCase) {
 	for _, test := range tests {
 		runTestCase(t, program, bootVm, test)
 	}
 }
 
-func runTestCase(t *testing.T, program ast.Program, vm *machine.Base[word.Uint], test TestCase) {
+func runTestCase(t *testing.T, program ast.Program, vm *machine.Word[word.Uint], test TestCase) {
 	var (
 		err                   error
 		inputs, outputs, errs = program.DecodeInputsOutputs(test.data)
@@ -100,7 +100,7 @@ func runTestCase(t *testing.T, program ast.Program, vm *machine.Base[word.Uint],
 	}
 }
 
-func checkExpectedOutputs(outputs map[string][]word.Uint, vm *machine.Base[word.Uint]) []error {
+func checkExpectedOutputs(outputs map[string][]word.Uint, vm *machine.Word[word.Uint]) []error {
 	var errors []error
 	//
 	for _, m := range vm.Modules() {

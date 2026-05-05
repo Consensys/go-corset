@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package word
 
 import (
 	"fmt"
@@ -19,7 +19,8 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
 
 // Cast represents a truncating cast instruction of the following form:
@@ -28,7 +29,7 @@ import (
 //
 // Here, t is the target register, s is the source register, and N is the cast
 // bit width.  The N low-order bits of s are retained and written to t.
-type Cast[W word.Word[W]] struct {
+type Cast struct {
 	// Target register for assignment
 	Target register.Id
 	// Source register
@@ -38,35 +39,30 @@ type Cast[W word.Word[W]] struct {
 	Width uint
 }
 
-// NewCast constructs a new truncating cast instruction.
-func NewCast[W word.Word[W]](target register.Id, source register.Id, width uint) *Cast[W] {
-	return &Cast[W]{target, source, width}
-}
-
 // OpCode implementation for Instruction interface
-func (p *Cast[W]) OpCode() OpCode {
+func (p *Cast) OpCode() opcode.OpCode {
 	if p.Width == math.MaxUint {
-		return FIELD_CAST
+		return opcode.FIELD_CAST
 	}
 	//
-	return INT_CAST
+	return opcode.INT_CAST
 }
 
 // Uses implementation for Instruction interface.
-func (p *Cast[W]) Uses() []register.Id {
+func (p *Cast) Uses() []register.Id {
 	return []register.Id{p.Source}
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Cast[W]) Definitions() []register.Id {
+func (p *Cast) Definitions() []register.Id {
 	return []register.Id{p.Target}
 }
 
 // String implementation for Instruction interface.
-func (p *Cast[W]) String(mapping SystemMap[W]) string {
+func (p *Cast) String(mapping base.SystemMap) string {
 	var builder strings.Builder
 	//
-	builder.WriteString(registersToString(mapping, p.Target))
+	builder.WriteString(base.RegistersToString(mapping, p.Target))
 	//
 	if p.Width != math.MaxUint {
 		fmt.Fprintf(&builder, " = (u%d) ", p.Width)
@@ -74,12 +70,12 @@ func (p *Cast[W]) String(mapping SystemMap[W]) string {
 		fmt.Fprintf(&builder, " = (𝔽) ")
 	}
 	//
-	builder.WriteString(registersToString(mapping, p.Source))
+	builder.WriteString(base.RegistersToString(mapping, p.Source))
 	//
 	return builder.String()
 }
 
 // MicroValidate implementation for MicroInstruction interface.
-func (p *Cast[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
+func (p *Cast) MicroValidate(_ uint, _ field.Config, _ base.SystemMap) []error {
 	return nil
 }

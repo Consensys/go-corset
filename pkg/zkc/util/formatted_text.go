@@ -14,8 +14,6 @@ package util
 
 import (
 	"strings"
-
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // EscapeFormattedText takes a string and escapes any characters which need to
@@ -38,6 +36,13 @@ const (
 	// FORMAT_BIN indicates to format in binary
 	FORMAT_BIN
 )
+
+// Formattable captures a numeric element which can be formatted in a particular
+// base.
+type Formattable interface {
+	// Text returns the given word formated in the given base
+	Text(base int) string
+}
 
 // Format simply encodes the set of permitted formatting strings in a printf
 // statement, such as "%d", "%x", etc.
@@ -82,7 +87,7 @@ func (p Format) String() string {
 }
 
 // FormatWord applies a given format to a given word to generate a formatted string.
-func FormatWord[W word.Word[W]](format Format, word W) string {
+func FormatWord[W Formattable](format Format, word W) string {
 	switch format.Code {
 	case FORMAT_DEC:
 		return word.Text(10)

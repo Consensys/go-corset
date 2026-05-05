@@ -14,7 +14,7 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Memory represents (in many ways) the simplest form of memory
@@ -22,7 +22,7 @@ import (
 // of a RAM can be considered to hold zero.  Thus, reading a location which has
 // not yet been written will return zero; otherwise, it will return the last
 // value written.
-type Memory[W word.Word[W]] interface {
+type Memory[W util.Uinter64] interface {
 	// Name returns the name of this RAM
 	Name() string
 	Geometry() Geometry[W]

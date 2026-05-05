@@ -14,7 +14,7 @@ package machine
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
 )
 
 // ExecuteAll executes a given machine to completion in chunks of n steps,
@@ -34,6 +34,19 @@ func ExecuteAll[W any, M Core[W]](machine M, n uint) (uint, error) {
 	}
 }
 
+// Executor captures the notion of an instruction-specific executor.  That is,
+// an executor designed for implementing certain instructions over a given type
+// of machine word (e.g. a Word or a field.Element, etc).  A key aspect of the
+// executor is that its really only intended for straight-line instructions, and
+// other control-flow instructions (e.g. skipping, calling, etc) are handled by
+// the base machine (since they are common to all machines).
+type Executor[W any, I any] interface {
+	// Execute the given instruction in the given frame with the given register
+	// descriptors, possibly returning an error if something goes wrong (e.g. an
+	// overflow).
+	Execute(insn I, frame []W, regs []register.Register) error
+}
+
 // Core represents the state of an executing machine, including the state of
 // all registers, memories and functions.  A machine may be executing or
 // terminated.  Machines are abstracted over a given type of word W, and
@@ -47,9 +60,9 @@ type Core[W any] interface {
 	// number of steps executed and an error (if execution failed).
 	Execute(steps uint) (uint, error)
 	// Return ith module in this machine (either a function or some form of memory).
-	Module(id uint) Module[W]
+	Module(id uint) Module
 	// Return set of modules in this machine.
-	Modules() []Module[W]
+	Modules() []Module
 	// Enter a new function on the call-stack, whilst initialising its arguments
 	// with those values in the current frame taken from the given argument
 	// registers.  In addition, the return registers are saved for when (if) the
@@ -64,7 +77,7 @@ type Core[W any] interface {
 }
 
 // Module represents an either a function or memory within the machine.
-type Module[W any] = instruction.Module[W]
+type Module = base.Module
 
 // ============================================================================
 // Frame
