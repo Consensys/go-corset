@@ -165,11 +165,19 @@ func lowerBitwiseCode[W word.Word[W]](
 
 func lowerableWidth(registers []register.Register, target register.Id, bandWidth uint) (uint, bool) {
 	reg := registers[target.Unwrap()]
+
+	var w uint
 	if reg.IsNative() {
-		return bandWidth, true
+		w = bandWidth
+	} else {
+		w = reg.Width()
 	}
 
-	return reg.Width(), true
+	if w == 0 {
+		panic(fmt.Sprintf("zero-width register: %s", reg.Name()))
+	}
+
+	return w, w&(w-1) == 0
 }
 
 func zeroWord[W word.Word[W]]() W {
