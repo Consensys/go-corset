@@ -39,6 +39,16 @@ func (p *Fail) OpCode() opcode.OpCode {
 	return opcode.FAIL
 }
 
+// IsWord implementation for instruction.Word interface
+func (p *Fail) IsWord() bool {
+	return true
+}
+
+// IsField implementation for instruction.Field interface
+func (p *Fail) IsField() bool {
+	return true
+}
+
 // Uses implementation for Instruction interface.
 func (p *Fail) Uses() []register.Id {
 	var uses []register.Id

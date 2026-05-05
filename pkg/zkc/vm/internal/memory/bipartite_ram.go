@@ -14,7 +14,7 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // HALF_START is the smallest absolute word position belonging to the upper
@@ -30,7 +30,7 @@ const HALF_START uint64 = ^uint64(0) / 2
 // space, regardless of the actual address-tuple width.
 const TOP_POS uint64 = ^uint64(0)
 
-// BiPartiteArray provides a read/write implementation of Memory optimised for
+// BiPartiteRandomAccess provides a read/write implementation of Memory optimised for
 // representing the kind of split heap/stack memory found in typical compute
 // architectures (e.g. RISC-V).  Here, memory is partitioned in two: the lower
 // partition and the upper partition.  Here, the lower partition represents
@@ -50,40 +50,67 @@ const TOP_POS uint64 = ^uint64(0)
 // each other.  For simplicity we simply assume that any read / write to
 // location l where l < n/2 is for the lower partiion, other its for the upper
 // partition.
-type BiPartiteArray[W word.Word[W]] struct {
+type BiPartiteRandomAccess[W util.Uinter64] struct {
+	kind     Kind
 	geometry Geometry[W]
 	name     string
 	// Lower and upper partitions
 	lower, upper []W
 }
 
-// NewBiPartiteArray constructs an empty bipartite read/write memory.
-func NewBiPartiteArray[W word.Word[W]](name string, registers []register.Register) *BiPartiteArray[W] {
-	return &BiPartiteArray[W]{
+// NewBiPartiteRandomAccess constructs a new bipartite random access memory.
+func NewBiPartiteRandomAccess[W util.Uinter64](name string, registers []register.Register) Memory[W] {
+	return &BiPartiteRandomAccess[W]{
+		kind:     RANDOM_ACCESS_MEMORY,
 		geometry: NewGeometry[W](registers),
 		name:     name,
 	}
 }
 
+// IsPublic implementation for memory interface.
+func (p *BiPartiteRandomAccess[W]) IsPublic() bool {
+	return p.kind.IsPublic()
+}
+
+// IsStatic implementation for memory interface.
+func (p *BiPartiteRandomAccess[W]) IsStatic() bool {
+	return p.kind.IsPublic()
+}
+
+// IsReadOnly implementation for memory interface.
+func (p *BiPartiteRandomAccess[W]) IsReadOnly() bool {
+	return p.kind.IsPublic()
+}
+
+// IsWriteOnly implementation for memory interface.
+func (p *BiPartiteRandomAccess[W]) IsWriteOnly() bool {
+	return p.kind.IsPublic()
+}
+
+// IsReadWrite implementation for memory interface.
+func (p *BiPartiteRandomAccess[W]) IsReadWrite() bool {
+	return p.kind.IsPublic()
+}
+
 // Name implementation for Memory interface.
-func (p *BiPartiteArray[W]) Name() string {
+func (p *BiPartiteRandomAccess[W]) Name() string {
 	return p.name
 }
 
 // Geometry implementation for Memory interface.
-func (p *BiPartiteArray[W]) Geometry() Geometry[W] {
+func (p *BiPartiteRandomAccess[W]) Geometry() Geometry[W] {
 	return p.geometry
 }
 
 // Initialise implementation for Memory interface.  The provided contents
 // populate the lower partition; the upper partition is cleared.
-func (p *BiPartiteArray[W]) Initialise(contents []W) {
+func (p *BiPartiteRandomAccess[W]) Initialise(contents []W) {
 	p.lower = contents
 	p.upper = nil
 }
 
 // Read implementation for Memory interface.
-func (p *BiPartiteArray[W]) Read(frame []W, address []register.Id, data []register.Id) error {
+func (p *BiPartiteRandomAccess[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	var start, _ = p.geometry.FrameDecode(frame, address)
 	//
 	if start < HALF_START {
@@ -112,7 +139,7 @@ func (p *BiPartiteArray[W]) Read(frame []W, address []register.Id, data []regist
 }
 
 // Write implementation for Memory interface.
-func (p *BiPartiteArray[W]) Write(frame []W, address []register.Id, data []register.Id) error {
+func (p *BiPartiteRandomAccess[W]) Write(frame []W, address []register.Id, data []register.Id) error {
 	var start, end = p.geometry.FrameDecode(frame, address)
 	//
 	if start < HALF_START {
@@ -145,7 +172,7 @@ func (p *BiPartiteArray[W]) Write(frame []W, address []register.Id, data []regis
 
 // readLower returns the word at the given absolute position in the lower
 // partition, returning zero for out-of-bounds accesses.
-func (p *BiPartiteArray[W]) readLower(pos uint64) W {
+func (p *BiPartiteRandomAccess[W]) readLower(pos uint64) W {
 	var zero W
 	//
 	if pos < uint64(len(p.lower)) {
@@ -157,7 +184,7 @@ func (p *BiPartiteArray[W]) readLower(pos uint64) W {
 
 // readUpper returns the word at the given absolute position in the upper
 // partition, returning zero for out-of-bounds accesses.
-func (p *BiPartiteArray[W]) readUpper(pos uint64) W {
+func (p *BiPartiteRandomAccess[W]) readUpper(pos uint64) W {
 	var (
 		idx  = TOP_POS - pos
 		zero W

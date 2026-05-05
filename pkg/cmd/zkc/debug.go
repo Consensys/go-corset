@@ -22,7 +22,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	"github.com/spf13/cobra"
 )
 
@@ -55,7 +55,7 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string, field fi
 	// Compile source files, or print errors
 	program := CompileSourceFiles(field, args[1:]...)
 	//
-	observer := debug.TraceObserver[word.Uint]{}
+	observer := debug.TraceObserver[vm.Uint]{}
 	//
 	executeIrProgram("main", config, program, input, &observer)
 	//

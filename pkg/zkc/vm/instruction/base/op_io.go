@@ -48,6 +48,16 @@ func (p *OpIo) OpCode() opcode.OpCode {
 	return p.Op
 }
 
+// IsWord implementation for instruction.Word interface
+func (p *OpIo) IsWord() bool {
+	return true
+}
+
+// IsField implementation for instruction.Field interface
+func (p *OpIo) IsField() bool {
+	return true
+}
+
 // Address is an alias to help identify which are the data lines for a memory
 // operation.
 func (p *OpIo) Address() []register.Id {

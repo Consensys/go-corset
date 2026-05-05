@@ -16,11 +16,9 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // shiftKey identifies a shift helper by opcode and value width.
@@ -33,11 +31,11 @@ type shiftKey struct {
 // (opcode, value-width) pair, the maximum shift-amount register width seen
 // across all call sites.  The helper's arg2 is built with this width so every
 // call site can pass its amount register with an upcast (never a downcast).
-func scanShiftAmountWidths[W word.Word[W]](modules []machine.Module, bandWidth uint) map[shiftKey]uint {
+func scanShiftAmountWidths[W vm.Word[W]](modules []vm.Module, bandWidth uint) map[shiftKey]uint {
 	result := make(map[shiftKey]uint)
 
 	for _, mod := range modules {
-		fn, ok := mod.(*function.Boot)
+		fn, ok := mod.(*vm.WordFunction)
 		if !ok {
 			continue
 		}
@@ -84,16 +82,16 @@ func bitwiseShiftCall(
 	target, value, amount register.Id,
 	amtWidth uint,
 	registers *[]register.Register,
-) []instruction.Instruction {
+) []vm.WordInstruction {
 	if (*registers)[amount.Unwrap()].Width() == amtWidth {
-		return []instruction.Instruction{
+		return []vm.WordInstruction{
 			instruction.NewCall(id, []register.Id{value, amount}, []register.Id{target}),
 		}
 	}
 
 	wAmount := allocTmp(registers, amtWidth)
 
-	return []instruction.Instruction{
+	return []vm.WordInstruction{
 		instruction.NewCast(wAmount, amount, amtWidth),
 		instruction.NewCall(id, []register.Id{value, wAmount}, []register.Id{target}),
 	}
@@ -110,7 +108,7 @@ func bitwiseShiftCall(
 // amtWidth is the register width of arg2 (the shift amount); it equals the
 // maximum shift-amount width seen across all call sites for this value width.
 // selfID must be the module slot that will be assigned to this module.
-func newShlHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint) machine.Module {
+func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint) vm.Module {
 	var padding big.Int
 
 	b := newHelperBuilder[W](key.width, key.arity)
@@ -119,9 +117,9 @@ func newShlHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth ui
 	a, n, out := b.inputs[0], b.inputs[1], b.output
 	width := key.width
 
-	zero := word.Uint64[W](0)
-	one := word.Uint64[W](1)
-	wmax := word.Uint64[W](uint64(width - 1))
+	zero := vm.Uint64[W](0)
+	one := vm.Uint64[W](1)
+	wmax := vm.Uint64[W](uint64(width - 1))
 
 	zeroReg := b.newComputedNamed("zero", amtWidth)
 	wmaxReg := b.newComputedNamed("wmax", amtWidth)
@@ -150,7 +148,7 @@ func newShlHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth ui
 	b.emit(instruction.NewCall(selfID, []register.Id{doubled, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return function.New(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
 }
 
 // newShrHelper builds a self-recursive module for logical right shift:
@@ -164,7 +162,7 @@ func newShlHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth ui
 // field arithmetic — works for any field modulus.
 // amtWidth is the register width of arg2; see newShlHelper for details.
 // selfID must be the module slot that will be assigned to this module.
-func newShrHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint) machine.Module {
+func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint) vm.Module {
 	var padding big.Int
 
 	b := newHelperBuilder[W](key.width, key.arity)
@@ -173,9 +171,9 @@ func newShrHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth ui
 	a, n, out := b.inputs[0], b.inputs[1], b.output
 	width := key.width
 
-	zero := word.Uint64[W](0)
-	one := word.Uint64[W](1)
-	wmax := word.Uint64[W](uint64(width - 1))
+	zero := vm.Uint64[W](0)
+	one := vm.Uint64[W](1)
+	wmax := vm.Uint64[W](uint64(width - 1))
 
 	zeroReg := b.newComputedNamed("zero", amtWidth)
 	wmaxReg := b.newComputedNamed("wmax", amtWidth)
@@ -206,5 +204,5 @@ func newShrHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth ui
 	b.emit(instruction.NewCall(selfID, []register.Id{half, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return function.New(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
 }

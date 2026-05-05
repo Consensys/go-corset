@@ -32,14 +32,12 @@ type ReadOnly[W util.Uinter64] struct {
 	StaticArray[W]
 }
 
-// NewReadOnly constructs a new read-only memory initialised with a given set of values.
-func NewReadOnly[W util.Uinter64](name string, registers []register.Register, init ...W) *ReadOnly[W] {
-	return &ReadOnly[W]{
-		newStaticArray[W](name, registers, init...),
-	}
-}
-
 // Write implementation for Memory interface.
 func (p *ReadOnly[W]) Write(frame []W, address []register.Id, data []register.Id) error {
 	panic("unsupported operation for read-only memory")
+}
+
+// Contents implementation for Memory interface.
+func (p *ReadOnly[W]) Contents() []W {
+	return p.data
 }

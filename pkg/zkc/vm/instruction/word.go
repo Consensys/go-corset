@@ -16,11 +16,19 @@ import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/word"
-	vm_word "github.com/consensys/go-corset/pkg/zkc/vm/word"
+	vm_word "github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
 
-// Word is a convenient alias
-type Word[W any] = vm_word.Word[W]
+// Word captures the subset of all instructions which can be executed
+// by a word machine.
+type Word interface {
+	Instruction
+	// IsWord demarcates word instructions
+	IsWord() bool
+}
+
+// vmWord is a convenient alias
+type vmWord[W any] = vm_word.Word[W]
 
 // ============================================================================
 // Word Instructions
@@ -69,10 +77,10 @@ func NewCast(target register.Id, source register.Id, width uint) *Cast {
 // the bit-width of the target register.  Overflow at runtime aborts
 // execution with an arithmetic-overflow error.  The source slice may be
 // empty, in which case the instruction simply loads the constant.
-type IntAdd[W Word[W]] struct{ word.OpArith[W] }
+type IntAdd[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewIntAdd constructs a new addition instruction
-func NewIntAdd[W Word[W]](target register.Id, sources []register.Id, constant W) *IntAdd[W] {
+func NewIntAdd[W vmWord[W]](target register.Id, sources []register.Id, constant W) *IntAdd[W] {
 	return &IntAdd[W]{word.NewOpArith(opcode.INT_ADD, target, sources, constant)}
 }
 
@@ -85,10 +93,10 @@ func NewIntAdd[W Word[W]](target register.Id, sources []register.Id, constant W)
 // is sources[0] - sources[1] - ... - sources[n-1] - constant, evaluated
 // within the bit-width of the target register.  Underflow at runtime aborts
 // execution with an arithmetic-underflow error.
-type IntSub[W Word[W]] struct{ word.OpArith[W] }
+type IntSub[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewIntSub constructs a new subtraction instruction
-func NewIntSub[W Word[W]](target register.Id, sources []register.Id, constant W) *IntSub[W] {
+func NewIntSub[W vmWord[W]](target register.Id, sources []register.Id, constant W) *IntSub[W] {
 	return &IntSub[W]{word.NewOpArith(opcode.INT_SUB, target, sources, constant)}
 }
 
@@ -101,10 +109,10 @@ func NewIntSub[W Word[W]](target register.Id, sources []register.Id, constant W)
 // is constant * sources[0] * ... * sources[n-1], evaluated within the
 // bit-width of the target register.  Overflow at runtime aborts execution
 // with an arithmetic-overflow error.
-type IntMul[W Word[W]] struct{ word.OpArith[W] }
+type IntMul[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewIntMul constructs a new multiplication instruction
-func NewIntMul[W Word[W]](target register.Id, sources []register.Id, constant W) *IntMul[W] {
+func NewIntMul[W vmWord[W]](target register.Id, sources []register.Id, constant W) *IntMul[W] {
 	return &IntMul[W]{word.NewOpArith(opcode.INT_MUL, target, sources, constant)}
 }
 
@@ -116,10 +124,10 @@ func NewIntMul[W Word[W]](target register.Id, sources []register.Id, constant W)
 // assigning the result to the target register.  Specifically, sources[0] is
 // the dividend and sources[1] is the divisor; division by zero aborts
 // execution with a division-by-zero error.  The constant operand is unused.
-type IntDiv[W Word[W]] struct{ word.OpArith[W] }
+type IntDiv[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewIntDiv constructs a new division instruction.
-func NewIntDiv[W Word[W]](target, dividend, divisor register.Id) *IntDiv[W] {
+func NewIntDiv[W vmWord[W]](target, dividend, divisor register.Id) *IntDiv[W] {
 	var zero W
 	return &IntDiv[W]{word.NewOpArith[W](opcode.INT_DIV, target, []register.Id{dividend, divisor}, zero)}
 }
@@ -133,10 +141,10 @@ func NewIntDiv[W Word[W]](target, dividend, divisor register.Id) *IntDiv[W] {
 // sources[0] is the dividend and sources[1] is the divisor; division by zero
 // aborts execution with a division-by-zero error.  The constant operand is
 // unused.
-type IntRem[W Word[W]] struct{ word.OpArith[W] }
+type IntRem[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewIntRem constructs a new remainder instruction.
-func NewIntRem[W Word[W]](target, dividend, divisor register.Id) *IntRem[W] {
+func NewIntRem[W vmWord[W]](target, dividend, divisor register.Id) *IntRem[W] {
 	var zero W
 	return &IntRem[W]{word.NewOpArith(opcode.INT_REM, target, []register.Id{dividend, divisor}, zero)}
 }
@@ -145,48 +153,48 @@ func NewIntRem[W Word[W]](target, dividend, divisor register.Id) *IntRem[W] {
 // Field Addition
 // ============================================================================
 
-// FieldAdd computes the sum of the source registers and a constant within
+// IntAddModP computes the sum of the source registers and a constant within
 // the prime field of the surrounding machine, assigning the result to the
 // target register.  The value assigned is sources[0] + ... + sources[n-1] +
 // constant, reduced modulo the field's prime characteristic.  The source
 // slice may be empty, in which case the instruction simply loads the
 // constant.
-type FieldAdd[W Word[W]] struct{ word.OpArith[W] }
+type IntAddModP[W vmWord[W]] struct{ word.OpArith[W] }
 
-// NewFieldAdd constructs a new field addition instruction
-func NewFieldAdd[W Word[W]](target register.Id, sources []register.Id, constant W) *FieldAdd[W] {
-	return &FieldAdd[W]{word.NewOpArith(opcode.FIELD_ADD, target, sources, constant)}
+// NewIntAddModP constructs a new field addition instruction
+func NewIntAddModP[W vmWord[W]](target register.Id, sources []register.Id, constant W) *IntAddModP[W] {
+	return &IntAddModP[W]{word.NewOpArith(opcode.INT_ADDMOD_P, target, sources, constant)}
 }
 
 // ============================================================================
 // Field Subtraction
 // ============================================================================
 
-// FieldSub computes a chained subtraction of the source registers and a
+// IntSubModP computes a chained subtraction of the source registers and a
 // constant within the prime field of the surrounding machine, assigning the
 // result to the target register.  The value assigned is sources[0] -
 // sources[1] - ... - sources[n-1] - constant, reduced modulo the field's
 // prime characteristic.
-type FieldSub[W Word[W]] struct{ word.OpArith[W] }
+type IntSubModP[W vmWord[W]] struct{ word.OpArith[W] }
 
-// NewFieldSub constructs a new field subtraction instruction
-func NewFieldSub[W Word[W]](target register.Id, sources []register.Id, constant W) *FieldSub[W] {
-	return &FieldSub[W]{word.NewOpArith(opcode.FIELD_SUB, target, sources, constant)}
+// NewIntSubModP constructs a new field subtraction instruction
+func NewIntSubModP[W vmWord[W]](target register.Id, sources []register.Id, constant W) *IntSubModP[W] {
+	return &IntSubModP[W]{word.NewOpArith(opcode.INT_SUBMOD_P, target, sources, constant)}
 }
 
 // ============================================================================
 // Field Multiplication
 // ============================================================================
 
-// FieldMul computes the product of the source registers and a constant
+// IntMulModP computes the product of the source registers and a constant
 // within the prime field of the surrounding machine, assigning the result
 // to the target register.  The value assigned is constant * sources[0] *
 // ... * sources[n-1], reduced modulo the field's prime characteristic.
-type FieldMul[W Word[W]] struct{ word.OpArith[W] }
+type IntMulModP[W vmWord[W]] struct{ word.OpArith[W] }
 
-// NewFieldMul constructs a new field multiplication instruction
-func NewFieldMul[W Word[W]](target register.Id, sources []register.Id, constant W) *FieldMul[W] {
-	return &FieldMul[W]{word.NewOpArith(opcode.FIELD_MUL, target, sources, constant)}
+// NewIntMulModP constructs a new field multiplication instruction
+func NewIntMulModP[W vmWord[W]](target register.Id, sources []register.Id, constant W) *IntMulModP[W] {
+	return &IntMulModP[W]{word.NewOpArith(opcode.INT_MULMOD_P, target, sources, constant)}
 }
 
 // ============================================================================
@@ -198,10 +206,10 @@ func NewFieldMul[W Word[W]](target register.Id, sources []register.Id, constant 
 // constant & sources[0] & ... & sources[n-1].  Callers needing AND with no
 // constant contribution should pass the AND identity (all-ones within the
 // target bit-width) as the constant.
-type BitAnd[W Word[W]] struct{ word.OpArith[W] }
+type BitAnd[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewBitAnd constructs a new bitwise AND instruction.
-func NewBitAnd[W Word[W]](target register.Id, sources []register.Id, constant W) *BitAnd[W] {
+func NewBitAnd[W vmWord[W]](target register.Id, sources []register.Id, constant W) *BitAnd[W] {
 	return &BitAnd[W]{word.NewOpArith(opcode.BIT_AND, target, sources, constant)}
 }
 
@@ -212,10 +220,10 @@ func NewBitAnd[W Word[W]](target register.Id, sources []register.Id, constant W)
 // BitNot computes the bitwise complement of a single source register and
 // assigns the result to the target register.  The complement is taken within
 // the bit-width of the target register.  The constant operand is unused.
-type BitNot[W Word[W]] struct{ word.OpArith[W] }
+type BitNot[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewBitNot constructs a new bitwise NOT instruction.
-func NewBitNot[W Word[W]](target, source register.Id) *BitNot[W] {
+func NewBitNot[W vmWord[W]](target, source register.Id) *BitNot[W] {
 	var zero W
 	return &BitNot[W]{word.NewOpArith(opcode.BIT_NOT, target, []register.Id{source}, zero)}
 }
@@ -227,10 +235,10 @@ func NewBitNot[W Word[W]](target, source register.Id) *BitNot[W] {
 // BitOr computes the bitwise OR of the source registers and a constant,
 // assigning the result to the target register.  The value assigned is
 // constant | sources[0] | ... | sources[n-1].
-type BitOr[W Word[W]] struct{ word.OpArith[W] }
+type BitOr[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewBitOr constructs a new bitwise OR instruction.
-func NewBitOr[W Word[W]](target register.Id, sources []register.Id, constant W) *BitOr[W] {
+func NewBitOr[W vmWord[W]](target register.Id, sources []register.Id, constant W) *BitOr[W] {
 	return &BitOr[W]{word.NewOpArith(opcode.BIT_OR, target, sources, constant)}
 }
 
@@ -241,10 +249,10 @@ func NewBitOr[W Word[W]](target register.Id, sources []register.Id, constant W) 
 // BitXor computes the bitwise exclusive-OR of the source registers and a
 // constant, assigning the result to the target register.  The value assigned
 // is constant ^ sources[0] ^ ... ^ sources[n-1].
-type BitXor[W Word[W]] struct{ word.OpArith[W] }
+type BitXor[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewBitXor constructs a new bitwise XOR instruction.
-func NewBitXor[W Word[W]](target register.Id, sources []register.Id, constant W) *BitXor[W] {
+func NewBitXor[W vmWord[W]](target register.Id, sources []register.Id, constant W) *BitXor[W] {
 	return &BitXor[W]{word.NewOpArith(opcode.BIT_XOR, target, sources, constant)}
 }
 
@@ -257,10 +265,10 @@ func NewBitXor[W Word[W]](target register.Id, sources []register.Id, constant W)
 // the value to be shifted and sources[1] is the shift amount, with the
 // result evaluated within the bit-width of the target register.  The
 // constant operand is unused.
-type BitShl[W Word[W]] struct{ word.OpArith[W] }
+type BitShl[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewBitShl constructs a new bitwise left-shift instruction.
-func NewBitShl[W Word[W]](target, value, amount register.Id) *BitShl[W] {
+func NewBitShl[W vmWord[W]](target, value, amount register.Id) *BitShl[W] {
 	var zero W
 	return &BitShl[W]{word.NewOpArith[W](opcode.BIT_SHL, target, []register.Id{value, amount}, zero)}
 }
@@ -271,10 +279,10 @@ func NewBitShl[W Word[W]](target, value, amount register.Id) *BitShl[W] {
 // by another, assigning the result to the target register.  Specifically,
 // sources[0] is the value to be shifted and sources[1] is the shift amount.
 // The constant operand is unused.
-type BitShr[W Word[W]] struct{ word.OpArith[W] }
+type BitShr[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewBitShr constructs a new bitwise right-shift instruction.
-func NewBitShr[W Word[W]](target, value, amount register.Id) *BitShr[W] {
+func NewBitShr[W vmWord[W]](target, value, amount register.Id) *BitShr[W] {
 	var zero W
 	return &BitShr[W]{word.NewOpArith(opcode.BIT_SHR, target, []register.Id{value, amount}, zero)}
 }
@@ -286,14 +294,14 @@ func NewBitShr[W Word[W]](target, value, amount register.Id) *BitShr[W] {
 // in sources[0] occupies the least-significant bits of the result, sources[1]
 // the next-least-significant bits, and so on.  The constant operand is
 // unused.
-type BitConcat[W Word[W]] struct{ word.OpArith[W] }
+type BitConcat[W vmWord[W]] struct{ word.OpArith[W] }
 
 // NewBitConcat constructs a new concatenation instruction which concatenates
 // the source registers and writes them into the target register.  Observe
 // that we have a little endian ordering here for the source registers.  That
 // is, the value of the register sources[0] will occupy the least significant
 // bits of the result.
-func NewBitConcat[W Word[W]](target register.Id, sources []register.Id) *BitConcat[W] {
+func NewBitConcat[W vmWord[W]](target register.Id, sources []register.Id) *BitConcat[W] {
 	var zero W
 	return &BitConcat[W]{word.NewOpArith(opcode.BIT_CONCAT, target, sources, zero)}
 }

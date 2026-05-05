@@ -17,8 +17,21 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
+
+// Module represents an either a function or memory within the machine.
+type Module interface {
+	// Name of this module
+	Name() string
+}
+
+// SystemMap provides a global view of modules in the systemn.
+type SystemMap interface {
+	register.Map
+	//
+	Module(id uint) Module
+}
 
 // RegistersToString returns a string representation for zero or more registers
 // separated by a comma.

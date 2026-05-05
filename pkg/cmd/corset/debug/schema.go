@@ -32,16 +32,16 @@ import (
 func PrintSchemas[F field.Element[F]](stack cmd_util.SchemaStack[F], textwidth uint) {
 	//
 	for _, schema := range stack.AbstractSchemas() {
-		printSchema(schema, textwidth)
+		PrintAnySchema(schema, textwidth)
 	}
 	//
 	if stack.HasConcreteSchema() {
-		printSchema(stack.ConcreteSchema(), textwidth)
+		PrintAnySchema(stack.ConcreteSchema(), textwidth)
 	}
 }
 
-// Print out all declarations included in a given
-func printSchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
+// PrintAnySchema prints out all declarations included in a given schema
+func PrintAnySchema[F field.Element[F]](schema schema.AnySchema[F], width uint) {
 	first := true
 	// Print out each module, one by one.
 	for i := schema.Modules(); i.HasNext(); {

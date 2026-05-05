@@ -45,6 +45,14 @@ func New(kind Type, name string, bitwidth uint, padding big.Int) Register {
 	return Register{kind, name, bitwidth, padding}
 }
 
+// NewNative constructs a new "native" register.  That is, a register backed by
+// a field element rather than a fixed-width unsigned integer.  Such registers
+// have no fixed bitwidth and can hold any value representable in the
+// underlying field.
+func NewNative(kind Type, name string, padding big.Int) Register {
+	return New(kind, name, math.MaxUint, padding)
+}
+
 // NewInput constructs a new input register with the given name and
 // bitwidth.
 func NewInput(name string, bitwidth uint, padding big.Int) Register {
@@ -61,14 +69,6 @@ func NewOutput(name string, bitwidth uint, padding big.Int) Register {
 // bitwidth.
 func NewComputed(name string, bitwidth uint, padding big.Int) Register {
 	return Register{COMPUTED_REGISTER, name, bitwidth, padding}
-}
-
-// NewNative constructs a new "native" register.  That is, a register backed by
-// a field element rather than a fixed-width unsigned integer.  Such registers
-// have no fixed bitwidth and can hold any value representable in the
-// underlying field.
-func NewNative(name string, padding big.Int) Register {
-	return NewComputed(name, math.MaxUint, padding)
 }
 
 // NewConst constructs a new "constant register".  That is a register which

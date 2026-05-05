@@ -40,6 +40,11 @@ func (p *Destruct) OpCode() opcode.OpCode {
 	return opcode.BIT_DESTRUCT
 }
 
+// IsWord implementation for instruction.Word interface
+func (p *Destruct) IsWord() bool {
+	return true
+}
+
 // Uses implementation for Instruction interface
 func (p *Destruct) Uses() []register.Id {
 	return []register.Id{p.Source}

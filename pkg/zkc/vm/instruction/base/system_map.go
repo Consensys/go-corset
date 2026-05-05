@@ -11,20 +11,3 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 package base
-
-import (
-	"github.com/consensys/go-corset/pkg/schema/register"
-)
-
-// Module represents an either a function or memory within the machine.
-type Module interface {
-	// Name of this module
-	Name() string
-}
-
-// SystemMap provides a global view of modules in the systemn.
-type SystemMap interface {
-	register.Map
-	//
-	Module(id uint) Module
-}

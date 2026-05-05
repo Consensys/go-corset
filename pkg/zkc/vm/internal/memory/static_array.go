@@ -29,16 +29,42 @@ import (
 // D is the AddressDecoder strategy that encodes the layout of rows within the
 // flat slice.
 type StaticArray[W util.Uinter64] struct {
+	kind     Kind
 	geometry Geometry[W]
 	name     string
 	data     []W
 }
 
-// newStaticArray constructs a new array initialised with a given set of values.
-func newStaticArray[W util.Uinter64](name string, registers []register.Register, init ...W) StaticArray[W] {
+// NewStaticArray constructs a new array initialised with a given set of values.
+func NewStaticArray[W util.Uinter64](name string, kind Kind, registers []register.Register, init ...W) StaticArray[W] {
 	var geometry = NewGeometry[W](registers)
 	//
-	return StaticArray[W]{geometry, name, init}
+	return StaticArray[W]{kind, geometry, name, init}
+}
+
+// IsPublic implementation for memory interface.
+func (p *StaticArray[W]) IsPublic() bool {
+	return p.kind.IsPublic()
+}
+
+// IsStatic implementation for memory interface.
+func (p *StaticArray[W]) IsStatic() bool {
+	return p.kind.IsPublic()
+}
+
+// IsReadOnly implementation for memory interface.
+func (p *StaticArray[W]) IsReadOnly() bool {
+	return p.kind.IsPublic()
+}
+
+// IsWriteOnly implementation for memory interface.
+func (p *StaticArray[W]) IsWriteOnly() bool {
+	return p.kind.IsPublic()
+}
+
+// IsReadWrite implementation for memory interface.
+func (p *StaticArray[W]) IsReadWrite() bool {
+	return p.kind.IsPublic()
 }
 
 // Name implementation for Memory interface.

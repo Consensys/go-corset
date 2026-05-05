@@ -43,6 +43,14 @@ func Test_ZkcMixed_Basic_05(t *testing.T) {
 	checkZkcMixed(t, "zkc/mixed/basic_05", field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_ZkcMixed_Basic_06(t *testing.T) {
+	checkZkcMixed(t, "zkc/mixed/basic_06", field.BLS12_377, field.KOALABEAR_16)
+}
+
+func Test_ZkcMixed_Basic_07(t *testing.T) {
+	checkZkcMixed(t, "zkc/mixed/basic_07", field.BLS12_377, field.KOALABEAR_16)
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================

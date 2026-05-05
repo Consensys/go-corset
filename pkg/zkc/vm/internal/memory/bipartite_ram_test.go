@@ -17,7 +17,7 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
 
 // Note: tests are written for word.Uint (an arbitrary-precision unsigned word
@@ -35,7 +35,7 @@ func uint64W(v uint64) word.Uint {
 // "data0", "data1", ...).  It returns the memory and a freshly allocated frame
 // of the right size, with frame[0] being the address slot and frame[1..] being
 // data slots.
-func newBiPartite(addrWidth uint, numOutputs uint) (*BiPartiteArray[word.Uint], []word.Uint) {
+func newBiPartite(addrWidth uint, numOutputs uint) (Memory[word.Uint], []word.Uint) {
 	regs := []register.Register{
 		register.NewInput("addr", addrWidth, *big.NewInt(0)),
 	}
@@ -44,7 +44,7 @@ func newBiPartite(addrWidth uint, numOutputs uint) (*BiPartiteArray[word.Uint], 
 		regs = append(regs, register.NewOutput("data", 64, *big.NewInt(0)))
 	}
 	//
-	mem := NewBiPartiteArray[word.Uint]("test", regs)
+	mem := NewBiPartiteRandomAccess[word.Uint]("test", regs)
 	frame := make([]word.Uint, 1+numOutputs)
 	//
 	return mem, frame
@@ -68,7 +68,7 @@ func dataIds(numOutputs uint) []register.Id {
 
 // writeOne writes a single-word value at the given address and panics if the
 // underlying call fails.
-func writeOne(t *testing.T, mem *BiPartiteArray[word.Uint], frame []word.Uint, addr, val uint64) {
+func writeOne(t *testing.T, mem Memory[word.Uint], frame []word.Uint, addr, val uint64) {
 	t.Helper()
 	//
 	frame[0] = uint64W(addr)
@@ -80,7 +80,7 @@ func writeOne(t *testing.T, mem *BiPartiteArray[word.Uint], frame []word.Uint, a
 }
 
 // readOne reads a single-word value at the given address.
-func readOne(t *testing.T, mem *BiPartiteArray[word.Uint], frame []word.Uint, addr uint64) uint64 {
+func readOne(t *testing.T, mem Memory[word.Uint], frame []word.Uint, addr uint64) uint64 {
 	t.Helper()
 	//
 	frame[0] = uint64W(addr)
@@ -221,7 +221,7 @@ func Test_BiPartite_Upper_Overflow(t *testing.T) {
 		register.NewOutput("d2", 64, *big.NewInt(0)),
 	}
 	//
-	mem := NewBiPartiteArray[word.Uint]("test", regs)
+	mem := NewBiPartiteRandomAccess[word.Uint]("test", regs)
 	frame := make([]word.Uint, 4)
 	// 3 * 6148914691236517205 == 2^64 - 1 == TOP_POS (mod 2^64), so start
 	// lands exactly at TOP_POS and only one cell fits.
@@ -311,7 +311,7 @@ func checkReadWriteDoubleWords(t *testing.T, writes map[uint64][2]uint64, reads 
 }
 
 // writeTwo writes a two-word value at the given address.
-func writeTwo(t *testing.T, mem *BiPartiteArray[word.Uint], frame []word.Uint, addr, v0, v1 uint64) {
+func writeTwo(t *testing.T, mem Memory[word.Uint], frame []word.Uint, addr, v0, v1 uint64) {
 	t.Helper()
 	//
 	frame[0] = uint64W(addr)
@@ -324,7 +324,7 @@ func writeTwo(t *testing.T, mem *BiPartiteArray[word.Uint], frame []word.Uint, a
 }
 
 // readTwo reads a two-word value at the given address.
-func readTwo(t *testing.T, mem *BiPartiteArray[word.Uint], frame []word.Uint, addr uint64) (uint64, uint64) {
+func readTwo(t *testing.T, mem Memory[word.Uint], frame []word.Uint, addr uint64) (uint64, uint64) {
 	t.Helper()
 	//
 	frame[0] = uint64W(addr)

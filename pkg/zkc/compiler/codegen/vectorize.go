@@ -22,10 +22,9 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/stack"
 	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 )
 
 // Vectorize a given function by merging as many instructions as possible into
@@ -88,9 +87,9 @@ import (
 // NOTE: this stage is assumed to run after flattening has taken place and,
 // hence, only needs to deal with unstructured control-flow (i.e. not
 // block-level control flow).
-func Vectorize(modules []machine.Module, _ source.Maps[any]) {
+func Vectorize(modules []vm.Module, _ source.Maps[any]) {
 	for i, m := range modules {
-		if fn, ok := m.(*function.Boot); ok {
+		if fn, ok := m.(*Function); ok {
 			modules[i] = vectorizeFunction(fn, modules)
 		}
 	}
@@ -99,7 +98,7 @@ func Vectorize(modules []machine.Module, _ source.Maps[any]) {
 // vectorizeFunction applies the per-function vectorisation pass, returning a
 // new function whose code is the merged-and-pruned result.  This mirrors
 // vectorizeFunction in pkg/asm/lower.go.
-func vectorizeFunction(fn *function.Boot, modules []machine.Module) *function.Boot {
+func vectorizeFunction(fn *Function, modules []vm.Module) *Function {
 	var (
 		original = fn.Code()
 		n        = uint(len(original))
@@ -135,7 +134,7 @@ func vectorizeFunction(fn *function.Boot, modules []machine.Module) *function.Bo
 	// Remove unreachable instructions and rebind jump targets.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return function.New(fn.Name(), fn.Registers(), insns)
+	return vm.NewFunction(fn.Name(), fn.Registers(), insns)
 }
 
 // prepareCode wraps every top-level instruction in a Vector and appends a
@@ -164,7 +163,7 @@ func prepareCode(code []VectorInstruction) []VectorInstruction {
 
 // endsInTerminator reports whether the last code unconditionally fixes the
 // next program counter (Jmp, Return or Fail).
-func endsInTerminator(codes []instruction.Instruction) bool {
+func endsInTerminator(codes []Instruction) bool {
 	if len(codes) == 0 {
 		return false
 	}
@@ -236,7 +235,7 @@ func vectorizeInstruction(pc uint, code []VectorInstruction, mapping instruction
 
 // lastJump returns the index of the right-most Jmp within codes[:n], or false
 // if none exists.
-func lastJump(codes []instruction.Instruction, n uint) (uint, bool) {
+func lastJump(codes []Instruction, n uint) (uint, bool) {
 	for i := n; i > 0; {
 		i--
 		//
@@ -297,8 +296,7 @@ func replaceJump(vec VectorInstruction, jmpIndex uint, offset uint) VectorInstru
 // with the codes from the target instruction.  Skip and SkipIf offsets in the
 // surrounding codes are recomputed so they continue to identify the same
 // successor after the splice.
-func inlineJump(vec VectorInstruction, jmpIndex uint,
-	targetCodes []instruction.Instruction) VectorInstruction {
+func inlineJump(vec VectorInstruction, jmpIndex uint, targetCodes []Instruction) VectorInstruction {
 	var (
 		codes   = vec.Codes
 		mapping = make([]uint, len(codes))
@@ -315,7 +313,7 @@ func inlineJump(vec VectorInstruction, jmpIndex uint,
 		}
 	}
 	//
-	ncodes := make([]instruction.Instruction, npc)
+	ncodes := make([]Instruction, npc)
 	//
 	for cc, npc := uint(0), uint(0); cc < uint(len(codes)); cc++ {
 		code := codes[cc]
@@ -394,7 +392,7 @@ func pruneUnreachableInstructions(insns []VectorInstruction) []VectorInstruction
 func validateConflicts(vec VectorInstruction, mapping instruction.SystemMap) error {
 	var (
 		nCodes = uint(len(vec.Codes))
-		writes = vec.Writes()
+		writes = vec.WriteMap()
 	)
 	//
 	for i := range nCodes {

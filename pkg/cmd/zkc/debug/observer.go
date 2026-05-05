@@ -18,22 +18,20 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // TraceObserver prints a trace
-type TraceObserver[W word.Word[W]] struct {
+type TraceObserver[W vm.Word[W]] struct {
 	depth uint
-	fun   *function.Function[instruction.Instruction]
-	insn  instruction.Instruction
-	pc    machine.ProgramCounter
+	fun   *vm.Function[vm.Instruction]
+	insn  vm.Instruction
+	pc    vm.ProgramCounter
 }
 
 // PreExecution implementation for Observer interface
-func (p *TraceObserver[W]) PreExecution(machine *machine.Word[W]) {
+func (p *TraceObserver[W]) PreExecution(machine *vm.WordMachine[W]) {
 	var (
 		n = machine.Depth()
 	)
@@ -51,7 +49,7 @@ func (p *TraceObserver[W]) PreExecution(machine *machine.Word[W]) {
 }
 
 // PostExecution implementation for Observer interface
-func (p *TraceObserver[W]) PostExecution(machine *machine.Word[W]) {
+func (p *TraceObserver[W]) PostExecution(machine *vm.WordMachine[W]) {
 	var (
 		n = machine.Depth()
 	)
@@ -65,18 +63,18 @@ func (p *TraceObserver[W]) PostExecution(machine *machine.Word[W]) {
 	}
 }
 
-func (p *TraceObserver[W]) enterFunction(machine *machine.Word[W]) {
+func (p *TraceObserver[W]) enterFunction(machine *vm.WordMachine[W]) {
 	var (
 		n     = machine.Depth()
 		frame = machine.StackFrame(n - 1)
 	)
 	//
 	p.depth = n
-	p.fun = machine.Module(frame.Function()).(*function.Function[instruction.Instruction])
+	p.fun = machine.Module(frame.Function()).(*vm.Function[instruction.Instruction])
 	p.insn = nil
 }
 
-func (p *TraceObserver[W]) writeInstruction(machine *machine.Word[W]) {
+func (p *TraceObserver[W]) writeInstruction(machine *vm.WordMachine[W]) {
 	var (
 		frame = machine.StackFrame(p.depth - 1)
 	)
@@ -85,7 +83,7 @@ func (p *TraceObserver[W]) writeInstruction(machine *machine.Word[W]) {
 	p.pc = frame.PC()
 }
 
-func (p *TraceObserver[W]) writeState(machine *machine.Word[W]) {
+func (p *TraceObserver[W]) writeState(machine *vm.WordMachine[W]) {
 	var (
 		n      = machine.Depth()
 		frame  = machine.StackFrame(n - 1)
@@ -110,13 +108,13 @@ func (p *TraceObserver[W]) writeState(machine *machine.Word[W]) {
 	fmt.Print(insnStr)
 }
 
-func (p *TraceObserver[W]) callStack(machine *machine.Word[W]) string {
+func (p *TraceObserver[W]) callStack(machine *vm.WordMachine[W]) string {
 	var builder strings.Builder
 	//
 	for i := uint(0); i < p.depth; i++ {
 		var (
 			ith = machine.StackFrame(i)
-			fun = machine.Module(ith.Function()).(*function.Function[instruction.Instruction])
+			fun = machine.Module(ith.Function()).(*vm.Function[instruction.Instruction])
 		)
 		//
 		if i+1 == p.depth {
@@ -130,8 +128,8 @@ func (p *TraceObserver[W]) callStack(machine *machine.Word[W]) string {
 	return builder.String()
 }
 
-func functionInputs[W word.Word[W], I instruction.Instruction](frame machine.Frame[W],
-	fun *function.Function[I]) string {
+func functionInputs[W vm.Word[W], I vm.Instruction](frame vm.StackFrame[W],
+	fun *vm.Function[I]) string {
 	//
 	var builder strings.Builder
 
@@ -150,8 +148,8 @@ func functionInputs[W word.Word[W], I instruction.Instruction](frame machine.Fra
 	return builder.String()
 }
 
-func decode[W word.Word[W]](frame machine.Frame[W],
-	fn *function.Function[instruction.Instruction]) instruction.Instruction {
+func decode[W vm.Word[W]](frame vm.StackFrame[W],
+	fn *vm.Function[instruction.Instruction]) instruction.Instruction {
 	//
 	var (
 		pc   = frame.PC()
@@ -163,7 +161,7 @@ func decode[W word.Word[W]](frame machine.Frame[W],
 
 // annotatedMap wraps a SystemMap and annotates each register name with its
 // current value as "[0xVAL]", producing inline value display in instruction strings.
-type annotatedMap[W word.Word[W]] struct {
+type annotatedMap[W vm.Word[W]] struct {
 	base   instruction.SystemMap
 	values map[uint]string // register index → hex value string (no "0x" prefix)
 }

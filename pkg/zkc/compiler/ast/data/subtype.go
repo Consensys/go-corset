@@ -41,6 +41,8 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 	case *UnsignedInt[S]:
 		if t, isUint := t2.(*UnsignedInt[S]); isUint {
 			return t1.BitWidth() <= t.BitWidth()
+		} else if _, isField := t2.(*FieldElement[S]); isField {
+			return true
 		}
 	case *Alias[S]:
 		if at1 := t1.AsAlias(env); at1 != nil {
@@ -61,8 +63,11 @@ func SubtypeOf[S symbol.Symbol[S]](t1, t2 Type[S], env Environment[S]) bool {
 			return true
 		}
 	case *FieldElement[S]:
-		_, isField := t2.(*FieldElement[S])
-		return isField
+		if _, isUint := t2.(*UnsignedInt[S]); isUint {
+			return true
+		} else if _, isField := t2.(*FieldElement[S]); isField {
+			return true
+		}
 	case *FixedArray[S]:
 		if t, ok := t2.(*FixedArray[S]); ok {
 			if !arraySizeEquals(t1.Size, t.Size) {

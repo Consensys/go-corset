@@ -742,6 +742,11 @@ func (p *TypeChecker) typeConst(t Type, e *expr.Const[symbol.Resolved], env Vari
 	)
 	// Sanity check for field type
 	if wellFormed(t, p.env) && t.AsField(p.env) != nil {
+		// Sanity check for overflow
+		if mod := p.field.Modulus(); e.Constant.Cmp(mod) >= 0 {
+			return nil, p.srcmaps.SyntaxErrors(e, "field overflow")
+		}
+		//
 		return t, nil
 	} else if t == nil {
 		return actual, nil
@@ -942,17 +947,11 @@ func (p *TypeChecker) destructTupleType(t Type) []Type {
 // assumption is that, if either type is not well-formed, some error was already
 // reported upstream for this.
 func (p *TypeChecker) checkCastType(to, from Type, node any) []source.SyntaxError {
+	//
 	if !wellFormed(to, p.env) || !wellFormed(from, p.env) {
 		return nil
 	} else if data.SubtypeOf(to, from, p.env) || data.SubtypeOf(from, to, p.env) {
 		return nil
-	} else if f := to.AsField(p.env); f != nil {
-		// construct suitable type
-		var field_t = data.NewUnsignedInt[symbol.Resolved](p.field.BandWidth, false)
-		// Check value can be casted into a single field element.
-		if data.SubtypeOf(from, field_t, p.env) || data.SubtypeOf(field_t, from, p.env) {
-			return nil
-		}
 	}
 	//
 	return p.srcmaps.SyntaxErrors(node, fmt.Sprintf("expected type %s", to.String(p.env)))

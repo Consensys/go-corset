@@ -13,7 +13,6 @@
 package memory
 
 import (
-	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 )
 
@@ -23,14 +22,6 @@ import (
 // same machine.
 type StaticReadOnly[W util.Uinter64] struct {
 	ReadOnly[W]
-}
-
-// NewStaticReadOnly constructs a static read-only memory pre-loaded with the
-// given values.
-func NewStaticReadOnly[W util.Uinter64](name string, registers []register.Register, init ...W) *StaticReadOnly[W] {
-	return &StaticReadOnly[W]{
-		ReadOnly: *NewReadOnly(name, registers, init...),
-	}
 }
 
 // Initialise is a no-op for static read-only memory: contents are fixed at

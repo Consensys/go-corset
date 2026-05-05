@@ -42,10 +42,15 @@ type Cast struct {
 // OpCode implementation for Instruction interface
 func (p *Cast) OpCode() opcode.OpCode {
 	if p.Width == math.MaxUint {
-		return opcode.FIELD_CAST
+		return opcode.INT_CASTMOD_P
 	}
 	//
 	return opcode.INT_CAST
+}
+
+// IsWord implementation for instruction.Word interface
+func (p *Cast) IsWord() bool {
+	return true
 }
 
 // Uses implementation for Instruction interface.

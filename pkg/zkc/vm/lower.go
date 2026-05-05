@@ -1,0 +1,187 @@
+// Copyright Consensys Software Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+// the License. You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+// an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// SPDX-License-Identifier: Apache-2.0
+package vm
+
+import (
+	"fmt"
+	"math"
+
+	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/ir/term"
+	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
+)
+
+// LowerWordMachine translates a machine over integer words into a machine over
+// field elements.  In order to do this, it must "compile out" various
+// high-level word operations (e.g. bitwise operations, division, etc) which
+// have no direct correspondance within a field machine.
+func LowerWordMachine[W word.Word[W], F field.Element[F]](cfg field.Config, wm *WordMachine[W]) (fm *FieldMachine[F]) {
+	var (
+		modules  = make([]Module, len(wm.Modules()))
+		lowering = wordToField[W, F]{cfg}
+	)
+	//
+	for i, m := range wm.Modules() {
+		modules[i] = lowering.lowerWordModule(m)
+	}
+	//
+	return machine.NewField[F](modules...)
+}
+
+type wordToField[W word.Word[W], F field.Element[F]] struct {
+	field field.Config
+}
+
+func (p wordToField[W, F]) lowerWordModule(wm Module) (fm Module) {
+	switch wm := wm.(type) {
+	case *WordFunction:
+		return p.lowerWordFunction(wm)
+	default:
+		panic(fmt.Sprintf("unknown word module \"%s\" encountered", wm.Name()))
+	}
+}
+
+func (p wordToField[W, F]) lowerWordFunction(wf *WordFunction) (ff *FieldFunction) {
+	var (
+		regs  = make([]register.Register, len(wf.Registers()))
+		insns = make([]Vector[FieldInstruction], len(wf.Code()))
+	)
+	// Lower registers
+	for i, reg := range wf.Registers() {
+		// sanity check register width
+		if !reg.IsNative() && reg.Width() > p.field.RegisterWidth {
+			panic(fmt.Sprintf("\"%s\" exceeds max register width (u%d vs u%d	)",
+				reg.Name(), reg.Width(), p.field.RegisterWidth))
+		}
+		//
+		regs[i] = reg
+	}
+	// Lower instructions
+	for i, insn := range wf.Code() {
+		insns[i] = p.lowerWordVector(insn)
+	}
+	//
+	return NewFunction(wf.Name(), regs, insns)
+}
+
+func (p wordToField[W, F]) lowerWordVector(wi Vector[WordInstruction]) (fi Vector[FieldInstruction]) {
+	var (
+		insns = make([]FieldInstruction, len(wi.Codes))
+	)
+	//
+	for i, insn := range wi.Codes {
+		insns[i] = p.lowerWordInstruction(insn)
+	}
+	//
+	return instruction.NewVector(insns...)
+}
+
+func (p wordToField[W, F]) lowerWordInstruction(wi WordInstruction) (fi FieldInstruction) {
+	switch wi.OpCode() {
+	// Base instructions translate directly as is.
+	case opcode.CALL:
+		return wi.(*instruction.Call)
+	case opcode.FAIL:
+		return wi.(*instruction.Fail)
+	case opcode.MEMORY_READ:
+		return wi.(*instruction.MemRead)
+	case opcode.MEMORY_WRITE:
+		return wi.(*instruction.MemWrite)
+	case opcode.RETURN:
+		return wi.(*instruction.Return)
+	case opcode.SKIP:
+		return wi.(*instruction.Skip)
+	case opcode.SKIP_IF:
+		// NOTE: need to handle this!!!
+		return wi.(*instruction.SkipIf)
+		//
+	case opcode.INT_ADD:
+		var insn = wi.(*instruction.IntAdd[W])
+		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+	case opcode.INT_SUB:
+		var insn = wi.(*instruction.IntSub[W])
+		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, term.Subtract)
+	case opcode.INT_MUL:
+		var insn = wi.(*instruction.IntMul[W])
+		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, term.Product)
+	case opcode.INT_ADDMOD_P:
+		var insn = wi.(*instruction.IntAddModP[W])
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+	case opcode.INT_SUBMOD_P:
+		var insn = wi.(*instruction.IntSubModP[W])
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+	case opcode.INT_MULMOD_P:
+		var insn = wi.(*instruction.IntMulModP[W])
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+	default:
+		panic(fmt.Sprintf("unknown instruction encountered (opcode=0x%x)", wi.OpCode()))
+	}
+}
+
+type airConstructor[F field.Element[F]] func(...air.Term[F]) air.Term[F]
+
+func (p wordToField[W, F]) lowerArithInstruction(lhs register.Id, rhs []register.Id, c W,
+	f airConstructor[F]) (fi FieldInstruction) {
+	//
+	var (
+		zero  W
+		terms = make([]air.Term[F], len(rhs))
+	)
+	// Construct register accesses as necessary
+	for i, r := range rhs {
+		terms[i] = term.NewRegisterAccess[F, air.Term[F]](r, math.MaxUint, 0)
+	}
+	// Add constant (if applicable)
+	if n := c.BigInt(); n.BitLen() > int(p.field.RegisterWidth) {
+		panic(fmt.Sprintf("constant exceeds max register width (u%d vs u%d)", n.BitLen(), p.field.RegisterWidth))
+	} else if c.Cmp(zero) != 0 {
+		var c F
+		// Convert from word value to field element
+		c = c.SetBytes(n.Bytes())
+		// Append field constant
+		terms = append(terms, term.Const[F, air.Term[F]](c))
+	}
+	// Done
+	return instruction.NewFieldAssign(lhs, f(terms...))
+}
+
+func (p wordToField[W, F]) lowerFieldInstruction(lhs register.Id, rhs []register.Id, c W,
+	f airConstructor[F]) (fi FieldInstruction) {
+	//
+	var (
+		mod   F
+		zero  W
+		terms = make([]air.Term[F], len(rhs))
+	)
+	// Construct register accesses as necessary
+	for i, r := range rhs {
+		terms[i] = term.NewRegisterAccess[F, air.Term[F]](r, math.MaxUint, 0)
+	}
+	// Add constant (if applicable)
+	if n := c.BigInt(); n.Cmp(mod.Modulus()) >= 0 {
+		panic(fmt.Sprintf("constant exceeds field prime (0x%s vs 0x%s)", n.Text(16), mod.Modulus().Text(16)))
+	} else if c.Cmp(zero) != 0 {
+		var c F
+		// Convert from word value to field element
+		c = c.SetBytes(n.Bytes())
+		// Append field constant
+		terms = append(terms, term.Const[F, air.Term[F]](c))
+	}
+	// Done
+	return instruction.NewFieldAssign(lhs, f(terms...))
+}

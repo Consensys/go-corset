@@ -21,13 +21,11 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/lval"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/stmt"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
-	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen/lowerzkcnative"
 )
@@ -42,6 +40,27 @@ type Declaration = decl.Declaration[symbol.Resolved]
 // otherwise resolved. As such, it should not be possible that such a
 // declaration refers to unknown (or otherwise incorrect) external components.
 type VariableDescriptor = variable.Descriptor[symbol.Resolved]
+
+// Function is a convenient alias
+type Function = vm.WordFunction
+
+// Stmt is a convenient alias
+type Stmt = stmt.Stmt[symbol.Resolved]
+
+// Condition is a convenient alias
+type Condition = expr.Condition[symbol.Resolved]
+
+// Expr is a convenient alias
+type Expr = expr.Expr[symbol.Resolved]
+
+// LVal is a convenient alias
+type LVal = lval.LVal[symbol.Resolved]
+
+// Instruction provides a convenient alias
+type Instruction = vm.WordInstruction
+
+// VectorInstruction provides a convenient alias
+type VectorInstruction = vm.Vector[Instruction]
 
 // Compiler is responsible for compiling high-level programs into low-level
 // machines which can be used (for example) to execute this program with some
@@ -72,10 +91,10 @@ func NewCompiler(cfg Config, env data.ResolvedEnvironment, srcmaps source.Maps[a
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func (p *Compiler) Compile(declarations []Declaration) (*machine.Word[word.Uint], []source.SyntaxError) {
+func (p *Compiler) Compile(declarations []Declaration) (*vm.WordMachine[vm.Uint], []source.SyntaxError) {
 	//
 	var (
-		modules []machine.Module
+		modules []vm.Module
 		mapping = make([]uint, len(declarations))
 		index   = uint(0)
 		errors  []source.SyntaxError
@@ -115,24 +134,27 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Word[word.Uint]
 			//
 			switch c.Kind {
 			case decl.PRIVATE_READ_ONLY_MEMORY, decl.PUBLIC_READ_ONLY_MEMORY:
-				modules = append(modules, memory.NewReadOnly[word.Uint](c.Name(), regs))
+				public := c.Kind == decl.PUBLIC_READ_ONLY_MEMORY
+				modules = append(modules, vm.NewInputMemory[vm.Uint](c.Name(), public, regs))
 			case decl.PRIVATE_WRITE_ONCE_MEMORY, decl.PUBLIC_WRITE_ONCE_MEMORY:
-				modules = append(modules, memory.NewWriteOnce[word.Uint](c.Name(), regs))
+				public := c.Kind == decl.PUBLIC_WRITE_ONCE_MEMORY
+				modules = append(modules, vm.NewOutputMemory[vm.Uint](c.Name(), public, regs))
 			case decl.PRIVATE_STATIC_MEMORY, decl.PUBLIC_STATIC_MEMORY:
+				public := c.Kind == decl.PUBLIC_STATIC_MEMORY
 				// Compile the static initialiser
 				words, errs := p.compileStaticInitialisers(declarations, p.env, p.srcmaps, c.Contents...)
 				//
 				if len(errs) == 0 {
 					// Construct the read-only memory
-					modules = append(modules, memory.NewStaticReadOnly(c.Name(), regs, words...))
+					modules = append(modules, vm.NewStaticMemory(c.Name(), public, regs, words...))
 				}
 				// Include all errors
 				errors = append(errors, errs...)
 			case decl.RANDOM_ACCESS_MEMORY:
 				if slices.Contains(c.Annotations(), "bipartite") {
-					modules = append(modules, memory.NewBiPartiteArray[word.Uint](c.Name(), regs))
+					modules = append(modules, vm.NewLargeReadWriteMemory[vm.Uint](c.Name(), regs))
 				} else {
-					modules = append(modules, memory.NewRandomAccess[word.Uint](c.Name(), regs))
+					modules = append(modules, vm.NewReadWriteMemory[vm.Uint](c.Name(), regs))
 				}
 			}
 		default:
@@ -142,9 +164,9 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Word[word.Uint]
 	// Lower VM-level zkc-native instructions into arithmetic instructions.
 	if len(errors) == 0 && p.config.lowerZkcNative {
 		// Reduce chain bitwise operation in order to prepare the VM instructions for bitwise lowering.
-		modules = lowerzkcnative.BinarizeBitwise[word.Uint](modules)
+		modules = lowerzkcnative.BinarizeBitwise[vm.Uint](modules)
 		// Lower Bitwise operations into arithmetic instructions.
-		modules = lowerzkcnative.LowerBitwise[word.Uint](modules, p.config.field)
+		modules = lowerzkcnative.LowerBitwise[vm.Uint](modules, p.config.field)
 		// WARN: LowerBitwise generate comparaison instructions, so lowering comparaison should happen after
 	}
 	// Vectorize modules (if no errors)
@@ -152,18 +174,18 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Word[word.Uint]
 		Vectorize(modules, p.srcmaps)
 	}
 	// Construct machine
-	return machine.NewWord[word.Uint](p.config.field, modules...), errors
+	return vm.NewWordMachine[vm.Uint](p.config.field, modules...), errors
 }
 
 // compileStaticInitialise evaluates the compile-time constant expressions from a static
-// memory declaration into the word.Uint representation required by the VM.
+// memory declaration into the vm.Uint representation required by the VM.
 func (p *Compiler) compileStaticInitialisers(
 	components []Declaration, env data.ResolvedEnvironment,
 	srcmaps source.Maps[any], contents ...expr.Resolved,
-) ([]word.Uint, []source.SyntaxError) {
+) ([]vm.Uint, []source.SyntaxError) {
 	//
 	var (
-		words  = make([]word.Uint, len(contents))
+		words  = make([]vm.Uint, len(contents))
 		errors []source.SyntaxError
 	)
 	//
@@ -184,13 +206,13 @@ func (p *Compiler) compileStaticInitialisers(
 // expand into one or more registers (e.g. a tuple variable produces one
 // register per element).
 func (p *Compiler) compileFunction(id uint, mapping []uint, program []Declaration,
-) (*function.Boot, []source.SyntaxError) {
+) (*Function, []source.SyntaxError) {
 	//
 	var (
 		fn        = program[id].(*decl.ResolvedFunction)
 		registers []register.Register
 		padding   big.Int // zero padding
-		bootCode  = make([]instruction.Vector[MicroInstruction], len(fn.Code))
+		bootCode  = make([]VectorInstruction, len(fn.Code))
 	)
 	//
 	for _, v := range fn.Variables {
@@ -218,7 +240,7 @@ func (p *Compiler) compileFunction(id uint, mapping []uint, program []Declaratio
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
 	}
 	//
-	return function.New(fn.Name(), compiler.registers, bootCode), compiler.errors
+	return vm.NewFunction(fn.Name(), compiler.registers, bootCode), compiler.errors
 }
 
 func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,

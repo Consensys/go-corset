@@ -18,28 +18,26 @@ import (
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
-type vectorInstruction = instruction.Vector[instruction.Instruction]
+type vectorInstruction = vm.Vector[vm.WordInstruction]
 
 // LowerBitwise rewrites VM-level bitwise micro-instructions into CALLs to
 // helper functions. The helper modules are appended to the returned module
 // slice.
 // We assume this lowering happens BEFORE vectorization and register splitting
-func LowerBitwise[W word.Word[W]](modules []machine.Module, cfg field.Config) []machine.Module {
+func LowerBitwise[W vm.Word[W]](modules []vm.Module, cfg field.Config) []vm.Module {
 	var (
-		out          = append([]machine.Module{}, modules...)
+		out          = append([]vm.Module{}, modules...)
 		amountWidths = scanShiftAmountWidths[W](out, cfg.BandWidth)
 		helpers      = newBitwiseHelpers[W](uint(len(out)), cfg, amountWidths)
 	)
 
 	for i, mod := range out {
-		if fn, ok := mod.(*function.Boot); ok {
+		if fn, ok := mod.(*vm.WordFunction); ok {
 			out[i] = lowerBitwiseFunction(fn, helpers)
 		}
 	}
@@ -47,9 +45,8 @@ func LowerBitwise[W word.Word[W]](modules []machine.Module, cfg field.Config) []
 	return append(out, helpers.modules()...)
 }
 
-func lowerBitwiseFunction[W word.Word[W]](
-	fn *function.Boot, helpers *bitwiseHelpers[W],
-) *function.Boot {
+func lowerBitwiseFunction[W vm.Word[W]](fn *vm.WordFunction, helpers *bitwiseHelpers[W],
+) *vm.WordFunction {
 	var (
 		code      = fn.Code()
 		ncode     = make([]vectorInstruction, len(code))
@@ -61,15 +58,15 @@ func lowerBitwiseFunction[W word.Word[W]](
 		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
-	return function.New(fn.Name(), registers, ncode)
+	return vm.NewFunction(fn.Name(), registers, ncode)
 }
 
-func lowerBitwiseCodes[W word.Word[W]](
-	codes []instruction.Instruction,
+func lowerBitwiseCodes[W vm.Word[W]](
+	codes []vm.WordInstruction,
 	registers *[]register.Register,
 	helpers *bitwiseHelpers[W],
-) []instruction.Instruction {
-	ncodes := make([]instruction.Instruction, 0, len(codes))
+) []vm.WordInstruction {
+	ncodes := make([]vm.WordInstruction, 0, len(codes))
 
 	for _, code := range codes {
 		ncodes = append(ncodes, lowerBitwiseCode(code, registers, helpers)...)
@@ -78,13 +75,13 @@ func lowerBitwiseCodes[W word.Word[W]](
 	return ncodes
 }
 
-func lowerBitwiseCode[W word.Word[W]](
-	code instruction.Instruction,
+func lowerBitwiseCode[W vm.Word[W]](
+	code vm.WordInstruction,
 	registers *[]register.Register,
 	helpers *bitwiseHelpers[W],
-) []instruction.Instruction {
+) []vm.WordInstruction {
 	if !isBitwiseOpcode(code.OpCode()) {
-		return []instruction.Instruction{code}
+		return []vm.WordInstruction{code}
 	}
 
 	origWidth, isPowerOfTwo := lowerableWidth(*registers, code.Definitions()[0], helpers.field.BandWidth)
@@ -132,14 +129,14 @@ func bitwiseCall(
 	sources []register.Id,
 	origWidth, p uint,
 	registers *[]register.Register,
-) []instruction.Instruction {
+) []vm.WordInstruction {
 	if origWidth == p {
-		return []instruction.Instruction{
+		return []vm.WordInstruction{
 			instruction.NewCall(id, append([]register.Id{}, sources...), []register.Id{target}),
 		}
 	}
 
-	insns := make([]instruction.Instruction, 0, 2+len(sources))
+	insns := make([]vm.WordInstruction, 0, 2+len(sources))
 
 	pSources := make([]register.Id, len(sources))
 	for i, src := range sources {
@@ -157,21 +154,21 @@ func bitwiseCall(
 
 // bitwiseInlineNot emits ~x as (MASK - x) directly into the caller's
 // instruction stream, where MASK = 2^width - 1.  No helper module is created.
-func bitwiseInlineNot[W word.Word[W]](
+func bitwiseInlineNot[W vm.Word[W]](
 	target, source register.Id,
 	width uint,
 	registers *[]register.Register,
-) []instruction.Instruction {
+) []vm.WordInstruction {
 	maskBig := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), width), big.NewInt(1))
 
 	var zeroW W
 
 	mask := zeroW.SetBigInt(maskBig)
-	zero := word.Uint64[W](0)
+	zero := vm.Uint64[W](0)
 
 	maskReg := allocTmp(registers, width)
 
-	return []instruction.Instruction{
+	return []vm.WordInstruction{
 		instruction.NewIntAdd(maskReg, nil, mask),
 		instruction.NewIntSub(target, []register.Id{maskReg, source}, zero),
 	}
@@ -187,7 +184,7 @@ func allocTmp(registers *[]register.Register, width uint) register.Id {
 	return id
 }
 
-func zeroWord[W word.Word[W]]() W {
+func zeroWord[W vm.Word[W]]() W {
 	var z W
 	return z
 }
@@ -225,15 +222,15 @@ type bitwiseHelperKey struct {
 	constant string
 }
 
-type bitwiseHelpers[W word.Word[W]] struct {
+type bitwiseHelpers[W vm.Word[W]] struct {
 	baseID       uint
 	field        field.Config
 	ids          map[bitwiseHelperKey]uint
-	items        []machine.Module
+	items        []vm.Module
 	amountWidths map[shiftKey]uint
 }
 
-func newBitwiseHelpers[W word.Word[W]](
+func newBitwiseHelpers[W vm.Word[W]](
 	baseID uint, cfg field.Config, amountWidths map[shiftKey]uint,
 ) *bitwiseHelpers[W] {
 	return &bitwiseHelpers[W]{
@@ -255,7 +252,7 @@ func (p *bitwiseHelpers[W]) shiftAmountWidth(op instruction.OpCode, valueWidth u
 	return valueWidth
 }
 
-func (p *bitwiseHelpers[W]) modules() []machine.Module {
+func (p *bitwiseHelpers[W]) modules() []vm.Module {
 	return p.items
 }
 
@@ -279,7 +276,7 @@ func (p *bitwiseHelpers[W]) ensure(op instruction.OpCode, width uint, arity int,
 
 		amtWidth := p.shiftAmountWidth(op, width)
 
-		var mod machine.Module
+		var mod vm.Module
 		if op == opcode.BIT_SHL {
 			mod = newShlHelper[W](key, id, amtWidth)
 		} else {
@@ -304,7 +301,7 @@ func (p *bitwiseHelpers[W]) ensure(op instruction.OpCode, width uint, arity int,
 	return id
 }
 
-func helperConstant[W word.Word[W]](op instruction.OpCode, constant W) string {
+func helperConstant[W vm.Word[W]](op instruction.OpCode, constant W) string {
 	switch op {
 	case opcode.BIT_AND, opcode.BIT_OR, opcode.BIT_XOR:
 		return constant.BigInt().Text(16)
@@ -320,21 +317,21 @@ func helperConstant[W word.Word[W]](op instruction.OpCode, constant W) string {
 // shared across call sites via the helpers cache, so the total number of
 // unique modules is O(log(width)) when the constant is uniform across halves
 // (e.g. all-zeros or all-ones masks).
-func newDecomposedNaryHelper[W word.Word[W]](
+func newDecomposedNaryHelper[W vm.Word[W]](
 	helpers *bitwiseHelpers[W],
 	key bitwiseHelperKey,
 	constant W,
-) machine.Module {
+) vm.Module {
 	b := newHelperBuilder[W](key.width, key.arity)
 
 	out := b.output
-	zero := word.Uint64[W](0)
+	zero := vm.Uint64[W](0)
 
 	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules.
 	if key.width == 1 {
 		// Base case: single-bit operation.  Seed agg with the constant bit then
 		// fold each source in using the appropriate pairwise identity.
-		one := word.Uint64[W](1)
+		one := vm.Uint64[W](1)
 		agg := b.newComputed("agg")
 
 		if constant.BigInt().Bit(0) == 0 {
@@ -385,19 +382,19 @@ func newDecomposedNaryHelper[W word.Word[W]](
 
 	b.emit(instruction.NewReturn())
 
-	return function.New(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
 }
 
-type helperBuilder[W word.Word[W]] struct {
+type helperBuilder[W vm.Word[W]] struct {
 	width   uint
 	inputs  []register.Id
 	output  register.Id
 	base    []register.Register
-	code    []instruction.Instruction
+	code    []vm.WordInstruction
 	nextTmp uint
 }
 
-func newHelperBuilder[W word.Word[W]](width uint, arity int) *helperBuilder[W] {
+func newHelperBuilder[W vm.Word[W]](width uint, arity int) *helperBuilder[W] {
 	var (
 		padding big.Int
 		base    = make([]register.Register, 0, arity+1)
@@ -425,7 +422,7 @@ func (p *helperBuilder[W]) regs() []register.Register {
 	return p.base
 }
 
-func (p *helperBuilder[W]) emit(insn instruction.Instruction) {
+func (p *helperBuilder[W]) emit(insn vm.WordInstruction) {
 	p.code = append(p.code, insn)
 }
 
@@ -454,8 +451,8 @@ func (p *helperBuilder[W]) newComputedNamed(name string, width uint) register.Id
 }
 
 func (p *helperBuilder[W]) combineBit(op instruction.OpCode, lhs, rhs register.Id) register.Id {
-	zero := word.Uint64[W](0)
-	one := word.Uint64[W](1)
+	zero := vm.Uint64[W](0)
+	one := vm.Uint64[W](1)
 
 	switch op {
 	case opcode.BIT_AND:
