@@ -139,7 +139,7 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Base[word.Uint]
 	}
 	// Lower VM-level bitwise instructions into helper-function calls (if enabled).
 	if len(errors) == 0 && p.config.lowerBitwise {
-		modules = LowerBitwise(modules)
+		modules = LowerBitwise(modules, p.config.field)
 	}
 	// Vectorize modules (if no errors)
 	if len(errors) == 0 && p.config.vectorize {

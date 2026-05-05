@@ -17,6 +17,7 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -26,10 +27,10 @@ import (
 // LowerBitwise rewrites VM-level bitwise micro-instructions into CALLs to
 // helper functions. The helper modules are appended to the returned module
 // slice.
-func LowerBitwise[W word.Word[W]](modules []machine.Module[W]) []machine.Module[W] {
+func LowerBitwise[W word.Word[W]](modules []machine.Module[W], cfg field.Config) []machine.Module[W] {
 	var (
 		out     = append([]machine.Module[W]{}, modules...)
-		helpers = newBitwiseHelpers[W](uint(len(out)))
+		helpers = newBitwiseHelpers[W](uint(len(out)), cfg)
 	)
 
 	for i, mod := range out {
@@ -52,9 +53,6 @@ func lowerBitwiseFunction[W word.Word[W]](
 
 	for i, insn := range code {
 		switch t := insn.(type) {
-		case *instruction.Vector[W]:
-			ncodes := lowerBitwiseCodes(t.Codes, registers, helpers)
-			ncode[i] = &instruction.Vector[W]{Codes: ncodes}
 		case instruction.MicroInstruction[W]:
 			ncodes := lowerBitwiseCodes([]instruction.MicroInstruction[W]{t}, registers, helpers)
 			if len(ncodes) == 1 {
@@ -62,6 +60,10 @@ func lowerBitwiseFunction[W word.Word[W]](
 			} else {
 				ncode[i] = &instruction.Vector[W]{Codes: ncodes}
 			}
+			// Note: shouldn't happen since the vectorization happens later
+		case *instruction.Vector[W]:
+			ncodes := lowerBitwiseCodes(t.Codes, registers, helpers)
+			ncode[i] = &instruction.Vector[W]{Codes: ncodes}
 		default:
 			ncode[i] = insn
 		}
@@ -91,7 +93,7 @@ func lowerBitwiseCode[W word.Word[W]](
 ) []instruction.MicroInstruction[W] {
 	switch t := code.(type) {
 	case *instruction.BitAnd[W]:
-		width, ok := lowerableWidth(registers, t.Target)
+		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
 		if !ok {
 			return []instruction.MicroInstruction[W]{code}
 		}
@@ -102,7 +104,7 @@ func lowerBitwiseCode[W word.Word[W]](
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitOr[W]:
-		width, ok := lowerableWidth(registers, t.Target)
+		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
 		if !ok {
 			return []instruction.MicroInstruction[W]{code}
 		}
@@ -113,7 +115,7 @@ func lowerBitwiseCode[W word.Word[W]](
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitXor[W]:
-		width, ok := lowerableWidth(registers, t.Target)
+		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
 		if !ok {
 			return []instruction.MicroInstruction[W]{code}
 		}
@@ -124,7 +126,7 @@ func lowerBitwiseCode[W word.Word[W]](
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitNot[W]:
-		width, ok := lowerableWidth(registers, t.Target)
+		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
 		if !ok {
 			return []instruction.MicroInstruction[W]{code}
 		}
@@ -135,7 +137,7 @@ func lowerBitwiseCode[W word.Word[W]](
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitShl[W]:
-		width, ok := lowerableWidth(registers, t.Target)
+		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
 		if !ok {
 			return []instruction.MicroInstruction[W]{code}
 		}
@@ -146,7 +148,7 @@ func lowerBitwiseCode[W word.Word[W]](
 			instruction.NewCall[W](id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
 		}
 	case *instruction.BitShr[W]:
-		width, ok := lowerableWidth(registers, t.Target)
+		width, ok := lowerableWidth(registers, t.Target, helpers.field.BandWidth)
 		if !ok {
 			return []instruction.MicroInstruction[W]{code}
 		}
@@ -161,10 +163,10 @@ func lowerBitwiseCode[W word.Word[W]](
 	}
 }
 
-func lowerableWidth(registers []register.Register, target register.Id) (uint, bool) {
+func lowerableWidth(registers []register.Register, target register.Id, bandWidth uint) (uint, bool) {
 	reg := registers[target.Unwrap()]
 	if reg.IsNative() {
-		return 0, false
+		return bandWidth, true
 	}
 
 	return reg.Width(), true
@@ -184,13 +186,15 @@ type bitwiseHelperKey struct {
 
 type bitwiseHelpers[W word.Word[W]] struct {
 	baseID uint
+	field  field.Config
 	ids    map[bitwiseHelperKey]uint
 	items  []machine.Module[W]
 }
 
-func newBitwiseHelpers[W word.Word[W]](baseID uint) *bitwiseHelpers[W] {
+func newBitwiseHelpers[W word.Word[W]](baseID uint, cfg field.Config) *bitwiseHelpers[W] {
 	return &bitwiseHelpers[W]{
 		baseID: baseID,
+		field:  cfg,
 		ids:    make(map[bitwiseHelperKey]uint),
 	}
 }

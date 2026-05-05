@@ -18,9 +18,9 @@ import "github.com/consensys/go-corset/pkg/util/field"
 // debugging, for example) should derive a custom Config via the chainable
 // setters below.
 var DEFAULT_CONFIG = Config{
-	field:              field.KOALABEAR_16,
-	lowerBitwise:       false,
-	vectorize:          true,
+	field:        field.KOALABEAR_16,
+	lowerBitwise: false,
+	vectorize:    true,
 }
 
 // Config captures the tunable aspects of the ZkC code generator.  Instances
@@ -40,8 +40,8 @@ type Config struct {
 	// compact program but leaves the macro instruction stream identical to
 	// the codegen output, which is useful when debugging the codegen or
 	// inspecting the un-merged IR.
-	lowerBitwise       bool
-	vectorize          bool
+	lowerBitwise bool
+	vectorize    bool
 }
 
 // Field sets the target field configuration to use for this compiler.

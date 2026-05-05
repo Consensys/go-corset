@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
+	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
@@ -43,7 +44,7 @@ func Test_LowerBitwise_RewritesBitAndToCall(t *testing.T) {
 		mainFn = function.New("main", regs, code)
 	)
 
-	lowered := LowerBitwise[word.Uint]([]machine.Module[word.Uint]{mainFn})
+	lowered := LowerBitwise[word.Uint]([]machine.Module[word.Uint]{mainFn}, field.BLS12_377)
 	if len(lowered) != 2 {
 		t.Fatalf("expected 2 modules after lowering, got %d", len(lowered))
 	}
@@ -100,7 +101,7 @@ func Test_LowerBitwise_DeduplicatesHelpers(t *testing.T) {
 	fn1 := function.New("main", regs, code)
 	fn2 := function.New("other", regs, code)
 
-	lowered := LowerBitwise[word.Uint]([]machine.Module[word.Uint]{fn1, fn2})
+	lowered := LowerBitwise[word.Uint]([]machine.Module[word.Uint]{fn1, fn2}, field.BLS12_377)
 	if len(lowered) != 3 {
 		t.Fatalf("expected 3 modules after lowering, got %d", len(lowered))
 	}
@@ -136,7 +137,7 @@ func Test_LowerBitwise_LeavesNonBitwiseUnchanged(t *testing.T) {
 		mainFn = function.New("main", regs, code)
 	)
 
-	lowered := LowerBitwise[word.Uint]([]machine.Module[word.Uint]{mainFn})
+	lowered := LowerBitwise[word.Uint]([]machine.Module[word.Uint]{mainFn}, field.BLS12_377)
 
 	if len(lowered) != 1 {
 		t.Fatalf("expected no helper modules for non-bitwise function, got %d modules", len(lowered))
@@ -173,7 +174,7 @@ func Test_HasBitwiseOps(t *testing.T) {
 		t.Fatalf("expected HasBitwiseOps to detect bitwise opcode")
 	}
 
-	lowered := LowerBitwise[word.Uint](mods)
+	lowered := LowerBitwise[word.Uint](mods, field.BLS12_377)
 	if HasBitwiseOps(lowered) {
 		t.Fatalf("expected lowered machine to be bitwise-opcode free for this program")
 	}
