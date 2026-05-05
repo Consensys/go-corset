@@ -10,4 +10,23 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package vm
+package opcode
+
+// Condition represents the set of permission comparitors for a SkipIf
+// instruction.
+type Condition uint
+
+const (
+	// EQ indicates an equality condition
+	EQ Condition = 0
+	// NEQ indicates a non-equality condition
+	NEQ Condition = 1
+	// LT indicates a less-than condition
+	LT Condition = 2
+	// GT indicates a greater-than condition
+	GT Condition = 3
+	// LTEQ indicates a less-than-or-equals condition
+	LTEQ Condition = 4
+	// GTEQ indicates a greater-than-or-equals condition
+	GTEQ Condition = 5
+)

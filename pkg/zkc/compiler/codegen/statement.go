@@ -27,6 +27,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/util"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
@@ -42,11 +43,11 @@ type Expr = expr.Expr[symbol.Resolved]
 // LVal is a convenient alias
 type LVal = lval.LVal[symbol.Resolved]
 
-// Instruction provides a convenient alias
-type Instruction = instruction.Instruction[word.Uint]
-
 // MicroInstruction provides a convenient alias
-type MicroInstruction = instruction.MicroInstruction[word.Uint]
+type MicroInstruction = instruction.Instruction
+
+// VectorInstruction provides a convenient alias
+type VectorInstruction = instruction.Vector[MicroInstruction]
 
 // StmtCompiler provides a working environment for compiling individual statements
 // within a given function.  For example, it provides the ability to allocate
@@ -61,7 +62,7 @@ type StmtCompiler struct {
 	errors      []source.SyntaxError
 }
 
-func (p *StmtCompiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruction {
+func (p *StmtCompiler) compileStatement(pc uint, mapping []uint, s Stmt) VectorInstruction {
 	var insns []MicroInstruction
 	//
 	switch s := s.(type) {
@@ -75,13 +76,13 @@ func (p *StmtCompiler) compileStatement(pc uint, mapping []uint, s Stmt) Instruc
 	case *stmt.IfGoto[symbol.Resolved]:
 		return p.compileCondition(pc, s.Cond, mapping, s.Target)
 	case *stmt.Goto[symbol.Resolved]:
-		return instruction.NewJmp[word.Uint](s.Target)
+		return instruction.NewVector[MicroInstruction](instruction.NewJmp(s.Target))
 	case *stmt.Fail[symbol.Resolved]:
-		return instruction.NewFail[word.Uint]()
+		return instruction.NewVector[MicroInstruction](instruction.NewFail())
 	case *stmt.Printf[symbol.Resolved]:
 		return p.compilePrintf(mapping, s.Chunks, s.Arguments)
 	case *stmt.Return[symbol.Resolved]:
-		return instruction.NewReturn[word.Uint]()
+		return instruction.NewVector[MicroInstruction](instruction.NewReturn())
 	default:
 		panic("unknown statement encountered")
 	}
@@ -133,7 +134,7 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 				// reverse ids as NewDestruct expects them in little endian order
 				ids = array.Reverse(ids)
 				// include write to temporary after its assigned
-				postInsns = append(postInsns, instruction.NewDestruct[word.Uint](ids, rid))
+				postInsns = append(postInsns, instruction.NewDestruct(ids, rid))
 			}
 		case *lval.MemAccess[symbol.Resolved]:
 			var (
@@ -155,14 +156,15 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 			}
 			//
 			preInsns = append(preInsns, pre...)
-			postInsns = append(postInsns, instruction.NewMemWrite[word.Uint](id, addressLines, dataLines))
+			postInsns = append(postInsns, instruction.NewMemWrite(id, addressLines, dataLines))
 		}
 	}
 	//
 	return regs, preInsns, postInsns
 }
 
-func (p *StmtCompiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, args []Expr) Instruction {
+func (p *StmtCompiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, args []Expr,
+) VectorInstruction {
 	var (
 		nchunks     []instruction.FormattedChunk
 		regs, insns = p.compileArgs(mapping, args...)
@@ -185,12 +187,13 @@ func (p *StmtCompiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChun
 		}
 	}
 	//
-	insns = append(insns, &instruction.Debug[word.Uint]{Chunks: nchunks})
+	insns = append(insns, &instruction.Debug{Chunks: nchunks})
 	//
 	return instruction.NewVector(insns...)
 }
 
-func (p *StmtCompiler) compileCondition(pc uint, e Condition, mapping []uint, target uint) Instruction {
+func (p *StmtCompiler) compileCondition(pc uint, e Condition, mapping []uint, target uint,
+) VectorInstruction {
 	var (
 		insns []MicroInstruction
 		args  []register.Id
@@ -199,9 +202,9 @@ func (p *StmtCompiler) compileCondition(pc uint, e Condition, mapping []uint, ta
 	switch e := e.(type) {
 	case *expr.Cmp[symbol.Resolved]:
 		args, insns = p.compileArgs(mapping, e.Left, e.Right)
-		insns = append(insns, instruction.NewSkipIf[word.Uint](instruction.Condition(e.Operator), args[0], args[1], 1))
-		insns = append(insns, instruction.NewJmp[word.Uint](pc+1))
-		insns = append(insns, instruction.NewJmp[word.Uint](target))
+		insns = append(insns, instruction.NewSkipIf(opcode.Condition(e.Operator), args[0], args[1], 1))
+		insns = append(insns, instruction.NewJmp(pc+1))
+		insns = append(insns, instruction.NewJmp(target))
 	default:
 		panic("unknown condition encountered")
 	}
@@ -316,10 +319,10 @@ func (p *StmtCompiler) compileTernary(e *expr.Ternary[symbol.Resolved], mapping 
 
 	insns := append(trueInsns, falseInsns...)
 	insns = append(insns, condInsns...)
-	insns = append(insns, instruction.NewSkipIf[word.Uint](
-		instruction.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
+	insns = append(insns, instruction.NewSkipIf(
+		opcode.Condition(cmp.Operator), condRegs[0], condRegs[1], 2))
 	insns = append(insns, p.newAdd(target, []register.Id{falseRegs[0]}, zero))
-	insns = append(insns, &instruction.Skip[word.Uint]{Skip: 1})
+	insns = append(insns, &instruction.Skip{Skip: 1})
 	//
 	return append(insns, p.newAdd(target, []register.Id{trueRegs[0]}, zero))
 }
@@ -349,10 +352,10 @@ func (p *StmtCompiler) compileCast(e *expr.Cast[symbol.Resolved], mapping []uint
 	//
 	if t := e.CastType.AsUint(p.environment); t != nil {
 		// uint cast
-		return append(insns, instruction.NewCast[word.Uint](target, sources[0], t.BitWidth()))
+		return append(insns, instruction.NewCast(target, sources[0], t.BitWidth()))
 	}
 	// field cast
-	return append(insns, instruction.NewCast[word.Uint](target, sources[0], math.MaxUint))
+	return append(insns, instruction.NewCast(target, sources[0], math.MaxUint))
 }
 
 func (p *StmtCompiler) compileConcat(args []Expr, mapping []uint, target register.Id) []MicroInstruction {
@@ -408,7 +411,7 @@ func (p *StmtCompiler) compileFunctionCall(e *expr.ExternAccess[symbol.Resolved]
 	// Compile arguments
 	arguments, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return append(insns, instruction.NewCall[word.Uint](id, arguments, returns))
+	return append(insns, instruction.NewCall(id, arguments, returns))
 }
 
 func (p *StmtCompiler) compileLocalAccess(e *expr.LocalAccess[symbol.Resolved], _ []uint, target register.Id,
@@ -435,7 +438,7 @@ func (p *StmtCompiler) compileMemoryRead(e *expr.ExternAccess[symbol.Resolved], 
 	// Compile arguments
 	address, insns := p.compileArgs(mapping, e.Args...)
 	// determine type of read
-	return append(insns, instruction.NewMemRead[word.Uint](id, address, data))
+	return append(insns, instruction.NewMemRead(id, address, data))
 }
 
 func (p *StmtCompiler) compileMul(args []Expr, mapping []uint, target register.Id,

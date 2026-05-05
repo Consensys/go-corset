@@ -24,8 +24,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/vm/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // Vectorize a given function by merging as many instructions as possible into
@@ -88,9 +88,9 @@ import (
 // NOTE: this stage is assumed to run after flattening has taken place and,
 // hence, only needs to deal with unstructured control-flow (i.e. not
 // block-level control flow).
-func Vectorize[W word.Word[W]](modules []machine.Module[W], _ source.Maps[any]) {
+func Vectorize(modules []machine.Module, _ source.Maps[any]) {
 	for i, m := range modules {
-		if fn, ok := m.(*function.Boot[W]); ok {
+		if fn, ok := m.(*function.Boot); ok {
 			modules[i] = vectorizeFunction(fn, modules)
 		}
 	}
@@ -99,9 +99,7 @@ func Vectorize[W word.Word[W]](modules []machine.Module[W], _ source.Maps[any]) 
 // vectorizeFunction applies the per-function vectorisation pass, returning a
 // new function whose code is the merged-and-pruned result.  This mirrors
 // vectorizeFunction in pkg/asm/lower.go.
-func vectorizeFunction[W word.Word[W]](
-	fn *function.Boot[W], modules []machine.Module[W],
-) *function.Boot[W] {
+func vectorizeFunction(fn *function.Boot, modules []machine.Module) *function.Boot {
 	var (
 		original = fn.Code()
 		n        = uint(len(original))
@@ -120,7 +118,7 @@ func vectorizeFunction[W word.Word[W]](
 	mapping := instruction.NewSystemMap(register.ArrayMap(name, fn.Registers()...), modules)
 	//
 	var (
-		insns    = make([]instruction.Instruction[W], n)
+		insns    = make([]VectorInstruction, n)
 		visited  = make([]bool, n)
 		worklist stack.Stack[uint]
 	)
@@ -144,30 +142,21 @@ func vectorizeFunction[W word.Word[W]](
 // fall-through Jmp(pc+1) to any vector that does not already terminate (i.e.
 // whose last code is not a Jmp / Return / Fail).  Vectors are built afresh so
 // that subsequent merge work cannot accidentally mutate the input function.
-func prepareCode[W word.Word[W]](
-	code []instruction.Instruction[W],
-) []*instruction.Vector[W] {
+func prepareCode(code []VectorInstruction) []VectorInstruction {
 	var (
 		n        = uint(len(code))
-		prepared = make([]*instruction.Vector[W], n)
+		prepared = make([]VectorInstruction, n)
 	)
 	//
 	for pc, insn := range code {
-		var codes []instruction.MicroInstruction[W]
-		//nolint
-		if v, ok := insn.(*instruction.Vector[W]); ok {
-			codes = slices.Clone(v.Codes)
-		} else if mi, ok := insn.(instruction.MicroInstruction[W]); ok {
-			codes = []instruction.MicroInstruction[W]{mi}
-		} else {
-			panic(fmt.Sprintf("unsupported instruction at pc=%d", pc))
-		}
+		// Clone vector instruction
+		codes := slices.Clone(insn.Codes)
 		// Append fall-through Jmp if the vector doesn't already terminate.
 		if !endsInTerminator(codes) && uint(pc)+1 < n {
-			codes = append(codes, instruction.NewJmp[W](uint(pc)+1))
+			codes = append(codes, instruction.NewJmp(uint(pc)+1))
 		}
 		//
-		prepared[pc] = &instruction.Vector[W]{Codes: codes}
+		prepared[pc] = VectorInstruction{Codes: codes}
 	}
 	//
 	return prepared
@@ -175,13 +164,13 @@ func prepareCode[W word.Word[W]](
 
 // endsInTerminator reports whether the last code unconditionally fixes the
 // next program counter (Jmp, Return or Fail).
-func endsInTerminator[W word.Word[W]](codes []instruction.MicroInstruction[W]) bool {
+func endsInTerminator(codes []instruction.Instruction) bool {
 	if len(codes) == 0 {
 		return false
 	}
 	//
 	switch codes[len(codes)-1].OpCode() {
-	case instruction.JUMP, instruction.RETURN, instruction.FAIL:
+	case opcode.JUMP, opcode.RETURN, opcode.FAIL:
 		return true
 	}
 	//
@@ -191,9 +180,7 @@ func endsInTerminator[W word.Word[W]](codes []instruction.MicroInstruction[W]) b
 // vectorizeInstruction greedily absorbs the targets of jumps in the vector at
 // pc until no further merging is legal.  Mirrors vectorizeInstruction from
 // pkg/asm/lower.go.
-func vectorizeInstruction[W word.Word[W]](
-	pc uint, code []*instruction.Vector[W], mapping instruction.SystemMap[W],
-) *instruction.Vector[W] {
+func vectorizeInstruction(pc uint, code []VectorInstruction, mapping instruction.SystemMap) VectorInstruction {
 	var (
 		vec     = code[pc]
 		changed = true
@@ -209,13 +196,13 @@ func vectorizeInstruction[W word.Word[W]](
 		index, ok := lastJump(vec.Codes, uint(len(vec.Codes)))
 		// Try the right-most non-conflicting jump.
 		for ok {
-			jmpTarget := vec.Codes[index].(*instruction.Jmp[W]).Immediate
+			jmpTarget := vec.Codes[index].(*instruction.Jmp).Immediate
 			// Skip back-edges into ourselves and absorbs that would shift
 			// backwards (which would otherwise unfold a loop).
 			if offset := externs[jmpTarget]; offset > index && jmpTarget != pc {
 				var (
 					target = code[jmpTarget]
-					nvec   *instruction.Vector[W]
+					nvec   VectorInstruction
 				)
 				//
 				if offset != math.MaxUint {
@@ -249,11 +236,11 @@ func vectorizeInstruction[W word.Word[W]](
 
 // lastJump returns the index of the right-most Jmp within codes[:n], or false
 // if none exists.
-func lastJump[W word.Word[W]](codes []instruction.MicroInstruction[W], n uint) (uint, bool) {
+func lastJump(codes []instruction.Instruction, n uint) (uint, bool) {
 	for i := n; i > 0; {
 		i--
 		//
-		if codes[i].OpCode() == instruction.JUMP {
+		if codes[i].OpCode() == opcode.JUMP {
 			return i, true
 		}
 	}
@@ -263,17 +250,12 @@ func lastJump[W word.Word[W]](codes []instruction.MicroInstruction[W], n uint) (
 
 // markJumpTargets pushes every reachable Jmp target in the vectorised
 // instruction onto the worklist for later processing.
-func markJumpTargets[W word.Word[W]](
-	insn instruction.Instruction[W], visited []bool, worklist *stack.Stack[uint],
+func markJumpTargets(vec VectorInstruction, visited []bool, worklist *stack.Stack[uint],
 ) {
-	vec, ok := insn.(*instruction.Vector[W])
-	if !ok {
-		return
-	}
 	//
 	index, found := lastJump(vec.Codes, uint(len(vec.Codes)))
 	for found {
-		target := vec.Codes[index].(*instruction.Jmp[W]).Immediate
+		target := vec.Codes[index].(*instruction.Jmp).Immediate
 		//
 		if !visited[target] {
 			visited[target] = true
@@ -299,28 +281,24 @@ func updateMicroMap(externs []uint, index uint, target uint, ncodes uint) {
 
 // replaceJump returns a copy of vec with the Jmp at jmpIndex replaced by a
 // Skip targeting the supplied micro offset within the same vector.
-func replaceJump[W word.Word[W]](
-	vec *instruction.Vector[W], jmpIndex uint, offset uint,
-) *instruction.Vector[W] {
+func replaceJump(vec VectorInstruction, jmpIndex uint, offset uint) VectorInstruction {
 	if offset <= jmpIndex {
 		// Should be unreachable: the externs guard requires offset > jmpIndex.
 		panic("cannot skip backwards")
 	}
 	//
 	codes := slices.Clone(vec.Codes)
-	codes[jmpIndex] = &instruction.Skip[W]{Skip: offset - jmpIndex - 1}
+	codes[jmpIndex] = &instruction.Skip{Skip: offset - jmpIndex - 1}
 	//
-	return &instruction.Vector[W]{Codes: codes}
+	return VectorInstruction{Codes: codes}
 }
 
 // inlineJump returns a new vector formed by replacing the Jmp at jmpIndex
 // with the codes from the target instruction.  Skip and SkipIf offsets in the
 // surrounding codes are recomputed so they continue to identify the same
 // successor after the splice.
-func inlineJump[W word.Word[W]](
-	vec *instruction.Vector[W], jmpIndex uint,
-	targetCodes []instruction.MicroInstruction[W],
-) *instruction.Vector[W] {
+func inlineJump(vec VectorInstruction, jmpIndex uint,
+	targetCodes []instruction.Instruction) VectorInstruction {
 	var (
 		codes   = vec.Codes
 		mapping = make([]uint, len(codes))
@@ -337,13 +315,13 @@ func inlineJump[W word.Word[W]](
 		}
 	}
 	//
-	ncodes := make([]instruction.MicroInstruction[W], npc)
+	ncodes := make([]instruction.Instruction, npc)
 	//
 	for cc, npc := uint(0), uint(0); cc < uint(len(codes)); cc++ {
 		code := codes[cc]
 		//
 		switch c := code.(type) {
-		case *instruction.Jmp[W]:
+		case *instruction.Jmp:
 			if cc == jmpIndex {
 				// Splice in the target's codes (shared references — the
 				// originals are not mutated downstream).
@@ -354,12 +332,12 @@ func inlineJump[W word.Word[W]](
 				//
 				continue
 			}
-		case *instruction.Skip[W]:
+		case *instruction.Skip:
 			target := mapping[cc+1+c.Skip]
-			code = &instruction.Skip[W]{Skip: target - npc - 1}
-		case *instruction.SkipIf[W]:
+			code = &instruction.Skip{Skip: target - npc - 1}
+		case *instruction.SkipIf:
 			target := mapping[cc+1+c.Skip]
-			code = &instruction.SkipIf[W]{
+			code = &instruction.SkipIf{
 				Cond:  c.Cond,
 				Left:  c.Left,
 				Right: c.Right,
@@ -371,7 +349,7 @@ func inlineJump[W word.Word[W]](
 		npc++
 	}
 	//
-	return &instruction.Vector[W]{Codes: ncodes}
+	return VectorInstruction{Codes: ncodes}
 }
 
 // pruneUnreachableInstructions removes any instructions never reached by the
@@ -379,16 +357,14 @@ func inlineJump[W word.Word[W]](
 // reference the new compacted positions.  Jmps are replaced rather than
 // mutated so that any shared references inside the vector graph are not
 // disturbed.
-func pruneUnreachableInstructions[W word.Word[W]](
-	insns []instruction.Instruction[W],
-) []instruction.Instruction[W] {
+func pruneUnreachableInstructions(insns []VectorInstruction) []VectorInstruction {
 	var (
-		kept    []instruction.Instruction[W]
+		kept    []VectorInstruction
 		mapping = make([]uint, len(insns))
 	)
 	// Compact the slice, recording where each surviving instruction lands.
 	for i, insn := range insns {
-		if insn == nil {
+		if insn.IsEmpty() {
 			continue
 		}
 		//
@@ -396,15 +372,13 @@ func pruneUnreachableInstructions[W word.Word[W]](
 		kept = append(kept, insn)
 	}
 	// Rebind every Jmp.Target to its new position.
-	for _, insn := range kept {
-		vec := insn.(*instruction.Vector[W])
-		//
+	for _, vec := range kept {
 		for i, code := range vec.Codes {
-			if code.OpCode() == instruction.JUMP {
+			if code.OpCode() == opcode.JUMP {
 				// Determine original jump target
-				var jmpTarget = code.(*instruction.Jmp[W]).Immediate
+				var jmpTarget = code.(*instruction.Jmp).Immediate
 				// construct replacement jump
-				vec.Codes[i] = instruction.NewJmp[W](mapping[jmpTarget])
+				vec.Codes[i] = instruction.NewJmp(mapping[jmpTarget])
 			}
 		}
 	}
@@ -417,9 +391,7 @@ func pruneUnreachableInstructions[W word.Word[W]](
 // considers only register conflicts (RAW with conditional writes, WAW), since
 // vectorisation rejects merges only on those grounds — never on field
 // bandwidth.
-func validateConflicts[W word.Word[W]](
-	vec *instruction.Vector[W], mapping instruction.SystemMap[W],
-) error {
+func validateConflicts(vec VectorInstruction, mapping instruction.SystemMap) error {
 	var (
 		nCodes = uint(len(vec.Codes))
 		writes = vec.Writes()

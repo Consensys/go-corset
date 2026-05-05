@@ -14,7 +14,7 @@ package memory
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/util"
 )
 
 // Geometry is responsible for translating multi-word addresses into a
@@ -31,13 +31,13 @@ import (
 // Implementations are free to impose whatever layout they require.  For
 // example, a decoder for a memory that stores 4-word rows at consecutive
 // indices might compute start = index*4 and end = index*4 + 4.
-type Geometry[W word.Word[W]] struct {
+type Geometry[W util.Uinter64] struct {
 	registers             []register.Register
 	numInputs, numOutputs uint
 }
 
 // NewGeometry constructs a new geometry from a given set of registers.
-func NewGeometry[W word.Word[W]](registers []register.Register) Geometry[W] {
+func NewGeometry[W util.Uinter64](registers []register.Register) Geometry[W] {
 	var (
 		index           = 0
 		inputs, outputs = uint(0), uint(0)

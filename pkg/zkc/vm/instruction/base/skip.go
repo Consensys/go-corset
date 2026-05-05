@@ -10,41 +10,42 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package instruction
+package base
 
 import (
 	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
 
 // Skip microcode performs an unconditional skip over a given number of codes.
-type Skip[W any] struct {
+type Skip struct {
 	// Skip
 	Skip uint
 }
 
 // OpCode implementation for Instruction interface
-func (p *Skip[W]) OpCode() OpCode {
-	return SKIP
+func (p *Skip) OpCode() opcode.OpCode {
+	return opcode.SKIP
 }
 
 // Uses implementation for Instruction interface.
-func (p *Skip[W]) Uses() []register.Id {
+func (p *Skip) Uses() []register.Id {
 	return nil
 }
 
 // Definitions implementation for Instruction interface.
-func (p *Skip[W]) Definitions() []register.Id {
+func (p *Skip) Definitions() []register.Id {
 	return nil
 }
 
-func (p *Skip[W]) String(_ SystemMap[W]) string {
+func (p *Skip) String(_ SystemMap) string {
 	return fmt.Sprintf("skip %d", p.Skip)
 }
 
 // MicroValidate implementation for Instruction interface.
-func (p *Skip[W]) MicroValidate(_ uint, _ field.Config, _ SystemMap[W]) []error {
+func (p *Skip) MicroValidate(_ uint, _ field.Config, _ SystemMap) []error {
 	return nil
 }

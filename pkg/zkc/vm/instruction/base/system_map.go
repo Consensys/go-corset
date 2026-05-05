@@ -10,24 +10,21 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package memory
+package base
 
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util"
 )
 
-// RandomAccess represents  a form of memory where each cell can be read &
-// written multiple times without restrictions.  The size of the memory expands
-// dynamically to include any cell which is written, where cells are initialised
-// with zero.
-type RandomAccess[W util.Uinter64] struct {
-	DynamicArray[W]
+// Module represents an either a function or memory within the machine.
+type Module interface {
+	// Name of this module
+	Name() string
 }
 
-// NewRandomAccess constructs an empty random-access memory.
-func NewRandomAccess[W util.Uinter64](name string, registers []register.Register) *RandomAccess[W] {
-	return &RandomAccess[W]{
-		newDynamicArray[W](name, registers),
-	}
+// SystemMap provides a global view of modules in the systemn.
+type SystemMap interface {
+	register.Map
+	//
+	Module(id uint) Module
 }

@@ -18,10 +18,9 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
 
 // Vector instructions are instructions composed of some number of micro
@@ -67,43 +66,24 @@ import (
 // Here, the value of x written in the instruction is "forwarded" to the
 // assignment for y.  This process is, roughly speaking, analoguous to register
 // forwarding as found in CPU architectures.
-type Vector[W word.Word[W]] struct {
-	Codes []MicroInstruction[W]
-}
-
-// MicroInstruction characterises the kinds of instructions which can be
-// vectorized.  They key is that, whilst many instructions are also micro
-// instructions, this is not always the case.  Specifically, there are
-// instructions which are not valid micro-instructions and, likewise,
-// micro-instructions which are not valid instructions.
-type MicroInstruction[W word.Word[W]] interface {
-	// OpCode returns the opcode for this instruction.
-	OpCode() OpCode
-	// Uses returns the set of variables used (i.e. read) by this instruction.
-	Uses() []register.Id
-	// Definitions returns the set of variables registers defined (i.e. written)
-	// by this instruction.
-	Definitions() []register.Id
-	// Validate that this micro-instruction is well-formed.  For example, that
-	// it is balanced, that there are no conflicting writes, that all
-	// temporaries have been allocated, etc.
-	MicroValidate(width uint, field field.Config, mapping SystemMap[W]) []error
-	// Provide human readable form of instruction
-	String(SystemMap[W]) string
+type Vector[I Instruction] struct {
+	Codes []I
 }
 
 // NewVector constructs a new vector instruction composed of zero or more
 // micro-instructions.  Observe that an empty vector instruction is a no-op.
-func NewVector[W word.Word[W], I MicroInstruction[W]](insns ...I) *Vector[W] {
-	// Map array of I to array of MicroInstruction
-	array := array.Map(insns, func(_ uint, insn I) MicroInstruction[W] { return insn })
-	//
-	return &Vector[W]{array}
+func NewVector[I Instruction](insns ...I) Vector[I] {
+	return Vector[I]{insns}
+}
+
+// IsEmpty simply identifies whether this instruction is a no-op (or not).
+func (p *Vector[W]) IsEmpty() bool {
+	return len(p.Codes) == 0
 }
 
 // OpCode implementation for Instruction interface
 func (p *Vector[W]) OpCode() OpCode {
-	return VECTOR
+	return opcode.VECTOR
 }
 
 // Uses implementation for Instruction interface
@@ -147,7 +127,7 @@ func (p *Vector[W]) Definitions() []register.Id {
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
-func (p *Vector[W]) Validate(field field.Config, mapping SystemMap[W]) []error {
+func (p *Vector[W]) Validate(field field.Config, mapping SystemMap) []error {
 	// Construct write map
 	var (
 		errors   []error
@@ -187,7 +167,7 @@ func (p *Vector[W]) Validate(field field.Config, mapping SystemMap[W]) []error {
 }
 
 // String implementation for Instruction interface
-func (p *Vector[W]) String(mapping SystemMap[W]) string {
+func (p *Vector[W]) String(mapping SystemMap) string {
 	var builder strings.Builder
 	//
 	for i, code := range p.Codes {
@@ -203,24 +183,26 @@ func (p *Vector[W]) String(mapping SystemMap[W]) string {
 
 // Writes constructs the write map for this micro instruction.
 func (p *Vector[W]) Writes() dfa.Result[dfa.Writes] {
-	return dfa.Construct(dfa.Writes{}, p.Codes, writeDfaTransfer[W])
+	return dfa.Construct(dfa.Writes{}, p.Codes, writeDfaTransfer)
 }
 
 // Data-flow transfer function for the writes analysis
-func writeDfaTransfer[W word.Word[W]](offset uint, code MicroInstruction[W], state dfa.Writes,
-) []dfa.Transfer[dfa.Writes] {
+func writeDfaTransfer[I Instruction](offset uint, code I, state dfa.Writes) []dfa.Transfer[dfa.Writes] {
 	//
-	var arcs []dfa.Transfer[dfa.Writes]
+	var (
+		arcs []dfa.Transfer[dfa.Writes]
+		insn Instruction = code
+	)
 	//
 	switch code.OpCode() {
-	case FAIL, RETURN, JUMP:
+	case opcode.FAIL, opcode.RETURN, opcode.JUMP:
 		return nil
-	case SKIP:
-		code := code.(*Skip[W])
+	case opcode.SKIP:
+		code := insn.(*Skip)
 		// join into branch target
 		return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
-	case SKIP_IF:
-		code := code.(*SkipIf[W])
+	case opcode.SKIP_IF:
+		code := insn.(*SkipIf)
 		// join into branch target
 		arcs = append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
 		// fall through

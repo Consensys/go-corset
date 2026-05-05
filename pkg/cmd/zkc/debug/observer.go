@@ -27,13 +27,13 @@ import (
 // TraceObserver prints a trace
 type TraceObserver[W word.Word[W]] struct {
 	depth uint
-	fun   *function.Function[instruction.Instruction[W]]
-	insn  instruction.MicroInstruction[W]
+	fun   *function.Function[instruction.Instruction]
+	insn  instruction.Instruction
 	pc    machine.ProgramCounter
 }
 
 // PreExecution implementation for Observer interface
-func (p *TraceObserver[W]) PreExecution(machine *machine.Base[W]) {
+func (p *TraceObserver[W]) PreExecution(machine *machine.Word[W]) {
 	var (
 		n = machine.Depth()
 	)
@@ -51,7 +51,7 @@ func (p *TraceObserver[W]) PreExecution(machine *machine.Base[W]) {
 }
 
 // PostExecution implementation for Observer interface
-func (p *TraceObserver[W]) PostExecution(machine *machine.Base[W]) {
+func (p *TraceObserver[W]) PostExecution(machine *machine.Word[W]) {
 	var (
 		n = machine.Depth()
 	)
@@ -65,18 +65,18 @@ func (p *TraceObserver[W]) PostExecution(machine *machine.Base[W]) {
 	}
 }
 
-func (p *TraceObserver[W]) enterFunction(machine *machine.Base[W]) {
+func (p *TraceObserver[W]) enterFunction(machine *machine.Word[W]) {
 	var (
 		n     = machine.Depth()
 		frame = machine.StackFrame(n - 1)
 	)
 	//
 	p.depth = n
-	p.fun = machine.Module(frame.Function()).(*function.Function[instruction.Instruction[W]])
+	p.fun = machine.Module(frame.Function()).(*function.Function[instruction.Instruction])
 	p.insn = nil
 }
 
-func (p *TraceObserver[W]) writeInstruction(machine *machine.Base[W]) {
+func (p *TraceObserver[W]) writeInstruction(machine *machine.Word[W]) {
 	var (
 		frame = machine.StackFrame(p.depth - 1)
 	)
@@ -85,7 +85,7 @@ func (p *TraceObserver[W]) writeInstruction(machine *machine.Base[W]) {
 	p.pc = frame.PC()
 }
 
-func (p *TraceObserver[W]) writeState(machine *machine.Base[W]) {
+func (p *TraceObserver[W]) writeState(machine *machine.Word[W]) {
 	var (
 		n      = machine.Depth()
 		frame  = machine.StackFrame(n - 1)
@@ -110,13 +110,13 @@ func (p *TraceObserver[W]) writeState(machine *machine.Base[W]) {
 	fmt.Print(insnStr)
 }
 
-func (p *TraceObserver[W]) callStack(machine *machine.Base[W]) string {
+func (p *TraceObserver[W]) callStack(machine *machine.Word[W]) string {
 	var builder strings.Builder
 	//
 	for i := uint(0); i < p.depth; i++ {
 		var (
 			ith = machine.StackFrame(i)
-			fun = machine.Module(ith.Function()).(*function.Function[instruction.Instruction[W]])
+			fun = machine.Module(ith.Function()).(*function.Function[instruction.Instruction])
 		)
 		//
 		if i+1 == p.depth {
@@ -130,7 +130,9 @@ func (p *TraceObserver[W]) callStack(machine *machine.Base[W]) string {
 	return builder.String()
 }
 
-func functionInputs[W word.Word[W]](frame machine.Frame[W], fun *function.Function[instruction.Instruction[W]]) string {
+func functionInputs[W word.Word[W], I instruction.Instruction](frame machine.Frame[W],
+	fun *function.Function[I]) string {
+	//
 	var builder strings.Builder
 
 	for i, r := range fun.Registers() {
@@ -149,26 +151,20 @@ func functionInputs[W word.Word[W]](frame machine.Frame[W], fun *function.Functi
 }
 
 func decode[W word.Word[W]](frame machine.Frame[W],
-	fn *function.Function[instruction.Instruction[W]]) instruction.MicroInstruction[W] {
+	fn *function.Function[instruction.Instruction]) instruction.Instruction {
 	//
 	var (
 		pc   = frame.PC()
 		insn = fn.CodeAt(pc.Macro())
 	)
 	// nolint
-	if uInsn, ok := insn.(*instruction.Vector[W]); ok {
-		return uInsn.Codes[pc.Micro()]
-	} else if uInsn, ok := insn.(instruction.MicroInstruction[W]); ok {
-		return uInsn
-	}
-	//
-	panic("invalid micro instruction")
+	return insn.Codes[pc.Micro()]
 }
 
 // annotatedMap wraps a SystemMap and annotates each register name with its
 // current value as "[0xVAL]", producing inline value display in instruction strings.
 type annotatedMap[W word.Word[W]] struct {
-	base   instruction.SystemMap[W]
+	base   instruction.SystemMap
 	values map[uint]string // register index → hex value string (no "0x" prefix)
 }
 
@@ -181,7 +177,7 @@ func (a *annotatedMap[W]) Register(id register.Id) register.Register {
 	return reg
 }
 
-func (a *annotatedMap[W]) Module(id uint) instruction.Module[W] { return a.base.Module(id) }
+func (a *annotatedMap[W]) Module(id uint) instruction.Module { return a.base.Module(id) }
 
 func (a *annotatedMap[W]) Name() trace.ModuleName { return a.base.Name() }
 
