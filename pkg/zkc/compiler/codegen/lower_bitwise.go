@@ -263,9 +263,6 @@ func newBitwiseHelperModule[W word.Word[W]](
 		return newDecomposedNotHelper[W](helpers, key)
 	}
 
-	// Non-recursive (SHL, SHR): nothing appended before us, id is current length.
-	id := helpers.baseID + uint(len(helpers.items))
-
 	var (
 		padding big.Int
 		regs    = make([]register.Register, 0, key.arity+1)
@@ -273,7 +270,7 @@ func newBitwiseHelperModule[W word.Word[W]](
 	)
 
 	for i := 0; i < key.arity; i++ {
-		regs = append(regs, register.NewInput(fmt.Sprintf("arg%d", i), key.width, padding))
+		regs = append(regs, register.NewInput(fmt.Sprintf("arg%d", i+1), key.width, padding))
 		sources[i] = register.NewId(uint(i))
 	}
 
@@ -292,7 +289,7 @@ func newBitwiseHelperModule[W word.Word[W]](
 	}
 
 	code := []instruction.Instruction{op, instruction.NewReturn()}
-	name := helperName(id, key)
+	name := helperName(key)
 
 	return function.New(name, regs, []VectorInstruction{VectorInstruction{Codes: code}})
 }
@@ -351,15 +348,15 @@ func newDecomposedNaryHelper[W word.Word[W]](
 		highSrcs := make([]register.Id, key.arity)
 
 		for i, arg := range b.inputs {
-			lo := b.newComputedWidth("low", half)
-			hi := b.newComputedWidth("high", half)
+			lo := b.newComputedNamed(fmt.Sprintf("low%d", i+1), half)
+			hi := b.newComputedNamed(fmt.Sprintf("high%d", i+1), half)
 			b.emit(instruction.NewDestruct([]register.Id{lo, hi}, arg))
 			lowSrcs[i] = lo
 			highSrcs[i] = hi
 		}
 
-		resLow := b.newComputedWidth("rlow", half)
-		resHigh := b.newComputedWidth("rhigh", half)
+		resLow := b.newComputedNamed("rlow", half)
+		resHigh := b.newComputedNamed("rhigh", half)
 
 		b.emit(instruction.NewCall(subIDlow, lowSrcs, []register.Id{resLow}))
 		b.emit(instruction.NewCall(subIDhigh, highSrcs, []register.Id{resHigh}))
@@ -370,8 +367,7 @@ func newDecomposedNaryHelper[W word.Word[W]](
 	b.emit(instruction.NewReturn())
 
 	// Sub-helpers (if any) have already been appended; our slot is next.
-	id := helpers.baseID + uint(len(helpers.items))
-	name := helperName(id, key)
+	name := helperName(key)
 
 	return function.New(name, b.regs(), []VectorInstruction{{Codes: b.code}})
 }
@@ -403,12 +399,12 @@ func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitw
 
 		subID := helpers.ensure(opcode.BIT_NOT, half, 1, zeroW)
 
-		low := b.newComputedWidth("low", half)
-		high := b.newComputedWidth("high", half)
+		low := b.newComputedNamed("low", half)
+		high := b.newComputedNamed("high", half)
 		b.emit(instruction.NewDestruct([]register.Id{low, high}, b.inputs[0]))
 
-		nlow := b.newComputedWidth("nlow", half)
-		nhigh := b.newComputedWidth("nhigh", half)
+		nlow := b.newComputedNamed("nlow", half)
+		nhigh := b.newComputedNamed("nhigh", half)
 
 		b.emit(instruction.NewCall(subID, []register.Id{low}, []register.Id{nlow}))
 		b.emit(instruction.NewCall(subID, []register.Id{high}, []register.Id{nhigh}))
@@ -419,8 +415,7 @@ func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitw
 	b.emit(instruction.NewReturn())
 
 	// Sub-helpers (if any) have already been appended; our slot is next.
-	id := helpers.baseID + uint(len(helpers.items))
-	name := helperName(id, key)
+	name := helperName(key)
 
 	return function.New(name, b.regs(), []VectorInstruction{VectorInstruction{Codes: b.code}})
 }
@@ -443,7 +438,7 @@ func newHelperBuilder[W word.Word[W]](width uint, arity int) *helperBuilder[W] {
 
 	for i := 0; i < arity; i++ {
 		inputs[i] = register.NewId(uint(i))
-		base = append(base, register.NewInput(fmt.Sprintf("arg%d", i), width, padding))
+		base = append(base, register.NewInput(fmt.Sprintf("arg%d", i+1), width, padding))
 	}
 
 	output := register.NewId(uint(arity))
@@ -477,6 +472,15 @@ func (p *helperBuilder[W]) newComputedWidth(prefix string, width uint) register.
 	name := fmt.Sprintf("%s%d", prefix, p.nextTmp)
 	p.base = append(p.base, register.NewComputed(name, width, padding))
 	p.nextTmp++
+
+	return id
+}
+
+func (p *helperBuilder[W]) newComputedNamed(name string, width uint) register.Id {
+	var padding big.Int
+
+	id := register.NewId(uint(len(p.base)))
+	p.base = append(p.base, register.NewComputed(name, width, padding))
 
 	return id
 }
@@ -552,7 +556,7 @@ func isBitwiseOpcode(op instruction.OpCode) bool {
 	}
 }
 
-func helperName(id uint, key bitwiseHelperKey) string {
+func helperName(key bitwiseHelperKey) string {
 	var op string
 
 	switch key.opcode {
@@ -572,9 +576,5 @@ func helperName(id uint, key bitwiseHelperKey) string {
 		op = "unknown"
 	}
 
-	if key.constant != "" {
-		return fmt.Sprintf("$bit_%s_u%d_n%d_c%s_h%d", op, key.width, key.arity, key.constant, id)
-	}
-
-	return fmt.Sprintf("$bit_%s_u%d_n%d_h%d", op, key.width, key.arity, id)
+	return fmt.Sprintf("$bit_%s_u%d", op, key.width)
 }
