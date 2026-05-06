@@ -467,6 +467,10 @@ func Test_ZkcUnit_SwitchEndian(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/switch_endian", field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_ZkcUnit_BitRor64(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bit_ror64")
+}
+
 // ===================================================================
 // Cast Tests
 // ===================================================================
