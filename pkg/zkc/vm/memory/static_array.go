@@ -13,6 +13,8 @@
 package memory
 
 import (
+	"slices"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -67,20 +69,26 @@ func (p *StaticArray[W]) Read(frame []W, address []register.Id, data []register.
 
 // Write implementation for Memory interface.
 func (p *StaticArray[W]) Write(frame []W, address []register.Id, data []register.Id) error {
-	var (
-		n          = uint64(len(p.data))
-		start, end = p.geometry.FrameDecode(frame, address)
-	)
+	var start, end = p.geometry.FrameDecode(frame, address)
 	// expand memory if needed
-	if n <= end {
-		ndata := make([]W, end)
-		copy(ndata, p.data)
-		p.data = ndata
-	}
-	//
+	p.data = expand(p.data, end)
+	// copy over data
 	for i := range data {
 		p.data[uint64(i)+start] = frame[data[i].Unwrap()]
 	}
 	//
 	return nil
+}
+
+// Expand a slice to ensure it has at least length n.  If the slice already has
+// at least n elements it is returned as-is.  Otherwise capacity is grown if
+// needed (via slices.Grow, which uses the runtime's append-style growth
+// heuristic) and the length is extended to n.
+func expand[T any](slice []T, n uint64) []T {
+	m := uint64(len(slice))
+	if n <= m {
+		return slice
+	}
+	//
+	return slices.Grow(slice, int(n-m))[:n]
 }
