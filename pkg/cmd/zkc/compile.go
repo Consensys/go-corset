@@ -84,10 +84,6 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 		}
 
 		if len(errs) == 0 {
-			if GetFlag(cmd, "lower-bitwise-strict") && codegen.HasBitwiseOps(vm.Modules()) {
-				log.Fatal("bitwise VM opcodes remain after lowering")
-			}
-
 			writeIntermediateRepresentation[word.Uint](vm)
 		}
 	}
