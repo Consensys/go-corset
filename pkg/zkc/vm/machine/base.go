@@ -13,6 +13,7 @@
 package machine
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -234,9 +235,14 @@ func (p *Base[W, I, T]) executeInstruction(insn I, width uint, regs []register.R
 	case opcode.FAIL:
 		var (
 			insn = binsn.(*instruction.Fail)
-			msg  = executeFormattedChunks(insn.Chunks, frame)
+			//
+			msg = executeFormattedChunks(insn.Chunks, frame)
 		)
-		//
+		// check whether to include msg or not
+		if len(insn.Chunks) == 0 {
+			return errors.New("machine panic")
+		}
+		// include msg in error
 		return fmt.Errorf("machine panic: %s", msg)
 	case opcode.JUMP:
 		insn := binsn.(*instruction.Jmp)
