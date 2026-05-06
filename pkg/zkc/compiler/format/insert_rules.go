@@ -34,6 +34,9 @@ func init() {
 	DEFAULT_INSERTION_RULES = make([]InsertionRule, parser.MAX_TOKEN)
 	// Space after keywords that introduce declarations or statements.
 	DEFAULT_INSERTION_RULES[parser.KEYWORD_CONST] = InsertAfter(ONE_SPACE)
+	// 'fail' optionally takes a formatted message; only insert a space when one
+	// is actually present, so a bare `fail` does not gain a trailing space.
+	DEFAULT_INSERTION_RULES[parser.KEYWORD_FAIL] = InsertSpaceAfterIfString()
 	DEFAULT_INSERTION_RULES[parser.KEYWORD_FN] = InsertAfter(ONE_SPACE)
 	DEFAULT_INSERTION_RULES[parser.KEYWORD_FOR] = InsertAfter(ONE_SPACE)
 	DEFAULT_INSERTION_RULES[parser.KEYWORD_IF] = InsertAfter(ONE_SPACE)
@@ -126,6 +129,14 @@ func InsertSpaceAfter() InsertionRule {
 	return &insertSpaceAfter{}
 }
 
+// InsertSpaceAfterIfString constructs a rule which inserts a space after the
+// matched token only when the immediately following token is a STRING.  Used
+// for keywords like 'fail' whose string argument is optional, so that a bare
+// keyword does not gain a trailing space.
+func InsertSpaceAfterIfString() InsertionRule {
+	return &insertSpaceAfterIfString{}
+}
+
 // InsertSpaceBefore constructs a rule which inserts a space before the matched
 // token only when the preceding token's rule did not already emit a trailing
 // space. This avoids double-spacing when two rules would otherwise both
@@ -199,6 +210,24 @@ func (p *insertSpaceAfter) After(_ uint, next iter.Iterator[lex.Token]) []lex.To
 	}
 
 	return []lex.Token{ONE_SPACE}
+}
+
+// ===================================================================
+// InsertSpaceAfterIfString
+// ===================================================================
+
+type insertSpaceAfterIfString struct{}
+
+func (p *insertSpaceAfterIfString) Before(_ uint, _ iter.Iterator[lex.Token]) []lex.Token {
+	return nil
+}
+
+func (p *insertSpaceAfterIfString) After(_ uint, next iter.Iterator[lex.Token]) []lex.Token {
+	if next.HasNext() && next.Next().Kind == parser.STRING {
+		return []lex.Token{ONE_SPACE}
+	}
+	//
+	return nil
 }
 
 // ===================================================================
