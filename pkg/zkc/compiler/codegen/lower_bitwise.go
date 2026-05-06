@@ -107,7 +107,7 @@ func lowerBitwiseCode[W word.Word[W]](
 		}
 		// NOT flips all p bits including the zero-padding beyond origWidth,
 		// so mask the result back to origWidth before the narrowing cast.
-		return bitwiseCallNot[W](id, t.Target, t.Sources[0], origWidth, p, registers)
+		return bitwiseCallNot[W](id, t.Target, t.Sources[0], origWidth, p, registers, helpers)
 	case *instruction.BitShl[W]:
 		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
 		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
@@ -162,11 +162,17 @@ func bitwiseCallNot[W word.Word[W]](
 	target, source register.Id,
 	origWidth, p uint,
 	registers *[]register.Register,
+	helpers *bitwiseHelpers[W],
 ) []instruction.Instruction {
 	var zero W
 
 	maskBig := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), origWidth), big.NewInt(1))
 	mask := zero.SetBigInt(maskBig)
+
+	// Use the AND helper (at power-of-2 width p) with the mask as its constant
+	// so the masking instruction goes through the lowering framework rather than
+	// emitting a native BitAnd that would bypass it.
+	andID := helpers.ensure(opcode.BIT_AND, p, 1, mask)
 
 	pTmp := allocTmp(registers, p)
 	pResult := allocTmp(registers, p)
@@ -175,7 +181,7 @@ func bitwiseCallNot[W word.Word[W]](
 	return []instruction.Instruction{
 		instruction.NewCast(pTmp, source, p),
 		instruction.NewCall(id, []register.Id{pTmp}, []register.Id{pResult}),
-		instruction.NewBitAnd[W](pMasked, []register.Id{pResult}, mask),
+		instruction.NewCall(andID, []register.Id{pResult}, []register.Id{pMasked}),
 		instruction.NewCast(target, pMasked, origWidth),
 	}
 }
