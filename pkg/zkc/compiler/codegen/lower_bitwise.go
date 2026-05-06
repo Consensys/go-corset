@@ -142,7 +142,8 @@ func bitwiseCall(
 
 	pResult := allocTmp(registers, p)
 	insns = append(insns, instruction.NewCall(id, pSources, []register.Id{pResult}))
-	insns = append(insns, instruction.NewCast(target, pResult, origWidth)) //TODO @Dave: is a cast safe here ? Claude says yes, but wdyt ?
+	// TODO @Dave: is a cast safe here for truncation?
+	insns = append(insns, instruction.NewCast(target, pResult, origWidth))
 
 	return insns
 }
@@ -313,7 +314,7 @@ func newDecomposedNaryHelper[W word.Word[W]](
 	out := b.output
 	zero := word.Uint64[W](0)
 
-	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules. 
+	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules.
 	if key.width == 1 {
 		// Base case: single-bit operation.  Seed agg with the constant bit then
 		// fold each source in using the appropriate pairwise identity.
@@ -337,9 +338,9 @@ func newDecomposedNaryHelper[W word.Word[W]](
 
 		// Split the constant at generation time.
 		constBig := constant.BigInt()
-		splitBig := new(big.Int).Lsh(big.NewInt(1), uint(half))
+		splitBig := new(big.Int).Lsh(big.NewInt(1), half)
 		constLow := constant.SetBigInt(new(big.Int).Mod(constBig, splitBig))
-		constHigh := constant.SetBigInt(new(big.Int).Rsh(constBig, uint(half)))
+		constHigh := constant.SetBigInt(new(big.Int).Rsh(constBig, half))
 
 		// Ensure sub-helpers for each constant half (may be the same module
 		// when constLow == constHigh, e.g. all-zeros or all-ones masks).
@@ -387,7 +388,7 @@ func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitw
 	out := b.output
 	zero := word.Uint64[W](0)
 
-	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules. 
+	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules.
 	if key.width == 1 {
 		// Base case: NOT of a single bit = 1 - bit.
 		one := word.Uint64[W](1)
@@ -399,6 +400,7 @@ func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitw
 		half := key.width / 2
 
 		var zeroW W
+
 		subID := helpers.ensure(opcode.BIT_NOT, half, 1, zeroW)
 
 		low := b.newComputedWidth("low", half)
