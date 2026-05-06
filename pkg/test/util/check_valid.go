@@ -36,17 +36,29 @@ func CheckValid(t *testing.T, test, ext string, fields ...field.Config) {
 		panic("at least one target field is required")
 	}
 	// Check for each field requested
-	for _, field := range fields {
-		checkValidInternal(t, test, ext, field)
+	for _, f := range fields {
+		checkValidInternal(t, test, ext, codegen.DEFAULT_CONFIG, f)
 	}
 }
 
-func checkValidInternal(t *testing.T, test, ext string, field field.Config) {
+// CheckValidWithConfig checks that a given source file compiles and runs correctly using the provided codegen config.
+// nolint
+func CheckValidWithConfig(t *testing.T, test, ext string, cfg codegen.Config, fields ...field.Config) {
+	if len(fields) == 0 {
+		panic("at least one target field is required")
+	}
+	// Check for each field requested
+	for _, f := range fields {
+		checkValidInternal(t, test, ext, cfg, f)
+	}
+}
+
+func checkValidInternal(t *testing.T, test, ext string, cfg codegen.Config, field field.Config) {
 	var filename = fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
 	// Compile source file into Abstract Syntax Tree form.
 	program := cmd_util.CompileSourceFiles(field, filename)
 	// Compile program into boot machine
-	vm, errs := program.Compile(codegen.DEFAULT_CONFIG.Field(field))
+	vm, errs := program.Compile(cfg.Field(field))
 	for _, err := range errs {
 		t.Errorf("%s", err.Error())
 	}

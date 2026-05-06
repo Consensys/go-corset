@@ -17,6 +17,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/test/util"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 )
 
 // ===================================================================
@@ -359,35 +360,35 @@ func Test_ZkcUnit_Continue_01(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Bitwise_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_01", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_01", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Bitwise_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_02", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_02", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Bitwise_03(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_03", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_03", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Bitwise_04(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_04", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_04", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Bitwise_05(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_05", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_05", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Bitwise_06(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_06", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_06", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Bitwise_07(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_07", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_07", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Bitwise_08(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_08", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/bitwise_08", field.BLS12_377, field.KOALABEAR_16)
 }
 
 // ===================================================================
@@ -395,35 +396,35 @@ func Test_ZkcUnit_Bitwise_08(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Shift_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_01", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_01", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Shift_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_02", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_02", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Shift_03(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_03", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_03", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Shift_04(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_04", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_04", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Shift_05(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_05", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_05", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Shift_06(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_06", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_06", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Shift_07(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_07", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_07", field.BLS12_377, field.KOALABEAR_16)
 }
 
 func Test_ZkcUnit_Shift_08(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_08", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnitWithLowerBitwise(t, "zkc/unit/shift_08", field.BLS12_377, field.KOALABEAR_16)
 }
 
 // ===================================================================
@@ -596,4 +597,10 @@ func Test_ZkcUnit_Include_02(t *testing.T) {
 
 func checkZkcUnit(t *testing.T, test string, fields ...field.Config) {
 	util.CheckValid(t, test, "zkc", fields...)
+}
+
+func checkZkcUnitWithLowerBitwise(t *testing.T, test string, fields ...field.Config) {
+	t.Parallel()
+	util.CheckValidWithConfig(t, test, "zkc", codegen.DEFAULT_CONFIG.LowerBitwise(false), fields...)
+	util.CheckValidWithConfig(t, test, "zkc", codegen.DEFAULT_CONFIG.LowerBitwise(true), fields...)
 }
