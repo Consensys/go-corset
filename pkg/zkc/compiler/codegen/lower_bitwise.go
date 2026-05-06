@@ -83,10 +83,11 @@ func lowerBitwiseCode[W word.Word[W]](
 		return []instruction.Instruction{code}
 	}
 
-	width, powerOfTwo := lowerableWidth(registers, code.Definitions()[0], helpers.field.BandWidth)
+	width, isPowerOfTwo := lowerableWidth(registers, code.Definitions()[0], helpers.field.BandWidth)
 
-	if !powerOfTwo {
+	if !isPowerOfTwo {
 		width = nextPowerOfTwo(width)
+		// TODO: ...
 	}
 	switch t := code.(type) {
 	case *instruction.BitAnd[W]:
@@ -199,9 +200,11 @@ func (p *bitwiseHelpers[W]) ensure(op instruction.OpCode, width uint, arity int,
 		return id
 	}
 
-	id := p.baseID + uint(len(p.items))
-	mod := newBitwiseHelperModule(id, key, constant)
+	// Sub-helpers (e.g. recursive NOT halves) are appended to p.items inside
+	// the factory, so id must be derived after the factory returns.
+	mod := newBitwiseHelperModule(p, key, constant)
 
+	id := p.baseID + uint(len(p.items))
 	p.items = append(p.items, mod)
 	p.ids[key] = id
 
@@ -218,18 +221,23 @@ func helperConstant[W word.Word[W]](op instruction.OpCode, constant W) string {
 }
 
 func newBitwiseHelperModule[W word.Word[W]](
-	id uint,
+	helpers *bitwiseHelpers[W],
 	key bitwiseHelperKey,
 	constant W,
 ) machine.Module {
 	if key.opcode == opcode.BIT_AND || key.opcode == opcode.BIT_OR ||
 		key.opcode == opcode.BIT_XOR {
-		return newDecomposedNaryHelper(id, key, constant)
+		// Recursive: sub-helpers are appended inside; id is recomputed there.
+		return newDecomposedNaryHelper(helpers, key, constant)
 	}
 
 	if key.opcode == opcode.BIT_NOT {
-		return newDecomposedNotHelper[W](id, key)
+		// Recursive: sub-helpers are appended inside; id is recomputed there.
+		return newDecomposedNotHelper[W](helpers, key)
 	}
+
+	// Non-recursive (SHL, SHR): nothing appended before us, id is current length.
+	id := helpers.baseID + uint(len(helpers.items))
 
 	var (
 		padding big.Int
@@ -248,14 +256,6 @@ func newBitwiseHelperModule[W word.Word[W]](
 	var op instruction.Instruction
 
 	switch key.opcode {
-	case opcode.BIT_AND:
-		op = instruction.NewBitAnd(target, sources, constant)
-	case opcode.BIT_OR:
-		op = instruction.NewBitOr(target, sources, constant)
-	case opcode.BIT_XOR:
-		op = instruction.NewBitXor(target, sources, constant)
-	case opcode.BIT_NOT:
-		op = instruction.NewBitNot[W](target, sources[0])
 	case opcode.BIT_SHL:
 		op = instruction.NewBitShl[W](target, sources[0], sources[1])
 	case opcode.BIT_SHR:
@@ -270,8 +270,15 @@ func newBitwiseHelperModule[W word.Word[W]](
 	return function.New(name, regs, []VectorInstruction{VectorInstruction{Codes: code}})
 }
 
+// newDecomposedNaryHelper builds a helper module for bitwise AND/OR/XOR using
+// recursive halving.  Each module body is O(arity) instructions: it splits
+// every source and the constant into two half-wide pieces, calls the
+// half-wide sub-helpers for each piece, and recombines.  Sub-helpers are
+// shared across call sites via the helpers cache, so the total number of
+// unique modules is O(log(width)) when the constant is uniform across halves
+// (e.g. all-zeros or all-ones masks).
 func newDecomposedNaryHelper[W word.Word[W]](
-	id uint,
+	helpers *bitwiseHelpers[W],
 	key bitwiseHelperKey,
 	constant W,
 ) machine.Module {
@@ -279,106 +286,140 @@ func newDecomposedNaryHelper[W word.Word[W]](
 
 	out := b.output
 	zero := word.Uint64[W](0)
-	one := word.Uint64[W](1)
-	two := word.Uint64[W](2)
 
-	divisor := b.newComputed("d")
-	b.emit(instruction.NewIntAdd(divisor, nil, two))
-	b.emit(instruction.NewIntAdd(out, nil, zero))
-
-	pow := b.newComputed("pow")
-	b.emit(instruction.NewIntAdd(pow, nil, one))
-
-	work := make([]register.Id, len(b.inputs))
-	for i, arg := range b.inputs {
-		w := b.newComputed("w")
-		b.emit(instruction.NewIntAdd(w, []register.Id{arg}, zero))
-		work[i] = w
-	}
-
-	for i := uint(0); i < key.width; i++ {
+	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules. 
+	if key.width == 1 {
+		// Base case: single-bit operation.  Seed agg with the constant bit then
+		// fold each source in using the appropriate pairwise identity.
+		one := word.Uint64[W](1)
 		agg := b.newComputed("agg")
-		if constant.BigInt().Bit(int(i)) == 0 {
+
+		if constant.BigInt().Bit(0) == 0 {
 			b.emit(instruction.NewIntAdd(agg, nil, zero))
 		} else {
 			b.emit(instruction.NewIntAdd(agg, nil, one))
 		}
 
-		for j := range work {
-			bit := b.newComputed("bit")
-			b.emit(instruction.NewIntRem[W](bit, work[j], divisor))
-
-			next := b.newComputed("next")
-			b.emit(instruction.NewIntDiv[W](next, work[j], divisor))
-			work[j] = next
-
-			agg = b.combineBit(key.opcode, agg, bit)
+		for _, inp := range b.inputs {
+			agg = b.combineBit(key.opcode, agg, inp)
 		}
 
-		scaled := b.newComputed("scaled")
-		b.emit(instruction.NewIntMul(scaled, []register.Id{agg, pow}, one))
-		b.emit(instruction.NewIntAdd(out, []register.Id{out, scaled}, zero))
+		b.emit(instruction.NewIntAdd(out, []register.Id{agg}, zero))
+	} else {
+		// Recursive case.
+		// half     = number of bits in each half (= width / 2)
+		// splitVal = 2^half  (the boundary value separating low from high bits)
+		half := key.width / 2
+		splitVal := word.Uint64[W](uint64(1) << half)
 
-		if i+1 < key.width {
-			npow := b.newComputed("pow")
-			b.emit(instruction.NewIntMul(npow, []register.Id{pow}, two))
-			pow = npow
+		// Split the constant at generation time.
+		constBig := constant.BigInt()
+		splitBig := new(big.Int).Lsh(big.NewInt(1), uint(half))
+		constLow := constant.SetBigInt(new(big.Int).Mod(constBig, splitBig))
+		constHigh := constant.SetBigInt(new(big.Int).Rsh(constBig, uint(half)))
+
+		// Ensure sub-helpers for each constant half (may be the same module
+		// when constLow == constHigh, e.g. all-zeros or all-ones masks).
+		subIDlow := helpers.ensure(key.opcode, half, key.arity, constLow)
+		subIDhigh := helpers.ensure(key.opcode, half, key.arity, constHigh)
+
+		splitReg := b.newComputedWidth("split", key.width)
+		b.emit(instruction.NewIntAdd(splitReg, nil, splitVal))
+
+		lowSrcs := make([]register.Id, key.arity)
+		highSrcs := make([]register.Id, key.arity)
+
+		for i, arg := range b.inputs {
+			lo := b.newComputedWidth("low", half)
+			b.emit(instruction.NewIntRem[W](lo, arg, splitReg))
+			lowSrcs[i] = lo
+
+			hi := b.newComputedWidth("high", half)
+			b.emit(instruction.NewIntDiv[W](hi, arg, splitReg))
+			highSrcs[i] = hi
 		}
+
+		resLow := b.newComputedWidth("rlow", half)
+		resHigh := b.newComputedWidth("rhigh", half)
+
+		b.emit(instruction.NewCall(subIDlow, lowSrcs, []register.Id{resLow}))
+		b.emit(instruction.NewCall(subIDhigh, highSrcs, []register.Id{resHigh}))
+
+		// Reconstruct: out = resLow + resHigh * 2^half
+		one := word.Uint64[W](1)
+		scaled := b.newComputedWidth("scaled", key.width)
+		b.emit(instruction.NewIntMul(scaled, []register.Id{resHigh, splitReg}, one))
+		b.emit(instruction.NewIntAdd(out, []register.Id{resLow, scaled}, zero))
 	}
 
 	b.emit(instruction.NewReturn())
 
+	// Sub-helpers (if any) have already been appended; our slot is next.
+	id := helpers.baseID + uint(len(helpers.items))
 	name := helperName(id, key)
 
-	return function.New(name, b.regs(), []VectorInstruction{VectorInstruction{Codes: b.code}})
+	return function.New(name, b.regs(), []VectorInstruction{{Codes: b.code}})
 }
 
-func newDecomposedNotHelper[W word.Word[W]](id uint, key bitwiseHelperKey) machine.Module {
+// newDecomposedNotHelper builds a helper module that computes bitwise NOT using
+// recursive halving rather than bit-by-bit iteration.  For a width-2^n input
+// the module body is O(1) instructions: it splits into two half-wide halves,
+// calls the width-2^(n-1) NOT helper for each, and recombines.  This keeps
+// every individual module body small while the shared sub-helpers are reused
+// across all call sites.
+func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitwiseHelperKey) machine.Module {
 	b := newHelperBuilder[W](key.width, key.arity)
 
 	out := b.output
 	zero := word.Uint64[W](0)
-	one := word.Uint64[W](1)
-	two := word.Uint64[W](2)
 
-	divisor := b.newComputed("d")
-	b.emit(instruction.NewIntAdd(divisor, nil, two))
+	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules. 
+	if key.width == 1 {
+		// Base case: NOT of a single bit = 1 - bit.
+		one := word.Uint64[W](1)
+		oneReg := b.newComputed("one")
+		b.emit(instruction.NewIntAdd(oneReg, nil, one))
+		b.emit(instruction.NewIntSub(out, []register.Id{oneReg, b.inputs[0]}, zero))
+	} else {
+		// Recursive case.
+		// half      = number of bits in each half  (= width / 2)
+		// splitVal  = 2^half  (the value that separates low from high bits)
+		half := key.width / 2
+		splitVal := word.Uint64[W](uint64(1) << half)
 
-	oneReg := b.newComputed("one")
-	b.emit(instruction.NewIntAdd(oneReg, nil, one))
+		// Ensure the sub-helper for half-wide NOT (appended to helpers.items
+		// before this module so its id is already stable).
+		var zeroW W
+		subID := helpers.ensure(opcode.BIT_NOT, half, 1, zeroW)
 
-	b.emit(instruction.NewIntAdd(out, nil, zero))
+		splitReg := b.newComputedWidth("split", key.width)
+		b.emit(instruction.NewIntAdd(splitReg, nil, splitVal))
 
-	pow := b.newComputed("pow")
-	b.emit(instruction.NewIntAdd(pow, nil, one))
+		// low  = input % 2^half  (lower half bits)
+		// high = input / 2^half  (upper half bits)
+		low := b.newComputedWidth("low", half)
+		b.emit(instruction.NewIntRem[W](low, b.inputs[0], splitReg))
 
-	work := b.newComputed("w")
-	b.emit(instruction.NewIntAdd(work, []register.Id{b.inputs[0]}, zero))
+		high := b.newComputedWidth("high", half)
+		b.emit(instruction.NewIntDiv[W](high, b.inputs[0], splitReg))
 
-	for i := uint(0); i < key.width; i++ {
-		bit := b.newComputed("bit")
-		b.emit(instruction.NewIntRem[W](bit, work, divisor))
+		nlow := b.newComputedWidth("nlow", half)
+		nhigh := b.newComputedWidth("nhigh", half)
 
-		next := b.newComputed("next")
-		b.emit(instruction.NewIntDiv[W](next, work, divisor))
-		work = next
+		b.emit(instruction.NewCall(subID, []register.Id{low}, []register.Id{nlow}))
+		b.emit(instruction.NewCall(subID, []register.Id{high}, []register.Id{nhigh}))
 
-		nbit := b.newComputed("nbit")
-		b.emit(instruction.NewIntSub(nbit, []register.Id{oneReg, bit}, zero))
-
-		scaled := b.newComputed("scaled")
-		b.emit(instruction.NewIntMul(scaled, []register.Id{nbit, pow}, one))
-		b.emit(instruction.NewIntAdd(out, []register.Id{out, scaled}, zero))
-
-		if i+1 < key.width {
-			npow := b.newComputed("pow")
-			b.emit(instruction.NewIntMul(npow, []register.Id{pow}, two))
-			pow = npow
-		}
+		// Reconstruct: out = nlow + nhigh * 2^half
+		one := word.Uint64[W](1)
+		scaled := b.newComputedWidth("scaled", key.width)
+		b.emit(instruction.NewIntMul(scaled, []register.Id{nhigh, splitReg}, one))
+		b.emit(instruction.NewIntAdd(out, []register.Id{nlow, scaled}, zero))
 	}
 
 	b.emit(instruction.NewReturn())
 
+	// Sub-helpers (if any) have already been appended; our slot is next.
+	id := helpers.baseID + uint(len(helpers.items))
 	name := helperName(id, key)
 
 	return function.New(name, b.regs(), []VectorInstruction{VectorInstruction{Codes: b.code}})
@@ -426,11 +467,15 @@ func (p *helperBuilder[W]) emit(insn instruction.Instruction) {
 }
 
 func (p *helperBuilder[W]) newComputed(prefix string) register.Id {
+	return p.newComputedWidth(prefix, p.width)
+}
+
+func (p *helperBuilder[W]) newComputedWidth(prefix string, width uint) register.Id {
 	var padding big.Int
 
 	id := register.NewId(uint(len(p.base)))
 	name := fmt.Sprintf("%s%d", prefix, p.nextTmp)
-	p.base = append(p.base, register.NewComputed(name, p.width, padding))
+	p.base = append(p.base, register.NewComputed(name, width, padding))
 	p.nextTmp++
 
 	return id
