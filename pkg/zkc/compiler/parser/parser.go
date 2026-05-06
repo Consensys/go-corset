@@ -819,7 +819,7 @@ func (p *Parser) parseStatement(env Environment,
 	case KEYWORD_CONTINUE:
 		returned, insn, errs = p.parseContinue(env)
 	case KEYWORD_FAIL:
-		returned, insn, errs = p.parseFail()
+		returned, insn, errs = p.parseFail(env)
 	case KEYWORD_FOR:
 		returned, insn, errs = p.parseFor(env)
 	case KEYWORD_IF:
@@ -1287,30 +1287,51 @@ func (p *Parser) parseReturn() (bool, stmt.Unresolved, []source.SyntaxError) {
 	return true, &stmt.Return[symbol.Unresolved]{}, nil
 }
 
-func (p *Parser) parseFail() (bool, stmt.Unresolved, []source.SyntaxError) {
+func (p *Parser) parseFail(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
 	if _, errs := p.expect(KEYWORD_FAIL); len(errs) > 0 {
 		return true, nil, errs
 	}
+	// An error message is optional; without one, fail produces a bare abort.
+	if p.lookahead().Kind != STRING {
+		return true, &stmt.Fail[symbol.Unresolved]{}, nil
+	}
 	//
-	return true, &stmt.Fail[symbol.Unresolved]{}, nil
+	chunks, args, errs := p.parseFormattedString(env)
+	if len(errs) > 0 {
+		return true, nil, errs
+	}
+	//
+	return true, &stmt.Fail[symbol.Unresolved]{Chunks: chunks, Arguments: args}, nil
 }
 
 func (p *Parser) parsePrintf(env Environment) (bool, stmt.Unresolved, []source.SyntaxError) {
-	var (
-		token  lex.Token
-		chunks []stmt.FormattedChunk
-	)
-	//
 	if _, errs := p.expect(KEYWORD_PRINTF); len(errs) > 0 {
 		return false, nil, errs
-	} else if token, errs = p.expect(STRING); len(errs) > 0 {
+	}
+	//
+	chunks, args, errs := p.parseFormattedString(env)
+	if len(errs) > 0 {
 		return false, nil, errs
+	}
+	//
+	return false, &stmt.Printf[symbol.Unresolved]{Chunks: chunks, Arguments: args}, nil
+}
+
+// parseFormattedString parses a printf-style string literal followed by an
+// optional comma-separated list of expression arguments, returning the
+// resulting chunks and arguments.  An error is reported if the count of format
+// specifiers does not match the count of supplied arguments.
+func (p *Parser) parseFormattedString(env Environment) ([]stmt.FormattedChunk, []Expr, []source.SyntaxError) {
+	token, errs := p.expect(STRING)
+	if len(errs) > 0 {
+		return nil, nil, errs
 	}
 	// Process string
 	var (
 		str    = p.string(token)
 		runes  = []rune(str[1 : len(str)-1])
 		nrunes []rune
+		chunks []stmt.FormattedChunk
 		args   []Expr
 		nargs  int
 	)
@@ -1323,7 +1344,7 @@ func (p *Parser) parsePrintf(env Environment) (bool, stmt.Unresolved, []source.S
 				ok bool
 			)
 			if i, f, ok = parseFormatting(i+1, runes); !ok {
-				return false, nil, p.syntaxErrors(token, "invalid formatting")
+				return nil, nil, p.syntaxErrors(token, "invalid formatting")
 			}
 			//
 			nargs++
@@ -1333,13 +1354,13 @@ func (p *Parser) parsePrintf(env Environment) (bool, stmt.Unresolved, []source.S
 			nrunes = nil
 		case '\\':
 			if i+1 == len(runes) {
-				return false, nil, p.syntaxErrors(token, "invalid escape")
+				return nil, nil, p.syntaxErrors(token, "invalid escape")
 			}
 			// Attempt to parse escape character
 			c, ok := escapeCharacter(runes[i+1])
 			//
 			if !ok {
-				return false, nil, p.syntaxErrors(token, "invalid escape")
+				return nil, nil, p.syntaxErrors(token, "invalid escape")
 			}
 			// Continue
 			nrunes = append(nrunes, c)
@@ -1358,23 +1379,23 @@ func (p *Parser) parsePrintf(env Environment) (bool, stmt.Unresolved, []source.S
 		arg, errs := p.parseLogicalExpr(env)
 		//
 		if len(errs) > 0 {
-			return false, nil, errs
+			return nil, nil, errs
 		}
 		//
 		args = append(args, arg)
 	}
 	// Sanity check for matching arguments / chunks
 	if len(args) > nargs {
-		return false, nil, p.srcmap.SyntaxErrors(args[nargs], "too many arguments")
+		return nil, nil, p.srcmap.SyntaxErrors(args[nargs], "too many arguments")
 	} else if len(args) > 0 && len(args) < nargs {
 		n := len(args) - 1
 		//
-		return false, nil, p.srcmap.SyntaxErrors(args[n], "insufficient arguments")
+		return nil, nil, p.srcmap.SyntaxErrors(args[n], "insufficient arguments")
 	} else if len(args) < nargs {
-		return false, nil, p.syntaxErrors(token, "insufficient arguments")
+		return nil, nil, p.syntaxErrors(token, "insufficient arguments")
 	}
 	//
-	return false, &stmt.Printf[symbol.Unresolved]{Chunks: chunks, Arguments: args}, nil
+	return chunks, args, nil
 }
 
 func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
