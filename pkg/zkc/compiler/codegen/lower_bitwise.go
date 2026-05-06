@@ -53,7 +53,7 @@ func lowerBitwiseFunction[W word.Word[W]](
 	)
 
 	for i, insn := range code {
-		ncodes := lowerBitwiseCodes(insn.Codes, registers, helpers)
+		ncodes := lowerBitwiseCodes(insn.Codes, &registers, helpers)
 		ncode[i] = VectorInstruction{Codes: ncodes}
 	}
 
@@ -62,7 +62,7 @@ func lowerBitwiseFunction[W word.Word[W]](
 
 func lowerBitwiseCodes[W word.Word[W]](
 	codes []instruction.Instruction,
-	registers []register.Register,
+	registers *[]register.Register,
 	helpers *bitwiseHelpers[W],
 ) []instruction.Instruction {
 	ncodes := make([]instruction.Instruction, 0, len(codes))
@@ -76,59 +76,85 @@ func lowerBitwiseCodes[W word.Word[W]](
 
 func lowerBitwiseCode[W word.Word[W]](
 	code instruction.Instruction,
-	registers []register.Register,
+	registers *[]register.Register,
 	helpers *bitwiseHelpers[W],
 ) []instruction.Instruction {
 	if !isBitwiseOpcode(code.OpCode()) {
 		return []instruction.Instruction{code}
 	}
 
-	width, isPowerOfTwo := lowerableWidth(registers, code.Definitions()[0], helpers.field.BandWidth)
+	origWidth, isPowerOfTwo := lowerableWidth(*registers, code.Definitions()[0], helpers.field.BandWidth)
 
+	p := origWidth
 	if !isPowerOfTwo {
-		width = nextPowerOfTwo(width)
-		// TODO: ...
+		p = nextPowerOfTwo(origWidth)
 	}
+
 	switch t := code.(type) {
 	case *instruction.BitAnd[W]:
-		id := helpers.ensure(t.OpCode(), width, len(t.Sources), t.Constant)
-
-		return []instruction.Instruction{
-			instruction.NewCall(id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
-		}
+		id := helpers.ensure(t.OpCode(), p, len(t.Sources), t.Constant)
+		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	case *instruction.BitOr[W]:
-		id := helpers.ensure(t.OpCode(), width, len(t.Sources), t.Constant)
-
-		return []instruction.Instruction{
-			instruction.NewCall(id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
-		}
+		id := helpers.ensure(t.OpCode(), p, len(t.Sources), t.Constant)
+		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	case *instruction.BitXor[W]:
-		id := helpers.ensure(t.OpCode(), width, len(t.Sources), t.Constant)
-
-		return []instruction.Instruction{
-			instruction.NewCall(id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
-		}
+		id := helpers.ensure(t.OpCode(), p, len(t.Sources), t.Constant)
+		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	case *instruction.BitNot[W]:
-		id := helpers.ensure(t.OpCode(), width, len(t.Sources), zeroWord[W]())
-
-		return []instruction.Instruction{
-			instruction.NewCall(id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
-		}
+		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
+		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	case *instruction.BitShl[W]:
-		id := helpers.ensure(t.OpCode(), width, len(t.Sources), zeroWord[W]())
-
-		return []instruction.Instruction{
-			instruction.NewCall(id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
-		}
+		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
+		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	case *instruction.BitShr[W]:
-		id := helpers.ensure(t.OpCode(), width, len(t.Sources), zeroWord[W]())
-
-		return []instruction.Instruction{
-			instruction.NewCall(id, append([]register.Id{}, t.Sources...), []register.Id{t.Target}),
-		}
+		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
+		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	default:
 		panic(fmt.Sprintf("unexpected non-bitwise opcode: %d", code.OpCode()))
 	}
+}
+
+// bitwiseCall emits a call to a bitwise helper module.  When origWidth equals p
+// (already a power of two) the call is direct with no temporaries.  Otherwise
+// each source is zero-extended from origWidth to p bits via Cast before the
+// call, and the p-wide result is truncated back to origWidth bits afterwards.
+func bitwiseCall(
+	id uint,
+	target register.Id,
+	sources []register.Id,
+	origWidth, p uint,
+	registers *[]register.Register,
+) []instruction.Instruction {
+	if origWidth == p {
+		return []instruction.Instruction{
+			instruction.NewCall(id, append([]register.Id{}, sources...), []register.Id{target}),
+		}
+	}
+
+	insns := make([]instruction.Instruction, 0, 2+len(sources))
+
+	pSources := make([]register.Id, len(sources))
+	for i, src := range sources {
+		pTmp := allocTmp(registers, p)
+		insns = append(insns, instruction.NewCast(pTmp, src, p))
+		pSources[i] = pTmp
+	}
+
+	pResult := allocTmp(registers, p)
+	insns = append(insns, instruction.NewCall(id, pSources, []register.Id{pResult}))
+	insns = append(insns, instruction.NewCast(target, pResult, origWidth)) //TODO @Dave: is a cast safe here ? Claude says yes, but wdyt ?
+
+	return insns
+}
+
+func allocTmp(registers *[]register.Register, width uint) register.Id {
+	var padding big.Int
+
+	id := register.NewId(uint(len(*registers)))
+	name := fmt.Sprintf("$cast%d", len(*registers))
+	*registers = append(*registers, register.NewComputed(name, width, padding))
+
+	return id
 }
 
 func zeroWord[W word.Word[W]]() W {
