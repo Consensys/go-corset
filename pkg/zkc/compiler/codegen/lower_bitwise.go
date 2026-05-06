@@ -102,7 +102,12 @@ func lowerBitwiseCode[W word.Word[W]](
 		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	case *instruction.BitNot[W]:
 		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
-		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
+		if origWidth == p {
+			return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
+		}
+		// NOT flips all p bits including the zero-padding beyond origWidth,
+		// so mask the result back to origWidth before the narrowing cast.
+		return bitwiseCallNot[W](id, t.Target, t.Sources[0], origWidth, p, registers)
 	case *instruction.BitShl[W]:
 		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
 		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
@@ -146,6 +151,33 @@ func bitwiseCall(
 	insns = append(insns, instruction.NewCast(target, pResult, origWidth))
 
 	return insns
+}
+
+// bitwiseCallNot emits the instruction sequence for a NOT with non-power-of-2
+// width.  Unlike AND/OR/XOR, NOT flips the zero-padding bits when called on a
+// padded-up value, so the result must be masked back to origWidth before the
+// narrowing cast.
+func bitwiseCallNot[W word.Word[W]](
+	id uint,
+	target, source register.Id,
+	origWidth, p uint,
+	registers *[]register.Register,
+) []instruction.Instruction {
+	var zero W
+
+	maskBig := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), origWidth), big.NewInt(1))
+	mask := zero.SetBigInt(maskBig)
+
+	pTmp := allocTmp(registers, p)
+	pResult := allocTmp(registers, p)
+	pMasked := allocTmp(registers, p)
+
+	return []instruction.Instruction{
+		instruction.NewCast(pTmp, source, p),
+		instruction.NewCall(id, []register.Id{pTmp}, []register.Id{pResult}),
+		instruction.NewBitAnd[W](pMasked, []register.Id{pResult}, mask),
+		instruction.NewCast(target, pMasked, origWidth),
+	}
 }
 
 func allocTmp(registers *[]register.Register, width uint) register.Id {
@@ -488,7 +520,6 @@ func (p *helperBuilder[W]) newComputedNamed(name string, width uint) register.Id
 func (p *helperBuilder[W]) combineBit(op instruction.OpCode, lhs, rhs register.Id) register.Id {
 	zero := word.Uint64[W](0)
 	one := word.Uint64[W](1)
-	two := word.Uint64[W](2)
 
 	switch op {
 	case opcode.BIT_AND:
@@ -497,28 +528,39 @@ func (p *helperBuilder[W]) combineBit(op instruction.OpCode, lhs, rhs register.I
 
 		return res
 	case opcode.BIT_OR:
-		sum := p.newComputed("or_sum")
-		p.emit(instruction.NewIntAdd(sum, []register.Id{lhs, rhs}, zero))
+		// a + (1-a)*b avoids the intermediate overflow of (a+b) when a=b=1
+		oneReg := p.newComputed("or_one")
+		p.emit(instruction.NewIntAdd(oneReg, nil, one))
+
+		na := p.newComputed("or_na")
+		p.emit(instruction.NewIntSub(na, []register.Id{oneReg, lhs}, zero))
 
 		prod := p.newComputed("or_prod")
-		p.emit(instruction.NewIntMul(prod, []register.Id{lhs, rhs}, one))
+		p.emit(instruction.NewIntMul(prod, []register.Id{na, rhs}, one))
 
 		res := p.newComputed("or")
-		p.emit(instruction.NewIntSub(res, []register.Id{sum, prod}, zero))
+		p.emit(instruction.NewIntAdd(res, []register.Id{lhs, prod}, zero))
 
 		return res
 	case opcode.BIT_XOR:
-		sum := p.newComputed("xor_sum")
-		p.emit(instruction.NewIntAdd(sum, []register.Id{lhs, rhs}, zero))
+		// a*(1-b) + (1-a)*b avoids intermediate overflow when a=b=1
+		oneReg := p.newComputed("xor_one")
+		p.emit(instruction.NewIntAdd(oneReg, nil, one))
 
-		prod := p.newComputed("xor_prod")
-		p.emit(instruction.NewIntMul(prod, []register.Id{lhs, rhs}, one))
+		nb := p.newComputed("xor_nb")
+		p.emit(instruction.NewIntSub(nb, []register.Id{oneReg, rhs}, zero))
 
-		dbl := p.newComputed("xor_dbl")
-		p.emit(instruction.NewIntMul(dbl, []register.Id{prod}, two))
+		na := p.newComputed("xor_na")
+		p.emit(instruction.NewIntSub(na, []register.Id{oneReg, lhs}, zero))
+
+		l := p.newComputed("xor_l")
+		p.emit(instruction.NewIntMul(l, []register.Id{lhs, nb}, one))
+
+		r := p.newComputed("xor_r")
+		p.emit(instruction.NewIntMul(r, []register.Id{na, rhs}, one))
 
 		res := p.newComputed("xor")
-		p.emit(instruction.NewIntSub(res, []register.Id{sum, dbl}, zero))
+		p.emit(instruction.NewIntAdd(res, []register.Id{l, r}, zero))
 
 		return res
 	default:
