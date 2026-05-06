@@ -117,12 +117,8 @@ func (p *BiPartiteArray[W]) Write(frame []W, address []register.Id, data []regis
 	//
 	if start < HALF_START {
 		// extend lower partition if needed
-		if uint64(len(p.lower)) < end {
-			ndata := make([]W, end)
-			copy(ndata, p.lower)
-			p.lower = ndata
-		}
-		//
+		p.lower = expand(p.lower, end)
+		// copy over values
 		for i := range data {
 			p.lower[start+uint64(i)] = frame[data[i].Unwrap()]
 		}
@@ -131,12 +127,8 @@ func (p *BiPartiteArray[W]) Write(frame []W, address []register.Id, data []regis
 		// i==0) so the upper partition must have at least TOP_POS-start+1
 		// elements.
 		var needed = TOP_POS - start + 1
-		//
-		if uint64(len(p.upper)) < needed {
-			ndata := make([]W, needed)
-			copy(ndata, p.upper)
-			p.upper = ndata
-		}
+		// extend upper partition if needed
+		p.upper = expand(p.upper, needed)
 		// Cap iteration at `needed`: any cell whose position would exceed
 		// TOP_POS lies outside the addressable range (start+i would wrap
 		// uint64) and is silently dropped, mirroring the zero returned by
