@@ -333,10 +333,7 @@ func newDecomposedNaryHelper[W word.Word[W]](
 		b.emit(instruction.NewIntAdd(out, []register.Id{agg}, zero))
 	} else {
 		// Recursive case.
-		// half     = number of bits in each half (= width / 2)
-		// splitVal = 2^half  (the boundary value separating low from high bits)
 		half := key.width / 2
-		splitVal := word.Uint64[W](uint64(1) << half)
 
 		// Split the constant at generation time.
 		constBig := constant.BigInt()
@@ -349,19 +346,14 @@ func newDecomposedNaryHelper[W word.Word[W]](
 		subIDlow := helpers.ensure(key.opcode, half, key.arity, constLow)
 		subIDhigh := helpers.ensure(key.opcode, half, key.arity, constHigh)
 
-		splitReg := b.newComputedWidth("split", key.width)
-		b.emit(instruction.NewIntAdd(splitReg, nil, splitVal))
-
 		lowSrcs := make([]register.Id, key.arity)
 		highSrcs := make([]register.Id, key.arity)
 
 		for i, arg := range b.inputs {
 			lo := b.newComputedWidth("low", half)
-			b.emit(instruction.NewIntRem[W](lo, arg, splitReg))
-			lowSrcs[i] = lo
-
 			hi := b.newComputedWidth("high", half)
-			b.emit(instruction.NewIntDiv[W](hi, arg, splitReg))
+			b.emit(instruction.NewDestruct([]register.Id{lo, hi}, arg))
+			lowSrcs[i] = lo
 			highSrcs[i] = hi
 		}
 
@@ -371,11 +363,7 @@ func newDecomposedNaryHelper[W word.Word[W]](
 		b.emit(instruction.NewCall(subIDlow, lowSrcs, []register.Id{resLow}))
 		b.emit(instruction.NewCall(subIDhigh, highSrcs, []register.Id{resHigh}))
 
-		// Reconstruct: out = resLow + resHigh * 2^half
-		one := word.Uint64[W](1)
-		scaled := b.newComputedWidth("scaled", key.width)
-		b.emit(instruction.NewIntMul(scaled, []register.Id{resHigh, splitReg}, one))
-		b.emit(instruction.NewIntAdd(out, []register.Id{resLow, scaled}, zero))
+		b.emit(instruction.NewBitConcat[W](out, []register.Id{resLow, resHigh}))
 	}
 
 	b.emit(instruction.NewReturn())
@@ -407,27 +395,15 @@ func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitw
 		b.emit(instruction.NewIntAdd(oneReg, nil, one))
 		b.emit(instruction.NewIntSub(out, []register.Id{oneReg, b.inputs[0]}, zero))
 	} else {
-		// Recursive case.
-		// half      = number of bits in each half  (= width / 2)
-		// splitVal  = 2^half  (the value that separates low from high bits)
+		// Recursive case: split into two half-wide halves, NOT each, recombine.
 		half := key.width / 2
-		splitVal := word.Uint64[W](uint64(1) << half)
 
-		// Ensure the sub-helper for half-wide NOT (appended to helpers.items
-		// before this module so its id is already stable).
 		var zeroW W
 		subID := helpers.ensure(opcode.BIT_NOT, half, 1, zeroW)
 
-		splitReg := b.newComputedWidth("split", key.width)
-		b.emit(instruction.NewIntAdd(splitReg, nil, splitVal))
-
-		// low  = input % 2^half  (lower half bits)
-		// high = input / 2^half  (upper half bits)
 		low := b.newComputedWidth("low", half)
-		b.emit(instruction.NewIntRem[W](low, b.inputs[0], splitReg))
-
 		high := b.newComputedWidth("high", half)
-		b.emit(instruction.NewIntDiv[W](high, b.inputs[0], splitReg))
+		b.emit(instruction.NewDestruct([]register.Id{low, high}, b.inputs[0]))
 
 		nlow := b.newComputedWidth("nlow", half)
 		nhigh := b.newComputedWidth("nhigh", half)
@@ -435,11 +411,7 @@ func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitw
 		b.emit(instruction.NewCall(subID, []register.Id{low}, []register.Id{nlow}))
 		b.emit(instruction.NewCall(subID, []register.Id{high}, []register.Id{nhigh}))
 
-		// Reconstruct: out = nlow + nhigh * 2^half
-		one := word.Uint64[W](1)
-		scaled := b.newComputedWidth("scaled", key.width)
-		b.emit(instruction.NewIntMul(scaled, []register.Id{nhigh, splitReg}, one))
-		b.emit(instruction.NewIntAdd(out, []register.Id{nlow, scaled}, zero))
+		b.emit(instruction.NewBitConcat[W](out, []register.Id{nlow, nhigh}))
 	}
 
 	b.emit(instruction.NewReturn())
