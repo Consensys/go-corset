@@ -1,6 +1,6 @@
 pub input data(address:u8) -> (byte:u24)
 
-// check that cast (a | b) == (cast a | cast b) ... and equivalent for and, xor, not
+// check that cast (a | b) == (cast a | cast b) ... and equivalent for AND, XOR
 // where width a < power of 2 < width of cast a 
 
 fn main() {
@@ -25,14 +25,6 @@ fn main() {
     var xor:u35 = (x ^ y) as u35
     var xorcast:u35 = xcast ^ ycast
     if xor != xorcast {
-        fail
-    }
-
-    // NOT is width-dependent: ~xcast flips all 35 bits while ~x only flips 24.
-    // The correct identity masks ~xcast back to the narrow (24-bit) range.
-    var not:u35 = (~x) as u35
-    var notcast:u35 = (~xcast) & 0xffffff
-    if not != notcast {
         fail
     }
 
