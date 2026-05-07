@@ -512,26 +512,6 @@ func (p *helperBuilder[W]) combineBit(op instruction.OpCode, lhs, rhs register.I
 	}
 }
 
-// HasBitwiseOps checks whether any module contains VM bitwise instructions.
-func HasBitwiseOps(modules []machine.Module) bool {
-	for _, mod := range modules {
-		fn, ok := mod.(*function.Boot)
-		if !ok {
-			continue
-		}
-
-		for _, insn := range fn.Code() {
-			for _, code := range insn.Codes {
-				if isBitwiseOpcode(code.OpCode()) {
-					return true
-				}
-			}
-		}
-	}
-
-	return false
-}
-
 func isBitwiseOpcode(op instruction.OpCode) bool {
 	switch op {
 	case opcode.BIT_AND, opcode.BIT_OR, opcode.BIT_XOR,
