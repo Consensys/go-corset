@@ -447,6 +447,10 @@ func Test_ZkcUnit_Shift_10(t *testing.T) {
 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/shift_10", field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_ZkcUnit_Shift_11(t *testing.T) {
+	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/shift_11", field.BLS12_377, field.KOALABEAR_16)
+}
+
 // ===================================================================
 // Static Initialiser Tests
 // ===================================================================
