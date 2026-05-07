@@ -399,6 +399,10 @@ func Test_ZkcUnit_Bitwise_10(t *testing.T) {
 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/bitwise_10", field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_ZkcUnit_Bitwise_11(t *testing.T) {
+	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/bitwise_11", field.BLS12_377, field.KOALABEAR_16)
+}
+
 // ===================================================================
 // Shift Tests
 // ===================================================================
