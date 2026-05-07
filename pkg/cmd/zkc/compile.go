@@ -59,7 +59,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	var (
 		// compiler config
 		config = codegen.DEFAULT_CONFIG.
-			LowerBitwise(GetFlag(cmd, "lower-bitwise")).
+			LowerZkcNative(GetFlag(cmd, "lower-zkc-native")).
 			Vectorize(GetFlag(cmd, "vectorize")).
 			Field(field)
 	)
@@ -367,5 +367,5 @@ func init() {
 	rootCmd.AddCommand(compileCmd)
 	compileCmd.Flags().Bool("ast", false, "Output abstract syntax tree (AST)")
 	compileCmd.Flags().Bool("ir", false, "Output intermediate representation (IR)")
-	compileCmd.Flags().Bool("lower-bitwise", false, "Lower bitwise VM instructions into helper-function calls")
+	compileCmd.Flags().Bool("lower-zkc-native", false, "Lower ZkC native functions into arithmetic instructions")
 }

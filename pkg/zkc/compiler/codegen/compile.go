@@ -137,8 +137,11 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Word[word.Uint]
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))
 		}
 	}
-	// Lower VM-level bitwise instructions into helper-function calls (if enabled).
-	if len(errors) == 0 && p.config.lowerBitwise {
+	// Lower VM-level zkc-native instructions into arithmetic instructions.
+	if len(errors) == 0 && p.config.lowerZkcNative {
+		// Reduce chain bitwise operation in order to prepare the VM instructions for bitwise lowering.
+		modules = BinarizeBitwise[word.Uint](modules)
+		// Lower Bitwise operations into arithmetic instructions.
 		modules = LowerBitwise[word.Uint](modules, p.config.field)
 	}
 	// Vectorize modules (if no errors)
