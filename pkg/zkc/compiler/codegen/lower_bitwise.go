@@ -102,13 +102,8 @@ func lowerBitwiseCode[W word.Word[W]](
 		id := helpers.ensure(t.OpCode(), p, len(t.Sources), t.Constant)
 		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
 	case *instruction.BitNot[W]:
-		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
-		if origWidth == p {
-			return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
-		}
-		// NOT flips all p bits including the zero-padding beyond origWidth,
-		// so mask the result back to origWidth before the narrowing cast.
-		return bitwiseCallNot[W](id, t.Target, t.Sources[0], origWidth, p, registers, helpers)
+		// Inline ~x as (MASK - x) directly in the caller; no helper module needed.
+		return bitwiseInlineNot[W](t.Target, t.Sources[0], origWidth, registers)
 	case *instruction.BitShl[W]:
 		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
 		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
@@ -154,36 +149,25 @@ func bitwiseCall(
 	return insns
 }
 
-// bitwiseCallNot emits the instruction sequence for a NOT with non-power-of-2
-// width.  Unlike AND/OR/XOR, NOT flips the zero-padding bits when called on a
-// padded-up value, so the result must be masked back to origWidth before the
-// narrowing cast.
-func bitwiseCallNot[W word.Word[W]](
-	id uint,
+// bitwiseInlineNot emits ~x as (MASK - x) directly into the caller's
+// instruction stream, where MASK = 2^width - 1.  No helper module is created.
+func bitwiseInlineNot[W word.Word[W]](
 	target, source register.Id,
-	origWidth, p uint,
+	width uint,
 	registers *[]register.Register,
-	helpers *bitwiseHelpers[W],
 ) []instruction.Instruction {
-	var zero W
+	maskBig := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), width), big.NewInt(1))
 
-	maskBig := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), origWidth), big.NewInt(1))
-	mask := zero.SetBigInt(maskBig)
+	var zeroW W
 
-	// Use the AND helper (at power-of-2 width p) with the mask as its constant
-	// so the masking instruction goes through the lowering framework rather than
-	// emitting a native BitAnd that would bypass it.
-	andID := helpers.ensure(opcode.BIT_AND, p, 1, mask)
+	mask := zeroW.SetBigInt(maskBig)
+	zero := word.Uint64[W](0)
 
-	pTmp := allocTmp(registers, p)
-	pResult := allocTmp(registers, p)
-	pMasked := allocTmp(registers, p)
+	maskReg := allocTmp(registers, width)
 
 	return []instruction.Instruction{
-		instruction.NewCast(pTmp, source, p),
-		instruction.NewCall(id, []register.Id{pTmp}, []register.Id{pResult}),
-		instruction.NewCall(andID, []register.Id{pResult}, []register.Id{pMasked}),
-		instruction.NewCast(target, pMasked, origWidth),
+		instruction.NewIntAdd(maskReg, nil, mask),
+		instruction.NewIntSub(target, []register.Id{maskReg, source}, zero),
 	}
 }
 
@@ -300,8 +284,7 @@ func newBitwiseHelperModule[W word.Word[W]](
 	}
 
 	if key.opcode == opcode.BIT_NOT {
-		// Recursive: sub-helpers are appended inside; id is recomputed there.
-		return newDecomposedNotHelper[W](helpers, key)
+		panic("BIT_NOT must be inlined by the caller; no helper module should be created")
 	}
 
 	var (
@@ -411,54 +394,6 @@ func newDecomposedNaryHelper[W word.Word[W]](
 	name := helperName(key)
 
 	return function.New(name, b.regs(), []VectorInstruction{{Codes: b.code}})
-}
-
-// newDecomposedNotHelper builds a helper module that computes bitwise NOT using
-// recursive halving rather than bit-by-bit iteration.  For a width-2^n input
-// the module body is O(1) instructions: it splits into two half-wide halves,
-// calls the width-2^(n-1) NOT helper for each, and recombines.  This keeps
-// every individual module body small while the shared sub-helpers are reused
-// across all call sites.
-func newDecomposedNotHelper[W word.Word[W]](helpers *bitwiseHelpers[W], key bitwiseHelperKey) machine.Module {
-	b := newHelperBuilder[W](key.width, key.arity)
-
-	out := b.output
-	zero := word.Uint64[W](0)
-
-	// TODO: we will want to stop before width == 1 to reduce the number of tiny modules.
-	if key.width == 1 {
-		// Base case: NOT of a single bit = 1 - bit.
-		one := word.Uint64[W](1)
-		oneReg := b.newComputed("one")
-		b.emit(instruction.NewIntAdd(oneReg, nil, one))
-		b.emit(instruction.NewIntSub(out, []register.Id{oneReg, b.inputs[0]}, zero))
-	} else {
-		// Recursive case: split into two half-wide halves, NOT each, recombine.
-		half := key.width / 2
-
-		var zeroW W
-
-		subID := helpers.ensure(opcode.BIT_NOT, half, 1, zeroW)
-
-		low := b.newComputedNamed("low", half)
-		high := b.newComputedNamed("high", half)
-		b.emit(instruction.NewDestruct([]register.Id{low, high}, b.inputs[0]))
-
-		nlow := b.newComputedNamed("nlow", half)
-		nhigh := b.newComputedNamed("nhigh", half)
-
-		b.emit(instruction.NewCall(subID, []register.Id{low}, []register.Id{nlow}))
-		b.emit(instruction.NewCall(subID, []register.Id{high}, []register.Id{nhigh}))
-
-		b.emit(instruction.NewBitConcat[W](out, []register.Id{nlow, nhigh}))
-	}
-
-	b.emit(instruction.NewReturn())
-
-	// Sub-helpers (if any) have already been appended; our slot is next.
-	name := helperName(key)
-
-	return function.New(name, b.regs(), []VectorInstruction{VectorInstruction{Codes: b.code}})
 }
 
 type helperBuilder[W word.Word[W]] struct {
