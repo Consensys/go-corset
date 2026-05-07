@@ -31,8 +31,9 @@ import (
 // We assume this lowering happens BEFORE vectorization and register splitting
 func LowerBitwise[W word.Word[W]](modules []machine.Module, cfg field.Config) []machine.Module {
 	var (
-		out     = append([]machine.Module{}, modules...)
-		helpers = newBitwiseHelpers[W](uint(len(out)), cfg)
+		out          = append([]machine.Module{}, modules...)
+		amountWidths = scanShiftAmountWidths[W](out, cfg.BandWidth)
+		helpers      = newBitwiseHelpers[W](uint(len(out)), cfg, amountWidths)
 	)
 
 	for i, mod := range out {
@@ -105,11 +106,15 @@ func lowerBitwiseCode[W word.Word[W]](
 		// Inline ~x as (MASK - x) directly in the caller; no helper module needed.
 		return bitwiseInlineNot[W](t.Target, t.Sources[0], origWidth, registers)
 	case *instruction.BitShl[W]:
-		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
-		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
+		id := helpers.ensure(t.OpCode(), origWidth, len(t.Sources), zeroWord[W]())
+		amtWidth := helpers.shiftAmountWidth(t.OpCode(), origWidth)
+
+		return bitwiseShiftCall(id, t.Target, t.Sources[0], t.Sources[1], amtWidth, registers)
 	case *instruction.BitShr[W]:
-		id := helpers.ensure(t.OpCode(), p, len(t.Sources), zeroWord[W]())
-		return bitwiseCall(id, t.Target, t.Sources, origWidth, p, registers)
+		id := helpers.ensure(t.OpCode(), origWidth, len(t.Sources), zeroWord[W]())
+		amtWidth := helpers.shiftAmountWidth(t.OpCode(), origWidth)
+
+		return bitwiseShiftCall(id, t.Target, t.Sources[0], t.Sources[1], amtWidth, registers)
 	default:
 		panic(fmt.Sprintf("unexpected non-bitwise opcode: %d", code.OpCode()))
 	}
@@ -218,19 +223,40 @@ type bitwiseHelperKey struct {
 	constant string
 }
 
-type bitwiseHelpers[W word.Word[W]] struct {
-	baseID uint
-	field  field.Config
-	ids    map[bitwiseHelperKey]uint
-	items  []machine.Module
+// shiftKey identifies a shift helper by opcode and padded value width.
+type shiftKey struct {
+	opcode instruction.OpCode
+	width  uint
 }
 
-func newBitwiseHelpers[W word.Word[W]](baseID uint, cfg field.Config) *bitwiseHelpers[W] {
+type bitwiseHelpers[W word.Word[W]] struct {
+	baseID       uint
+	field        field.Config
+	ids          map[bitwiseHelperKey]uint
+	items        []machine.Module
+	amountWidths map[shiftKey]uint
+}
+
+func newBitwiseHelpers[W word.Word[W]](
+	baseID uint, cfg field.Config, amountWidths map[shiftKey]uint,
+) *bitwiseHelpers[W] {
 	return &bitwiseHelpers[W]{
-		baseID: baseID,
-		field:  cfg,
-		ids:    make(map[bitwiseHelperKey]uint),
+		baseID:       baseID,
+		field:        cfg,
+		ids:          make(map[bitwiseHelperKey]uint),
+		amountWidths: amountWidths,
 	}
+}
+
+// shiftAmountWidth returns the canonical shift-amount register width for a
+// given (opcode, value-width) pair: the maximum seen across all call sites,
+// defaulting to valueWidth if no entry was recorded.
+func (p *bitwiseHelpers[W]) shiftAmountWidth(op instruction.OpCode, valueWidth uint) uint {
+	if w, ok := p.amountWidths[shiftKey{opcode: op, width: valueWidth}]; ok {
+		return w
+	}
+
+	return valueWidth
 }
 
 func (p *bitwiseHelpers[W]) modules() []machine.Module {
@@ -246,6 +272,26 @@ func (p *bitwiseHelpers[W]) ensure(op instruction.OpCode, width uint, arity int,
 	}
 
 	if id, ok := p.ids[key]; ok {
+		return id
+	}
+
+	// SHL/SHR are self-recursive: pre-register the ID before the factory runs
+	// so any re-entrant ensure call for the same key resolves correctly.
+	if op == opcode.BIT_SHL || op == opcode.BIT_SHR {
+		id := p.baseID + uint(len(p.items))
+		p.ids[key] = id
+
+		amtWidth := p.shiftAmountWidth(op, width)
+
+		var mod machine.Module
+		if op == opcode.BIT_SHL {
+			mod = newShlHelper[W](key, id, amtWidth)
+		} else {
+			mod = newShrHelper[W](key, id, amtWidth)
+		}
+
+		p.items = append(p.items, mod)
+
 		return id
 	}
 
@@ -282,39 +328,14 @@ func newBitwiseHelperModule[W word.Word[W]](
 		return newDecomposedNaryHelper(helpers, key, constant)
 	}
 
-	if key.opcode == opcode.BIT_NOT {
-		panic("BIT_NOT must be inlined by the caller; no helper module should be created")
-	}
-
-	var (
-		padding big.Int
-		regs    = make([]register.Register, 0, key.arity+1)
-		sources = make([]register.Id, key.arity)
-	)
-
-	for i := 0; i < key.arity; i++ {
-		regs = append(regs, register.NewInput(fmt.Sprintf("arg%d", i+1), key.width, padding))
-		sources[i] = register.NewId(uint(i))
-	}
-
-	target := register.NewId(uint(key.arity))
-	regs = append(regs, register.NewOutput("out", key.width, padding))
-
-	var op instruction.Instruction
-
 	switch key.opcode {
-	case opcode.BIT_SHL:
-		op = instruction.NewBitShl[W](target, sources[0], sources[1])
-	case opcode.BIT_SHR:
-		op = instruction.NewBitShr[W](target, sources[0], sources[1])
+	case opcode.BIT_NOT:
+		panic("BIT_NOT must be inlined by the caller; no helper module should be created")
+	case opcode.BIT_SHL, opcode.BIT_SHR:
+		panic("BIT_SHL/BIT_SHR must be handled by ensure before reaching newBitwiseHelperModule")
 	default:
 		panic(fmt.Sprintf("unsupported bitwise helper opcode: %d", key.opcode))
 	}
-
-	code := []instruction.Instruction{op, instruction.NewReturn()}
-	name := helperName(key)
-
-	return function.New(name, regs, []VectorInstruction{VectorInstruction{Codes: code}})
 }
 
 // newDecomposedNaryHelper builds a helper module for bitwise AND/OR/XOR using
