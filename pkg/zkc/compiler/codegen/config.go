@@ -18,8 +18,9 @@ import "github.com/consensys/go-corset/pkg/util/field"
 // debugging, for example) should derive a custom Config via the chainable
 // setters below.
 var DEFAULT_CONFIG = Config{
-	field:     field.KOALABEAR_16,
-	vectorize: true,
+	field:          field.KOALABEAR_16,
+	lowerZkcNative: false,
+	vectorize:      true,
 }
 
 // Config captures the tunable aspects of the ZkC code generator.  Instances
@@ -31,6 +32,9 @@ type Config struct {
 	// a target field in order to correctly evaluate native expressions, and
 	// sanity check native initialisers, etc.
 	field field.Config
+	// lower ZkC native functions (such as bitwise ops) into arithmetic instructions.
+	// This is required to generate arithmetic constraints. It happens before vectorization and register splitting.
+	lowerZkcNative bool
 	// vectorize controls whether the codegen pipeline runs the
 	// instruction-vectorisation pass in pkg/zkc/compiler/codegen/vectorize.go.
 	// Vectorisation merges sequences of micro-instructions that have no
@@ -58,6 +62,16 @@ func (p Config) Vectorize(flag bool) Config {
 	var q = p
 	//
 	q.vectorize = flag
+	//
+	return q
+}
+
+// LowerZkcNative returns a copy of this Config with VM-level bitwise lowering
+// enabled (flag=true) or disabled (flag=false).
+func (p Config) LowerZkcNative(flag bool) Config {
+	var q = p
+	//
+	q.lowerZkcNative = flag
 	//
 	return q
 }

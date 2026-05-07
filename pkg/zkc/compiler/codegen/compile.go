@@ -28,6 +28,8 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen/lowerzkcnative"
 )
 
 // Declaration represents a declaration which can contain macro
@@ -136,6 +138,14 @@ func (p *Compiler) Compile(declarations []Declaration) (*machine.Word[word.Uint]
 		default:
 			panic(fmt.Sprintf("unknown declaration %s", c.Name()))
 		}
+	}
+	// Lower VM-level zkc-native instructions into arithmetic instructions.
+	if len(errors) == 0 && p.config.lowerZkcNative {
+		// Reduce chain bitwise operation in order to prepare the VM instructions for bitwise lowering.
+		modules = lowerzkcnative.BinarizeBitwise[word.Uint](modules)
+		// Lower Bitwise operations into arithmetic instructions.
+		modules = lowerzkcnative.LowerBitwise[word.Uint](modules, p.config.field)
+		// WARN: LowerBitwise generate comparaison instructions, so lowering comparaison should happen after
 	}
 	// Vectorize modules (if no errors)
 	if len(errors) == 0 && p.config.vectorize {
