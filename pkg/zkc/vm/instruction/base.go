@@ -76,17 +76,13 @@ func NewCall(id uint, arguments []register.Id, returns []register.Id) *Call {
 
 // ============================================================================
 
-// Fail aborts execution of the machine, signalling an unrecoverable error
-// (a "machine panic").  No further instructions are executed and the
-// surrounding call stack is not unwound; the executor returns an error to its
-// caller.  The immediate operand is unused.  Fail is one of the three
-// control-flow terminators (along with Jmp and Return) recognised by the
-// vectoriser as ending a basic block.
-type Fail struct{ base.OpImm }
+// Fail is a convenient alias
+type Fail = base.Fail
 
-// NewFail constructs a fresh fail instruction.
-func NewFail() *Fail {
-	return &Fail{base.OpImm{Op: opcode.FAIL, Immediate: 0}}
+// NewFail constructs a fresh fail instruction with the given (possibly empty)
+// formatted error message.
+func NewFail(chunks ...FormattedChunk) *Fail {
+	return &Fail{Chunks: chunks}
 }
 
 // ============================================================================

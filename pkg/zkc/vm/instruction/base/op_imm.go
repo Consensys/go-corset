@@ -26,8 +26,8 @@ import (
 
 // OpImm represents an instruction parameterised solely by an opcode and a uint
 // immediate value.  This is used for control-flow instructions such as JUMP
-// (where the immediate identifies the branch target), as well as RETURN and
-// FAIL (which ignore the immediate).
+// (where the immediate identifies the branch target), as well as RETURN
+// (which ignores the immediate).
 type OpImm struct {
 	Op        opcode.OpCode
 	Immediate uint
@@ -54,8 +54,6 @@ func (p *OpImm) String(_ SystemMap) string {
 		return fmt.Sprintf("jmp %d", p.Immediate)
 	case opcode.RETURN:
 		return "ret"
-	case opcode.FAIL:
-		return "fail"
 	default:
 		panic("unknown OpImm32 opcode")
 	}

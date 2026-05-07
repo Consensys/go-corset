@@ -200,10 +200,12 @@ func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxErro
 		switch s := s.(type) {
 		case *stmt.Assign[symbol.Resolved]:
 			errors = append(errors, p.typeAssignment(s, &fn, effects)...)
+		case *stmt.Fail[symbol.Resolved]:
+			errors = append(errors, p.typeFormatArgs(s.Arguments, &fn, effects)...)
 		case *stmt.IfGoto[symbol.Resolved]:
 			errors = append(errors, p.typeIfGoto(s, &fn, effects)...)
 		case *stmt.Printf[symbol.Resolved]:
-			errors = append(errors, p.typePrintf(s, &fn, effects)...)
+			errors = append(errors, p.typeFormatArgs(s.Arguments, &fn, effects)...)
 		}
 	}
 	//
@@ -404,11 +406,11 @@ func (p *TypeChecker) typeIfGoto(s *stmt.IfGoto[symbol.Resolved], env VariableMa
 	return p.typeCondition(s.Cond, env, effects)
 }
 
-func (p *TypeChecker) typePrintf(s *stmt.Printf[symbol.Resolved], env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeFormatArgs(args []expr.Resolved, env VariableMap, effects bit.Set,
 ) []source.SyntaxError {
 	var errs []source.SyntaxError
 	//
-	for _, e := range s.Arguments {
+	for _, e := range args {
 		ith, ierrs := p.typeExpression(nil, e, env, effects)
 		//
 		if len(ierrs) > 0 {

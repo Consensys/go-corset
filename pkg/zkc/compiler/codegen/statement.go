@@ -78,7 +78,7 @@ func (p *StmtCompiler) compileStatement(pc uint, mapping []uint, s Stmt) VectorI
 	case *stmt.Goto[symbol.Resolved]:
 		return instruction.NewVector[MicroInstruction](instruction.NewJmp(s.Target))
 	case *stmt.Fail[symbol.Resolved]:
-		return instruction.NewVector[MicroInstruction](instruction.NewFail())
+		return p.compileFail(mapping, s.Chunks, s.Arguments)
 	case *stmt.Printf[symbol.Resolved]:
 		return p.compilePrintf(mapping, s.Chunks, s.Arguments)
 	case *stmt.Return[symbol.Resolved]:
@@ -165,14 +165,36 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 
 func (p *StmtCompiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChunk, args []Expr,
 ) VectorInstruction {
+	nchunks, insns := p.compileFormattedChunks(mapping, chunks, args)
+	//
+	insns = append(insns, &instruction.Debug{Chunks: nchunks})
+	//
+	return instruction.NewVector(insns...)
+}
+
+func (p *StmtCompiler) compileFail(mapping []uint, chunks []stmt.FormattedChunk, args []Expr,
+) VectorInstruction {
+	//
+	nchunks, insns := p.compileFormattedChunks(mapping, chunks, args)
+	//
+	insns = append(insns, instruction.NewFail(nchunks...))
+	//
+	return instruction.NewVector(insns...)
+}
+
+// compileFormattedChunks compiles each argument expression into a temporary
+// register and pairs it with the corresponding format chunk.  Chunks without a
+// format directive are passed through unchanged with an unused argument
+// register.  Returns the resulting chunk list together with the
+// micro-instructions needed to evaluate the arguments.
+func (p *StmtCompiler) compileFormattedChunks(mapping []uint, chunks []stmt.FormattedChunk, args []Expr,
+) ([]instruction.FormattedChunk, []MicroInstruction) {
 	var (
 		nchunks     []instruction.FormattedChunk
 		regs, insns = p.compileArgs(mapping, args...)
 		index       uint
 	)
 	//
-
-	// Manage all chunks
 	for _, chunk := range chunks {
 		if chunk.Format.HasFormat() {
 			nchunks = append(nchunks, instruction.FormattedChunk{
@@ -187,9 +209,7 @@ func (p *StmtCompiler) compilePrintf(mapping []uint, chunks []stmt.FormattedChun
 		}
 	}
 	//
-	insns = append(insns, &instruction.Debug{Chunks: nchunks})
-	//
-	return instruction.NewVector(insns...)
+	return nchunks, insns
 }
 
 func (p *StmtCompiler) compileCondition(pc uint, e Condition, mapping []uint, target uint,

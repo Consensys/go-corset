@@ -15,6 +15,7 @@ package machine
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
@@ -232,7 +233,17 @@ func (p *Base[W, I, T]) executeInstruction(insn I, width uint, regs []register.R
 		// Don't fall thru
 		return nil
 	case opcode.FAIL:
-		return errors.New("machine panic")
+		var (
+			insn = binsn.(*instruction.Fail)
+			//
+			msg = executeFormattedChunks(insn.Chunks, frame)
+		)
+		// check whether to include msg or not
+		if len(insn.Chunks) == 0 {
+			return errors.New("machine panic")
+		}
+		// include msg in error
+		return fmt.Errorf("machine panic: %s", msg)
 	case opcode.JUMP:
 		insn := binsn.(*instruction.Jmp)
 		// Goto target instruction in current frame
@@ -288,8 +299,7 @@ func (p *Base[W, I, T]) executeInstruction(insn I, width uint, regs []register.R
 		// Fall thru
 	case opcode.DEBUG:
 		insn := binsn.(*instruction.Debug)
-		err = executeDebug(*insn, frame, regs)
-
+		fmt.Print(executeFormattedChunks(insn.Chunks, frame))
 	default:
 		// Call provided executor
 		err = p.executor.Execute(insn, frame, regs)
@@ -302,16 +312,18 @@ func (p *Base[W, I, T]) executeInstruction(insn I, width uint, regs []register.R
 	return err
 }
 
-func executeDebug[W zkc_util.Formattable](insn instruction.Debug, frame []W, _ []register.Register) error {
-	for _, chunk := range insn.Chunks {
-		fmt.Printf("%s", chunk.Text)
+func executeFormattedChunks[W zkc_util.Formattable](chunks []instruction.FormattedChunk, frame []W) string {
+	var builder strings.Builder
+	//
+	for _, chunk := range chunks {
+		builder.WriteString(chunk.Text)
 		//
 		if chunk.Format.HasFormat() {
-			fmt.Printf("%s", zkc_util.FormatWord(chunk.Format, frame[chunk.Argument.Unwrap()]))
+			builder.WriteString(zkc_util.FormatWord(chunk.Format, frame[chunk.Argument.Unwrap()]))
 		}
 	}
 	//
-	return nil
+	return builder.String()
 }
 
 // ==============================================================

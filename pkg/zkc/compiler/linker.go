@@ -256,7 +256,11 @@ func (p *Linker) linkStatement(s stmt.Unresolved) (stmt.Resolved, []source.Synta
 	case *stmt.Continue[symbol.Unresolved]:
 		ninsn = &stmt.Continue[symbol.Resolved]{}
 	case *stmt.Fail[symbol.Unresolved]:
-		ninsn = &stmt.Fail[symbol.Resolved]{}
+		var args []expr.Expr[symbol.Resolved]
+		//
+		args, errors = p.linkExprs(s.Arguments...)
+		//
+		ninsn = &stmt.Fail[symbol.Resolved]{Chunks: s.Chunks, Arguments: args}
 	case *stmt.For[symbol.Unresolved]:
 		init, errs1 := p.linkStatement(s.Init)
 		cond, errs2 := p.linkExpr(s.Cond)
