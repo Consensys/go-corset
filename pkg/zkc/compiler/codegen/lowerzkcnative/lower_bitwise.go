@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package codegen
+package lowerzkcnative
 
 import (
 	"fmt"
@@ -24,6 +24,8 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
+
+type vectorInstruction = instruction.Vector[instruction.Instruction]
 
 // LowerBitwise rewrites VM-level bitwise micro-instructions into CALLs to
 // helper functions. The helper modules are appended to the returned module
@@ -50,13 +52,13 @@ func lowerBitwiseFunction[W word.Word[W]](
 ) *function.Boot {
 	var (
 		code      = fn.Code()
-		ncode     = make([]VectorInstruction, len(code))
+		ncode     = make([]vectorInstruction, len(code))
 		registers = append([]register.Register{}, fn.Registers()...)
 	)
 
 	for i, insn := range code {
 		ncodes := lowerBitwiseCodes(insn.Codes, &registers, helpers)
-		ncode[i] = VectorInstruction{Codes: ncodes}
+		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
 	return function.New(fn.Name(), registers, ncode)
@@ -223,12 +225,6 @@ type bitwiseHelperKey struct {
 	constant string
 }
 
-// shiftKey identifies a shift helper by opcode and padded value width.
-type shiftKey struct {
-	opcode instruction.OpCode
-	width  uint
-}
-
 type bitwiseHelpers[W word.Word[W]] struct {
 	baseID       uint
 	field        field.Config
@@ -295,11 +291,11 @@ func (p *bitwiseHelpers[W]) ensure(op instruction.OpCode, width uint, arity int,
 		return id
 	}
 
-	// Build the module first: the factory may recursively call ensure for
-	// sub-helpers, which appends them to p.items.  The current module must
-	// occupy the slot AFTER all its sub-helpers (callees before callers), so
-	// its ID is derived from len(p.items) only after the factory returns.
-	mod := newBitwiseHelperModule(p, key, constant)
+	// AND/OR/XOR: the factory may recursively call ensure for sub-helpers,
+	// which appends them to p.items.  The current module must occupy the slot
+	// AFTER all its sub-helpers (callees before callers), so its ID is derived
+	// from len(p.items) only after the factory returns.
+	mod := newDecomposedNaryHelper(p, key, constant)
 
 	id := p.baseID + uint(len(p.items))
 	p.items = append(p.items, mod)
@@ -314,27 +310,6 @@ func helperConstant[W word.Word[W]](op instruction.OpCode, constant W) string {
 		return constant.BigInt().Text(16)
 	default:
 		return ""
-	}
-}
-
-func newBitwiseHelperModule[W word.Word[W]](
-	helpers *bitwiseHelpers[W],
-	key bitwiseHelperKey,
-	constant W,
-) machine.Module {
-	if key.opcode == opcode.BIT_AND || key.opcode == opcode.BIT_OR ||
-		key.opcode == opcode.BIT_XOR {
-		// Recursive: sub-helpers are appended inside; id is recomputed there.
-		return newDecomposedNaryHelper(helpers, key, constant)
-	}
-
-	switch key.opcode {
-	case opcode.BIT_NOT:
-		panic("BIT_NOT must be inlined by the caller; no helper module should be created")
-	case opcode.BIT_SHL, opcode.BIT_SHR:
-		panic("BIT_SHL/BIT_SHR must be handled by ensure before reaching newBitwiseHelperModule")
-	default:
-		panic(fmt.Sprintf("unsupported bitwise helper opcode: %d", key.opcode))
 	}
 }
 
@@ -410,10 +385,7 @@ func newDecomposedNaryHelper[W word.Word[W]](
 
 	b.emit(instruction.NewReturn())
 
-	// Sub-helpers (if any) have already been appended; our slot is next.
-	name := helperName(key)
-
-	return function.New(name, b.regs(), []VectorInstruction{{Codes: b.code}})
+	return function.New(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
 }
 
 type helperBuilder[W word.Word[W]] struct {

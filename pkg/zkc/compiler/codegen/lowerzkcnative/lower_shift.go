@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package codegen
+package lowerzkcnative
 
 import (
 	"math/big"
@@ -22,6 +22,12 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
+
+// shiftKey identifies a shift helper by opcode and value width.
+type shiftKey struct {
+	opcode instruction.OpCode
+	width  uint
+}
 
 // scanShiftAmountWidths scans all Boot functions and returns, for each
 // (opcode, value-width) pair, the maximum shift-amount register width seen
@@ -144,7 +150,7 @@ func newShlHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth ui
 	b.emit(instruction.NewCall(selfID, []register.Id{doubled, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return function.New(helperName(key), b.regs(), []VectorInstruction{{Codes: b.code}})
+	return function.New(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
 }
 
 // newShrHelper builds a self-recursive module for logical right shift:
@@ -200,5 +206,5 @@ func newShrHelper[W word.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth ui
 	b.emit(instruction.NewCall(selfID, []register.Id{half, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return function.New(helperName(key), b.regs(), []VectorInstruction{{Codes: b.code}})
+	return function.New(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
 }

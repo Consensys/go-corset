@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package codegen
+package lowerzkcnative
 
 import (
 	"fmt"
@@ -43,13 +43,13 @@ func BinarizeBitwise[W word.Word[W]](modules []machine.Module) []machine.Module 
 func binarizeBitwiseFunction[W word.Word[W]](fn *function.Boot) *function.Boot {
 	var (
 		code      = fn.Code()
-		ncode     = make([]VectorInstruction, len(code))
+		ncode     = make([]vectorInstruction, len(code))
 		registers = append([]register.Register{}, fn.Registers()...)
 	)
 
 	for i, insn := range code {
 		ncodes := binarizeBitwiseCodes[W](insn.Codes, &registers)
-		ncode[i] = VectorInstruction{Codes: ncodes}
+		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
 	return function.New(fn.Name(), registers, ncode)
