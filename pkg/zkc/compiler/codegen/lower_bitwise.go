@@ -143,7 +143,6 @@ func bitwiseCall(
 
 	pResult := allocTmp(registers, p)
 	insns = append(insns, instruction.NewCall(id, pSources, []register.Id{pResult}))
-	// TODO @Dave: is a cast safe here for truncation?
 	insns = append(insns, instruction.NewCast(target, pResult, origWidth))
 
 	return insns
