@@ -1,6 +1,6 @@
 pub input data(address:u8) -> (byte:u24)
 
-// chack that cast (a | b) == (cast a | cast b) ... and equivalent for and, xor, not
+// check that cast (a | b) == (cast a | cast b) ... and equivalent for and, xor, not
 // where width a < power of 2 < width of cast a 
 
 fn main() {

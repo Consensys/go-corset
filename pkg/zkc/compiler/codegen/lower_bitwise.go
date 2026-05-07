@@ -28,6 +28,7 @@ import (
 // LowerBitwise rewrites VM-level bitwise micro-instructions into CALLs to
 // helper functions. The helper modules are appended to the returned module
 // slice.
+// We assume this lowering happens BEFORE vectorization and register splitting
 func LowerBitwise[W word.Word[W]](modules []machine.Module, cfg field.Config) []machine.Module {
 	var (
 		out     = append([]machine.Module{}, modules...)
@@ -265,8 +266,10 @@ func (p *bitwiseHelpers[W]) ensure(op instruction.OpCode, width uint, arity int,
 		return id
 	}
 
-	// Sub-helpers (e.g. recursive NOT halves) are appended to p.items inside
-	// the factory, so id must be derived after the factory returns.
+	// Build the module first: the factory may recursively call ensure for
+	// sub-helpers, which appends them to p.items.  The current module must
+	// occupy the slot AFTER all its sub-helpers (callees before callers), so
+	// its ID is derived from len(p.items) only after the factory returns.
 	mod := newBitwiseHelperModule(p, key, constant)
 
 	id := p.baseID + uint(len(p.items))
