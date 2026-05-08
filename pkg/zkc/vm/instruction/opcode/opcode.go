@@ -17,11 +17,34 @@ type OpCode uint8
 
 const (
 	// ========================================================================
-	// A-type instructions
+	// Base Instructions
+	// ========================================================================
+
+	// CALL instruction
+	CALL OpCode = iota
+	// FAIL instruction
+	FAIL
+	// JUMP (unconditional) instruction
+	JUMP
+	// MEMORY_READ instruction
+	MEMORY_READ
+	// MEMORY_WRITE instruction
+	MEMORY_WRITE
+	// SKIP_IF instruction
+	SKIP_IF
+	// SKIP instruction
+	SKIP
+	// RETURN instruction
+	RETURN
+	// DEBUG instruction
+	DEBUG
+
+	// ========================================================================
+	// Word Instructions
 	// ========================================================================
 
 	// INT_ADD instruction
-	INT_ADD OpCode = iota
+	INT_ADD
 	// INT_SUB instruction
 	INT_SUB
 	// INT_MUL instruction
@@ -56,24 +79,11 @@ const (
 	BIT_CONCAT
 	// BIT_DESTRUCT (destructuring) instruction
 	BIT_DESTRUCT
-	// SKIP_IF instruction
-	SKIP_IF
-	// SKIP instruction
-	SKIP
-	// JUMP (unconditional) instruction
-	JUMP
-	// FAIL instruction
-	FAIL
-	// CALL instruction
-	CALL
-	// MEMORY_READ instruction
-	MEMORY_READ
-	// MEMORY_WRITE instruction
-	MEMORY_WRITE
-	// RETURN instruction
-	RETURN
-	// VECTOR instruction
-	VECTOR
-	// DEBUG instruction
-	DEBUG
+
+	// ========================================================================
+	// Field Instructions
+	// ========================================================================
+
+	// FIELD_ASSIGN represents a field assignment instruction.
+	FIELD_ASSIGN
 )

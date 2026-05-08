@@ -337,18 +337,18 @@ func extendSkipIf(tail dfa.Branch, sign bool, code *SkipIf, writes dfa.Writes) d
 		head      dfa.BranchEquality
 		rightUsed = code.Right.HasFirst()
 		tailc     = tail.Condition
-		left      = dfa.NewBranchId(code.Left, writes.MayAnybeAssigned(code.Left.Registers()))
+		left      = dfa.NewBranchId(writes.MayAnybeAssigned(code.Left.Registers()...), code.Left.Registers()...)
 	)
 	//
 	switch {
 	case !sign && rightUsed:
 		right := code.Right.First()
-		head = logical.Equals(left, dfa.NewBranchId(right, writes.MayAnybeAssigned(right.Registers())))
+		head = logical.Equals(left, dfa.NewBranchId(writes.MayAnybeAssigned(right.Registers()...), right.Registers()...))
 	case !sign && !rightUsed:
 		head = logical.EqualsConst(left, code.Right.Second())
 	case sign && rightUsed:
 		right := code.Right.First()
-		head = logical.NotEquals(left, dfa.NewBranchId(right, writes.MayAnybeAssigned(right.Registers())))
+		head = logical.NotEquals(left, dfa.NewBranchId(writes.MayAnybeAssigned(right.Registers()...), right.Registers()...))
 	case sign && !rightUsed:
 		head = logical.NotEqualsConst(left, code.Right.Second())
 	}
