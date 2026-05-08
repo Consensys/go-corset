@@ -32,14 +32,14 @@ const (
 	INT_REM
 	// INT_CAST instruction
 	INT_CAST
-	// FIELD_ADD instruction
-	FIELD_ADD
-	// FIELD_SUB instruction
-	FIELD_SUB
-	// FIELD_MUL instruction
-	FIELD_MUL
-	// FIELD_CAST instruction
-	FIELD_CAST
+	// INT_ADDMOD_P instruction
+	INT_ADDMOD_P
+	// INT_SUBMOD_P instruction
+	INT_SUBMOD_P
+	// INT_MULMOD_P instruction
+	INT_MULMOD_P
+	// INT_CASTMOD_P instruction
+	INT_CASTMOD_P
 	// BIT_AND instruction
 	BIT_AND
 	// BIT_OR instruction

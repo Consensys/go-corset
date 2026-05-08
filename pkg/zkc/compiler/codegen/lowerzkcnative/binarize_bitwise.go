@@ -17,22 +17,20 @@ import (
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 )
 
 // BinarizeBitwise splits any AND/OR/XOR instruction with more than two source
 // registers into a left-fold chain of binary instructions.  This must run
 // before LowerBitwise so that the helper modules it generates never need more
 // than two inputs.
-func BinarizeBitwise[W word.Word[W]](modules []machine.Module) []machine.Module {
-	out := append([]machine.Module{}, modules...)
+func BinarizeBitwise[W vm.Word[W]](modules []vm.Module) []vm.Module {
+	out := append([]vm.Module{}, modules...)
 
 	for i, mod := range out {
-		if fn, ok := mod.(*function.Boot); ok {
+		if fn, ok := mod.(*vm.WordFunction); ok {
 			out[i] = binarizeBitwiseFunction[W](fn)
 		}
 	}
@@ -40,7 +38,7 @@ func BinarizeBitwise[W word.Word[W]](modules []machine.Module) []machine.Module 
 	return out
 }
 
-func binarizeBitwiseFunction[W word.Word[W]](fn *function.Boot) *function.Boot {
+func binarizeBitwiseFunction[W vm.Word[W]](fn *vm.WordFunction) *vm.WordFunction {
 	var (
 		code      = fn.Code()
 		ncode     = make([]vectorInstruction, len(code))
@@ -52,14 +50,12 @@ func binarizeBitwiseFunction[W word.Word[W]](fn *function.Boot) *function.Boot {
 		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
-	return function.New(fn.Name(), registers, ncode)
+	return vm.NewFunction(fn.Name(), registers, ncode)
 }
 
-func binarizeBitwiseCodes[W word.Word[W]](
-	codes []instruction.Instruction,
-	registers *[]register.Register,
-) []instruction.Instruction {
-	ncodes := make([]instruction.Instruction, 0, len(codes))
+func binarizeBitwiseCodes[W vm.Word[W]](codes []vm.WordInstruction, registers *[]register.Register,
+) []vm.WordInstruction {
+	ncodes := make([]vm.WordInstruction, 0, len(codes))
 
 	for _, code := range codes {
 		ncodes = append(ncodes, binarizeBitwiseCode[W](code, registers)...)
@@ -68,10 +64,8 @@ func binarizeBitwiseCodes[W word.Word[W]](
 	return ncodes
 }
 
-func binarizeBitwiseCode[W word.Word[W]](
-	code instruction.Instruction,
-	registers *[]register.Register,
-) []instruction.Instruction {
+func binarizeBitwiseCode[W vm.Word[W]](code vm.WordInstruction, registers *[]register.Register,
+) []vm.WordInstruction {
 	var (
 		op       instruction.OpCode
 		target   register.Id
@@ -87,17 +81,17 @@ func binarizeBitwiseCode[W word.Word[W]](
 	case *instruction.BitXor[W]:
 		op, target, sources, constant = t.OpCode(), t.Target, t.Sources, t.Constant
 	default:
-		return []instruction.Instruction{code}
+		return []vm.WordInstruction{code}
 	}
 
 	if len(sources) <= 2 {
-		return []instruction.Instruction{code}
+		return []vm.WordInstruction{code}
 	}
 
 	width := (*registers)[target.Unwrap()].Width()
 	identity := bitwiseIdentity[W](op, width)
 
-	insns := make([]instruction.Instruction, 0, len(sources)-1)
+	insns := make([]vm.WordInstruction, 0, len(sources)-1)
 	acc := sources[0]
 
 	for _, src := range sources[1 : len(sources)-1] {
@@ -112,7 +106,7 @@ func binarizeBitwiseCode[W word.Word[W]](
 }
 
 // bitwiseIdentity returns the identity element for the given bitwise operation.
-func bitwiseIdentity[W word.Word[W]](op instruction.OpCode, width uint) W {
+func bitwiseIdentity[W vm.Word[W]](op instruction.OpCode, width uint) W {
 	var z W
 
 	if op == opcode.BIT_AND {
@@ -123,9 +117,8 @@ func bitwiseIdentity[W word.Word[W]](op instruction.OpCode, width uint) W {
 	return z
 }
 
-func newBinaryBitOp[W word.Word[W]](
-	op instruction.OpCode, target, lhs, rhs register.Id, constant W,
-) instruction.Instruction {
+func newBinaryBitOp[W vm.Word[W]](op instruction.OpCode, target, lhs, rhs register.Id, constant W,
+) vm.WordInstruction {
 	sources := []register.Id{lhs, rhs}
 
 	switch op {

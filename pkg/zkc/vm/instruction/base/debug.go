@@ -40,6 +40,16 @@ func (p *Debug) OpCode() opcode.OpCode {
 	return opcode.DEBUG
 }
 
+// IsWord implementation for instruction.Word interface
+func (p *Debug) IsWord() bool {
+	return true
+}
+
+// IsField implementation for instruction.Field interface
+func (p *Debug) IsField() bool {
+	return true
+}
+
 // Uses implementation for Instruction interface.
 func (p *Debug) Uses() []register.Id {
 	var uses []register.Id

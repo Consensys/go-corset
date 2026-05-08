@@ -21,9 +21,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 )
 
 // CheckValid checks that a given source file compiles without any errors.
@@ -78,23 +76,23 @@ func checkValidInternal(t *testing.T, test, ext string, cfg codegen.Config, fiel
 	}
 }
 
-func runTestCases(t *testing.T, program ast.Program, bootVm *machine.Word[word.Uint], tests []TestCase) {
+func runTestCases(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint], tests []TestCase) {
 	for _, test := range tests {
-		runTestCase(t, program, bootVm, test)
+		runTestCase(t, program, wm, test)
 	}
 }
 
-func runTestCase(t *testing.T, program ast.Program, vm *machine.Word[word.Uint], test TestCase) {
+func runTestCase(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	var (
 		err                   error
 		inputs, outputs, errs = program.DecodeInputsOutputs(test.data)
 	)
 	// Execute machine
-	if err = vm.Boot("main", inputs); err == nil {
+	if err = wm.Boot("main", inputs); err == nil {
 		// Execute it
-		if _, err = machine.ExecuteAll(vm, 1024); err == nil && test.expected {
+		if _, err = vm.ExecuteAll(wm, 1024); err == nil && test.expected {
 			// Check outputs match
-			errs = append(errs, checkExpectedOutputs(outputs, vm)...)
+			errs = append(errs, checkExpectedOutputs(outputs, wm)...)
 		} else if err == nil && !test.expected {
 			errs = append(errs, fmt.Errorf("test accepted incorrectly"))
 		} else if !test.expected {
@@ -112,12 +110,12 @@ func runTestCase(t *testing.T, program ast.Program, vm *machine.Word[word.Uint],
 	}
 }
 
-func checkExpectedOutputs(outputs map[string][]word.Uint, vm *machine.Word[word.Uint]) []error {
+func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Uint]) []error {
 	var errors []error
 	//
-	for _, m := range vm.Modules() {
+	for _, m := range wm.Modules() {
 		// Check whether this is an output memory or not.
-		if m, ok := m.(*memory.WriteOnce[word.Uint]); ok {
+		if m, ok := m.(vm.InputOutputMemory[vm.Uint]); ok && m.IsWriteOnly() {
 			if output, ok := outputs[m.Name()]; ok {
 				if c := array.Compare(output, m.Contents()); c != 0 {
 					errors = append(errors, fmt.Errorf("incorrect output (expected %v, actual %v)", output, m.Contents()))

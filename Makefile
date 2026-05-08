@@ -74,7 +74,7 @@ zkc-lint-apply:
 
 zkc-test: zkc-lint
 	@echo ">>> Running ZkC Tests..."
-	go test --timeout 0 -run "Test_ZkcBench|Test_ZkcUnit|Test_ZkcInvalid" ./...
+	go test --timeout 0 -run "Test_ZkcBench|Test_ZkcUnit|Test_ZkcMixed|Test_ZkcInvalid" ./...
 
 build:
 	@echo ">>> Building ${PROJECT_NAME}... ${GOCORSET_VERSION}"

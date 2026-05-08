@@ -17,8 +17,6 @@ import (
 	"strings"
 
 	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
-	"github.com/consensys/go-corset/pkg/schema/register"
-	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
@@ -81,49 +79,6 @@ func (p *Vector[W]) IsEmpty() bool {
 	return len(p.Codes) == 0
 }
 
-// OpCode implementation for Instruction interface
-func (p *Vector[W]) OpCode() OpCode {
-	return opcode.VECTOR
-}
-
-// Uses implementation for Instruction interface
-func (p *Vector[W]) Uses() []register.Id {
-	var (
-		regs bit.Set
-		read []register.Id
-	)
-	//
-	for _, c := range p.Codes {
-		for _, id := range c.Uses() {
-			if !regs.Contains(id.Unwrap()) {
-				regs.Insert(id.Unwrap())
-				read = append(read, id)
-			}
-		}
-	}
-	//
-	return read
-}
-
-// Definitions implementation for Instruction interface
-func (p *Vector[W]) Definitions() []register.Id {
-	var (
-		regs    bit.Set
-		written []register.Id
-	)
-	//
-	for _, c := range p.Codes {
-		for _, id := range c.Definitions() {
-			if !regs.Contains(id.Unwrap()) {
-				regs.Insert(id.Unwrap())
-				written = append(written, id)
-			}
-		}
-	}
-	//
-	return written
-}
-
 // Validate that this micro-instruction is well-formed.  For example, each
 // micro-instruction contained within must be well-formed, and the overall
 // requirements for a vector instruction must be met, etc.
@@ -132,7 +87,7 @@ func (p *Vector[W]) Validate(field field.Config, mapping SystemMap) []error {
 	var (
 		errors   []error
 		nCodes   = uint(len(p.Codes))
-		writeMap = p.Writes()
+		writeMap = p.WriteMap()
 	)
 	// Validate individual instructions
 	for _, r := range p.Codes {
@@ -181,9 +136,63 @@ func (p *Vector[W]) String(mapping SystemMap) string {
 	return builder.String()
 }
 
-// Writes constructs the write map for this micro instruction.
-func (p *Vector[W]) Writes() dfa.Result[dfa.Writes] {
+// WriteMap constructs the write map for this vector instruction.
+//
+// For each instruction, the write map records — on entry to that instruction —
+// which registers have been written by preceding instructions (on any path to
+// this point). This identifies: (1) whether a register _may_ have been written
+// on some path; (2) or, whether it was _definitely_ written along all paths.
+// For example, consider the following sequence:
+//
+// x = 0; skip_if ... 1; y = 0; ret
+//
+// When execution reaches the return instruction, we know that x was definitely
+// written but only that y may have been written (i.e. depending on which path
+// was taken).
+//
+// The write map serves two purposes:  firstly, it allows conflict detection;
+// secondly, it identifies where register forwarding should be used.  A write
+// conflict arises when a register is written which _may_ have already been
+// written; likewise a read conflict arises when a register is read that _may_
+// (but not _definitely_) have been written.  Finally, register forwarding
+// arises when a register has _definitely_ been written by an earlier
+// instruction in the vector and, hence, subsequent reads use the new value
+// (rather than the previous value).
+func (p *Vector[W]) WriteMap() dfa.Result[dfa.Writes] {
 	return dfa.Construct(dfa.Writes{}, p.Codes, writeDfaTransfer)
+}
+
+// BranchTable returns a _branch condition_ for each instruction in the vector
+// which identifies the conditions under which the given instruction will
+// execute.  For example, consider the following sequence:
+//
+// skip_if x!=0 1; y=0; skip_if x!=1 2; y=1; ret; y = 2; ret
+// --------------+----+---------------+----+----+------+----
+// 0             | 1  | 2             | 3  | 4  | 5    | 6
+//
+// This sequence gives rise to the following branch table:
+//
+// --+-------------+-----------------------
+// 0 | skip_if ... | TRUE
+// 1 | y=0         | x==0
+// 2 | skip_if ... | x!=0
+// 3 | y=1         | x!=0 && x==1 ==> x==1
+// 4 | ret         | x!=0 && x==1 ==> x==1
+// 5 | y=2         | x!=0 && x!=1
+// 6 | ret         | x!=0 && x!=1
+// --+-------------+-----------------------
+//
+// Observe that the optimiser automatically reduces "x!=0 && x==1" to just x==1
+// (this is why it is sometimes called _branch table optimisation_).
+func (p *Vector[W]) BranchTable() dfa.Result[dfa.Branch] {
+	// Construct suitable branch table for this instruction vector.
+	var btf = branchTableTransfer[W](p.WriteMap())
+	//
+	return dfa.Construct(dfa.Branch{Condition: dfa.TRUE}, p.Codes, btf)
+}
+
+func branchTableTransfer[I Instruction](writeMap dfa.Result[dfa.Writes]) dfa.BranchTransferFunction[I] {
+	panic("todo")
 }
 
 // Data-flow transfer function for the writes analysis

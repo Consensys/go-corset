@@ -15,6 +15,7 @@ package zkc
 import (
 	"fmt"
 
+	"github.com/consensys/go-corset/pkg/cmd/corset/debug"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -29,11 +30,9 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
-	"github.com/consensys/go-corset/pkg/zkc/vm/function"
+	"github.com/consensys/go-corset/pkg/zkc/constraints"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -59,33 +58,54 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	var (
 		// compiler config
 		config = codegen.DEFAULT_CONFIG.
-			LowerZkcNative(GetFlag(cmd, "lower-zkc-native")).
+			LowerZkcNative(GetFlag(cmd, "lower-native")).
 			Vectorize(GetFlag(cmd, "vectorize")).
 			Field(field)
+			//
+		//
+		wir = GetFlag(cmd, "wir")
+		fir = GetFlag(cmd, "fir")
+		air = GetFlag(cmd, "air")
 	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
 		log.SetLevel(log.DebugLevel)
 	}
-	//
-	ir := GetFlag(cmd, "ir")
-	as := GetFlag(cmd, "ast")
 	// Compile source files, or print errors
 	program := CompileSourceFiles(field, args...)
 	//
-	if as {
+	writeProgram[F](config, field, program, wir, fir, air)
+}
+
+func writeProgram[F field.Element[F]](config codegen.Config, field field.Config, program ast.Program,
+	wir, fir, air bool) {
+	//
+	if !(wir || fir || air) {
 		writeAbstractSyntaxTree(program)
+		return
+	}
+
+	wvm, errs := program.Compile(config)
+	//
+	for _, err := range errs {
+		printSyntaxError(&err)
 	}
 	//
-	if ir {
-		vm, errs := program.Compile(config)
-		for _, err := range errs {
-			printSyntaxError(&err)
-		}
-
-		if len(errs) == 0 {
-			writeIntermediateRepresentation[word.Uint](vm)
-		}
+	if len(errs) != 0 {
+		return
+	} else if wir {
+		writeIntermediateRepresentation(wvm)
+		return
+	}
+	//
+	fvm := vm.LowerWordMachine[vm.Uint, F](field, wvm)
+	//
+	if fir {
+		writeIntermediateRepresentation(fvm)
+	} else {
+		avm := constraints.GenerateAirConstraints(fvm)
+		//
+		debug.PrintAnySchema(avm, 80)
 	}
 }
 
@@ -259,7 +279,9 @@ func writeFunctionVariables(f *decl.ResolvedFunction, env data.ResolvedEnvironme
 // Intermediate Representation (IR)
 // ============================================================================
 
-func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Word[W]) {
+func writeIntermediateRepresentation[W vm.BaseWord[W], I vm.Instruction, T vm.Executor[W, I]](
+	machine *vm.BaseMachine[W, I, T]) {
+	//
 	// Write memories
 	for i, m := range machine.Modules() {
 		if i != 0 {
@@ -267,15 +289,9 @@ func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Word[W]) {
 		}
 		//
 		switch m := m.(type) {
-		case *memory.ReadOnly[W]:
-			writeIrMemory("input", m)
-		case *memory.StaticReadOnly[W]:
-			writeIrMemory("static", m)
-		case *memory.RandomAccess[W]:
-			writeIrMemory("memory", m)
-		case *memory.WriteOnce[W]:
-			writeIrMemory("output", m)
-		case *function.Boot:
+		case vm.Memory[W]:
+			writeIrMemory(m)
+		case *vm.Function[I]:
 			name := trace.ModuleName{Name: m.Name(), Multiplier: 1}
 			mapping := instruction.NewSystemMap(register.ArrayMap(name, m.Registers()...), machine.Modules())
 			writeIrFunction[W](m, mapping)
@@ -283,8 +299,11 @@ func writeIntermediateRepresentation[W word.Word[W]](machine *machine.Word[W]) {
 	}
 }
 
-func writeIrMemory[W word.Word[W]](kind string, m memory.Memory[W]) {
-	var regs = m.Geometry().Registers()
+func writeIrMemory[W vm.BaseWord[W]](m vm.Memory[W]) {
+	var (
+		regs = m.Geometry().Registers()
+		kind = memoryKind(m)
+	)
 	//
 	fmt.Printf("%s %s(", kind, m.Name())
 	// parameters
@@ -299,7 +318,7 @@ func writeIrMemory[W word.Word[W]](kind string, m memory.Memory[W]) {
 	fmt.Println(")")
 }
 
-func writeIrFunction[W word.Word[W]](f *function.Boot, mapping instruction.SystemMap) {
+func writeIrFunction[W vm.BaseWord[W], I vm.Instruction](f *vm.Function[I], mapping instruction.SystemMap) {
 	fmt.Printf("fn %s(", f.Name())
 	// parameters
 	writeIrFunctionArgs(register.INPUT_REGISTER, f.Registers())
@@ -342,11 +361,24 @@ func writeIrFunctionArgs(kind register.Type, regs []register.Register) {
 	}
 }
 
-func writeIrFunctionVariables[W word.Word[W]](f *function.Boot) {
+func writeIrFunctionVariables[W vm.BaseWord[W], I vm.Instruction](f *vm.Function[I]) {
 	for _, r := range f.Registers() {
 		if !r.IsInputOutput() {
 			fmt.Printf("\t%s %s\n", registerType(r), r.Name())
 		}
+	}
+}
+
+func memoryKind[W vm.BaseWord[W]](m vm.Memory[W]) string {
+	switch {
+	case m.IsStatic():
+		return "static"
+	case m.IsReadOnly():
+		return "input"
+	case m.IsWriteOnly():
+		return "output"
+	default:
+		return "memory"
 	}
 }
 
@@ -365,7 +397,8 @@ func registerType(r register.Register) string {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(compileCmd)
-	compileCmd.Flags().Bool("ast", false, "Output abstract syntax tree (AST)")
-	compileCmd.Flags().Bool("ir", false, "Output intermediate representation (IR)")
-	compileCmd.Flags().Bool("lower-zkc-native", false, "Lower ZkC native functions into arithmetic instructions")
+	compileCmd.Flags().Bool("wir", false, "Output Word-level Intermediate Representation (WIR)")
+	compileCmd.Flags().Bool("fir", false, "Output Field-level Intermediate Representation (FIR)")
+	compileCmd.Flags().Bool("air", false, "Output Arithmetic Intermediate Representation (AIR)")
+	compileCmd.Flags().Bool("lower-native", false, "Lower ZkC native functions into arithmetic instructions")
 }

@@ -203,6 +203,10 @@ func Test_ZkcInvalid_Field_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/field_05")
 }
 
+func Test_ZkcInvalid_Field_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/field_06")
+}
+
 // ===================================================================
 // If Tests
 // ===================================================================

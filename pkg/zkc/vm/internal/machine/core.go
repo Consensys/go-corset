@@ -17,29 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
 )
 
-// ExecuteAll executes a given machine to completion in chunks of n steps,
-// returning the number of steps executed and/or any error arising.
-func ExecuteAll[W any, M Core[W]](machine M, n uint) (uint, error) {
-	var nsteps uint
-	//
-	for {
-		// Execute upto n steps
-		m, err := machine.Execute(n)
-		// update the tally
-		nsteps += m
-		// check for termination
-		if err != nil || m < n {
-			return nsteps, err
-		}
-	}
-}
-
-// Executor captures the notion of an instruction-specific executor.  That is,
-// an executor designed for implementing certain instructions over a given type
-// of machine word (e.g. a Word or a field.Element, etc).  A key aspect of the
-// executor is that its really only intended for straight-line instructions, and
-// other control-flow instructions (e.g. skipping, calling, etc) are handled by
-// the base machine (since they are common to all machines).
+// Executor --- see documentation on vm.Executor
 type Executor[W any, I any] interface {
 	// Execute the given instruction in the given frame with the given register
 	// descriptors, possibly returning an error if something goes wrong (e.g. an
@@ -148,10 +126,7 @@ func (p *Frame[W]) Store(reg uint, value W) {
 // Program Counter
 // ============================================================================
 
-// ProgramCounter abstracts the notion of a program counter in a machine.  A key
-// aspect is that it two dimensional to account for so-called "vector"
-// instructions: (1) it identifies the (macro) instruction being executed; (2)
-// it identifies the (micro) instruction within that being executed.
+// ProgramCounter --- see vm.ProgramCounter for documentation.
 type ProgramCounter struct {
 	// Program Counter (PC) identifies the macro instruction being executed
 	macroCounter uint

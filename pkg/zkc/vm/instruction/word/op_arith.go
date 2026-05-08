@@ -19,7 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
 
 // ============================================================================
@@ -53,6 +53,11 @@ func (p *OpArith[W]) OpCode() opcode.OpCode {
 	return p.Op
 }
 
+// IsWord implementation for instruction.Word interface
+func (p *OpArith[W]) IsWord() bool {
+	return true
+}
+
 // Uses implementation for Instruction interface
 func (p *OpArith[W]) Uses() []register.Id {
 	return p.Sources
@@ -79,7 +84,8 @@ func (p *OpArith[W]) String(mapping base.SystemMap) string {
 	builder.WriteString(" = ")
 	//
 	if p.Constant.Cmp(zero) == 0 &&
-		(p.Op == opcode.INT_ADD || p.Op == opcode.INT_SUB || p.Op == opcode.FIELD_ADD || p.Op == opcode.FIELD_SUB ||
+		(p.Op == opcode.INT_ADD || p.Op == opcode.INT_SUB ||
+			p.Op == opcode.INT_ADDMOD_P || p.Op == opcode.INT_SUBMOD_P ||
 			p.Op == opcode.BIT_CONCAT) {
 		//
 		builder.WriteString(base.ExpressionToStringWithoutConst(op, p.Sources, mapping))
@@ -102,11 +108,11 @@ func aType2Operation(op opcode.OpCode) string {
 		return "/"
 	case opcode.INT_REM:
 		return "%"
-	case opcode.FIELD_ADD:
+	case opcode.INT_ADDMOD_P:
 		return "+f"
-	case opcode.FIELD_SUB:
+	case opcode.INT_SUBMOD_P:
 		return "-f"
-	case opcode.FIELD_MUL:
+	case opcode.INT_MULMOD_P:
 		return "*f"
 	case opcode.BIT_AND:
 		return "&"

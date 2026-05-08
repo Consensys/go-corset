@@ -16,7 +16,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 )
 
 // EncodeAll encodes the given set of word values as packed bytes according to
@@ -32,7 +32,7 @@ import (
 // |  00  |  01  |  02  |  03  |
 // +------+------+------+------+
 // | 0x31 | 0xf0 | 0x0e | 0x1d |
-func EncodeAll[S symbol.Symbol[S]](datatype Type[S], values []word.Uint, env Environment[S]) []byte {
+func EncodeAll[S symbol.Symbol[S]](datatype Type[S], values []vm.Uint, env Environment[S]) []byte {
 	var (
 		bitwidth, _ = BitWidthOf(datatype, env)
 		nElems      = uint(len(values))
@@ -51,7 +51,7 @@ func EncodeAll[S symbol.Symbol[S]](datatype Type[S], values []word.Uint, env Env
 	return result
 }
 
-func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v word.Uint, buf []byte, env Environment[S]) {
+func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v vm.Uint, buf []byte, env Environment[S]) {
 	switch datatype.(type) {
 	case *UnsignedInt[S], *Alias[S]:
 		encodeUnsignedInt(bitwidth, v, buf)
@@ -62,7 +62,7 @@ func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v word.Uint
 	}
 }
 
-func encodeUnsignedInt(bitwidth uint, v word.Uint, buf []byte) {
+func encodeUnsignedInt(bitwidth uint, v vm.Uint, buf []byte) {
 	var (
 		w big.Int
 		// Determine number of bytes required to hold value

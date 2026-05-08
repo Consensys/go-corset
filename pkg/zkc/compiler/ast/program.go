@@ -19,8 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 )
 
 // RawProgram encapsulates one of more functions together, such that one may call
@@ -66,15 +65,15 @@ func (p *Program) Environment() Environment {
 // DecodeInputsOutputs configures a given set of input / output bytes appropriately
 // for the boot program, whilst separating inputs from outputs.  If there are
 // unknown or conflicting inputs / outputs, then errors are returned.
-func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs map[string][]word.Uint, errs []error) {
+func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs map[string][]vm.Uint, errs []error) {
 	//
 	var (
 		visited = make(map[string]bool)
 		env     = p.Environment()
 	)
 	// Initialise inputs / outputs
-	inputs = make(map[string][]word.Uint)
-	outputs = make(map[string][]word.Uint)
+	inputs = make(map[string][]vm.Uint)
+	outputs = make(map[string][]vm.Uint)
 	// Initialise components
 	for _, c := range p.declarations {
 		switch c := c.(type) {
@@ -119,7 +118,7 @@ func (p *Program) DecodeInputsOutputs(input map[string][]byte) (inputs, outputs 
 // EncodeInputsOutputs encodes a given set of input / output word values back
 // into raw bytes, producing the inverse of DecodeInputsOutputs.  If there are
 // unknown or conflicting entries, then errors are returned.
-func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string][]byte, []error) {
+func (p *Program) EncodeInputsOutputs(values map[string][]vm.Uint) (map[string][]byte, []error) {
 	var (
 		visited = make(map[string]bool)
 		env     = p.Environment()
@@ -167,7 +166,7 @@ func (p *Program) EncodeInputsOutputs(values map[string][]word.Uint) (map[string
 // Compile attempts to compile a given high-level program into a low-level
 // machine which can be used (for example) to execute this program with some
 // given inputs.
-func (p *Program) Compile(config codegen.Config) (*machine.Word[word.Uint], []source.SyntaxError) {
+func (p *Program) Compile(config codegen.Config) (*vm.WordMachine[vm.Uint], []source.SyntaxError) {
 	var compiler = codegen.NewCompiler(config, p.Environment(), p.srcmaps)
 	// Compile all decalarations
 	return compiler.Compile(p.declarations)

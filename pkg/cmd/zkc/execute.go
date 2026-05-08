@@ -25,9 +25,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
-	"github.com/consensys/go-corset/pkg/zkc/vm/machine"
-	"github.com/consensys/go-corset/pkg/zkc/vm/memory"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -65,12 +63,12 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	executeIrProgram[EmptyBaseObserver]("main", config, program, input, EmptyBaseObserver{})
 }
 
-func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.Config, program ast.Program,
+func executeIrProgram[V BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
 	input map[string][]byte, view V,
 ) {
 	var (
-		vm        *machine.Word[word.Uint]
-		bigInputs map[string][]word.Uint
+		wm        *vm.WordMachine[vm.Uint]
+		bigInputs map[string][]vm.Uint
 		errors    []error
 	)
 	// Execute machine in chunks of 1K steps
@@ -78,15 +76,15 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.C
 		// Build our machine
 		var compileErrs []source.SyntaxError
 
-		vm, compileErrs = program.Compile(config)
+		wm, compileErrs = program.Compile(config)
 		for _, e := range compileErrs {
 			errors = append(errors, &e)
 		}
 		//
 		if len(errors) == 0 {
-			if err := vm.Boot(mainFn, bigInputs); err != nil {
+			if err := wm.Boot(mainFn, bigInputs); err != nil {
 				errors = append(errors, err)
-			} else if _, err := execute[word.Uint, V](vm, 1, view); err != nil {
+			} else if _, err := execute[vm.Uint, V](wm, 1, view); err != nil {
 				errors = append(errors, err)
 			}
 		}
@@ -101,10 +99,10 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.C
 		os.Exit(4)
 	}
 	// Collect raw outputs from write-once memories
-	rawOutputs := make(map[string][]word.Uint)
+	rawOutputs := make(map[string][]vm.Uint)
 
-	for _, m := range vm.Modules() {
-		if output, ok := m.(*memory.WriteOnce[word.Uint]); ok {
+	for _, m := range wm.Modules() {
+		if output, ok := m.(vm.InputOutputMemory[vm.Uint]); ok && output.IsWriteOnly() {
 			rawOutputs[output.Name()] = output.Contents()
 		}
 	}
@@ -120,7 +118,7 @@ func executeIrProgram[V BaseObserver[word.Uint]](mainFn string, config codegen.C
 	}
 }
 
-func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Word[W], n uint, observer V) (uint, error) {
+func execute[W vm.Word[W], V BaseObserver[W]](machine *vm.WordMachine[W], n uint, observer V) (uint, error) {
 	var (
 		nsteps uint
 	)
@@ -146,20 +144,20 @@ func execute[W word.Word[W], V BaseObserver[W]](machine *machine.Word[W], n uint
 // ============================================================================
 
 // BaseObserver is an observer for a base machin
-type BaseObserver[W word.Word[W]] = VmObserver[W, *machine.Word[W]]
+type BaseObserver[W vm.Word[W]] = VmObserver[W, *vm.WordMachine[W]]
 
 // EmptyBaseObserver is an empty observer for a base machine.
-type EmptyBaseObserver = EmptyObserver[word.Uint, *machine.Word[word.Uint]]
+type EmptyBaseObserver = EmptyObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
 
 // VmObserver is a generic interface for extract information before and after an
 // execution step of the VM.  For example, to generate debugging information.
-type VmObserver[W any, M machine.Core[W]] interface {
+type VmObserver[W any, M vm.Machine[W]] interface {
 	PreExecution(machine M)
 	PostExecution(machine M)
 }
 
 // EmptyObserver does nothing
-type EmptyObserver[W any, M machine.Core[W]] struct {
+type EmptyObserver[W any, M vm.Machine[W]] struct {
 }
 
 // PreExecution implementation for Observer interface

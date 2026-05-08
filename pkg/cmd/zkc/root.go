@@ -94,5 +94,5 @@ func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnostic
 func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 	rootCmd.PersistentFlags().Bool("vectorize", true, "Apply instruction vectorization")
-	rootCmd.PersistentFlags().String("field", "BLS12_377", "prime field to use throughout")
+	rootCmd.PersistentFlags().String("field", "KOALABEAR_16", "prime field to use throughout")
 }

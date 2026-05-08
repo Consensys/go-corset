@@ -17,7 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 )
 
 // DecodeAll decodes the given set of bytes as big integer values according to
@@ -35,7 +35,7 @@ import (
 // | 0x3 | 0x1 | 0xf | 0x0 | 0x0 | 0xe | 0x1 | 0xd |
 //
 // If the input array is not a multiple of the bitwidth
-func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environment[S]) []word.Uint {
+func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environment[S]) []vm.Uint {
 	var (
 		bitwidth, _ = BitWidthOf(datatype, env)
 		// Initially empty buffer which is expanded as necessary to accommodate
@@ -51,11 +51,11 @@ func DecodeAll[S symbol.Symbol[S]](datatype Type[S], bytes []byte, env Environme
 		return ints
 	})
 	// Flattern decoded tuples
-	return array.FlatMap(values, func(ints []big.Int) []word.Uint {
-		var words = make([]word.Uint, len(ints))
+	return array.FlatMap(values, func(ints []big.Int) []vm.Uint {
+		var words = make([]vm.Uint, len(ints))
 		//
 		for i, v := range ints {
-			var ith word.Uint
+			var ith vm.Uint
 			//
 			words[i] = ith.SetBigInt(&v)
 		}

@@ -19,21 +19,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 )
 
-// Boot function is suitable for a boot machine.
-type Boot = Function[instruction.Instruction]
-
-// Function contains information about an executable function in the system.  A
-// function has one or more registers where: the first n registers are the input
-// registers (i.e. parameters); the next m registers are the output registers
-// (i.e. returns); and all remaining registers are internal (sometimes also
-// referred to as computed registers).  Additionally, a function has some number
-// of "instructions" which capture its semantics (i.e. intended behaviour).  The
-// notion of an instruction is specifically left undefined by this interface to
-// support different levels of the compilation pipeline.  For example, a
-// compiled function has instructions which are simply bytes (or words) for
-// efficient execution.  However, the instructions of an "assembly" level
-// function implement the Instruction interface, which is better suited to
-// analysis and/or translation into constraints.
+// Function --- see documentation on vm.Function.
 type Function[I instruction.Instruction] struct {
 	// Unique name of this function.
 	name string

@@ -38,6 +38,16 @@ func (p *OpImm) OpCode() opcode.OpCode {
 	return p.Op
 }
 
+// IsWord implementation for instruction.Word interface
+func (p *OpImm) IsWord() bool {
+	return true
+}
+
+// IsField implementation for instruction.Field interface
+func (p *OpImm) IsField() bool {
+	return true
+}
+
 // Uses implementation for Instruction interface.
 func (p *OpImm) Uses() []register.Id {
 	return nil

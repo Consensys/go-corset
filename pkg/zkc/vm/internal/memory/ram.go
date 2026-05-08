@@ -17,7 +17,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util"
 )
 
-// DynamicArray is a memory implementation backed by a dynamically sizing []W,
+// RandomAccess is a memory implementation backed by a dynamically sizing []W,
 // meaning that an out-of-bound read will return 0.  Reads are performed by
 // delegating address decoding to a D (an AddressDecoder) which translates the
 // incoming multi-word address tuple into a (start, end) index range, and then
@@ -26,19 +26,12 @@ import (
 // The type parameter W is the word type (e.g. a field element or big.Int), and
 // D is the AddressDecoder strategy that encodes the layout of rows within the
 // flat slice.
-type DynamicArray[W util.Uinter64] struct {
+type RandomAccess[W util.Uinter64] struct {
 	StaticArray[W]
 }
 
-// newDynamicArray constructs a new array initialised with a given set of values.
-func newDynamicArray[W util.Uinter64](name string, registers []register.Register, init ...W) DynamicArray[W] {
-	var geometry = NewGeometry[W](registers)
-	//
-	return DynamicArray[W]{StaticArray[W]{geometry, name, init}}
-}
-
 // Read implementation for Memory interface.
-func (p *DynamicArray[W]) Read(frame []W, address []register.Id, data []register.Id) error {
+func (p *RandomAccess[W]) Read(frame []W, address []register.Id, data []register.Id) error {
 	var start, _ = p.geometry.FrameDecode(frame, address)
 	//
 	for i := range data {
@@ -49,7 +42,7 @@ func (p *DynamicArray[W]) Read(frame []W, address []register.Id, data []register
 }
 
 // Internal read function handles out-of-bounds accesses.
-func (p *DynamicArray[W]) read(address uint64) W {
+func (p *RandomAccess[W]) read(address uint64) W {
 	if address < uint64(len(p.data)) {
 		return p.data[address]
 	}

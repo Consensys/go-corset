@@ -20,19 +20,11 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
-	"github.com/consensys/go-corset/pkg/zkc/vm/word"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
 
-// Word captures the notion of a "word machine".  That is a machine which
-// executes over normal machine words rather than e.g. field elements.  A
-// machine word operates at a high-level by exploiting the full array of word
-// operations available.  For example, it performs bitwise operations directly
-// using the corresponding word operation.
-//
-// A word machine can simulate field arithmetic under certain circumstances.
-// Specifically, the prime modulus must be representable within the machine word
-// W itself.
-type Word[W word.Word[W]] = Base[W, instruction.Instruction, WordExecutor[W]]
+// Word --- see documentation on vm.WordMachine
+type Word[W word.Word[W]] = Base[W, instruction.Word, WordExecutor[W]]
 
 // NewWord constructs a new empty word machine
 func NewWord[W word.Word[W]](field field.Config, modules ...Module) *Word[W] {
@@ -58,7 +50,7 @@ type WordExecutor[W word.Word[W]] struct {
 }
 
 // Execute implementation for Executor interface.
-func (p WordExecutor[W]) Execute(insn instruction.Instruction, frame []W, regs []register.Register) (err error) {
+func (p WordExecutor[W]) Execute(insn instruction.Word, frame []W, regs []register.Register) (err error) {
 	//nolint
 	switch insn.OpCode() {
 	// ==============================================================
@@ -89,23 +81,19 @@ func (p WordExecutor[W]) Execute(insn instruction.Instruction, frame []W, regs [
 		err = executeCast(*insn, frame, regs)
 		// Fall thru
 
-	// ==============================================================
-	// Field Instructions
-	// ==============================================================
-
-	case opcode.FIELD_ADD:
-		insn := insn.(*instruction.FieldAdd[W])
+	case opcode.INT_ADDMOD_P:
+		insn := insn.(*instruction.IntAddModP[W])
 		err = executeFieldAdd(insn.Target, insn.Sources, insn.Constant, p.modulus, frame)
 		// Fall thru
-	case opcode.FIELD_SUB:
-		insn := insn.(*instruction.FieldSub[W])
+	case opcode.INT_SUBMOD_P:
+		insn := insn.(*instruction.IntSubModP[W])
 		err = executeFieldSub(insn.Target, insn.Sources, insn.Constant, p.modulus, frame)
 		// Fall thru
-	case opcode.FIELD_MUL:
-		insn := insn.(*instruction.FieldMul[W])
+	case opcode.INT_MULMOD_P:
+		insn := insn.(*instruction.IntMulModP[W])
 		err = executeFieldMul(insn.Target, insn.Sources, insn.Constant, p.modulus, frame)
 		// Fall thru
-	case opcode.FIELD_CAST:
+	case opcode.INT_CASTMOD_P:
 		insn := insn.(*instruction.Cast)
 		err = executeFieldCast(*insn, p.modulus, frame)
 
