@@ -107,9 +107,7 @@ func (p wordToField[W, F]) lowerWordInstruction(wi WordInstruction) (fi FieldIns
 	case opcode.SKIP:
 		return wi.(*instruction.Skip)
 	case opcode.SKIP_IF:
-		// NOTE: need to handle this!!!
 		return wi.(*instruction.SkipIf)
-		//
 	case opcode.INT_ADD:
 		var insn = wi.(*instruction.IntAdd[W])
 		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
