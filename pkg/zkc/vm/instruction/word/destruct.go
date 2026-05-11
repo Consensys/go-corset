@@ -58,10 +58,10 @@ func (p *Destruct) Definitions() []register.Id {
 func (p *Destruct) String(mapping base.SystemMap) string {
 	var builder strings.Builder
 	//
-	for i := 0; i < len(p.Targets); i++ {
-		var rid = p.Targets[i]
+	for i := len(p.Targets); i > 0; i-- {
+		var rid = p.Targets[i-1]
 		//
-		if i != 0 {
+		if i != len(p.Targets) {
 			builder.WriteString("::")
 		}
 		//
