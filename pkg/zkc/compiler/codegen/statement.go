@@ -572,34 +572,37 @@ func (p *StmtCompiler) compileFieldMul(args []Expr, mapping []uint, target regis
 
 func (p *StmtCompiler) compileIntDiv(args []Expr, mapping []uint, target register.Id,
 ) []Instruction {
-	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
-	// Chain divisions left-to-right: (((a / b) / c) / ...).
-	value := sources[0]
-	//
-	for i := 1; i < len(sources)-1; i++ {
-		tmp := p.allocate(p.registers[target.Unwrap()].Width())
-		insns = append(insns, instruction.NewIntDiv[vm.Uint](tmp, value, sources[i]))
-		value = tmp
-	}
-	//
-	return append(insns, instruction.NewIntDiv[vm.Uint](target, value, sources[len(sources)-1]))
+	divisor := p.foldDivisors(sources[1:], &insns)
+
+	return append(insns, instruction.NewIntDiv[vm.Uint](target, sources[0], divisor))
 }
 
 func (p *StmtCompiler) compileIntRem(args []Expr, mapping []uint, target register.Id,
 ) []Instruction {
-	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, args...)
-	// Chain remainders left-to-right: (((a % b) % c) % ...).
-	value := sources[0]
-	//
-	for i := 1; i < len(sources)-1; i++ {
-		tmp := p.allocate(p.registers[target.Unwrap()].Width())
-		insns = append(insns, instruction.NewIntRem[vm.Uint](tmp, value, sources[i]))
-		value = tmp
+	divisor := p.foldDivisors(sources[1:], &insns)
+
+	return append(insns, instruction.NewIntRem[vm.Uint](target, sources[0], divisor))
+}
+
+// foldDivisors multiplies a slice of divisor registers together left-to-right,
+// accumulating intermediate products into fresh temporaries.  Returns the
+// register holding the final combined divisor.  For a single-element slice the
+// input register is returned unchanged.
+func (p *StmtCompiler) foldDivisors(divisors []register.Id, insns *[]Instruction) register.Id {
+	var zero vm.Uint
+
+	acc := divisors[0]
+
+	for _, d := range divisors[1:] {
+		w := p.registers[acc.Unwrap()].Width() + p.registers[d.Unwrap()].Width()
+		tmp := p.allocate(w)
+		*insns = append(*insns, instruction.NewIntMul(tmp, []register.Id{acc, d}, zero))
+		acc = tmp
 	}
-	//
-	return append(insns, instruction.NewIntRem[vm.Uint](target, value, sources[len(sources)-1]))
+
+	return acc
 }
 
 func (p *StmtCompiler) compileBitwiseShl(args []Expr, mapping []uint, target register.Id,

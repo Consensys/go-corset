@@ -167,7 +167,9 @@ func (p *Compiler) Compile(declarations []Declaration) (*vm.WordMachine[vm.Uint]
 		modules = lowerzkcnative.BinarizeBitwise[vm.Uint](modules)
 		// Lower Bitwise operations into arithmetic instructions.
 		modules = lowerzkcnative.LowerBitwise[vm.Uint](modules, p.config.field)
-		// WARN: LowerBitwise generate comparaison instructions, so lowering comparaison should happen after
+		// Lower Division/Remainder operations into witness + constraint sequences.
+		modules = lowerzkcnative.LowerDivision[vm.Uint](modules)
+		// WARN: LowerBitwise and LowerDivision generate comparison instructions, so lowering comparison should happen after
 	}
 	// Vectorize modules (if no errors)
 	if len(errors) == 0 && p.config.vectorize {

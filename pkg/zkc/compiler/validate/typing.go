@@ -538,9 +538,9 @@ func (p *TypeChecker) typeExpression(expected Type, e expr.Resolved, env Variabl
 	case *expr.Shr[symbol.Resolved]:
 		actual, errs = p.typeShiftExpression(expected, e.Exprs, env, effects)
 	case *expr.Div[symbol.Resolved]:
-		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
+		actual, errs = p.typeDivExpression(expected, e.Exprs, env, effects)
 	case *expr.Rem[symbol.Resolved]:
-		actual, errs = p.typeUintExpressions(expected, e.Exprs, env, effects)
+		actual, errs = p.typeRemExpression(expected, e.Exprs, env, effects)
 	case *expr.Sub[symbol.Resolved]:
 		actual, errs = p.typeUintOrFieldExpression(expected, e.Exprs, env, effects)
 	case *expr.Xor[symbol.Resolved]:
@@ -717,6 +717,69 @@ func (p *TypeChecker) typeShiftExpression(t Type, exprs []expr.Resolved, env Var
 	}
 	//
 	return res, append(errors, errs2...)
+}
+
+// typeDivExpression types a / b expressions. The dividend is typed with the
+// expected context so its type becomes the result type. Each divisor is typed
+// with nil so constants keep their natural (open) width; a checkEquiTypes call
+// then accepts open constants that fit inside the dividend type while rejecting
+// closed variables with a mismatched width.
+func (p *TypeChecker) typeDivExpression(expected Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
+) (Type, []source.SyntaxError) {
+	var errors []source.SyntaxError
+
+	resultType, errs := p.typeExpression(expected, exprs[0], env, effects)
+	errors = append(errors, errs...)
+
+	if len(errs) == 0 && wellFormed(resultType, p.env) && resultType.AsUint(p.env) == nil {
+		return nil, append(errors, *p.srcmaps.SyntaxError(exprs[0], "expected uint"))
+	}
+
+	for _, divisorExpr := range exprs[1:] {
+		divisorType, errs := p.typeExpression(nil, divisorExpr, env, effects)
+		errors = append(errors, errs...)
+
+		if len(errs) == 0 && wellFormed(resultType, p.env) && wellFormed(divisorType, p.env) {
+			if divisorType.AsUint(p.env) == nil {
+				errors = append(errors, *p.srcmaps.SyntaxError(divisorExpr, "expected uint"))
+			} else if ur, ub := resultType.AsUint(p.env), divisorType.AsUint(p.env); ur != nil && ur.BitWidth() < ub.BitWidth() {
+				errors = append(errors, *p.srcmaps.SyntaxError(divisorExpr,
+					fmt.Sprintf("expected type %s", resultType.String(p.env))))
+			}
+		}
+	}
+
+	return resultType, errors
+}
+
+// typeRemExpression types a % b expressions. Both dividend and divisors are
+// typed with nil so constants keep their natural (open) width. The result type
+// is the dividend type; only well-formedness (uint) is checked on divisors.
+// If the assignment target is narrower than the dividend, the assignment-level
+// equi-type check will catch it with the correct source position.
+func (p *TypeChecker) typeRemExpression(expected Type, exprs []expr.Resolved, env VariableMap, effects bit.Set,
+) (Type, []source.SyntaxError) {
+	var errors []source.SyntaxError
+
+	dividendType, errs := p.typeExpression(nil, exprs[0], env, effects)
+	errors = append(errors, errs...)
+
+	if len(errs) == 0 && wellFormed(dividendType, p.env) && dividendType.AsUint(p.env) == nil {
+		return nil, append(errors, *p.srcmaps.SyntaxError(exprs[0], "expected uint"))
+	}
+
+	for _, divisorExpr := range exprs[1:] {
+		divisorType, errs := p.typeExpression(nil, divisorExpr, env, effects)
+		errors = append(errors, errs...)
+
+		if len(errs) == 0 && wellFormed(divisorType, p.env) && divisorType.AsUint(p.env) == nil {
+			errors = append(errors, *p.srcmaps.SyntaxError(divisorExpr, "expected uint"))
+		}
+	}
+
+	_ = expected // assignment-level check enforces result-vs-target constraint
+
+	return dividendType, errors
 }
 
 func (p *TypeChecker) typeBitwiseNot(t Type, e *expr.BitwiseNot[symbol.Resolved], env VariableMap, effects bit.Set,
