@@ -13,6 +13,7 @@
 package util
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -45,27 +46,32 @@ type Formattable interface {
 }
 
 // Format simply encodes the set of permitted formatting strings in a printf
-// statement, such as "%d", "%x", etc.
+// statement, such as "%d", "%x", "%08x", "%8x", etc.  Width specifies an
+// optional minimum number of digits to render, and ZeroPad selects between
+// zero-padding ('0' flag) and space-padding (the default).  Any base prefix
+// ("0x", "0b") is rendered separately and does not count towards Width.
 type Format struct {
-	Code uint
+	Code    uint
+	Width   uint
+	ZeroPad bool
 }
 
 // EMPTY_FORMAT indicates no formatted argument is required.
-var EMPTY_FORMAT = Format{FORMAT_NONE}
+var EMPTY_FORMAT = Format{Code: FORMAT_NONE}
 
 // DecimalFormat constructs a new decimal format.
 func DecimalFormat() Format {
-	return Format{FORMAT_DEC}
+	return Format{Code: FORMAT_DEC}
 }
 
 // HexFormat constructs a new hexadecimal format.
 func HexFormat() Format {
-	return Format{FORMAT_HEX}
+	return Format{Code: FORMAT_HEX}
 }
 
 // BinFormat constructs a new binary format.
 func BinFormat() Format {
-	return Format{FORMAT_BIN}
+	return Format{Code: FORMAT_BIN}
 }
 
 // HasFormat checks whether this actually represents a format, or is empty.
@@ -74,28 +80,63 @@ func (p Format) HasFormat() bool {
 }
 
 func (p Format) String() string {
+	var (
+		builder  strings.Builder
+		typeChar byte
+	)
+	//
 	switch p.Code {
 	case FORMAT_DEC:
-		return "%d"
+		typeChar = 'd'
 	case FORMAT_HEX:
-		return "%x"
+		typeChar = 'x'
 	case FORMAT_BIN:
-		return "%b"
+		typeChar = 'b'
+	default:
+		panic("invalid format")
 	}
 	//
-	panic("invalid format")
+	builder.WriteByte('%')
+	//
+	if p.ZeroPad {
+		builder.WriteByte('0')
+	}
+	//
+	if p.Width > 0 {
+		fmt.Fprintf(&builder, "%d", p.Width)
+	}
+	//
+	builder.WriteByte(typeChar)
+	//
+	return builder.String()
 }
 
 // FormatWord applies a given format to a given word to generate a formatted string.
 func FormatWord[W Formattable](format Format, word W) string {
+	var (
+		digits string
+	)
+	//
 	switch format.Code {
 	case FORMAT_DEC:
-		return word.Text(10)
+		digits = word.Text(10)
 	case FORMAT_HEX:
-		return "0x" + word.Text(16)
+		digits = word.Text(16)
 	case FORMAT_BIN:
-		return "0b" + word.Text(2)
+		digits = word.Text(2)
+	default:
+		panic("invalid format")
+	}
+	// Apply any padding to the digit portion.
+	if uint(len(digits)) < format.Width {
+		padding := int(format.Width) - len(digits)
+		//
+		if format.ZeroPad {
+			digits = strings.Repeat("0", padding) + digits
+		} else {
+			digits = strings.Repeat(" ", padding) + digits
+		}
 	}
 	//
-	panic("invalid format")
+	return digits
 }

@@ -603,6 +603,10 @@ func Test_ZkcUnit_Printf_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/printf_02", field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_ZkcUnit_Printf_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/printf_03", field.BLS12_377, field.KOALABEAR_16)
+}
+
 // ===================================================================
 // Include Tests
 // ===================================================================
