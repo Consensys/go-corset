@@ -115,12 +115,9 @@ func (p wordToField[W, F]) lowerWordInstruction(wi WordInstruction) (fi FieldIns
 	case opcode.SKIP:
 		return wi.(*instruction.Skip)
 	case opcode.SKIP_IF:
-		// NOTE: need to handle this!!!
+		// NOTE: vector.BranchTable will panic if the skip condition is
+		// something other than EQ/NEQ.
 		var insn = wi.(*instruction.SkipIf)
-		// Sanity check
-		if insn.Cond != opcode.EQ && insn.Cond != opcode.NEQ {
-			panic("invalid conditional skip")
-		}
 		// Done
 		return insn
 	case opcode.INT_ADD:
@@ -137,10 +134,10 @@ func (p wordToField[W, F]) lowerWordInstruction(wi WordInstruction) (fi FieldIns
 		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, sum)
 	case opcode.INT_SUBMOD_P:
 		var insn = wi.(*instruction.IntSubModP[W])
-		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, sum)
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, subtract)
 	case opcode.INT_MULMOD_P:
 		var insn = wi.(*instruction.IntMulModP[W])
-		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, sum)
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, product)
 	default:
 		panic(fmt.Sprintf("unknown instruction encountered (opcode=0x%x)", wi.OpCode()))
 	}

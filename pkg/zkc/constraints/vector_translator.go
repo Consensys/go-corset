@@ -68,8 +68,6 @@ func (p *VectorInsnTranslator[F]) translate() Expr[F] {
 		constraint = mirc.True[register.Id, Expr[F]]()
 		//
 		nCodes = uint(len(p.vec.Codes))
-		// generate writeMap & branch table
-		writeMap, branchTable = p.vec.BranchTable()
 		// Assignments determines whether the given instruction definitely
 		// assignments, may assign or does not assign any given registers.  This
 		// is necessary to apply constancy information.
@@ -79,7 +77,7 @@ func (p *VectorInsnTranslator[F]) translate() Expr[F] {
 	for cc := range nCodes {
 		//
 		var (
-			localWrites = writeMap.StateOf(cc)
+			localWrites = p.writeMap.StateOf(cc)
 			local       Expr[F]
 		)
 		//
@@ -109,7 +107,7 @@ func (p *VectorInsnTranslator[F]) translate() Expr[F] {
 			panic("unreachable")
 		}
 		//
-		condition := mirc.TranslateBranchCondition(branchTable.StateOf(cc).Condition, p)
+		condition := mirc.TranslateBranchCondition(p.branchTable.StateOf(cc).Condition, p)
 		// Add control-flow requirements
 		local = mirc.If(condition, local)
 		// Include local constraint
