@@ -1,0 +1,14 @@
+include "../zkc/poseidon_uX.zkc"
+include "../zkc/utils.zkc"
+include "../zkc/types.zkc"
+
+// ===================================================================
+// write_to_state test
+// ===================================================================
+
+fn main<ram, state>() {
+    // we write the message 0x00 01 02 ... fe ff into memory
+    for i:u8 = 0; i<16; i = i + 1 {
+        write_to_state(i as u8, i as u32)
+    }
+}

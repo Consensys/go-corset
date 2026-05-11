@@ -32,6 +32,47 @@ func Test_ZkcBench_Fnv1aHash(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/fnv1a_hash", field.BLS12_377, field.KOALABEAR_16)
 }
 
+// ===================================================================
+// Poseidon utils tests
+// ===================================================================
+
+func Test_ZkcBench_Poseidon_Round_Constants_01(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/round_constants_01", field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_utils_01(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/utils_01", field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_utils_02(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/utils_02", field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_utils_03(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/utils_03", field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_utils_04(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/utils_04", field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_utils_05(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/utils_05", field.BLS12_377, field.KOALABEAR_16)
+}
+
+// ===================================================================
+// Poseidon tests
+// ===================================================================
+
+func Test_ZkcBench_Poseidon_Permutation_uX_01(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/permutation_uX_01", field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_uX_01(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/poseidon_uX_01", field.BLS12_377, field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_uX_02(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/poseidon_uX_02", field.BLS12_377, field.KOALABEAR_16)
+}
+
+// ===================================================================
+// Other tests
+// ===================================================================
+
 func Test_ZkcBench_Sort(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/sort", field.BLS12_377, field.KOALABEAR_16)
 }
