@@ -155,6 +155,11 @@ type MirExpr[F field.Element[F]] struct {
 	logical mir.LogicalTerm[F]
 }
 
+// AsLogical extracts a logical constraint from this expression.
+func (p MirExpr[F]) AsLogical() mir.LogicalTerm[F] {
+	return p.logical.Simplify(false)
+}
+
 // Add constructs a sum between this expression and zero or more
 func (p MirExpr[F]) Add(exprs ...MirExpr[F]) MirExpr[F] {
 	args := unwrapSplitMirExpr(p, exprs...)
