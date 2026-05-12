@@ -60,7 +60,7 @@ func translateFunction[F field.Element[F]](ctx schema.ModuleId, fm vm.FieldFunct
 		framing Framing[F]
 	)
 	// Initialise module
-	mod = mod.Init(name, true, true, false, 0)
+	mod = mod.Init(name, false, true, false, 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// Add control registers (as required)
@@ -88,7 +88,7 @@ func translateFunction[F field.Element[F]](ctx schema.ModuleId, fm vm.FieldFunct
 		var (
 			handle = fmt.Sprintf("pc%d", pc)
 			// construct translator for this instruction
-			tr = NewVectorTranslator(ctx, uint(pc), vec, framing, mod)
+			tr = NewVectorTranslator(ctx, uint(pc), vec, framing, fm.Registers())
 			// extract logical constraint
 			constraint = tr.translate().AsLogical()
 		)

@@ -17,6 +17,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/cmd/corset"
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/schema/module"
 	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
@@ -26,6 +29,7 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	"github.com/consensys/go-corset/pkg/zkc/vm"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -51,26 +55,59 @@ var executeCmds = []FieldAgnosticCmd{
 
 func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
-		errors []error
 		// compiler config
 		config = codegen.DEFAULT_CONFIG.
 			Vectorize(GetFlag(cmd, "vectorize")).
 			Field(field)
 		// output file for trace
 		output = GetString(cmd, "output")
+		// check constraints
+		check = GetFlag(cmd, "check")
+		// identify whether tracing required or not.
+		tracing = check || output != ""
+		// machine used for execution
+		wm *vm.WordMachine[vm.Uint]
+		//
+		tf lt.TraceFile
 	)
+	// Construct trace builder
+	builder := ir.NewTraceBuilder[F]().
+		WithValidation(true).
+		WithDefensivePadding(true).
+		WithExpansion(true).
+		WithParallelism(true).
+		WithBatchSize(1024)
 	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(field, args[1:]...)
-	//
-	if output == "" {
-		errors = executeAndPrint("main", config, program, input)
+	// Execute program (in either fast or slow mode)
+	if tracing {
+		wm, tf = executeAndTrace("main", config, program, input)
 	} else {
-		errors = executeAndWrite("main", config, program, input, output)
+		wm = executeNoTrace("main", config, program, input)
 	}
-	// Exit with failure (if errors)
-	if len(errors) > 0 {
+	// Generate output
+	if output == "" {
+		printOutput(program, wm)
+	} else {
+		WriteTraceFile(output, tf)
+	}
+	// Check constraints (if requested)
+	if check {
+		checkConstraints(builder, field, wm, tf)
+	}
+}
+
+func executeNoTrace(mainFn string, config codegen.Config, program ast.Program, input map[string][]byte,
+) *vm.WordMachine[vm.Uint] {
+	//
+	var (
+		wm     *vm.WordMachine[vm.Uint]
+		errors []error
+	)
+	//
+	if wm, errors = executeIrProgram(mainFn, config, program, input, vm.EmptyBaseObserver{}); len(errors) > 0 {
 		// Log errors
 		for _, e := range errors {
 			log.Error(fmt.Sprintf("%s (IR)", e))
@@ -78,17 +115,32 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 		//
 		os.Exit(4)
 	}
+	// Done
+	return wm
 }
 
-func executeAndPrint(mainFn string, config codegen.Config, program ast.Program, input map[string][]byte) []error {
+func executeAndTrace(mainFn string, config codegen.Config, program ast.Program, input map[string][]byte,
+) (*vm.WordMachine[vm.Uint], lt.TraceFile) {
+	//
 	var (
-		wm     *vm.WordMachine[vm.Uint]
-		errors []error
+		wm       *vm.WordMachine[vm.Uint]
+		errors   []error
+		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
 	)
 	//
-	if wm, errors = executeIrProgram(mainFn, config, program, input, vm.EmptyBaseObserver{}); len(errors) > 0 {
-		return errors
+	if wm, errors = executeIrProgram(mainFn, config, program, input, &observer); len(errors) > 0 {
+		// Log errors
+		for _, e := range errors {
+			log.Error(fmt.Sprintf("%s (IR)", e))
+		}
+		//
+		os.Exit(4)
 	}
+	// Done
+	return wm, observer.Trace(wm)
+}
+
+func printOutput(program ast.Program, wm *vm.WordMachine[vm.Uint]) {
 	// Collect raw outputs from write-once memories
 	rawOutputs := make(map[string][]vm.Uint)
 	//
@@ -107,27 +159,32 @@ func executeAndPrint(mainFn string, config codegen.Config, program ast.Program, 
 	for name, bytes := range encodedOutputs {
 		fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
 	}
-	//
-	return nil
 }
 
-func executeAndWrite(mainFn string, config codegen.Config, prog ast.Program, in map[string][]byte, out string) []error {
+func checkConstraints[F field.Element[F]](builder ir.TraceBuilder[F], config field.Config, wm *vm.WordMachine[vm.Uint],
+	tf lt.TraceFile) {
 	//
-	var (
-		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
-		trace    lt.TraceFile
-	)
-	// Execute and trace
-	wm, errors := executeIrProgram(mainFn, config, prog, in, &observer)
-	// Check for errors
-	if len(errors) == 0 {
-		// Extract trace
-		trace = observer.Trace(wm)
-		// Write trace to output file
-		WriteTraceFile(out, trace)
+	var cfg corset.CheckConfig
+	// Set sensible defaults (for now)
+	cfg.Report = true
+	cfg.ReportCellWidth = 32
+	cfg.ReportTitleWidth = 40
+	cfg.ReportPadding = 2
+	cfg.ReportLimbs = true
+	cfg.ReportComputed = true
+	cfg.AnsiEscapes = true
+	// Lower to field machine
+	fvm := vm.LowerWordMachine[vm.Uint, F](config, wm)
+	// Generate MIR constraints
+	avm := constraints.GenerateMirConstraints(fvm)
+	// Construct limbs map
+	mapping := module.NewLimbsMap[F](config, avm.Modules().Collect()...)
+	// Register mappin
+	builder = builder.WithRegisterMapping(mapping)
+	// check the trace
+	if !corset.CheckTrace("MIR", avm, tf, builder, cfg) {
+		os.Exit(4)
 	}
-	// Done
-	return errors
 }
 
 func executeIrProgram[V vm.BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
@@ -195,4 +252,5 @@ func execute[W vm.Word[W], V vm.BaseObserver[W]](machine *vm.WordMachine[W], n u
 func init() {
 	rootCmd.AddCommand(executeCmd)
 	executeCmd.Flags().StringP("output", "o", "", "specify output file for writing trace")
+	executeCmd.Flags().BoolP("check", "c", false, "check generated trace against constraints")
 }

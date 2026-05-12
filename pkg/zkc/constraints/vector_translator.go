@@ -44,7 +44,7 @@ type VectorInsnTranslator[F field.Element[F]] struct {
 	context     schema.ModuleId
 	pc          uint
 	vec         vm.Vector[vm.FieldInstruction]
-	regMap      register.Map
+	registers   []register.Register
 	writeMap    dfa.Result[dfa.Writes]
 	branchTable dfa.Result[dfa.Branch]
 	framing     Framing[F]
@@ -53,12 +53,12 @@ type VectorInsnTranslator[F field.Element[F]] struct {
 // NewVectorTranslator constructs a translator for a specific vector
 // instruction.
 func NewVectorTranslator[F field.Element[F]](ctx schema.ModuleId, pc uint,
-	vec vm.Vector[vm.FieldInstruction], framing Framing[F], mapping register.Map) VectorInsnTranslator[F] {
+	vec vm.Vector[vm.FieldInstruction], framing Framing[F], registers []register.Register) VectorInsnTranslator[F] {
 	// generate writeMap & branch table
 	writeMap, branchTable := vec.BranchTable()
 	//
 	return VectorInsnTranslator[F]{
-		ctx, pc, vec, mapping, writeMap, branchTable, framing,
+		ctx, pc, vec, registers, writeMap, branchTable, framing,
 	}
 }
 
@@ -138,7 +138,7 @@ func (p *VectorInsnTranslator[F]) translate() Expr[F] {
 // which registers are actually used (i.e. live) after this instruction.
 func (p *VectorInsnTranslator[F]) WithConstancyConstraints(writes dfa.Writes, condition Expr[F]) Expr[F] {
 	//
-	for i, reg := range p.regMap.Registers() {
+	for i, reg := range p.registers {
 		var (
 			regId = register.NewId(uint(i))
 			// Value of register on this row of the trace.
@@ -186,7 +186,7 @@ func (p *VectorInsnTranslator[F]) RegisterWidths(regs ...io.RegisterId) []uint {
 // This applies forwarding as appropriate.
 func (p *VectorInsnTranslator[F]) ReadRegister(regId register.Id, forwarding bool) Expr[F] {
 	var (
-		reg = p.regMap.Register(regId)
+		reg = p.Register(regId)
 	)
 	//
 	if reg.IsInput() {
@@ -202,12 +202,12 @@ func (p *VectorInsnTranslator[F]) ReadRegister(regId register.Id, forwarding boo
 
 // Register implementation for RegisterReader interface
 func (p *VectorInsnTranslator[F]) Register(reg register.Id) register.Register {
-	return p.regMap.Register(reg)
+	return p.registers[reg.Unwrap()]
 }
 
 // nolint
 func (p *VectorInsnTranslator[F]) debugString(condition Expr[F]) string {
-	return condition.String(func(r register.Id) string { return p.regMap.Register(r).Name() })
+	return condition.String(func(r register.Id) string { return p.Register(r).Name() })
 }
 
 func joinAssignments(lhs util.Option[dfa.Writes], rhs dfa.Writes) util.Option[dfa.Writes] {
