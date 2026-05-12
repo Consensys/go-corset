@@ -620,6 +620,14 @@ func Test_ZkcUnit_Include_02(t *testing.T) {
 }
 
 // ===================================================================
+// Skip If (VM inst) Tests
+// ===================================================================
+
+func Test_ZkcUnit_SkipIf_01(t *testing.T) {
+	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_01", field.BLS12_377, field.KOALABEAR_16)
+}
+
+// ===================================================================
 // Test Helpers
 // ===================================================================
 

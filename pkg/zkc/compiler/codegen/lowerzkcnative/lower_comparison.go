@@ -88,14 +88,14 @@ func isRelationalCondition(cond opcode.Condition) bool {
 }
 
 // lowerRelationalSkipIf lowers a SkipIf with a relational condition into an
-// arithmetic sequence. For LT(a, b) with widths uA, uB and W = max(uA,uB)+1:
+// arithmetic sequence. For LT(a, b) with widths uA, uB and castBandWidth = max(uA,uB)+1:
 //
-//	a_base = cast(a, W-1)                 // zero-extend a to W-1 bits
-//	b_wide = cast(b, W)                   // zero-extend b to W bits
-//	one    = 1                            // 1-bit constant
-//	biased = BitConcat([a_base, one])     // 1::a_base, W bits = a_base + 2^(W-1)
-//	diff   = biased - b_wide              // always in [1, 2^W-1], no underflow
-//	lo, sign = Destruct(diff)             // sign=1 iff diff >= 2^(W-1) iff a >= b
+//	a_base = cast(a, castBandWidth-1)      // zero-extend a to castBandWidth-1 bits
+//	b_wide = cast(b, castBandWidth)        // zero-extend b to castBandWidth bits
+//	one    = 1                              // 1-bit constant
+//	biased = BitConcat([a_base, one])      // 1::a_base, castBandWidth bits = a_base + 2^(castBandWidth-1)
+//	diff   = biased - b_wide              // always in [1, 2^castBandWidth-1], no underflow
+//	lo, sign = Destruct(diff)             // sign=1 iff diff >= 2^(castBandWidth-1) iff a >= b
 //	zero   = 0                            // 1-bit constant
 //	SkipIf(EQ, sign, zero, skip)          // skip iff sign==0 i.e. a < b
 //
@@ -114,7 +114,6 @@ func lowerRelationalSkipIf[W vm.Word[W]](
 	if rhsWidth > castBandWidth {
 		castBandWidth = rhsWidth
 	}
-
 	castBandWidth++
 
 	zero := vm.Uint64[W](0)
