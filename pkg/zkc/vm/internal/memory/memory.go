@@ -15,6 +15,7 @@ package memory
 import (
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
 )
 
 // Memory represents (in many ways) the simplest form of memory
@@ -23,8 +24,8 @@ import (
 // not yet been written will return zero; otherwise, it will return the last
 // value written.
 type Memory[W util.Uinter64] interface {
-	// Name returns the name of this RAM
-	Name() string
+	base.Module
+	// Geometry defines the geometry of this RAM.
 	Geometry() Geometry[W]
 	// IsPublic indicates whether this is a public input or output.
 	IsPublic() bool

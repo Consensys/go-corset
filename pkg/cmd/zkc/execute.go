@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
@@ -50,22 +51,88 @@ var executeCmds = []FieldAgnosticCmd{
 
 func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
+		errors []error
 		// compiler config
 		config = codegen.DEFAULT_CONFIG.
 			Vectorize(GetFlag(cmd, "vectorize")).
 			Field(field)
+		// output file for trace
+		output = GetString(cmd, "output")
 	)
 	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
 	program := CompileSourceFiles(field, args[1:]...)
 	//
-	executeIrProgram[EmptyBaseObserver]("main", config, program, input, EmptyBaseObserver{})
+	if output == "" {
+		errors = executeAndPrint("main", config, program, input)
+	} else {
+		errors = executeAndWrite("main", config, program, input, output)
+	}
+	// Exit with failure (if errors)
+	if len(errors) > 0 {
+		// Log errors
+		for _, e := range errors {
+			log.Error(fmt.Sprintf("%s (IR)", e))
+		}
+		//
+		os.Exit(4)
+	}
 }
 
-func executeIrProgram[V BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
+func executeAndPrint(mainFn string, config codegen.Config, program ast.Program, input map[string][]byte) []error {
+	var (
+		wm     *vm.WordMachine[vm.Uint]
+		errors []error
+	)
+	//
+	if wm, errors = executeIrProgram(mainFn, config, program, input, vm.EmptyBaseObserver{}); len(errors) > 0 {
+		return errors
+	}
+	// Collect raw outputs from write-once memories
+	rawOutputs := make(map[string][]vm.Uint)
+	//
+	for _, m := range wm.Modules() {
+		if output, ok := m.(vm.InputOutputMemory[vm.Uint]); ok && output.IsWriteOnly() {
+			rawOutputs[output.Name()] = output.Contents()
+		}
+	}
+	// Encode outputs back to bytes
+	encodedOutputs, encErrors := program.EncodeInputsOutputs(rawOutputs)
+	//
+	for _, e := range encErrors {
+		log.Error(fmt.Sprintf("%s (IR)", e))
+	}
+	// Write output
+	for name, bytes := range encodedOutputs {
+		fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
+	}
+	//
+	return nil
+}
+
+func executeAndWrite(mainFn string, config codegen.Config, prog ast.Program, in map[string][]byte, out string) []error {
+	//
+	var (
+		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
+		trace    lt.TraceFile
+	)
+	// Execute and trace
+	wm, errors := executeIrProgram(mainFn, config, prog, in, &observer)
+	// Check for errors
+	if len(errors) == 0 {
+		// Extract trace
+		trace = observer.Trace(wm)
+		// Write trace to output file
+		WriteTraceFile(out, trace)
+	}
+	// Done
+	return errors
+}
+
+func executeIrProgram[V vm.BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
 	input map[string][]byte, view V,
-) {
+) (*vm.WordMachine[vm.Uint], []error) {
 	var (
 		wm        *vm.WordMachine[vm.Uint]
 		bigInputs map[string][]vm.Uint
@@ -84,44 +151,21 @@ func executeIrProgram[V BaseObserver[vm.Uint]](mainFn string, config codegen.Con
 		if len(errors) == 0 {
 			if err := wm.Boot(mainFn, bigInputs); err != nil {
 				errors = append(errors, err)
-			} else if _, err := execute[vm.Uint, V](wm, 1, view); err != nil {
+			} else if _, err := execute(wm, 1, view); err != nil {
 				errors = append(errors, err)
 			}
 		}
 	}
-	// Exit with failure (if errors)
-	if len(errors) > 0 {
-		// Log errors
-		for _, e := range errors {
-			log.Error(fmt.Sprintf("%s (IR)", e))
-		}
-		//
-		os.Exit(4)
-	}
-	// Collect raw outputs from write-once memories
-	rawOutputs := make(map[string][]vm.Uint)
-
-	for _, m := range wm.Modules() {
-		if output, ok := m.(vm.InputOutputMemory[vm.Uint]); ok && output.IsWriteOnly() {
-			rawOutputs[output.Name()] = output.Contents()
-		}
-	}
-	// Encode outputs back to bytes
-	encodedOutputs, encErrors := program.EncodeInputsOutputs(rawOutputs)
-	//
-	for _, e := range encErrors {
-		log.Error(fmt.Sprintf("%s (IR)", e))
-	}
-	// Write output
-	for name, bytes := range encodedOutputs {
-		fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
-	}
+	// return machine + errors (if errors)
+	return wm, errors
 }
 
-func execute[W vm.Word[W], V BaseObserver[W]](machine *vm.WordMachine[W], n uint, observer V) (uint, error) {
+func execute[W vm.Word[W], V vm.BaseObserver[W]](machine *vm.WordMachine[W], n uint, observer V) (uint, error) {
 	var (
 		nsteps uint
 	)
+	//
+	observer.Initialise(machine)
 	//
 	for {
 		// observe pre execution
@@ -143,33 +187,6 @@ func execute[W vm.Word[W], V BaseObserver[W]](machine *vm.WordMachine[W], n uint
 // Machine observers
 // ============================================================================
 
-// BaseObserver is an observer for a base machin
-type BaseObserver[W vm.Word[W]] = VmObserver[W, *vm.WordMachine[W]]
-
-// EmptyBaseObserver is an empty observer for a base machine.
-type EmptyBaseObserver = EmptyObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
-
-// VmObserver is a generic interface for extract information before and after an
-// execution step of the VM.  For example, to generate debugging information.
-type VmObserver[W any, M vm.Machine[W]] interface {
-	PreExecution(machine M)
-	PostExecution(machine M)
-}
-
-// EmptyObserver does nothing
-type EmptyObserver[W any, M vm.Machine[W]] struct {
-}
-
-// PreExecution implementation for Observer interface
-func (p EmptyObserver[W, M]) PreExecution(machine M) {
-	// do nothing
-}
-
-// PostExecution implementation for Observer interface
-func (p EmptyObserver[W, M]) PostExecution(machine M) {
-	// do nothing
-}
-
 // ============================================================================
 // Misc
 // ============================================================================
@@ -177,5 +194,5 @@ func (p EmptyObserver[W, M]) PostExecution(machine M) {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(executeCmd)
-	executeCmd.Flags().Bool("ir", false, "execute intermediate representation (IR)")
+	executeCmd.Flags().StringP("output", "o", "", "specify output file for writing trace")
 }

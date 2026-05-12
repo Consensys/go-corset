@@ -60,6 +60,16 @@ func NewGeometry[W util.Uinter64](registers []register.Register) Geometry[W] {
 	return Geometry[W]{registers, inputs, outputs}
 }
 
+// AddressLines returns the number of address lines
+func (p Geometry[W]) AddressLines() uint {
+	return p.numInputs
+}
+
+// DataLines returns the number of data lines
+func (p Geometry[W]) DataLines() uint {
+	return p.numOutputs
+}
+
 // Registers returns the set of registers used for the address and data lines of
 // this memory.
 func (p Geometry[W]) Registers() []register.Register {

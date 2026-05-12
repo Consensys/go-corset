@@ -10,21 +10,16 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package vm
+package trace
 
-import (
-	"github.com/consensys/go-corset/pkg/zkc/vm/internal/trace"
-)
+import "github.com/consensys/go-corset/pkg/zkc/vm/internal/machine"
 
 // Observer is a generic interface for extract information before and after an
 // execution step of the VM.  For example, to generate debugging information.
-type Observer[W any, M Machine[W]] = trace.Observer[W, M]
-
-// BaseObserver is an observer for a base machin
-type BaseObserver[W Word[W]] = trace.Observer[W, *WordMachine[W]]
-
-// EmptyBaseObserver is an empty observer for a base machine.
-type EmptyBaseObserver = trace.EmptyObserver[Uint, *WordMachine[Uint]]
-
-// TraceObserver is an observer which can be used to extract a full trace.
-type TraceObserver[W Word[W], M Machine[W]] = trace.FullObserver[W, M]
+type Observer[W any, M machine.Core[W]] interface {
+	Initialise(machine M)
+	// PreExecution is called directly before each instruction is executed
+	PreExecution(machine M)
+	// PostExecution is called directly after each instruction is executed.
+	PostExecution(machine M)
+}
