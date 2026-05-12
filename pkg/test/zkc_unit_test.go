@@ -403,6 +403,14 @@ func Test_ZkcUnit_Bitwise_11(t *testing.T) {
 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/bitwise_11", field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_ZkcUnit_BitRor64(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bit_ror64", field.BLS12_377, field.KOALABEAR_16)
+}
+
+func Test_ZkcUnit_SwitchEndian(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/switch_endian", field.BLS12_377, field.KOALABEAR_16)
+}
+
 // ===================================================================
 // Shift Tests
 // ===================================================================
@@ -461,10 +469,6 @@ func Test_ZkcUnit_Static_01(t *testing.T) {
 
 func Test_ZkcUnit_Static_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/static_02", field.BLS12_377, field.KOALABEAR_16)
-}
-
-func Test_ZkcUnit_SwitchEndian(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/switch_endian", field.BLS12_377, field.KOALABEAR_16)
 }
 
 // ===================================================================

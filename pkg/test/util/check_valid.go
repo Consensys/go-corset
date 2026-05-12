@@ -110,6 +110,72 @@ func runTestCase(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint],
 	}
 }
 
+// BenchZkcAccepts benchmarks one field by running every case from matching
+// `.accepts` test files (same selection as CheckValid).
+func BenchZkcAccepts(b *testing.B, test string, fields ...field.Config) {
+	b.Helper()
+
+	if len(fields) == 0 {
+		fields = []field.Config{field.BLS12_377}
+	}
+
+	f := fields[0]
+
+	filename := fmt.Sprintf("%s/%s.%s", TestDir, test, "zkc")
+	program := cmd_util.CompileSourceFiles(f, filename)
+
+	wm, errs := program.Compile(codegen.DEFAULT_CONFIG.Field(f))
+
+	for _, err := range errs {
+		b.Fatal(err)
+	}
+
+	var cases []TestCase
+
+	for _, cfg := range TESTFILE_EXTENSIONS {
+		if !cfg.expected {
+			continue
+		}
+
+		if cfg.field != nil && *cfg.field != f {
+			continue
+		}
+
+		cases = append(cases, ReadTestsFile(cfg, test)...)
+	}
+
+	if len(cases) == 0 {
+		b.Fatalf("no accept test cases for %s", test)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		for _, tc := range cases {
+			benchMustRunAcceptCase(b, program, wm, tc)
+		}
+	}
+}
+
+func benchMustRunAcceptCase(b *testing.B, program ast.Program, wm *vm.WordMachine[vm.Uint], tc TestCase) {
+	b.Helper()
+
+	inputs, _, decodeErrs := program.DecodeInputsOutputs(tc.data)
+
+	if len(decodeErrs) != 0 {
+		b.Fatal(decodeErrs)
+	}
+
+	if err := wm.Boot("main", inputs); err != nil {
+		b.Fatal(err)
+	}
+
+	if _, err := vm.ExecuteAll(wm, 1024); err != nil {
+		b.Fatal(err)
+	}
+}
+
 func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Uint]) []error {
 	var errors []error
 	//
