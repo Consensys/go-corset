@@ -14,17 +14,23 @@ package vm
 
 import (
 	"fmt"
-	"math"
+	"math/big"
 
-	"github.com/consensys/go-corset/pkg/ir/air"
-	"github.com/consensys/go-corset/pkg/ir/term"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/poly"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	finsn "github.com/consensys/go-corset/pkg/zkc/vm/instruction/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/machine"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
+
+// Monomial is a useful alias
+type Monomial = finsn.Monomial
+
+// Polynomial is a useful alias
+type Polynomial = finsn.Polynomial
 
 // LowerWordMachine translates a machine over integer words into a machine over
 // field elements.  In order to do this, it must "compile out" various
@@ -98,6 +104,8 @@ func (p wordToField[W, F]) lowerWordInstruction(wi WordInstruction) (fi FieldIns
 		return wi.(*instruction.Call)
 	case opcode.FAIL:
 		return wi.(*instruction.Fail)
+	case opcode.JUMP:
+		return wi.(*instruction.Jump)
 	case opcode.MEMORY_READ:
 		return wi.(*instruction.MemRead)
 	case opcode.MEMORY_WRITE:
@@ -107,79 +115,109 @@ func (p wordToField[W, F]) lowerWordInstruction(wi WordInstruction) (fi FieldIns
 	case opcode.SKIP:
 		return wi.(*instruction.Skip)
 	case opcode.SKIP_IF:
-		return wi.(*instruction.SkipIf)
+		var insn = wi.(*instruction.SkipIf)
+		return insn
 	case opcode.INT_ADD:
 		var insn = wi.(*instruction.IntAdd[W])
-		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, sum)
 	case opcode.INT_SUB:
 		var insn = wi.(*instruction.IntSub[W])
-		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, term.Subtract)
+		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, subtract)
 	case opcode.INT_MUL:
 		var insn = wi.(*instruction.IntMul[W])
-		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, term.Product)
+		return p.lowerArithInstruction(insn.Target, insn.Sources, insn.Constant, product)
 	case opcode.INT_ADDMOD_P:
 		var insn = wi.(*instruction.IntAddModP[W])
-		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, sum)
 	case opcode.INT_SUBMOD_P:
 		var insn = wi.(*instruction.IntSubModP[W])
-		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, subtract)
 	case opcode.INT_MULMOD_P:
 		var insn = wi.(*instruction.IntMulModP[W])
-		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, term.Sum)
+		return p.lowerFieldInstruction(insn.Target, insn.Sources, insn.Constant, product)
 	default:
 		panic(fmt.Sprintf("unknown instruction encountered (opcode=0x%x)", wi.OpCode()))
 	}
 }
 
-type airConstructor[F field.Element[F]] func(...air.Term[F]) air.Term[F]
+type airConstructor[F field.Element[F]] func(...Monomial) Polynomial
 
 func (p wordToField[W, F]) lowerArithInstruction(lhs register.Id, rhs []register.Id, c W,
 	f airConstructor[F]) (fi FieldInstruction) {
 	//
 	var (
+		one   = big.NewInt(1)
 		zero  W
-		terms = make([]air.Term[F], len(rhs))
+		terms = make([]Monomial, len(rhs))
 	)
 	// Construct register accesses as necessary
 	for i, r := range rhs {
-		terms[i] = term.NewRegisterAccess[F, air.Term[F]](r, math.MaxUint, 0)
+		terms[i] = poly.NewMonomial(*one, r)
 	}
 	// Add constant (if applicable)
 	if n := c.BigInt(); n.BitLen() > int(p.field.RegisterWidth) {
 		panic(fmt.Sprintf("constant exceeds max register width (u%d vs u%d)", n.BitLen(), p.field.RegisterWidth))
 	} else if c.Cmp(zero) != 0 {
-		var c F
-		// Convert from word value to field element
-		c = c.SetBytes(n.Bytes())
+		// var c F
+		// // Convert from word value to field element
+		// c = c.SetBytes(n.Bytes())
 		// Append field constant
-		terms = append(terms, term.Const[F, air.Term[F]](c))
+		terms = append(terms, poly.NewMonomial[register.Id](*n))
 	}
 	// Done
-	return instruction.NewFieldAssign(lhs, f(terms...))
+	return instruction.NewFieldAssign[F](lhs, f(terms...))
 }
 
 func (p wordToField[W, F]) lowerFieldInstruction(lhs register.Id, rhs []register.Id, c W,
 	f airConstructor[F]) (fi FieldInstruction) {
 	//
 	var (
+		one   = big.NewInt(1)
 		mod   F
 		zero  W
-		terms = make([]air.Term[F], len(rhs))
+		terms = make([]Monomial, len(rhs))
 	)
 	// Construct register accesses as necessary
 	for i, r := range rhs {
-		terms[i] = term.NewRegisterAccess[F, air.Term[F]](r, math.MaxUint, 0)
+		terms[i] = poly.NewMonomial(*one, r)
 	}
 	// Add constant (if applicable)
 	if n := c.BigInt(); n.Cmp(mod.Modulus()) >= 0 {
 		panic(fmt.Sprintf("constant exceeds field prime (0x%s vs 0x%s)", n.Text(16), mod.Modulus().Text(16)))
 	} else if c.Cmp(zero) != 0 {
-		var c F
+		//var c F
 		// Convert from word value to field element
-		c = c.SetBytes(n.Bytes())
+		//c = c.SetBytes(n.Bytes())
 		// Append field constant
-		terms = append(terms, term.Const[F, air.Term[F]](c))
+		terms = append(terms, poly.NewMonomial[register.Id](*n))
 	}
 	// Done
-	return instruction.NewFieldAssign(lhs, f(terms...))
+	return instruction.NewFieldAssign[F](lhs, f(terms...))
+}
+
+func sum(terms ...Monomial) Polynomial {
+	var p Polynomial
+	// Initialise polynomial
+	return p.Set(terms...)
+}
+
+func subtract(terms ...Monomial) Polynomial {
+	panic("todo")
+}
+
+func product(terms ...Monomial) Polynomial {
+	var (
+		p Polynomial
+		m Monomial
+	)
+	//
+	for i, t := range terms {
+		if i == 0 {
+			m = t
+		} else {
+			m = m.Mul(t)
+		}
+	}
+	//
+	return p.Set(m)
 }

@@ -10,23 +10,25 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package poly
+package trace
 
-import "math/big"
+import "github.com/consensys/go-corset/pkg/zkc/vm/internal/machine"
 
-// Term represents a product (or monomial) within a polynomial.
-type Term[S any, T any] interface {
-	// Coefficient returns the coefficient of this term.
-	Coefficient() big.Int
-	// Len returns the number of variables in this polynomial term.
-	Len() uint
-	// Negate this term
-	Negate() T
-	// Nth returns the nth variable in this polynomial term.
-	Nth(uint) S
-	// Matches determines whether or not the variables of this term match those
-	// of the other.
-	Matches(other T) bool
-	// Check whether this term has a negative coefficient (or not)
-	IsNegative() bool
+// EmptyObserver does nothing
+type EmptyObserver[W any, M machine.Core[W]] struct {
+}
+
+// Initialise implementation for Observer interface
+func (p EmptyObserver[W, M]) Initialise(machine M) {
+	// do nothing
+}
+
+// PreExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PreExecution(machine M) {
+	// do nothing
+}
+
+// PostExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PostExecution(machine M) {
+	// do nothing
 }

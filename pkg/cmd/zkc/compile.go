@@ -65,7 +65,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 		//
 		wir = GetFlag(cmd, "wir")
 		fir = GetFlag(cmd, "fir")
-		air = GetFlag(cmd, "air")
+		mir = GetFlag(cmd, "mir")
 	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
@@ -74,13 +74,13 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	// Compile source files, or print errors
 	program := CompileSourceFiles(field, args...)
 	//
-	writeProgram[F](config, field, program, wir, fir, air)
+	writeProgram[F](config, field, program, wir, fir, mir)
 }
 
 func writeProgram[F field.Element[F]](config codegen.Config, field field.Config, program ast.Program,
-	wir, fir, air bool) {
+	wir, fir, mir bool) {
 	//
-	if !(wir || fir || air) {
+	if !(wir || fir || mir) {
 		writeAbstractSyntaxTree(program)
 		return
 	}
@@ -103,7 +103,7 @@ func writeProgram[F field.Element[F]](config codegen.Config, field field.Config,
 	if fir {
 		writeIntermediateRepresentation(fvm)
 	} else {
-		avm := constraints.GenerateAirConstraints(fvm)
+		avm := constraints.GenerateMirConstraints(fvm)
 		//
 		debug.PrintAnySchema(avm, 80)
 	}
@@ -399,6 +399,6 @@ func init() {
 	rootCmd.AddCommand(compileCmd)
 	compileCmd.Flags().Bool("wir", false, "Output Word-level Intermediate Representation (WIR)")
 	compileCmd.Flags().Bool("fir", false, "Output Field-level Intermediate Representation (FIR)")
-	compileCmd.Flags().Bool("air", false, "Output Arithmetic Intermediate Representation (AIR)")
+	compileCmd.Flags().Bool("mir", false, "Output Mid-Level Intermediate Representation (MIR)")
 	compileCmd.Flags().Bool("lower-native", false, "Lower ZkC native functions into arithmetic instructions")
 }

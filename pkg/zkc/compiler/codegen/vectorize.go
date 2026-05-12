@@ -152,7 +152,7 @@ func prepareCode(code []VectorInstruction) []VectorInstruction {
 		codes := slices.Clone(insn.Codes)
 		// Append fall-through Jmp if the vector doesn't already terminate.
 		if !endsInTerminator(codes) && uint(pc)+1 < n {
-			codes = append(codes, instruction.NewJmp(uint(pc)+1))
+			codes = append(codes, instruction.NewJump(uint(pc)+1))
 		}
 		//
 		prepared[pc] = VectorInstruction{Codes: codes}
@@ -195,7 +195,7 @@ func vectorizeInstruction(pc uint, code []VectorInstruction, mapping instruction
 		index, ok := lastJump(vec.Codes, uint(len(vec.Codes)))
 		// Try the right-most non-conflicting jump.
 		for ok {
-			jmpTarget := vec.Codes[index].(*instruction.Jmp).Immediate
+			jmpTarget := vec.Codes[index].(*instruction.Jump).Immediate
 			// Skip back-edges into ourselves and absorbs that would shift
 			// backwards (which would otherwise unfold a loop).
 			if offset := externs[jmpTarget]; offset > index && jmpTarget != pc {
@@ -254,7 +254,7 @@ func markJumpTargets(vec VectorInstruction, visited []bool, worklist *stack.Stac
 	//
 	index, found := lastJump(vec.Codes, uint(len(vec.Codes)))
 	for found {
-		target := vec.Codes[index].(*instruction.Jmp).Immediate
+		target := vec.Codes[index].(*instruction.Jump).Immediate
 		//
 		if !visited[target] {
 			visited[target] = true
@@ -319,7 +319,7 @@ func inlineJump(vec VectorInstruction, jmpIndex uint, targetCodes []Instruction)
 		code := codes[cc]
 		//
 		switch c := code.(type) {
-		case *instruction.Jmp:
+		case *instruction.Jump:
 			if cc == jmpIndex {
 				// Splice in the target's codes (shared references — the
 				// originals are not mutated downstream).
@@ -374,9 +374,9 @@ func pruneUnreachableInstructions(insns []VectorInstruction) []VectorInstruction
 		for i, code := range vec.Codes {
 			if code.OpCode() == opcode.JUMP {
 				// Determine original jump target
-				var jmpTarget = code.(*instruction.Jmp).Immediate
+				var jmpTarget = code.(*instruction.Jump).Immediate
 				// construct replacement jump
-				vec.Codes[i] = instruction.NewJmp(mapping[jmpTarget])
+				vec.Codes[i] = instruction.NewJump(mapping[jmpTarget])
 			}
 		}
 	}

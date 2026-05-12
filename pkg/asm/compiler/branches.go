@@ -23,7 +23,7 @@ import (
 
 // TranslateBranchCondition translates a given branch condition within the
 // context of a given state reader.
-func translateBranchCondition[T any, E Expr[T, E]](p dfa.BranchCondition, reader RegisterReader[E]) E {
+func TranslateBranchCondition[T any, E Expr[T, E]](p dfa.BranchCondition, reader RegisterReader[E]) E {
 	var condition E
 	// Sanity check for obvious cases
 	if p.IsTrue() {
