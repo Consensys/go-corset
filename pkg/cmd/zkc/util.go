@@ -18,6 +18,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/trace/json"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
@@ -110,4 +112,37 @@ func printSyntaxError(err *source.SyntaxError) {
 	fmt.Print(strings.Repeat(" ", lineOffset))
 	// Print highlight
 	fmt.Println(strings.Repeat("^", length))
+}
+
+// WriteTraceFile writes a given lt trace file to disk, either in JSON or LT
+// formats.
+func WriteTraceFile(filename string, tracefile lt.TraceFile) {
+	var (
+		err   error
+		bytes []byte
+	)
+	// Check file extension
+	ext := path.Ext(filename)
+	//
+	switch ext {
+	case ".json":
+		js := json.ToJsonString(tracefile.RawModules())
+		//
+		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
+			return
+		}
+	case ".lt":
+		bytes, err = tracefile.MarshalBinary()
+		//
+		if err == nil {
+			if err = os.WriteFile(filename, bytes, 0644); err == nil {
+				return
+			}
+		}
+	default:
+		err = fmt.Errorf("unknown trace file format: %s", ext)
+	}
+	// Handle error
+	fmt.Println(err)
+	os.Exit(4)
 }
