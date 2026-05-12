@@ -14,6 +14,7 @@ package util
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 )
 
@@ -36,6 +37,10 @@ const (
 	FORMAT_HEX
 	// FORMAT_BIN indicates to format in binary
 	FORMAT_BIN
+	// FORMAT_CHR indicates to format as a single ASCII character.  The
+	// argument is required (at type-check time) to be a concrete u8; the
+	// rendered output is the single byte interpreted as a character.
+	FORMAT_CHR
 )
 
 // Formattable captures a numeric element which can be formatted in a particular
@@ -74,6 +79,12 @@ func BinFormat() Format {
 	return Format{Code: FORMAT_BIN}
 }
 
+// CharFormat constructs a new character format.  %c does not support
+// width/zero-padding flags; the parser rejects them before this is reached.
+func CharFormat() Format {
+	return Format{Code: FORMAT_CHR}
+}
+
 // HasFormat checks whether this actually represents a format, or is empty.
 func (p Format) HasFormat() bool {
 	return p.Code != FORMAT_NONE
@@ -92,6 +103,8 @@ func (p Format) String() string {
 		typeChar = 'x'
 	case FORMAT_BIN:
 		typeChar = 'b'
+	case FORMAT_CHR:
+		typeChar = 'c'
 	default:
 		panic("invalid format")
 	}
@@ -124,6 +137,17 @@ func FormatWord[W Formattable](format Format, word W) string {
 		digits = word.Text(16)
 	case FORMAT_BIN:
 		digits = word.Text(2)
+	case FORMAT_CHR:
+		// Render the value as a single ASCII character.  Type-checking
+		// (in the zkc compiler) enforces that the argument is a concrete
+		// u8, so the value fits in a single byte; nonetheless we mask
+		// the low 8 bits defensively in case this is called outside
+		// that path (e.g. by future Unicode work, or by tests that
+		// bypass the type checker).
+		var v big.Int
+		v.SetString(word.Text(10), 10)
+		//
+		return string([]byte{byte(v.Uint64() & 0xff)})
 	default:
 		panic("invalid format")
 	}
