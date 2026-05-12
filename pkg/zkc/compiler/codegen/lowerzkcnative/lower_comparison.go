@@ -88,18 +88,19 @@ func isRelationalCondition(cond opcode.Condition) bool {
 }
 
 // lowerRelationalSkipIf lowers a SkipIf with a relational condition into an
-// arithmetic sequence. For LT(a, b) with widths uA, uB and castBandWidth = max(uA,uB)+1:
+// arithmetic sequence. castBandWidth = max(lhsWidth, rhsWidth)+1.
+// When lhsWidth == castBandWidth-1 (LT/GTEQ after normalisation), lhs is used
+// directly in BitConcat with no cast. Otherwise (GT/LTEQ after swap), lhs is
+// first widened to castBandWidth-1 via aBase.
 //
-//	a_base = cast(a, castBandWidth-1)      // zero-extend a to castBandWidth-1 bits
-//	b_wide = cast(b, castBandWidth)        // zero-extend b to castBandWidth bits
-//	one    = 1                              // 1-bit constant
-//	biased = BitConcat([a_base, one])      // 1::a_base, castBandWidth bits = a_base + 2^(castBandWidth-1)
-//	diff   = biased - b_wide              // always in [1, 2^castBandWidth-1], no underflow
-//	lo, sign = Destruct(diff)             // sign=1 iff diff >= 2^(castBandWidth-1) iff a >= b
-//	zero   = 0                            // 1-bit constant
-//	SkipIf(EQ, sign, zero, skip)          // skip iff sign==0 i.e. a < b
-//
-// GT and LTEQ are reduced by swapping operands; GTEQ uses NEQ instead of EQ.
+//	[aBase = cast(lhs, castBandWidth-1)]   // only when lhsWidth < castBandWidth-1
+//	b_wide = cast(rhs, castBandWidth)
+//	one    = 1
+//	biased = BitConcat([lhs_or_aBase, one])  // 1::lhs, avoids underflow in diff
+//	diff   = biased - b_wide
+//	lo, sign = Destruct(diff)               // sign=1 iff lhs >= rhs
+//	zero   = 0
+//	SkipIf(EQ/NEQ, sign, zero, skip)
 func lowerRelationalSkipIf[W vm.Word[W]](
 	si *instruction.SkipIf,
 	registers *[]register.Register,
@@ -114,12 +115,12 @@ func lowerRelationalSkipIf[W vm.Word[W]](
 	if rhsWidth > castBandWidth {
 		castBandWidth = rhsWidth
 	}
+
 	castBandWidth++
 
 	zero := vm.Uint64[W](0)
 	one := vm.Uint64[W](1)
 
-	aBase := allocTmp(registers, castBandWidth-1)
 	bWide := allocTmp(registers, castBandWidth)
 	oneReg := allocTmp(registers, 1)
 	biased := allocTmp(registers, castBandWidth)
@@ -128,16 +129,35 @@ func lowerRelationalSkipIf[W vm.Word[W]](
 	sign := allocTmp(registers, 1)
 	zeroReg := allocTmp(registers, 1)
 
-	insns := []vm.WordInstruction{
-		instruction.NewCast(aBase, lhs, castBandWidth-1),
+	// rhs is always cast to castBandWidth
+	castRhs := []vm.WordInstruction{
 		instruction.NewCast(bWide, rhs, castBandWidth),
 		instruction.NewIntAdd(oneReg, nil, one),
-		instruction.NewBitConcat[W](biased, []register.Id{aBase, oneReg}),
+	}
+
+	// when creating 1::lhs, we don't need to cast lhs if it's of size castBandWidth-1 already.
+	var castLhs []vm.WordInstruction
+	if lhsWidth == castBandWidth-1 {
+		castLhs = []vm.WordInstruction{
+			instruction.NewBitConcat[W](biased, []register.Id{lhs, oneReg}),
+		}
+	} else {
+		aBase := allocTmp(registers, castBandWidth-1)
+		castLhs = []vm.WordInstruction{
+			instruction.NewCast(aBase, lhs, castBandWidth-1),
+			instruction.NewBitConcat[W](biased, []register.Id{aBase, oneReg}),
+		}
+	}
+
+	subtractAnsDestruct := []vm.WordInstruction{
 		instruction.NewIntSub(diff, []register.Id{biased, bWide}, zero),
 		instruction.NewDestruct([]register.Id{lo, sign}, diff),
 		instruction.NewIntAdd(zeroReg, nil, zero),
 	}
 
+	insns := append(append(castRhs, castLhs...), subtractAnsDestruct...)
+
+	// Finally emit the SkipIf with the appropriate condition on the sign bit
 	finalCond := opcode.EQ
 	if !skipOnZero {
 		finalCond = opcode.NEQ
@@ -146,13 +166,13 @@ func lowerRelationalSkipIf[W vm.Word[W]](
 	return append(insns, instruction.NewSkipIf(finalCond, sign, zeroReg, si.Skip))
 }
 
-// normalizeRelational returns (lhs, rhs, skipOnZero) for a relational SkipIf,
-// normalizing GT and LTEQ by swapping operands into the LT/GTEQ basis:
+// normalizeRelational returns (lhs, rhs, skipOnZero) for a relational SkipIf.
+// GT and LTEQ swap operands so the sign bit gives exact strict/inclusive semantics:
 //
 //	LT(a,b)   → lhs=a, rhs=b, skipOnZero=true  (skip if sign==0 i.e. a < b)
 //	GTEQ(a,b) → lhs=a, rhs=b, skipOnZero=false (skip if sign==1 i.e. a >= b)
-//	GT(a,b)   → lhs=b, rhs=a, skipOnZero=true  (= LT(b,a))
-//	LTEQ(a,b) → lhs=b, rhs=a, skipOnZero=false (= GTEQ(b,a))
+//	GT(a,b)   → lhs=b, rhs=a, skipOnZero=true  (sign==0 iff b < a iff a > b)
+//	LTEQ(a,b) → lhs=b, rhs=a, skipOnZero=false (sign==1 iff b >= a iff a <= b)
 func normalizeRelational(si *instruction.SkipIf) (lhs, rhs register.Id, skipOnZero bool) {
 	switch si.Cond {
 	case opcode.LT:
