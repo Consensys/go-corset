@@ -126,9 +126,10 @@ func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	// to hold any shift amount n (up to 2^amtWidth-1).  Take the larger of the
 	// two so a single width covers both registers.
 	wmaxWidth := amtWidth
-	if needed := uint(bits.Len(uint(width - 1))); needed > wmaxWidth {
+	if needed := uint(bits.Len(width - 1)); needed > wmaxWidth {
 		wmaxWidth = needed
 	}
+
 	if wmaxWidth == 0 {
 		wmaxWidth = 1
 	}
@@ -194,9 +195,10 @@ func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	// to hold any shift amount n (up to 2^amtWidth-1).  Take the larger of the
 	// two so a single width covers both registers.
 	wmaxWidth := amtWidth
-	if needed := uint(bits.Len(uint(width - 1))); needed > wmaxWidth {
+	if needed := uint(bits.Len(width - 1)); needed > wmaxWidth {
 		wmaxWidth = needed
 	}
+
 	if wmaxWidth == 0 {
 		wmaxWidth = 1
 	}
