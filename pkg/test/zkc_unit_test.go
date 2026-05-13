@@ -403,6 +403,10 @@ func Test_ZkcUnit_Bitwise_11(t *testing.T) {
 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/bitwise_11", field.BLS12_377, field.KOALABEAR_16)
 }
 
+func Test_ZkcUnit_Bitwise_12(t *testing.T) {
+	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/bitwise_12", field.BLS12_377, field.KOALABEAR_16)
+}
+
 // ===================================================================
 // Shift Tests
 // ===================================================================
@@ -622,6 +626,31 @@ func Test_ZkcUnit_Include_01(t *testing.T) {
 func Test_ZkcUnit_Include_02(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/include_02", field.BLS12_377, field.KOALABEAR_16)
 }
+
+// ===================================================================
+// Skip If (VM inst) Tests
+// ===================================================================
+
+func Test_ZkcUnit_SkipIf_01(t *testing.T) {
+	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_01", field.BLS12_377, field.KOALABEAR_16)
+}
+
+//TODO: re-enable me when the ternary bandwidth allocator is fixed (issue 1758)
+// func Test_ZkcUnit_SkipIf_02(t *testing.T) {
+// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_02", field.BLS12_377, field.KOALABEAR_16)
+// }
+//
+// func Test_ZkcUnit_SkipIf_03(t *testing.T) {
+// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_03", field.BLS12_377, field.KOALABEAR_16)
+// }
+//
+// func Test_ZkcUnit_SkipIf_04(t *testing.T) {
+// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_04", field.BLS12_377, field.KOALABEAR_16)
+// }
+//
+// func Test_ZkcUnit_SkipIf_05(t *testing.T) {
+// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_05", field.BLS12_377, field.KOALABEAR_16)
+// }
 
 // ===================================================================
 // Test Helpers
