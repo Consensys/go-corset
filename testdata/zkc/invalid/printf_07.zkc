@@ -1,3 +1,4 @@
+//error:7:10-24:invalid formatting
 pub input data(address:u1) -> (char:u8)
 
 fn main() {
