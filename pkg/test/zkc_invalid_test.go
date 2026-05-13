@@ -793,6 +793,14 @@ func Test_ZkcInvalid_Printf_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/printf_05")
 }
 
+func Test_ZkcInvalid_Printf_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_06")
+}
+
+func Test_ZkcInvalid_Printf_07(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/printf_07")
+}
+
 // ===================================================================
 // Fail Tests
 // ===================================================================
