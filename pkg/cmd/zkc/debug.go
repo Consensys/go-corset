@@ -57,7 +57,7 @@ func runDebugCmd[F field.Element[F]](cmd *cobra.Command, args []string, field fi
 	//
 	observer := debug.TraceObserver[vm.Uint]{}
 	//
-	executeIrProgram("main", config, program, input, &observer)
+	ExecuteIrProgram("main", config, program, input, &observer)
 	//
 	fmt.Println()
 }

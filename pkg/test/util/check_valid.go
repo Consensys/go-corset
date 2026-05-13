@@ -16,47 +16,86 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/consensys/go-corset/pkg/cmd/zkc"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/zkc"
+	"github.com/consensys/go-corset/pkg/ir/mir"
+	"github.com/consensys/go-corset/pkg/schema/module"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
+	"github.com/consensys/go-corset/pkg/util/field/gf251"
+	"github.com/consensys/go-corset/pkg/util/field/gf8209"
+	"github.com/consensys/go-corset/pkg/util/field/koalabear"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	"github.com/consensys/go-corset/pkg/zkc/vm"
 )
 
+var (
+	// DEFAULT_FIELDS set default fields for testing
+	DEFAULT_FIELDS = []field.Config{field.BLS12_377, field.KOALABEAR_16}
+	// DEFAULT_CONFIG sets a default testing configuration
+	DEFAULT_CONFIG = Config{fields: DEFAULT_FIELDS, constraints: false}
+)
+
+// Config for testing
+type Config struct {
+	// Fields to test over
+	fields []field.Config
+	// enable constraints checking, or not.
+	constraints bool
+	// enable testing for native lowering
+	nativeLowering bool
+}
+
+// Fields determines which fields to test over.
+func (p Config) Fields(fields ...field.Config) Config {
+	p.fields = fields
+	//
+	return p
+}
+
+// Constraints determines whether or not to check constraints.
+func (p Config) Constraints(flag bool) Config {
+	p.constraints = flag
+	//
+	return p
+}
+
+// NativeLowering determines whether or not to test native lowerings as well.
+func (p Config) NativeLowering(flag bool) Config {
+	p.nativeLowering = flag
+	//
+	return p
+}
+
 // CheckValid checks that a given source file compiles without any errors.
 // nolint
-func CheckValid(t *testing.T, test, ext string, fields ...field.Config) {
+func CheckValid(t *testing.T, test, ext string, config Config) {
 	// Enable testing each trace in parallel
 	t.Parallel()
 	//
-	if len(fields) == 0 {
+	if len(config.fields) == 0 {
 		panic("at least one target field is required")
 	}
 	// Check for each field requested
-	for _, f := range fields {
-		checkValidInternal(t, test, ext, codegen.DEFAULT_CONFIG, f)
+	for _, f := range config.fields {
+		checkValidInternal(t, test, ext, codegen.DEFAULT_CONFIG, config.constraints, f)
+		// check whether to enable lowering as well.
+		if config.nativeLowering {
+			checkValidInternal(t, test, ext, codegen.DEFAULT_CONFIG.LowerZkcNative(true), config.constraints, f)
+		}
 	}
 }
 
-// CheckValidWithConfig checks that a given source file compiles and runs correctly using the provided codegen config.
-// nolint
-func CheckValidWithConfig(t *testing.T, test, ext string, cfg codegen.Config, fields ...field.Config) {
-	if len(fields) == 0 {
-		panic("at least one target field is required")
-	}
-	// Check for each field requested
-	for _, f := range fields {
-		checkValidInternal(t, test, ext, cfg, f)
-	}
-}
-
-func checkValidInternal(t *testing.T, test, ext string, cfg codegen.Config, field field.Config) {
+func checkValidInternal(t *testing.T, test, ext string, codeCfg codegen.Config, constraints bool, field field.Config) {
 	var filename = fmt.Sprintf("%s/%s.%s", TestDir, test, ext)
 	// Compile source file into Abstract Syntax Tree form.
 	program := cmd_util.CompileSourceFiles(field, filename)
 	// Compile program into boot machine
-	vm, errs := program.Compile(cfg.Field(field))
+	vm, errs := program.Compile(codeCfg.Field(field))
 	for _, err := range errs {
 		t.Errorf("%s", err.Error())
 	}
@@ -70,19 +109,24 @@ func checkValidInternal(t *testing.T, test, ext string, cfg codegen.Config, fiel
 		if cfg.field == nil || *cfg.field == field {
 			// Read tests from file
 			tests := ReadTestsFile(cfg, test)
-			// Run all tests
-			runTestCases(t, program, vm, tests)
+			// Run execution tests
+			for _, test := range tests {
+				runExecutionTest(t, program, vm, test)
+			}
+			// Run constraint tests
+			if constraints {
+				for _, test := range tests {
+					// FIXME: support reject tests
+					if test.expected {
+						runConstraintTest(t, codeCfg, program, test, field)
+					}
+				}
+			}
 		}
 	}
 }
 
-func runTestCases(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint], tests []TestCase) {
-	for _, test := range tests {
-		runTestCase(t, program, wm, test)
-	}
-}
-
-func runTestCase(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint], test TestCase) {
+func runExecutionTest(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	var (
 		err                   error
 		inputs, outputs, errs = program.DecodeInputsOutputs(test.data)
@@ -108,6 +152,56 @@ func runTestCase(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint],
 	for _, err := range errs {
 		t.Errorf("%s:%d %v", test.filename, test.line, err)
 	}
+}
+
+func runConstraintTest(t *testing.T, config codegen.Config, program ast.Program, test TestCase, f field.Config) {
+	// Dispatch based on field config
+	switch f {
+	case field.GF_251:
+		testConstraintsWithField[gf251.Element](t, config, program, test, f)
+	case field.GF_8209:
+		testConstraintsWithField[gf8209.Element](t, config, program, test, f)
+	case field.KOALABEAR_16:
+		testConstraintsWithField[koalabear.Element](t, config, program, test, f)
+	case field.BLS12_377:
+		testConstraintsWithField[bls12_377.Element](t, config, program, test, f)
+	default:
+		panic(fmt.Sprintf("unknown field configuration: %s", f.Name))
+	}
+}
+
+func testConstraintsWithField[F field.Element[F]](t *testing.T, config codegen.Config, program ast.Program,
+	test TestCase, f field.Config) {
+	//
+	var (
+		wvm, tf = executeAndTrace(t, config, program, test.data)
+		id      = traceId{f.Name, "MIR", test.filename,
+			test.expected, true, true, mir.DEFAULT_OPTIMISATION_INDEX, true, int(test.line), 0}
+	)
+	// Lower to field machine
+	fvm := vm.LowerWordMachine[vm.Uint, F](f, wvm)
+	// lower to mir constraints
+	avm := constraints.GenerateMirConstraints(fvm)
+	// Construct limbs map
+	mapping := module.NewLimbsMap[F](f, avm.Modules().Collect()...)
+	// generate initial trace
+	checkTrace(t, tf, id, avm, mapping)
+}
+
+func executeAndTrace(t *testing.T, config codegen.Config, program ast.Program, input map[string][]byte,
+) (*vm.WordMachine[vm.Uint], lt.TraceFile) {
+	//
+	var (
+		wm       *vm.WordMachine[vm.Uint]
+		errors   []error
+		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
+	)
+	//
+	if wm, errors = zkc.ExecuteIrProgram("main", config, program, input, &observer); len(errors) > 0 {
+		t.Errorf("%v", errors)
+	}
+	// Done
+	return wm, observer.Trace(wm)
 }
 
 func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Uint]) []error {

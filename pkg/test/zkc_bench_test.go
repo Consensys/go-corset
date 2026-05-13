@@ -89,5 +89,7 @@ func Test_ZkcBench_LeftShiftAndTypeBug(t *testing.T) {
 // ===================================================================
 
 func checkZkcBench(t *testing.T, test string, fields ...field.Config) {
-	util.CheckValid(t, test, "zkc", fields...)
+	var config = util.DEFAULT_CONFIG.Fields(fields...)
+	//
+	util.CheckValid(t, test, "zkc", config)
 }

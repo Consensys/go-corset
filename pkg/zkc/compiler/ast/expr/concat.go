@@ -48,7 +48,7 @@ func (p *Concat[S]) LocalUses() bit.Set {
 }
 
 func (p *Concat[S]) String(mapping variable.Map[S]) string {
-	return String[S](p, mapping)
+	return String(p, mapping)
 }
 
 // SetType implementation for Expr interface

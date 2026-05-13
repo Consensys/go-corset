@@ -13,6 +13,8 @@
 package constraints
 
 import (
+	"fmt"
+	"reflect"
 	"slices"
 
 	mirc "github.com/consensys/go-corset/pkg/asm/compiler"
@@ -85,6 +87,9 @@ func (p *VectorInsnTranslator[F]) translate() Expr[F] {
 		case *instruction.Debug:
 			// no-operation
 			continue
+		case *instruction.Call, *instruction.MemRead, *instruction.MemWrite:
+			// TODO: these need to be implemented as assignments to their
+			// respected selector line (i.e. to enable the conditional lookup).
 		case *instruction.Fail:
 			local = mirc.False[register.Id, Expr[F]]()
 		case *instruction.Jump:
@@ -104,7 +109,8 @@ func (p *VectorInsnTranslator[F]) translate() Expr[F] {
 			// do nothing
 			continue
 		default:
-			panic("unreachable")
+			var t = reflect.TypeOf(c)
+			panic(fmt.Sprintf("unexpected instruction (%s)", t.String()))
 		}
 		//
 		condition := mirc.TranslateBranchCondition(p.branchTable.StateOf(cc).Condition, p)
