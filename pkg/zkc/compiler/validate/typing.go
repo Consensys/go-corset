@@ -928,6 +928,15 @@ func (p *TypeChecker) typeTernaryExpr(expected Type, e *expr.Ternary[symbol.Reso
 	//
 	if len(errs) == 0 {
 		errs = p.checkEquiTypes(ft, tt, e.IfFalse)
+		if len(errs) == 0 {
+			ttu := tt.AsUint(p.env)
+
+			ftu := ft.AsUint(p.env)
+			if ttu != nil && ftu != nil {
+				return ttu.Join(ftu), nil
+			}
+		}
+
 		return tt, errs
 	}
 	//
