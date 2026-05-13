@@ -18,6 +18,7 @@ import (
 
 	"github.com/consensys/go-corset/pkg/asm/io/micro/dfa"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/logical"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
 
@@ -162,8 +163,10 @@ func (p *Vector[W]) WriteMap() dfa.Result[dfa.Writes] {
 	return dfa.Construct(dfa.Writes{}, p.Codes, writeDfaTransfer)
 }
 
-// BranchTable returns a _branch condition_ for each instruction in the vector
-// which identifies the conditions under which the given instruction will
+// BranchTable returns the branch table for this instruction vector, and also
+// its write map (since this is needed to compute the branch table anway). The
+// branch table maps a _branch condition_ to each instruction in the vector.
+// This identifies the conditions under which the given instruction will
 // execute.  For example, consider the following sequence:
 //
 // skip_if x!=0 1; y=0; skip_if x!=1 2; y=1; ret; y = 2; ret
@@ -184,15 +187,14 @@ func (p *Vector[W]) WriteMap() dfa.Result[dfa.Writes] {
 //
 // Observe that the optimiser automatically reduces "x!=0 && x==1" to just x==1
 // (this is why it is sometimes called _branch table optimisation_).
-func (p *Vector[W]) BranchTable() dfa.Result[dfa.Branch] {
+func (p *Vector[W]) BranchTable() (dfa.Result[dfa.Writes], dfa.Result[dfa.Branch]) {
 	// Construct suitable branch table for this instruction vector.
-	var btf = branchTableTransfer[W](p.WriteMap())
+	var (
+		writeMap = p.WriteMap()
+		btf      = branchTableTransfer[W](writeMap)
+	)
 	//
-	return dfa.Construct(dfa.Branch{Condition: dfa.TRUE}, p.Codes, btf)
-}
-
-func branchTableTransfer[I Instruction](writeMap dfa.Result[dfa.Writes]) dfa.BranchTransferFunction[I] {
-	panic("todo")
+	return writeMap, dfa.Construct(dfa.Branch{Condition: dfa.TRUE}, p.Codes, btf)
 }
 
 // Data-flow transfer function for the writes analysis
@@ -222,4 +224,67 @@ func writeDfaTransfer[I Instruction](offset uint, code I, state dfa.Writes) []df
 	arcs = append(arcs, dfa.NewTransfer(nState, offset+1))
 	// Done
 	return arcs
+}
+
+func branchTableTransfer[I Instruction](writeMap dfa.Result[dfa.Writes]) dfa.BranchTransferFunction[I] {
+	return func(offset uint, insn I, state dfa.Branch) []dfa.Transfer[dfa.Branch] {
+		var (
+			arcs   []dfa.Transfer[dfa.Branch]
+			writes             = writeMap.StateOf(offset)
+			code   Instruction = insn
+		)
+		//
+		switch code := code.(type) {
+		case *Fail, *Return, *Jump:
+			return nil
+		case *Skip:
+			// join into branch target
+			return append(arcs, dfa.NewTransfer(state, offset+code.Skip+1))
+		case *SkipIf:
+			var (
+				// Determine true branch
+				trueBranch = extendSkipIf(state, true, code, writes)
+				// Determine false branch
+				falseBranch = extendSkipIf(state, false, code, writes)
+			)
+			// join into branch target
+			arcs = append(arcs, dfa.NewTransfer(trueBranch, offset+code.Skip+1))
+			// join into following instruction
+			return append(arcs, dfa.NewTransfer(falseBranch, offset+1))
+		}
+		// Transfer to following instruction
+		return append(arcs, dfa.NewTransfer(state, offset+1))
+	}
+}
+
+func extendSkipIf(tail dfa.Branch, sign bool, code *SkipIf, writes dfa.Writes) dfa.Branch {
+	var (
+		head     dfa.BranchEquality
+		tailc    = tail.Condition
+		left     = dfa.NewBranchId(writes.MayAnybeAssigned(code.Left), code.Left)
+		equality bool
+	)
+	// normalise condition
+	switch code.Cond {
+	case opcode.EQ:
+		equality = sign
+	case opcode.NEQ:
+		equality = !sign
+	default:
+		panic(fmt.Sprintf("unsupported skip condition (0x%x)", code.Cond))
+	}
+	// Translate operation
+	if equality {
+		head = logical.Equals(left, dfa.NewBranchId(writes.MayAnybeAssigned(code.Right), code.Right))
+	} else {
+		head = logical.NotEquals(left, dfa.NewBranchId(writes.MayAnybeAssigned(code.Right), code.Right))
+	}
+	// NOTE: the reason this method is needed is because we have no implicit
+	// rerpesentation of logical truth or falsehood.  This means an empty path
+	// does not behave in the expected manner.
+	if len(tailc.Conjuncts()) == 0 {
+		return dfa.Branch{Condition: logical.NewProposition(head)}
+	}
+	//
+	return dfa.Branch{Condition: tailc.And(logical.NewProposition(head))}
 }

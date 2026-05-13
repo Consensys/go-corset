@@ -87,17 +87,17 @@ func NewFail(chunks ...FormattedChunk) *Fail {
 
 // ============================================================================
 
-// Jmp performs an unconditional branch to the instruction identified by the
+// Jump performs an unconditional branch to the instruction identified by the
 // immediate operand.  The immediate is interpreted as the target program
-// counter within the enclosing function, so executing a Jmp simply transfers
-// control to that PC.  Jmp is one of the three control-flow terminators (along
+// counter within the enclosing function, so executing a Jump simply transfers
+// control to that PC.  Jump is one of the three control-flow terminators (along
 // with Return and Fail) recognised by the vectoriser as ending a basic block.
-type Jmp struct{ base.OpImm }
+type Jump struct{ base.OpImm }
 
-// NewJmp constructs a fresh unconditional jump instruction to the given PC
+// NewJump constructs a fresh unconditional jump instruction to the given PC
 // location.
-func NewJmp(target uint) *Jmp {
-	return &Jmp{base.OpImm{Op: opcode.JUMP, Immediate: target}}
+func NewJump(target uint) *Jump {
+	return &Jump{base.OpImm{Op: opcode.JUMP, Immediate: target}}
 }
 
 // ============================================================================

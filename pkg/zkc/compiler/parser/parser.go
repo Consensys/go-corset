@@ -1399,20 +1399,42 @@ func (p *Parser) parseFormattedString(env Environment) ([]stmt.FormattedChunk, [
 }
 
 func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
+	var (
+		zeroPad bool
+		width   uint
+	)
+	// Optional '0' flag selects zero padding.
+	if index < len(runes) && runes[index] == '0' {
+		zeroPad = true
+		index++
+	}
+	// Optional decimal width.
+	for index < len(runes) && runes[index] >= '0' && runes[index] <= '9' {
+		width = width*10 + uint(runes[index]-'0')
+		index++
+	}
+	//
 	if index >= len(runes) {
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}
 	//
+	var format zkc_util.Format
+	//
 	switch runes[index] {
 	case 'd':
-		return index + 1, zkc_util.DecimalFormat(), true
+		format = zkc_util.DecimalFormat()
 	case 'x':
-		return index + 1, zkc_util.HexFormat(), true
+		format = zkc_util.HexFormat()
 	case 'b':
-		return index + 1, zkc_util.BinFormat(), true
+		format = zkc_util.BinFormat()
 	default:
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}
+	//
+	format.Width = width
+	format.ZeroPad = zeroPad
+	//
+	return index + 1, format, true
 }
 
 func escapeCharacter(ch rune) (rune, bool) {

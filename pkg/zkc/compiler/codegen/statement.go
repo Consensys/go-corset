@@ -58,7 +58,7 @@ func (p *StmtCompiler) compileStatement(pc uint, mapping []uint, s Stmt) VectorI
 	case *stmt.IfGoto[symbol.Resolved]:
 		return p.compileCondition(pc, s.Cond, mapping, s.Target)
 	case *stmt.Goto[symbol.Resolved]:
-		return instruction.NewVector[Instruction](instruction.NewJmp(s.Target))
+		return instruction.NewVector[Instruction](instruction.NewJump(s.Target))
 	case *stmt.Fail[symbol.Resolved]:
 		return p.compileFail(mapping, s.Chunks, s.Arguments)
 	case *stmt.Printf[symbol.Resolved]:
@@ -205,8 +205,8 @@ func (p *StmtCompiler) compileCondition(pc uint, e Condition, mapping []uint, ta
 	case *expr.Cmp[symbol.Resolved]:
 		args, insns = p.compileArgs(mapping, e.Left, e.Right)
 		insns = append(insns, instruction.NewSkipIf(opcode.Condition(e.Operator), args[0], args[1], 1))
-		insns = append(insns, instruction.NewJmp(pc+1))
-		insns = append(insns, instruction.NewJmp(target))
+		insns = append(insns, instruction.NewJump(pc+1))
+		insns = append(insns, instruction.NewJump(target))
 	default:
 		panic("unknown condition encountered")
 	}

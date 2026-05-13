@@ -167,9 +167,11 @@ func (p *Compiler) Compile(declarations []Declaration) (*vm.WordMachine[vm.Uint]
 		modules = lowerzkcnative.BinarizeBitwise[vm.Uint](modules)
 		// Lower Bitwise operations into arithmetic instructions.
 		modules = lowerzkcnative.LowerBitwise[vm.Uint](modules, p.config.field)
-		// Lower Division/Remainder operations into witness + constraint sequences.
+		// Lower division and remainder operations into arithmetic instructions
 		modules = lowerzkcnative.LowerDivision[vm.Uint](modules)
-		// WARN: LowerBitwise and LowerDivision generate comparison instructions, so lowering comparison should happen after
+		// Lower relational SkipIf (LT/GT/LTEQ/GTEQ) into sign-bit extraction sequences.
+		// Must run after LowerBitwise and LowerDivision, which may generate new relational SkipIf instructions.
+		modules = lowerzkcnative.LowerComparisons[vm.Uint](modules, p.config.field)
 	}
 	// Vectorize modules (if no errors)
 	if len(errors) == 0 && p.config.vectorize {
