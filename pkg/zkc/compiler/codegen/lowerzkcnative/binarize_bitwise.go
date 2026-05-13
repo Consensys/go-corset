@@ -119,7 +119,7 @@ func binarizeBitwiseCode[W vm.Word[W]](code vm.WordInstruction, registers *[]reg
 }
 
 // bitwiseIdentity returns the identity element for the given bitwise operation:
-// 0x111... for AND, 0x000... for OR/XOR.
+// 0b111... for AND, 0b000... for OR/XOR.
 func bitwiseIdentity[W vm.Word[W]](op instruction.OpCode, width uint) W {
 	var z W
 
