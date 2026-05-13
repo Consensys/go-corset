@@ -15,6 +15,7 @@ package vm
 import (
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
@@ -23,6 +24,7 @@ import (
 	finsn "github.com/consensys/go-corset/pkg/zkc/vm/instruction/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
 
@@ -57,26 +59,63 @@ func (p wordToField[W, F]) lowerWordModule(wm Module) (fm Module) {
 	switch wm := wm.(type) {
 	case *WordFunction:
 		return p.lowerWordFunction(wm)
+	case memory.Memory[W]:
+		return p.lowerWordMemory(wm)
 	default:
 		panic(fmt.Sprintf("unknown word module \"%s\" encountered", wm.Name()))
 	}
 }
 
+func (p wordToField[W, F]) lowerWordMemory(wf memory.Memory[W]) (ff memory.Memory[F]) {
+	var (
+		regs = slices.Clone(wf.Registers())
+	)
+	// Lower registers
+	checkRegisterWidths(p.field.BandWidth, regs...)
+	//
+	switch wf := wf.(type) {
+	case *memory.ReadOnly[W]:
+		// Lower contents
+		var contents = p.lowerMemoryContents(wf.Contents())
+		// Done
+		return NewInputMemory(wf.Name(), wf.IsPublic(), regs, contents...)
+	case *memory.StaticReadOnly[W]:
+		// Lower contents
+		var contents = p.lowerMemoryContents(wf.Contents())
+		// Done
+		return NewStaticMemory(wf.Name(), wf.IsPublic(), regs, contents...)
+	case *memory.WriteOnce[W]:
+		return NewOutputMemory[F](wf.Name(), wf.IsPublic(), regs)
+	case *memory.RandomAccess[W]:
+		return NewReadWriteMemory[F](wf.Name(), regs)
+	case *memory.BiPartiteRandomAccess[W]:
+		return NewLargeReadWriteMemory[F](wf.Name(), regs)
+	default:
+		panic(fmt.Sprintf("unknown word memory %s", wf.Name()))
+	}
+}
+
+func (p wordToField[W, F]) lowerMemoryContents(contents []W) []F {
+	var ncontents = make([]F, len(contents))
+	//
+	for i, w := range contents {
+		var f F
+		// Copy over value
+		f = f.SetBytes(w.BigInt().Bytes())
+		// Write back
+		ncontents[i] = f
+	}
+	//
+	return ncontents
+}
+
 func (p wordToField[W, F]) lowerWordFunction(wf *WordFunction) (ff *FieldFunction) {
 	var (
-		regs  = make([]register.Register, len(wf.Registers()))
+		regs  = slices.Clone(wf.Registers())
 		insns = make([]Vector[FieldInstruction], len(wf.Code()))
 	)
 	// Lower registers
-	for i, reg := range wf.Registers() {
-		// sanity check register width
-		if !reg.IsNative() && reg.Width() > p.field.RegisterWidth {
-			panic(fmt.Sprintf("\"%s\" exceeds max register width (u%d vs u%d	)",
-				reg.Name(), reg.Width(), p.field.RegisterWidth))
-		}
-		//
-		regs[i] = reg
-	}
+	checkRegisterWidths(p.field.BandWidth, regs...)
 	// Lower instructions
 	for i, insn := range wf.Code() {
 		insns[i] = p.lowerWordVector(insn)
@@ -196,6 +235,17 @@ func (p wordToField[W, F]) lowerFieldInstruction(lhs register.Id, rhs []register
 	}
 	// Done
 	return instruction.NewFieldAssign[F](lhs, f(terms...))
+}
+
+func checkRegisterWidths(registerWidth uint, regs ...register.Register) {
+	// Lower registers
+	for _, reg := range regs {
+		// sanity check register width
+		if !reg.IsNative() && reg.Width() > registerWidth {
+			panic(fmt.Sprintf("\"%s\" exceeds max register width (u%d vs u%d)",
+				reg.Name(), reg.Width(), registerWidth))
+		}
+	}
 }
 
 func sum(terms ...Monomial) Polynomial {
