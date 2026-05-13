@@ -425,7 +425,7 @@ func (p *TypeChecker) typeFormatArgs(chunks []stmt.FormattedChunk, args []expr.R
 			// silently skip - error already reported earlier in pipeline
 		case i < len(formats) && formats[i].Code == zkc_util.FORMAT_CHR:
 			// %c is the one specifier that constrains the argument
-			// type: it must be a concrete u8 (per issue #1759).
+			// type: it must be a concrete u8
 			if t := ith.AsUint(p.env); t == nil || t.IsOpen() || t.BitWidth() != 8 {
 				errs = append(errs, *p.srcmaps.SyntaxError(e, "%c expects u8"))
 			}
