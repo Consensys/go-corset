@@ -90,6 +90,7 @@ func (p *VectorInsnTranslator[F]) translate() Expr[F] {
 		case *instruction.Call, *instruction.MemRead, *instruction.MemWrite:
 			// TODO: these need to be implemented as assignments to their
 			// respected selector line (i.e. to enable the conditional lookup).
+			continue
 		case *instruction.Fail:
 			local = mirc.False[register.Id, Expr[F]]()
 		case *instruction.Jump:

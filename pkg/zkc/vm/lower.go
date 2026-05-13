@@ -83,7 +83,7 @@ func (p wordToField[W, F]) lowerWordMemory(wf memory.Memory[W]) (ff memory.Memor
 		regs = slices.Clone(wf.Registers())
 	)
 	// Lower registers
-	checkRegisterWidths(p.field.BandWidth, regs...)
+	checkRegisterWidths(p.field.RegisterWidth, regs...)
 	//
 	switch wf := wf.(type) {
 	case *memory.ReadOnly[W]:
@@ -127,7 +127,7 @@ func (p wordToField[W, F]) lowerWordFunction(wf *WordFunction, mapping SystemMap
 		insns = make([]Vector[FieldInstruction], len(wf.Code()))
 	)
 	// Lower registers
-	checkRegisterWidths(p.field.BandWidth, regs...)
+	checkRegisterWidths(p.field.RegisterWidth, regs...)
 	// Lower instructions
 	for i, insn := range wf.Code() {
 		insns[i] = p.lowerWordVector(insn, mapping)

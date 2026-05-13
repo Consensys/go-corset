@@ -88,14 +88,14 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	} else {
 		wm, errors = ExecuteIrProgram("main", config, program, input, vm.EmptyBaseObserver{})
 	}
-	// Generate output
-	if output == "" {
+	// Generate output as requested
+	if output == "" && wm != nil {
 		printOutput(program, wm)
-	} else {
+	} else if output != "" {
 		WriteTraceFile(output, tf)
 	}
 	// Check constraints (if requested)
-	if check {
+	if check && wm != nil {
 		checkConstraints(builder, field, wm, tf)
 	}
 	//
@@ -114,6 +114,11 @@ func executeAndTrace(mainFn string, config codegen.Config, program ast.Program, 
 	var observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
 	//
 	wm, errors := ExecuteIrProgram(mainFn, config, program, input, &observer)
+	// Check for a build failure
+	if wm == nil {
+		// Yes, build failure, so no trace
+		return nil, lt.TraceFile{}, errors
+	}
 	// Done
 	return wm, observer.Trace(wm), errors
 }
@@ -165,7 +170,10 @@ func checkConstraints[F field.Element[F]](builder ir.TraceBuilder[F], config fie
 	}
 }
 
-// ExecuteIrProgram provides a generic means of executing a given program with a given view.
+// ExecuteIrProgram provides a generic means of executing a given program with a
+// given view.  This can return a nil machine if compilation failed.  However,
+// it can also return a valid machine with errors in the case it compiled
+// successfully, but failed during execution.
 func ExecuteIrProgram[V vm.BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
 	input map[string][]byte, view V,
 ) (*vm.WordMachine[vm.Uint], []error) {
