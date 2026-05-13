@@ -144,6 +144,10 @@ func FormatWord[W Formattable](format Format, word W) string {
 		// the low 8 bits defensively in case this is called outside
 		// that path (e.g. by future Unicode work, or by tests that
 		// bypass the type checker).
+		if w, ok := any(word).(interface{ BigInt() *big.Int }); ok {
+			return string([]byte{byte(w.BigInt().Uint64() & 0xff)})
+		}
+		//
 		var v big.Int
 		v.SetString(word.Text(10), 10)
 		//
