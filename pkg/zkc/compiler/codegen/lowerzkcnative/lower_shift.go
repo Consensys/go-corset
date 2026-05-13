@@ -134,8 +134,8 @@ func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 		wmaxWidth = 1
 	}
 
-	zeroReg := b.newComputedNamed("zero", amtWidth)
-	wmaxReg := b.newComputedNamed("wmax", wmaxWidth)
+	zeroReg := b.newComputedNamed(amtWidth)
+	wmaxReg := b.newComputedNamed(wmaxWidth)
 	b.emit(instruction.NewIntAdd(zeroReg, nil, zero))
 	b.emit(instruction.NewIntAdd(wmaxReg, nil, wmax))
 
@@ -146,7 +146,7 @@ func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 
 	// if n >= width: return 0
 	// Zero-extend n to wmaxWidth so both sides of LTEQ share the same register width.
-	nWide := b.newComputedNamed("nWide", wmaxWidth)
+	nWide := b.newComputedNamed(wmaxWidth)
 	b.emit(instruction.NewIntAdd(nWide, []register.Id{n}, zero))
 	b.emit(instruction.NewSkipIf(opcode.LTEQ, nWide, wmaxReg, 2))
 	b.emit(instruction.NewIntAdd(out, nil, zero))
@@ -154,12 +154,12 @@ func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 
 	// doubled = 2*a mod 2^width: strip the top bit via Destruct, add low+low.
 	// low < 2^(width-1) so low+low < 2^width — no IntAdd overflow.
-	low := b.newComputedNamed("low", width-1)
+	low := b.newComputedNamed(width - 1)
 	b.emit(instruction.NewDestruct([]register.Id{low}, a))
-	doubled := b.newComputedNamed("doubled", width)
+	doubled := b.newComputedNamed(width)
 	b.emit(instruction.NewIntAdd(doubled, []register.Id{low, low}, zero))
 
-	n1 := b.newComputedNamed("n1", amtWidth)
+	n1 := b.newComputedNamed(amtWidth)
 	b.emit(instruction.NewIntSub(n1, []register.Id{n}, one))
 	b.emit(instruction.NewCall(selfID, []register.Id{doubled, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
@@ -203,8 +203,8 @@ func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 		wmaxWidth = 1
 	}
 
-	zeroReg := b.newComputedNamed("zero", amtWidth)
-	wmaxReg := b.newComputedNamed("wmax", wmaxWidth)
+	zeroReg := b.newComputedNamed(amtWidth)
+	wmaxReg := b.newComputedNamed(wmaxWidth)
 	b.emit(instruction.NewIntAdd(zeroReg, nil, zero))
 	b.emit(instruction.NewIntAdd(wmaxReg, nil, wmax))
 
@@ -215,7 +215,7 @@ func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 
 	// if n >= width: return 0
 	// Zero-extend n to wmaxWidth so both sides of LTEQ share the same register width.
-	nWide := b.newComputedNamed("nWide", wmaxWidth)
+	nWide := b.newComputedNamed(wmaxWidth)
 	b.emit(instruction.NewIntAdd(nWide, []register.Id{n}, zero))
 	b.emit(instruction.NewSkipIf(opcode.LTEQ, nWide, wmaxReg, 2))
 	b.emit(instruction.NewIntAdd(out, nil, zero))
@@ -224,13 +224,13 @@ func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	// floor(a/2) via Destruct: split a into [lsb:u1, rest:u(width-1)].
 	// rest holds the upper (width-1) bits of a, i.e. floor(a/2), with no
 	// field arithmetic — works for any field modulus.
-	lsb := b.newComputedNamed("lsb", 1)
-	rest := b.newComputedNamed("rest", width-1)
+	lsb := b.newComputedNamed(1)
+	rest := b.newComputedNamed(width - 1)
 	b.emit(instruction.NewDestruct([]register.Id{lsb, rest}, a))
 	// Zero-extend rest from u(width-1) to u(width); safe since rest < 2^(width-1).
-	half := b.newComputedNamed("half", width)
+	half := b.newComputedNamed(width)
 	b.emit(instruction.NewIntAdd(half, []register.Id{rest}, zero))
-	n1 := b.newComputedNamed("n1", amtWidth)
+	n1 := b.newComputedNamed(amtWidth)
 	b.emit(instruction.NewIntSub(n1, []register.Id{n}, one))
 	b.emit(instruction.NewCall(selfID, []register.Id{half, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())

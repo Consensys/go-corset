@@ -115,7 +115,10 @@ func (p wordToField[W, F]) lowerWordInstruction(wi WordInstruction) (fi FieldIns
 	case opcode.SKIP:
 		return wi.(*instruction.Skip)
 	case opcode.SKIP_IF:
+		// NOTE: vector.BranchTable will panic if the skip condition is
+		// something other than EQ/NEQ.
 		var insn = wi.(*instruction.SkipIf)
+		// Done
 		return insn
 	case opcode.INT_ADD:
 		var insn = wi.(*instruction.IntAdd[W])

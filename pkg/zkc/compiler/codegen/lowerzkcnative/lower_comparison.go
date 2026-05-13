@@ -111,12 +111,7 @@ func lowerRelationalSkipIf[W vm.Word[W]](
 	lhsWidth := resolveRegisterWidth(*registers, lhs, bandWidth)
 	rhsWidth := resolveRegisterWidth(*registers, rhs, bandWidth)
 
-	castBandWidth := lhsWidth
-	if rhsWidth > castBandWidth {
-		castBandWidth = rhsWidth
-	}
-
-	castBandWidth++
+	castBandWidth := max(lhsWidth, rhsWidth) + 1
 
 	zero := vm.Uint64[W](0)
 	one := vm.Uint64[W](1)
