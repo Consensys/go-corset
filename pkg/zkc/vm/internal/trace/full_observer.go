@@ -179,13 +179,9 @@ func (p *FullObserver[W, M]) enterFunction(machine M) {
 		depth = p.callstack.Len()
 		// Extract machine frame
 		frame = machine.StackFrame(depth)
-		// Extract executing function
-		fun = machine.Module(frame.Function()).(*function.Function[instruction.Word])
-		// Read arguments
-		inputs = loadWords(0, fun.NumInputs(), frame)
 	)
-	// initialise frame
-	p.callstack.Push(InitialStackFrame(frame.Function(), fun.Registers(), inputs))
+	// initialise empty stack frame
+	p.callstack.Push(StackFrame[W]{id: frame.Function()})
 	// sanity check
 	if depth+1 != machine.Depth() {
 		panic("incorrect machine depth")
@@ -210,17 +206,6 @@ type StackFrame[W any] struct {
 	id uint
 	//
 	states []State[W]
-}
-
-// InitialStackFrame constructs the initial frame when a given function is
-// invoked with the given arguments.
-func InitialStackFrame[W any](id uint, registers []register.Register, args []W) StackFrame[W] {
-	var width = uint(len(registers))
-	//
-	return StackFrame[W]{
-		id:     id,
-		states: []State[W]{NewState(0, false, width, args)},
-	}
 }
 
 // State collects together local state necessary for executing a given
