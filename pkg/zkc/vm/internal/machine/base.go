@@ -245,7 +245,7 @@ func (p *Base[W, I, T]) executeInstruction(insn I, width uint, regs []register.R
 		// include msg in error
 		return fmt.Errorf("machine panic: %s", msg)
 	case opcode.JUMP:
-		insn := binsn.(*instruction.Jmp)
+		insn := binsn.(*instruction.Jump)
 		// Goto target instruction in current frame
 		p.callstack[fp].Goto(pc.Goto(uint(insn.Immediate)))
 		return nil

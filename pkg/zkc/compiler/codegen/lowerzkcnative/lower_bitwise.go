@@ -178,7 +178,7 @@ func allocTmp(registers *[]register.Register, width uint) register.Id {
 	var padding big.Int
 
 	id := register.NewId(uint(len(*registers)))
-	name := fmt.Sprintf("$cast%d", len(*registers))
+	name := fmt.Sprintf("$%d", len(*registers))
 	*registers = append(*registers, register.NewComputed(name, width, padding))
 
 	return id
@@ -364,15 +364,15 @@ func newDecomposedNaryHelper[W vm.Word[W]](
 		highSrcs := make([]register.Id, key.arity)
 
 		for i, arg := range b.inputs {
-			lo := b.newComputedNamed(fmt.Sprintf("low%d", i+1), half)
-			hi := b.newComputedNamed(fmt.Sprintf("high%d", i+1), half)
+			lo := b.newComputedNamed(half)
+			hi := b.newComputedNamed(half)
 			b.emit(instruction.NewDestruct([]register.Id{lo, hi}, arg))
 			lowSrcs[i] = lo
 			highSrcs[i] = hi
 		}
 
-		resLow := b.newComputedNamed("rlow", half)
-		resHigh := b.newComputedNamed("rhigh", half)
+		resLow := b.newComputedNamed(half)
+		resHigh := b.newComputedNamed(half)
 
 		b.emit(instruction.NewCall(subIDlow, lowSrcs, []register.Id{resLow}))
 		b.emit(instruction.NewCall(subIDhigh, highSrcs, []register.Id{resHigh}))
@@ -441,11 +441,13 @@ func (p *helperBuilder[W]) newComputedWidth(prefix string, width uint) register.
 	return id
 }
 
-func (p *helperBuilder[W]) newComputedNamed(name string, width uint) register.Id {
+func (p *helperBuilder[W]) newComputedNamed(width uint) register.Id {
 	var padding big.Int
 
 	id := register.NewId(uint(len(p.base)))
+	name := fmt.Sprintf("$%d", p.nextTmp)
 	p.base = append(p.base, register.NewComputed(name, width, padding))
+	p.nextTmp++
 
 	return id
 }

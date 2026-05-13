@@ -60,6 +60,14 @@ func (p *Function[I]) Code() []instruction.Vector[I] {
 	return p.code
 }
 
+// IsAtomic determines whether or not this is a "one line function".  That is,
+// where every instance of this function occupies exactly one line in the
+// corresponding trace.  This is useful to know, as certain optimisations can be
+// applied for one line functions (e.g. no PC register is required).
+func (p *Function[I]) IsAtomic() bool {
+	return len(p.code) == 1
+}
+
 // HasRegister checks whether a register with the given name exists and, if
 // so, returns its register identifier.  Otherwise, it returns false.
 func (p *Function[I]) HasRegister(name string) (register.Id, bool) {

@@ -13,7 +13,6 @@
 package instruction
 
 import (
-	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	finsn "github.com/consensys/go-corset/pkg/zkc/vm/instruction/field"
@@ -36,6 +35,6 @@ type Field interface {
 type FieldAssign[F field.Element[F]] = finsn.Assign[F]
 
 // NewFieldAssign constructs a new field assignment instruction.
-func NewFieldAssign[F field.Element[F]](target register.Id, source air.Term[F]) *FieldAssign[F] {
+func NewFieldAssign[F field.Element[F]](target register.Id, source finsn.Polynomial) *FieldAssign[F] {
 	return &FieldAssign[F]{Target: target, Source: source}
 }

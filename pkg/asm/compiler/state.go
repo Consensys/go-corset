@@ -95,7 +95,7 @@ func (p *Translator[F, T, E, M]) Translate(pc uint, insn micro.Instruction) E {
 			panic("unreachable")
 		}
 		// Add control-flow requirements
-		local = If(translateBranchCondition(branchTable.StateOf(cc).Condition, p), local)
+		local = If(TranslateBranchCondition(branchTable.StateOf(cc).Condition, p), local)
 		// Include local constraint
 		constraint = constraint.And(local)
 	}
@@ -152,7 +152,7 @@ func (p *Translator[F, T, E, M]) WithConstancyConstraints(writes dfa.Writes, bra
 			// Next, negate condition to determine when it is **not** assigned
 			wCondition = wCondition.Negate()
 			// Finally translate condition and include constancy constraint
-			condition = condition.And(If(translateBranchCondition(wCondition, p), r_i.Equals(r_im1)))
+			condition = condition.And(If(TranslateBranchCondition(wCondition, p), r_i.Equals(r_im1)))
 		}
 	}
 	//
