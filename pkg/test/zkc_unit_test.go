@@ -420,7 +420,7 @@ func Test_ZkcUnit_Bitwise_11(t *testing.T) {
 }
 
 func Test_ZkcUnit_Bitwise_12(t *testing.T) {
-	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/bitwise_12", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnit(t, "zkc/unit/bitwise_12", util.DEFAULT_CONFIG.NativeLowering(true))
 }
 
 // ===================================================================
@@ -644,7 +644,7 @@ func Test_ZkcUnit_Include_02(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_SkipIf_01(t *testing.T) {
-	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_01", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnit(t, "zkc/unit/skip_if_01", util.DEFAULT_CONFIG.NativeLowering(true))
 }
 
 //TODO: re-enable me when the ternary bandwidth allocator is fixed (issue 1758)
