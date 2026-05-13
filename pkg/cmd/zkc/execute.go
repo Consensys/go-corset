@@ -55,6 +55,7 @@ var executeCmds = []FieldAgnosticCmd{
 
 func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
+		errors []error
 		// compiler config
 		config = codegen.DEFAULT_CONFIG.
 			Vectorize(GetFlag(cmd, "vectorize")).
@@ -83,31 +84,22 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	program := CompileSourceFiles(field, args[1:]...)
 	// Execute program (in either fast or slow mode)
 	if tracing {
-		wm, tf = executeAndTrace("main", config, program, input)
+		wm, tf, errors = executeAndTrace("main", config, program, input)
 	} else {
-		wm = executeNoTrace("main", config, program, input)
+		wm, errors = ExecuteIrProgram("main", config, program, input, vm.EmptyBaseObserver{})
 	}
-	// Generate output
-	if output == "" {
+	// Generate output as requested
+	if output == "" && wm != nil {
 		printOutput(program, wm)
-	} else {
+	} else if output != "" {
 		WriteTraceFile(output, tf)
 	}
 	// Check constraints (if requested)
-	if check {
+	if check && wm != nil {
 		checkConstraints(builder, field, wm, tf)
 	}
-}
-
-func executeNoTrace(mainFn string, config codegen.Config, program ast.Program, input map[string][]byte,
-) *vm.WordMachine[vm.Uint] {
 	//
-	var (
-		wm     *vm.WordMachine[vm.Uint]
-		errors []error
-	)
-	//
-	if wm, errors = executeIrProgram(mainFn, config, program, input, vm.EmptyBaseObserver{}); len(errors) > 0 {
+	if len(errors) > 0 {
 		// Log errors
 		for _, e := range errors {
 			log.Error(fmt.Sprintf("%s (IR)", e))
@@ -115,29 +107,20 @@ func executeNoTrace(mainFn string, config codegen.Config, program ast.Program, i
 		//
 		os.Exit(4)
 	}
-	// Done
-	return wm
 }
 
 func executeAndTrace(mainFn string, config codegen.Config, program ast.Program, input map[string][]byte,
-) (*vm.WordMachine[vm.Uint], lt.TraceFile) {
+) (*vm.WordMachine[vm.Uint], lt.TraceFile, []error) {
+	var observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
 	//
-	var (
-		wm       *vm.WordMachine[vm.Uint]
-		errors   []error
-		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
-	)
-	//
-	if wm, errors = executeIrProgram(mainFn, config, program, input, &observer); len(errors) > 0 {
-		// Log errors
-		for _, e := range errors {
-			log.Error(fmt.Sprintf("%s (IR)", e))
-		}
-		//
-		os.Exit(4)
+	wm, errors := ExecuteIrProgram(mainFn, config, program, input, &observer)
+	// Check for a build failure
+	if wm == nil {
+		// Yes, build failure, so no trace
+		return nil, lt.TraceFile{}, errors
 	}
 	// Done
-	return wm, observer.Trace(wm)
+	return wm, observer.Trace(wm), errors
 }
 
 func printOutput(program ast.Program, wm *vm.WordMachine[vm.Uint]) {
@@ -187,7 +170,11 @@ func checkConstraints[F field.Element[F]](builder ir.TraceBuilder[F], config fie
 	}
 }
 
-func executeIrProgram[V vm.BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
+// ExecuteIrProgram provides a generic means of executing a given program with a
+// given view.  This can return a nil machine if compilation failed.  However,
+// it can also return a valid machine with errors in the case it compiled
+// successfully, but failed during execution.
+func ExecuteIrProgram[V vm.BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
 	input map[string][]byte, view V,
 ) (*vm.WordMachine[vm.Uint], []error) {
 	var (
