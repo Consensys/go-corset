@@ -1,0 +1,32 @@
+include "../../impl/u32/poseidon.zkc"
+include "../../impl/u32/state.zkc"
+include "../../impl/u32/round_constants.zkc"
+include "../../utils/memory.zkc"
+
+fn main() {
+    for i:u16 = 0; i<28; i = i + 1 {
+        var j:u16 = 16 * i
+        printf "\tρ[%d] = %x, ", j + 0, round_constants[j + 0]
+        printf "\tρ[%d] = %x, ", j + 1, round_constants[j + 1]
+        printf "\tρ[%d] = %x, ", j + 2, round_constants[j + 2]
+        printf "\tρ[%d] = %x, ", j + 3, round_constants[j + 3]
+        printf "\n"
+        printf "\tρ[%d] = %x, ", j + 4, round_constants[j + 4]
+        printf "\tρ[%d] = %x, ", j + 5, round_constants[j + 5]
+        printf "\tρ[%d] = %x, ", j + 6, round_constants[j + 6]
+        printf "\tρ[%d] = %x, ", j + 7, round_constants[j + 7]
+        printf "\n"
+        printf "\tρ[%d] = %x, ", j + 8, round_constants[j + 8]
+        printf "\tρ[%d] = %x, ", j + 9, round_constants[j + 9]
+        printf "\tρ[%d] = %x, ", j + 10, round_constants[j + 10]
+        printf "\tρ[%d] = %x, ", j + 11, round_constants[j + 11]
+        printf "\n"
+        printf "\tρ[%d] = %x, ", j + 12, round_constants[j + 12]
+        printf "\tρ[%d] = %x, ", j + 13, round_constants[j + 13]
+        printf "\tρ[%d] = %x, ", j + 14, round_constants[j + 14]
+        printf "\tρ[%d] = %x, ", j + 15, round_constants[j + 15]
+        printf "i = %d", i
+        printf "\n"
+    }
+    printf "\n"
+}

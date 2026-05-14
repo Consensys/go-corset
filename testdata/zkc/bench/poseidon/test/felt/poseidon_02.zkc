@@ -1,6 +1,6 @@
-include "../zkc/poseidon_uX.zkc"
-include "../zkc/utils.zkc"
-include "../zkc/types.zkc"
+include "../../impl/felt/poseidon.zkc"
+include "../../impl/felt/state.zkc"
+include "../../utils/memory.zkc"
 
 // ===================================================================
 // poseidon
@@ -8,28 +8,25 @@ include "../zkc/types.zkc"
 
 input expected_output_state(index:u8) -> (res:u32)
 
-const FALSE:u1 = 0
+fn main<ram, felt_state>() {
 
-fn main<ram, state>() {
-
-// we write the message
+    // we write the message
     //
     // 0x00 01 02 ... fe ff
     //
-    // into the state
-    for i:u8 = 0; i<16; i = i + 1 {
-        write_to_state(i, 0)
+    // into memory
+    for i:Address = 0; i<16; i = i + 1 {
+        write_8(i, i as u8)
     }
+
     var message_size:u32 = 16
     var message_offset:Address = 0
 
-    print_state()
-
-    permutation(FALSE)
+    poseidon(message_offset, message_size, 256, 0)
 
     print_state()
 
-    // print_expected_output()
+    print_expected_output()
 }
 
 fn print_expected_output() {

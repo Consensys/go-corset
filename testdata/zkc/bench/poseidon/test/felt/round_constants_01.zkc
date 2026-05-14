@@ -1,11 +1,11 @@
-include "../zkc/poseidon_uX.zkc"
-include "../zkc/utils.zkc"
-include "../zkc/types.zkc"
-include "../zkc/round_constants.zkc"
+include "../../impl/felt/poseidon.zkc"
+include "../../impl/felt/state.zkc"
+include "../../impl/felt/round_constants.zkc"
+include "../../utils/memory.zkc"
 
 fn main() {
-    for i :u16 = 0; i < 28; i = i + 1 {
-        var j :u16 = 16 * i
+    for i:u16 = 0; i<28; i = i + 1 {
+        var j:u16 = 16 * i
         printf "\tρ[%d] = %x, ", j + 0, round_constants[j + 0]
         printf "\tρ[%d] = %x, ", j + 1, round_constants[j + 1]
         printf "\tρ[%d] = %x, ", j + 2, round_constants[j + 2]

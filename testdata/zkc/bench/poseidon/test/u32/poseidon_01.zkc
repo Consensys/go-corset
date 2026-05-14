@@ -1,13 +1,13 @@
-include "../zkc/poseidon_uX.zkc"
-include "../zkc/utils.zkc"
-include "../zkc/types.zkc"
+include "../../impl/u32/poseidon.zkc"
+include "../../impl/u32/state.zkc"
+include "../../utils/memory.zkc"
 
 // ===================================================================
 // poseidon
 // ===================================================================
 input expected_output_state(index:u8) -> (res:u32)
 
-fn main<ram, state>() {
+fn main<ram, u32_state>() {
 
     // we write a message to RAM that will translate to the felts 0, 1, 2, ..., d, e ∈ 𝔽
     //
@@ -28,7 +28,7 @@ fn main<ram, state>() {
     var message_offset:Address = 0
     var message_size_in_bytes:u32 = number_of_felts * (BYTES_PER_FELT as u32)
 
-    poseidon_uX(message_offset, message_size_in_bytes, 256, 0)
+    poseidon(message_offset, message_size_in_bytes, 256, 0)
 
     print_state()
 
