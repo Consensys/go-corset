@@ -18,6 +18,7 @@ import (
 
 	mirc "github.com/consensys/go-corset/pkg/asm/compiler"
 	"github.com/consensys/go-corset/pkg/asm/io"
+	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -41,6 +42,16 @@ func GenerateMirConstraints[F field.Element[F]](fm *vm.FieldMachine[F]) mir.Sche
 	}
 	//
 	return schema.NewUniformSchema(modules)
+}
+
+// GenerateAirConstraints is responsible for converting a field machine into a
+// corresponding set of AIR constraints.
+func GenerateAirConstraints[F field.Element[F]](fm *vm.FieldMachine[F], field field.Config) air.Schema[F] {
+	var (
+		mirc = GenerateMirConstraints(fm)
+	)
+	//
+	return mir.LowerToAir(mirc, field.BandWidth, mir.DEFAULT_OPTIMISATION_LEVEL)
 }
 
 func translateModule[F field.Element[F]](ctx schema.ModuleId, fm vm.Module) mir.Module[F] {

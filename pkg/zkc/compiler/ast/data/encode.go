@@ -12,7 +12,6 @@ package data
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
@@ -54,32 +53,10 @@ func EncodeAll[S symbol.Symbol[S]](datatype Type[S], values []vm.Uint, env Envir
 func encodeType[S symbol.Symbol[S]](datatype Type[S], bitwidth uint, v vm.Uint, buf []byte, env Environment[S]) {
 	switch datatype.(type) {
 	case *UnsignedInt[S], *Alias[S]:
-		encodeUnsignedInt(bitwidth, v, buf)
+		vm.EncodeUnsignedInt(bitwidth, v.BigInt(), buf)
 	case *FieldElement[S]:
 		panic(fmt.Sprintf("field element type cannot be encoded to bytes: %s", datatype.String(env)))
 	default:
 		panic(fmt.Sprintf("unknown type \"%s\"", datatype.String(env)))
-	}
-}
-
-func encodeUnsignedInt(bitwidth uint, v vm.Uint, buf []byte) {
-	var (
-		w big.Int
-		// Determine number of bytes required to hold value
-		n = bit.BytesRequiredFor(bitwidth)
-		// Calculate excess bits (needed for alignment)
-		m = (n * 8) - bitwidth
-	)
-	// Clear buffer
-	for i := range buf {
-		buf[i] = 0
-	}
-	// Left-shift to account for alignment
-	w.Lsh(v.BigInt(), m)
-	// Fill with big-endian bytes of v, right-aligned in buf
-	valBytes := w.Bytes()
-	//
-	if len(valBytes) > 0 {
-		copy(buf[n-uint(len(valBytes)):], valBytes)
 	}
 }
