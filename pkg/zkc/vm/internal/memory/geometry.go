@@ -13,6 +13,10 @@
 package memory
 
 import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -114,4 +118,50 @@ func (p Geometry[W]) FrameDecode(frame []W, address []register.Id) (start, end u
 	start = index * uint64(p.numOutputs)
 
 	return start, start + uint64(p.numOutputs)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *Geometry[W]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.registers); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *Geometry[W]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	// Recompute internal values, mirroring NewGeometry.
+	var index = 0
+	//
+	for index < len(p.registers) && p.registers[index].IsInput() {
+		p.numInputs++
+		index++
+	}
+	//
+	for index < len(p.registers) && p.registers[index].IsOutput() {
+		p.numOutputs++
+		index++
+	}
+	//
+	if index != len(p.registers) {
+		return fmt.Errorf("unexpected non-input/output registers")
+	}
+	//
+	return nil
 }

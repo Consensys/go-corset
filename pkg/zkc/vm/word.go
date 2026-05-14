@@ -13,13 +13,43 @@
 package vm
 
 import (
+	"encoding/gob"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
+
+func init() {
+	gob.Register(instruction.Word(&instruction.IntAdd[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntSub[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntMul[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntDiv[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntRem[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntAddModP[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntSubModP[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntMulModP[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitAnd[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitNot[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitOr[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitXor[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitShl[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitShr[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitConcat[Uint]{}))
+	gob.Register(instruction.Word(&instruction.Destruct{}))
+	gob.Register(instruction.Word(&instruction.Cast{}))
+	gob.Register(instruction.Module(&function.Function[instruction.Word]{}))
+	gob.Register(instruction.Module(&memory.RandomAccess[Uint]{}))
+	gob.Register(instruction.Module(&memory.ReadOnly[Uint]{}))
+	gob.Register(instruction.Module(&memory.WriteOnce[Uint]{}))
+	gob.Register(instruction.Module(&memory.StaticReadOnly[Uint]{}))
+	gob.Register(instruction.Module(&memory.BiPartiteRandomAccess[Uint]{}))
+}
 
 // Word abstracts the data type (a.k.a the "machine word") used for holding
 // values within the machine.  The reason for abstracting this concept is to

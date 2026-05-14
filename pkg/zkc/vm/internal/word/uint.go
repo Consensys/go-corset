@@ -256,6 +256,20 @@ func (p Uint) Text(base int) string {
 	return p.value.Text(base)
 }
 
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p Uint) GobEncode() ([]byte, error) {
+	return p.value.GobEncode()
+}
+
+// nolint
+func (p *Uint) GobDecode(data []byte) error {
+	return p.value.GobDecode(data)
+}
+
 // ReadBitSlice reads a slice of bits starting at a given offset in a give
 // value.  For example, consider the value is 10111000 and we have offset=1 and
 // width=4, then the result is 1100.

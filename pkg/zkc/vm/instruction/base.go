@@ -13,12 +13,25 @@
 package instruction
 
 import (
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
+
+func init() {
+	gob.Register(Instruction(&Call{}))
+	gob.Register(Instruction(&Fail{}))
+	gob.Register(Instruction(&Jump{}))
+	gob.Register(Instruction(&MemRead{}))
+	gob.Register(Instruction(&MemWrite{}))
+	gob.Register(Instruction(&Return{}))
+	gob.Register(Instruction(&Skip{}))
+	gob.Register(Instruction(&SkipIf{}))
+}
 
 // FormattedChunk is a convenient alias
 type FormattedChunk = base.FormattedChunk
