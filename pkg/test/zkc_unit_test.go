@@ -628,7 +628,7 @@ func Test_ZkcUnit_Printf_03(t *testing.T) {
 }
 
 func Test_ZkcUnit_Printf_04(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/printf_04", field.BLS12_377, field.KOALABEAR_16)
+	checkZkcUnit(t, "zkc/unit/printf_04", util.DEFAULT_CONFIG)
 }
 
 // ===================================================================
