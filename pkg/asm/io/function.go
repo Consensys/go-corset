@@ -120,6 +120,12 @@ func (p *Function[T]) IsNative() bool {
 	return false
 }
 
+// IsStatic reports whether this module is a static reference table.
+// Assembly-level functions are never static.
+func (p *Function[T]) IsStatic() bool {
+	return false
+}
+
 // IsAtomic determines whether or not this is a "one line function".  That is,
 // where every instance of this function occupies exactly one line in the
 // corresponding trace.  This is useful to know, as certain optimisations can be

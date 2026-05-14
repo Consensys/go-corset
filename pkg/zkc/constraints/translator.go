@@ -62,9 +62,19 @@ func translateModule[F field.Element[F]](ctx schema.ModuleId, fm vm.Module) mir.
 	}
 }
 
-func translateStaticMemory[F field.Element[F]](ctx schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
-	// need a way to signal that a given module is static.
-	panic("support static memory")
+func translateStaticMemory[F field.Element[F]](_ schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
+	var (
+		mod  *schema.Table[F, mir.Constraint[F]]
+		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
+	)
+	// Initialise module as a static reference table.
+	mod = mod.Init(name, false, true, false, fm.IsNative(), true, 0)
+	// Add all registers
+	mod.AddRegisters(fm.Registers()...)
+	// Populate the table contents from the pre-loaded memory.
+	mod.SetStaticContents(fm.Contents())
+	//
+	return mod
 }
 
 func translateReadOnlyMemory[F field.Element[F]](_ schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
@@ -73,7 +83,7 @@ func translateReadOnlyMemory[F field.Element[F]](_ schema.ModuleId, fm vm.InputO
 		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), false, 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// TODO: implement ROM constraints
@@ -86,7 +96,7 @@ func translateWriteOnceMemory[F field.Element[F]](_ schema.ModuleId, fm vm.Input
 		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), false, 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// TODO: implement WOM constraints
@@ -99,7 +109,7 @@ func translateReadWriteMemory[F field.Element[F]](_ schema.ModuleId, fm vm.Memor
 		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), false, 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// TODO: implement WOM constraints
@@ -114,7 +124,7 @@ func translateFunction[F field.Element[F]](ctx schema.ModuleId, fm vm.FieldFunct
 		framing Framing[F]
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), false, 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// Native functions are backed by an external circuit, so we emit only the

@@ -26,7 +26,7 @@ import (
 // the various required components.  This provides a useful way for constructing
 // modules once all the various pieces of information have been finalised.
 type BuildableModule[F any, C schema.Constraint[F], M any] interface {
-	Init(name module.Name, padding, public, synthetic, native bool, keys uint) M
+	Init(name module.Name, padding, public, synthetic, native, static bool, keys uint) M
 	// Add one or more assignments to this buildable module
 	AddAssignments(assignments ...schema.Assignment[F])
 	// Add one or more constraints to this buildable module
@@ -54,7 +54,8 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], 
 	//
 	var module M
 	// Build it
-	module = module.Init(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic(), m.IsNative(), m.Keys())
+	module = module.Init(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic(), m.IsNative(),
+		m.IsStatic(), m.Keys())
 	module.AddRegisters(m.Registers()...)
 	module.AddAssignments(m.Assignments()...)
 	module.AddConstraints(m.Constraints()...)

@@ -41,6 +41,11 @@ type ModuleView interface {
 	// Only modules produced by the ZkC pipeline can ever be native; modules
 	// from any other source always return false.
 	IsNative() bool
+	// IsStatic indicates whether this module represents a static reference
+	// table whose contents are fixed at compile time.  Static modules carry
+	// their data in StaticContents() (queried via the field-parameterised
+	// schema.Module interface).
+	IsStatic() bool
 	// Returns the number of registers in this module.
 	Width() uint
 }
@@ -83,22 +88,27 @@ type Module[F any] interface {
 // X'1, Y'0. Y'1 (in that order).  Hence, predicting the new register indices is
 // relatively straightforward.
 type Table[F field.Element[F], C Constraint[F]] struct {
-	name        module.Name
-	padding     bool
-	public      bool
-	synthetic   bool
-	native      bool
-	keys        uint
-	registers   []register.Register
-	constraints []C
-	assignments []Assignment[F]
+	name           module.Name
+	padding        bool
+	public         bool
+	synthetic      bool
+	native         bool
+	static         bool
+	keys           uint
+	registers      []register.Register
+	constraints    []C
+	assignments    []Assignment[F]
+	staticContents []F
 }
 
 // Init implementation for ir.InitModule interface.  The native flag indicates
 // that this module corresponds to a function backed by a native circuit; only
-// the ZkC pipeline should ever pass true.
-func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic, native bool, keys uint) *Table[F, C] {
-	return &Table[F, C]{name, padding, public, synthetic, native, keys, nil, nil, nil}
+// the ZkC pipeline should ever pass true.  The static flag indicates that this
+// module is a static reference table whose contents are fixed at compile time
+// and are populated separately via SetStaticContents.
+func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic, native, static bool,
+	keys uint) *Table[F, C] {
+	return &Table[F, C]{name, padding, public, synthetic, native, static, keys, nil, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -175,6 +185,23 @@ func (p *Table[F, C]) IsSynthetic() bool {
 // a native circuit (i.e. declared with the @native annotation in ZkC).
 func (p *Table[F, C]) IsNative() bool {
 	return p.native
+}
+
+// IsStatic reports whether this module is a static reference table whose
+// contents are fixed at compile time.
+func (p *Table[F, C]) IsStatic() bool {
+	return p.static
+}
+
+// StaticContents returns the contents of this static reference table.  It
+// panics if invoked on a non-static module, since no contents are stored in
+// that case.
+func (p *Table[F, C]) StaticContents() []F {
+	if !p.static {
+		panic(fmt.Sprintf("module \"%s\" is not static", p.name))
+	}
+	//
+	return p.staticContents
 }
 
 // RawAssignments provides raw access to those assignments defined as part of this
@@ -256,6 +283,16 @@ func (p *Table[F, C]) AddRegisters(registers ...register.Register) {
 	p.registers = append(p.registers, registers...)
 }
 
+// SetStaticContents sets the contents of this static reference table.  It
+// panics if invoked on a non-static module.
+func (p *Table[F, C]) SetStaticContents(contents []F) {
+	if !p.static {
+		panic(fmt.Sprintf("module \"%s\" is not static", p.name))
+	}
+	//
+	p.staticContents = contents
+}
+
 // ============================================================================
 // Encoding / Decoding
 // ============================================================================
@@ -279,6 +316,14 @@ func (p *Table[F, M]) GobEncode() (data []byte, err error) {
 	}
 	// Native
 	if err := gobEncoder.Encode(p.native); err != nil {
+		return nil, err
+	}
+	// Static
+	if err := gobEncoder.Encode(p.static); err != nil {
+		return nil, err
+	}
+	// Static contents
+	if err := gobEncoder.Encode(p.staticContents); err != nil {
 		return nil, err
 	}
 	// registers
@@ -315,6 +360,14 @@ func (p *Table[F, M]) GobDecode(data []byte) error {
 	}
 	// Native
 	if err := gobDecoder.Decode(&p.native); err != nil {
+		return err
+	}
+	// Static
+	if err := gobDecoder.Decode(&p.static); err != nil {
+		return err
+	}
+	// Static contents
+	if err := gobDecoder.Decode(&p.staticContents); err != nil {
 		return err
 	}
 	// Registers

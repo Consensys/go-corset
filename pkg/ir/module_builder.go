@@ -156,6 +156,13 @@ func (p *internalModuleBuilder[F, C, T]) IsNative() bool {
 	return false
 }
 
+// IsStatic implementation for schema.ModuleView interface.  Modules built via
+// this builder are never static; static modules are produced directly by the
+// ZkC pipeline.
+func (p *internalModuleBuilder[F, C, T]) IsStatic() bool {
+	return false
+}
+
 // Width implementation for schema.ModuleView interface.
 func (p *internalModuleBuilder[F, C, T]) Width() uint {
 	return uint(len(p.registers))
@@ -310,6 +317,12 @@ func (p *externalModuleBuilder[F, C, T]) IsSynthetic() bool {
 // IsNative implementation for schema.ModuleView interface.  External modules
 // are never native.
 func (p *externalModuleBuilder[F, C, T]) IsNative() bool {
+	return false
+}
+
+// IsStatic implementation for schema.ModuleView interface.  External modules
+// are never static.
+func (p *externalModuleBuilder[F, C, T]) IsStatic() bool {
 	return false
 }
 
