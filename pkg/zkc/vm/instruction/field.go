@@ -38,3 +38,15 @@ type FieldAssign[F field.Element[F]] = finsn.Assign[F]
 func NewFieldAssign[F field.Element[F]](target register.Id, source finsn.Polynomial) *FieldAssign[F] {
 	return &FieldAssign[F]{Target: target, Source: source}
 }
+
+// ============================================================================
+
+// FieldHint is a non-deterministic register assignment with no polynomial
+// constraint.  It marks the target registers as defined for the constancy
+// analysis without generating any equality.
+type FieldHint = finsn.Hint
+
+// NewFieldHint constructs a new hint instruction.
+func NewFieldHint(targets, sources []register.Id) *FieldHint {
+	return &FieldHint{Targets: targets, Sources: sources}
+}
