@@ -837,6 +837,10 @@ func Test_ZkcInvalid_Ternary_03(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/ternary_03")
 }
 
+func Test_ZkcInvalid_Ternary_04(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/ternary_04")
+}
+
 // ===================================================================
 // Test Helpers
 // ===================================================================
