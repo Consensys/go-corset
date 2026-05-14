@@ -14,15 +14,20 @@ package zkc
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/consensys/go-corset/pkg/cmd/corset/debug"
+	"github.com/consensys/go-corset/pkg/ir/air"
+	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
+	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
@@ -54,58 +59,190 @@ var compileCmds = []FieldAgnosticCmd{
 	{field.BLS12_377, runCompileCmd[bls12_377.Element]},
 }
 
+// BuildConfig packages up all the requirements for building artifacts.
+type BuildConfig struct {
+	// code configuration includes various things which can be turned off / on.
+	config codegen.Config
+	// field configuration
+	field field.Config
+	// metadata to include in binary output file
+	metadata []byte
+	// flags signal which layers to generate artifacts for.
+	ast, wir, fir, mir, air bool
+}
+
+// HasTarget checks whether or not at least one build target is specified.
+func (p BuildConfig) HasTarget() bool {
+	return p.ast || p.wir || p.fir || p.mir || p.air
+}
+
+// Dependencies produces a build configuration with all transitive dependencies
+// made explicit.
+func (p BuildConfig) Dependencies() BuildConfig {
+	p.mir = p.mir || p.air
+	p.fir = p.fir || p.mir
+	p.wir = p.wir || p.fir
+	p.ast = p.ast || p.wir
+	//
+	return p
+}
+
+// BuildArtifacts attempts to capture the set of build artifacts producing during a
+// compilation run.
+type BuildArtifacts[F field.Element[F]] struct {
+	// Abstract Syntax Tree
+	ast util.Option[ast.Program]
+	// Word Machine
+	wir util.Option[vm.WordMachine[vm.Uint]]
+	// Field Machine
+	fir util.Option[vm.FieldMachine[F]]
+	// MIR Constraints
+	mir util.Option[mir.Schema[F]]
+	// AIR Constraints
+	air util.Option[air.Schema[F]]
+}
+
 func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
-		// compiler config
-		config = codegen.DEFAULT_CONFIG.
-			LowerZkcNative(GetFlag(cmd, "lower-native")).
-			Vectorize(GetFlag(cmd, "vectorize")).
-			Field(field)
-			//
-		//
-		wir = GetFlag(cmd, "wir")
-		fir = GetFlag(cmd, "fir")
-		air = GetFlag(cmd, "air")
+		build  BuildConfig
+		output = GetString(cmd, "output")
 	)
 	// Configure log level
 	if GetFlag(cmd, "verbose") {
 		log.SetLevel(log.DebugLevel)
 	}
-	// Compile source files, or print errors
-	program := CompileSourceFiles(field, args...)
+	// Configure target fieldgitggggggg
+	build.field = field
+	// Configure compiler config
+	build.config = codegen.DEFAULT_CONFIG.
+		LowerZkcNative(GetFlag(cmd, "lower-native")).
+		Vectorize(GetFlag(cmd, "vectorize")).
+		Field(field)
+	// Configure build targets
+	build.ast = GetFlag(cmd, "ast")
+	build.wir = GetFlag(cmd, "wir")
+	build.fir = GetFlag(cmd, "fir")
+	build.mir = GetFlag(cmd, "mir")
+	build.air = GetFlag(cmd, "air")
+	// Set default target (if non specified)
+	if !build.HasTarget() {
+		build.ast = true
+	}
+	// Build all artifacts
+	artifacts := Build[F](build, args...)
 	//
-	writeProgram[F](config, field, program, wir, fir, air)
+	if output != "" {
+		writeArtifacts(output, build, artifacts)
+	} else {
+		// Print out requested artifacts
+		printArtifacts(artifacts)
+	}
 }
 
-func writeProgram[F field.Element[F]](config codegen.Config, field field.Config, program ast.Program,
-	wir, fir, air bool) {
-	//
-	if !(wir || fir || air) {
-		writeAbstractSyntaxTree(program)
-		return
-	}
-
-	wvm, errs := program.Compile(config)
-	//
-	for _, err := range errs {
-		printSyntaxError(&err)
-	}
-	//
-	if len(errs) != 0 {
-		return
-	} else if wir {
-		writeIntermediateRepresentation(wvm)
-		return
-	}
-	//
-	fvm := vm.LowerWordMachine[vm.Uint, F](field, wvm)
-	//
-	if fir {
-		writeIntermediateRepresentation(fvm)
-	} else {
-		avm := constraints.GenerateAirConstraints(fvm)
+// Build applies a build configuration with a given set of source files.
+func Build[F field.Element[F]](build BuildConfig, args ...string) BuildArtifacts[F] {
+	var (
+		errs []source.SyntaxError
+		// determine transitive dependencies
+		deps = build.Dependencies()
 		//
-		debug.PrintAnySchema(avm, 80)
+		artifacts BuildArtifacts[F]
+		// Abstract Syntax Tree
+		ast ast.Program
+		// Word Machine
+		wir *vm.WordMachine[vm.Uint]
+		// Field Machine
+		fir *vm.FieldMachine[F]
+		// MIR Constraints
+		mir mir.Schema[F]
+		// AIR Constraints
+		air air.Schema[F]
+	)
+	// Compile source files, or print errors
+	ast = CompileSourceFiles(build.field, args...)
+	// Word-level Intermediate Representation
+	if deps.wir {
+		// Compile the AST into the top-level word machine
+		wir, errs = ast.Compile(build.config)
+		//
+		if len(errs) > 0 {
+			for _, err := range errs {
+				printSyntaxError(&err)
+			}
+			//
+			os.Exit(4)
+		}
+	}
+	// Field-level Intermediate Representation
+	if deps.fir {
+		fir = vm.LowerWordMachine[vm.Uint, F](build.field, wir)
+	}
+	// Mid-level Intermediate Representation
+	if deps.mir {
+		mir = constraints.GenerateMirConstraints(fir)
+	}
+	// Arithmetic Intermediate Representation
+	if deps.air {
+		air = constraints.GenerateAirConstraints(fir, build.field)
+	}
+	// copy over what has been requested
+	if build.ast {
+		artifacts.ast = util.Some(ast)
+	}
+	//
+	if build.wir {
+		artifacts.wir = util.Some(*wir)
+	}
+	//
+	if build.fir {
+		artifacts.fir = util.Some(*fir)
+	}
+	//
+	if build.mir {
+		artifacts.mir = util.Some(mir)
+	}
+	//
+	if build.air {
+		artifacts.air = util.Some(air)
+	}
+	//
+	return artifacts
+}
+
+func writeArtifacts[F field.Element[F]](filename string, build BuildConfig, artifacts BuildArtifacts[F]) {
+	// Word-level Intermediate Representation
+	//nolint
+	if artifacts.wir.HasValue() {
+		// Construct binary file
+		var binfile = constraints.NewBinaryFile[F](build.metadata, nil, build.field, artifacts.wir.Unwrap())
+		// Write to disk
+		WriteBinaryFile(binfile, filename)
+	} else {
+		log.Error("must use --wir/fir/air to write binary file")
+		os.Exit(5)
+	}
+}
+
+func printArtifacts[F field.Element[F]](artifacts BuildArtifacts[F]) {
+	// Abstract Sytnax Tree
+	if artifacts.ast.HasValue() {
+		writeAbstractSyntaxTree(artifacts.ast.Unwrap())
+	}
+	// Word-level Intermediate Representation
+	if artifacts.wir.HasValue() {
+		writeIntermediateRepresentation(artifacts.wir.Unwrap())
+	}
+	// Field-level Intermediate Representation
+	if artifacts.fir.HasValue() {
+		writeIntermediateRepresentation(artifacts.fir.Unwrap())
+	}
+	// Mid-level Intermediate Representation
+	if artifacts.mir.HasValue() {
+		debug.PrintAnySchema(artifacts.mir.Unwrap(), 80)
+	}
+	// Arithmetic Intermediate Representation
+	if artifacts.air.HasValue() {
+		debug.PrintAnySchema(artifacts.air.Unwrap(), 80)
 	}
 }
 
@@ -280,7 +417,7 @@ func writeFunctionVariables(f *decl.ResolvedFunction, env data.ResolvedEnvironme
 // ============================================================================
 
 func writeIntermediateRepresentation[W vm.BaseWord[W], I vm.Instruction, T vm.Executor[W, I]](
-	machine *vm.BaseMachine[W, I, T]) {
+	machine vm.BaseMachine[W, I, T]) {
 	//
 	// Write memories
 	for i, m := range machine.Modules() {
@@ -397,8 +534,11 @@ func registerType(r register.Register) string {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(compileCmd)
+	compileCmd.Flags().Bool("ast", false, "Output Abstract Syntax Tree (AST)")
 	compileCmd.Flags().Bool("wir", false, "Output Word-level Intermediate Representation (WIR)")
 	compileCmd.Flags().Bool("fir", false, "Output Field-level Intermediate Representation (FIR)")
+	compileCmd.Flags().Bool("mir", false, "Output Mid-Level Intermediate Representation (MIR)")
 	compileCmd.Flags().Bool("air", false, "Output Arithmetic Intermediate Representation (AIR)")
+	compileCmd.Flags().StringP("output", "o", "", "specify output file for writing binary constraints")
 	compileCmd.Flags().Bool("lower-native", false, "Lower ZkC native functions into arithmetic instructions")
 }

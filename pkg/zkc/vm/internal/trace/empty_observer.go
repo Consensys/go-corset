@@ -10,4 +10,25 @@
 // specific language governing permissions and limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-package base
+package trace
+
+import "github.com/consensys/go-corset/pkg/zkc/vm/internal/machine"
+
+// EmptyObserver does nothing
+type EmptyObserver[W any, M machine.Core[W]] struct {
+}
+
+// Initialise implementation for Observer interface
+func (p EmptyObserver[W, M]) Initialise(machine M) {
+	// do nothing
+}
+
+// PreExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PreExecution(machine M) {
+	// do nothing
+}
+
+// PostExecution implementation for Observer interface
+func (p EmptyObserver[W, M]) PostExecution(machine M) {
+	// do nothing
+}

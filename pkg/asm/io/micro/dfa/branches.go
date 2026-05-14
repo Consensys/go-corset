@@ -77,23 +77,22 @@ type BranchId struct {
 	Forwarding bool
 }
 
-// NewBranchId constructs a new branch id
-func NewBranchId(vec register.Vector, forwarding bool) BranchId {
-	var first = vec.Registers()[0].Unwrap()
+// NewBranchId constructs a new branch id from a group of one (or more)
+// consecutively assigned registers.
+func NewBranchId(forwarding bool, regs ...register.Id) BranchId {
+	var first = regs[0].Unwrap()
 	// Sanity check all registers in the vector are allocated in the expected
 	// order (i.e. consecutively, starting from the least significant limb).
-	for i := range len(vec.Registers()) {
+	for i := range len(regs) {
 		expected := register.NewId(first + uint(i))
 		//
-		if vec.Registers()[i] != expected {
+		if regs[i] != expected {
 			panic("invalid register group")
 		}
 	}
 	//
 	return BranchId{
-		vec.Registers()[0],
-		uint(len(vec.Registers())),
-		forwarding,
+		regs[0], uint(len(regs)), forwarding,
 	}
 }
 

@@ -41,6 +41,10 @@ type Core[W any] interface {
 	Module(id uint) Module
 	// Return set of modules in this machine.
 	Modules() []Module
+	// Depth returns the depth of the call stack.
+	Depth() uint
+	// StackFrame returns the nth stack frame, where n==0 returns the root frame.
+	StackFrame(n uint) Frame[W]
 	// Enter a new function on the call-stack, whilst initialising its arguments
 	// with those values in the current frame taken from the given argument
 	// registers.  In addition, the return registers are saved for when (if) the
@@ -120,6 +124,11 @@ func (p *Frame[W]) Return(reg uint) W {
 // its previous contents.
 func (p *Frame[W]) Store(reg uint, value W) {
 	p.registers[reg] = value
+}
+
+// Width returns the number of values in this stack frame.
+func (p *Frame[W]) Width() uint {
+	return uint(len(p.registers))
 }
 
 // ============================================================================

@@ -12,7 +12,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package word
 
-import "math/big"
+import (
+	"math/big"
+)
 
 // Word abstracts the data type (a.k.a the "machine word") used for holding
 // values within the machine.  The reason for abstracting this concept is to

@@ -49,8 +49,8 @@ func HoverFor(
 
 	contents := srcfile.Contents()
 
-	// Annotations (e.g. @inline) take precedence: the cursor may be on the
-	// '@' symbol or on the identifier immediately following it.
+	// Annotations (e.g. #[inline]) take precedence: the cursor may be on any
+	// token in the annotation.
 	if h := hoverAnnotation(tokens, idx, contents); h != nil {
 		return h, nil
 	}
@@ -98,18 +98,11 @@ func HoverFor(
 }
 
 // hoverAnnotation returns hover content if the token at idx is part of an
-// annotation usage — either the '@' symbol itself or the identifier
-// immediately after it. Returns nil otherwise, or when the annotation name is
+// annotation usage. Returns nil otherwise, or when the annotation name is
 // not registered in decl.ANNOTATIONS.
 func hoverAnnotation(tokens []lex.Token, idx int, contents []rune) *protocol.Hover {
-	var nameTok lex.Token
-
-	switch {
-	case tokens[idx].Kind == parser.AT && idx+1 < len(tokens) && tokens[idx+1].Kind == parser.IDENTIFIER:
-		nameTok = tokens[idx+1]
-	case tokens[idx].Kind == parser.IDENTIFIER && idx > 0 && tokens[idx-1].Kind == parser.AT:
-		nameTok = tokens[idx]
-	default:
+	nameTok, ok := annotationNameToken(tokens, idx)
+	if !ok {
 		return nil
 	}
 
@@ -117,7 +110,7 @@ func hoverAnnotation(tokens []lex.Token, idx int, contents []rune) *protocol.Hov
 
 	for _, ann := range decl.ANNOTATIONS {
 		if ann.Name() == name {
-			value := "```zkc\n@" + ann.Name() + "\n```\n\n" + ann.Description()
+			value := "```zkc\n#[" + ann.Name() + "]\n```\n\n" + ann.Description()
 			//
 			return &protocol.Hover{
 				Contents: protocol.MarkupContent{
@@ -129,6 +122,33 @@ func hoverAnnotation(tokens []lex.Token, idx int, contents []rune) *protocol.Hov
 	}
 
 	return nil
+}
+
+func annotationNameToken(tokens []lex.Token, idx int) (lex.Token, bool) {
+	switch tokens[idx].Kind {
+	case parser.HASH:
+		if idx+3 < len(tokens) && tokens[idx+1].Kind == parser.LSQUARE &&
+			tokens[idx+2].Kind == parser.IDENTIFIER && tokens[idx+3].Kind == parser.RSQUARE {
+			return tokens[idx+2], true
+		}
+	case parser.LSQUARE:
+		if idx >= 1 && idx+2 < len(tokens) && tokens[idx-1].Kind == parser.HASH &&
+			tokens[idx+1].Kind == parser.IDENTIFIER && tokens[idx+2].Kind == parser.RSQUARE {
+			return tokens[idx+1], true
+		}
+	case parser.IDENTIFIER:
+		if idx >= 2 && idx+1 < len(tokens) && tokens[idx-2].Kind == parser.HASH &&
+			tokens[idx-1].Kind == parser.LSQUARE && tokens[idx+1].Kind == parser.RSQUARE {
+			return tokens[idx], true
+		}
+	case parser.RSQUARE:
+		if idx >= 3 && tokens[idx-3].Kind == parser.HASH && tokens[idx-2].Kind == parser.LSQUARE &&
+			tokens[idx-1].Kind == parser.IDENTIFIER {
+			return tokens[idx-1], true
+		}
+	}
+
+	return lex.Token{}, false
 }
 
 // hoverLocalVariable searches for a local variable named name inside the

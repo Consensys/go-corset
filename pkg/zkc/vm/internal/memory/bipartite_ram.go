@@ -74,27 +74,33 @@ func (p *BiPartiteRandomAccess[W]) IsPublic() bool {
 
 // IsStatic implementation for memory interface.
 func (p *BiPartiteRandomAccess[W]) IsStatic() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsStatic()
 }
 
 // IsReadOnly implementation for memory interface.
 func (p *BiPartiteRandomAccess[W]) IsReadOnly() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsReadOnly()
 }
 
 // IsWriteOnly implementation for memory interface.
 func (p *BiPartiteRandomAccess[W]) IsWriteOnly() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsWriteOnly()
 }
 
 // IsReadWrite implementation for memory interface.
 func (p *BiPartiteRandomAccess[W]) IsReadWrite() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsReadWrite()
 }
 
 // Name implementation for Memory interface.
 func (p *BiPartiteRandomAccess[W]) Name() string {
 	return p.name
+}
+
+// IsNative implementation for Module interface.  Memory modules are never
+// native.
+func (p *BiPartiteRandomAccess[W]) IsNative() bool {
+	return false
 }
 
 // Geometry implementation for Memory interface.
@@ -168,6 +174,32 @@ func (p *BiPartiteRandomAccess[W]) Write(frame []W, address []register.Id, data 
 	}
 	//
 	return nil
+}
+
+// HasRegister implementation for vm.Module interface.
+func (p *BiPartiteRandomAccess[W]) HasRegister(name string) (register.Id, bool) {
+	for i, r := range p.geometry.registers {
+		if r.Name() == name {
+			return register.NewId(uint(i)), true
+		}
+	}
+	// Failed
+	return register.UnusedId(), false
+}
+
+// Register implementation for vm.Module interface.
+func (p *BiPartiteRandomAccess[W]) Register(id register.Id) register.Register {
+	return p.geometry.registers[id.Unwrap()]
+}
+
+// Registers implementation for vm.Module interface.
+func (p *BiPartiteRandomAccess[W]) Registers() []register.Register {
+	return p.geometry.registers
+}
+
+// Width implementation for Module interface.
+func (p *BiPartiteRandomAccess[W]) Width() uint {
+	return uint(len(p.geometry.registers))
 }
 
 // readLower returns the word at the given absolute position in the lower

@@ -49,27 +49,33 @@ func (p *StaticArray[W]) IsPublic() bool {
 
 // IsStatic implementation for memory interface.
 func (p *StaticArray[W]) IsStatic() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsStatic()
 }
 
 // IsReadOnly implementation for memory interface.
 func (p *StaticArray[W]) IsReadOnly() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsReadOnly()
 }
 
 // IsWriteOnly implementation for memory interface.
 func (p *StaticArray[W]) IsWriteOnly() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsWriteOnly()
 }
 
 // IsReadWrite implementation for memory interface.
 func (p *StaticArray[W]) IsReadWrite() bool {
-	return p.kind.IsPublic()
+	return p.kind.IsReadWrite()
 }
 
 // Name implementation for Memory interface.
 func (p *StaticArray[W]) Name() string {
 	return p.name
+}
+
+// IsNative implementation for Module interface.  Memory modules are never
+// native.
+func (p *StaticArray[W]) IsNative() bool {
+	return false
 }
 
 // Initialise implementation for Memory interface.
@@ -104,6 +110,32 @@ func (p *StaticArray[W]) Write(frame []W, address []register.Id, data []register
 	}
 	//
 	return nil
+}
+
+// HasRegister implementation for vm.Module interface.
+func (p *StaticArray[W]) HasRegister(name string) (register.Id, bool) {
+	for i, r := range p.geometry.registers {
+		if r.Name() == name {
+			return register.NewId(uint(i)), true
+		}
+	}
+	// Failed
+	return register.UnusedId(), false
+}
+
+// Register implementation for vm.Module interface.
+func (p *StaticArray[W]) Register(id register.Id) register.Register {
+	return p.geometry.registers[id.Unwrap()]
+}
+
+// Registers implementation for vm.Module interface.
+func (p *StaticArray[W]) Registers() []register.Register {
+	return p.geometry.registers
+}
+
+// Width implementation for Module interface.
+func (p *StaticArray[W]) Width() uint {
+	return uint(len(p.geometry.registers))
 }
 
 // Expand a slice to ensure it has at least length n.  If the slice already has

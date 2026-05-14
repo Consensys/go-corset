@@ -167,7 +167,9 @@ func (p *Compiler) Compile(declarations []Declaration) (*vm.WordMachine[vm.Uint]
 		modules = lowerzkcnative.BinarizeBitwise[vm.Uint](modules)
 		// Lower Bitwise operations into arithmetic instructions.
 		modules = lowerzkcnative.LowerBitwise[vm.Uint](modules, p.config.field)
-		// WARN: LowerBitwise generate comparaison instructions, so lowering comparaison should happen after
+		// Lower relational SkipIf (LT/GT/LTEQ/GTEQ) into sign-bit extraction sequences.
+		// Must run after LowerBitwise, which may generate new relational SkipIf instructions.
+		modules = lowerzkcnative.LowerComparisons[vm.Uint](modules, p.config.field)
 	}
 	// Vectorize modules (if no errors)
 	if len(errors) == 0 && p.config.vectorize {
@@ -240,7 +242,9 @@ func (p *Compiler) compileFunction(id uint, mapping []uint, program []Declaratio
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
 	}
 	//
-	return vm.NewFunction(fn.Name(), compiler.registers, bootCode), compiler.errors
+	native := slices.Contains(fn.Annotations(), "native")
+	//
+	return vm.NewFunction(fn.Name(), native, compiler.registers, bootCode), compiler.errors
 }
 
 func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,

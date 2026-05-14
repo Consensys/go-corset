@@ -13,6 +13,8 @@
 package util
 
 import (
+	"fmt"
+	"math/big"
 	"strings"
 )
 
@@ -35,6 +37,10 @@ const (
 	FORMAT_HEX
 	// FORMAT_BIN indicates to format in binary
 	FORMAT_BIN
+	// FORMAT_CHR indicates to format as a single ASCII character.  The
+	// argument is required (at type-check time) to be a concrete u8; the
+	// rendered output is the single byte interpreted as a character.
+	FORMAT_CHR
 )
 
 // Formattable captures a numeric element which can be formatted in a particular
@@ -45,27 +51,38 @@ type Formattable interface {
 }
 
 // Format simply encodes the set of permitted formatting strings in a printf
-// statement, such as "%d", "%x", etc.
+// statement, such as "%d", "%x", "%08x", "%8x", etc.  Width specifies an
+// optional minimum number of digits to render, and ZeroPad selects between
+// zero-padding ('0' flag) and space-padding (the default).  Any base prefix
+// ("0x", "0b") is rendered separately and does not count towards Width.
 type Format struct {
-	Code uint
+	Code    uint
+	Width   uint
+	ZeroPad bool
 }
 
 // EMPTY_FORMAT indicates no formatted argument is required.
-var EMPTY_FORMAT = Format{FORMAT_NONE}
+var EMPTY_FORMAT = Format{Code: FORMAT_NONE}
 
 // DecimalFormat constructs a new decimal format.
 func DecimalFormat() Format {
-	return Format{FORMAT_DEC}
+	return Format{Code: FORMAT_DEC}
 }
 
 // HexFormat constructs a new hexadecimal format.
 func HexFormat() Format {
-	return Format{FORMAT_HEX}
+	return Format{Code: FORMAT_HEX}
 }
 
 // BinFormat constructs a new binary format.
 func BinFormat() Format {
-	return Format{FORMAT_BIN}
+	return Format{Code: FORMAT_BIN}
+}
+
+// CharFormat constructs a new character format.  %c does not support
+// width/zero-padding flags; the parser rejects them before this is reached.
+func CharFormat() Format {
+	return Format{Code: FORMAT_CHR}
 }
 
 // HasFormat checks whether this actually represents a format, or is empty.
@@ -74,28 +91,80 @@ func (p Format) HasFormat() bool {
 }
 
 func (p Format) String() string {
+	var (
+		builder  strings.Builder
+		typeChar byte
+	)
+	//
 	switch p.Code {
 	case FORMAT_DEC:
-		return "%d"
+		typeChar = 'd'
 	case FORMAT_HEX:
-		return "%x"
+		typeChar = 'x'
 	case FORMAT_BIN:
-		return "%b"
+		typeChar = 'b'
+	case FORMAT_CHR:
+		typeChar = 'c'
+	default:
+		panic("invalid format")
 	}
 	//
-	panic("invalid format")
+	builder.WriteByte('%')
+	//
+	if p.ZeroPad {
+		builder.WriteByte('0')
+	}
+	//
+	if p.Width > 0 {
+		fmt.Fprintf(&builder, "%d", p.Width)
+	}
+	//
+	builder.WriteByte(typeChar)
+	//
+	return builder.String()
 }
 
 // FormatWord applies a given format to a given word to generate a formatted string.
 func FormatWord[W Formattable](format Format, word W) string {
+	var (
+		digits string
+	)
+	//
 	switch format.Code {
 	case FORMAT_DEC:
-		return word.Text(10)
+		digits = word.Text(10)
 	case FORMAT_HEX:
-		return "0x" + word.Text(16)
+		digits = word.Text(16)
 	case FORMAT_BIN:
-		return "0b" + word.Text(2)
+		digits = word.Text(2)
+	case FORMAT_CHR:
+		// Render the value as a single ASCII character.  Type-checking
+		// (in the zkc compiler) enforces that the argument is a concrete
+		// u8, so the value fits in a single byte; nonetheless we mask
+		// the low 8 bits defensively in case this is called outside
+		// that path (e.g. by future Unicode work, or by tests that
+		// bypass the type checker).
+		if w, ok := any(word).(interface{ BigInt() *big.Int }); ok {
+			return string([]byte{byte(w.BigInt().Uint64() & 0xff)})
+		}
+		//
+		var v big.Int
+		v.SetString(word.Text(10), 10)
+		//
+		return string([]byte{byte(v.Uint64() & 0xff)})
+	default:
+		panic("invalid format")
+	}
+	// Apply any padding to the digit portion.
+	if uint(len(digits)) < format.Width {
+		padding := int(format.Width) - len(digits)
+		//
+		if format.ZeroPad {
+			digits = strings.Repeat("0", padding) + digits
+		} else {
+			digits = strings.Repeat(" ", padding) + digits
+		}
 	}
 	//
-	panic("invalid format")
+	return digits
 }

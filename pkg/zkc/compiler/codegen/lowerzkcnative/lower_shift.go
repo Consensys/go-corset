@@ -14,6 +14,7 @@ package lowerzkcnative
 
 import (
 	"math/big"
+	"math/bits"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/zkc/vm"
@@ -121,8 +122,20 @@ func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	one := vm.Uint64[W](1)
 	wmax := vm.Uint64[W](uint64(width - 1))
 
-	zeroReg := b.newComputedNamed("zero", amtWidth)
-	wmaxReg := b.newComputedNamed("wmax", amtWidth)
+	// wmaxReg needs enough bits to hold wmax = width-1; nWide needs enough bits
+	// to hold any shift amount n (up to 2^amtWidth-1).  Take the larger of the
+	// two so a single width covers both registers.
+	wmaxWidth := amtWidth
+	if needed := uint(bits.Len(width - 1)); needed > wmaxWidth {
+		wmaxWidth = needed
+	}
+
+	if wmaxWidth == 0 {
+		wmaxWidth = 1
+	}
+
+	zeroReg := b.newComputedNamed(amtWidth)
+	wmaxReg := b.newComputedNamed(wmaxWidth)
 	b.emit(instruction.NewIntAdd(zeroReg, nil, zero))
 	b.emit(instruction.NewIntAdd(wmaxReg, nil, wmax))
 
@@ -132,23 +145,26 @@ func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	b.emit(instruction.NewReturn())
 
 	// if n >= width: return 0
-	b.emit(instruction.NewSkipIf(opcode.LTEQ, n, wmaxReg, 2))
+	// Zero-extend n to wmaxWidth so both sides of LTEQ share the same register width.
+	nWide := b.newComputedNamed(wmaxWidth)
+	b.emit(instruction.NewIntAdd(nWide, []register.Id{n}, zero))
+	b.emit(instruction.NewSkipIf(opcode.LTEQ, nWide, wmaxReg, 2))
 	b.emit(instruction.NewIntAdd(out, nil, zero))
 	b.emit(instruction.NewReturn())
 
 	// doubled = 2*a mod 2^width: strip the top bit via Destruct, add low+low.
 	// low < 2^(width-1) so low+low < 2^width — no IntAdd overflow.
-	low := b.newComputedNamed("low", width-1)
+	low := b.newComputedNamed(width - 1)
 	b.emit(instruction.NewDestruct([]register.Id{low}, a))
-	doubled := b.newComputedNamed("doubled", width)
+	doubled := b.newComputedNamed(width)
 	b.emit(instruction.NewIntAdd(doubled, []register.Id{low, low}, zero))
 
-	n1 := b.newComputedNamed("n1", amtWidth)
+	n1 := b.newComputedNamed(amtWidth)
 	b.emit(instruction.NewIntSub(n1, []register.Id{n}, one))
 	b.emit(instruction.NewCall(selfID, []register.Id{doubled, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), false, b.regs(), []vectorInstruction{{Codes: b.code}})
 }
 
 // newShrHelper builds a self-recursive module for logical right shift:
@@ -175,8 +191,20 @@ func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	one := vm.Uint64[W](1)
 	wmax := vm.Uint64[W](uint64(width - 1))
 
-	zeroReg := b.newComputedNamed("zero", amtWidth)
-	wmaxReg := b.newComputedNamed("wmax", amtWidth)
+	// wmaxReg needs enough bits to hold wmax = width-1; nWide needs enough bits
+	// to hold any shift amount n (up to 2^amtWidth-1).  Take the larger of the
+	// two so a single width covers both registers.
+	wmaxWidth := amtWidth
+	if needed := uint(bits.Len(width - 1)); needed > wmaxWidth {
+		wmaxWidth = needed
+	}
+
+	if wmaxWidth == 0 {
+		wmaxWidth = 1
+	}
+
+	zeroReg := b.newComputedNamed(amtWidth)
+	wmaxReg := b.newComputedNamed(wmaxWidth)
 	b.emit(instruction.NewIntAdd(zeroReg, nil, zero))
 	b.emit(instruction.NewIntAdd(wmaxReg, nil, wmax))
 
@@ -186,23 +214,26 @@ func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	b.emit(instruction.NewReturn())
 
 	// if n >= width: return 0
-	b.emit(instruction.NewSkipIf(opcode.LTEQ, n, wmaxReg, 2))
+	// Zero-extend n to wmaxWidth so both sides of LTEQ share the same register width.
+	nWide := b.newComputedNamed(wmaxWidth)
+	b.emit(instruction.NewIntAdd(nWide, []register.Id{n}, zero))
+	b.emit(instruction.NewSkipIf(opcode.LTEQ, nWide, wmaxReg, 2))
 	b.emit(instruction.NewIntAdd(out, nil, zero))
 	b.emit(instruction.NewReturn())
 
 	// floor(a/2) via Destruct: split a into [lsb:u1, rest:u(width-1)].
 	// rest holds the upper (width-1) bits of a, i.e. floor(a/2), with no
 	// field arithmetic — works for any field modulus.
-	lsb := b.newComputedNamed("lsb", 1)
-	rest := b.newComputedNamed("rest", width-1)
+	lsb := b.newComputedNamed(1)
+	rest := b.newComputedNamed(width - 1)
 	b.emit(instruction.NewDestruct([]register.Id{lsb, rest}, a))
 	// Zero-extend rest from u(width-1) to u(width); safe since rest < 2^(width-1).
-	half := b.newComputedNamed("half", width)
+	half := b.newComputedNamed(width)
 	b.emit(instruction.NewIntAdd(half, []register.Id{rest}, zero))
-	n1 := b.newComputedNamed("n1", amtWidth)
+	n1 := b.newComputedNamed(amtWidth)
 	b.emit(instruction.NewIntSub(n1, []register.Id{n}, one))
 	b.emit(instruction.NewCall(selfID, []register.Id{half, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), false, b.regs(), []vectorInstruction{{Codes: b.code}})
 }

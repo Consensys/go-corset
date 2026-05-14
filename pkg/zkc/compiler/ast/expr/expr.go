@@ -97,21 +97,24 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *Add[S]:
 		operator = "+"
 		exprs = e.Exprs
+	case *ArrayAccess[S]:
+		return fmt.Sprintf("%s[%s]", mapping.Variable(e.Id).Name, e.Arg.String(mapping))
 	case *BitwiseAnd[S]:
 		operator = "&"
 		exprs = e.Exprs
 	case *BitwiseOr[S]:
 		operator = "|"
 		exprs = e.Exprs
-	case *Xor[S]:
-		operator = "^"
+	case *Concat[S]:
+		operator = "::"
 		exprs = e.Exprs
 	case *Const[S]:
 		return stringOfConstant(e.Constant, e.Base)
+	case *Div[S]:
+		exprs = e.Exprs
+		operator = "/"
 	case *LocalAccess[S]:
 		return mapping.Variable(e.Variable).Name
-	case *ArrayAccess[S]:
-		return fmt.Sprintf("%s[%s]", mapping.Variable(e.Id).Name, e.Arg.String(mapping))
 	case *Mul[S]:
 		exprs = e.Exprs
 		operator = "*"
@@ -146,14 +149,15 @@ func String[S symbol.Symbol[S]](e Expr[S], mapping variable.Map[S]) string {
 	case *TupleInitialiser[S]:
 		args := stringOfArguments(e.Exprs, mapping)
 		return fmt.Sprintf("(%s)", args)
-	case *Div[S]:
-		exprs = e.Exprs
-		operator = "/"
 	case *Rem[S]:
 		exprs = e.Exprs
 		operator = "%"
 	case *Ternary[S]:
 		return e.String(mapping)
+	case *Xor[S]:
+		operator = "^"
+		exprs = e.Exprs
+
 	default:
 		panic("unreachable")
 	}

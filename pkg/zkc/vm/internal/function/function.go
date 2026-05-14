@@ -23,6 +23,10 @@ import (
 type Function[I instruction.Instruction] struct {
 	// Unique name of this function.
 	name string
+	// Native indicates whether this function is backed by a native circuit
+	// (i.e. declared with the @native annotation) rather than by the
+	// instructions in code.
+	native bool
 	// Registers describes zero or more registers of a given width.  Each
 	// register can be designated as an input / output or temporary.
 	registers []register.Register
@@ -35,7 +39,7 @@ type Function[I instruction.Instruction] struct {
 }
 
 // New constructs a new function with the given components.
-func New[I instruction.Instruction](name string, registers []register.Register,
+func New[I instruction.Instruction](name string, native bool, registers []register.Register,
 	code []instruction.Vector[I]) *Function[I] {
 	//
 	var (
@@ -47,7 +51,7 @@ func New[I instruction.Instruction](name string, registers []register.Register,
 		panic("function registers ordered incorrectly")
 	}
 	// All good
-	return &Function[I]{name, registers, numInputs, numOutputs, code}
+	return &Function[I]{name, native, registers, numInputs, numOutputs, code}
 }
 
 // CodeAt returns the ith instruction making up the body of this function.
@@ -58,6 +62,21 @@ func (p *Function[I]) CodeAt(i uint) instruction.Vector[I] {
 // Code returns the instructions making up the body of this function.
 func (p *Function[I]) Code() []instruction.Vector[I] {
 	return p.code
+}
+
+// IsAtomic determines whether or not this is a "one line function".  That is,
+// where every instance of this function occupies exactly one line in the
+// corresponding trace.  This is useful to know, as certain optimisations can be
+// applied for one line functions (e.g. no PC register is required).
+func (p *Function[I]) IsAtomic() bool {
+	return len(p.code) == 1
+}
+
+// IsNative reports whether this function is backed by a native circuit (i.e.
+// declared with the @native annotation) rather than by the instructions in
+// its body.
+func (p *Function[I]) IsNative() bool {
+	return p.native
 }
 
 // HasRegister checks whether a register with the given name exists and, if

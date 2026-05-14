@@ -17,15 +17,16 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/consensys/go-corset/pkg/cmd/corset"
+	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
-	"github.com/consensys/go-corset/pkg/util/source"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
-	"github.com/consensys/go-corset/pkg/zkc/vm"
+	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -50,46 +51,57 @@ var executeCmds = []FieldAgnosticCmd{
 
 func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
-		// compiler config
-		config = codegen.DEFAULT_CONFIG.
-			Vectorize(GetFlag(cmd, "vectorize")).
-			Field(field)
+		errors []error
+		// compiler buildConfig
+		buildConfig = codegen.DEFAULT_CONFIG.
+				Vectorize(GetFlag(cmd, "vectorize")).
+				Field(field)
+		//
+		traceConfig = constraints.DEFAULT_TRACE_CONFIG
+		// outputFile file for trace
+		outputFile = GetString(cmd, "output")
+		// check constraints
+		check = GetFlag(cmd, "check")
+		// identify whether tracing required or not.
+		tracing = check || outputFile != ""
+		//
+		trace   trace.Trace[F]
+		outputs map[string][]byte
 	)
 	//
 	input := ParseInputFile(args[0])
 	// Compile source files, or print errors
-	program := CompileSourceFiles(field, args[1:]...)
-	//
-	executeIrProgram[EmptyBaseObserver]("main", config, program, input, EmptyBaseObserver{})
-}
-
-func executeIrProgram[V BaseObserver[vm.Uint]](mainFn string, config codegen.Config, program ast.Program,
-	input map[string][]byte, view V,
-) {
-	var (
-		wm        *vm.WordMachine[vm.Uint]
-		bigInputs map[string][]vm.Uint
-		errors    []error
-	)
-	// Execute machine in chunks of 1K steps
-	if bigInputs, _, errors = program.DecodeInputsOutputs(input); len(errors) == 0 {
-		// Build our machine
-		var compileErrs []source.SyntaxError
-
-		wm, compileErrs = program.Compile(config)
-		for _, e := range compileErrs {
-			errors = append(errors, &e)
-		}
-		//
-		if len(errors) == 0 {
-			if err := wm.Boot(mainFn, bigInputs); err != nil {
-				errors = append(errors, err)
-			} else if _, err := execute[vm.Uint, V](wm, 1, view); err != nil {
-				errors = append(errors, err)
-			}
-		}
+	binfile := BuildSourceFiles[F](buildConfig, field, args[1:]...)
+	// =====================================================
+	// Trace / Execute
+	// =====================================================
+	if tracing {
+		trace, errors = binfile.Trace(input, traceConfig)
+	} else {
+		outputs, errors = binfile.Execute(input, 1024)
 	}
-	// Exit with failure (if errors)
+	// =====================================================
+	// Generate output
+	// =====================================================
+	if outputFile == "" {
+		for name, bytes := range outputs {
+			fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
+		}
+	} else if outputFile != "" {
+		// Construct trace file
+		ltf := lt.FromRawTrace(nil, trace)
+		// Write out trace file
+		WriteTraceFile(outputFile, ltf)
+	}
+	// =====================================================
+	// Check Constraints
+	// =====================================================
+	if check {
+		checkConstraints(binfile, trace, traceConfig)
+	}
+	// =====================================================
+	// Report Execution Failures
+	// =====================================================
 	if len(errors) > 0 {
 		// Log errors
 		for _, e := range errors {
@@ -98,76 +110,26 @@ func executeIrProgram[V BaseObserver[vm.Uint]](mainFn string, config codegen.Con
 		//
 		os.Exit(4)
 	}
-	// Collect raw outputs from write-once memories
-	rawOutputs := make(map[string][]vm.Uint)
+}
 
-	for _, m := range wm.Modules() {
-		if output, ok := m.(vm.InputOutputMemory[vm.Uint]); ok && output.IsWriteOnly() {
-			rawOutputs[output.Name()] = output.Contents()
-		}
-	}
-	// Encode outputs back to bytes
-	encodedOutputs, encErrors := program.EncodeInputsOutputs(rawOutputs)
+func checkConstraints[F field.Element[F]](binfile *constraints.BinaryFile[F], tr trace.Trace[F],
+	cfg constraints.TraceConfig) {
 	//
-	for _, e := range encErrors {
-		log.Error(fmt.Sprintf("%s (IR)", e))
+	var checkConfig corset.CheckConfig
+	// Set sensible defaults (for now)
+	checkConfig.Report = true
+	checkConfig.ReportCellWidth = 32
+	checkConfig.ReportTitleWidth = 40
+	checkConfig.ReportPadding = 2
+	checkConfig.ReportLimbs = true
+	checkConfig.ReportComputed = true
+	checkConfig.AnsiEscapes = true
+	// Construct limbs map
+	mapping := binfile.LimbsMap()
+	// Run the check
+	if failures := binfile.Check(tr, cfg); len(failures) > 0 {
+		corset.ReportFailures("AIR", failures, tr, mapping, checkConfig)
 	}
-	// Write output
-	for name, bytes := range encodedOutputs {
-		fmt.Printf("%s = 0x%s\n", name, hex.EncodeToString(bytes))
-	}
-}
-
-func execute[W vm.Word[W], V BaseObserver[W]](machine *vm.WordMachine[W], n uint, observer V) (uint, error) {
-	var (
-		nsteps uint
-	)
-	//
-	for {
-		// observe pre execution
-		observer.PreExecution(machine)
-		// Execute upto n steps
-		m, err := machine.Execute(n)
-		// observe pre execution
-		observer.PostExecution(machine)
-		// update the tally
-		nsteps += m
-		// check for termination
-		if err != nil || m < n {
-			return nsteps, err
-		}
-	}
-}
-
-// ============================================================================
-// Machine observers
-// ============================================================================
-
-// BaseObserver is an observer for a base machin
-type BaseObserver[W vm.Word[W]] = VmObserver[W, *vm.WordMachine[W]]
-
-// EmptyBaseObserver is an empty observer for a base machine.
-type EmptyBaseObserver = EmptyObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
-
-// VmObserver is a generic interface for extract information before and after an
-// execution step of the VM.  For example, to generate debugging information.
-type VmObserver[W any, M vm.Machine[W]] interface {
-	PreExecution(machine M)
-	PostExecution(machine M)
-}
-
-// EmptyObserver does nothing
-type EmptyObserver[W any, M vm.Machine[W]] struct {
-}
-
-// PreExecution implementation for Observer interface
-func (p EmptyObserver[W, M]) PreExecution(machine M) {
-	// do nothing
-}
-
-// PostExecution implementation for Observer interface
-func (p EmptyObserver[W, M]) PostExecution(machine M) {
-	// do nothing
 }
 
 // ============================================================================
@@ -177,5 +139,6 @@ func (p EmptyObserver[W, M]) PostExecution(machine M) {
 //nolint:errcheck
 func init() {
 	rootCmd.AddCommand(executeCmd)
-	executeCmd.Flags().Bool("ir", false, "execute intermediate representation (IR)")
+	executeCmd.Flags().StringP("output", "o", "", "specify output file for writing trace")
+	executeCmd.Flags().BoolP("check", "c", false, "check generated trace against constraints")
 }

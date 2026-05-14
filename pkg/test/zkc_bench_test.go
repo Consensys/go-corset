@@ -28,6 +28,11 @@ func Test_ZkcBench_Blake(t *testing.T) {
 func Test_ZkcBench_BinarySearchTree(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/bsearch_tree", field.BLS12_377, field.KOALABEAR_16)
 }
+
+func Test_ZkcBench_FastPow(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/fast_pow", field.BLS12_377, field.KOALABEAR_16)
+}
+
 func Test_ZkcBench_Fnv1aHash(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/fnv1a_hash", field.BLS12_377, field.KOALABEAR_16)
 }
@@ -90,7 +95,6 @@ func Test_ZkcBench_Poseidon_felt_02(t *testing.T) {
 func Test_ZkcBench_Sort(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/sort", field.BLS12_377, field.KOALABEAR_16)
 }
-
 func Test_ZkcBench_SgnExtend(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/sgn_extension_u32_u64", field.BLS12_377, field.KOALABEAR_16)
 }
@@ -140,5 +144,7 @@ func Test_ZkcBench_LeftShiftAndTypeBug(t *testing.T) {
 // ===================================================================
 
 func checkZkcBench(t *testing.T, test string, fields ...field.Config) {
-	util.CheckValid(t, test, "zkc", fields...)
+	var config = util.DEFAULT_CONFIG.Fields(fields...)
+	//
+	util.CheckValid(t, test, "zkc", config)
 }

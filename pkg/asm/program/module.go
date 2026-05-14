@@ -107,6 +107,18 @@ func (p *Module[F, T]) IsSynthetic() bool {
 	return false
 }
 
+// IsNative implementation for schema.Module interface.  Modules originating
+// from the assembly pipeline are never native.
+func (p *Module[F, T]) IsNative() bool {
+	return false
+}
+
+// IsStatic implementation for schema.Module interface.  Modules originating
+// from the assembly pipeline are never static.
+func (p *Module[F, T]) IsStatic() bool {
+	return false
+}
+
 // Substitute any matchined labelled constants within this module
 func (p *Module[F, T]) Substitute(mapping map[string]F) {
 	// For now, this is a no-operation because assembly has no concept of

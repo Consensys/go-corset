@@ -29,10 +29,10 @@ const (
 )
 
 // Annotation is a schema for a source-level annotation.  It records the
-// annotation's name (without the leading '@') and the set of declaration kinds
-// on which it may legally appear.
+// annotation's name (without the surrounding "#[" and "]") and the set of
+// declaration kinds on which it may legally appear.
 type Annotation struct {
-	// name is the annotation identifier (e.g. "inline" for "@inline").
+	// name is the annotation identifier (e.g. "inline" for "#[inline]").
 	name string
 	// description explains what the annotation is for, used in documentation
 	// and error messages.
@@ -48,7 +48,7 @@ func NewAnnotation(name, description string, permitted DeclarationKind) Annotati
 	return Annotation{name: name, description: description, permitted: permitted}
 }
 
-// Name returns the annotation's name without the leading '@'.
+// Name returns the annotation's name without the surrounding "#[" and "]".
 func (a Annotation) Name() string {
 	return a.name
 }
@@ -88,9 +88,11 @@ func (k DeclarationKind) String() string {
 // describes one valid annotation and the declaration kinds on which it may
 // appear.
 var ANNOTATIONS = []Annotation{
-	// @inline is permitted only on function declarations.
+	// #[inline] is permitted only on function declarations.
 	NewAnnotation("inline", "marks a function to be inlined at every call site", FUNCTION_KIND),
-	// @bipartite is permitted only on memory declarations.
+	// #[native] is permitted only on function declarations.
+	NewAnnotation("native", "marks a function as backed by a native circuit", FUNCTION_KIND),
+	// #[bipartite] is permitted only on memory declarations.
 	NewAnnotation("bipartite",
 		"marks a read/write memory to use the bipartite (split heap/stack) layout", MEMORY_KIND),
 }

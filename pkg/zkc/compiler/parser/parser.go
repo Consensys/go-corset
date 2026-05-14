@@ -134,7 +134,7 @@ func (p *Parser) parseDeclaration() ([]decl.Declaration[symbol.Unresolved], []so
 		annotations []lex.Token
 		kind        decl.DeclarationKind
 	)
-	// Parse any leading annotations (e.g. @inline), checking that each
+	// Parse any leading annotations (e.g. #[inline]), checking that each
 	// name is known.
 	if annotations, errors = p.parseAnnotations(); len(errors) > 0 {
 		return nil, errors
@@ -178,19 +178,24 @@ func (p *Parser) parseDeclaration() ([]decl.Declaration[symbol.Unresolved], []so
 	return components, errors
 }
 
-// parseAnnotations parses zero or more leading annotations of the form "@ident"
+// parseAnnotations parses zero or more leading annotations of the form "#[ident]"
 // that precede a top-level declaration.  It returns the identifier tokens (for
 // source-location-aware error reporting) and reports an error immediately if an
 // annotation name is not found in decl.ANNOTATIONS.
 func (p *Parser) parseAnnotations() ([]lex.Token, []source.SyntaxError) {
 	var toks []lex.Token
 	//
-	for p.lookahead().Kind == AT {
-		// consume '@'
-		p.index++
-		// expect an identifier immediately after '@'
+	for p.lookahead().Kind == HASH {
+		if _, errs := p.expect(HASH); len(errs) > 0 {
+			return nil, errs
+		} else if _, errs := p.expect(LSQUARE); len(errs) > 0 {
+			return nil, errs
+		}
+		// expect an identifier immediately after '#['
 		tok, errs := p.expect(IDENTIFIER)
 		if len(errs) > 0 {
+			return nil, errs
+		} else if _, errs := p.expect(RSQUARE); len(errs) > 0 {
 			return nil, errs
 		}
 		// Validate that the annotation name is registered.
@@ -1399,20 +1404,51 @@ func (p *Parser) parseFormattedString(env Environment) ([]stmt.FormattedChunk, [
 }
 
 func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
+	var (
+		zeroPad bool
+		width   uint
+	)
+	// Optional '0' flag selects zero padding.
+	if index < len(runes) && runes[index] == '0' {
+		zeroPad = true
+		index++
+	}
+	// Optional decimal width.
+	for index < len(runes) && runes[index] >= '0' && runes[index] <= '9' {
+		width = width*10 + uint(runes[index]-'0')
+		index++
+	}
+	//
 	if index >= len(runes) {
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}
 	//
+	var format zkc_util.Format
+	//
 	switch runes[index] {
 	case 'd':
-		return index + 1, zkc_util.DecimalFormat(), true
+		format = zkc_util.DecimalFormat()
 	case 'x':
-		return index + 1, zkc_util.HexFormat(), true
+		format = zkc_util.HexFormat()
 	case 'b':
-		return index + 1, zkc_util.BinFormat(), true
+		format = zkc_util.BinFormat()
+	case 'c':
+		// %c renders a single u8 as a character; padding/zero-pad
+		// flags don't apply and we reject them rather than silently
+		// ignoring.
+		if width > 0 || zeroPad {
+			return 0, zkc_util.EMPTY_FORMAT, false
+		}
+		//
+		return index + 1, zkc_util.CharFormat(), true
 	default:
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}
+	//
+	format.Width = width
+	format.ZeroPad = zeroPad
+	//
+	return index + 1, format, true
 }
 
 func escapeCharacter(ch rune) (rune, bool) {

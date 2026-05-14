@@ -25,9 +25,14 @@ import (
 // TraceObserver prints a trace
 type TraceObserver[W vm.Word[W]] struct {
 	depth uint
-	fun   *vm.Function[vm.Instruction]
+	fun   *vm.Function[vm.WordInstruction]
 	insn  vm.Instruction
 	pc    vm.ProgramCounter
+}
+
+// Initialise implementation for Observer interface
+func (p *TraceObserver[W]) Initialise(machine *vm.WordMachine[W]) {
+
 }
 
 // PreExecution implementation for Observer interface
@@ -70,7 +75,7 @@ func (p *TraceObserver[W]) enterFunction(machine *vm.WordMachine[W]) {
 	)
 	//
 	p.depth = n
-	p.fun = machine.Module(frame.Function()).(*vm.Function[instruction.Instruction])
+	p.fun = machine.Module(frame.Function()).(*vm.Function[vm.WordInstruction])
 	p.insn = nil
 }
 
@@ -114,7 +119,7 @@ func (p *TraceObserver[W]) callStack(machine *vm.WordMachine[W]) string {
 	for i := uint(0); i < p.depth; i++ {
 		var (
 			ith = machine.StackFrame(i)
-			fun = machine.Module(ith.Function()).(*vm.Function[instruction.Instruction])
+			fun = machine.Module(ith.Function()).(*vm.Function[vm.WordInstruction])
 		)
 		//
 		if i+1 == p.depth {
@@ -149,7 +154,7 @@ func functionInputs[W vm.Word[W], I vm.Instruction](frame vm.StackFrame[W],
 }
 
 func decode[W vm.Word[W]](frame vm.StackFrame[W],
-	fn *vm.Function[instruction.Instruction]) instruction.Instruction {
+	fn *vm.Function[vm.WordInstruction]) vm.WordInstruction {
 	//
 	var (
 		pc   = frame.PC()

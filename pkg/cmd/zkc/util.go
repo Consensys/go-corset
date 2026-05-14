@@ -18,12 +18,17 @@ import (
 	"path"
 	"strings"
 
+	"github.com/consensys/go-corset/pkg/trace/json"
+	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	"github.com/consensys/go-corset/pkg/zkc/util"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -92,6 +97,32 @@ func CompileSourceFiles(field field.Config, filenames ...string) ast.Program {
 	return macroProgram
 }
 
+// BuildSourceFiles accepts a set of source files and compiles them into a
+// machine for execution.  This can result, for example, in one or more syntax
+// errors, etc.
+func BuildSourceFiles[F field.Element[F]](config codegen.Config, field field.Config,
+	filenames ...string) *constraints.BinaryFile[F] {
+	//
+	var (
+		wm *vm.WordMachine[vm.Uint]
+		//
+		program = CompileSourceFiles(field, filenames...)
+		//
+		errs []source.SyntaxError
+	)
+	// Build our machine
+	if wm, errs = program.Compile(config); len(errs) > 0 {
+		// Report errors
+		for _, err := range errs {
+			printSyntaxError(&err)
+		}
+		// Fail
+		os.Exit(4)
+	}
+	// Done
+	return constraints.NewBinaryFile[F](nil, nil, field, *wm)
+}
+
 // Print a syntax error with appropriate highlighting.
 func printSyntaxError(err *source.SyntaxError) {
 	span := err.Span()
@@ -110,4 +141,58 @@ func printSyntaxError(err *source.SyntaxError) {
 	fmt.Print(strings.Repeat(" ", lineOffset))
 	// Print highlight
 	fmt.Println(strings.Repeat("^", length))
+}
+
+// WriteTraceFile writes a given lt trace file to disk, either in JSON or LT
+// formats.
+func WriteTraceFile(filename string, tracefile lt.TraceFile) {
+	var (
+		err   error
+		bytes []byte
+	)
+	// Check file extension
+	ext := path.Ext(filename)
+	//
+	switch ext {
+	case ".json":
+		js := json.ToJsonString(tracefile.RawModules())
+		//
+		if err = os.WriteFile(filename, []byte(js), 0644); err == nil {
+			return
+		}
+	case ".lt":
+		bytes, err = tracefile.MarshalBinary()
+		//
+		if err == nil {
+			if err = os.WriteFile(filename, bytes, 0644); err == nil {
+				return
+			}
+		}
+	default:
+		err = fmt.Errorf("unknown trace file format: %s", ext)
+	}
+	// Handle error
+	fmt.Println(err)
+	os.Exit(4)
+}
+
+// WriteBinaryFile writes a binary file (e.g. zkvm.bin) to disk using the given
+// binfile versioning defined in the binfile package.
+//
+//nolint:errcheck
+func WriteBinaryFile[F field.Element[F]](binfile *constraints.BinaryFile[F], filename string) {
+	var (
+		bytes []byte
+		err   error
+	)
+	// Encode binary file as bytes
+	if bytes, err = binfile.MarshalBinary(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	// Write file
+	if err := os.WriteFile(filename, bytes, 0644); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
 }

@@ -73,7 +73,7 @@ func decodeType[S symbol.Symbol[S]](datatype Type[S], reader *bit.Reader, buffer
 	case *FieldElement[S]:
 		panic(fmt.Sprintf("field element type cannot be decoded from bytes: %s", datatype.String(env)))
 	case *UnsignedInt[S]:
-		return decodeUnsignedInt(dt.bitwidth, reader, buffer)
+		return vm.DecodeUnsignedInt(dt.bitwidth, reader, buffer)
 	case *Tuple[S]:
 		return decodeTuple(dt.elements, reader, buffer, env)
 	default:
@@ -97,34 +97,4 @@ func decodeTuple[S symbol.Symbol[S]](types []Type[S], reader *bit.Reader, buffer
 	}
 	//
 	return vals, buffer
-}
-
-func decodeUnsignedInt(bitwidth uint, reader *bit.Reader, buffer []byte) ([]big.Int, []byte) {
-	var (
-		val big.Int
-		// Determine number of bytes required to hold value
-		n = bit.BytesRequiredFor(bitwidth)
-		// Calculate excess bits (needed for alignment)
-		m = (n * 8) - bitwidth
-	)
-	// Expand buffer to ensure enough space
-	buffer = expandBufferAsNeeded(bitwidth, buffer)
-	// Read bitwidth bits out
-	reader.BigEndianReadInto(bitwidth, buffer)
-	// Assign (unaligned) bytes
-	val.SetBytes(buffer[:n])
-	// Right shift to fix alignment
-	val.Rsh(&val, m)
-	//
-	return []big.Int{val}, buffer
-}
-
-func expandBufferAsNeeded(bitwidth uint, buffer []byte) []byte {
-	var n = bit.BytesRequiredFor(bitwidth)
-	//
-	if uint(len(buffer)) >= n {
-		return buffer
-	}
-	//
-	return make([]byte, n)
 }

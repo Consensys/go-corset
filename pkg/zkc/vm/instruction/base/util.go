@@ -22,8 +22,21 @@ import (
 
 // Module represents an either a function or memory within the machine.
 type Module interface {
-	// Name of this module
+	// Name returns the name given to the enclosing entity (i.e. memory or
+	// function).
 	Name() string
+	// HasRegister checks whether a register with the given name exists and, if
+	// so, returns its register identifier.  Otherwise, it returns false.
+	HasRegister(name string) (register.Id, bool)
+	// IsNative reports whether this module is a function backed by a native
+	// circuit.  Memory modules always return false.
+	IsNative() bool
+	// Access a given register in this module.
+	Register(register.Id) register.Register
+	// Registers providers access to the underlying registers of this map.
+	Registers() []register.Register
+	// Width returns the number of registers declared in this module.
+	Width() uint
 }
 
 // SystemMap provides a global view of modules in the systemn.

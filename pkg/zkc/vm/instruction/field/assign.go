@@ -15,12 +15,19 @@ package field
 import (
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/util/poly"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
+
+// Polynomial defines the type of polynomials over which packets (and register
+// splitting in general) operate.
+type Polynomial = *poly.ArrayPoly[register.Id]
+
+// Monomial is a convenient alias
+type Monomial = poly.Monomial[register.Id]
 
 // Assign from a given source expression to a given set of target
 // registers.
@@ -28,7 +35,7 @@ type Assign[F field.Element[F]] struct {
 	// Target register for assignment
 	Target register.Id
 	// Source registers for assignment
-	Source air.Term[F]
+	Source Polynomial
 }
 
 // ============================================================================
@@ -37,7 +44,7 @@ type Assign[F field.Element[F]] struct {
 
 // OpCode implementation for Instruction interface
 func (p *Assign[F]) OpCode() opcode.OpCode {
-	panic("todo")
+	return opcode.FIELD_ASSIGN
 }
 
 // IsField implementation for instruction.Field interface
@@ -47,7 +54,7 @@ func (p *Assign[F]) IsField() bool {
 
 // Uses implementation for Instruction interface.
 func (p *Assign[F]) Uses() []register.Id {
-	panic("todo")
+	panic("unsupported operation")
 }
 
 // Definitions implementation for Instruction interface.
@@ -58,7 +65,9 @@ func (p *Assign[F]) Definitions() []register.Id {
 func (p *Assign[F]) String(mapping base.SystemMap) string {
 	var (
 		lhs = base.RegistersToString(mapping, p.Target)
-		rhs = p.Source.Lisp(false, mapping).String(false)
+		rhs = poly.String(p.Source, func(r register.Id) string {
+			return mapping.Register(r).Name()
+		})
 	)
 	//
 	return fmt.Sprintf("%s = %s", lhs, rhs)

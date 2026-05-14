@@ -50,7 +50,7 @@ func binarizeBitwiseFunction[W vm.Word[W]](fn *vm.WordFunction) *vm.WordFunction
 		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
-	return vm.NewFunction(fn.Name(), registers, ncode)
+	return vm.NewFunction(fn.Name(), fn.IsNative(), registers, ncode)
 }
 
 func binarizeBitwiseCodes[W vm.Word[W]](codes []vm.WordInstruction, registers *[]register.Register,
@@ -84,28 +84,42 @@ func binarizeBitwiseCode[W vm.Word[W]](code vm.WordInstruction, registers *[]reg
 		return []vm.WordInstruction{code}
 	}
 
-	if len(sources) <= 2 {
-		return []vm.WordInstruction{code}
-	}
-
 	width := (*registers)[target.Unwrap()].Width()
 	identity := bitwiseIdentity[W](op, width)
 
-	insns := make([]vm.WordInstruction, 0, len(sources)-1)
-	acc := sources[0]
+	insns := make([]vm.WordInstruction, 0, len(sources))
 
-	for _, src := range sources[1 : len(sources)-1] {
-		tmp := allocTmp(registers, width)
-		insns = append(insns, newBinaryBitOp[W](op, tmp, acc, src, identity))
-		acc = tmp
+	// If the constant is not the identity, materialise it as a register and add it to sources.
+	if constant.Cmp(identity) != 0 {
+		cstReg := allocTmp(registers, width)
+		insns = append(insns, instruction.NewIntAdd(cstReg, nil, constant))
+		sources = append(sources, cstReg)
 	}
 
-	insns = append(insns, newBinaryBitOp[W](op, target, acc, sources[len(sources)-1], constant))
+	switch len(sources) {
+	case 0:
+		panic(fmt.Sprintf("unexpected bitwise instruction with no sources: %T", code))
+	case 1:
+		// Trivial assignment: target = sources[0]
+		var zero W
+		return append(insns, instruction.NewIntAdd(target, sources, zero))
+	case 2:
+		// Happy path: just one binary op, possibly with a constant.
+		return append(insns, newBinaryBitOp(op, target, sources[0], sources[1], identity))
+	default:
+		acc := sources[0]
+		for _, src := range sources[1 : len(sources)-1] {
+			tmp := allocTmp(registers, width)
+			insns = append(insns, newBinaryBitOp(op, tmp, acc, src, identity))
+			acc = tmp
+		}
 
-	return insns
+		return append(insns, newBinaryBitOp(op, target, acc, sources[len(sources)-1], identity))
+	}
 }
 
-// bitwiseIdentity returns the identity element for the given bitwise operation.
+// bitwiseIdentity returns the identity element for the given bitwise operation:
+// 0b111... for AND, 0b000... for OR/XOR.
 func bitwiseIdentity[W vm.Word[W]](op instruction.OpCode, width uint) W {
 	var z W
 
