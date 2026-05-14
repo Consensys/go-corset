@@ -48,7 +48,7 @@ func lowerComparisonFunction[W vm.Word[W]](fn *vm.WordFunction, bandWidth uint) 
 		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
-	return vm.NewFunction(fn.Name(), registers, ncode)
+	return vm.NewFunction(fn.Name(), fn.IsNative(), registers, ncode)
 }
 
 func lowerComparisonCodes[W vm.Word[W]](

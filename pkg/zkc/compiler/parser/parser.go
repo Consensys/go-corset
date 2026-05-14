@@ -134,7 +134,7 @@ func (p *Parser) parseDeclaration() ([]decl.Declaration[symbol.Unresolved], []so
 		annotations []lex.Token
 		kind        decl.DeclarationKind
 	)
-	// Parse any leading annotations (e.g. @inline), checking that each
+	// Parse any leading annotations (e.g. #[inline]), checking that each
 	// name is known.
 	if annotations, errors = p.parseAnnotations(); len(errors) > 0 {
 		return nil, errors
@@ -178,19 +178,24 @@ func (p *Parser) parseDeclaration() ([]decl.Declaration[symbol.Unresolved], []so
 	return components, errors
 }
 
-// parseAnnotations parses zero or more leading annotations of the form "@ident"
+// parseAnnotations parses zero or more leading annotations of the form "#[ident]"
 // that precede a top-level declaration.  It returns the identifier tokens (for
 // source-location-aware error reporting) and reports an error immediately if an
 // annotation name is not found in decl.ANNOTATIONS.
 func (p *Parser) parseAnnotations() ([]lex.Token, []source.SyntaxError) {
 	var toks []lex.Token
 	//
-	for p.lookahead().Kind == AT {
-		// consume '@'
-		p.index++
-		// expect an identifier immediately after '@'
+	for p.lookahead().Kind == HASH {
+		if _, errs := p.expect(HASH); len(errs) > 0 {
+			return nil, errs
+		} else if _, errs := p.expect(LSQUARE); len(errs) > 0 {
+			return nil, errs
+		}
+		// expect an identifier immediately after '#['
 		tok, errs := p.expect(IDENTIFIER)
 		if len(errs) > 0 {
+			return nil, errs
+		} else if _, errs := p.expect(RSQUARE); len(errs) > 0 {
 			return nil, errs
 		}
 		// Validate that the annotation name is registered.
@@ -1427,6 +1432,15 @@ func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
 		format = zkc_util.HexFormat()
 	case 'b':
 		format = zkc_util.BinFormat()
+	case 'c':
+		// %c renders a single u8 as a character; padding/zero-pad
+		// flags don't apply and we reject them rather than silently
+		// ignoring.
+		if width > 0 || zeroPad {
+			return 0, zkc_util.EMPTY_FORMAT, false
+		}
+		//
+		return index + 1, zkc_util.CharFormat(), true
 	default:
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}

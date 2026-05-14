@@ -261,7 +261,7 @@ func CheckTrace[F field.Element[F]](ir string, schema sc.AnySchema[F], tf lt.Tra
 	stats = util.NewPerfStats()
 	// Check constraints
 	if errs := sc.Accepts(builder.Parallelism(), builder.BatchSize(), schema, trace); len(errs) > 0 {
-		reportFailures(ir, errs, trace, builder.Mapping(), cfg)
+		ReportFailures(ir, errs, trace, builder.Mapping(), cfg)
 		return false
 	}
 	//
@@ -270,8 +270,9 @@ func CheckTrace[F field.Element[F]](ir string, schema sc.AnySchema[F], tf lt.Tra
 	return true
 }
 
-// Report constraint failures, whilst providing contextual information (when requested).
-func reportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], mapping module.LimbsMap,
+// ReportFailures reports constraint failures, whilst providing contextual
+// information (when requested).
+func ReportFailures[F field.Element[F]](ir string, failures []sc.Failure, trace tr.Trace[F], mapping module.LimbsMap,
 	cfg CheckConfig) {
 	//
 	var (

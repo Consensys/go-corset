@@ -72,6 +72,12 @@ func (p *StaticArray[W]) Name() string {
 	return p.name
 }
 
+// IsNative implementation for Module interface.  Memory modules are never
+// native.
+func (p *StaticArray[W]) IsNative() bool {
+	return false
+}
+
 // Initialise implementation for Memory interface.
 func (p *StaticArray[W]) Initialise(contents []W) {
 	p.data = contents
