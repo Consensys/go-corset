@@ -56,5 +56,7 @@ func Test_ZkcMixed_Basic_07(t *testing.T) {
 // ===================================================================
 
 func checkZkcMixed(t *testing.T, test string, fields ...field.Config) {
-	util.CheckValid(t, test, "zkc", fields...)
+	var config = util.DEFAULT_CONFIG.Fields(fields...)
+	//
+	util.CheckValid(t, test, "zkc", config)
 }

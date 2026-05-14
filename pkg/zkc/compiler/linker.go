@@ -202,7 +202,10 @@ func (p *Linker) linkFunction(fn decl.UnresolvedFunction) (decl.Resolved, []sour
 	//
 	vars, errs2 := p.linkVariableDeclarations(fn.Variables)
 	//
-	return decl.NewFunction(fn.Name(), effects, vars, codes), append(errs1, errs2...)
+	resolved := decl.NewFunction(fn.Name(), effects, vars, codes)
+	resolved.SetAnnotations(fn.Annotations())
+	//
+	return resolved, append(errs1, errs2...)
 }
 
 func (p *Linker) linkEffect(effect *symbol.Unresolved,

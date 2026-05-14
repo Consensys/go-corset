@@ -134,7 +134,7 @@ func vectorizeFunction(fn *Function, modules []vm.Module) *Function {
 	// Remove unreachable instructions and rebind jump targets.
 	insns = pruneUnreachableInstructions(insns)
 	//
-	return vm.NewFunction(fn.Name(), fn.Registers(), insns)
+	return vm.NewFunction(fn.Name(), fn.IsNative(), fn.Registers(), insns)
 }
 
 // prepareCode wraps every top-level instruction in a Vector and appends a

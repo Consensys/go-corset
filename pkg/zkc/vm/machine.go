@@ -87,10 +87,12 @@ type FieldInstruction = instruction.Field
 // Constructors
 // ============================================================================
 
-// NewFunction constructs a new function with the given components.
-func NewFunction[I instruction.Instruction](name string, registers []register.Register,
+// NewFunction constructs a new function with the given components.  The native
+// flag indicates whether this function is backed by a native circuit (i.e.
+// declared with the @native annotation) rather than by code.
+func NewFunction[I instruction.Instruction](name string, native bool, registers []register.Register,
 	code []instruction.Vector[I]) *Function[I] {
-	return function.New(name, registers, code)
+	return function.New(name, native, registers, code)
 }
 
 // NewWordMachine constructs a new word machine with a given set of modules and
