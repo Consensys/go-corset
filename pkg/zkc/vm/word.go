@@ -115,22 +115,38 @@ func DecodeBytes[W Word[W]](bytes []byte, registers []register.Register) []W {
 // | 0x31 | 0xf0 | 0x0e | 0x1d |
 func EncodeBytes[W Word[W]](values []W, registers []register.Register) []byte {
 	var (
-		bitwidth   = bitwidthOf(registers)
-		nElems     = uint(len(values))
-		totalBits  = nElems * bitwidth
-		totalBytes = (totalBits + 7) / 8
-		result     = make([]byte, totalBytes)
-		n          = bit.BytesRequiredFor(bitwidth)
-		buf        = make([]byte, n)
-		offset     uint
+		nRegs     = uint(len(registers))
+		nElems    = uint(len(values))
+		bitOffset uint
+		// total bitwidth of round
+		bitwidth = bitwidthOf(registers)
+		// buffer size required to hold a round
+		n = bit.BytesRequiredFor(bitwidth)
+		// create buffer
+		buf = make([]byte, n)
+		// Determine number of (full) rounds
+		nRounds = nElems / nRegs
+		// Initial total bits calculation
+		totalBits = nRounds * bitwidth
 	)
+	// Update total bits calc for odd number of elements.
+	for i := (nRounds * nRegs); i < nElems; i++ {
+		totalBits += registers[i].Width()
+	}
+	// Determine required size result buffer
+	totalBytes := (totalBits + 7) / 8
+	// Allocate result buffer
+	result := make([]byte, totalBytes)
 	//
 	for i := 0; i < len(values); {
-		for _, r := range registers {
-			var val = values[i]
-			EncodeUnsignedInt(r.Width(), val.BigInt(), buf)
-			bit.BigEndianCopy(buf, 0, result, offset, r.Width())
-			offset += r.Width()
+		for j := 0; j < len(registers) && i < len(values); j++ {
+			var (
+				reg = registers[j]
+				val = values[i]
+			)
+			EncodeUnsignedInt(reg.Width(), val.BigInt(), buf)
+			bit.BigEndianCopy(buf, 0, result, bitOffset, reg.Width())
+			bitOffset += reg.Width()
 			i = i + 1
 		}
 	}
