@@ -36,6 +36,11 @@ type ModuleView interface {
 	// IsSynthetic modules are generated during compilation, rather than being
 	// provided by the user.
 	IsSynthetic() bool
+	// IsNative indicates whether this module corresponds to a function backed
+	// by a native circuit (i.e. declared with the @native annotation in ZkC).
+	// Only modules produced by the ZkC pipeline can ever be native; modules
+	// from any other source always return false.
+	IsNative() bool
 	// Returns the number of registers in this module.
 	Width() uint
 }
@@ -82,15 +87,18 @@ type Table[F field.Element[F], C Constraint[F]] struct {
 	padding     bool
 	public      bool
 	synthetic   bool
+	native      bool
 	keys        uint
 	registers   []register.Register
 	constraints []C
 	assignments []Assignment[F]
 }
 
-// Init implementation for ir.InitModule interface.
-func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic bool, keys uint) *Table[F, C] {
-	return &Table[F, C]{name, padding, public, synthetic, keys, nil, nil, nil}
+// Init implementation for ir.InitModule interface.  The native flag indicates
+// that this module corresponds to a function backed by a native circuit; only
+// the ZkC pipeline should ever pass true.
+func (p *Table[F, C]) Init(name module.Name, padding, public, synthetic, native bool, keys uint) *Table[F, C] {
+	return &Table[F, C]{name, padding, public, synthetic, native, keys, nil, nil, nil}
 }
 
 // Assignments provides access to those assignments defined as part of this
@@ -161,6 +169,12 @@ func (p *Table[F, C]) IsPublic() bool {
 // provided by the user.
 func (p *Table[F, C]) IsSynthetic() bool {
 	return p.synthetic
+}
+
+// IsNative reports whether this module corresponds to a function backed by
+// a native circuit (i.e. declared with the @native annotation in ZkC).
+func (p *Table[F, C]) IsNative() bool {
+	return p.native
 }
 
 // RawAssignments provides raw access to those assignments defined as part of this
@@ -263,6 +277,10 @@ func (p *Table[F, M]) GobEncode() (data []byte, err error) {
 	if err := gobEncoder.Encode(p.padding); err != nil {
 		return nil, err
 	}
+	// Native
+	if err := gobEncoder.Encode(p.native); err != nil {
+		return nil, err
+	}
 	// registers
 	if err := gobEncoder.Encode(p.registers); err != nil {
 		return nil, err
@@ -293,6 +311,10 @@ func (p *Table[F, M]) GobDecode(data []byte) error {
 	}
 	// Padding
 	if err := gobDecoder.Decode(&p.padding); err != nil {
+		return err
+	}
+	// Native
+	if err := gobDecoder.Decode(&p.native); err != nil {
 		return err
 	}
 	// Registers

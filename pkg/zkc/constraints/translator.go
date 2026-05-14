@@ -67,39 +67,39 @@ func translateStaticMemory[F field.Element[F]](ctx schema.ModuleId, fm vm.InputO
 	panic("support static memory")
 }
 
-func translateReadOnlyMemory[F field.Element[F]](ctx schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
+func translateReadOnlyMemory[F field.Element[F]](_ schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
 	var (
 		mod  *schema.Table[F, mir.Constraint[F]]
 		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// TODO: implement ROM constraints
 	return mod
 }
 
-func translateWriteOnceMemory[F field.Element[F]](ctx schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
+func translateWriteOnceMemory[F field.Element[F]](_ schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
 	var (
 		mod  *schema.Table[F, mir.Constraint[F]]
 		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// TODO: implement WOM constraints
 	return mod
 }
 
-func translateReadWriteMemory[F field.Element[F]](ctx schema.ModuleId, fm vm.Memory[F]) mir.Module[F] {
+func translateReadWriteMemory[F field.Element[F]](_ schema.ModuleId, fm vm.Memory[F]) mir.Module[F] {
 	var (
 		mod  *schema.Table[F, mir.Constraint[F]]
 		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
 	// TODO: implement WOM constraints
@@ -114,9 +114,14 @@ func translateFunction[F field.Element[F]](ctx schema.ModuleId, fm vm.FieldFunct
 		framing Framing[F]
 	)
 	// Initialise module
-	mod = mod.Init(name, false, true, false, 0)
+	mod = mod.Init(name, false, true, false, fm.IsNative(), 0)
 	// Add all registers
 	mod.AddRegisters(fm.Registers()...)
+	// Native functions are backed by an external circuit, so we emit only the
+	// register layout and skip all framing / instruction-level constraints.
+	if fm.IsNative() {
+		return mod
+	}
 	// Add control registers (as required)
 	if !fm.IsAtomic() {
 		var (

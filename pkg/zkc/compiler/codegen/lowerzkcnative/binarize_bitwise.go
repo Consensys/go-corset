@@ -50,7 +50,7 @@ func binarizeBitwiseFunction[W vm.Word[W]](fn *vm.WordFunction) *vm.WordFunction
 		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
-	return vm.NewFunction(fn.Name(), registers, ncode)
+	return vm.NewFunction(fn.Name(), fn.IsNative(), registers, ncode)
 }
 
 func binarizeBitwiseCodes[W vm.Word[W]](codes []vm.WordInstruction, registers *[]register.Register,

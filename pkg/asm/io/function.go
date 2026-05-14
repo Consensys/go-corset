@@ -113,6 +113,13 @@ func (p *Function[T]) IsSynthetic() bool {
 	return false
 }
 
+// IsNative reports whether this module corresponds to a function backed by
+// a native circuit.  Assembly-level functions are never native; only ZkC
+// modules can be.
+func (p *Function[T]) IsNative() bool {
+	return false
+}
+
 // IsAtomic determines whether or not this is a "one line function".  That is,
 // where every instance of this function occupies exactly one line in the
 // corresponding trace.  This is useful to know, as certain optimisations can be

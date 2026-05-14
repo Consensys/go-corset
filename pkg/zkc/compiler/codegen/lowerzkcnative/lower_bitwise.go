@@ -58,7 +58,7 @@ func lowerBitwiseFunction[W vm.Word[W]](fn *vm.WordFunction, helpers *bitwiseHel
 		ncode[i] = vectorInstruction{Codes: ncodes}
 	}
 
-	return vm.NewFunction(fn.Name(), registers, ncode)
+	return vm.NewFunction(fn.Name(), fn.IsNative(), registers, ncode)
 }
 
 func lowerBitwiseCodes[W vm.Word[W]](
@@ -382,7 +382,7 @@ func newDecomposedNaryHelper[W vm.Word[W]](
 
 	b.emit(instruction.NewReturn())
 
-	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), false, b.regs(), []vectorInstruction{{Codes: b.code}})
 }
 
 type helperBuilder[W vm.Word[W]] struct {

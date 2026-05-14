@@ -97,6 +97,12 @@ func (p *BiPartiteRandomAccess[W]) Name() string {
 	return p.name
 }
 
+// IsNative implementation for Module interface.  Memory modules are never
+// native.
+func (p *BiPartiteRandomAccess[W]) IsNative() bool {
+	return false
+}
+
 // Geometry implementation for Memory interface.
 func (p *BiPartiteRandomAccess[W]) Geometry() Geometry[W] {
 	return p.geometry
