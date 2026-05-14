@@ -926,12 +926,12 @@ func (p *TypeChecker) typeTernaryExpr(expected Type, e *expr.Ternary[symbol.Reso
 	// Combine all errors
 	errs = append(append(errs, terrs...), ferrs...)
 	//
-	if len(errs) == 0 {
-		errs = p.checkEquiTypes(ft, tt, e.IfFalse)
+	if wellFormed(ft, p.env) && wellFormed(tt, p.env) {
+		errs = append(errs, p.checkEquiTypes(ft, tt, e.IfFalse)...)
 		if len(errs) == 0 {
 			ttu := tt.AsUint(p.env)
-
 			ftu := ft.AsUint(p.env)
+
 			if ttu != nil && ftu != nil {
 				return ttu.Join(ftu), nil
 			}
