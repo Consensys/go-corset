@@ -125,15 +125,17 @@ func EncodeBytes[W Word[W]](values []W, registers []register.Register) []byte {
 		offset     uint
 	)
 	//
-	for _, v := range values {
+	for i := 0; i < len(values); {
 		for _, r := range registers {
-			EncodeUnsignedInt(r.Width(), v.BigInt(), buf)
+			var val = values[i]
+			EncodeUnsignedInt(r.Width(), val.BigInt(), buf)
 			bit.BigEndianCopy(buf, 0, result, offset, r.Width())
 			offset += r.Width()
+			i = i + 1
 		}
 	}
 	//
-	return buf
+	return result
 }
 
 // ============================================================================
