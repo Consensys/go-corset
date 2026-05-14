@@ -35,6 +35,7 @@ func TestFormatString(t *testing.T) {
 		{DecimalFormat(), "%d"},
 		{HexFormat(), "%x"},
 		{BinFormat(), "%b"},
+		{CharFormat(), "%c"},
 		{Format{Code: FORMAT_HEX, Width: 8, ZeroPad: true}, "%08x"},
 		{Format{Code: FORMAT_HEX, Width: 8}, "%8x"},
 		{Format{Code: FORMAT_DEC, Width: 4, ZeroPad: true}, "%04d"},
@@ -71,6 +72,12 @@ func TestFormatWord(t *testing.T) {
 		{Format{Code: FORMAT_DEC, Width: 4}, 42, "  42"},
 		// Binary padding.
 		{Format{Code: FORMAT_BIN, Width: 8, ZeroPad: true}, 5, "00000101"},
+		// Character: 'A' (0x41), 'a' (0x61), digit '7' (0x37).
+		{CharFormat(), 0x41, "A"},
+		{CharFormat(), 0x61, "a"},
+		{CharFormat(), 0x37, "7"},
+		// Non-printable bytes still round-trip exactly.
+		{CharFormat(), 0x0a, "\n"},
 	}
 	//
 	for _, tc := range tests {

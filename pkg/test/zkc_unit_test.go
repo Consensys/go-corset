@@ -627,6 +627,10 @@ func Test_ZkcUnit_Printf_03(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/printf_03", util.DEFAULT_CONFIG)
 }
 
+func Test_ZkcUnit_Printf_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/printf_04", util.DEFAULT_CONFIG)
+}
+
 // ===================================================================
 // Include Tests
 // ===================================================================

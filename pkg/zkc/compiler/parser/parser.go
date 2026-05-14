@@ -1432,6 +1432,15 @@ func parseFormatting(index int, runes []rune) (int, zkc_util.Format, bool) {
 		format = zkc_util.HexFormat()
 	case 'b':
 		format = zkc_util.BinFormat()
+	case 'c':
+		// %c renders a single u8 as a character; padding/zero-pad
+		// flags don't apply and we reject them rather than silently
+		// ignoring.
+		if width > 0 || zeroPad {
+			return 0, zkc_util.EMPTY_FORMAT, false
+		}
+		//
+		return index + 1, zkc_util.CharFormat(), true
 	default:
 		return 0, zkc_util.EMPTY_FORMAT, false
 	}
