@@ -145,6 +145,8 @@ const (
 	REM
 	// QMARK signals "?"
 	QMARK
+	// HASH signals "#"
+	HASH
 	// AT signals "@"
 	AT
 	// UNKNOWN signals an unknown chunk of text
@@ -254,6 +256,7 @@ var rules []lex.LexRule[rune] = []lex.LexRule[rune]{
 	lex.Rule(lex.Unit('^'), BITWISE_XOR),
 	lex.Rule(lex.Unit('~'), BITWISE_NOT),
 	lex.Rule(lex.Unit('?'), QMARK),
+	lex.Rule(lex.Unit('#'), HASH),
 	lex.Rule(lex.Unit('@'), AT),
 	lex.Rule(whitespace, WHITESPACE),
 	lex.Rule(newline, NEWLINE),
