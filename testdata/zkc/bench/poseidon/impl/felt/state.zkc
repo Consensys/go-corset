@@ -8,7 +8,7 @@ include "poseidon.zkc"
 // where n ≡ STATE_WIDTH, the σ-part of the state holds the actual Poseidon state,
 // and the τ-part of the state is meant as temporary storage for operations
 // updating the full Poseidon state.
-memory felt_state(address:u8) -> (st:𝔽)
+memory felt_state(address:u8) -> (felt:𝔽)
 
 fn write_to_state<felt_state>(address:u8, value:𝔽) -> () {
     felt_state[address] = value
