@@ -133,7 +133,7 @@ func (p wordToField[W, F]) lowerWordFunction(wf *WordFunction, mapping SystemMap
 		insns[i] = p.lowerWordVector(insn, mapping)
 	}
 	//
-	return NewFunction(wf.Name(), regs, insns)
+	return NewFunction(wf.Name(), wf.IsNative(), regs, insns)
 }
 
 func (p wordToField[W, F]) lowerWordVector(wi Vector[WordInstruction], mapping SystemMap) Vector[FieldInstruction] {

@@ -242,7 +242,9 @@ func (p *Compiler) compileFunction(id uint, mapping []uint, program []Declaratio
 		bootCode[i] = compiler.compileStatement(uint(i), mapping, stmt)
 	}
 	//
-	return vm.NewFunction(fn.Name(), compiler.registers, bootCode), compiler.errors
+	native := slices.Contains(fn.Annotations(), "native")
+	//
+	return vm.NewFunction(fn.Name(), native, compiler.registers, bootCode), compiler.errors
 }
 
 func toMemoryRegisters(address []VariableDescriptor, datas []VariableDescriptor, env data.ResolvedEnvironment,

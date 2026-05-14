@@ -28,6 +28,9 @@ type Module interface {
 	// HasRegister checks whether a register with the given name exists and, if
 	// so, returns its register identifier.  Otherwise, it returns false.
 	HasRegister(name string) (register.Id, bool)
+	// IsNative reports whether this module is a function backed by a native
+	// circuit.  Memory modules always return false.
+	IsNative() bool
 	// Access a given register in this module.
 	Register(register.Id) register.Register
 	// Registers providers access to the underlying registers of this map.

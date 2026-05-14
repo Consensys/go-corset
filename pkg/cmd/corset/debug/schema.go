@@ -93,7 +93,15 @@ func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchem
 	}
 
 	if module.IsSynthetic() {
-		postfix = fmt.Sprintf("%s synthetic", postfix)
+		postfix = fmt.Sprintf("%s :synthetic", postfix)
+	}
+
+	if module.IsNative() {
+		postfix = fmt.Sprintf("%s :native", postfix)
+	}
+
+	if module.IsStatic() {
+		postfix = fmt.Sprintf("%s :static", postfix)
 	}
 	//
 	fmt.Printf("(module%s)\n", postfix)

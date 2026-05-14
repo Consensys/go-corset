@@ -164,7 +164,7 @@ func newShlHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	b.emit(instruction.NewCall(selfID, []register.Id{doubled, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), false, b.regs(), []vectorInstruction{{Codes: b.code}})
 }
 
 // newShrHelper builds a self-recursive module for logical right shift:
@@ -235,5 +235,5 @@ func newShrHelper[W vm.Word[W]](key bitwiseHelperKey, selfID uint, amtWidth uint
 	b.emit(instruction.NewCall(selfID, []register.Id{half, n1}, []register.Id{out}))
 	b.emit(instruction.NewReturn())
 
-	return vm.NewFunction(helperName(key), b.regs(), []vectorInstruction{{Codes: b.code}})
+	return vm.NewFunction(helperName(key), false, b.regs(), []vectorInstruction{{Codes: b.code}})
 }
