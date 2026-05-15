@@ -13,6 +13,9 @@
 package function
 
 import (
+	"bytes"
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/set"
@@ -131,4 +134,63 @@ func (p *Function[I]) Registers() []register.Register {
 // Width returns the number of registers in this module.'
 func (p *Function[I]) Width() uint {
 	return uint(len(p.registers))
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *Function[I]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.name); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.native); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.registers); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.code); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *Function[I]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.native); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.code); err != nil {
+		return err
+	}
+	// Recompute internal values
+	p.numInputs = array.CountMatching(p.registers,
+		func(r register.Register) bool { return r.IsInput() })
+	p.numOutputs = array.CountMatching(p.registers,
+		func(r register.Register) bool { return r.IsOutput() })
+	// Done
+	return nil
 }

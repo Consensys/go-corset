@@ -13,6 +13,8 @@
 package memory
 
 import (
+	"bytes"
+	"encoding/gob"
 	"slices"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
@@ -149,4 +151,58 @@ func expand[T any](slice []T, n uint64) []T {
 	}
 	//
 	return slices.Grow(slice, int(n-m))[:n]
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *StaticArray[W]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(&p.kind); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(&p.geometry); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.name); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.data); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *StaticArray[W]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.kind); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.geometry); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.data); err != nil {
+		return err
+	}
+	//
+	return nil
 }

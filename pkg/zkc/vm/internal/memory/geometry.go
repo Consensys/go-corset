@@ -13,8 +13,12 @@
 package memory
 
 import (
+	"bytes"
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // Geometry is responsible for translating multi-word addresses into a
@@ -38,24 +42,11 @@ type Geometry[W util.Uinter64] struct {
 
 // NewGeometry constructs a new geometry from a given set of registers.
 func NewGeometry[W util.Uinter64](registers []register.Register) Geometry[W] {
-	var (
-		index           = 0
-		inputs, outputs = uint(0), uint(0)
-	)
-	//
-	for index < len(registers) && registers[index].IsInput() {
-		inputs++
-		index++
-	}
-	//
-	for index < len(registers) && registers[index].IsOutput() {
-		outputs++
-		index++
-	}
-	//
-	if index != len(registers) {
-		panic("unexpected non-input/output registers")
-	}
+	// Compute internal values
+	inputs := array.CountMatching(registers,
+		func(r register.Register) bool { return r.IsInput() })
+	outputs := array.CountMatching(registers,
+		func(r register.Register) bool { return r.IsOutput() })
 	// Done
 	return Geometry[W]{registers, inputs, outputs}
 }
@@ -114,4 +105,39 @@ func (p Geometry[W]) FrameDecode(frame []W, address []register.Id) (start, end u
 	start = index * uint64(p.numOutputs)
 
 	return start, start + uint64(p.numOutputs)
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *Geometry[W]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.registers); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *Geometry[W]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.registers); err != nil {
+		return err
+	}
+	// Recompute internal values
+	p.numInputs = array.CountMatching(p.registers,
+		func(r register.Register) bool { return r.IsInput() })
+	p.numOutputs = array.CountMatching(p.registers,
+		func(r register.Register) bool { return r.IsOutput() })
+	//
+	return nil
 }

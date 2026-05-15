@@ -72,6 +72,11 @@ type Module[F any] interface {
 	// always the first n columns in a module.  Such columns have the property
 	// that they can be used in conjunction with Find.
 	Keys() uint
+	// StaticContents returns the contents of this module, assuming it
+	// corresponds with a static reference table.  Specifically, this will panic
+	// when IsStatic() is false (i.e. since only static modules can have
+	// contents).
+	StaticContents() []F
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
 }
