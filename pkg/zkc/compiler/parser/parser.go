@@ -2146,7 +2146,7 @@ func (p *Parser) syntaxErrors(token lex.Token, msg string) []source.SyntaxError 
 	return []source.SyntaxError{*p.srcfile.SyntaxError(token.Span, msg)}
 }
 
-// Flattern a given condition starting at a given program counter position into
+// Flatten a given condition starting at a given program counter position into
 // a sequence of one or more instructions.  The intention is: (1) for positive
 // sign, branch to target label if condition holds (otherwise fall through); (2)
 // for negative sign, branch to target label if condition does not hold
