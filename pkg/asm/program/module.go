@@ -119,6 +119,13 @@ func (p *Module[F, T]) IsStatic() bool {
 	return false
 }
 
+// StaticContents implementation for schema.Module interface.  Modules
+// originating from the assembly pipeline are never static, hence this function
+// always panics.
+func (p *Module[F, T]) StaticContents() []F {
+	panic("non-static modules have no contents")
+}
+
 // Substitute any matchined labelled constants within this module
 func (p *Module[F, T]) Substitute(mapping map[string]F) {
 	// For now, this is a no-operation because assembly has no concept of
