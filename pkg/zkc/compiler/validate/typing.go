@@ -30,6 +30,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/symbol"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/variable"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	zkc_util "github.com/consensys/go-corset/pkg/zkc/util"
 )
 
 // Stmt is a convenient alias.
@@ -201,11 +202,11 @@ func (p *TypeChecker) typeFunction(fn decl.ResolvedFunction) []source.SyntaxErro
 		case *stmt.Assign[symbol.Resolved]:
 			errors = append(errors, p.typeAssignment(s, &fn, effects)...)
 		case *stmt.Fail[symbol.Resolved]:
-			errors = append(errors, p.typeFormatArgs(s.Arguments, &fn, effects)...)
+			errors = append(errors, p.typeFormatArgs(s.Chunks, s.Arguments, &fn, effects)...)
 		case *stmt.IfGoto[symbol.Resolved]:
 			errors = append(errors, p.typeIfGoto(s, &fn, effects)...)
 		case *stmt.Printf[symbol.Resolved]:
-			errors = append(errors, p.typeFormatArgs(s.Arguments, &fn, effects)...)
+			errors = append(errors, p.typeFormatArgs(s.Chunks, s.Arguments, &fn, effects)...)
 		}
 	}
 	//
@@ -406,25 +407,52 @@ func (p *TypeChecker) typeIfGoto(s *stmt.IfGoto[symbol.Resolved], env VariableMa
 	return p.typeCondition(s.Cond, env, effects)
 }
 
-func (p *TypeChecker) typeFormatArgs(args []expr.Resolved, env VariableMap, effects bit.Set,
+func (p *TypeChecker) typeFormatArgs(chunks []stmt.FormattedChunk, args []expr.Resolved, env VariableMap,
+	effects bit.Set,
 ) []source.SyntaxError {
-	var errs []source.SyntaxError
+	var (
+		errs    []source.SyntaxError
+		formats = chunkFormats(chunks)
+	)
 	//
-	for _, e := range args {
+	for i, e := range args {
 		ith, ierrs := p.typeExpression(nil, e, env, effects)
 		//
-		if len(ierrs) > 0 {
+		switch {
+		case len(ierrs) > 0:
 			errs = append(errs, ierrs...)
-		} else if !wellFormed(ith, p.env) {
+		case !wellFormed(ith, p.env):
 			// silently skip - error already reported earlier in pipeline
-		} else if ith_t := ith.AsUint(p.env); ith_t == nil && ith.AsField(p.env) == nil {
-			errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint (or 𝔽)"))
-		} else if ith_t != nil && ith.AsUint(p.env).IsOpen() {
-			errs = append(errs, *p.srcmaps.SyntaxError(e, "concrete type required"))
+		case i < len(formats) && formats[i].Code == zkc_util.FORMAT_CHR:
+			// %c is the one specifier that constrains the argument
+			// type: it must be a concrete u8
+			if t := ith.AsUint(p.env); t == nil || t.IsOpen() || t.BitWidth() != 8 {
+				errs = append(errs, *p.srcmaps.SyntaxError(e, "%c expects u8"))
+			}
+		default:
+			if ith_t := ith.AsUint(p.env); ith_t == nil && ith.AsField(p.env) == nil {
+				errs = append(errs, *p.srcmaps.SyntaxError(e, "expected uint (or 𝔽)"))
+			} else if ith_t != nil && ith.AsUint(p.env).IsOpen() {
+				errs = append(errs, *p.srcmaps.SyntaxError(e, "concrete type required"))
+			}
 		}
 	}
 	//
 	return errs
+}
+
+// chunkFormats returns, in argument order, the format of every chunk that
+// actually consumes an argument (i.e. chunks whose Format is not EMPTY).
+func chunkFormats(chunks []stmt.FormattedChunk) []zkc_util.Format {
+	var out []zkc_util.Format
+	//
+	for _, c := range chunks {
+		if c.Format.HasFormat() {
+			out = append(out, c.Format)
+		}
+	}
+	//
+	return out
 }
 
 func (p *TypeChecker) typeCondition(e expr.ResolvedCondition, env VariableMap, effects bit.Set) []source.SyntaxError {
@@ -898,8 +926,17 @@ func (p *TypeChecker) typeTernaryExpr(expected Type, e *expr.Ternary[symbol.Reso
 	// Combine all errors
 	errs = append(append(errs, terrs...), ferrs...)
 	//
-	if len(errs) == 0 {
-		errs = p.checkEquiTypes(ft, tt, e.IfFalse)
+	if wellFormed(ft, p.env) && wellFormed(tt, p.env) {
+		errs = append(errs, p.checkEquiTypes(ft, tt, e.IfFalse)...)
+		if len(errs) == 0 {
+			ttu := tt.AsUint(p.env)
+			ftu := ft.AsUint(p.env)
+
+			if ttu != nil && ftu != nil {
+				return ttu.Join(ftu), nil
+			}
+		}
+
 		return tt, errs
 	}
 	//

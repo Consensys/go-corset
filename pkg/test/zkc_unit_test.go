@@ -376,51 +376,51 @@ func Test_ZkcUnit_Continue_01(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Bitwise_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_01", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_01", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_02", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_02", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_03(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_03", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_03", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_04(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_04", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_04", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_05(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_05", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_05", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_06(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_06", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_06", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_07(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_07", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_07", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_08(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_08", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_08", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_09(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_09", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_09", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_10(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_10", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_10", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_11(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_11", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_11", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Bitwise_12(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/bitwise_12", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/bitwise_12", util.DEFAULT_CONFIG)
 }
 
 // ===================================================================
@@ -428,47 +428,47 @@ func Test_ZkcUnit_Bitwise_12(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Shift_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_01", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_01", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_02", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_02", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_03(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_03", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_03", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_04(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_04", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_04", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_05(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_05", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_05", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_06(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_06", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_06", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_07(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_07", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_07", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_08(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_08", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_08", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_09(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_09", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_09", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_10(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_10", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_10", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Shift_11(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/shift_11", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/shift_11", util.DEFAULT_CONFIG)
 }
 
 // ===================================================================
@@ -627,6 +627,10 @@ func Test_ZkcUnit_Printf_03(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/printf_03", util.DEFAULT_CONFIG)
 }
 
+func Test_ZkcUnit_Printf_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/printf_04", util.DEFAULT_CONFIG)
+}
+
 // ===================================================================
 // Include Tests
 // ===================================================================
@@ -644,25 +648,24 @@ func Test_ZkcUnit_Include_02(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_SkipIf_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/skip_if_01", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/skip_if_01", util.DEFAULT_CONFIG)
 }
 
-//TODO: re-enable me when the ternary bandwidth allocator is fixed (issue 1758)
-// func Test_ZkcUnit_SkipIf_02(t *testing.T) {
-// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_02", field.BLS12_377, field.KOALABEAR_16)
-// }
-//
-// func Test_ZkcUnit_SkipIf_03(t *testing.T) {
-// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_03", field.BLS12_377, field.KOALABEAR_16)
-// }
-//
-// func Test_ZkcUnit_SkipIf_04(t *testing.T) {
-// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_04", field.BLS12_377, field.KOALABEAR_16)
-// }
-//
-// func Test_ZkcUnit_SkipIf_05(t *testing.T) {
-// 	checkZkcUnitWithLowerZkcNative(t, "zkc/unit/skip_if_05", field.BLS12_377, field.KOALABEAR_16)
-// }
+func Test_ZkcUnit_SkipIf_02(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/skip_if_02", util.DEFAULT_CONFIG)
+}
+
+func Test_ZkcUnit_SkipIf_03(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/skip_if_03", util.DEFAULT_CONFIG)
+}
+
+func Test_ZkcUnit_SkipIf_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/skip_if_04", util.DEFAULT_CONFIG)
+}
+
+func Test_ZkcUnit_SkipIf_05(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/skip_if_05", util.DEFAULT_CONFIG)
+}
 
 // ===================================================================
 // Test Helpers

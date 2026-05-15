@@ -13,11 +13,14 @@
 package vm
 
 import (
+	"fmt"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/function"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/machine"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/memory"
 )
 
 // Machine represents the state of an executing "machine", including all
@@ -120,4 +123,89 @@ func ExecuteAll[W any, M Machine[W]](machine M, n uint) (uint, error) {
 			return nsteps, err
 		}
 	}
+}
+
+// ExecuteAndObserve executes a given machine for n steps with a supplied
+// observer.  The purpose of this is that it provides a way to extract
+// information (as desired) from an executing machine.
+func ExecuteAndObserve[W Word[W], M Machine[W], V Observer[W, M]](machine M, n uint, observer V) (uint, error) {
+	var (
+		nsteps uint
+	)
+	//
+	observer.Initialise(machine)
+	//
+	for {
+		// observe pre execution
+		observer.PreExecution(machine)
+		// Execute upto n steps
+		m, err := machine.Execute(n)
+		// observe pre execution
+		observer.PostExecution(machine)
+		// update the tally
+		nsteps += m
+		// check for termination
+		if err != nil || m < n {
+			return nsteps, err
+		}
+	}
+}
+
+// DecodeInputs configures a given set of input bytes appropriately for the
+// given machine.  If there are unknown or conflicting inputs, then errors are
+// returned.
+func DecodeInputs[W Word[W], M Machine[W]](m M, input map[string][]byte) (map[string][]W, []error) {
+	var (
+		visited = make(map[string]bool)
+		inputs  = make(map[string][]W)
+		errs    []error
+	)
+	// scan modules
+	for _, c := range m.Modules() {
+		if mem, ok := c.(memory.InputOutput[W]); ok && mem.IsReadOnly() && !mem.IsStatic() {
+			var (
+				n = mem.Geometry().AddressLines()
+				m = n + mem.Geometry().DataLines()
+				// Filter data lines
+				dataLines = c.Registers()[n:m]
+			)
+			// Record visited information
+			visited[c.Name()] = true
+			//
+			if bytes, ok := input[c.Name()]; ok {
+				inputs[c.Name()] = DecodeBytes[W](bytes, dataLines)
+			} else {
+				errs = append(errs, fmt.Errorf("missing input \"%s\"", c.Name()))
+			}
+		}
+	}
+	// sanity check for extraneous inputs
+	for k := range input {
+		if _, ok := visited[k]; !ok {
+			errs = append(errs, fmt.Errorf("unknown input \"%s\"", k))
+		}
+	}
+	//
+	return inputs, errs
+}
+
+// EncodeOutputs extract the output from a given machine and encodes it into
+// byte arrays.
+func EncodeOutputs[W Word[W], M Machine[W]](m M) map[string][]byte {
+	var output = make(map[string][]byte)
+	// scan modules
+	for _, c := range m.Modules() {
+		if mem, ok := c.(memory.InputOutput[W]); ok && mem.IsWriteOnly() {
+			var (
+				n = mem.Geometry().AddressLines()
+				m = n + mem.Geometry().DataLines()
+				// Filter data lines
+				dataLines = c.Registers()[n:m]
+			)
+			//
+			output[c.Name()] = EncodeBytes(mem.Contents(), dataLines)
+		}
+	}
+	//
+	return output
 }

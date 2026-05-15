@@ -25,7 +25,10 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	"github.com/consensys/go-corset/pkg/zkc/util"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -94,6 +97,32 @@ func CompileSourceFiles(field field.Config, filenames ...string) ast.Program {
 	return macroProgram
 }
 
+// BuildSourceFiles accepts a set of source files and compiles them into a
+// machine for execution.  This can result, for example, in one or more syntax
+// errors, etc.
+func BuildSourceFiles[F field.Element[F]](config codegen.Config, field field.Config,
+	filenames ...string) *constraints.BinaryFile[F] {
+	//
+	var (
+		wm *vm.WordMachine[vm.Uint]
+		//
+		program = CompileSourceFiles(field, filenames...)
+		//
+		errs []source.SyntaxError
+	)
+	// Build our machine
+	if wm, errs = program.Compile(config); len(errs) > 0 {
+		// Report errors
+		for _, err := range errs {
+			printSyntaxError(&err)
+		}
+		// Fail
+		os.Exit(4)
+	}
+	// Done
+	return constraints.NewBinaryFile[F](nil, nil, field, *wm)
+}
+
 // Print a syntax error with appropriate highlighting.
 func printSyntaxError(err *source.SyntaxError) {
 	span := err.Span()
@@ -145,4 +174,45 @@ func WriteTraceFile(filename string, tracefile lt.TraceFile) {
 	// Handle error
 	fmt.Println(err)
 	os.Exit(4)
+}
+
+// WriteBinaryFile writes a binary file (e.g. zkvm.bin) to disk using the given
+// binfile versioning defined in the binfile package.
+//
+//nolint:errcheck
+func WriteBinaryFile[F field.Element[F]](binfile *constraints.BinaryFile[F], filename string) {
+	var (
+		bytes []byte
+		err   error
+	)
+	// Encode binary file as bytes
+	if bytes, err = binfile.MarshalBinary(); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+	// Write file
+	if err := os.WriteFile(filename, bytes, 0644); err != nil {
+		fmt.Println(err.Error())
+		os.Exit(1)
+	}
+}
+
+// ReadBinaryFile reads a binary constraints file from disk
+func ReadBinaryFile[F field.Element[F]](filename string) *constraints.BinaryFile[F] {
+	var binf constraints.BinaryFile[F]
+	// Read schema file
+	data, err := os.ReadFile(filename)
+	// Handle errors
+	if err == nil {
+		err = binf.UnmarshalBinary(data)
+	}
+	// Return if no errors
+	if err == nil {
+		return &binf
+	}
+	// Handle error & exit
+	fmt.Println(err)
+	os.Exit(2)
+	// unreachable
+	return &binf
 }

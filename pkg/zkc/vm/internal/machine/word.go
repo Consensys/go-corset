@@ -13,6 +13,8 @@
 package machine
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 
@@ -47,6 +49,28 @@ type WordExecutor[W word.Word[W]] struct {
 	// Prime modulus is needed only for simulating the execution of native field
 	// instructions.
 	modulus W
+}
+
+// nolint
+func (p *WordExecutor[W]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(&p.modulus); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *WordExecutor[W]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	return gobDecoder.Decode(&p.modulus)
 }
 
 // Execute implementation for Executor interface.
