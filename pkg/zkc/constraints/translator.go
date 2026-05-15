@@ -184,10 +184,13 @@ func initMultiLineFraming[F field.Element[F]](ctx module.Id, pc, ret register.Id
 	var (
 		// determine suitable width of PC register
 		pcWidth = bit.Width(uint(1 + len(fn.Code())))
-		pc_i    = mirc.Variable[register.Id, Expr[F]](pc, 1, 0)
-		pc_im1  = mirc.Variable[register.Id, Expr[F]](pc, 1, -1)
-		ret_i   = mirc.Variable[register.Id, Expr[F]](ret, 1, 0)
-		ret_im1 = mirc.Variable[register.Id, Expr[F]](ret, 1, -1)
+		// set with of RET register
+		retWidth = uint(1)
+		//
+		pc_i    = mirc.Variable[register.Id, Expr[F]](pc, pcWidth, 0)
+		pc_im1  = mirc.Variable[register.Id, Expr[F]](pc, pcWidth, -1)
+		ret_i   = mirc.Variable[register.Id, Expr[F]](ret, retWidth, 0)
+		ret_im1 = mirc.Variable[register.Id, Expr[F]](ret, retWidth, -1)
 		zero    = mirc.Number[register.Id, Expr[F]](0)
 		one     = mirc.Number[register.Id, Expr[F]](1)
 	)
