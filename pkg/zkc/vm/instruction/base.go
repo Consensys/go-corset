@@ -22,17 +22,6 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/opcode"
 )
 
-func init() {
-	gob.Register(Instruction(&Call{}))
-	gob.Register(Instruction(&Fail{}))
-	gob.Register(Instruction(&Jump{}))
-	gob.Register(Instruction(&MemRead{}))
-	gob.Register(Instruction(&MemWrite{}))
-	gob.Register(Instruction(&Return{}))
-	gob.Register(Instruction(&Skip{}))
-	gob.Register(Instruction(&SkipIf{}))
-}
-
 // FormattedChunk is a convenient alias
 type FormattedChunk = base.FormattedChunk
 
@@ -212,4 +201,16 @@ func (p *systemMap) Registers() []register.Register {
 
 func (p *systemMap) String() string {
 	return p.regs.String()
+}
+
+func init() {
+	gob.Register(Instruction(&Call{}))
+	gob.Register(Instruction(&Debug{}))
+	gob.Register(Instruction(&Fail{}))
+	gob.Register(Instruction(&Jump{}))
+	gob.Register(Instruction(&MemRead{}))
+	gob.Register(Instruction(&MemWrite{}))
+	gob.Register(Instruction(&Return{}))
+	gob.Register(Instruction(&Skip{}))
+	gob.Register(Instruction(&SkipIf{}))
 }

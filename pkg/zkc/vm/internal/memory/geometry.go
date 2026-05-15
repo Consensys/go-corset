@@ -15,10 +15,10 @@ package memory
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/collection/array"
 )
 
 // Geometry is responsible for translating multi-word addresses into a
@@ -42,24 +42,11 @@ type Geometry[W util.Uinter64] struct {
 
 // NewGeometry constructs a new geometry from a given set of registers.
 func NewGeometry[W util.Uinter64](registers []register.Register) Geometry[W] {
-	var (
-		index           = 0
-		inputs, outputs = uint(0), uint(0)
-	)
-	//
-	for index < len(registers) && registers[index].IsInput() {
-		inputs++
-		index++
-	}
-	//
-	for index < len(registers) && registers[index].IsOutput() {
-		outputs++
-		index++
-	}
-	//
-	if index != len(registers) {
-		panic("unexpected non-input/output registers")
-	}
+	// Compute internal values
+	inputs := array.CountMatching(registers,
+		func(r register.Register) bool { return r.IsInput() })
+	outputs := array.CountMatching(registers,
+		func(r register.Register) bool { return r.IsOutput() })
 	// Done
 	return Geometry[W]{registers, inputs, outputs}
 }
@@ -146,22 +133,11 @@ func (p *Geometry[W]) GobDecode(data []byte) error {
 	if err := gobDecoder.Decode(&p.registers); err != nil {
 		return err
 	}
-	// Recompute internal values, mirroring NewGeometry.
-	var index = 0
-	//
-	for index < len(p.registers) && p.registers[index].IsInput() {
-		p.numInputs++
-		index++
-	}
-	//
-	for index < len(p.registers) && p.registers[index].IsOutput() {
-		p.numOutputs++
-		index++
-	}
-	//
-	if index != len(p.registers) {
-		return fmt.Errorf("unexpected non-input/output registers")
-	}
+	// Recompute internal values
+	p.numInputs = array.CountMatching(p.registers,
+		func(r register.Register) bool { return r.IsInput() })
+	p.numOutputs = array.CountMatching(p.registers,
+		func(r register.Register) bool { return r.IsOutput() })
 	//
 	return nil
 }
