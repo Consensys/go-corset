@@ -685,6 +685,10 @@ func Test_ZkcInvalid_Div_05(t *testing.T) {
 	checkZkcInvalid(t, "zkc/invalid/div_05")
 }
 
+func Test_ZkcInvalid_Div_06(t *testing.T) {
+	checkZkcInvalid(t, "zkc/invalid/div_06")
+}
+
 // ===================================================================
 // Remainder Tests
 // ===================================================================
