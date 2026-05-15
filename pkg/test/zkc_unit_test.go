@@ -652,19 +652,19 @@ func Test_ZkcUnit_SkipIf_01(t *testing.T) {
 }
 
 func Test_ZkcUnit_SkipIf_02(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/skip_if_02", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/skip_if_02", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_SkipIf_03(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/skip_if_03", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/skip_if_03", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_SkipIf_04(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/skip_if_04", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/skip_if_04", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_SkipIf_05(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/skip_if_05", util.DEFAULT_CONFIG.NativeLowering(true))
+	checkZkcUnit(t, "zkc/unit/skip_if_05", util.DEFAULT_CONFIG)
 }
 
 // ===================================================================
