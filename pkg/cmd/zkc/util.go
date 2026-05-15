@@ -13,6 +13,7 @@
 package zkc
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path"
@@ -189,6 +190,9 @@ func WriteBinaryFile[F field.Element[F]](binfile *constraints.BinaryFile[F], fil
 	if bytes, err = binfile.MarshalBinary(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
+	} else if path.Ext(filename) == ".hex" {
+		h := fmt.Sprintf("0x%s", hex.EncodeToString(bytes))
+		bytes = []byte(h)
 	}
 	// Write file
 	if err := os.WriteFile(filename, bytes, 0644); err != nil {
