@@ -94,14 +94,14 @@ func lowerDivisionCode[W vm.Word[W]](
 // could otherwise pick q' = q + 2^nX, satisfying q'*y + r ≡ x (mod 2^nX).
 func expandDivision[W vm.Word[W]](q, x, y register.Id, registers *[]register.Register) []vm.WordInstruction {
 	var (
-		nX    = resolveRegisterWidth(*registers, x, 0)
-		zero  = vm.Uint64[W](0)
-		one   = vm.Uint64[W](1)
-		wideQ = allocTmp(registers, 2*nX)
-		rTmp  = allocTmp(registers, 2*nX)
-		wideX = allocTmp(registers, 2*nX)
-		wideY = allocTmp(registers, 2*nX)
-		sum   = allocTmp(registers, 2*nX)
+		nX      = resolveRegisterWidth(*registers, x, 0)
+		zero    = vm.Uint64[W](0)
+		one     = vm.Uint64[W](1)
+		wideQ   = allocTmp(registers, 2*nX)
+		rTmp    = allocTmp(registers, 2*nX)
+		wideX   = allocTmp(registers, 2*nX)
+		wideY   = allocTmp(registers, 2*nX)
+		product = allocTmp(registers, 2*nX)
 	)
 
 	return []vm.WordInstruction{
@@ -109,10 +109,8 @@ func expandDivision[W vm.Word[W]](q, x, y register.Id, registers *[]register.Reg
 		instruction.NewCast(q, wideQ, nX),
 		instruction.NewCast(wideX, x, 2*nX),
 		instruction.NewCast(wideY, y, 2*nX),
-		instruction.NewIntMul(sum, []register.Id{wideQ, wideY}, one),
-		instruction.NewIntAdd(sum, []register.Id{sum, rTmp}, zero),
-		instruction.NewSkipIf(opcode.EQ, sum, wideX, 1),
-		instruction.NewFail(),
+		instruction.NewIntMul(product, []register.Id{wideQ, wideY}, one),
+		instruction.NewIntAdd(wideX, []register.Id{product, rTmp}, zero),
 		instruction.NewSkipIf(opcode.LT, rTmp, y, 1),
 		instruction.NewFail(),
 	}
@@ -123,14 +121,14 @@ func expandDivision[W vm.Word[W]](q, x, y register.Id, registers *[]register.Reg
 // could otherwise pick q' = q + 2^nX, satisfying q'*y + r ≡ x (mod 2^nX).
 func expandRemainder[W vm.Word[W]](r, x, y register.Id, registers *[]register.Register) []vm.WordInstruction {
 	var (
-		nX    = resolveRegisterWidth(*registers, x, 0)
-		zero  = vm.Uint64[W](0)
-		one   = vm.Uint64[W](1)
-		qTmp  = allocTmp(registers, 2*nX)
-		wideR = allocTmp(registers, 2*nX)
-		wideX = allocTmp(registers, 2*nX)
-		wideY = allocTmp(registers, 2*nX)
-		sum   = allocTmp(registers, 2*nX)
+		nX      = resolveRegisterWidth(*registers, x, 0)
+		zero    = vm.Uint64[W](0)
+		one     = vm.Uint64[W](1)
+		qTmp    = allocTmp(registers, 2*nX)
+		wideR   = allocTmp(registers, 2*nX)
+		wideX   = allocTmp(registers, 2*nX)
+		wideY   = allocTmp(registers, 2*nX)
+		product = allocTmp(registers, 2*nX)
 	)
 
 	return []vm.WordInstruction{
@@ -138,10 +136,8 @@ func expandRemainder[W vm.Word[W]](r, x, y register.Id, registers *[]register.Re
 		instruction.NewCast(r, wideR, nX),
 		instruction.NewCast(wideX, x, 2*nX),
 		instruction.NewCast(wideY, y, 2*nX),
-		instruction.NewIntMul(sum, []register.Id{qTmp, wideY}, one),
-		instruction.NewIntAdd(sum, []register.Id{sum, wideR}, zero),
-		instruction.NewSkipIf(opcode.EQ, sum, wideX, 1),
-		instruction.NewFail(),
+		instruction.NewIntMul(product, []register.Id{qTmp, wideY}, one),
+		instruction.NewIntAdd(wideX, []register.Id{product, wideR}, zero),
 		instruction.NewSkipIf(opcode.LT, wideR, y, 1),
 		instruction.NewFail(),
 	}
