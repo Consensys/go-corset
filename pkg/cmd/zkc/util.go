@@ -196,3 +196,23 @@ func WriteBinaryFile[F field.Element[F]](binfile *constraints.BinaryFile[F], fil
 		os.Exit(1)
 	}
 }
+
+// ReadBinaryFile reads a binary constraints file from disk
+func ReadBinaryFile[F field.Element[F]](filename string) *constraints.BinaryFile[F] {
+	var binf constraints.BinaryFile[F]
+	// Read schema file
+	data, err := os.ReadFile(filename)
+	// Handle errors
+	if err == nil {
+		err = binf.UnmarshalBinary(data)
+	}
+	// Return if no errors
+	if err == nil {
+		return &binf
+	}
+	// Handle error & exit
+	fmt.Println(err)
+	os.Exit(2)
+	// unreachable
+	return &binf
+}

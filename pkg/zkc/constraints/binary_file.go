@@ -105,8 +105,8 @@ func (p *BinaryFile[F]) Field() field.Config {
 	return p.config
 }
 
-// Constraints returns the arithmetic constraints encoded in this file.
-func (p *BinaryFile[F]) Constraints() air.Schema[F] {
+// AirConstraints returns the arithmetic (AIR) constraints encoded in this file.
+func (p *BinaryFile[F]) AirConstraints() air.Schema[F] {
 	// Check cache
 	if p.cache.HasValue() {
 		return p.cache.Unwrap()
@@ -127,11 +127,16 @@ func (p *BinaryFile[F]) Constraints() air.Schema[F] {
 	return air
 }
 
+// WordMachine returns the top-level word machine encoded in this file.
+func (p *BinaryFile[F]) WordMachine() vm.WordMachine[vm.Uint] {
+	return p.machine
+}
+
 // Check a given trace against the constraints embodied in this constraints
 // file, potentially producing one (or more) constraint failures.
 func (p *BinaryFile[F]) Check(tr trace.Trace[F], config TraceConfig) []schema.Failure {
 	var (
-		sc    = p.Constraints()
+		sc    = p.AirConstraints()
 		stats = util.NewPerfStats()
 	)
 	// Check constraints
@@ -186,7 +191,7 @@ func (p *BinaryFile[F]) Trace(input map[string][]byte, config TraceConfig) (tr t
 		errs = append(errs, err)
 	} else {
 		// Extract AIR constraints
-		constraints := p.Constraints()
+		constraints := p.AirConstraints()
 		// Construct trace builder
 		builder := ir.NewTraceBuilder[F]().
 			WithValidation(config.validate).
