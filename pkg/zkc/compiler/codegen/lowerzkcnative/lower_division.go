@@ -22,10 +22,12 @@ import (
 // LowerDivisions rewrites INT_DIV and INT_REM instructions into a
 // non-deterministic hint followed by arithmetic validation:
 //
-//	FieldHint{targets:[q, r], sources:[x, y]}  // prover fills q=x/y, r=x%y
-//	sum = q * y
-//	sum = sum + r
-//	SkipIf(EQ, sum, x, 1)
+//	FieldHint{targets:[wideQ, wideR], sources:[x, y]}  // prover fills both at 2n bits
+//	q = cast(wideQ, n) ; r = cast(wideR, n)           // write results to n-bit outputs
+//	wideX, wideY = cast(x, 2n), cast(y, 2n)
+//	sum = wideQ * wideY                                // exact 2n-bit product
+//	sum = sum + wideR
+//	SkipIf(EQ, sum, wideX, 1)
 //	Fail
 //	SkipIf(LT, r, y, 1)                        // expanded later by LowerComparisons
 //	Fail
@@ -88,24 +90,28 @@ func lowerDivisionCode[W vm.Word[W]](
 }
 
 // expandDivision replaces INT_DIV(q, x, y) with the hint+validation sequence.
-// Since q*y + rTmp = x, sum fits in width(x) bits; rTmp < y fits in width(y) bits.
-// Constant divisors may have a smaller bitwidth than the dividend (e.g. "2" typed as u2),
-// so we derive sum width from x, not y.
+// sum holds q*y and must be 2*nX bits so the product is exact: a cheating prover
+// could otherwise pick q' = q + 2^nX, satisfying q'*y + r ≡ x (mod 2^nX).
 func expandDivision[W vm.Word[W]](q, x, y register.Id, registers *[]register.Register) []vm.WordInstruction {
 	var (
-		nX   = resolveRegisterWidth(*registers, x, 0)
-		nY   = resolveRegisterWidth(*registers, y, 0)
-		zero = vm.Uint64[W](0)
-		one  = vm.Uint64[W](1)
-		rTmp = allocTmp(registers, nY)
-		sum  = allocTmp(registers, nX)
+		nX    = resolveRegisterWidth(*registers, x, 0)
+		zero  = vm.Uint64[W](0)
+		one   = vm.Uint64[W](1)
+		wideQ = allocTmp(registers, 2*nX)
+		rTmp  = allocTmp(registers, 2*nX)
+		wideX = allocTmp(registers, 2*nX)
+		wideY = allocTmp(registers, 2*nX)
+		sum   = allocTmp(registers, 2*nX)
 	)
 
 	return []vm.WordInstruction{
-		instruction.NewFieldHint([]register.Id{q, rTmp}, []register.Id{x, y}),
-		instruction.NewIntMul(sum, []register.Id{q, y}, one),
+		instruction.NewFieldHint([]register.Id{wideQ, rTmp}, []register.Id{x, y}),
+		instruction.NewCast(q, wideQ, nX),
+		instruction.NewCast(wideX, x, 2*nX),
+		instruction.NewCast(wideY, y, 2*nX),
+		instruction.NewIntMul(sum, []register.Id{wideQ, wideY}, one),
 		instruction.NewIntAdd(sum, []register.Id{sum, rTmp}, zero),
-		instruction.NewSkipIf(opcode.EQ, sum, x, 1),
+		instruction.NewSkipIf(opcode.EQ, sum, wideX, 1),
 		instruction.NewFail(),
 		instruction.NewSkipIf(opcode.LT, rTmp, y, 1),
 		instruction.NewFail(),
@@ -113,25 +119,30 @@ func expandDivision[W vm.Word[W]](q, x, y register.Id, registers *[]register.Reg
 }
 
 // expandRemainder replaces INT_REM(r, x, y) with the hint+validation sequence.
-// Since qTmp*y + r = x, sum fits in width(x) bits; r < y fits in width(y) bits.
-// Constant divisors may have a smaller bitwidth than the dividend (e.g. "2" typed as u2),
-// so we derive sum and qTmp widths from x, not y.
+// sum holds qTmp*y and must be 2*nX bits so the product is exact: a cheating prover
+// could otherwise pick q' = q + 2^nX, satisfying q'*y + r ≡ x (mod 2^nX).
 func expandRemainder[W vm.Word[W]](r, x, y register.Id, registers *[]register.Register) []vm.WordInstruction {
 	var (
-		nX   = resolveRegisterWidth(*registers, x, 0)
-		zero = vm.Uint64[W](0)
-		one  = vm.Uint64[W](1)
-		qTmp = allocTmp(registers, nX)
-		sum  = allocTmp(registers, nX)
+		nX    = resolveRegisterWidth(*registers, x, 0)
+		zero  = vm.Uint64[W](0)
+		one   = vm.Uint64[W](1)
+		qTmp  = allocTmp(registers, 2*nX)
+		wideR = allocTmp(registers, 2*nX)
+		wideX = allocTmp(registers, 2*nX)
+		wideY = allocTmp(registers, 2*nX)
+		sum   = allocTmp(registers, 2*nX)
 	)
 
 	return []vm.WordInstruction{
-		instruction.NewFieldHint([]register.Id{qTmp, r}, []register.Id{x, y}),
-		instruction.NewIntMul(sum, []register.Id{qTmp, y}, one),
-		instruction.NewIntAdd(sum, []register.Id{sum, r}, zero),
-		instruction.NewSkipIf(opcode.EQ, sum, x, 1),
+		instruction.NewFieldHint([]register.Id{qTmp, wideR}, []register.Id{x, y}),
+		instruction.NewCast(r, wideR, nX),
+		instruction.NewCast(wideX, x, 2*nX),
+		instruction.NewCast(wideY, y, 2*nX),
+		instruction.NewIntMul(sum, []register.Id{qTmp, wideY}, one),
+		instruction.NewIntAdd(sum, []register.Id{sum, wideR}, zero),
+		instruction.NewSkipIf(opcode.EQ, sum, wideX, 1),
 		instruction.NewFail(),
-		instruction.NewSkipIf(opcode.LT, r, y, 1),
+		instruction.NewSkipIf(opcode.LT, wideR, y, 1),
 		instruction.NewFail(),
 	}
 }
