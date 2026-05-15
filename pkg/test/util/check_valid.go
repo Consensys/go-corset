@@ -82,9 +82,10 @@ func CheckValid(t *testing.T, test, ext string, config Config) {
 	}
 	// Check for each field requested
 	for _, f := range config.fields {
-		checkValidInternal(t, test, ext, codegen.DEFAULT_CONFIG, config.constraints, f)
-		// check whether to enable lowering as well.
-		if config.nativeLowering {
+		// check wo lowering and wo constraints check
+		checkValidInternal(t, test, ext, codegen.DEFAULT_CONFIG.LowerZkcNative(false), false, f)
+		// check whether to enable lowering as well. If constraints enable, must enable lowering as well.
+		if config.nativeLowering || config.constraints {
 			checkValidInternal(t, test, ext, codegen.DEFAULT_CONFIG.LowerZkcNative(true), config.constraints, f)
 		}
 	}
