@@ -96,7 +96,7 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	// =====================================================
 	// Check Constraints
 	// =====================================================
-	if check {
+	if check && len(errors) == 0 {
 		checkConstraints(binfile, trace, traceConfig)
 	}
 	// =====================================================

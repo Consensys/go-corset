@@ -111,7 +111,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	if GetFlag(cmd, "verbose") {
 		log.SetLevel(log.DebugLevel)
 	}
-	// Configure target fieldgitggggggg
+	// Configure target field
 	build.field = field
 	// Configure compiler config
 	build.config = codegen.DEFAULT_CONFIG.
