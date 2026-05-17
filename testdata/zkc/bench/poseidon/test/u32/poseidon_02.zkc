@@ -1,5 +1,6 @@
 include "../../impl/u32/poseidon.zkc"
 include "../../impl/u32/state.zkc"
+include "../../impl/u32/_results.zkc"
 include "../../utils/memory.zkc"
 
 // ===================================================================

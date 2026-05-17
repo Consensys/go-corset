@@ -2,7 +2,7 @@
 // python3 -c "from poseidon.poseidon import Poseidon;  KOALABEAR_P = 2130706433; pos = Poseidon(prime=KOALABEAR_P, alpha=3, t=16, r_f=8, r_p=20); pos.sponge_hash(range(XXX), 15)" > output.txt 2>&1
 // replacing XXX with 7, 16, 256 respectively and copying the result
 
-static results_poseidon_range_7(ij:u4) -> (Rij:u32) {
+static results_poseidon_range_7(ij:u8) -> (Rij:u32) {
     0x362e517e,
     0x2046663b,
     0x6f66ef6b,
@@ -21,7 +21,7 @@ static results_poseidon_range_7(ij:u4) -> (Rij:u32) {
     0x356e26d8,
 }
 
-static results_poseidon_range_16(ij:u4) -> (Rij:u32) {
+static results_poseidon_range_16(ij:u8) -> (Rij:u32) {
     0x22d2a167,
     0x4911cc3f,
     0x19f8c9c0,
@@ -40,7 +40,7 @@ static results_poseidon_range_16(ij:u4) -> (Rij:u32) {
     0x61973dfb,
 }
 
-static results_poseidon_range_256(ij:u4) -> (Rij:u32) {
+static results_poseidon_range_256(ij:u8) -> (Rij:u32) {
     0x271c8229,
     0x727a7388,
     0x62edde19,
@@ -59,7 +59,7 @@ static results_poseidon_range_256(ij:u4) -> (Rij:u32) {
     0x4d04e284,
 }
 
-static results_poseidon_1_zeros(ij:u4) -> (Rij:u32) {
+static results_poseidon_zeros_1(ij:u8) -> (Rij:u32) {
     0x575cd201,
     0x7a759ad4,
     0x4c8b5cee,
@@ -78,7 +78,7 @@ static results_poseidon_1_zeros(ij:u4) -> (Rij:u32) {
     0x7c4e9f27,
 }
 
-static results_poseidon_16_zeros(ij:u4) -> (Rij:u32) {
+static results_poseidon_zeros_16(ij:u8) -> (Rij:u32) {
     0x5a5faf93,
     0x44476824,
     0x7e77d1aa,
@@ -97,7 +97,7 @@ static results_poseidon_16_zeros(ij:u4) -> (Rij:u32) {
     0x06a05093,
 }
 
-static results_poseidon_256_zeros(ij:u4) -> (Rij:u32) {
+static results_poseidon_zeros_256(ij:u8) -> (Rij:u32) {
     0x6fbb7934,
     0x40f944a4,
     0x0ee275f0,
@@ -114,4 +114,23 @@ static results_poseidon_256_zeros(ij:u4) -> (Rij:u32) {
     0x7accb79c,
     0x13db0bb8,
     0x0e21f8b2,
+}
+
+static results_poseidon_zeros_65536(ij:u8) -> (Rij:u32) {
+    0x1bb62370,
+    0x17f76303,
+    0x3b21106c,
+    0x5d260ef2,
+    0x69a5b09e,
+    0x5c5a5e12,
+    0x4b9e4318,
+    0x2e467f54,
+    0x78819a30,
+    0x46b74f95,
+    0x2cb26af6,
+    0x07f4242c,
+    0x1d60b807,
+    0x1f66ad60,
+    0x5abf7644,
+    0x4a27fb88,
 }

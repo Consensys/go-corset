@@ -11,21 +11,10 @@ const NUMBER_OF_FELTS_IN_RANGE:u32 = 16
 
 fn main<ram, felt_state>() {
 
-    // we write a message to RAM that will translate to 256 consecutive "0 ∈ 𝔽"
-    //
-    //    00 00 00     ⇒     0 ∈ 𝔽
-    //    00 00 00     ⇒     0 ∈ 𝔽
-    //     ⋮  ⋮  ⋮     ⇒     ⋮
-    //    00 00 00     ⇒     0 ∈ 𝔽
-    //
-    // to memory.
-    for i:Address = 0; i<(255 as Address); i = i + 1 {
-        write_8(i * (BYTES_PER_FELT as Address), 0 as u8)
-    }
-
     var message_offset:Address = 0
     var message_size_in_bytes:u32 = NUMBER_OF_FELTS_IN_RANGE * (BYTES_PER_FELT as u32)
 
+    // ram is empty
     poseidon(message_offset, message_size_in_bytes, 256, 0)
 
 

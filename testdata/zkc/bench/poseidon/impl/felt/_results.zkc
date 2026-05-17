@@ -115,3 +115,22 @@ static results_poseidon_zeros_256(ij:u8) -> (Rij:𝔽) {
     0x13db0bb8,
     0x0e21f8b2,
 }
+
+static results_poseidon_zeros_63556(ij:u8) -> (Rij:𝔽) {
+    0x1bb62370,
+    0x17f76303,
+    0x3b21106c,
+    0x5d260ef2,
+    0x69a5b09e,
+    0x5c5a5e12,
+    0x4b9e4318,
+    0x2e467f54,
+    0x78819a30,
+    0x46b74f95,
+    0x2cb26af6,
+    0x07f4242c,
+    0x1d60b807,
+    0x1f66ad60,
+    0x5abf7644,
+    0x4a27fb88,
+}

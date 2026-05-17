@@ -41,9 +41,6 @@ func Test_ZkcBench_Fnv1aHash(t *testing.T) {
 // Poseidon utils tests
 // ===================================================================
 
-func Test_ZkcBench_Poseidon_Round_Constants_01(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/poseidon/test/u32/round_constants_01", field.KOALABEAR_16)
-}
 func Test_ZkcBench_Poseidon_utils_01(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/poseidon/test/u32/utils_01", field.KOALABEAR_16)
 }
@@ -67,11 +64,17 @@ func Test_ZkcBench_Poseidon_utils_05(t *testing.T) {
 func Test_ZkcBench_Poseidon_u32_Permutation_01(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/poseidon/test/u32/permutation_01", field.KOALABEAR_16)
 }
-func Test_ZkcBench_Poseidon_u32_01(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/poseidon/test/u32/poseidon_01", field.KOALABEAR_16)
+func Test_ZkcBench_Poseidon_u32_range_01(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/u32/poseidon_range_01", field.KOALABEAR_16)
 }
-func Test_ZkcBench_Poseidon_u32_02(t *testing.T) {
-	checkZkcBench(t, "zkc/bench/poseidon/test/u32/poseidon_02", field.KOALABEAR_16)
+func Test_ZkcBench_Poseidon_u32_range_02(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/u32/poseidon_range_02", field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_u32_range_03(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/u32/poseidon_range_03", field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_u32_zeros_01(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/u32/poseidon_zeros_01", field.KOALABEAR_16)
 }
 
 // ===================================================================
@@ -98,6 +101,9 @@ func Test_ZkcBench_Poseidon_felt_Zeros_02(t *testing.T) {
 }
 func Test_ZkcBench_Poseidon_felt_Zeros_03(t *testing.T) {
 	checkZkcBench(t, "zkc/bench/poseidon/test/felt/poseidon_zeros_03", field.KOALABEAR_16)
+}
+func Test_ZkcBench_Poseidon_felt_Zeros_04(t *testing.T) {
+	checkZkcBench(t, "zkc/bench/poseidon/test/felt/poseidon_zeros_04", field.KOALABEAR_16)
 }
 
 // ===================================================================
