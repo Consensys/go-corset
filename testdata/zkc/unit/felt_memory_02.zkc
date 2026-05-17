@@ -7,11 +7,11 @@
 input felt_input(address:u8) -> (felt:𝔽)
 
 fn main() {
-    var felt_0 :𝔽 = 0xd as 𝔽
-    var felt_1 :𝔽 = 0xff as 𝔽
-    var read_felt_0 :𝔽
-    var read_felt_1 :𝔽
-    var read_felt_2 :𝔽
+    var felt_0:𝔽 = 0xd as 𝔽
+    var felt_1:𝔽 = 0xff as 𝔽
+    var read_felt_0:𝔽
+    var read_felt_1:𝔽
+    var read_felt_2:𝔽
     read_felt_0 = felt_input[0]
     read_felt_1 = felt_input[1]
     read_felt_2 = felt_input[2]

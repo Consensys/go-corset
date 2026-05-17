@@ -7,8 +7,8 @@
 output felt_output(address:u8) -> (felt:𝔽)
 
 fn main() {
-    var felt_0 :𝔽 = 0xd as 𝔽
-    var felt_1 :𝔽 = 0xff as 𝔽
+    var felt_0:𝔽 = 0xd as 𝔽
+    var felt_1:𝔽 = 0xff as 𝔽
     felt_output[0] = felt_0
     felt_output[1] = felt_1
 }

@@ -5,9 +5,9 @@
 static felt_static(address:u8) -> (felt:𝔽) {
     0 as 𝔽,
     1 as 𝔽,
-    0x7f000000 as 𝔽,   // represents -1
-    0x7f000001 as 𝔽,   // should represent  0
-    0x7f000002 as 𝔽,   // should represent +1
+    0x7f000000 as 𝔽, // represents -1
+    0x7f000001 as 𝔽, // should represent  0
+    0x7f000002 as 𝔽, // should represent +1
 }
 
 fn main() {

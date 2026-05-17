@@ -8,7 +8,6 @@ include "../../utils/memory.zkc"
 // zkc implementation of Poseidon_1 permutation using zkc's native field element type
 // ===================================================================================
 
-
 // poseidon performs the Poseidon1 hash of the nonempty byte range
 //
 //    sa..ea
@@ -252,7 +251,7 @@ fn partial_round<felt_state>(r:u8) {
 // σ[j] are u32's, thus MDS × σ has (unreduced) u72 coefficients
 fn apply_mds<felt_state>() {
 
-// Note: with STATE_WIDTH = 16, the final value of index is 256, whence the u9
+    // Note: with STATE_WIDTH = 16, the final value of index is 256, whence the u9
     var index:u9 = 0
 
     // computation of the i-th coefficient of MDS × σ
