@@ -39,3 +39,17 @@ type FieldExecutor[F field.Element[F]] struct {
 func (p FieldExecutor[F]) Execute(insn instruction.Field, frame []F, regs []register.Register) (err error) {
 	panic("got here")
 }
+
+// FieldExecutor carries no state, but it still needs an explicit gob
+// implementation because gob refuses to encode a struct with no exported
+// fields.
+
+// nolint
+func (p *FieldExecutor[F]) GobEncode() ([]byte, error) {
+	return nil, nil
+}
+
+// nolint
+func (p *FieldExecutor[F]) GobDecode(_ []byte) error {
+	return nil
+}

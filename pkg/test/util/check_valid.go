@@ -37,7 +37,7 @@ var (
 	// DEFAULT_FIELDS set default fields for testing
 	DEFAULT_FIELDS = []field.Config{field.BLS12_377, field.KOALABEAR_16}
 	// DEFAULT_CONFIG sets a default testing configuration
-	DEFAULT_CONFIG = Config{fields: DEFAULT_FIELDS, constraints: false}
+	DEFAULT_CONFIG = Config{fields: DEFAULT_FIELDS, constraints: false, nativeLowering: true}
 )
 
 // Config for testing
