@@ -1,5 +1,5 @@
-include "round_constants.zkc"
-include "mds_matrix.zkc"
+include "_round_constants.zkc"
+include "_mds_matrix.zkc"
 include "state.zkc"
 include "../../utils/constants.zkc"
 include "../../utils/memory.zkc"
