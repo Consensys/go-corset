@@ -132,6 +132,7 @@ func EvalConstant(
 		if e.CastType != nil && e.CastType.AsField(env) != nil {
 			return inner, ""
 		}
+
 		width := e.CastType.AsUint(env).BitWidth()
 		sliced := inner.Slice(width)
 

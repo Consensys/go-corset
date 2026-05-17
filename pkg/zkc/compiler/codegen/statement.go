@@ -138,6 +138,7 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 				} else {
 					bitwidth, _ = data.BitWidthOf(t.DataType, p.environment)
 				}
+
 				dataLines[j] = p.allocate(bitwidth)
 				regs = append(regs, dataLines[j])
 			}
