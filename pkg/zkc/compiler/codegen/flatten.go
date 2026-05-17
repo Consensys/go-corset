@@ -19,7 +19,7 @@ import (
 )
 
 // flatten this type into a set of one or more registers, using a given
-// prefix.  For example, a variable "x [2]u8" is flattened into "x$0 u8"
+// prefix.  For example, a variable "x [u8;2]" is flattened into "x$0 u8"
 // and "x$1 u8", etc.
 //
 // The constructor callback is invoked once per leaf register produced by the
