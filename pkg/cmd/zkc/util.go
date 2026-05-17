@@ -13,6 +13,7 @@
 package zkc
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path"
@@ -189,10 +190,33 @@ func WriteBinaryFile[F field.Element[F]](binfile *constraints.BinaryFile[F], fil
 	if bytes, err = binfile.MarshalBinary(); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
+	} else if path.Ext(filename) == ".hex" {
+		h := fmt.Sprintf("0x%s", hex.EncodeToString(bytes))
+		bytes = []byte(h)
 	}
 	// Write file
 	if err := os.WriteFile(filename, bytes, 0644); err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
+}
+
+// ReadBinaryFile reads a binary constraints file from disk
+func ReadBinaryFile[F field.Element[F]](filename string) *constraints.BinaryFile[F] {
+	var binf constraints.BinaryFile[F]
+	// Read schema file
+	data, err := os.ReadFile(filename)
+	// Handle errors
+	if err == nil {
+		err = binf.UnmarshalBinary(data)
+	}
+	// Return if no errors
+	if err == nil {
+		return &binf
+	}
+	// Handle error & exit
+	fmt.Println(err)
+	os.Exit(2)
+	// unreachable
+	return &binf
 }

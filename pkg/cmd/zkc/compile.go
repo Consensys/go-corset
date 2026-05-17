@@ -15,6 +15,7 @@ package zkc
 import (
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/consensys/go-corset/pkg/cmd/corset/debug"
 	"github.com/consensys/go-corset/pkg/ir/air"
@@ -111,7 +112,7 @@ func runCompileCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 	if GetFlag(cmd, "verbose") {
 		log.SetLevel(log.DebugLevel)
 	}
-	// Configure target fieldgitggggggg
+	// Configure target field
 	build.field = field
 	// Configure compiler config
 	build.config = codegen.DEFAULT_CONFIG.
@@ -158,19 +159,35 @@ func Build[F field.Element[F]](build BuildConfig, args ...string) BuildArtifacts
 		// AIR Constraints
 		air air.Schema[F]
 	)
-	// Compile source files, or print errors
-	ast = CompileSourceFiles(build.field, args...)
-	// Word-level Intermediate Representation
-	if deps.wir {
-		// Compile the AST into the top-level word machine
-		wir, errs = ast.Compile(build.config)
-		//
-		if len(errs) > 0 {
-			for _, err := range errs {
-				printSyntaxError(&err)
-			}
+	// Check whether prebuilt binary supplied on command-line.
+	if len(args) > 0 && path.Ext(args[0]) == ".bin" {
+		// Sanity check exactly one prebuilt binary provide.
+		if len(args) != 1 {
+			log.Error("require exactly one prebuilt binary")
+			os.Exit(6)
+		} else if build.ast {
+			log.Error("cannot extract AST from prebuilt binary")
+			os.Exit(7)
+		}
+		// Single (binary) file supplied
+		wm := ReadBinaryFile[F](args[0]).WordMachine()
+		// Assign over
+		wir = &wm
+	} else {
+		// Compile source files, or print errors
+		ast = CompileSourceFiles(build.field, args...)
+		// Word-level Intermediate Representation
+		if deps.wir {
+			// Compile the AST into the top-level word machine
+			wir, errs = ast.Compile(build.config)
 			//
-			os.Exit(4)
+			if len(errs) > 0 {
+				for _, err := range errs {
+					printSyntaxError(&err)
+				}
+				//
+				os.Exit(4)
+			}
 		}
 	}
 	// Field-level Intermediate Representation

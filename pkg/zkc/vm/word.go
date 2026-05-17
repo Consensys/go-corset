@@ -13,13 +13,43 @@
 package vm
 
 import (
+	"encoding/gob"
 	"math/big"
 
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/collection/bit"
+	"github.com/consensys/go-corset/pkg/zkc/vm/instruction"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/function"
+	"github.com/consensys/go-corset/pkg/zkc/vm/internal/memory"
 	"github.com/consensys/go-corset/pkg/zkc/vm/internal/word"
 )
+
+func init() {
+	gob.Register(instruction.Word(&instruction.IntAdd[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntSub[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntMul[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntDiv[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntRem[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntAddModP[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntSubModP[Uint]{}))
+	gob.Register(instruction.Word(&instruction.IntMulModP[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitAnd[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitNot[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitOr[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitXor[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitShl[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitShr[Uint]{}))
+	gob.Register(instruction.Word(&instruction.BitConcat[Uint]{}))
+	gob.Register(instruction.Word(&instruction.Destruct{}))
+	gob.Register(instruction.Word(&instruction.Cast{}))
+	gob.Register(instruction.Module(&function.Function[instruction.Word]{}))
+	gob.Register(instruction.Module(&memory.RandomAccess[Uint]{}))
+	gob.Register(instruction.Module(&memory.ReadOnly[Uint]{}))
+	gob.Register(instruction.Module(&memory.WriteOnce[Uint]{}))
+	gob.Register(instruction.Module(&memory.StaticReadOnly[Uint]{}))
+	gob.Register(instruction.Module(&memory.BiPartiteRandomAccess[Uint]{}))
+}
 
 // Word abstracts the data type (a.k.a the "machine word") used for holding
 // values within the machine.  The reason for abstracting this concept is to
@@ -86,7 +116,7 @@ func DecodeBytes[W Word[W]](bytes []byte, registers []register.Register) []W {
 		// Done
 		return ints
 	})
-	// Flattern decoded tuples
+	// Flatten decoded tuples
 	return array.FlatMap(values, func(ints []big.Int) []W {
 		var words = make([]W, len(ints))
 		//
@@ -115,25 +145,43 @@ func DecodeBytes[W Word[W]](bytes []byte, registers []register.Register) []W {
 // | 0x31 | 0xf0 | 0x0e | 0x1d |
 func EncodeBytes[W Word[W]](values []W, registers []register.Register) []byte {
 	var (
-		bitwidth   = bitwidthOf(registers)
-		nElems     = uint(len(values))
-		totalBits  = nElems * bitwidth
-		totalBytes = (totalBits + 7) / 8
-		result     = make([]byte, totalBytes)
-		n          = bit.BytesRequiredFor(bitwidth)
-		buf        = make([]byte, n)
-		offset     uint
+		nRegs     = uint(len(registers))
+		nElems    = uint(len(values))
+		bitOffset uint
+		// total bitwidth of round
+		bitwidth = bitwidthOf(registers)
+		// buffer size required to hold a round
+		n = bit.BytesRequiredFor(bitwidth)
+		// create buffer
+		buf = make([]byte, n)
+		// Determine number of (full) rounds
+		nRounds = nElems / nRegs
+		// Initial total bits calculation
+		totalBits = nRounds * bitwidth
 	)
+	// Update total bits calc for odd number of elements.
+	for i := (nRounds * nRegs); i < nElems; i++ {
+		totalBits += registers[i].Width()
+	}
+	// Determine required size result buffer
+	totalBytes := (totalBits + 7) / 8
+	// Allocate result buffer
+	result := make([]byte, totalBytes)
 	//
-	for _, v := range values {
-		for _, r := range registers {
-			EncodeUnsignedInt(r.Width(), v.BigInt(), buf)
-			bit.BigEndianCopy(buf, 0, result, offset, r.Width())
-			offset += r.Width()
+	for i := 0; i < len(values); {
+		for j := 0; j < len(registers) && i < len(values); j++ {
+			var (
+				reg = registers[j]
+				val = values[i]
+			)
+			EncodeUnsignedInt(reg.Width(), val.BigInt(), buf)
+			bit.BigEndianCopy(buf, 0, result, bitOffset, reg.Width())
+			bitOffset += reg.Width()
+			i = i + 1
 		}
 	}
 	//
-	return buf
+	return result
 }
 
 // ============================================================================

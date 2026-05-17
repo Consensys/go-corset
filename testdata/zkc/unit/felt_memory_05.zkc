@@ -1,0 +1,20 @@
+// ===================================================================
+// memory test: reading from static felt table, minimal example
+//
+// NOTE: same issue as in _04, only smaller example
+// ===================================================================
+
+static felt_static(address:u8) -> (felt:𝔽) {
+    0 as 𝔽,
+    0x7f000001 as 𝔽,   // should represent  0
+}
+
+fn main() {
+    // assignment from static table
+    var felt_0:𝔽 = felt_static[0]
+    var felt_zero:𝔽 = felt_static[1]
+
+    if felt_zero != felt_0 {
+        fail
+    }
+}

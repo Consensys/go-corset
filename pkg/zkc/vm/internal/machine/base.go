@@ -13,6 +13,8 @@
 package machine
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"strings"
@@ -154,6 +156,46 @@ func (p *Base[W, I, T]) Depth() uint {
 // StackFrame returns the nth stack frame, where n==0 returns the root frame.
 func (p *Base[W, I, T]) StackFrame(n uint) Frame[W] {
 	return p.callstack[n]
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *Base[W, I, T]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.modules); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(&p.executor); err != nil {
+		return nil, err
+	}
+	// Callstack is execution state and is not persisted.
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *Base[W, I, T]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.modules); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.executor); err != nil {
+		return err
+	}
+	// Callstack starts empty; populated only by Boot/Enter at execution time.
+	p.callstack = nil
+	//
+	return nil
 }
 
 // ========================================================

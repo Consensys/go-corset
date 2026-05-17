@@ -13,6 +13,9 @@
 package memory
 
 import (
+	"bytes"
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 )
@@ -228,4 +231,66 @@ func (p *BiPartiteRandomAccess[W]) readUpper(pos uint64) W {
 	}
 	//
 	return zero
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *BiPartiteRandomAccess[W]) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(&p.kind); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(&p.geometry); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.name); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.lower); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.upper); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *BiPartiteRandomAccess[W]) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.kind); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.geometry); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.name); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.lower); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.upper); err != nil {
+		return err
+	}
+	//
+	return nil
 }

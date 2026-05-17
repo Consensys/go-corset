@@ -13,6 +13,9 @@
 package memory
 
 import (
+	"bytes"
+	"encoding/gob"
+
 	"github.com/consensys/go-corset/pkg/schema/register"
 	"github.com/consensys/go-corset/pkg/util"
 	"github.com/consensys/go-corset/pkg/zkc/vm/instruction/base"
@@ -98,6 +101,60 @@ func (p Kind) IsWriteOnly() bool {
 // reads / writes.  Observe that RAM is always private.
 func (p Kind) IsReadWrite() bool {
 	return p.read && p.write
+}
+
+// ============================================================================
+// Encoding / Decoding
+// ============================================================================
+
+// nolint
+func (p *Kind) GobEncode() ([]byte, error) {
+	var buffer bytes.Buffer
+	gobEncoder := gob.NewEncoder(&buffer)
+	//
+	if err := gobEncoder.Encode(p.public); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.static); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.read); err != nil {
+		return nil, err
+	}
+	//
+	if err := gobEncoder.Encode(p.write); err != nil {
+		return nil, err
+	}
+	//
+	return buffer.Bytes(), nil
+}
+
+// nolint
+func (p *Kind) GobDecode(data []byte) error {
+	var (
+		buffer     = bytes.NewBuffer(data)
+		gobDecoder = gob.NewDecoder(buffer)
+	)
+	//
+	if err := gobDecoder.Decode(&p.public); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.static); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.read); err != nil {
+		return err
+	}
+	//
+	if err := gobDecoder.Decode(&p.write); err != nil {
+		return err
+	}
+	//
+	return nil
 }
 
 var (
