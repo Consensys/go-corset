@@ -1,0 +1,41 @@
+// ===================================================================
+// memory test: reading from static felt table
+// ===================================================================
+
+static felt_static(address:u8) -> (felt:𝔽) {
+    0 as 𝔽,
+    1 as 𝔽,
+    0x7f000000 as 𝔽, // represents -1
+    0x7f000001 as 𝔽, // should represent  0
+    0x7f000002 as 𝔽, // should represent +1
+}
+
+fn main() {
+    // assignment from static table
+    var felt_0:𝔽 = felt_static[0]
+    var felt_1:𝔽 = felt_static[1]
+    var felt_neg1:𝔽 = felt_static[2]
+    var felt_zero:𝔽 = felt_static[3]
+    var felt_pos1:𝔽 = felt_static[4]
+
+    if (felt_neg1 + felt_1) != felt_0 {
+        fail
+    }
+    // // the tests below fail since there is no reduction
+    // // mod the prime when reading from the static table
+    // // see issue #1784
+    // if felt_zero != felt_0 {
+    //     fail
+    // }
+    // if felt_pos1 != felt_1 {
+    //     fail
+    // }
+    if (felt_neg1 + felt_1) != felt_0 {
+        printf "kb.neg_one() + kb.one() = %x + %x = %x\n", felt_neg1, felt_1, (felt_neg1 + felt_1)
+        fail
+    }
+    if (felt_neg1 * felt_neg1) != felt_1 {
+        printf "kb.neg_one() × kb.neg_one() = %x × %x = %x\n", felt_neg1, felt_neg1, felt_1
+        fail
+    }
+}

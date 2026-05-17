@@ -674,3 +674,28 @@ func Test_ZkcUnit_SkipIf_05(t *testing.T) {
 func checkZkcUnit(t *testing.T, test string, config util.Config) {
 	util.CheckValid(t, test, "zkc", config)
 }
+
+// ===================================================================
+// Field element (felt) memory tests
+// ===================================================================
+
+func Test_ZkcUnit_Felt_Memory_01(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/felt_memory_01", util.DEFAULT_CONFIG)
+}
+
+// // NOTE: felts are explicitly disallowed from inputs and outputs
+// // so none of the following tests work
+//
+// func Test_ZkcUnit_Felt_Memory_02(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/felt_memory_02", util.DEFAULT_CONFIG)
+// }
+// func Test_ZkcUnit_Felt_Memory_03(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/felt_memory_03", util.DEFAULT_CONFIG)
+// }
+// func Test_ZkcUnit_Felt_Memory_05(t *testing.T) {
+// 	checkZkcUnit(t, "zkc/unit/felt_memory_05", util.DEFAULT_CONFIG)
+// }
+
+func Test_ZkcUnit_Felt_Memory_04(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/felt_memory_04", util.DEFAULT_CONFIG)
+}
