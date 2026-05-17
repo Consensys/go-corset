@@ -13,6 +13,8 @@
 package codegen
 
 import (
+	"math"
+
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/data"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/decl"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast/expr"
@@ -57,7 +59,10 @@ func EvalConstant(
 	// ensure this function is robust against errors.  This is necessary because
 	// it is used during typing and, thus, could be called on a malformed
 	// expression as a result.
-	if bitwidth, ok = data.BitWidthOf(e.Type(), env); !ok {
+	t := e.Type()
+	if t != nil && t.AsField(env) != nil {
+		bitwidth = math.MaxUint
+	} else if bitwidth, ok = data.BitWidthOf(t, env); !ok {
 		return res, "invalid constant"
 	}
 	//
@@ -124,6 +129,9 @@ func EvalConstant(
 		return BitwiseXor(bitwidth, args...), ""
 	case *expr.Cast[symbol.Resolved]:
 		inner, _ := EvalConstant(e.Expr, definition, declarations, env)
+		if e.CastType != nil && e.CastType.AsField(env) != nil {
+			return inner, ""
+		}
 		width := e.CastType.AsUint(env).BitWidth()
 		sliced := inner.Slice(width)
 
