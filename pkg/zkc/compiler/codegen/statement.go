@@ -125,14 +125,20 @@ func (p *StmtCompiler) mapLVals(mapping []uint, lvals []LVal) ([]register.Id, []
 				id = mapping[lv.Name.Index]
 			)
 			if !ext.IsWriteable() {
-				panic(fmt.Sprintf("unreadable memory \"%s\" encountered", ext.Name()))
+				panic(fmt.Sprintf("unwritable memory \"%s\" encountered", ext.Name()))
 			}
 			//
 			dataLines := make([]register.Id, len(ext.Data))
 			addressLines, pre := p.compileArgs(mapping, lv.Args...)
 			// Allocate data lines as needed
 			for j, t := range ext.Data {
-				bitwidth, _ := data.BitWidthOf(t.DataType, p.environment)
+				var bitwidth uint
+				if t.DataType.AsField(p.environment) != nil {
+					bitwidth = math.MaxUint
+				} else {
+					bitwidth, _ = data.BitWidthOf(t.DataType, p.environment)
+				}
+
 				dataLines[j] = p.allocate(bitwidth)
 				regs = append(regs, dataLines[j])
 			}
