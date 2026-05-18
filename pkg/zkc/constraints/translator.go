@@ -73,17 +73,21 @@ func translateModule[F field.Element[F]](ctx schema.ModuleId, fm vm.Module) mir.
 	}
 }
 
-func translateStaticMemory[F field.Element[F]](_ schema.ModuleId, fm vm.InputOutputMemory[F]) mir.Module[F] {
+func translateStaticMemory[F field.Element[F]](_ schema.ModuleId, m vm.InputOutputMemory[F]) mir.Module[F] {
 	var (
-		mod  *schema.Table[F, mir.Constraint[F]]
-		name = trace.ModuleName{Name: fm.Name(), Multiplier: 1}
+		mod      *schema.Table[F, mir.Constraint[F]]
+		name     = trace.ModuleName{Name: m.Name(), Multiplier: 1}
+		nInputs  = m.Geometry().AddressLines()
+		nOutputs = m.Geometry().DataLines()
+		inputs   = m.Registers()[:nInputs]
+		outputs  = m.Registers()[nInputs : nInputs+nOutputs]
 	)
 	// Initialise module as a static reference table.
-	mod = mod.Init(name, false, true, false, fm.IsNative(), true, 0)
+	mod = mod.Init(name, false, true, false, m.IsNative(), true, 0)
 	// Add all registers
-	mod.AddRegisters(fm.Registers()...)
+	mod.AddRegisters(m.Registers()...)
 	// Populate the table contents from the pre-loaded memory.
-	mod.SetStaticContents(fm.Contents())
+	mod.SetStaticContents(foldContents(inputs, outputs, m.Contents()))
 	//
 	return mod
 }

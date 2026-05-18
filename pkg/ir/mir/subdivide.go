@@ -67,8 +67,9 @@ func Subdivide[F field.Element[F], E register.ConstMap](mapping module.LimbsMap,
 	for i, m := range mods {
 		// original registers.
 		var (
-			eid      = uint(i + len(externs))
-			mid      = builder.NewModule(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic(), 0)
+			eid = uint(i + len(externs))
+			mid = builder.NewModule(m.Name(), m.AllowPadding(), m.IsPublic(), m.IsSynthetic(),
+				m.IsStatic(), m.IsNative(), 0)
 			module   = builder.Module(mid)
 			limbsMap = mapping.Module(mid).LimbsMap()
 		)

@@ -122,7 +122,7 @@ func (p *Module[F, T]) IsStatic() bool {
 // StaticContents implementation for schema.Module interface.  Modules
 // originating from the assembly pipeline are never static, hence this function
 // always panics.
-func (p *Module[F, T]) StaticContents() []F {
+func (p *Module[F, T]) StaticContents() [][]F {
 	panic("non-static modules have no contents")
 }
 
