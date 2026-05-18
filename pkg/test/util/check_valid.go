@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/cmd/zkc"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/zkc"
 	"github.com/consensys/go-corset/pkg/ir/mir"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -108,7 +107,7 @@ func checkValidInternal(t *testing.T, test, ext string, codeCfg codegen.Config, 
 		// Check suitable field
 		if cfg.field == nil || *cfg.field == field {
 			// Read tests from file
-			tests := ReadTestsFile(cfg, test)
+			tests := ReadTestsFile(cfg, field, test)
 			// Run execution tests
 			for _, test := range tests {
 				runExecutionTest(t, program, vm, test)
@@ -118,7 +117,7 @@ func checkValidInternal(t *testing.T, test, ext string, codeCfg codegen.Config, 
 				for _, test := range tests {
 					// FIXME: support reject tests
 					if test.expected {
-						runConstraintTest(t, codeCfg, program, test, field)
+						runConstraintTest(t, vm, test)
 					}
 				}
 			}
@@ -154,54 +153,60 @@ func runExecutionTest(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.U
 	}
 }
 
-func runConstraintTest(t *testing.T, config codegen.Config, program ast.Program, test TestCase, f field.Config) {
+func runConstraintTest(t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	// Dispatch based on field config
-	switch f {
+	switch test.field {
 	case field.GF_251:
-		testConstraintsWithField[gf251.Element](t, config, program, test, f)
+		testConstraintsWithField[gf251.Element](t, wm, test)
 	case field.GF_8209:
-		testConstraintsWithField[gf8209.Element](t, config, program, test, f)
+		testConstraintsWithField[gf8209.Element](t, wm, test)
 	case field.KOALABEAR_16:
-		testConstraintsWithField[koalabear.Element](t, config, program, test, f)
+		testConstraintsWithField[koalabear.Element](t, wm, test)
 	case field.BLS12_377:
-		testConstraintsWithField[bls12_377.Element](t, config, program, test, f)
+		testConstraintsWithField[bls12_377.Element](t, wm, test)
 	default:
-		panic(fmt.Sprintf("unknown field configuration: %s", f.Name))
+		panic(fmt.Sprintf("unknown field configuration: %s", test.field.Name))
 	}
 }
 
-func testConstraintsWithField[F field.Element[F]](t *testing.T, config codegen.Config, program ast.Program,
-	test TestCase, f field.Config) {
+func testConstraintsWithField[F field.Element[F]](t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	//
 	var (
-		wvm, tf = executeAndTrace(t, config, program, test.data)
-		id      = traceId{f.Name, "MIR", test.filename,
+		tf, errs = executeAndTrace(wm, test.data)
+		id       = traceId{test.field.Name, "AIR", test.filename,
 			test.expected, true, true, mir.DEFAULT_OPTIMISATION_INDEX, true, int(test.line), 0}
 	)
+	//
+	if test.expected {
+		// test expected to pass, but tracing generated failures.
+		failIfErrors(t, errs...)
+	}
 	// Lower to field machine
-	fvm := vm.LowerWordMachine[vm.Uint, F](f, wvm)
+	fvm := vm.LowerWordMachine[vm.Uint, F](test.field, wm)
 	// lower to mir constraints
-	avm := constraints.GenerateMirConstraints(fvm)
+	avm := constraints.GenerateAirConstraints(fvm, test.field)
 	// Construct limbs map
-	mapping := module.NewLimbsMap[F](f, avm.Modules().Collect()...)
+	mapping := module.NewLimbsMap[F](test.field, avm.Modules().Collect()...)
 	// generate initial trace
 	checkTrace(t, tf, id, avm, mapping)
 }
 
-func executeAndTrace(t *testing.T, config codegen.Config, program ast.Program, input map[string][]byte,
-) (*vm.WordMachine[vm.Uint], lt.TraceFile) {
+func executeAndTrace[W vm.Word[W]](wm *vm.WordMachine[W], input map[string][]byte,
+) (lt.TraceFile, []error) {
 	//
-	var (
-		wm       *vm.WordMachine[vm.Uint]
-		errors   []error
-		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
-	)
-	//
-	if wm, errors = zkc.ExecuteIrProgram("main", config, program, input, &observer); len(errors) > 0 {
-		t.Errorf("%v", errors)
+	var observer vm.TraceObserver[W, *vm.WordMachine[W]]
+	// Decode inputs against the compiled machine.
+	inputs, errs := vm.DecodeInputs(wm, input)
+	// Assuming that passed, boot and execute machine
+	if len(errs) == 0 {
+		if err := wm.Boot("main", inputs); err != nil {
+			errs = append(errs, err)
+		} else if _, err := vm.ExecuteAndObserve(wm, 1, &observer); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	// Done
-	return wm, observer.Trace(wm)
+	return observer.Trace(wm), errs
 }
 
 func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Uint]) []error {
@@ -219,6 +224,17 @@ func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Ui
 	}
 	//
 	return errors
+}
+
+func failIfErrors(t *testing.T, errs ...error) {
+	//
+	if len(errs) > 0 {
+		for _, err := range errs {
+			t.Errorf("unexpected tracing failure: %v", err)
+		}
+		// Don't continue
+		t.FailNow()
+	}
 }
 
 // TestConfig provides a simple mechanism for searching for testfiles.

@@ -34,6 +34,8 @@ type TestCase struct {
 	line uint
 	// indicates whether this test is expected to pass or fail.
 	expected bool
+	// field on which to execute test
+	field field.Config
 	// input/output data of test
 	data map[string][]byte
 }
@@ -59,7 +61,7 @@ func CompileZkc(field field.Config, srcfile source.File) []source.SyntaxError {
 
 // ReadTestsFile reads a file containing zero or more tests expressed as JSON,
 // where each test is on a separate line.
-func ReadTestsFile(cfg TestConfig, test string) []TestCase {
+func ReadTestsFile(cfg TestConfig, field field.Config, test string) []TestCase {
 	var (
 		// Construct test filename
 		filename = fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
@@ -79,7 +81,7 @@ func ReadTestsFile(cfg TestConfig, test string) []TestCase {
 				panic(msg)
 			}
 
-			tests = append(tests, TestCase{filename, uint(i + 1), cfg.expected, inputs})
+			tests = append(tests, TestCase{filename, uint(i + 1), cfg.expected, field, inputs})
 		}
 	}
 
