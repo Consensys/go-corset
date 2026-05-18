@@ -58,7 +58,7 @@ func foldContents[F field.Element[F]](inputs, outputs []register.Register, conte
 		if ith == nil {
 			ith = make([]F, nInputs+nOutputs)
 			fillAddressLine(row, ith, inputs)
-			rows[i] = ith
+			rows[row] = ith
 		}
 		//
 		ith[output] = contents[i]

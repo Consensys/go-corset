@@ -138,7 +138,7 @@ func printStaticContents[F field.Element[F]](module schema.Module[F]) {
 		//
 		fmt.Println("(contents")
 		//
-		for i, row := range module.StaticContents() {
+		for i, row := range contents {
 			fmt.Print("   (")
 			//
 			for j, v := range row {

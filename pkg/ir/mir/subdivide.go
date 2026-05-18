@@ -79,6 +79,10 @@ func Subdivide[F field.Element[F], E register.ConstMap](mapping module.LimbsMap,
 		}
 		// Initialise all register limbs.
 		module.NewRegisters(limbsMap.Registers()...)
+		// Assign static contents (if applicable)
+		if m.IsStatic() {
+			module.SetStaticContents(m.StaticContents())
+		}
 	}
 	// Construct subdivider
 	subdivider := &Subdivider[F]{builder, mapping}
