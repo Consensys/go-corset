@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/consensys/go-corset/pkg/ir"
 	"github.com/consensys/go-corset/pkg/ir/air"
 	"github.com/consensys/go-corset/pkg/schema"
 	"github.com/consensys/go-corset/pkg/schema/module"
@@ -173,40 +172,18 @@ func (p *BinaryFile[F]) Execute(input map[string][]byte, n uint) (output map[str
 }
 
 // Trace generates a suitable trace from the given inputs for the contraints
-// embodied in this file.  This can return one (or more) errors if, for example,
-// the input is malformed (e.g. is missing expected fields and/or contains
-// unexpected fields).
+// embodied in this file.  Inputs are given as byte arrays which are decoded via
+// vm.DecodeInputs() based on the register types of the corresponding memory.
+// This can return one (or more) errors if, for example, the input is malformed
+// (e.g. is missing expected fields and/or contains unexpected fields).
 func (p *BinaryFile[F]) Trace(input map[string][]byte, config TraceConfig) (tr trace.Trace[F], errs []error) {
-	var (
-		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
-		inputs   map[string][]vm.Uint
-		stats    = util.NewPerfStats()
-	)
+	var inputs map[string][]vm.Uint
 	// Execute machine in chunks of 1K steps
-	if inputs, errs = vm.DecodeInputs(&p.machine, input); len(errs) != 0 {
-		//
-	} else if err := p.machine.Boot("main", inputs); err != nil {
-		errs = append(errs, err)
-	} else if _, err := vm.ExecuteAndObserve(&p.machine, 1, &observer); err != nil {
-		errs = append(errs, err)
-	} else {
-		// Extract AIR constraints
-		constraints := p.AirConstraints()
-		// Construct trace builder
-		builder := ir.NewTraceBuilder[F]().
-			WithValidation(config.validate).
-			WithDefensivePadding(config.defensive).
-			WithExpansionChecks(config.checks).
-			WithExpansion(true).
-			WithParallelism(config.parallel).
-			WithBatchSize(config.batchSize)
-		// Build the trace (finally)
-		tr, errs = builder.Build(constraints, observer.Trace(&p.machine))
+	if inputs, errs = vm.DecodeInputs(&p.machine, input); len(errs) == 0 {
+		return Trace(p, inputs, config)
 	}
 	//
-	stats.Log("Trace generation")
-	// Done
-	return tr, errs
+	return nil, errs
 }
 
 // ============================================================================

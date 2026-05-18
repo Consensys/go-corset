@@ -25,7 +25,6 @@ import (
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -52,10 +51,7 @@ var executeCmds = []FieldAgnosticCmd{
 func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field field.Config) {
 	var (
 		errors []error
-		// compiler buildConfig
-		buildConfig = codegen.DEFAULT_CONFIG.
-				Vectorize(GetFlag(cmd, "vectorize")).
-				Field(field)
+		build  = GetBuildConfig[F](cmd, field)
 		//
 		traceConfig = constraints.DEFAULT_TRACE_CONFIG
 		// outputFile file for trace
@@ -68,10 +64,15 @@ func runExecuteCmd[F field.Element[F]](cmd *cobra.Command, args []string, field 
 		trace   trace.Trace[F]
 		outputs map[string][]byte
 	)
+	// Force compilation of the word machine, which is what we execute.
+	build.wir = true
 	//
 	input := ParseInputFile(args[0])
-	// Compile source files, or print errors
-	binfile := BuildSourceFiles[F](buildConfig, field, args[1:]...)
+	// Build artifacts (compiles source files or loads a prebuilt binary).
+	artifacts := build.Build(args[1:]...)
+	wm := artifacts.wir.Unwrap()
+	// Wrap the word machine in a binary file for execution / tracing / checking.
+	binfile := constraints.NewBinaryFile[F](nil, nil, field, wm)
 	// =====================================================
 	// Trace / Execute
 	// =====================================================
