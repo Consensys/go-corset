@@ -151,6 +151,49 @@ func ExecuteAndObserve[W Word[W], M Machine[W], V Observer[W, M]](machine M, n u
 	}
 }
 
+// DecodeInputsOutputs decodes  given set of input and output bytes
+// appropriately for the given machine.  If there are unknown or conflicting
+// inputs, then errors are returned.
+func DecodeInputsOutputs[W Word[W], M Machine[W]](m M, data map[string][]byte,
+) (inputs, outputs map[string][]W, errs []error) {
+	//
+	var visited = make(map[string]bool)
+	//
+	inputs = make(map[string][]W)
+	outputs = make(map[string][]W)
+	// scan modules
+	for _, c := range m.Modules() {
+		if mem, ok := c.(memory.InputOutput[W]); ok && !mem.IsStatic() {
+			var (
+				n = mem.Geometry().AddressLines()
+				m = n + mem.Geometry().DataLines()
+				// Filter data lines
+				dataLines = c.Registers()[n:m]
+			)
+			// Record visited information
+			visited[c.Name()] = true
+			//
+			if bytes, ok := data[c.Name()]; ok {
+				if mem.IsReadOnly() {
+					inputs[c.Name()] = DecodeBytes[W](bytes, dataLines)
+				} else {
+					outputs[c.Name()] = DecodeBytes[W](bytes, dataLines)
+				}
+			} else {
+				errs = append(errs, fmt.Errorf("missing input/output \"%s\"", c.Name()))
+			}
+		}
+	}
+	// sanity check for extraneous inputs
+	for k := range data {
+		if _, ok := visited[k]; !ok {
+			errs = append(errs, fmt.Errorf("unknown input \"%s\"", k))
+		}
+	}
+	//
+	return inputs, outputs, errs
+}
+
 // DecodeInputs configures a given set of input bytes appropriately for the
 // given machine.  If there are unknown or conflicting inputs, then errors are
 // returned.

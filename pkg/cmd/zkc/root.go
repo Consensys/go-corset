@@ -18,6 +18,8 @@ import (
 	"runtime/debug"
 
 	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -91,7 +93,39 @@ func runFieldAgnosticCmd(cmd *cobra.Command, args []string, cmds []FieldAgnostic
 	os.Exit(2)
 }
 
+// GetBuildConfig constructs a build configuration from the provided
+// command-line arguments.  The purpose of this is to provide a consistent
+// mechanism for compiling constraint files across the various sub-commands.
+func GetBuildConfig[F field.Element[F]](cmd *cobra.Command, field field.Config) BuildConfig[F] {
+	var build BuildConfig[F]
+	// Configure log level
+	if GetFlag(cmd, "verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+	// Configure target field
+	build.field = field
+	// Configure compiler config
+	build.config = codegen.DEFAULT_CONFIG.
+		LowerZkcNative(GetFlag(cmd, "lower-native")).
+		Vectorize(GetFlag(cmd, "vectorize")).
+		Field(field)
+	// Configure build targets
+	build.ast = GetFlag(cmd, "ast")
+	build.wir = GetFlag(cmd, "wir")
+	build.fir = GetFlag(cmd, "fir")
+	build.mir = GetFlag(cmd, "mir")
+	build.air = GetFlag(cmd, "air")
+	//
+	return build
+}
+
 func init() {
+	rootCmd.PersistentFlags().Bool("ast", false, "Output Abstract Syntax Tree (AST)")
+	rootCmd.PersistentFlags().Bool("wir", false, "Output Word-level Intermediate Representation (WIR)")
+	rootCmd.PersistentFlags().Bool("fir", false, "Output Field-level Intermediate Representation (FIR)")
+	rootCmd.PersistentFlags().Bool("mir", false, "Output Mid-Level Intermediate Representation (MIR)")
+	rootCmd.PersistentFlags().Bool("air", false, "Output Arithmetic Intermediate Representation (AIR)")
+	rootCmd.PersistentFlags().Bool("lower-native", false, "Lower ZkC native functions into arithmetic instructions")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "increase logging verbosity")
 	rootCmd.PersistentFlags().Bool("vectorize", true, "Apply instruction vectorization")
 	rootCmd.PersistentFlags().String("field", "KOALABEAR_16", "prime field to use throughout")
