@@ -17,16 +17,12 @@ import (
 	"testing"
 
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/zkc"
-	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema/module"
-	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	"github.com/consensys/go-corset/pkg/zkc/vm"
@@ -107,10 +103,10 @@ func checkValidInternal(t *testing.T, test, ext string, codeCfg codegen.Config, 
 		// Check suitable field
 		if cfg.field == nil || *cfg.field == field {
 			// Read tests from file
-			tests := ReadTestsFile(cfg, field, test)
+			tests := ReadTestsFile(t, cfg, field, test, vm)
 			// Run execution tests
 			for _, test := range tests {
-				runExecutionTest(t, program, vm, test)
+				runExecutionTest(t, vm, test)
 			}
 			// Run constraint tests
 			if constraints {
@@ -125,17 +121,17 @@ func checkValidInternal(t *testing.T, test, ext string, codeCfg codegen.Config, 
 	}
 }
 
-func runExecutionTest(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint], test TestCase) {
+func runExecutionTest(t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	var (
-		err                   error
-		inputs, outputs, errs = program.DecodeInputsOutputs(test.data)
+		err  error
+		errs []error
 	)
 	// Execute machine
-	if err = wm.Boot("main", inputs); err == nil {
+	if err = wm.Boot("main", test.inputs); err == nil {
 		// Execute it
 		if _, err = vm.ExecuteAll(wm, 1024); err == nil && test.expected {
 			// Check outputs match
-			errs = append(errs, checkExpectedOutputs(outputs, wm)...)
+			errs = append(errs, checkExpectedOutputs(test.outputs, wm)...)
 		} else if err == nil && !test.expected {
 			errs = append(errs, fmt.Errorf("test accepted incorrectly"))
 		} else if !test.expected {
@@ -172,41 +168,28 @@ func runConstraintTest(t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase)
 func testConstraintsWithField[F field.Element[F]](t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	//
 	var (
-		tf, errs = executeAndTrace(wm, test.data)
-		id       = traceId{test.field.Name, "AIR", test.filename,
-			test.expected, true, true, mir.DEFAULT_OPTIMISATION_INDEX, true, int(test.line), 0}
+		// construct binary file
+		binf = constraints.NewBinaryFile[F](nil, nil, test.field, *wm)
+		// generate trace
+		tr, errs = constraints.Trace(binf, test.inputs, constraints.DEFAULT_TRACE_CONFIG)
 	)
 	//
 	if test.expected {
 		// test expected to pass, but tracing generated failures.
 		failIfErrors(t, errs...)
 	}
-	// Lower to field machine
-	fvm := vm.LowerWordMachine[vm.Uint, F](test.field, wm)
-	// lower to mir constraints
-	avm := constraints.GenerateAirConstraints(fvm, test.field)
-	// Construct limbs map
-	mapping := module.NewLimbsMap[F](test.field, avm.Modules().Collect()...)
-	// generate initial trace
-	checkTrace(t, tf, id, avm, mapping)
-}
-
-func executeAndTrace[W vm.Word[W]](wm *vm.WordMachine[W], input map[string][]byte,
-) (lt.TraceFile, []error) {
 	//
-	var observer vm.TraceObserver[W, *vm.WordMachine[W]]
-	// Decode inputs against the compiled machine.
-	inputs, errs := vm.DecodeInputs(wm, input)
-	// Assuming that passed, boot and execute machine
-	if len(errs) == 0 {
-		if err := wm.Boot("main", inputs); err != nil {
-			errs = append(errs, err)
-		} else if _, err := vm.ExecuteAndObserve(wm, 1, &observer); err != nil {
-			errs = append(errs, err)
-		}
+	failures := binf.Check(tr, constraints.DEFAULT_TRACE_CONFIG)
+	// Determine whether trace accepted or not.
+	accepted := len(failures) == 0
+	// Process what happened versus what was supposed to happen.
+	if !accepted && test.expected {
+		//table.PrintTrace(tr)
+		t.Errorf("Trace rejected incorrectly (%s:%d): %s", test.filename, test.line, failures)
+	} else if accepted && !test.expected {
+		//printTrace(tr)
+		t.Errorf("Trace accepted incorrectly (%s:%d)", test.filename, test.line)
 	}
-	// Done
-	return observer.Trace(wm), errs
 }
 
 func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Uint]) []error {
@@ -224,17 +207,6 @@ func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Ui
 	}
 	//
 	return errors
-}
-
-func failIfErrors(t *testing.T, errs ...error) {
-	//
-	if len(errs) > 0 {
-		for _, err := range errs {
-			t.Errorf("unexpected tracing failure: %v", err)
-		}
-		// Don't continue
-		t.FailNow()
-	}
 }
 
 // TestConfig provides a simple mechanism for searching for testfiles.

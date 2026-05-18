@@ -15,6 +15,7 @@ package util
 import (
 	"fmt"
 	"strings"
+	"testing"
 
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/file"
@@ -22,6 +23,7 @@ import (
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/util"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
 )
 
 // TestCase simply packages together a filename, a line number and the
@@ -36,8 +38,10 @@ type TestCase struct {
 	expected bool
 	// field on which to execute test
 	field field.Config
-	// input/output data of test
-	data map[string][]byte
+	// input data of test
+	inputs map[string][]vm.Uint
+	// expected output data of test
+	outputs map[string][]vm.Uint
 }
 
 // CompileMachine compiles one or more zkc source files into a base machine for
@@ -61,7 +65,7 @@ func CompileZkc(field field.Config, srcfile source.File) []source.SyntaxError {
 
 // ReadTestsFile reads a file containing zero or more tests expressed as JSON,
 // where each test is on a separate line.
-func ReadTestsFile(cfg TestConfig, field field.Config, test string) []TestCase {
+func ReadTestsFile(t *testing.T, cfg TestConfig, f field.Config, test string, wm *vm.WordMachine[vm.Uint]) []TestCase {
 	var (
 		// Construct test filename
 		filename = fmt.Sprintf("%s/%s.%s", TestDir, test, cfg.extension)
@@ -74,16 +78,31 @@ func ReadTestsFile(cfg TestConfig, field field.Config, test string) []TestCase {
 		// Parse input line as JSON
 		if line != "" && !strings.HasPrefix(line, ";;") {
 			// Read inputs / outputs
-			inputs, err := util.ParseJsonInputFile([]byte(line))
+			data, err := util.ParseJsonInputFile([]byte(line))
 			//
 			if err != nil {
 				msg := fmt.Sprintf("%s:%d: %s", filename, i+1, err)
 				panic(msg)
 			}
-
-			tests = append(tests, TestCase{filename, uint(i + 1), cfg.expected, field, inputs})
+			// split data into inputs and (expected) outputs
+			inputs, outputs, errs := vm.DecodeInputsOutputs(wm, data)
+			//
+			failIfErrors(t, errs...)
+			//
+			tests = append(tests, TestCase{filename, uint(i + 1), cfg.expected, f, inputs, outputs})
 		}
 	}
 
 	return tests
+}
+
+func failIfErrors(t *testing.T, errs ...error) {
+	//
+	if len(errs) > 0 {
+		for _, err := range errs {
+			t.Errorf("unexpected tracing failure: %v", err)
+		}
+		// Don't continue
+		t.FailNow()
+	}
 }

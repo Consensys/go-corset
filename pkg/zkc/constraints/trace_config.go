@@ -12,6 +12,14 @@
 // SPDX-License-Identifier: Apache-2.0
 package constraints
 
+import (
+	"github.com/consensys/go-corset/pkg/ir"
+	"github.com/consensys/go-corset/pkg/trace"
+	"github.com/consensys/go-corset/pkg/util"
+	"github.com/consensys/go-corset/pkg/util/field"
+	"github.com/consensys/go-corset/pkg/zkc/vm"
+)
+
 // TraceConfig provides the necessary configuration for the trace generation.
 type TraceConfig struct {
 	// Indicates whether or not to perform defensive padding.  This is where
@@ -91,4 +99,40 @@ func (tb TraceConfig) Parallelism() bool {
 // BatchSize returns the configured batch size for this builder.
 func (tb TraceConfig) BatchSize() uint {
 	return tb.batchSize
+}
+
+// Trace generates a suitable trace from the given inputs for the contraints
+// embodied in this file.  This can return one (or more) errors if, for example,
+// the input is malformed (e.g. is missing expected fields and/or contains
+// unexpected fields).
+func Trace[F field.Element[F]](bf *BinaryFile[F], in map[string][]vm.Uint, cfg TraceConfig) (trace.Trace[F], []error) {
+	var (
+		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
+		stats    = util.NewPerfStats()
+		errs     []error
+		tr       trace.Trace[F]
+	)
+	// Execute machine
+	if err := bf.machine.Boot("main", in); err != nil {
+		errs = append(errs, err)
+	} else if _, err := vm.ExecuteAndObserve(&bf.machine, 1, &observer); err != nil {
+		errs = append(errs, err)
+	} else {
+		// Extract AIR constraints
+		constraints := bf.AirConstraints()
+		// Construct trace builder
+		builder := ir.NewTraceBuilder[F]().
+			WithValidation(cfg.validate).
+			WithDefensivePadding(cfg.defensive).
+			WithExpansionChecks(cfg.checks).
+			WithExpansion(true).
+			WithParallelism(cfg.parallel).
+			WithBatchSize(cfg.batchSize)
+		// Build the trace (finally)
+		tr, errs = builder.Build(constraints, observer.Trace(&bf.machine))
+	}
+	//
+	stats.Log("Trace generation")
+	// Done
+	return tr, errs
 }
