@@ -33,6 +33,8 @@ type BuildableModule[F any, C schema.Constraint[F], M any] interface {
 	AddConstraints(constraints ...C)
 	// Add one or more registers to this buildable module.
 	AddRegisters(registers ...register.Register)
+	// Set contents for static module
+	SetStaticContents(contents [][]F)
 }
 
 // BuildSchema builds all modules defined within a give SchemaBuilder instance.
@@ -59,6 +61,10 @@ func BuildModule[F field.Element[F], C schema.Constraint[F], T term.Expr[F, T], 
 	module.AddRegisters(m.Registers()...)
 	module.AddAssignments(m.Assignments()...)
 	module.AddConstraints(m.Constraints()...)
+	// set static contents (if applicable)
+	if m.IsStatic() {
+		module.SetStaticContents(m.StaticContents())
+	}
 	// Done
 	return module
 }
@@ -104,14 +110,15 @@ func NewSchemaBuilder[F field.Element[F], C schema.Constraint[F], T term.Expr[F,
 
 // NewModule constructs a new, empty module and returns its unique module
 // identifier.
-func (p *SchemaBuilder[F, C, T]) NewModule(name module.Name, padding, public, synthetic bool, keys uint) uint {
+func (p *SchemaBuilder[F, C, T]) NewModule(name module.Name, padding, public, synthetic, static, native bool,
+	keys uint) uint {
 	var mid = uint(len(p.externs) + len(p.modules))
 	// Sanity check this module is not already declared
 	if _, ok := p.modmap[name]; ok {
 		panic(fmt.Sprintf("module \"%s\" already declared", name))
 	}
 	//
-	p.modules = append(p.modules, NewModuleBuilder[F, C, T](name, mid, padding, public, synthetic, keys))
+	p.modules = append(p.modules, NewModuleBuilder[F, C, T](name, mid, padding, public, synthetic, static, native, keys))
 	p.modmap[name] = mid
 	//
 	return mid

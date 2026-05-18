@@ -30,3 +30,49 @@ func newLimbsMap(config field.Config, modules ...vm.Module) module.LimbsMap {
 	// compatibility.
 	return module.NewLimbsMap[uint](config, ms...)
 }
+
+// FoldContents folds the contents of a memory into a multi-dimensional representation.
+func foldContents[F field.Element[F]](inputs, outputs []register.Register, contents []F) [][]F {
+	var (
+		nInputs  = len(inputs)
+		nOutputs = len(outputs)
+		nRows    = len(contents) / nOutputs
+	)
+	// Compute upper bound
+	if nRows*nOutputs != len(contents) {
+		nRows++
+	}
+	//
+	rows := make([][]F, nRows)
+	//
+	for i := 0; i < len(contents); i++ {
+		var (
+			// Determine table row
+			row = uint(i / nOutputs)
+			// Determine output index
+			output = nInputs + (i % nOutputs)
+			// Extract row data
+			ith = rows[row]
+		)
+		// Construct row (if not previously constructed)
+		if ith == nil {
+			ith = make([]F, nInputs+nOutputs)
+			fillAddressLine(row, ith, inputs)
+			rows[row] = ith
+		}
+		//
+		ith[output] = contents[i]
+	}
+	//
+	return rows
+}
+
+func fillAddressLine[F field.Element[F]](index uint, row []F, inputs []register.Register) {
+	var address F
+	//
+	if len(inputs) != 1 {
+		panic("support multi-address static memories")
+	}
+	//
+	row[0] = address.SetUint64(uint64(index))
+}
