@@ -607,6 +607,10 @@ func (p *StmtCompiler) compileIntDiv(args []Expr, mapping []uint, target registe
 		nargs = append(nargs, &expr.Const[symbol.Resolved]{Constant: *product})
 	}
 
+	if len(nargs) < 2 {
+		p.errors = append(p.errors, p.srcmaps.SyntaxErrors(args[0], "division has no divisor")...)
+	}
+
 	// Compile all operands upfront.
 	sources, insns := p.compileArgs(mapping, nargs...)
 	// Chain divisions left-to-right: (((a / b) / c) / ...).
