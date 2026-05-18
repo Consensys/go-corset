@@ -450,7 +450,7 @@ func executeShr[W word.Word[W]](target register.Id, sources []register.Id, frame
 }
 
 // ==============================================================
-// Field Instructions (executable in word machine)
+// Hint Instructions (executable in word machine)
 // ==============================================================
 
 // executeDivHint computes quotient and remainder for a division hint.

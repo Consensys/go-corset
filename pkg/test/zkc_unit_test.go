@@ -516,7 +516,7 @@ func Test_ZkcUnit_Cast_05(t *testing.T) {
 // ===================================================================
 
 func Test_ZkcUnit_Div_01(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/div_01", util.DEFAULT_CONFIG.Constraints(true))
+	checkZkcUnit(t, "zkc/unit/div_01", util.DEFAULT_CONFIG)
 }
 
 func Test_ZkcUnit_Div_02(t *testing.T) {
