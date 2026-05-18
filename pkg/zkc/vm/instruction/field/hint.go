@@ -31,7 +31,7 @@ type Hint struct {
 
 // OpCode implementation for Instruction interface
 func (p *Hint) OpCode() opcode.OpCode {
-	return opcode.FIELD_HINT
+	return opcode.HINT_DIVISION
 }
 
 // IsWord implementation for instruction.Word interface

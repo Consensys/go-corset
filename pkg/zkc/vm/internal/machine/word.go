@@ -160,7 +160,7 @@ func (p WordExecutor[W]) Execute(insn instruction.Word, frame []W, regs []regist
 	// ==============================================================
 	// Field Instructions (executable in word machine)
 	// ==============================================================
-	case opcode.FIELD_HINT:
+	case opcode.HINT_DIVISION:
 		insn := insn.(*instruction.FieldHint)
 		err = executeDivHint(insn.Targets, insn.Sources, frame, regs)
 		// Fall thru

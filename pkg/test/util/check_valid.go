@@ -60,6 +60,10 @@ func (p Config) Fields(fields ...field.Config) Config {
 // Constraints determines whether or not to check constraints.
 func (p Config) Constraints(flag bool) Config {
 	p.constraints = flag
+	// One needs to lower zkc native to enable constraints checks
+	if flag {
+		p.nativeLowering = true
+	}
 	//
 	return p
 }
