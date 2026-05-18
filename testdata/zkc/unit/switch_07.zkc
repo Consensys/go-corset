@@ -1,5 +1,4 @@
 input inputs(c:u1) -> (in:u8)
-input outputs(c:u1) -> (out:u32)
 
 fn main() {
     var x:u32 = 12

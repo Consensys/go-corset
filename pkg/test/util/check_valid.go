@@ -16,18 +16,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/consensys/go-corset/pkg/cmd/zkc"
 	cmd_util "github.com/consensys/go-corset/pkg/cmd/zkc"
-	"github.com/consensys/go-corset/pkg/ir/mir"
-	"github.com/consensys/go-corset/pkg/schema/module"
-	"github.com/consensys/go-corset/pkg/trace/lt"
 	"github.com/consensys/go-corset/pkg/util/collection/array"
 	"github.com/consensys/go-corset/pkg/util/field"
 	"github.com/consensys/go-corset/pkg/util/field/bls12_377"
 	"github.com/consensys/go-corset/pkg/util/field/gf251"
 	"github.com/consensys/go-corset/pkg/util/field/gf8209"
 	"github.com/consensys/go-corset/pkg/util/field/koalabear"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	"github.com/consensys/go-corset/pkg/zkc/vm"
@@ -108,17 +103,17 @@ func checkValidInternal(t *testing.T, test, ext string, codeCfg codegen.Config, 
 		// Check suitable field
 		if cfg.field == nil || *cfg.field == field {
 			// Read tests from file
-			tests := ReadTestsFile(cfg, test)
+			tests := ReadTestsFile(t, cfg, field, test, vm)
 			// Run execution tests
 			for _, test := range tests {
-				runExecutionTest(t, program, vm, test)
+				runExecutionTest(t, vm, test)
 			}
 			// Run constraint tests
 			if constraints {
 				for _, test := range tests {
 					// FIXME: support reject tests
 					if test.expected {
-						runConstraintTest(t, codeCfg, program, test, field)
+						runConstraintTest(t, vm, test)
 					}
 				}
 			}
@@ -126,17 +121,17 @@ func checkValidInternal(t *testing.T, test, ext string, codeCfg codegen.Config, 
 	}
 }
 
-func runExecutionTest(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.Uint], test TestCase) {
+func runExecutionTest(t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	var (
-		err                   error
-		inputs, outputs, errs = program.DecodeInputsOutputs(test.data)
+		err  error
+		errs []error
 	)
 	// Execute machine
-	if err = wm.Boot("main", inputs); err == nil {
+	if err = wm.Boot("main", test.inputs); err == nil {
 		// Execute it
 		if _, err = vm.ExecuteAll(wm, 1024); err == nil && test.expected {
 			// Check outputs match
-			errs = append(errs, checkExpectedOutputs(outputs, wm)...)
+			errs = append(errs, checkExpectedOutputs(test.outputs, wm)...)
 		} else if err == nil && !test.expected {
 			errs = append(errs, fmt.Errorf("test accepted incorrectly"))
 		} else if !test.expected {
@@ -154,54 +149,47 @@ func runExecutionTest(t *testing.T, program ast.Program, wm *vm.WordMachine[vm.U
 	}
 }
 
-func runConstraintTest(t *testing.T, config codegen.Config, program ast.Program, test TestCase, f field.Config) {
+func runConstraintTest(t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	// Dispatch based on field config
-	switch f {
+	switch test.field {
 	case field.GF_251:
-		testConstraintsWithField[gf251.Element](t, config, program, test, f)
+		testConstraintsWithField[gf251.Element](t, wm, test)
 	case field.GF_8209:
-		testConstraintsWithField[gf8209.Element](t, config, program, test, f)
+		testConstraintsWithField[gf8209.Element](t, wm, test)
 	case field.KOALABEAR_16:
-		testConstraintsWithField[koalabear.Element](t, config, program, test, f)
+		testConstraintsWithField[koalabear.Element](t, wm, test)
 	case field.BLS12_377:
-		testConstraintsWithField[bls12_377.Element](t, config, program, test, f)
+		testConstraintsWithField[bls12_377.Element](t, wm, test)
 	default:
-		panic(fmt.Sprintf("unknown field configuration: %s", f.Name))
+		panic(fmt.Sprintf("unknown field configuration: %s", test.field.Name))
 	}
 }
 
-func testConstraintsWithField[F field.Element[F]](t *testing.T, config codegen.Config, program ast.Program,
-	test TestCase, f field.Config) {
+func testConstraintsWithField[F field.Element[F]](t *testing.T, wm *vm.WordMachine[vm.Uint], test TestCase) {
 	//
 	var (
-		wvm, tf = executeAndTrace(t, config, program, test.data)
-		id      = traceId{f.Name, "MIR", test.filename,
-			test.expected, true, true, mir.DEFAULT_OPTIMISATION_INDEX, true, int(test.line), 0}
-	)
-	// Lower to field machine
-	fvm := vm.LowerWordMachine[vm.Uint, F](f, wvm)
-	// lower to mir constraints
-	avm := constraints.GenerateMirConstraints(fvm)
-	// Construct limbs map
-	mapping := module.NewLimbsMap[F](f, avm.Modules().Collect()...)
-	// generate initial trace
-	checkTrace(t, tf, id, avm, mapping)
-}
-
-func executeAndTrace(t *testing.T, config codegen.Config, program ast.Program, input map[string][]byte,
-) (*vm.WordMachine[vm.Uint], lt.TraceFile) {
-	//
-	var (
-		wm       *vm.WordMachine[vm.Uint]
-		errors   []error
-		observer vm.TraceObserver[vm.Uint, *vm.WordMachine[vm.Uint]]
+		// construct binary file
+		binf = constraints.NewBinaryFile[F](nil, nil, test.field, *wm)
+		// generate trace
+		tr, errs = constraints.Trace(binf, test.inputs, constraints.DEFAULT_TRACE_CONFIG)
 	)
 	//
-	if wm, errors = zkc.ExecuteIrProgram("main", config, program, input, &observer); len(errors) > 0 {
-		t.Errorf("%v", errors)
+	if test.expected {
+		// test expected to pass, but tracing generated failures.
+		failIfErrors(t, errs...)
 	}
-	// Done
-	return wm, observer.Trace(wm)
+	//
+	failures := binf.Check(tr, constraints.DEFAULT_TRACE_CONFIG)
+	// Determine whether trace accepted or not.
+	accepted := len(failures) == 0
+	// Process what happened versus what was supposed to happen.
+	if !accepted && test.expected {
+		//table.PrintTrace(tr)
+		t.Errorf("Trace rejected incorrectly (%s:%d): %s", test.filename, test.line, failures)
+	} else if accepted && !test.expected {
+		//printTrace(tr)
+		t.Errorf("Trace accepted incorrectly (%s:%d)", test.filename, test.line)
+	}
 }
 
 func checkExpectedOutputs(outputs map[string][]vm.Uint, wm *vm.WordMachine[vm.Uint]) []error {

@@ -26,10 +26,8 @@ import (
 	"github.com/consensys/go-corset/pkg/util/source"
 	"github.com/consensys/go-corset/pkg/zkc/compiler"
 	"github.com/consensys/go-corset/pkg/zkc/compiler/ast"
-	"github.com/consensys/go-corset/pkg/zkc/compiler/codegen"
 	"github.com/consensys/go-corset/pkg/zkc/constraints"
 	"github.com/consensys/go-corset/pkg/zkc/util"
-	"github.com/consensys/go-corset/pkg/zkc/vm"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -96,32 +94,6 @@ func CompileSourceFiles(field field.Config, filenames ...string) ast.Program {
 	}
 	// Done
 	return macroProgram
-}
-
-// BuildSourceFiles accepts a set of source files and compiles them into a
-// machine for execution.  This can result, for example, in one or more syntax
-// errors, etc.
-func BuildSourceFiles[F field.Element[F]](config codegen.Config, field field.Config,
-	filenames ...string) *constraints.BinaryFile[F] {
-	//
-	var (
-		wm *vm.WordMachine[vm.Uint]
-		//
-		program = CompileSourceFiles(field, filenames...)
-		//
-		errs []source.SyntaxError
-	)
-	// Build our machine
-	if wm, errs = program.Compile(config); len(errs) > 0 {
-		// Report errors
-		for _, err := range errs {
-			printSyntaxError(&err)
-		}
-		// Fail
-		os.Exit(4)
-	}
-	// Done
-	return constraints.NewBinaryFile[F](nil, nil, field, *wm)
 }
 
 // Print a syntax error with appropriate highlighting.
