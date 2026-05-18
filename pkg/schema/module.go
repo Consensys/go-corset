@@ -73,10 +73,11 @@ type Module[F any] interface {
 	// that they can be used in conjunction with Find.
 	Keys() uint
 	// StaticContents returns the contents of this module, assuming it
-	// corresponds with a static reference table.  Specifically, this will panic
-	// when IsStatic() is false (i.e. since only static modules can have
-	// contents).
-	StaticContents() []F
+	// corresponds with a static reference table.  Each entry in the entries
+	// array returned should have Width() elements and correspond to a row in
+	// the static module.  NOTE: this will panic when IsStatic() is false (i.e.
+	// since only static modules can have contents).
+	StaticContents() (entries [][]F)
 	// Substitute any matchined labelled constants within this module
 	Substitute(map[string]F)
 }
@@ -103,7 +104,7 @@ type Table[F field.Element[F], C Constraint[F]] struct {
 	registers      []register.Register
 	constraints    []C
 	assignments    []Assignment[F]
-	staticContents []F
+	staticContents [][]F
 }
 
 // Init implementation for ir.InitModule interface.  The native flag indicates
@@ -201,7 +202,7 @@ func (p *Table[F, C]) IsStatic() bool {
 // StaticContents returns the contents of this static reference table.  It
 // panics if invoked on a non-static module, since no contents are stored in
 // that case.
-func (p *Table[F, C]) StaticContents() []F {
+func (p *Table[F, C]) StaticContents() [][]F {
 	if !p.static {
 		panic(fmt.Sprintf("module \"%s\" is not static", p.name))
 	}
@@ -290,7 +291,7 @@ func (p *Table[F, C]) AddRegisters(registers ...register.Register) {
 
 // SetStaticContents sets the contents of this static reference table.  It
 // panics if invoked on a non-static module.
-func (p *Table[F, C]) SetStaticContents(contents []F) {
+func (p *Table[F, C]) SetStaticContents(contents [][]F) {
 	if !p.static {
 		panic(fmt.Sprintf("module \"%s\" is not static", p.name))
 	}

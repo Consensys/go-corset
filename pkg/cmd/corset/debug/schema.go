@@ -111,6 +111,8 @@ func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchem
 	printRegisters(module, "inputs", func(r register.Register) bool { return r.IsInput() })
 	printRegisters(module, "outputs", func(r register.Register) bool { return r.IsOutput() })
 	printRegisters(module, "computed", func(r register.Register) bool { return r.IsComputed() })
+	// Print static contents (if applicable)
+	printStaticContents(module)
 	// Print computations
 	for i := module.Assignments(); i.HasNext(); {
 		ith := i.Next()
@@ -127,6 +129,34 @@ func printModule[F field.Element[F]](module schema.Module[F], sc schema.AnySchem
 		}
 		//
 		fmt.Print(text)
+	}
+}
+
+func printStaticContents[F field.Element[F]](module schema.Module[F]) {
+	if module.IsStatic() {
+		var contents = module.StaticContents()
+		//
+		fmt.Println("(contents")
+		//
+		for i, row := range contents {
+			fmt.Print("   (")
+			//
+			for j, v := range row {
+				if j != 0 {
+					fmt.Print(", ")
+				}
+				//
+				fmt.Printf("0x%s", v.Text(16))
+			}
+			//
+			if i+1 != len(contents) {
+				fmt.Println("),")
+			} else {
+				fmt.Println(")")
+			}
+		}
+		//
+		fmt.Println(")")
 	}
 }
 
