@@ -33,9 +33,7 @@ func shiftChainDepth(width uint) uint {
 
 // shiftParams are the whole-program parameters of the shared shift cascade.
 type shiftParams struct {
-	// maxWidth is the largest value width across all SHL/SHR call sites.  The
-	// single cascade operates at this width; narrower call sites zero-extend
-	// their value into it and truncate the result back down.
+	// maxWidth is the largest value width across all SHL/SHR call sites.
 	maxWidth uint
 	// maxAmtWidth is the largest shift-amount register width across all call
 	// sites.  This width is only consumed by the guard module.
@@ -251,13 +249,6 @@ func (p *shiftHelperBuilder[W]) newComputedWidth(prefix string, width uint) byte
 // direction (the two arguments differ), making a depth-d chain execute 2^d - 1
 // calls rather than d.
 //
-// Each direction's conditional is a skip diamond, and the call to level j-1 is
-// unconditional, so each level still contains exactly one call site.
-//
-// A shift by the constant k is realised purely by Destruct (for SHR: drop the
-// low k bits and zero-extend the rest) or Destruct + Concat (for SHL: drop the
-// high k bits and append k zero bits) — no field arithmetic, so this works for
-// any field modulus.
 // subID is the module id of level j-1; it is ignored when j == 1.
 func newShiftLevelHelper[W word.Word[W]](maxWidth, level, subID uint) descriptor.Module[W] {
 	b := newShiftHelperBuilder[W](maxWidth, level)
