@@ -97,16 +97,19 @@ func lowerBitwiseCode[W word.Word[W]](
 
 // lowerBitwiseShlShr rewrites a SHL/SHR into a call to the shared cascade,
 // which operates at helpers.maxWidth() and returns both directions as
-// (out_shl, out_shr).  A call site therefore has to adapt in two ways:
+// (out_shl, out_shr).  A partial call binds only the requested direction and
+// discards the other.
 //
-//   - Width: a value narrower than maxWidth is zero-extended on the way in and
-//     the result truncated on the way out.  This is sound in both directions —
-//     for SHR the extended operand is already zero above bit w, and for SHL the
-//     bits truncation drops are exactly those that overflowed w anyway.  It
-//     also subsumes out-of-range amounts: n >= w pushes every bit of a w-bit
-//     value out of the low w bits, so the truncated result is zero.
-//   - Direction: a partial call binds only the requested output and discards
-//     the other.
+// A call site narrower than maxWidth needs no explicit widening.
+//
+// Narrowing the result back down is only necessary for SHL.  Binding a maxWidth
+// output into a w-bit target likewise pads the high limbs to zero, which
+// asserts the result fits in w bits:
+//
+//   - For SHR that assertion always holds — the operand is zero above bit w, so
+//     the shifted result is too — making the direct binding both sound and free.
+//   - For SHL the discarded high bits are legitimately non-zero, the result must
+//     therefore come back at maxWidth and be destructed.
 func lowerBitwiseShlShr[W word.Word[W]](
 	b *bytecode.Bitwise[W],
 	registers split.Allocator[W],
@@ -122,33 +125,32 @@ func lowerBitwiseShlShr[W word.Word[W]](
 		width    = uint(b.Bitwidth)
 		maxWidth = helpers.maxWidth()
 		id       = helpers.ensureShift(amtWidth)
-		narrow   = width < maxWidth
-		zero     W
-		code     []Bytecode[W]
+		// Only a narrowing SHL has to route its result through a wider register.
+		truncate = b.Op == bytecode.OP_SHL && width < maxWidth
 	)
-	// Zero-extend the value into the cascade's width.
-	value := b.Left
-	if narrow {
-		value = registers.Allocate("", util.Some(maxWidth))
-		code = append(code, bytecode.AddConst(value, []bytecode.RegisterId{b.Left}, zero))
+	//
+	result := b.Target
+	if truncate {
+		result = registers.Allocate("raw_shl_res", util.Some(maxWidth))
 	}
 	// Bind only the requested direction, discarding the other.
-	result := b.Target
-	if narrow {
-		result = registers.Allocate("", util.Some(maxWidth))
-	}
-	//
-	returns := []bytecode.RegisterId{result, bytecode.DISCARD}
-	if b.Op == bytecode.OP_SHR {
+	var returns []bytecode.RegisterId
+
+	switch b.Op {
+	case bytecode.OP_SHL:
+		returns = []bytecode.RegisterId{result, bytecode.DISCARD}
+	case bytecode.OP_SHR:
 		returns = []bytecode.RegisterId{bytecode.DISCARD, result}
+	default:
+		panic("unsupported opcode")
 	}
 	//
-	code = append(code, bytecode.CallFun[W](uint16(id),
-		[]bytecode.RegisterId{value, amount}, returns))
-	// Truncate back down by destructing off the high bits (little-endian, so
-	// the target takes the low width bits).
-	if narrow {
-		high := registers.Allocate("", util.Some(maxWidth-width))
+	code := []Bytecode[W]{bytecode.CallFun[W](uint16(id),
+		[]bytecode.RegisterId{b.Left, amount}, returns)}
+	// Truncate by destructing off the high bits (little-endian, so the target
+	// takes the low width bits).
+	if truncate {
+		high := registers.Allocate("shl_res_high", util.Some(maxWidth-width))
 		code = append(code, bytecode.AddVec[W](
 			[]bytecode.RegisterId{b.Target, high}, []bytecode.RegisterId{result}))
 	}

@@ -851,6 +851,7 @@ func Test_ZkcUnit_Shift_13(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/shift_13", DEFAULT_UNIT_CONFIG)
 }
 
+// a mix of shr and shl with small & big shifted and shifting value
 func Test_ZkcUnit_Shift_14(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/shift_14", DEFAULT_UNIT_CONFIG)
 }
