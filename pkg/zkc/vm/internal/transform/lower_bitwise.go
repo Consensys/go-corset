@@ -33,7 +33,7 @@ import (
 func LowerBitwise[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	var (
 		out     = slices.Clone(program.Modules())
-		helpers = newShiftHelpers[W](uint(len(out)), scanShiftAmountWidths(out))
+		helpers = newShiftHelpers[W](uint(len(out)), scanShiftParams(out))
 	)
 
 	for i, mod := range out {
@@ -95,6 +95,18 @@ func lowerBitwiseCode[W word.Word[W]](
 	}
 }
 
+// lowerBitwiseShlShr rewrites a SHL/SHR into a call to the shared cascade,
+// which operates at helpers.maxWidth() and returns both directions as
+// (out_shl, out_shr).  A call site therefore has to adapt in two ways:
+//
+//   - Width: a value narrower than maxWidth is zero-extended on the way in and
+//     the result truncated on the way out.  This is sound in both directions —
+//     for SHR the extended operand is already zero above bit w, and for SHL the
+//     bits truncation drops are exactly those that overflowed w anyway.  It
+//     also subsumes out-of-range amounts: n >= w pushes every bit of a w-bit
+//     value out of the low w bits, so the truncated result is zero.
+//   - Direction: a partial call binds only the requested output and discards
+//     the other.
 func lowerBitwiseShlShr[W word.Word[W]](
 	b *bytecode.Bitwise[W],
 	registers split.Allocator[W],
@@ -107,12 +119,41 @@ func lowerBitwiseShlShr[W word.Word[W]](
 		// NOTE: bitwidth of shift (e.g. "x << y") determined by width of first
 		// argument only (i.e. "x").
 		amtWidth = registers.Registers()[amount].Bitwidth().Unwrap()
-		id       = helpers.ensureShift(b.Op, uint(b.Bitwidth), amtWidth)
+		width    = uint(b.Bitwidth)
+		maxWidth = helpers.maxWidth()
+		id       = helpers.ensureShift(amtWidth)
+		narrow   = width < maxWidth
+		zero     W
+		code     []Bytecode[W]
 	)
-	//
-	return []Bytecode[W]{
-		bytecode.CallFun[W](uint16(id), []bytecode.RegisterId{b.Left, amount}, []bytecode.RegisterId{b.Target}),
+	// Zero-extend the value into the cascade's width.
+	value := b.Left
+	if narrow {
+		value = registers.Allocate("", util.Some(maxWidth))
+		code = append(code, bytecode.AddConst(value, []bytecode.RegisterId{b.Left}, zero))
 	}
+	// Bind only the requested direction, discarding the other.
+	result := b.Target
+	if narrow {
+		result = registers.Allocate("", util.Some(maxWidth))
+	}
+	//
+	returns := []bytecode.RegisterId{result, bytecode.DISCARD}
+	if b.Op == bytecode.OP_SHR {
+		returns = []bytecode.RegisterId{bytecode.DISCARD, result}
+	}
+	//
+	code = append(code, bytecode.CallFun[W](uint16(id),
+		[]bytecode.RegisterId{value, amount}, returns))
+	// Truncate back down by destructing off the high bits (little-endian, so
+	// the target takes the low width bits).
+	if narrow {
+		high := registers.Allocate("", util.Some(maxWidth-width))
+		code = append(code, bytecode.AddVec[W](
+			[]bytecode.RegisterId{b.Target, high}, []bytecode.RegisterId{result}))
+	}
+
+	return code
 }
 
 // inlineBitwiseNot emits ~x as (MASK - x) directly into the caller's bytecode
@@ -153,7 +194,8 @@ func maxBitwidthOf[W word.Word[W]](regs []descriptor.Register[W], targets ...byt
 }
 
 // bitwiseOpName is the short name used in helper module names for a bitwise
-// operation.
+// operation.  SHL/SHR have no entry: both directions are served by a single
+// merged cascade whose name is fixed (see shiftHelperName).
 func bitwiseOpName(op bytecode.Operation) string {
 	switch op {
 	case bytecode.OP_AND:
@@ -164,10 +206,6 @@ func bitwiseOpName(op bytecode.Operation) string {
 		return "xor"
 	case bytecode.OP_NOT:
 		return "not"
-	case bytecode.OP_SHL:
-		return "shl"
-	case bytecode.OP_SHR:
-		return "shr"
 	default:
 		panic(fmt.Sprintf("unexpected op: %v", op))
 	}

@@ -1,0 +1,32 @@
+pub input in(address:u12) -> (in:u64)
+
+fn main() {
+    var small:u9 = in[0] as u9
+    var big:u64 = in[1]
+    var shf_small:u1 = in[2] as u1
+    var shf_big:u32 = in[3] as u32
+
+    var ssl:u9 = small << shf_small
+    var ssr:u9 = small >> shf_small
+    var sbl:u9 = small << shf_big
+    var sbr:u9 = small >> shf_big
+    var bsl:u64 = big << shf_small
+    var bsr:u64 = big >> shf_small
+    var bbl:u64 = big << shf_big
+    var bbr:u64 = big >> shf_big
+
+    var ssl_exp:u9 = in[4] as u9
+    var ssr_exp:u9 = in[5] as u9
+    var sbl_exp:u9 = in[6] as u9
+    var sbr_exp:u9 = in[7] as u9
+    var bsl_exp:u64 = in[8]
+    var bsr_exp:u64 = in[9]
+    var bbl_exp:u64 = in[10]
+    var bbr_exp:u64 = in[11]
+
+    if (ssl == ssl_exp && ssr == ssr_exp && sbl == sbl_exp && sbr == sbr_exp && bsl == bsl_exp && bsr == bsr_exp && bbl == bbl_exp && bbr == bbr_exp)
+    {
+        return
+    }
+    fail
+}
