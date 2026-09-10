@@ -23,12 +23,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
-// shiftKey identifies a shift helper by operation and value width.
-type shiftKey struct {
-	op    bytecode.Operation
-	width uint
-}
-
 // shiftChainDepth returns ceil(log2(width)): the number of levels in the
 // barrel-shifter chain for a value of the given width.  A shift amount of
 // shiftChainDepth(w) bits is sufficient to express every in-range shift
@@ -37,11 +31,21 @@ func shiftChainDepth(width uint) uint {
 	return uint(bits.Len(width - 1))
 }
 
-// scanShiftAmountWidths scans all functions and returns, for each (operation,
-// value-width) pair, the maximum shift-amount register width seen across all
-// call sites.  This width is only consumed by the guard module.
-func scanShiftAmountWidths[W word.Word[W]](modules []descriptor.Module[W]) map[shiftKey]uint {
-	result := make(map[shiftKey]uint)
+// shiftParams are the whole-program parameters of the shared shift cascade.
+type shiftParams struct {
+	// maxWidth is the largest value width across all SHL/SHR call sites.
+	maxWidth uint
+	// maxAmtWidth is the largest shift-amount register width across all call
+	// sites.  This width is only consumed by the guard module.
+	maxAmtWidth uint
+}
+
+// scanShiftParams scans all functions for SHL/SHR bytecodes and returns the
+// parameters of the shared cascade, taken across the call sites of *both*
+// operations.  A zero maxWidth means the program performs no shifts at all, in
+// which case no cascade module is ever built.
+func scanShiftParams[W word.Word[W]](modules []descriptor.Module[W]) shiftParams {
+	var result shiftParams
 
 	for _, mod := range modules {
 		fn, ok := mod.(*descriptor.Function[W])
@@ -61,12 +65,9 @@ func scanShiftAmountWidths[W word.Word[W]](modules []descriptor.Module[W]) map[s
 				switch bw.Op {
 				case bytecode.OP_SHL, bytecode.OP_SHR:
 					// NOTE: only the source register width is used, not the target
-					key := shiftKey{op: bw.Op, width: uint(bw.Bitwidth)}
-					amountWidth := regs[bw.Right.AsRegister()].Bitwidth().Unwrap()
-
-					if existing, seen := result[key]; !seen || amountWidth > existing {
-						result[key] = amountWidth
-					}
+					result.maxWidth = max(result.maxWidth, uint(bw.Bitwidth))
+					result.maxAmtWidth = max(result.maxAmtWidth,
+						regs[bw.Right.AsRegister()].Bitwidth().Unwrap())
 				}
 			}
 		}
@@ -75,32 +76,28 @@ func scanShiftAmountWidths[W word.Word[W]](modules []descriptor.Module[W]) map[s
 	return result
 }
 
-// shiftHelperKey identifies a SHL/SHR helper module.
-type shiftHelperKey struct {
-	op    bytecode.Operation
-	width uint
-	// amtWidth is the width of the helper's arg2 (amount) register: level j of
-	// a barrel chain has amtWidth == j, while a guard carries the widest amount
-	// width seen across its call sites (always > the chain depth, so guard and
-	// level keys never collide).
-	amtWidth uint
-}
-
-// shiftHelpers is the registry of SHL/SHR helper modules built by
+// shiftHelpers is the registry of the single SHL/SHR cascade built by
 // LowerBitwise: the barrel-chain levels plus (when some call site's amount
-// register is wider than the chain) a guard per (op, value-width).
+// register is wider than the chain) one guard.  Every module operates at
+// params.maxWidth and returns both shift directions, so this one cascade serves
+// every (operation, value-width) combination appearing in the program.
 type shiftHelpers[W word.Word[W]] struct {
-	baseID       uint
-	ids          map[shiftHelperKey]uint
-	items        []descriptor.Module[W]
-	amountWidths map[shiftKey]uint
+	baseID uint
+	params shiftParams
+	// ids maps a module's arg2 (amount) width to its module id.  Level j of the
+	// barrel chain has arg2 width j, while the guard carries the widest amount
+	// width seen across all call sites — always > the chain depth, since the
+	// guard only exists when some call site exceeds it, so guard and level keys
+	// never collide.
+	ids   map[uint]uint
+	items []descriptor.Module[W]
 }
 
-func newShiftHelpers[W word.Word[W]](baseID uint, amountWidths map[shiftKey]uint) *shiftHelpers[W] {
+func newShiftHelpers[W word.Word[W]](baseID uint, params shiftParams) *shiftHelpers[W] {
 	return &shiftHelpers[W]{
-		baseID:       baseID,
-		ids:          make(map[shiftHelperKey]uint),
-		amountWidths: amountWidths,
+		baseID: baseID,
+		params: params,
+		ids:    make(map[uint]uint),
 	}
 }
 
@@ -108,95 +105,87 @@ func (p *shiftHelpers[W]) modules() []descriptor.Module[W] {
 	return p.items
 }
 
-// shiftAmountWidth returns the width of the guard's arg2 for a given (opcode,
-// value-width) pair: the maximum amount register width seen across all call
-// sites, defaulting to valueWidth if no entry was recorded.
-func (p *shiftHelpers[W]) shiftAmountWidth(op bytecode.Operation, valueWidth uint) uint {
-	if w, ok := p.amountWidths[shiftKey{op: op, width: valueWidth}]; ok {
-		return w
-	}
-
-	return valueWidth
+// maxWidth is the width at which the cascade operates: every call site
+// zero-extends its value into this width and truncates the result back down.
+func (p *shiftHelpers[W]) maxWidth() uint {
+	return p.params.maxWidth
 }
 
-// ensureShift returns the module id of the shift (SHL/SHR) helper a call site
-// with the given value and amount register widths should invoke, creating any
-// missing modules.  Call sites whose amount fits the barrel chain (amtWidth <=
-// ceil(log2(width))) enter the chain directly at their own level; wider call
+// ensureShift returns the module id of the cascade entry point a call site with
+// the given amount register width should invoke, creating any missing modules.
+// Call sites whose amount fits the barrel chain (amtWidth <=
+// ceil(log2(maxWidth))) enter the chain directly at their own level; wider call
 // sites go through the guard, which zeroes out-of-range amounts first.
-func (p *shiftHelpers[W]) ensureShift(op bytecode.Operation, width uint, amtWidth uint) uint {
-	if op != bytecode.OP_SHL && op != bytecode.OP_SHR {
-		panic(fmt.Sprintf("ensureShift: expected shift operation, got %d", op))
+func (p *shiftHelpers[W]) ensureShift(amtWidth uint) uint {
+	if depth := shiftChainDepth(p.params.maxWidth); amtWidth <= depth {
+		return p.ensureShiftLevel(amtWidth)
 	}
 
-	if depth := shiftChainDepth(width); amtWidth <= depth {
-		return p.ensureShiftLevel(op, width, amtWidth)
-	}
-
-	return p.ensureShiftGuard(op, width)
+	return p.ensureShiftGuard()
 }
 
-// ensureShiftLevel returns the module id of barrel-chain level `level` for the
-// given (op, width), creating it — and, bottom-up, every level below it — on
-// first use.  Building level-1 first means each factory receives the id of an
-// already-registered callee, so no pre-registration is needed.
-func (p *shiftHelpers[W]) ensureShiftLevel(op bytecode.Operation, width uint, level uint) uint {
-	key := shiftHelperKey{op: op, width: width, amtWidth: level}
-
-	if id, ok := p.ids[key]; ok {
+// ensureShiftLevel returns the module id of barrel-chain level `level`,
+// creating it — and, bottom-up, every level below it — on first use.  Building
+// level-1 first means each factory receives the id of an already-registered
+// callee, so no pre-registration is needed.
+func (p *shiftHelpers[W]) ensureShiftLevel(level uint) uint {
+	if id, ok := p.ids[level]; ok {
 		return id
 	}
 
 	var subID uint
 	if level > 1 {
-		subID = p.ensureShiftLevel(op, width, level-1)
+		subID = p.ensureShiftLevel(level - 1)
 	}
 
-	id := p.baseID + uint(len(p.items))
-	p.ids[key] = id
-	p.items = append(p.items, newShiftLevelHelper[W](key, subID))
-
-	return id
+	return p.register(level, newShiftLevelHelper[W](p.params.maxWidth, level, subID))
 }
 
-// ensureShiftGuard returns the module id of the guard for the given (op,
-// width), creating it (and the full level chain beneath it) on first use.
-// Its arg2 width is the maximum amount width seen across all call sites, so
-// every wide call site can pass its amount register with an upcast.
-func (p *shiftHelpers[W]) ensureShiftGuard(op bytecode.Operation, width uint) uint {
-	key := shiftHelperKey{op: op, width: width, amtWidth: p.shiftAmountWidth(op, width)}
+// ensureShiftGuard returns the module id of the guard, creating it (and the
+// full level chain beneath it) on first use.  Its arg2 width is the maximum
+// amount width seen across all call sites, so every wide call site can pass its
+// amount register with an upcast.
+func (p *shiftHelpers[W]) ensureShiftGuard() uint {
+	amtWidth := p.params.maxAmtWidth
 
-	if id, ok := p.ids[key]; ok {
+	if id, ok := p.ids[amtWidth]; ok {
 		return id
 	}
 
 	var levelID uint
 
-	if depth := shiftChainDepth(width); depth > 0 {
-		levelID = p.ensureShiftLevel(op, width, depth)
+	if depth := shiftChainDepth(p.params.maxWidth); depth > 0 {
+		levelID = p.ensureShiftLevel(depth)
 	}
 
+	return p.register(amtWidth, newShiftGuardHelper[W](p.params.maxWidth, amtWidth, levelID))
+}
+
+// register assigns the next module id to a freshly built cascade module.
+func (p *shiftHelpers[W]) register(amtWidth uint, mod descriptor.Module[W]) uint {
 	id := p.baseID + uint(len(p.items))
-	p.ids[key] = id
-	p.items = append(p.items, newShiftGuardHelper[W](key, levelID))
+	p.ids[amtWidth] = id
+	p.items = append(p.items, mod)
 
 	return id
 }
 
-// shiftHelperName is the module name of a shift helper: the operation, the
-// value width and the amount (arg2) width.
-func shiftHelperName(key shiftHelperKey) string {
-	return fmt.Sprintf("$bit_%s_u%d_u%d", bitwiseOpName(key.op), key.width, key.amtWidth)
+// shiftHelperName is the module name of a cascade module: the shared value
+// width and the amount (arg2) width.  Both directions are computed by the same
+// module, hence the direction-agnostic "shf".
+func shiftHelperName(maxWidth, amtWidth uint) string {
+	return fmt.Sprintf("$bit_shf_u%d_u%d", maxWidth, amtWidth)
 }
 
-// shiftHelperBuilder accumulates the registers and code of a shift helper
-// function: a value input (arg1), an amount input (arg2), a single output
-// register, and any computed temporaries.
+// shiftHelperBuilder accumulates the registers and code of a cascade module: a
+// value input (arg1), an amount input (arg2), one output register per shift
+// direction, and any computed temporaries.
 type shiftHelperBuilder[W word.Word[W]] struct {
 	width   uint
 	value   bytecode.RegisterId
 	amount  bytecode.RegisterId
-	output  bytecode.RegisterId
+	outShl  bytecode.RegisterId
+	outShr  bytecode.RegisterId
 	base    []descriptor.Register[W]
 	code    []Bytecode[W]
 	nextTmp uint
@@ -209,11 +198,13 @@ func newShiftHelperBuilder[W word.Word[W]](width, amtWidth uint) *shiftHelperBui
 		width:  width,
 		value:  bytecode.RegisterId(0),
 		amount: bytecode.RegisterId(1),
-		output: bytecode.RegisterId(2),
+		outShl: bytecode.RegisterId(2),
+		outShr: bytecode.RegisterId(3),
 		base: []descriptor.Register[W]{
 			descriptor.NewRegister(register.INPUT_REGISTER, "arg1", util.Some(width), padding),
 			descriptor.NewRegister(register.INPUT_REGISTER, "arg2", util.Some(amtWidth), padding),
-			descriptor.NewRegister(register.OUTPUT_REGISTER, "out", util.Some(width), padding),
+			descriptor.NewRegister(register.OUTPUT_REGISTER, "out_shl", util.Some(width), padding),
+			descriptor.NewRegister(register.OUTPUT_REGISTER, "out_shr", util.Some(width), padding),
 		},
 	}
 }
@@ -241,39 +232,42 @@ func (p *shiftHelperBuilder[W]) newComputedWidth(prefix string, width uint) byte
 	return id
 }
 
-// newShiftLevelHelper builds level j (= key.amtWidth) of the barrel-shifter
-// chain for SHL/SHR over values of width w (= key.width):
+// newShiftLevelHelper builds level j (= level) of the barrel-shifter chain over
+// values of width w (= maxWidth).  Each level returns *both* shift directions:
 //
-// let bit:u1, low:u(j-1) = n
+// let bit:u1, nlow:u(j-1) = n, and (lo_shl, lo_shr) = level_{j-1}(a, nlow)
 //
-//	level_j(a, n:u_j)  =  level_{j-1}(bit == 0 ? a : a<op>2^(j-1), nlow)
-//	level_1(a, n:u1)   =  n == 0 ? a : a<op>1
+//	level_j(a, n:u_j)  =  ( bit == 0 ? lo_shl : lo_shl << 2^(j-1),
+//	                        bit == 0 ? lo_shr : lo_shr >> 2^(j-1) )
+//	level_1(a, n:u1)   =  n == 0 ? (a, a) : (a << 1, a >> 1)
 //
-// The conditional is a skip diamond selecting `next`; the call to level j-1
-// is unconditional, so each level contains exactly one call site.
+// Note the constant shift is applied to the *result* of the recursive call
+// rather than to its argument.  Shifting is associative in the amount —
+// (a << nlow) << 2^(j-1) == a << (nlow + 2^(j-1)) == a << n, and likewise for
+// SHR — so both formulations are correct, but this one lets a single recursive
+// call serve both directions.  Pre-shifting instead would need one call per
+// direction (the two arguments differ), making a depth-d chain execute 2^d - 1
+// calls rather than d.
 //
-// where a<op>k is a shift by the constant k, realised purely by Destruct (for
-// SHR: drop the low k bits and zero-extend the rest) or Destruct + Concat (for
-// SHL: drop the high k bits and append k zero bits) — no field arithmetic, so
-// this works for any field modulus.
 // subID is the module id of level j-1; it is ignored when j == 1.
-func newShiftLevelHelper[W word.Word[W]](key shiftHelperKey, subID uint) descriptor.Module[W] {
-	b := newShiftHelperBuilder[W](key.width, key.amtWidth)
+func newShiftLevelHelper[W word.Word[W]](maxWidth, level, subID uint) descriptor.Module[W] {
+	b := newShiftHelperBuilder[W](maxWidth, level)
 
-	a, n, out := b.value, b.amount, b.output
-	width := key.width
-	level := key.amtWidth
+	a, n := b.value, b.amount
+	outShl, outShr := b.outShl, b.outShr
 	zero := word.Const64[W](0)
 
 	if level == 1 {
-		// if n == 0: return a
-		b.emit(bytecode.NewSkipIf(bytecode.CONDITION_NEQ, 2,
+		// if n == 0: return (a, a)
+		b.emit(bytecode.NewSkipIf(bytecode.CONDITION_NEQ, 3,
 			bytecode.NewRegisterVector(n),
 			bytecode.NewConstantOperand(zero)))
-		b.emit(bytecode.AddConst(out, []bytecode.RegisterId{a}, zero))
+		b.emit(bytecode.AddConst(outShl, []bytecode.RegisterId{a}, zero))
+		b.emit(bytecode.AddConst(outShr, []bytecode.RegisterId{a}, zero))
 		b.emit(bytecode.NewRet[W]())
-		// out = a shifted by 1
-		b.emitAll(shiftByConst(b, key.op, out, a, 1))
+		// return (a << 1, a >> 1)
+		b.emitAll(shiftByConst(b, bytecode.OP_SHL, outShl, a, 1))
+		b.emitAll(shiftByConst(b, bytecode.OP_SHR, outShr, a, 1))
 		b.emit(bytecode.NewRet[W]())
 	} else {
 		shift := uint(1) << (level - 1)
@@ -281,22 +275,33 @@ func newShiftLevelHelper[W word.Word[W]](key shiftHelperKey, subID uint) descrip
 		nlow := b.newComputedWidth("$nlow", level-1)
 		bit := b.newComputedWidth("$bit", 1)
 		b.emit(bytecode.AddVec[W]([]bytecode.RegisterId{nlow, bit}, []bytecode.RegisterId{n}))
-		// next = bit == 0 ? a : a shifted by 2^(level-1)
-		next := b.newComputedWidth("$next", width)
-		shifted := shiftByConst(b, key.op, next, a, shift)
-		b.emit(bytecode.NewSkipIf(bytecode.CONDITION_NEQ, 2,
-			bytecode.NewRegisterVector(bit),
-			bytecode.NewConstantOperand(zero)))
-		b.emit(bytecode.AddConst(next, []bytecode.RegisterId{a}, zero))
-		b.emit(bytecode.NewSkip[W](uint16(len(shifted))))
-		b.emitAll(shifted)
-		// return level_{j-1}(next, nlow)
-		b.emit(bytecode.CallFun[W](uint16(subID), []bytecode.RegisterId{next, nlow}, []bytecode.RegisterId{out}))
+		// lo_shl, lo_shr = level_{j-1}(a, nlow)
+		loShl := b.newComputedWidth("$lo_shl", maxWidth)
+		loShr := b.newComputedWidth("$lo_shr", maxWidth)
+		b.emit(bytecode.CallFun[W](uint16(subID),
+			[]bytecode.RegisterId{a, nlow}, []bytecode.RegisterId{loShl, loShr}))
+		// out_shl = bit == 0 ? lo_shl : lo_shl << 2^(level-1)
+		b.emitDiamond(bit, outShl, loShl, shiftByConst(b, bytecode.OP_SHL, outShl, loShl, shift))
+		// out_shr = bit == 0 ? lo_shr : lo_shr >> 2^(level-1)
+		b.emitDiamond(bit, outShr, loShr, shiftByConst(b, bytecode.OP_SHR, outShr, loShr, shift))
 		b.emit(bytecode.NewRet[W]())
 	}
 
-	return descriptor.NewFunction(shiftHelperName(key), b.regs(), descriptor.BYTECODE_FUNCTION, nil,
+	return descriptor.NewFunction(shiftHelperName(maxWidth, level), b.regs(), descriptor.BYTECODE_FUNCTION, nil,
 		[]BytecodeVector[W]{bytecode.NewVector(b.code...)})
+}
+
+// emitDiamond emits "target = bit == 0 ? source : <shifted>", where shifted is
+// a pre-built code sequence (see shiftByConst) already writing into target.
+func (p *shiftHelperBuilder[W]) emitDiamond(bit, target, source bytecode.RegisterId, shifted []Bytecode[W]) {
+	zero := word.Const64[W](0)
+	// If bit != 0, skip over the copy and its trailing Skip, landing on shifted.
+	p.emit(bytecode.NewSkipIf(bytecode.CONDITION_NEQ, 2,
+		bytecode.NewRegisterVector(bit),
+		bytecode.NewConstantOperand(zero)))
+	p.emit(bytecode.AddConst(target, []bytecode.RegisterId{source}, zero))
+	p.emit(bytecode.NewSkip[W](uint16(len(shifted))))
+	p.emitAll(shifted)
 }
 
 // shiftByConst returns the codes computing "target = a op shift" for a
@@ -340,31 +345,35 @@ func shiftByConst[W word.Word[W]](b *shiftHelperBuilder[W], op bytecode.Operatio
 
 // newShiftGuardHelper builds the entry module for shift call sites whose
 // amount register is wider than the level chain (amtWidth > k where k =
-// shiftChainDepth(width)):
+// shiftChainDepth(maxWidth)):
 //
-//	guard(a, n:u_amtWidth)  =  vhigh != 0 ? 0 : level_k(a, vlow)   where vhigh:vlow = n
+//	guard(a, n:u_amtWidth)  =  vhigh != 0 ? (0, 0) : level_k(a, vlow)
 //
-// Any amount with a bit set above the low k bits is at least 2^k >= width and
-// so shifts everything out.  Amounts in [width, 2^k) — possible when width is
-// not a power of two — need no special handling: the level chain strips more
-// bits than the value has and naturally yields zero.  For width == 1 there are
-// no levels (k == 0) and the guard degenerates to "n == 0 ? a : 0"; levelID is
-// ignored in that case.
-func newShiftGuardHelper[W word.Word[W]](key shiftHelperKey, levelID uint) descriptor.Module[W] {
-	amtWidth := key.amtWidth
+// where vhigh:vlow = n.  Any amount with a bit set above the low k bits is at
+// least 2^k >= maxWidth and so shifts everything out, in either direction.
+// Amounts in [maxWidth, 2^k) — possible when maxWidth is not a power of two —
+// need no special handling: the level chain strips more bits than the value has
+// and naturally yields zero.  For maxWidth == 1 there are no levels (k == 0)
+// and the guard degenerates to "n == 0 ? (a, a) : (0, 0)"; levelID is ignored
+// in that case.
+//
+// Both of the level call's outputs are consumed here, so unlike a call site
+// (see lowerBitwiseShlShr) the guard needs no partial call.
+func newShiftGuardHelper[W word.Word[W]](maxWidth, amtWidth, levelID uint) descriptor.Module[W] {
+	b := newShiftHelperBuilder[W](maxWidth, amtWidth)
 
-	b := newShiftHelperBuilder[W](key.width, amtWidth)
-
-	a, n, out := b.value, b.amount, b.output
-	depth := shiftChainDepth(key.width)
+	a, n := b.value, b.amount
+	outShl, outShr := b.outShl, b.outShr
+	depth := shiftChainDepth(maxWidth)
 	zero := word.Const64[W](0)
 
 	if depth == 0 {
-		// width == 1: if n == 0: return a
-		b.emit(bytecode.NewSkipIf(bytecode.CONDITION_NEQ, 2,
+		// maxWidth == 1: if n == 0: return (a, a)
+		b.emit(bytecode.NewSkipIf(bytecode.CONDITION_NEQ, 3,
 			bytecode.NewRegisterVector(n),
 			bytecode.NewConstantOperand(zero)))
-		b.emit(bytecode.AddConst(out, []bytecode.RegisterId{a}, zero))
+		b.emit(bytecode.AddConst(outShl, []bytecode.RegisterId{a}, zero))
+		b.emit(bytecode.AddConst(outShr, []bytecode.RegisterId{a}, zero))
 		b.emit(bytecode.NewRet[W]())
 	} else {
 		// Destruct n into [vlow:u_depth, vhigh:u(amtWidth-depth)] (little-endian).
@@ -375,13 +384,15 @@ func newShiftGuardHelper[W word.Word[W]](key shiftHelperKey, levelID uint) descr
 		b.emit(bytecode.NewSkipIf(bytecode.CONDITION_NEQ, 2,
 			bytecode.NewRegisterVector(vhigh),
 			bytecode.NewConstantOperand(zero)))
-		b.emit(bytecode.CallFun[W](uint16(levelID), []bytecode.RegisterId{a, vlow}, []bytecode.RegisterId{out}))
+		b.emit(bytecode.CallFun[W](uint16(levelID),
+			[]bytecode.RegisterId{a, vlow}, []bytecode.RegisterId{outShl, outShr}))
 		b.emit(bytecode.NewRet[W]())
 	}
-	// out = 0
-	b.emit(bytecode.LoadConst(out, zero))
+	// out_shl, out_shr = 0, 0
+	b.emit(bytecode.LoadConst(outShl, zero))
+	b.emit(bytecode.LoadConst(outShr, zero))
 	b.emit(bytecode.NewRet[W]())
 
-	return descriptor.NewFunction(shiftHelperName(key), b.regs(), descriptor.BYTECODE_FUNCTION, nil,
+	return descriptor.NewFunction(shiftHelperName(maxWidth, amtWidth), b.regs(), descriptor.BYTECODE_FUNCTION, nil,
 		[]BytecodeVector[W]{bytecode.NewVector(b.code...)})
 }
