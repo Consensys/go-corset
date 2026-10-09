@@ -15,9 +15,15 @@ package register
 import (
 	"fmt"
 	"strings"
-
-	"github.com/LFDT-Lineth/zkc/pkg/util/field"
 )
+
+// Limb is just an alias for Register, but it helps to clarify when we are
+// referring to a register after subdivision.
+type Limb = Register
+
+// LimbId is just an alias for register.RegisterId, but it helps to clarify when we are
+// referring to a register after subdivision.
+type LimbId = Id
 
 // LimbsMap provides a high-level mapping of all registers before and
 // after subdivision occurs within a given module.  That is, it maps a given
@@ -40,43 +46,38 @@ type LimbsMap interface {
 	LimbsMap() Map
 }
 
-// NewLimbsMap constructs an appropriate register map for a given module
-// and parameter combination.
-func NewLimbsMap[F any](field field.Config, module Map) limbsMap {
+// NewLimbsMap constructs a register map for a given module from its registers
+// and, for each register, the limbs into which it was subdivided (least
+// significant first).  A register which was not split has exactly one limb,
+// namely itself.  Limb identifiers follow the layout of the split module, where
+// the limbs of each register appear in register order, most significant limb
+// first (see descriptor.NewLimbsMap).  Hence, for a register whose limbs occupy
+// identifiers n..n+k, LimbIds returns n+k..n (least significant first).
+func NewLimbsMap(name string, registers []Register, limbs [][]Limb) limbsMap {
 	var (
-		regs    = module.Registers()
-		limbs   []Limb
-		mapping = make([][]LimbId, len(regs))
-		limbId  = uint(0)
+		mapping = make([][]LimbId, len(registers))
+		flat    []Limb
 	)
-	// Split up limbs
-	for i, r := range regs {
-		var ls []Register
-		// Check for native register
-		if r.IsNative() {
-			ls = []Register{r}
-		} else {
-			ls = SplitIntoLimbs(field.RegisterWidth, r)
-		}
-		//
-		limbs = append(limbs, ls...)
-		// build mapping
-		m := make([]Id, len(ls))
-		//
-		for i := 0; i != len(m); i++ {
-			m[i] = NewId(limbId)
-			limbId++
-		}
-		// Assign mapping
-		mapping[i] = m
+	// Sanity check
+	if len(registers) != len(limbs) {
+		panic(fmt.Sprintf("register / limb count mismatch (%d vs %d)", len(registers), len(limbs)))
 	}
-	// Done
-	return limbsMap{
-		module.Name(),
-		regs,
-		limbs,
-		mapping,
+	//
+	for i, ls := range limbs {
+		var n = len(ls)
+		//
+		mapping[i] = make([]LimbId, n)
+		// Limb j (least significant first) sits at offset n-1-j
+		for j := range ls {
+			mapping[i][j] = NewId(uint(len(flat) + n - 1 - j))
+		}
+		// Append limbs most significant first
+		for j := n - 1; j >= 0; j-- {
+			flat = append(flat, ls[j])
+		}
 	}
+	//
+	return limbsMap{name, registers, flat, mapping}
 }
 
 // IdentityMap constructs an identity mapping which maps each register to
@@ -249,16 +250,16 @@ func LimbsMapToString(p LimbsMap) string {
 		builder.WriteString(r.Name())
 		builder.WriteString("=>")
 		//
-		mapping := p.Limbs()
-		//
-		for j := len(mapping); j > 0; {
-			if j != len(mapping) {
+		limbs := LimbsOf(p, p.LimbIds(NewId(uint(i))))
+		// Print most significant limb first
+		for j := len(limbs); j > 0; {
+			if j != len(limbs) {
 				builder.WriteString("::")
 			}
 			//
 			j = j - 1
 			//
-			builder.WriteString(mapping[j].Name())
+			builder.WriteString(limbs[j].Name())
 		}
 	}
 	//

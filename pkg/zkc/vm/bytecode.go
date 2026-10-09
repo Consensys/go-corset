@@ -235,6 +235,25 @@ func IsSubtractWithBorrow[W word.Word[W]](code BytecodeArith[W], env descriptor.
 	return lhsBitwidth >= rhsBitwidth
 }
 
+// SplitIntoLimbs splits a register into a number of limbs with the given maximum
+// bitwidth.  For the resulting array, the least significant register is first.
+// Since registers are always split to the maximum width as much as possible, it
+// is only the most significant register which may (in some cases) have fewer
+// bits than the maximum allowed.
+func SplitIntoLimbs[W word.Word[W]](maxWidth uint, r Register[W]) []Register[W] {
+	return descriptor.SplitIntoLimbs(maxWidth, r)
+}
+
+// LimbWidths determines the limb widths which would be determine for a register
+// of the given size, assuming a maximum register width.  Observe that this does
+// not support native registers.  For the resulting array, the least significant
+// register is first. Since registers are always split to the maximum width as
+// much as possible, it is only the most significant register which may (in some
+// cases) have fewer bits than the maximum allowed.
+func LimbWidths(maxWidth uint, regWidth uint) []uint {
+	return descriptor.LimbWidths(maxWidth, regWidth)
+}
+
 // ============================================================================
 // Bytecode construction
 // ============================================================================
