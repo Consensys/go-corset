@@ -89,6 +89,9 @@ type CompileConfig struct {
 	// order determines how modules are ordered in the --stats output
 	// (name|total|complexity|lookups).
 	order string
+	// packedLookups is the number of lookups the prover packs into a single
+	// lookup, used for the prover column count in the --stats output.
+	packedLookups uint
 	// indicates whether or not to print skip arrows
 	skipArrows bool
 	// indicates whether or not to print everything in full (e.g. including
@@ -112,6 +115,7 @@ func runCompileCmd[F field.Element[F], W vm.Word[W]](cmd *cobra.Command, args []
 	config.fast = GetFlag(cmd, "fast")
 	config.stats = GetFlag(cmd, "stats")
 	config.order = GetString(cmd, "order")
+	config.packedLookups = GetUint(cmd, "packed-lookup")
 	config.skipArrows = GetFlag(cmd, "show-skips")
 	config.statsMatrix = GetVerboseLevel(cmd) >= VERBOSE_INFO
 	// Compile verbosity is the highest verbosity level.
@@ -216,13 +220,16 @@ func printArtifacts[F field.Element[F], W vm.Word[W]](ast *ast.Program, bf *cons
 		if !ValidStatsOrder(config.order) {
 			log.Errorf("invalid --order %q (expected name|total|complexity|lookups)", config.order)
 			os.Exit(1)
+		} else if config.packedLookups == 0 {
+			log.Errorf("invalid --packed-lookup (must be at least 1)")
+			os.Exit(1)
 		}
 		// Register counts are reported before register splitting.  Splitting is
 		// the only field-specific transform that changes register widths, so
 		// transform program with splitting disabled to recover the pre-split widths.
 		preSplit := vm.TransformForTracing[vm.Uint, vm.Uint](bf.RawProgram(), "split-registers")
 		// Print stats
-		PrintCompileStats(bf.AirConstraints(), preSplit, config.order, config.statsMatrix)
+		PrintCompileStats(bf.AirConstraints(), preSplit, config.order, config.packedLookups, config.statsMatrix)
 	}
 }
 
@@ -825,8 +832,11 @@ func init() {
 	compileCmd.Flags().Bool("show-skips", true, "Show skip arrows explicitly")
 	compileCmd.Flags().String("order", "total",
 		"module ordering for --stats (name|total|complexity|lookups)")
-	// --order only affects the --stats output.
+	compileCmd.Flags().Uint("packed-lookup", 3,
+		"number of lookups packed into a single prover column for --stats")
+	// --order and --packed-lookup only affect the --stats output.
 	compileFlags.Require("order", "stats")
+	compileFlags.Require("packed-lookup", "stats")
 	// --define only affects the binary output file.
 	compileFlags.Require("define", "output")
 	//
