@@ -13,6 +13,7 @@
 package bytecode
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
@@ -39,7 +40,15 @@ func (p *Cat[W]) Definitions() []RegisterId {
 
 // Validate implementation for Bytecode interface.
 func (p *Cat[W]) Validate(env Environment[W]) ([]error, bool) {
-	return validateOperands(env, p.Sources, p.Targets)
+	var errors, safe = validateOperands(env, p.Sources, p.Targets)
+	// A single-source, single-target concatenation is a plain move, which must
+	// be expressed as an assignment instead (see AssignV).
+	if p.isUnit() {
+		errors = append(errors, fmt.Errorf("concatenation is a plain move (use assignment)"))
+		safe = false
+	}
+	//
+	return errors, safe
 }
 
 func (p *Cat[W]) String(env Environment[W]) string {
@@ -51,4 +60,10 @@ func (p *Cat[W]) String(env Environment[W]) string {
 	builder.WriteString(RegistersToString(array.Reverse(p.Sources), env, "::"))
 	//
 	return builder.String()
+}
+
+// isUnit returns true if this is a "unit" operation.  That is, an assignment of
+// the form "x = y".
+func (p *Cat[W]) isUnit() bool {
+	return len(p.Targets) == 1 && len(p.Sources) == 1
 }

@@ -161,6 +161,14 @@ func transferArith[W Word[W]](pp ProgramPoint, bc *bytecode.Arith[W], in Bitwidt
 		bits    util.Option[uint]
 		sources = bc.Source
 	)
+	// A plain copy (e.g. "tmp = x") preserves the source's flow-sensitive
+	// width, which may be narrower than its declared width (e.g. after a
+	// checkcast).
+	if bc.IsUnit() {
+		if width := in.bitwidths[sources[0]].current; width.HasValue() {
+			return dfa.NewTransfer(in.AssignAll(bc.Target, width.Unwrap()), next)
+		}
+	}
 	//
 	switch bc.Op {
 	case bytecode.OP_ADD:
