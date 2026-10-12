@@ -19,7 +19,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/transform/split"
-	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // ThreadTimestamps threads a per-memory timestamp through every function which
@@ -58,7 +57,7 @@ import (
 // write would have stopped the vectoriser forming the row, forcing one-line
 // functions multi-line) and before register splitting (stamps split into limbs
 // and are range-checked like any other register).
-func ThreadTimestamps[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func ThreadTimestamps[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	var (
 		mods = program.Modules()
 		out  = make([]descriptor.Module[W], len(mods))
@@ -67,7 +66,7 @@ func ThreadTimestamps[W word.Word[W]](program descriptor.Program[W]) descriptor.
 	copy(out, mods)
 	//
 	for i, mod := range mods {
-		fn, ok := mod.(*descriptor.Function[W])
+		fn, ok := mod.(*Function[W])
 		if !ok || fn.IsNative() {
 			continue
 		}
@@ -111,7 +110,7 @@ type stampKey struct {
 }
 
 // threader carries the per-function context of the threading.
-type threader[W word.Word[W]] struct {
+type threader[W Word[W]] struct {
 	mods    []descriptor.Module[W]
 	alloc   split.Allocator[W]
 	effects []descriptor.ModuleId
@@ -131,8 +130,8 @@ type threader[W word.Word[W]] struct {
 
 // threadFunction rewrites a single function to thread a timestamp for each of
 // the given read-write memory effects.
-func threadFunction[W word.Word[W]](mods []descriptor.Module[W], fn *descriptor.Function[W],
-	effects []descriptor.ModuleId) *descriptor.Function[W] {
+func threadFunction[W Word[W]](mods []descriptor.Module[W], fn *Function[W],
+	effects []descriptor.ModuleId) *Function[W] {
 	//
 	t := &threader[W]{
 		mods:      mods,
@@ -185,7 +184,7 @@ func threadFunction[W word.Word[W]](mods []descriptor.Module[W], fn *descriptor.
 // builds the old->new register id remap (buildFunctionMapping), then remaps
 // the body onto the new ids and prepares the temporary allocator against the
 // result.
-func (t *threader[W]) remapFunction(fn *descriptor.Function[W]) []BytecodeVector[W] {
+func (t *threader[W]) remapFunction(fn *Function[W]) []BytecodeVector[W] {
 	var (
 		newRegs = t.initNewRegs(fn)
 		sub     = t.buildFunctionMapping(fn)
@@ -212,12 +211,12 @@ func (t *threader[W]) remapFunction(fn *descriptor.Function[W]) []BytecodeVector
 // consecutively, in effect-declaration order (once per group: all stamp-ins,
 // then all stamp-outs).  main takes no parameters, so it gets no stamp in/out;
 // its canonical registers are instead allocated lazily (see getCanonical).
-func (t *threader[W]) initNewRegs(fn *descriptor.Function[W]) []descriptor.Register[W] {
+func (t *threader[W]) initNewRegs(fn *Function[W]) []Register[W] {
 	var (
 		oldRegs = fn.Registers()
 		ni      = fn.NumInputs()
 		padding W
-		newRegs []descriptor.Register[W]
+		newRegs []Register[W]
 	)
 	//
 	if !t.isMain {
@@ -245,7 +244,7 @@ func (t *threader[W]) initNewRegs(fn *descriptor.Function[W]) []descriptor.Regis
 // stamp inputs shifts old inputs by k; inserting k stamp outputs shifts old
 // outputs and computed by a further k.  main inserts none, so the map is the
 // identity there.
-func (t *threader[W]) buildFunctionMapping(fn *descriptor.Function[W]) []bytecode.RegisterId {
+func (t *threader[W]) buildFunctionMapping(fn *Function[W]) []bytecode.RegisterId {
 	var (
 		k   = uint(len(t.effects))
 		ni  = fn.NumInputs()
@@ -385,7 +384,7 @@ func (t *threader[W]) stampRegister(e descriptor.ModuleId, s stampState) (byteco
 // edge..., preEdge..., instruction]: ordinary skips landing here land at the
 // start of preEdge, retargeted conditional skips at the start of edge, and a
 // live fall-through path runs fall and then jumps over the edge block.
-type rowInserts[W word.Word[W]] struct {
+type rowInserts[W Word[W]] struct {
 	// fall executes on the fall-through path only.
 	fall []Bytecode[W]
 	// edge is the edge block: retargeted conditional skip edges land at its
@@ -670,7 +669,7 @@ func (t *threader[W]) canonicalise(states stamps) []Bytecode[W] {
 func (t *threader[W]) threadCall(pc uint, call *bytecode.Call[W], states stamps,
 ) (Bytecode[W], []Bytecode[W]) {
 	//
-	callee, ok := t.mods[call.Target].(*descriptor.Function[W])
+	callee, ok := t.mods[call.Target].(*Function[W])
 	if !ok || callee.IsNative() {
 		return nil, nil
 	}
@@ -715,7 +714,7 @@ func (t *threader[W]) threadCall(pc uint, call *bytecode.Call[W], states stamps,
 }
 
 // withStamp rebuilds a memory access with the given stamp operand.
-func withStamp[W word.Word[W]](rw *bytecode.ReadWrite[W], stamp bytecode.RegisterId) Bytecode[W] {
+func withStamp[W Word[W]](rw *bytecode.ReadWrite[W], stamp bytecode.RegisterId) Bytecode[W] {
 	if rw.Write {
 		return bytecode.NewMemWrite[W](rw.Id, rw.Address, rw.Data, []bytecode.RegisterId{stamp})
 	}
@@ -726,7 +725,7 @@ func withStamp[W word.Word[W]](rw *bytecode.ReadWrite[W], stamp bytecode.Registe
 // jumpTableFollows reports whether every instruction after index i is an
 // unconditional jump — the shape the front end emits for if-goto conditions
 // and dispatch tables, whose skip edges select which jump runs.
-func jumpTableFollows[W word.Word[W]](insns []Bytecode[W], i int) bool {
+func jumpTableFollows[W Word[W]](insns []Bytecode[W], i int) bool {
 	for _, insn := range insns[i+1:] {
 		if _, ok := insn.(*bytecode.Jmp[W]); !ok {
 			return false
@@ -737,7 +736,7 @@ func jumpTableFollows[W word.Word[W]](insns []Bytecode[W], i int) bool {
 }
 
 // jumpTargets returns the set of vector indices targeted by some jump.
-func jumpTargets[W word.Word[W]](vectors []BytecodeVector[W]) *targetSet {
+func jumpTargets[W Word[W]](vectors []BytecodeVector[W]) *targetSet {
 	set := &targetSet{map[uint32]bool{}}
 	//
 	for _, vec := range vectors {
@@ -765,7 +764,7 @@ func (p *targetSet) Contains(v uint32) bool { return p.targets[v] }
 // (ordinary skips land past them), conditional skips retargeted to this
 // position land at the start of the edge block, and a live fall-through path
 // jumps over the block.
-func rebuildVector[W word.Word[W]](insns []Bytecode[W], inserts map[int]*rowInserts[W],
+func rebuildVector[W Word[W]](insns []Bytecode[W], inserts map[int]*rowInserts[W],
 	replace map[int]Bytecode[W]) BytecodeVector[W] {
 	//
 	var (
@@ -871,13 +870,13 @@ func (t *threader[W]) timestampWidth(e descriptor.ModuleId) uint {
 
 // stampName returns the name of the stamp-in register threaded for the given
 // memory.
-func stampName[W word.Word[W]](mods []descriptor.Module[W], id descriptor.ModuleId) string {
+func stampName[W Word[W]](mods []descriptor.Module[W], id descriptor.ModuleId) string {
 	return mods[id].Name() + "$stamp"
 }
 
 // stampOutName returns the name of the stamp-out register threaded for the
 // given memory.  NOTE: deliberately not "$stamp'", which would collide with
 // the "'k" suffix used for register limbs after splitting.
-func stampOutName[W word.Word[W]](mods []descriptor.Module[W], id descriptor.ModuleId) string {
+func stampOutName[W Word[W]](mods []descriptor.Module[W], id descriptor.ModuleId) string {
 	return mods[id].Name() + "$stamp_out"
 }

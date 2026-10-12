@@ -20,14 +20,7 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/bit"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
-	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
-
-// Function provides a useful alias
-type Function[W word.Word[W]] = descriptor.Function[W]
-
-// ProgramPoint provides a convenient alias
-type ProgramPoint = descriptor.ProgramPoint
 
 // AllocateRegisters applies register allocation to each function in a given
 // program.  In this context, register allocation is about identifying registers
@@ -79,7 +72,7 @@ type ProgramPoint = descriptor.ProgramPoint
 // current row (i.e. after every write in the vector), hence FlattenLookupAccess
 // snapshots any operand written later in the same vector.  Coalescing after
 // that could reintroduce such writes.
-func AllocateRegisters[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func AllocateRegisters[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	var (
 		mods = program.Modules()
 		//
@@ -98,7 +91,7 @@ func AllocateRegisters[W word.Word[W]](program descriptor.Program[W]) descriptor
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
 }
 
-func allocateFunctionRegisters[W word.Word[W]](f *Function[W]) *Function[W] {
+func allocateFunctionRegisters[W Word[W]](f *Function[W]) *Function[W] {
 	var (
 		// Construct the interference graph which clarifies which registers can
 		// be coalesced.
@@ -116,10 +109,10 @@ func allocateFunctionRegisters[W word.Word[W]](f *Function[W]) *Function[W] {
 // if a register r maps to itself then, after allocation, it will be retained.
 // In contrast, if a register r maps to another register q then, after
 // allocation, register r will be merged into q.
-func applyRegisterAllocation[W word.Word[W]](f Function[W], allocation []uint) *Function[W] {
+func applyRegisterAllocation[W Word[W]](f Function[W], allocation []uint) *Function[W] {
 	var (
 		mapping   = make([]uint16, f.Width())
-		registers []descriptor.Register[W]
+		registers []Register[W]
 		vectors   = make([]bytecode.Vector[W], len(f.Vectors()))
 	)
 	// Build the mapping
@@ -147,7 +140,7 @@ func applyRegisterAllocation[W word.Word[W]](f Function[W], allocation []uint) *
 	return descriptor.NewFunction(f.Name(), registers, f.Kind(), f.Effects(), vectors)
 }
 
-func determineRegisterAllocation[W word.Word[W]](f Function[W], ig InterferenceGraph) []uint {
+func determineRegisterAllocation[W Word[W]](f Function[W], ig InterferenceGraph) []uint {
 	//
 outer:
 	for u := range f.Width() {
@@ -167,7 +160,7 @@ outer:
 	return ig.roots
 }
 
-func determineInterferenceGraph[W word.Word[W]](f Function[W]) InterferenceGraph {
+func determineInterferenceGraph[W Word[W]](f Function[W]) InterferenceGraph {
 	var ig = NewInterferenceGraph(f.Width())
 	// Record interference between parameters / returns
 	addStructuralInterference(f, &ig)
@@ -182,7 +175,7 @@ func determineInterferenceGraph[W word.Word[W]](f Function[W]) InterferenceGraph
 // Add interference arising from structural information between two registers.
 // For example, if two registers have different bitwidths, then they cannot be
 // coalesced.
-func addStructuralInterference[W word.Word[W]](f Function[W], ig *InterferenceGraph) {
+func addStructuralInterference[W Word[W]](f Function[W], ig *InterferenceGraph) {
 	for i := range f.Width() {
 		var ith = f.Register(RegisterId(i))
 		//
@@ -225,7 +218,7 @@ func addStructuralInterference[W word.Word[W]](f Function[W], ig *InterferenceGr
 // Specifically, a register written at a point where another may already have
 // been written in the same vector interferes with it, since coalescing them
 // would introduce a write-after-write conflict.
-func addDefinitionalInterference[W word.Word[W]](f Function[W], ig *InterferenceGraph) {
+func addDefinitionalInterference[W Word[W]](f Function[W], ig *InterferenceGraph) {
 	for _, vec := range f.Vectors() {
 		// Compute definitional information
 		var writes = vec.WriteMap()
@@ -249,7 +242,7 @@ func addDefinitionalInterference[W word.Word[W]](f Function[W], ig *Interference
 // Add interference arising from liveness information between two registers.
 // Specifically, if two registers are live at the same time they cannot be
 // coalesced.
-func addLivenessInterference[W word.Word[W]](f Function[W], ig *InterferenceGraph) {
+func addLivenessInterference[W Word[W]](f Function[W], ig *InterferenceGraph) {
 	var (
 		// Construct initial live set information
 		liveSets = liveVariablesAnalysis(f)
@@ -282,7 +275,7 @@ func addLivenessInterference[W word.Word[W]](f Function[W], ig *InterferenceGrap
 // Determine whether two registers "obviously" interfere with each other.  For
 // example, if one is a parameter or both are returns, or they have different
 // bitwidths, etc.
-func hasStructuralInterference[W word.Word[W]](r1, r2 descriptor.Register[W]) bool {
+func hasStructuralInterference[W Word[W]](r1, r2 Register[W]) bool {
 	if r1.IsInput() {
 		return true
 	} else if r1.IsOutput() && r2.IsOutput() {
@@ -297,7 +290,7 @@ func hasStructuralInterference[W word.Word[W]](r1, r2 descriptor.Register[W]) bo
 }
 
 // Extract all RegisterVectors used as operands within a given bytecode.
-func extractRegisterVectors[W word.Word[W]](b Bytecode[W]) []bytecode.RegisterVector {
+func extractRegisterVectors[W Word[W]](b Bytecode[W]) []bytecode.RegisterVector {
 	var vecs []bytecode.RegisterVector
 	//
 	switch bc := b.(type) {
@@ -429,7 +422,7 @@ type LiveRanges struct {
 
 // NewLiveRanges constructs a set of empty live ranges for a given function.
 // The intention is that these are then populated via the MarkLive function.
-func NewLiveRanges[W word.Word[W]](f descriptor.Function[W]) LiveRanges {
+func NewLiveRanges[W Word[W]](f Function[W]) LiveRanges {
 	var (
 		offsets = make([]uint, len(f.Vectors()))
 		offset  uint
@@ -467,8 +460,8 @@ func (p *LiveRanges) MarkLive(r RegisterId, pp ProgramPoint) {
 // LiveSets records, for each program point (i.e. bytecode) in a function, the
 // set of registers live immediately before it.  Two registers have overlapping
 // live ranges if some program point has both in its live set.
-type LiveSets[W word.Word[W]] struct {
-	fun descriptor.Function[W]
+type LiveSets[W Word[W]] struct {
+	fun Function[W]
 	// live sets for each program point
 	sets map[ProgramPoint]bit.Set
 }
@@ -488,12 +481,12 @@ func (p *LiveSets[W]) ToRanges() LiveRanges {
 }
 
 // Get the live set associated with a given program point
-func (p *LiveSets[W]) Get(pc descriptor.ProgramPoint) bit.Set {
+func (p *LiveSets[W]) Get(pc ProgramPoint) bit.Set {
 	return p.sets[pc]
 }
 
 // Join a live set into that associated with a given program point.
-func (p *LiveSets[W]) Join(pc descriptor.ProgramPoint, liveset bit.Set) bool {
+func (p *LiveSets[W]) Join(pc ProgramPoint, liveset bit.Set) bool {
 	var (
 		set     = p.sets[pc]
 		changed = set.Union(liveset)
@@ -509,7 +502,7 @@ func (p *LiveSets[W]) Join(pc descriptor.ProgramPoint, liveset bit.Set) bool {
 // ============================================================================
 
 // Compute the set of registers live before each bytecode in the given function.
-func liveVariablesAnalysis[W word.Word[W]](f Function[W]) LiveSets[W] {
+func liveVariablesAnalysis[W Word[W]](f Function[W]) LiveSets[W] {
 	// Records the registers live before each bytecode.
 	var (
 		liveness = LiveSets[W]{f, make(map[ProgramPoint]bit.Set)}
@@ -542,7 +535,7 @@ func liveVariablesAnalysis[W word.Word[W]](f Function[W]) LiveSets[W] {
 }
 
 // Propagate liveness information backwards through the given bytecode.
-func propagateLiveness[W word.Word[W]](pp ProgramPoint, bc Bytecode[W], liveness LiveSets[W], f Function[W]) bit.Set {
+func propagateLiveness[W Word[W]](pp ProgramPoint, bc Bytecode[W], liveness LiveSets[W], f Function[W]) bit.Set {
 	var (
 		// Resulting live information
 		set bit.Set

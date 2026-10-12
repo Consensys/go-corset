@@ -27,11 +27,11 @@ import (
 // EQ and NEQ conditions are left unchanged.
 //
 // NOTE: this transform must run after LowerBitwise.
-func LowerComparisons[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func LowerComparisons[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	out := slices.Clone(program.Modules())
 
 	for i, mod := range out {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			out[i] = lowerComparisonFunction[W](fn)
 		}
 	}
@@ -39,7 +39,7 @@ func LowerComparisons[W word.Word[W]](program descriptor.Program[W]) descriptor.
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
 }
 
-func lowerComparisonFunction[W word.Word[W]](fn *descriptor.Function[W]) *descriptor.Function[W] {
+func lowerComparisonFunction[W Word[W]](fn *Function[W]) *Function[W] {
 	var (
 		vectors = fn.Vectors()
 		nvecs   = make([]BytecodeVector[W], len(vectors))
@@ -55,7 +55,7 @@ func lowerComparisonFunction[W word.Word[W]](fn *descriptor.Function[W]) *descri
 	return descriptor.NewFunction(fn.Name(), alloc.Registers(), fn.Kind(), fn.Effects(), nvecs)
 }
 
-func lowerComparisonCode[W word.Word[W]](
+func lowerComparisonCode[W Word[W]](
 	b Bytecode[W],
 	registers split.Allocator[W],
 ) []Bytecode[W] {
@@ -91,7 +91,7 @@ func isRelationalCondition(cond bytecode.Condition) bool {
 // CalculateSubBitwidth, i.e. 1+max(lhsWidth, rhsWidth), so the sign bit is 1
 // exactly when lhs < rhs.  GT/LTEQ conditions swap operands first (see
 // normalizeRelational), leaving the condition decided by the sign bit alone.
-func lowerRelationalSkipIf[W word.Word[W]](
+func lowerRelationalSkipIf[W Word[W]](
 	si *bytecode.SkipIf[W],
 	registers split.Allocator[W],
 ) []Bytecode[W] {
@@ -132,7 +132,7 @@ func lowerRelationalSkipIf[W word.Word[W]](
 // where the sign bit is 1 exactly when lhs < c.  The condition and constant
 // are first normalised (see normalizeRelationalConst) such that the sign bit
 // decides the condition directly.
-func lowerRelationalSkipIfConst[W word.Word[W]](
+func lowerRelationalSkipIfConst[W Word[W]](
 	si *bytecode.SkipIf[W],
 	registers split.Allocator[W],
 ) []Bytecode[W] {
@@ -204,7 +204,7 @@ func lowerRelationalSkipIfConst[W word.Word[W]](
 // returned constant is zero (whose subtraction has an always-zero sign bit),
 // with skipOnZero chosen so the skip never (x > max) or always (x <= max)
 // triggers.
-func normalizeRelationalConst[W word.Word[W]](si *bytecode.SkipIf[W]) (W, bool) {
+func normalizeRelationalConst[W Word[W]](si *bytecode.SkipIf[W]) (W, bool) {
 	var constant W
 	// NOTE: an empty constant vector denotes zero.
 	if consts := si.Right.AsConstants(); len(consts) == 1 {
@@ -241,7 +241,7 @@ func normalizeRelationalConst[W word.Word[W]](si *bytecode.SkipIf[W]) (W, bool) 
 //	GTEQ(a,b) → lhs=a, rhs=b, skipOnZero=true  (skip if sign==0 i.e. a >= b)
 //	GT(a,b)   → lhs=b, rhs=a, skipOnZero=false (sign==1 iff b < a iff a > b)
 //	LTEQ(a,b) → lhs=b, rhs=a, skipOnZero=true  (sign==0 iff b >= a iff a <= b)
-func normalizeRelational[W word.Word[W]](si *bytecode.SkipIf[W]) (lhs, rhs bytecode.RegisterId, skipOnZero bool) {
+func normalizeRelational[W Word[W]](si *bytecode.SkipIf[W]) (lhs, rhs bytecode.RegisterId, skipOnZero bool) {
 	left := si.Left.Registers()
 	right := si.Right.AsRegisters()
 	//

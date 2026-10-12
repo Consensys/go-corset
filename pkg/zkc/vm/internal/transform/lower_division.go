@@ -34,11 +34,11 @@ import (
 //	0   = y - rw1            // written into a 0-width register: asserts y == r + w + 1
 //
 // NOTE: this transform must run before LowerComparisons.
-func LowerDivisions[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func LowerDivisions[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	out := slices.Clone(program.Modules())
 
 	for i, mod := range out {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			out[i] = lowerDivisionFunction(fn)
 		}
 	}
@@ -46,7 +46,7 @@ func LowerDivisions[W word.Word[W]](program descriptor.Program[W]) descriptor.Pr
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
 }
 
-func lowerDivisionFunction[W word.Word[W]](fn *descriptor.Function[W]) *descriptor.Function[W] {
+func lowerDivisionFunction[W Word[W]](fn *Function[W]) *Function[W] {
 	var (
 		vectors = fn.Vectors()
 		nvecs   = make([]BytecodeVector[W], len(vectors))
@@ -66,7 +66,7 @@ func lowerDivisionFunction[W word.Word[W]](fn *descriptor.Function[W]) *descript
 // sequence (see expandDivMod).  The hint produces both quotient and remainder,
 // matching the bytecode's two targets exactly, so a source-level "/%" shares a
 // single block for the pair.
-func lowerDivisionCode[W word.Word[W]](b Bytecode[W], registers split.Allocator[W]) []Bytecode[W] {
+func lowerDivisionCode[W Word[W]](b Bytecode[W], registers split.Allocator[W]) []Bytecode[W] {
 	dr, ok := b.(*bytecode.DivMod[W])
 	if !ok {
 		return []Bytecode[W]{b}
@@ -86,7 +86,7 @@ func lowerDivisionCode[W word.Word[W]](b Bytecode[W], registers split.Allocator[
 // divisorWidth returns the bitwidth of the given divisor operand: the declared
 // register width for a register divisor, or the (minimal) width of the value
 // itself for a constant divisor.
-func divisorWidth[W word.Word[W]](y bytecode.Operand[W], registers split.Allocator[W]) uint {
+func divisorWidth[W Word[W]](y bytecode.Operand[W], registers split.Allocator[W]) uint {
 	if y.IsConstant() {
 		return uint(y.AsConstant().BigInt().BitLen())
 	}
@@ -112,7 +112,7 @@ func divisorWidth[W word.Word[W]](y bytecode.Operand[W], registers split.Allocat
 // operands that borrow grows past the field register width.  A two-operand zero
 // assertion splits into independent per-limb equalities (see split.Subtraction),
 // which needs no borrows.
-func expandDivMod[W word.Word[W]](q, r, w, x bytecode.RegisterId, y bytecode.Operand[W], nX, nY uint,
+func expandDivMod[W Word[W]](q, r, w, x bytecode.RegisterId, y bytecode.Operand[W], nX, nY uint,
 	registers split.Allocator[W]) []Bytecode[W] {
 	var (
 		zero = word.Const64[W](0)

@@ -21,7 +21,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/stack"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
-	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // Vectorize a given program by merging as many bytecodes as possible into each
@@ -79,11 +78,11 @@ import (
 // unreachable.  Codegen establishes this invariant (see
 // codegen.compileStatement), every transform preceding this one preserves it,
 // and bytecode.Vector.Validate enforces it.
-func Vectorize[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func Vectorize[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	modules := slices.Clone(program.Modules())
 	//
 	for i, m := range modules {
-		if fn, ok := m.(*descriptor.Function[W]); ok {
+		if fn, ok := m.(*Function[W]); ok {
 			modules[i] = vectorizeFunction(fn, program.EnvironmentOf(uint16(i)))
 		}
 	}
@@ -93,8 +92,8 @@ func Vectorize[W word.Word[W]](program descriptor.Program[W]) descriptor.Program
 
 // vectorizeFunction applies the per-function vectorisation pass, returning a new
 // function whose code is the merged-and-pruned result.
-func vectorizeFunction[W word.Word[W]](fn *descriptor.Function[W], env bytecode.Environment[W],
-) *descriptor.Function[W] {
+func vectorizeFunction[W Word[W]](fn *Function[W], env Environment[W],
+) *Function[W] {
 	var (
 		original = fn.Vectors()
 		n        = uint(len(original))
@@ -129,7 +128,7 @@ func vectorizeFunction[W word.Word[W]](fn *descriptor.Function[W], env bytecode.
 
 // vectorizeInstruction greedily absorbs the targets of jumps in the vector at pc
 // until no further merging is legal.
-func vectorizeInstruction[W word.Word[W]](pc uint, code []BytecodeVector[W], env bytecode.Environment[W],
+func vectorizeInstruction[W Word[W]](pc uint, code []BytecodeVector[W], env Environment[W],
 ) BytecodeVector[W] {
 	var (
 		vec     = code[pc]
@@ -185,7 +184,7 @@ func vectorizeInstruction[W word.Word[W]](pc uint, code []BytecodeVector[W], env
 
 // lastJump returns the index of the right-most Jmp within codes[:n], or false if
 // none exists.
-func lastJump[W word.Word[W]](codes []Bytecode[W], n uint) (uint, bool) {
+func lastJump[W Word[W]](codes []Bytecode[W], n uint) (uint, bool) {
 	for i := n; i > 0; {
 		i--
 		//
@@ -199,7 +198,7 @@ func lastJump[W word.Word[W]](codes []Bytecode[W], n uint) (uint, bool) {
 
 // markJumpTargets pushes every reachable Jmp target in the vectorised vector onto
 // the worklist for later processing.
-func markJumpTargets[W word.Word[W]](vec BytecodeVector[W], visited []bool, worklist *stack.Stack[uint]) {
+func markJumpTargets[W Word[W]](vec BytecodeVector[W], visited []bool, worklist *stack.Stack[uint]) {
 	index, found := lastJump(vec.Bytecodes, uint(len(vec.Bytecodes)))
 	for found {
 		target := uint(vec.Bytecodes[index].(*bytecode.Jmp[W]).Target)
@@ -228,7 +227,7 @@ func updateMicroMap(externs []uint, index uint, target uint, ncodes uint) {
 
 // replaceJump returns a copy of vec with the Jmp at jmpIndex replaced by a Skip
 // targeting the supplied offset within the same vector.
-func replaceJump[W word.Word[W]](vec BytecodeVector[W], jmpIndex uint, offset uint) BytecodeVector[W] {
+func replaceJump[W Word[W]](vec BytecodeVector[W], jmpIndex uint, offset uint) BytecodeVector[W] {
 	if offset <= jmpIndex {
 		// Should be unreachable: the externs guard requires offset > jmpIndex.
 		panic("cannot skip backwards")
@@ -244,7 +243,7 @@ func replaceJump[W word.Word[W]](vec BytecodeVector[W], jmpIndex uint, offset ui
 // the codes from the target vector.  Skip / SkipIf / Switch offsets in the
 // surrounding codes are recomputed so they continue to identify the same
 // successor after the splice.
-func inlineJump[W word.Word[W]](vec BytecodeVector[W], jmpIndex uint, targetCodes []Bytecode[W]) BytecodeVector[W] {
+func inlineJump[W Word[W]](vec BytecodeVector[W], jmpIndex uint, targetCodes []Bytecode[W]) BytecodeVector[W] {
 	var (
 		codes   = vec.Bytecodes
 		mapping = make([]uint, len(codes))
@@ -324,7 +323,7 @@ func inlineJump[W word.Word[W]](vec BytecodeVector[W], jmpIndex uint, targetCode
 // (left empty) and rebinds the surviving Jmp targets so they reference the new
 // compacted positions.  Jmps are replaced rather than mutated so that any shared
 // references inside the vector graph are not disturbed.
-func pruneUnreachableInstructions[W word.Word[W]](insns []BytecodeVector[W]) []BytecodeVector[W] {
+func pruneUnreachableInstructions[W Word[W]](insns []BytecodeVector[W]) []BytecodeVector[W] {
 	var (
 		kept    []BytecodeVector[W]
 		mapping = make([]uint, len(insns))
@@ -353,7 +352,7 @@ func pruneUnreachableInstructions[W word.Word[W]](insns []BytecodeVector[W]) []B
 // vectorizeInstruction).  When no target actually moves, the vector is returned
 // as is --- which is the common case, since nothing moves unless something was
 // pruned.
-func rebindJumps[W word.Word[W]](vec BytecodeVector[W], mapping []uint) BytecodeVector[W] {
+func rebindJumps[W Word[W]](vec BytecodeVector[W], mapping []uint) BytecodeVector[W] {
 	var (
 		ncodes  = make([]Bytecode[W], len(vec.Bytecodes))
 		changed = false
@@ -380,7 +379,7 @@ func rebindJumps[W word.Word[W]](vec BytecodeVector[W], mapping []uint) Bytecode
 // WAW), since vectorisation rejects merges only on those grounds — never on field
 // bandwidth.  Zero-width registers are exempt: they carry no data, so apparent
 // hazards on a shared placeholder cannot conflict.
-func validateConflicts[W word.Word[W]](vec BytecodeVector[W], env bytecode.Environment[W]) error {
+func validateConflicts[W Word[W]](vec BytecodeVector[W], env Environment[W]) error {
 	var (
 		nCodes = uint(len(vec.Bytecodes))
 		writes = vec.WriteMap()
