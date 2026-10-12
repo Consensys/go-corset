@@ -832,7 +832,7 @@ func init() {
 	compileCmd.Flags().Bool("show-skips", true, "Show skip arrows explicitly")
 	compileCmd.Flags().String("order", "total",
 		"module ordering for --stats (name|total|complexity|lookups)")
-	compileCmd.Flags().Uint("packed-lookup", 3,
+	compileCmd.Flags().Uint("packed-lookup", 4,
 		"number of lookups packed into a single prover column for --stats")
 	// --order and --packed-lookup only affect the --stats output.
 	compileFlags.Require("order", "stats")
