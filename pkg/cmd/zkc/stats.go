@@ -69,12 +69,29 @@ type moduleStats struct {
 	dn map[dnKey]uint
 	// lookups is the number of lookup constraints.
 	lookups uint
+	// lookupTargets counts the lookup constraints (whose source is this module)
+	// by target module.  Only lookups into the same target module can be packed
+	// into a single prover column.
+	lookupTargets map[schema.ModuleId]uint
 	// buses is the number of bus constraints.
 	buses uint
 	// complexity is a cost measure: each constraint weighted by the square of
 	// its degree times the number of distinct columns it reads
 	// (Σ nCols · degree²).
 	complexity uint
+}
+
+// proverLookupColumns returns the number of prover columns needed for this
+// module's lookups, given that up to packedLookups lookups into the same target
+// module can be packed into a single column.
+func (m moduleStats) proverLookupColumns(packedLookups uint) uint {
+	var n uint
+	//
+	for _, count := range m.lookupTargets {
+		n += (count + packedLookups - 1) / packedLookups
+	}
+	//
+	return n
 }
 
 // isStatic reports whether this is a static reference table.
@@ -326,9 +343,10 @@ func renderDegreeCellTable(title string, degs, cells []uint, weights map[dnKey]u
 // count distribution behind the complexity column is reported as well.  Register widths (pre-splitting) and
 // constraint degrees are gathered from the pre-split bytecode program (ir) and
 // the post-split AIR schema respectively.  The order argument determines how the
-// modules are ordered (see orderModules).
+// modules are ordered (see orderModules), whilst packedLookups is the number of
+// lookups the prover packs into a single column.
 func PrintCompileStats[F field.Element[F], W vm.Word[W]](air schema.Schema[F], ir vm.Program[W],
-	order string, matrix bool) {
+	order string, packedLookups uint, matrix bool) {
 	var (
 		// Pre-split register histograms, keyed by module name.
 		preSplit = preSplitRegisters(ir)
@@ -340,7 +358,7 @@ func PrintCompileStats[F field.Element[F], W vm.Word[W]](air schema.Schema[F], i
 	}
 	//
 	orderModules(stats, order)
-	printAirModuleStats(stats)
+	printAirModuleStats(stats, packedLookups)
 	// The joint (degree, nCells) distribution behind the complexity column.
 	if matrix {
 		printDegreeCellMatrix(stats)
@@ -495,10 +513,11 @@ func summariseAirModule[F field.Element[F]](mod schema.Module[F],
 	preSplit map[string]preSplitInfo) moduleStats {
 	//
 	var stats = moduleStats{
-		name:     mod.Name(),
-		preSplit: make(map[uint]uint),
-		dn:       make(map[dnKey]uint),
-		pcMax:    preSplit[mod.Name()].pcMax,
+		name:          mod.Name(),
+		preSplit:      make(map[uint]uint),
+		dn:            make(map[dnKey]uint),
+		lookupTargets: make(map[schema.ModuleId]uint),
+		pcMax:         preSplit[mod.Name()].pcMax,
 	}
 	//
 	switch {
@@ -533,6 +552,7 @@ func summariseAirModule[F field.Element[F]](mod schema.Module[F],
 				stats.complexity += nCells * degree * degree
 			case *air.LookupConstraint[F]:
 				stats.lookups++
+				stats.lookupTargets[c.Targets[0].Module]++
 			case *air.BusConstraint[F]:
 				stats.buses++
 			}
@@ -578,7 +598,8 @@ type statsColumn struct {
 // table with one row per module.  The register and constraint columns are
 // grouped under "Registers" and "Constraints" meta-headers spanning their
 // sub-columns; the remaining columns carry their label on the first header row.
-func printAirModuleStats(stats []moduleStats) {
+// The prover column count assumes packedLookups lookups per column.
+func printAirModuleStats(stats []moduleStats, packedLookups uint) {
 	var cols []*statsColumn
 	// Give the open-ended final buckets an upper bound reflecting the largest
 	// register width / constraint degree actually present.
@@ -616,13 +637,14 @@ func printAirModuleStats(stats []moduleStats) {
 			return ""
 		}))
 	// Total columns as actually seen by the prover, i.e. the post-split column
-	// count plus an extra column for every three lookup constraints.
+	// count plus an extra column for every packedLookups lookup constraints
+	// into the same target module.
 	// TODO: add the bus columns as well
 	// TODO: add the permutation argument columns
 	cols = append(cols, dataColumn(stats, "", "Total", "Prover¹", false,
 		func(m moduleStats) string {
 			if !m.isStatic() {
-				return count(m.postRegs + (m.lookups+2)/3)
+				return count(m.postRegs + m.proverLookupColumns(packedLookups))
 			}
 			//
 			return ""
@@ -675,7 +697,7 @@ func printAirModuleStats(stats []moduleStats) {
 		}))
 	//
 	renderStatsTable(cols, stats)
-	fmt.Println("¹: Number of split columns + 1 column every 3 lookups")
+	fmt.Printf("¹: Number of split columns + 1 column every %d lookups into the same target module\n", packedLookups)
 }
 
 // regularColumn builds a grouped data column whose cells hold a (possibly zero)
