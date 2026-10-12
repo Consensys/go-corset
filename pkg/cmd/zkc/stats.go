@@ -69,12 +69,29 @@ type moduleStats struct {
 	dn map[dnKey]uint
 	// lookups is the number of lookup constraints.
 	lookups uint
+	// lookupTargets counts the lookup constraints (whose source is this module)
+	// by target module.  Only lookups into the same target module can be packed
+	// into a single prover column.
+	lookupTargets map[schema.ModuleId]uint
 	// buses is the number of bus constraints.
 	buses uint
 	// complexity is a cost measure: each constraint weighted by the square of
 	// its degree times the number of distinct columns it reads
 	// (Σ nCols · degree²).
 	complexity uint
+}
+
+// proverLookupColumns returns the number of prover columns needed for this
+// module's lookups, given that up to packedLookups lookups into the same target
+// module can be packed into a single column.
+func (m moduleStats) proverLookupColumns(packedLookups uint) uint {
+	var n uint
+	//
+	for _, count := range m.lookupTargets {
+		n += (count + packedLookups - 1) / packedLookups
+	}
+	//
+	return n
 }
 
 // isStatic reports whether this is a static reference table.
@@ -496,10 +513,11 @@ func summariseAirModule[F field.Element[F]](mod schema.Module[F],
 	preSplit map[string]preSplitInfo) moduleStats {
 	//
 	var stats = moduleStats{
-		name:     mod.Name(),
-		preSplit: make(map[uint]uint),
-		dn:       make(map[dnKey]uint),
-		pcMax:    preSplit[mod.Name()].pcMax,
+		name:          mod.Name(),
+		preSplit:      make(map[uint]uint),
+		dn:            make(map[dnKey]uint),
+		lookupTargets: make(map[schema.ModuleId]uint),
+		pcMax:         preSplit[mod.Name()].pcMax,
 	}
 	//
 	switch {
@@ -534,6 +552,7 @@ func summariseAirModule[F field.Element[F]](mod schema.Module[F],
 				stats.complexity += nCells * degree * degree
 			case *air.LookupConstraint[F]:
 				stats.lookups++
+				stats.lookupTargets[c.Targets[0].Module]++
 			case *air.BusConstraint[F]:
 				stats.buses++
 			}
@@ -618,13 +637,14 @@ func printAirModuleStats(stats []moduleStats, packedLookups uint) {
 			return ""
 		}))
 	// Total columns as actually seen by the prover, i.e. the post-split column
-	// count plus an extra column for every packedLookups lookup constraints.
+	// count plus an extra column for every packedLookups lookup constraints
+	// into the same target module.
 	// TODO: add the bus columns as well
 	// TODO: add the permutation argument columns
 	cols = append(cols, dataColumn(stats, "", "Total", "Prover¹", false,
 		func(m moduleStats) string {
 			if !m.isStatic() {
-				return count(m.postRegs + (m.lookups+packedLookups-1)/packedLookups)
+				return count(m.postRegs + m.proverLookupColumns(packedLookups))
 			}
 			//
 			return ""
@@ -677,7 +697,7 @@ func printAirModuleStats(stats []moduleStats, packedLookups uint) {
 		}))
 	//
 	renderStatsTable(cols, stats)
-	fmt.Printf("¹: Number of split columns + 1 column every %d lookups\n", packedLookups)
+	fmt.Printf("¹: Number of split columns + 1 column every %d lookups into the same target module\n", packedLookups)
 }
 
 // regularColumn builds a grouped data column whose cells hold a (possibly zero)
