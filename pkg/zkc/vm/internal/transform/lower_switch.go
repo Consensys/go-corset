@@ -42,11 +42,11 @@ import (
 //
 // Note: we could transform switch under condition (don't transform for switch on u1, etc),
 // but as it may never happen when writing zkc programm, we choose to lower inconditionnaly.
-func LowerSwitch[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func LowerSwitch[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	out := slices.Clone(program.Modules())
 
 	for i, mod := range out {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			out[i] = lowerSwitchFunction(fn)
 		}
 	}
@@ -54,7 +54,7 @@ func LowerSwitch[W word.Word[W]](program descriptor.Program[W]) descriptor.Progr
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
 }
 
-func lowerSwitchFunction[W word.Word[W]](fn *descriptor.Function[W]) *descriptor.Function[W] {
+func lowerSwitchFunction[W Word[W]](fn *Function[W]) *Function[W] {
 	var (
 		vectors = fn.Vectors()
 		nvecs   = make([]BytecodeVector[W], len(vectors))
@@ -76,7 +76,7 @@ func lowerSwitchFunction[W word.Word[W]](fn *descriptor.Function[W]) *descriptor
 // against the new layout.  Vector.Map cannot be used here: a switch case whose
 // skip is smaller than the size of its own replacement packet would be
 // misclassified as an internal skip and left unremapped.
-func lowerSwitchVector[W word.Word[W]](vec BytecodeVector[W], registers split.Allocator[W],
+func lowerSwitchVector[W Word[W]](vec BytecodeVector[W], registers split.Allocator[W],
 	switchCounter *uint) BytecodeVector[W] {
 	var (
 		codes = vec.Bytecodes
@@ -133,7 +133,7 @@ const (
 // switchPacketSize returns the number of bytecodes in the replacement packet
 // for a given Switch (see switchCaseDiamondSize and switchPacketTrailerSize,
 // which must move in lockstep with the codes emitted by lowerSwitchCode).
-func switchPacketSize[W word.Word[W]](sw *bytecode.Switch[W]) uint {
+func switchPacketSize[W Word[W]](sw *bytecode.Switch[W]) uint {
 	if len(sw.Cases) == 0 {
 		return 0
 	}
@@ -168,7 +168,7 @@ func switchPacketSize[W word.Word[W]](sw *bytecode.Switch[W]) uint {
 // independent of the number of cases; only the fall-through (default) edge
 // pays a conjunction over all bits, and the join after the dispatch
 // simplifies away entirely.
-func lowerSwitchCode[W word.Word[W]](pc uint, sw *bytecode.Switch[W], mapping []uint,
+func lowerSwitchCode[W Word[W]](pc uint, sw *bytecode.Switch[W], mapping []uint,
 	registers split.Allocator[W], switchIndex uint) []Bytecode[W] {
 	//
 	var (

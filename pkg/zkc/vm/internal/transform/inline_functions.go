@@ -22,7 +22,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/transform/split"
-	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // InlineFunctions constructs an equivalent bytecode program in which every call
@@ -53,7 +52,7 @@ import (
 // vector containing a call at the call site.  It panics on: an unknown or
 // duplicate name; a native function; the entry function "main"; or (mutual)
 // recursion amongst the named functions.
-func InlineFunctions[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func InlineFunctions[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	var (
 		modules = slices.Clone(program.Modules())
 		targets = resolveInlineTargets(modules)
@@ -66,11 +65,11 @@ func InlineFunctions[W word.Word[W]](program descriptor.Program[W]) descriptor.P
 	for remaining := slices.Clone(targets); len(remaining) > 0; {
 		var (
 			index  = findInlinableTarget(modules, remaining)
-			callee = modules[remaining[index]].(*descriptor.Function[W])
+			callee = modules[remaining[index]].(*Function[W])
 		)
 		//
 		for i, m := range modules {
-			if fn, ok := m.(*descriptor.Function[W]); ok && fn != callee && !fn.IsNative() {
+			if fn, ok := m.(*Function[W]); ok && fn != callee && !fn.IsNative() {
 				modules[i] = inlineAllCalls[W](fn, remaining[index], callee)
 			}
 		}
@@ -85,12 +84,12 @@ func InlineFunctions[W word.Word[W]](program descriptor.Program[W]) descriptor.P
 // resolveInlineTargets maps each name to its module identifier, sanity checking
 // that every name identifies a distinct function which can actually be inlined
 // (and removed).
-func resolveInlineTargets[W word.Word[W]](modules []descriptor.Module[W]) []uint {
+func resolveInlineTargets[W Word[W]](modules []descriptor.Module[W]) []uint {
 	var targets []uint
 	// Find all inlineable targets
 	for i, mod := range modules {
 		//
-		if fun, ok := mod.(*descriptor.Function[W]); ok && fun.Kind().CanInline() {
+		if fun, ok := mod.(*Function[W]); ok && fun.Kind().CanInline() {
 			targets = append(targets, uint(i))
 		}
 	}
@@ -101,9 +100,9 @@ func resolveInlineTargets[W word.Word[W]](modules []descriptor.Module[W]) []uint
 // findInlinableTarget returns the index (within remaining) of a target whose
 // body contains no calls to any remaining target, panicking if every target
 // calls another (i.e. the named functions are recursive).
-func findInlinableTarget[W word.Word[W]](modules []descriptor.Module[W], remaining []uint) int {
+func findInlinableTarget[W Word[W]](modules []descriptor.Module[W], remaining []uint) int {
 	for i, id := range remaining {
-		if !callsAny(modules[id].(*descriptor.Function[W]), remaining) {
+		if !callsAny(modules[id].(*Function[W]), remaining) {
 			return i
 		}
 	}
@@ -119,7 +118,7 @@ func findInlinableTarget[W word.Word[W]](modules []descriptor.Module[W], remaini
 
 // callsAny checks whether the body of a given function calls any of the given
 // modules.
-func callsAny[W word.Word[W]](fn *descriptor.Function[W], ids []uint) bool {
+func callsAny[W Word[W]](fn *Function[W], ids []uint) bool {
 	for _, v := range fn.Vectors() {
 		for _, insn := range v.Bytecodes {
 			if call, ok := insn.(*bytecode.Call[W]); ok && slices.Contains(ids, uint(call.Target)) {
@@ -133,8 +132,8 @@ func callsAny[W word.Word[W]](fn *descriptor.Function[W], ids []uint) bool {
 
 // inlineAllCalls inlines every call to a given callee within the body of a
 // given function, returning the (possibly unchanged) result.
-func inlineAllCalls[W word.Word[W]](fn *descriptor.Function[W], calleeId uint,
-	callee *descriptor.Function[W]) *descriptor.Function[W] {
+func inlineAllCalls[W Word[W]](fn *Function[W], calleeId uint,
+	callee *Function[W]) *Function[W] {
 	//
 	var (
 		alloc   = split.NewAllocator(fn)
@@ -165,7 +164,7 @@ func inlineAllCalls[W word.Word[W]](fn *descriptor.Function[W], calleeId uint,
 // findCall locates the first call to a given callee, returning the enclosing
 // vector index, the position within that vector and the call itself (or nil if
 // there is none).
-func findCall[W word.Word[W]](code []BytecodeVector[W], calleeId uint) (uint, uint, *bytecode.Call[W]) {
+func findCall[W Word[W]](code []BytecodeVector[W], calleeId uint) (uint, uint, *bytecode.Call[W]) {
 	for i, v := range code {
 		for j, insn := range v.Bytecodes {
 			if call, ok := insn.(*bytecode.Call[W]); ok && uint(call.Target) == calleeId {
@@ -190,8 +189,8 @@ func findCall[W word.Word[W]](code []BytecodeVector[W], calleeId uint) (uint, ui
 //
 // Since the callee body occupies len(callee.Vectors())+1 additional vectors,
 // all jump targets beyond pc within the original code are shifted accordingly.
-func inlineCallSite[W word.Word[W]](code []BytecodeVector[W], pc, k uint, call *bytecode.Call[W],
-	callee *descriptor.Function[W], alloc split.Allocator[W]) []BytecodeVector[W] {
+func inlineCallSite[W Word[W]](code []BytecodeVector[W], pc, k uint, call *bytecode.Call[W],
+	callee *Function[W], alloc split.Allocator[W]) []BytecodeVector[W] {
 	//
 	var (
 		codes  = code[pc].Bytecodes
@@ -242,7 +241,7 @@ func inlineCallSite[W word.Word[W]](code []BytecodeVector[W], pc, k uint, call *
 // the enclosing vector at the call site.  Note that a skip targeting the call
 // itself is fine, as this lands on the argument copies (i.e. the call entry)
 // after splitting.
-func checkCallSite[W word.Word[W]](codes []Bytecode[W], k uint, callee *descriptor.Function[W]) {
+func checkCallSite[W Word[W]](codes []Bytecode[W], k uint, callee *Function[W]) {
 	if len(callee.Vectors()) == 0 {
 		panic(fmt.Sprintf("cannot inline function \"%s\" with empty body", callee.Name()))
 	}
@@ -263,7 +262,7 @@ func checkCallSite[W word.Word[W]](codes []Bytecode[W], k uint, callee *descript
 
 // checkSkipDoesNotCross panics when a skip of the given amount, located at
 // position j, would jump over the call at position k.
-func checkSkipDoesNotCross[W word.Word[W]](j, skip, k uint, callee *descriptor.Function[W]) {
+func checkSkipDoesNotCross[W Word[W]](j, skip, k uint, callee *Function[W]) {
 	if j+skip+1 > k {
 		panic(fmt.Sprintf(
 			"cannot inline call to \"%s\" guarded by skip (inlining must be applied before vectorisation)",
@@ -311,7 +310,7 @@ type registerCopy struct {
 // vacuous exactly when the value already resides in a register of the same
 // width.  Anything which cannot be aliased (including all temporaries) gets a
 // fresh (computed) shadow register of the same shape.
-func buildShadowMap[W word.Word[W]](call *bytecode.Call[W], callee *descriptor.Function[W],
+func buildShadowMap[W Word[W]](call *bytecode.Call[W], callee *Function[W],
 	alloc split.Allocator[W]) shadowMap {
 	//
 	var (
@@ -382,7 +381,7 @@ func buildShadowMap[W word.Word[W]](call *bytecode.Call[W], callee *descriptor.F
 
 // writtenRegisters returns the set of registers written anywhere within the body
 // of a given function.
-func writtenRegisters[W word.Word[W]](fn *descriptor.Function[W]) bit.Set {
+func writtenRegisters[W Word[W]](fn *Function[W]) bit.Set {
 	var written bit.Set
 	//
 	for _, v := range fn.Vectors() {
@@ -398,7 +397,7 @@ func writtenRegisters[W word.Word[W]](fn *descriptor.Function[W]) bit.Set {
 
 // sameShape checks whether two registers have identical shape, i.e. are both
 // native, or both have the same declared width.
-func sameShape[W word.Word[W]](a, b descriptor.Register[W]) bool {
+func sameShape[W Word[W]](a, b Register[W]) bool {
 	if a.IsNative() || b.IsNative() {
 		return a.IsNative() && b.IsNative()
 	}
@@ -418,7 +417,7 @@ func sameShape[W word.Word[W]](a, b descriptor.Register[W]) bool {
 // Vectorize assumes.  It also guarantees the vector is non-empty --- as it must
 // be in order to execute --- which matters when the call was the sole code of
 // its vector and no argument copies were needed.
-func buildEntryVector[W word.Word[W]](codes []Bytecode[W], copies []registerCopy,
+func buildEntryVector[W Word[W]](codes []Bytecode[W], copies []registerCopy,
 	bodyPC uint) BytecodeVector[W] {
 	//
 	var ncodes = slices.Clone(codes)
@@ -442,7 +441,7 @@ func buildEntryVector[W word.Word[W]](codes []Bytecode[W], copies []registerCopy
 // call's return registers, followed by all codes succeeding the call.  Placing
 // the copies here (rather than at each return site within the body) ensures they
 // are emitted exactly once.
-func buildExitVector[W word.Word[W]](codes []Bytecode[W], copies []registerCopy) BytecodeVector[W] {
+func buildExitVector[W Word[W]](codes []Bytecode[W], copies []registerCopy) BytecodeVector[W] {
 	var ncodes []Bytecode[W]
 	//
 	for _, c := range copies {
@@ -462,7 +461,7 @@ func buildExitVector[W word.Word[W]](codes []Bytecode[W], copies []registerCopy)
 // registers are substituted for their caller-local shadows; internal jumps are
 // rebased onto the caller's program counter; and returns become jumps to the
 // exit vector (which performs the output copies).
-func buildInlinedBody[W word.Word[W]](callee *descriptor.Function[W], shadows []bytecode.RegisterId,
+func buildInlinedBody[W Word[W]](callee *Function[W], shadows []bytecode.RegisterId,
 	base, exitPC uint) []BytecodeVector[W] {
 	//
 	var body = make([]BytecodeVector[W], len(callee.Vectors()))
@@ -491,7 +490,7 @@ func buildInlinedBody[W word.Word[W]](callee *descriptor.Function[W], shadows []
 // substituted according to a given mapping.
 //
 //nolint:gocyclo
-func substituteRegisters[W word.Word[W]](insn Bytecode[W], sub []bytecode.RegisterId) Bytecode[W] {
+func substituteRegisters[W Word[W]](insn Bytecode[W], sub []bytecode.RegisterId) Bytecode[W] {
 	switch insn := insn.(type) {
 	case *bytecode.Arith[W]:
 		return bytecode.NewArith(insn.Op, substituteIds(insn.Target, sub), substituteIds(insn.Source, sub), insn.Constant)
@@ -575,7 +574,7 @@ func substituteIds(ids []bytecode.RegisterId, sub []bytecode.RegisterId) []bytec
 	return nids
 }
 
-func substituteOperandVector[W word.Word[W]](v bytecode.Operand[W], sub []bytecode.RegisterId,
+func substituteOperandVector[W Word[W]](v bytecode.Operand[W], sub []bytecode.RegisterId,
 ) bytecode.Operand[W] {
 	//
 	if v.IsConstant() {
@@ -587,7 +586,7 @@ func substituteOperandVector[W word.Word[W]](v bytecode.Operand[W], sub []byteco
 	return bytecode.NewRegisterVectorOperand[W](rvec)
 }
 
-func substituteOperandVectors[W word.Word[W]](vs []bytecode.Operand[W], sub []bytecode.RegisterId,
+func substituteOperandVectors[W Word[W]](vs []bytecode.Operand[W], sub []bytecode.RegisterId,
 ) []bytecode.Operand[W] {
 	var nvs = make([]bytecode.Operand[W], len(vs))
 	//
@@ -620,7 +619,7 @@ func substituteRegisterVectors(vs []bytecode.RegisterVector, sub []bytecode.Regi
 // given amount, accounting for the vectors inserted by inlining.  A target of pc
 // itself is retained, since the entry vector occupies that position in the new
 // layout.
-func remapJumps[W word.Word[W]](v BytecodeVector[W], pc, delta uint) BytecodeVector[W] {
+func remapJumps[W Word[W]](v BytecodeVector[W], pc, delta uint) BytecodeVector[W] {
 	var (
 		ncodes  = make([]Bytecode[W], len(v.Bytecodes))
 		changed = false
@@ -645,7 +644,7 @@ func remapJumps[W word.Word[W]](v BytecodeVector[W], pc, delta uint) BytecodeVec
 // removeModules removes the given target modules, remapping the module
 // identifiers embedded within the bytecodes of all remaining functions
 // accordingly.
-func removeModules[W word.Word[W]](modules []descriptor.Module[W], targets []uint) []descriptor.Module[W] {
+func removeModules[W Word[W]](modules []descriptor.Module[W], targets []uint) []descriptor.Module[W] {
 	var (
 		idMap = make([]uint, len(modules))
 		kept  []descriptor.Module[W]
@@ -661,7 +660,7 @@ func removeModules[W word.Word[W]](modules []descriptor.Module[W], targets []uin
 	}
 	//
 	for i, m := range kept {
-		if fn, ok := m.(*descriptor.Function[W]); ok {
+		if fn, ok := m.(*Function[W]); ok {
 			kept[i] = remapModuleIds(fn, idMap)
 		}
 	}
@@ -672,7 +671,7 @@ func removeModules[W word.Word[W]](modules []descriptor.Module[W], targets []uin
 // remapModuleIds reconstructs a given function with all module identifiers —
 // those embedded in its bytecodes and those of its declared memory effects —
 // substituted according to a given mapping.
-func remapModuleIds[W word.Word[W]](fn *descriptor.Function[W], idMap []uint) *descriptor.Function[W] {
+func remapModuleIds[W Word[W]](fn *Function[W], idMap []uint) *Function[W] {
 	var (
 		code    = make([]BytecodeVector[W], len(fn.Vectors()))
 		effects = fn.Effects()
@@ -707,7 +706,7 @@ func remapModuleIds[W word.Word[W]](fn *descriptor.Function[W], idMap []uint) *d
 	return descriptor.NewFunction(fn.Name(), fn.Registers(), fn.Kind(), effects, code)
 }
 
-func remapModuleId[W word.Word[W]](insn Bytecode[W], idMap []uint) Bytecode[W] {
+func remapModuleId[W Word[W]](insn Bytecode[W], idMap []uint) Bytecode[W] {
 	var id uint
 	// Extract module identifier (if applicable)
 	switch insn := insn.(type) {

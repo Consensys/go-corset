@@ -21,7 +21,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
-	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // LowerFieldCasts inserts the canonicality checks required when extracting a
@@ -37,14 +36,14 @@ import (
 // a final borrow, whose sign bit is the answer), rather than a lexicographic
 // limb-by-limb comparison.  Consequently this transform MUST run before
 // LowerComparisons and SplitRegisters.
-func LowerFieldCasts[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func LowerFieldCasts[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	var (
 		modules = slices.Clone(program.Modules())
 		helpers = newFieldCastHelpers[W](uint(len(modules)), program.Field().Modulus())
 	)
 
 	for i, mod := range modules {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			modules[i] = lowerFieldCastFunction(fn, helpers)
 		}
 	}
@@ -52,8 +51,8 @@ func LowerFieldCasts[W word.Word[W]](program descriptor.Program[W]) descriptor.P
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), append(modules, helpers.modules...)...)
 }
 
-func lowerFieldCastFunction[W word.Word[W]](fn *descriptor.Function[W], helpers *fieldCastHelpers[W],
-) *descriptor.Function[W] {
+func lowerFieldCastFunction[W Word[W]](fn *Function[W], helpers *fieldCastHelpers[W],
+) *Function[W] {
 	var (
 		registers = fn.Registers()
 		vectors   = make([]BytecodeVector[W], len(fn.Vectors()))
@@ -76,14 +75,14 @@ func lowerFieldCastFunction[W word.Word[W]](fn *descriptor.Function[W], helpers 
 	return descriptor.NewFunction(fn.Name(), registers, fn.Kind(), fn.Effects(), vectors)
 }
 
-type fieldCastHelpers[W word.Word[W]] struct {
+type fieldCastHelpers[W Word[W]] struct {
 	base    uint
 	modulus *big.Int
 	ids     map[string]uint
 	modules []descriptor.Module[W]
 }
 
-func newFieldCastHelpers[W word.Word[W]](base uint, modulus *big.Int) *fieldCastHelpers[W] {
+func newFieldCastHelpers[W Word[W]](base uint, modulus *big.Int) *fieldCastHelpers[W] {
 	return &fieldCastHelpers[W]{base: base, modulus: modulus, ids: make(map[string]uint)}
 }
 
@@ -91,7 +90,7 @@ func newFieldCastHelpers[W word.Word[W]](base uint, modulus *big.Int) *fieldCast
 // extraction into the given target registers.  When the target is too narrow to
 // ever reach P, every value it can hold is already canonical and no check is
 // required.
-func (p *fieldCastHelpers[W]) check(regs []bytecode.RegisterId, registers []descriptor.Register[W]) []Bytecode[W] {
+func (p *fieldCastHelpers[W]) check(regs []bytecode.RegisterId, registers []Register[W]) []Bytecode[W] {
 	widths := make([]uint, len(regs))
 	total := uint(0)
 
@@ -129,7 +128,7 @@ func (p *fieldCastHelpers[W]) ensure(widths []uint, total uint) uint {
 
 	var (
 		padding W
-		regs    []descriptor.Register[W]
+		regs    []Register[W]
 		inputs  = make([]bytecode.RegisterId, len(widths))
 		code    []Bytecode[W]
 		prime   W

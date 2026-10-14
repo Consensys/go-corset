@@ -368,7 +368,7 @@ func (t *threader[W]) branchState(insns []Bytecode[W], i int, state stamps) stam
 // the callee declares leaves its updated stamp in the temporary received from
 // the call.
 func (t *threader[W]) callArcState(pc uint, call *bytecode.Call[W], state stamps) stamps {
-	callee, ok := t.mods[call.Target].(*descriptor.Function[W])
+	callee, ok := t.mods[call.Target].(*Function[W])
 	if !ok || callee.IsNative() {
 		return state
 	}

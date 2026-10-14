@@ -66,11 +66,11 @@ import (
 // NOTE: this transform must run after SplitRegisters (multi-limb comparisons
 // only exist post-split) and before AddRangeConstraints (which constrains the
 // fresh 1-bit registers to be binary).
-func FactorLimbEqualities[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func FactorLimbEqualities[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	out := slices.Clone(program.Modules())
 
 	for i, mod := range out {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			out[i] = factorLimbEqualitiesFunction(fn)
 		}
 	}
@@ -78,7 +78,7 @@ func FactorLimbEqualities[W word.Word[W]](program descriptor.Program[W]) descrip
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
 }
 
-func factorLimbEqualitiesFunction[W word.Word[W]](fn *descriptor.Function[W]) *descriptor.Function[W] {
+func factorLimbEqualitiesFunction[W Word[W]](fn *Function[W]) *Function[W] {
 	var (
 		vectors = fn.Vectors()
 		nvecs   = make([]BytecodeVector[W], len(vectors))
@@ -97,7 +97,7 @@ func factorLimbEqualitiesFunction[W word.Word[W]](fn *descriptor.Function[W]) *d
 	return descriptor.NewFunction(fn.Name(), alloc.Registers(), fn.Kind(), fn.Effects(), nvecs)
 }
 
-func factorLimbEqualityCode[W word.Word[W]](b Bytecode[W], registers split.Allocator[W]) []Bytecode[W] {
+func factorLimbEqualityCode[W Word[W]](b Bytecode[W], registers split.Allocator[W]) []Bytecode[W] {
 	si, ok := b.(*bytecode.SkipIf[W])
 	if !ok || !isEqualityCondition(si.Op) || !si.Right.IsRegisterVector() {
 		return []Bytecode[W]{b}

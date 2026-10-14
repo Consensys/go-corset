@@ -43,11 +43,11 @@ import (
 // NOTE: this transform must run after vectorisation (so the branch's guarded
 // writes share the condition) and before register splitting (so comparison
 // operands remain single registers).
-func FactorSkipConditions[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func FactorSkipConditions[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	out := slices.Clone(program.Modules())
 
 	for i, mod := range out {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			out[i] = factorSkipConditionsFunction(fn)
 		}
 	}
@@ -55,7 +55,7 @@ func FactorSkipConditions[W word.Word[W]](program descriptor.Program[W]) descrip
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
 }
 
-func factorSkipConditionsFunction[W word.Word[W]](fn *descriptor.Function[W]) *descriptor.Function[W] {
+func factorSkipConditionsFunction[W Word[W]](fn *Function[W]) *Function[W] {
 	var (
 		vectors = fn.Vectors()
 		nvecs   = make([]BytecodeVector[W], len(vectors))
@@ -81,7 +81,7 @@ func factorSkipConditionsFunction[W word.Word[W]](fn *descriptor.Function[W]) *d
 }
 
 // factorableSkips returns the set of code indices holding a SkipIf worth factoring.
-func factorableSkips[W word.Word[W]](codes []Bytecode[W], registers split.Allocator[W]) map[uint]bool {
+func factorableSkips[W Word[W]](codes []Bytecode[W], registers split.Allocator[W]) map[uint]bool {
 	factor := make(map[uint]bool)
 	//
 	for i, code := range codes {
@@ -123,7 +123,7 @@ func isEqualityCondition(cond bytecode.Condition) bool {
 // lower to an inverse normalisation.  This is only the case when some operand is
 // wider than a single bit; equality involving only bit registers is
 // normalisation-free and so factoring it would add bytecodes for no benefit.
-func generatesInverse[W word.Word[W]](si *bytecode.SkipIf[W], registers split.Allocator[W]) bool {
+func generatesInverse[W Word[W]](si *bytecode.SkipIf[W], registers split.Allocator[W]) bool {
 	for _, r := range si.Uses() {
 		reg := registers.Register(r)
 		// Native registers are full-field-width (and have no fixed bitwidth), so
@@ -143,7 +143,7 @@ func generatesInverse[W word.Word[W]](si *bytecode.SkipIf[W], registers split.Al
 //	b = k0
 //	skip 1
 //	b = k1
-func bodyContainsOnlyBitEquality[W word.Word[W]](codes []Bytecode[W], i uint, registers split.Allocator[W]) bool {
+func bodyContainsOnlyBitEquality[W Word[W]](codes []Bytecode[W], i uint, registers split.Allocator[W]) bool {
 	si := codes[i].(*bytecode.SkipIf[W])
 	//
 	if si.Skip != 2 || i+3 >= uint(len(codes)) {
@@ -167,7 +167,7 @@ func bodyContainsOnlyBitEquality[W word.Word[W]](codes []Bytecode[W], i uint, re
 
 // isLoadConst recognises a load-constant bytecode (as constructed by
 // bytecode.LoadConst), returning its single target register.
-func isLoadConst[W word.Word[W]](code Bytecode[W]) (bytecode.RegisterId, bool) {
+func isLoadConst[W Word[W]](code Bytecode[W]) (bytecode.RegisterId, bool) {
 	if a, ok := code.(*bytecode.Arith[W]); ok &&
 		a.Op == bytecode.OP_ADD && len(a.Source) == 0 && len(a.Target) == 1 {
 		return a.Target[0], true
@@ -180,7 +180,7 @@ func isLoadConst[W word.Word[W]](code Bytecode[W]) (bytecode.RegisterId, bool) {
 // FactorSkipConditions.  The condition of the inner skip is preserved
 // (unnegated): when it holds, execution jumps to `b = 1`; otherwise it falls
 // through to `b = 0`.
-func factorSkipIf[W word.Word[W]](
+func factorSkipIf[W Word[W]](
 	si *bytecode.SkipIf[W],
 	registers split.Allocator[W],
 ) []Bytecode[W] {

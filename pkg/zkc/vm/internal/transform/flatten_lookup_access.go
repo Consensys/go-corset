@@ -20,7 +20,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/transform/split"
-	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // FlattenLookupAccess snapshots, into a fresh temporary, each call (or memory access) argument whose
@@ -45,11 +44,11 @@ import (
 // when generating arithmetic constraints (it is not required by the vm) and
 // must run after vectorisation, so the writes which would corrupt the argument
 // column share the call's vector.
-func FlattenLookupAccess[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func FlattenLookupAccess[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	out := slices.Clone(program.Modules())
 
 	for i, mod := range out {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			out[i] = flattenLookupAccessFunction(fn)
 		}
 	}
@@ -57,7 +56,7 @@ func FlattenLookupAccess[W word.Word[W]](program descriptor.Program[W]) descript
 	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
 }
 
-func flattenLookupAccessFunction[W word.Word[W]](fn *descriptor.Function[W]) *descriptor.Function[W] {
+func flattenLookupAccessFunction[W Word[W]](fn *Function[W]) *Function[W] {
 	var (
 		vectors = fn.Vectors()
 		nvecs   = make([]BytecodeVector[W], len(vectors))
@@ -95,7 +94,7 @@ func flattenLookupAccessFunction[W word.Word[W]](fn *descriptor.Function[W]) *de
 // Here, the write to x can never follow the read on the same row, so the
 // column for x always holds the address actually read.  Zero-width registers
 // carry no data and, hence, are never flagged.
-func flattenableArgs[W word.Word[W]](vec BytecodeVector[W], registers descriptor.RegisterMap[W]) map[uint][]bool {
+func flattenableArgs[W Word[W]](vec BytecodeVector[W], registers RegisterMap[W]) map[uint][]bool {
 	var (
 		codes    = vec.Bytecodes
 		reaches  = vec.ReachMap()
@@ -144,15 +143,15 @@ func isReachableFrom(reaches dfa.Result[dfa.Reaches], from, to uint) bool {
 // isDefinedIn determines whether the given register is written by the given
 // bytecode.  Zero-width registers carry no data and, hence, are never
 // considered written.
-func isDefinedIn[W word.Word[W]](reg bytecode.RegisterId, code Bytecode[W],
-	registers descriptor.RegisterMap[W]) bool {
+func isDefinedIn[W Word[W]](reg bytecode.RegisterId, code Bytecode[W],
+	registers RegisterMap[W]) bool {
 	//
 	return !registers.Register(reg).IsZeroWidth() && slices.Contains(code.Definitions(), reg)
 }
 
 // flattenLookupAccess expands a call, prefixing it with a snapshot ("tmp = arg") for
 // each flagged argument and rewriting the call to read those temporaries.
-func flattenLookupAccess[W word.Word[W]](code Bytecode[W], snapshot []bool,
+func flattenLookupAccess[W Word[W]](code Bytecode[W], snapshot []bool,
 	registers split.Allocator[W]) []Bytecode[W] {
 	insns, uses := snapshotUses(lookupUses(code), snapshot, registers)
 	//
@@ -177,7 +176,7 @@ func flattenLookupAccess[W word.Word[W]](code Bytecode[W], snapshot []bool,
 	}
 }
 
-func snapshotUses[W word.Word[W]](uses []bytecode.RegisterId, snapshot []bool,
+func snapshotUses[W Word[W]](uses []bytecode.RegisterId, snapshot []bool,
 	registers split.Allocator[W]) ([]Bytecode[W], []bytecode.RegisterId) {
 	var (
 		ids   = slices.Clone(uses)
@@ -195,7 +194,7 @@ func snapshotUses[W word.Word[W]](uses []bytecode.RegisterId, snapshot []bool,
 	return insns, ids
 }
 
-func lookupUses[W word.Word[W]](code Bytecode[W]) []bytecode.RegisterId {
+func lookupUses[W Word[W]](code Bytecode[W]) []bytecode.RegisterId {
 	switch c := code.(type) {
 	case *bytecode.Call[W]:
 		return c.Arguments

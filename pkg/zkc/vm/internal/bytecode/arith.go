@@ -39,6 +39,19 @@ type Arith[W word.Word[W]] struct {
 	Target   []RegisterId
 }
 
+// IsUnit returns true if this is a "unit" operation.  That is, an assignment of
+// the form "x = y".
+func (p *Arith[W]) IsUnit() bool {
+	switch p.Op {
+	case OP_ADD, OP_SUB:
+		return len(p.Source) == 1 && p.Constant.Cmp64(0) == 0
+	case OP_MUL:
+		return len(p.Source) == 1 && p.Constant.Cmp64(1) == 0
+	}
+	//
+	panic("unknown arithmetic operator")
+}
+
 // Uses implementation for Bytecode interface.
 func (p *Arith[W]) Uses() []RegisterId {
 	return p.Source

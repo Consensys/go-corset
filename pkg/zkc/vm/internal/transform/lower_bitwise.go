@@ -20,7 +20,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/transform/split"
-	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // LowerBitwise rewrites VM-level NOT and SHL/SHR bytecodes: NOT is inlined as
@@ -29,14 +28,14 @@ import (
 // lowered after register splitting instead (see LowerOrXorAnd).
 //
 // We assume this lowering happens BEFORE vectorization and register splitting.
-func LowerBitwise[W word.Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
+func LowerBitwise[W Word[W]](program descriptor.Program[W]) descriptor.Program[W] {
 	var (
 		out     = slices.Clone(program.Modules())
 		helpers = newShiftHelpers[W](uint(len(out)), scanShiftParams(out))
 	)
 
 	for i, mod := range out {
-		if fn, ok := mod.(*descriptor.Function[W]); ok {
+		if fn, ok := mod.(*Function[W]); ok {
 			out[i] = lowerBitwiseFunction(fn, func(b Bytecode[W], alloc split.Allocator[W]) []Bytecode[W] {
 				return lowerBitwiseCode(b, alloc, helpers)
 			})
@@ -54,9 +53,9 @@ func LowerBitwise[W word.Word[W]](program descriptor.Program[W]) descriptor.Prog
 // introduces).  The helper registry, if any, is captured by the codeFn closure
 // — this driver is shared by LowerBitwise and LowerOrXorAnd, whose registries
 // differ.
-func lowerBitwiseFunction[W word.Word[W]](fn *descriptor.Function[W],
+func lowerBitwiseFunction[W Word[W]](fn *Function[W],
 	codeFn func(Bytecode[W], split.Allocator[W]) []Bytecode[W],
-) *descriptor.Function[W] {
+) *Function[W] {
 	var (
 		vectors = fn.Vectors()
 		nvecs   = make([]BytecodeVector[W], len(vectors))
@@ -72,7 +71,7 @@ func lowerBitwiseFunction[W word.Word[W]](fn *descriptor.Function[W],
 	return descriptor.NewFunction(fn.Name(), alloc.Registers(), fn.Kind(), fn.Effects(), nvecs)
 }
 
-func lowerBitwiseCode[W word.Word[W]](
+func lowerBitwiseCode[W Word[W]](
 	b Bytecode[W],
 	registers split.Allocator[W],
 	helpers *shiftHelpers[W],
@@ -109,7 +108,7 @@ func lowerBitwiseCode[W word.Word[W]](
 //     the shifted result is too — making the direct binding both sound and free.
 //   - For SHL the discarded high bits are legitimately non-zero, the result must
 //     therefore come back at maxWidth and be destructed.
-func lowerBitwiseShlShr[W word.Word[W]](
+func lowerBitwiseShlShr[W Word[W]](
 	b *bytecode.Bitwise[W],
 	registers split.Allocator[W],
 	helpers *shiftHelpers[W],
@@ -159,7 +158,7 @@ func lowerBitwiseShlShr[W word.Word[W]](
 
 // inlineBitwiseNot emits ~x as (MASK - x) directly into the caller's bytecode
 // stream, where MASK = 2^width - 1.  No helper module is created.
-func inlineBitwiseNot[W word.Word[W]](b *bytecode.Bitwise[W], registers split.Allocator[W]) []Bytecode[W] {
+func inlineBitwiseNot[W Word[W]](b *bytecode.Bitwise[W], registers split.Allocator[W]) []Bytecode[W] {
 	var (
 		width, _ = maxBitwidthOf(registers.Registers(), b.Uses()...)
 		zero     W
@@ -174,7 +173,7 @@ func inlineBitwiseNot[W word.Word[W]](b *bytecode.Bitwise[W], registers split.Al
 	}
 }
 
-func maxBitwidthOf[W word.Word[W]](regs []descriptor.Register[W], targets ...bytecode.RegisterId) (uint, bool) {
+func maxBitwidthOf[W Word[W]](regs []Register[W], targets ...bytecode.RegisterId) (uint, bool) {
 	var w uint
 	//
 	for _, src := range targets {

@@ -14,15 +14,34 @@ package transform
 
 import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
+	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/transform/split"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // Allocator is a useful alias
-type Allocator[W word.Word[W]] = split.Allocator[W]
+type Allocator[W Word[W]] = split.Allocator[W]
 
 // Bytecode provides a convenient alias
-type Bytecode[W word.Word[W]] = bytecode.Bytecode[W]
+type Bytecode[W Word[W]] = bytecode.Bytecode[W]
 
 // BytecodeVector provides a convenient alias
-type BytecodeVector[W word.Word[W]] = bytecode.Vector[W]
+type BytecodeVector[W Word[W]] = bytecode.Vector[W]
+
+// Environment provides a useful alias
+type Environment[W Word[W]] = bytecode.Environment[W]
+
+// Function provides a useful alias
+type Function[W Word[W]] = descriptor.Function[W]
+
+// Register provides a useful alias
+type Register[W Word[W]] = descriptor.Register[W]
+
+// RegisterMap provides a useful alias
+type RegisterMap[W Word[W]] = descriptor.RegisterMap[W]
+
+// ProgramPoint provides a convenient alias
+type ProgramPoint = descriptor.ProgramPoint
+
+// Word provides a convenient alias
+type Word[W any] = word.Word[W]

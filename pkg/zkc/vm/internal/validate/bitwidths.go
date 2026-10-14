@@ -13,12 +13,17 @@
 package validate
 
 import (
+	"math"
 	"slices"
 
 	"github.com/LFDT-Lineth/zkc/pkg/util"
+	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 )
+
+// MAX_UINTWIDTH is the maximum bitwidth any non-native register could store.
+var MAX_UINTWIDTH = util.Some[uint](math.MaxUint)
 
 // RegWidth defines the type of "register bitwidths".  The purpose of this is to
 // try and make the code a bit more readable.
@@ -191,29 +196,24 @@ func (p Bitwidths) AssignAll(lhs []RegisterId, rhs RegWidth) Bitwidths {
 	var bitwidths = slices.Clone(p.bitwidths)
 	// Sanity check
 	util.Assert(!rhs.IsEmpty() || len(lhs) == 1, "cannot destruct native register")
+	// NOTE: discard cannot (at this time) appear here.  This is because
+	// discard registers are currently only suppored for the target(s)
+	// of a call.
+	util.Assert(!array.ContainsMatching(lhs, func(r RegisterId) bool {
+		return r == bytecode.DISCARD
+	}), "unexpected discard register")
 	//
 	if rhs.IsEmpty() {
 		// Native register
 		bitwidths[lhs[0]] = p.bitwidths[lhs[0]].Assign(rhs)
+	} else if len(lhs) == 1 {
+		bitwidths[lhs[0]] = p.bitwidths[lhs[0]].Assign(rhs)
 	} else {
-		var bitwidth = rhs.Unwrap()
-		//
-		for i, l := range lhs {
-			var bw uint
-			// NOTE: discard cannot (at this time) appear here.  This is because
-			// discard registers are currently only suppored for the target(s)
-			// of a call.
-			util.Assert(l != bytecode.DISCARD, "unexpected discard register")
-			//
-			if i+1 == len(lhs) {
-				bw = bitwidth
-			} else {
-				bw = p.bitwidths[l].bitwidth.Unwrap()
-			}
-			//
-			bitwidths[l] = p.bitwidths[l].Assign(util.Some(bw))
-			// Reduce bitwidth by amount assigned to register
-			bitwidth -= min(bitwidth, bw)
+		// NOTE: for a destructuring assignment, all target registers are taken
+		// to their maximum width.  This is necessary to ensure only safe
+		// registers are used in destructuring assignments.
+		for _, l := range lhs {
+			bitwidths[l] = p.bitwidths[l].Assign(MAX_UINTWIDTH)
 		}
 	}
 	//
