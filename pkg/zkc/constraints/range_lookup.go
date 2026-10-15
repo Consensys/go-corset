@@ -117,14 +117,29 @@ func (p *constraintTranslator[W, F]) addRangeProofConstraints(mod *schema.Table[
 
 			continue
 		}
-		// u1 registers are not range-checked with a static table, but with a
-		// constraint r * r == r (equivalently r * (1 - r) == 0).
+		// u1 registers are not range-checked with a lookup to a static table,
+		// but with a constraint r * r == r (equivalently r * (1 - r) == 0).
 		if reg.Width() == 1 {
 			regId := register.NewId(uint(i))
 			handle := fmt.Sprintf("range_u1_%d", regId.Unwrap())
 			r := mirc.Variable[F](regId, reg.Width(), 0)
 			mod.AddConstraints(vanishing.NewConstraint(handle, ctx, util.None[int](),
 				mirc.Product(r, r).Equals(r).AsLogical()))
+
+			continue
+		}
+		// u2 registers are not range-checked with a lookup to a static table,
+		// but with a constraint r * (r - 1) * (r - 2) * (r - 3) == 0.
+		if reg.Width() == 2 {
+			regId := register.NewId(uint(i))
+			handle := fmt.Sprintf("range_u2_%d", regId.Unwrap())
+			r := mirc.Variable[F](regId, reg.Width(), 0)
+			poly := mirc.Product(r,
+				r.Subtract(mirc.Number[F](1)),
+				r.Subtract(mirc.Number[F](2)),
+				r.Subtract(mirc.Number[F](3)))
+			mod.AddConstraints(vanishing.NewConstraint(handle, ctx, util.None[int](),
+				poly.Equals(mirc.Number[F](0)).AsLogical()))
 
 			continue
 		}
