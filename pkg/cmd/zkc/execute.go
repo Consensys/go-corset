@@ -20,7 +20,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/cmd/zkc/gogen"
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field"
-	"github.com/LFDT-Lineth/zkc/pkg/util/field/bls12_377"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/gf251"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/gf8209"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/goldilocks"
@@ -51,7 +50,6 @@ var executeCmds = []FieldAgnosticCmd{
 	{field.GOLDILOCKS_32, runExecuteCmd[goldilocks.Element, vm.Uint64]},
 	{field.MAMABEAR_32, runExecuteCmd[mamabear.Element, vm.Uint64]},
 	{field.MAMABEAR2_32, runExecuteCmd[mamabear2.Element, vm.Uint64]},
-	{field.BLS12_377, runExecuteCmd[bls12_377.Element, vm.Uint128]},
 }
 
 // Permitted flag combinations

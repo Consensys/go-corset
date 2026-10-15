@@ -18,7 +18,6 @@ import (
 
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field"
-	"github.com/LFDT-Lineth/zkc/pkg/util/field/bls12_377"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/gf251"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/gf8209"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/goldilocks"
@@ -48,7 +47,6 @@ var debugCmds = []FieldAgnosticCmd{
 	{field.GOLDILOCKS_32, runDebugCmd[goldilocks.Element, vm.Uint64]},
 	{field.MAMABEAR_32, runDebugCmd[mamabear.Element, vm.Uint64]},
 	{field.MAMABEAR2_32, runDebugCmd[mamabear2.Element, vm.Uint64]},
-	{field.BLS12_377, runDebugCmd[bls12_377.Element, vm.Uint128]},
 }
 
 func runDebugCmd[F field.Element[F], W vm.Word[W]](cmd *cobra.Command, args []string, field field.Config) {
