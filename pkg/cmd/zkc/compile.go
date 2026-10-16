@@ -22,7 +22,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/typed"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field"
-	"github.com/LFDT-Lineth/zkc/pkg/util/field/bls12_377"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/gf251"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/gf8209"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field/goldilocks"
@@ -63,7 +62,6 @@ var compileCmds = []FieldAgnosticCmd{
 	{field.GOLDILOCKS_32, runCompileCmd[goldilocks.Element, vm.Uint64]},
 	{field.MAMABEAR_32, runCompileCmd[mamabear.Element, vm.Uint64]},
 	{field.MAMABEAR2_32, runCompileCmd[mamabear2.Element, vm.Uint64]},
-	{field.BLS12_377, runCompileCmd[bls12_377.Element, vm.Uint128]},
 }
 
 // CompileConfig brings together various configuration options specific to this
