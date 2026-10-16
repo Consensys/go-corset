@@ -131,14 +131,21 @@ func neededRangeWidths[W Word[W]](modules []descriptor.Module[W],
 		// Widths discovered but not yet processed.
 		queue []uint
 	)
-	// We don't construct a module for range_u1, since the constraint r * (1 - r) == 0 is used instead.
-	// So 1 is always considered "seen" and never queued for processing.
+	// We don't construct a module for range_u1 and range_u2, since a register r
+	// of width w in {1, 2} is instead range-checked by the vanishing constraint
+	// Product_{i=0}^{2^w - 1} (r - i) == 0. So 1 and 2 are always considered
+	// "seen" and never queued for processing.
+	// Note that for w == 3 it would create a degree 8 constraints,
+	// above the target of max_degree == 4.
 	seen[1] = true
+	seen[2] = true
 	//
 	add := func(w uint) {
 		// Note: width == 0 comes from native registers, which are not range-checked.
-		// width == 1 are not range proven with a call to a static table, but with a constraint r * (1 - r) == 0
-		if w != 0 && w != 1 && !seen[w] {
+		//
+		// w == 1 and w == 2 are not range proven with a call to a static table,
+		//  but uses a vanishing constraints.
+		if w > 2 && !seen[w] {
 			seen[w] = true
 			queue = append(queue, w)
 		}
