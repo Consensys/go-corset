@@ -50,7 +50,7 @@ func (p *CheckCast[W]) Validate(env Environment[W]) ([]error, bool) {
 		return append(errors, fmt.Errorf("invalid checkcast on native register %d", p.Target)), false
 	} else if uint(p.Bitwidth) >= bitwidth.Unwrap() {
 		errors = append(errors,
-			fmt.Errorf("checkcast to u%d does not refine u%d for register %d", bitwidth.Unwrap(), p.Bitwidth, p.Target))
+			fmt.Errorf("checkcast to u%d does not refine u%d for register %d", p.Bitwidth, bitwidth.Unwrap(), p.Target))
 	}
 	//
 	return errors, safe

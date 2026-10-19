@@ -166,7 +166,7 @@ func neededRangeWidths[W Word[W]](modules []descriptor.Module[W], field field.Co
 			// TODO: the need for this highlights some problems with the current
 			// implementation of memory.  Specifically, that some columns are
 			// omitted from the memory descriptor, leading to awkward situations
-			// like this.
+			// like this.  See #2106.
 			if width := mod.StampWidth(); width.HasValue() && mod.IsReadWrite() {
 				for _, w := range register.LimbWidths(field.RegisterWidth, width.Unwrap()) {
 					add(w)
