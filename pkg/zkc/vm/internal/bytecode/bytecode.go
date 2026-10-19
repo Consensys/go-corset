@@ -71,7 +71,7 @@ func (p Operation) Symbol() string {
 	switch p {
 	case OP_ADD:
 		return "+"
-	case OP_SUB:
+	case OP_SUB, OP_CSUB:
 		return "-"
 	case OP_MUL:
 		return "*"
@@ -99,6 +99,8 @@ func (p Operation) Prefix() string {
 		return "add"
 	case OP_SUB:
 		return "sub"
+	case OP_CSUB:
+		return "csub"
 	case OP_MUL:
 		return "mul"
 	case OP_AND:
@@ -121,8 +123,10 @@ func (p Operation) Prefix() string {
 const (
 	// OP_ADD integer addition
 	OP_ADD Operation = iota
-	// OP_SUB integer subtraction
+	// OP_SUB integer subtraction from source
 	OP_SUB
+	// OP_CSUB integer subtraction from constant
+	OP_CSUB
 	// OP_MUL integer multiplication
 	OP_MUL
 	// OP_AND bitwise conjunction.
@@ -285,7 +289,7 @@ func validateOperands[W word.Word[W]](env Environment[W], operands ...[]Register
 // AddConst constructs an addition instruction computing
 // "target = sum(sources) + constant" into a single target register.
 func AddConst[W word.Word[W]](target RegisterId, sources []RegisterId, constant W) *Arith[W] {
-	return NewArith(OP_ADD, []RegisterId{target}, sources, constant, false)
+	return NewArith(OP_ADD, []RegisterId{target}, sources, constant)
 }
 
 // AddVec constructs a vectored addition instruction computing
@@ -296,14 +300,14 @@ func AddVec[W word.Word[W]](targets []RegisterId, sources []RegisterId) *Arith[W
 	//
 	util.Assert(len(targets) > 0, "atleast one target required")
 	//
-	return NewArith(OP_ADD, targets, sources, zero, false)
+	return NewArith(OP_ADD, targets, sources, zero)
 }
 
 // AddVecConst constructs a vectored addition instruction computing
 // "targets = sum(sources) + constant", where targets is a multi-limb register
 // vector.
 func AddVecConst[W word.Word[W]](targets []RegisterId, sources []RegisterId, constant W) *Arith[W] {
-	return NewArith(OP_ADD, targets, sources, constant, false)
+	return NewArith(OP_ADD, targets, sources, constant)
 }
 
 // Assign constructs a move instruction which copies the source register into the
@@ -311,7 +315,7 @@ func AddVecConst[W word.Word[W]](targets []RegisterId, sources []RegisterId, con
 func Assign[W word.Word[W]](target RegisterId, source RegisterId) *Arith[W] {
 	var zero W
 	//
-	return NewArith(OP_ADD, []RegisterId{target}, []RegisterId{source}, zero, false)
+	return NewArith(OP_ADD, []RegisterId{target}, []RegisterId{source}, zero)
 }
 
 // AssignV constructs a concatenation instruction which joins the source
@@ -360,7 +364,7 @@ func NewSkipIf[W word.Word[W]](op Condition, skip uint16, left RegisterVector, r
 // given constant to the target register.
 // TODO: constant register, see: https://github.com/LFDT-Lineth/zkc/issues/1838
 func LoadConst[W word.Word[W]](target RegisterId, constant W) *Arith[W] {
-	return NewArith(OP_ADD, []RegisterId{target}, nil, constant, false)
+	return NewArith(OP_ADD, []RegisterId{target}, nil, constant)
 }
 
 // LoadConstVec constructs a load-constant (LDC) instruction which assigns the
@@ -368,7 +372,7 @@ func LoadConst[W word.Word[W]](target RegisterId, constant W) *Arith[W] {
 func LoadConstVec[W word.Word[W]](targets []RegisterId, constant W) *Arith[W] {
 	util.Assert(len(targets) > 0, "atleast one target required")
 	//
-	return NewArith(OP_ADD, targets, nil, constant, false)
+	return NewArith(OP_ADD, targets, nil, constant)
 }
 
 // MultiwaySkip constructs a multiway-skip (SMW) instruction which dispatches on
@@ -381,7 +385,7 @@ func MultiwaySkip[W word.Word[W]](source RegisterId, cases []SwitchCase[W]) *Swi
 // MulConst constructs a multiplication instruction computing
 // "target = product(sources) * constant" into a single target register.
 func MulConst[W word.Word[W]](target RegisterId, sources []RegisterId, constant W) *Arith[W] {
-	return NewArith(OP_MUL, []RegisterId{target}, sources, constant, false)
+	return NewArith(OP_MUL, []RegisterId{target}, sources, constant)
 }
 
 // MulVecConst constructs a vectored multiplication instruction computing
@@ -392,10 +396,10 @@ func MulVecConst[W word.Word[W]](targets []RegisterId, sources []RegisterId, con
 	//
 	if len(sources) == 0 {
 		// Bypass multiplication
-		return NewArith(OP_ADD, targets, nil, constant, false)
+		return NewArith(OP_ADD, targets, nil, constant)
 	}
 	//
-	return NewArith(OP_MUL, targets, sources, constant, false)
+	return NewArith(OP_MUL, targets, sources, constant)
 }
 
 // NewMemRead constructs a memory-read instruction.  The data registers receive
@@ -412,7 +416,7 @@ func NewMemRead[W word.Word[W]](id uint16, address []RegisterId, data []Register
 // SubConst constructs a subtraction instruction computing
 // "target = sources[0] - ... - constant" into a single target register.
 func SubConst[W word.Word[W]](target RegisterId, sources []RegisterId, constant W) *Arith[W] {
-	return NewArith(OP_SUB, []RegisterId{target}, sources, constant, false)
+	return NewArith(OP_SUB, []RegisterId{target}, sources, constant)
 }
 
 // SubVecConst constructs a vectored subtraction instruction computing
@@ -421,7 +425,7 @@ func SubConst[W word.Word[W]](target RegisterId, sources []RegisterId, constant 
 func SubVecConst[W word.Word[W]](targets []RegisterId, sources []RegisterId, constant W) *Arith[W] {
 	util.Assert(len(targets) > 0, "atleast one target required")
 	//
-	return NewArith(OP_SUB, targets, sources, constant, false)
+	return NewArith(OP_SUB, targets, sources, constant)
 }
 
 // SubConstVec constructs a vectored subtraction instruction computing
@@ -430,7 +434,7 @@ func SubVecConst[W word.Word[W]](targets []RegisterId, sources []RegisterId, con
 func SubConstVec[W word.Word[W]](targets []RegisterId, sources []RegisterId, constant W) *Arith[W] {
 	util.Assert(len(targets) > 0, "atleast one target required")
 	//
-	arith := NewArith(OP_SUB, targets, sources, constant, true)
+	arith := NewArith(OP_CSUB, targets, sources, constant)
 	return arith
 }
 
@@ -524,6 +528,9 @@ func IsUnusedConstant[W word.Word[W]](op Operation, constant W) bool {
 		return constant.Cmp64(0) == 0
 	case OP_MUL, OP_MULMOD_P:
 		return constant.Cmp64(1) == 0
+	case OP_CSUB:
+		// TODO check
+		return false
 	default:
 		panic("unknown arithmetic operation")
 	}
