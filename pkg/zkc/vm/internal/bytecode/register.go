@@ -31,8 +31,9 @@ type Type struct {
 	// flag to indicate whether this register is part of an synthetic stamp
 	// register (i.e. added by ThreadTimeStamps).
 	stamp bool
-	// safe registers have dedicated checks to enforce their bounds.
-	safe bool
+	// rangeChecked registers have dedicated checks to enforce their range (i.e.
+	// bounds).
+	rangeChecked bool
 }
 
 var (
@@ -47,10 +48,10 @@ var (
 	COMPUTED_REGISTER = Type{register.COMPUTED_REGISTER, false, true}
 )
 
-// WithSafety returns the given type with its safety status updated according to
-// the given flag.  All other aspects of the type remain unchanged.
-func (p Type) WithSafety(safe bool) Type {
-	p.safe = safe
+// WithRangeCheck returns the given type with its checked status updated
+// according to the given flag.  All other aspects of the type remain unchanged.
+func (p Type) WithRangeCheck(checked bool) Type {
+	p.rangeChecked = checked
 	//
 	return p
 }
@@ -158,10 +159,10 @@ func (p Register[W]) IsStamp() bool {
 	return p.kind.stamp
 }
 
-// IsSafe determines whether the bitwidth of this register is "safe" --- i.e. is
-// guaranteed by a dedicated bounds check.
-func (p Register[W]) IsSafe() bool {
-	return p.kind.safe
+// IsRangeChecked determines whether or not this register has a dedicated bounds
+// check.  If so, then the bitwidth of this register is guaranteed regardless.
+func (p Register[W]) IsRangeChecked() bool {
+	return p.kind.rangeChecked
 }
 
 // IsZeroWidth returns true for zero-width registers. Zero-width registers are registers
@@ -213,7 +214,7 @@ func (p *Register[W]) GobEncode() ([]byte, error) {
 	var buffer bytes.Buffer
 	gobEncoder := gob.NewEncoder(&buffer)
 	//
-	if err := gobEncoder.Encode(p.kind.safe); err != nil {
+	if err := gobEncoder.Encode(p.kind.rangeChecked); err != nil {
 		return nil, err
 	}
 	//
@@ -247,7 +248,7 @@ func (p *Register[W]) GobDecode(data []byte) error {
 		gobDecoder = gob.NewDecoder(buffer)
 	)
 	//
-	if err := gobDecoder.Decode(&p.kind.safe); err != nil {
+	if err := gobDecoder.Decode(&p.kind.rangeChecked); err != nil {
 		return err
 	}
 	//

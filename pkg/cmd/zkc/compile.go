@@ -747,7 +747,7 @@ type bytecodeRow struct {
 func regType[W vm.Word[W]](r vm.Register[W]) string {
 	if r.IsNative() {
 		return ":𝔽"
-	} else if r.IsSafe() {
+	} else if r.IsRangeChecked() {
 		return fmt.Sprintf(":u%d", r.Bitwidth().Unwrap())
 	}
 	//

@@ -100,8 +100,8 @@ func (p *constraintTranslator[W, F]) addRangeProofConstraints(mod *schema.Table[
 		if reg.IsNative() {
 			// Native registers are not range-checked.
 			continue
-		} else if i < len(regs) && !regs[i].IsSafe() {
-			// The condition "if i < len(regs)" ensures that ALL registers (like PC, etc) 
+		} else if i < len(regs) && !regs[i].IsRangeChecked() {
+			// The condition "if i < len(regs)" ensures that ALL registers (like PC, etc)
 			// added are range-checked. Note that len(mod.Registers()) >= len(regs)
 			continue
 		}

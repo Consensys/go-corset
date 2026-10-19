@@ -24,29 +24,29 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 )
 
-// ReduceRangeChecks attempts to safely reduce the number of registers marked as
-// "safe" (i.e. as requiring a "range check").  There are a variety of
-// situations in which a register can be marked as unsafe without compromising
-// overall security of the system.  For example, registers which are always
-// assigned constants do not need range checks.  Likewise, a register "r" which
-// is always assigned directly from a safe register (e.g. "r = x")  does not
-// require a range check (i.e. because safety of "r" follows from that of "x" in
-// this case).  However, in other situations, safety must still be enforced. For
-// example, if "r" is assigned from an arithmetic expression (e.g. "r = x + 1")
-// then its safety does not follow from that of "x".
+// ReduceRangeChecks attempts to safely reduce the number of checked registers
+// (i.e. those requiring dedicated range checks).  There are a variety of
+// situations in which a register can be marked as unchecked without
+// compromising overall security of the system.  For example, registers which
+// are always assigned constants do not need range checks.  Likewise, a register
+// "r" which is always assigned directly from a checked register (e.g. "r = x")
+// does not require a range check (i.e. because range of "r" follows from that
+// of "x" in this case).  However, in other situations, range checks must still
+// be applied. For example, if "r" is assigned from an arithmetic expression
+// (e.g. "r = x + 1") then its boundedness does not follow from that of "x".
 //
 // The present algorithm works in an "assume until proven" style.  Specifically,
-// it initially marks all registers as unsafe and then scans all bytecodes
+// it initially marks all registers as unchecked and then scans all bytecodes
 // whilst updating the assignment accordingly.  Specifically, when it encounters
-// an instruction whose target register(s) cannot be assumed safe, it marks
-// those registers as being safe (i.e. as needing a range check).  This process
+// an instruction whose target register(s) are required to be checked (for
+// whatever reason), it marks those registers accordingly.  This process
 // continues until all bytecodes have been examined exactly once.
 //
 // NOTE: in principle, this algorithm guarantees arguments are never marked as
-// safe (i.e. since they are never assigned).  However, to ensure soundness,
-// such registers are still marked safe (for now).  In particular, they can be
-// marked unsafe again once checkcast instructions give rise to conditional
-// lookups --- see #2246.
+// checked (i.e. since they are never assigned).  However, to ensure soundness,
+// such registers are still marked checked (for now).  In particular, they can
+// be marked unchecked again once checkcast instructions give rise to
+// conditional lookups --- see #2246.
 //
 // Some assumptions / exceptions are currently respected by this algorithm (and
 // which could be lifted in the future).  In particular, the algorithm currently
@@ -76,30 +76,30 @@ func ReduceRangeChecks[W Word[W]](program descriptor.Program[W]) descriptor.Prog
 
 func reduceFunctionRangeChecks[W Word[W]](f *Function[W], env Environment[W]) *Function[W] {
 	var (
-		// identifies registers which must be safe.
-		safeRegs bit.Set
+		// identifies registers which must be checked.
+		checkedRegs bit.Set
 	)
 	// Iterate all bytecodes in all vectors
 	for _, bv := range f.Vectors() {
 		for _, bc := range bv.Bytecodes {
-			safeRegs = reviseSafetyAssignment(safeRegs, env, bc)
+			checkedRegs = reviseCheckedAssignment(checkedRegs, env, bc)
 		}
 	}
 	// Construct revised register set
 	registers := array.Map(f.Registers(), func(i uint, r Register[W]) Register[W] {
-		// Determine whether safety required or not
+		// Determine whether range checks required or not
 		//
 		// TODO: include zero-width registers here is a temporary fix until
 		// constant registers are available (#2236)
-		var safety = safeRegs.Contains(i) || r.IsInput() || r.IsZeroWidth()
-		// Construct identical register with corresponding safety.
-		return bytecode.NewRegister(r.Kind().WithSafety(safety), r.Name(), r.Bitwidth(), r.Padding())
+		var checked = checkedRegs.Contains(i) || r.IsInput() || r.IsZeroWidth()
+		// Construct identical register with corresponding checked status.
+		return bytecode.NewRegister(r.Kind().WithRangeCheck(checked), r.Name(), r.Bitwidth(), r.Padding())
 	})
 	// Done
 	return descriptor.NewFunction(f.Name(), registers, f.Kind(), f.Effects(), f.Vectors())
 }
 
-func reviseSafetyAssignment[W Word[W]](safeRegs bit.Set, env Environment[W], code Bytecode[W]) bit.Set {
+func reviseCheckedAssignment[W Word[W]](checkedRegs bit.Set, env Environment[W], code Bytecode[W]) bit.Set {
 	switch bc := code.(type) {
 	// ========================================================================
 	// Non-mutating Bytecodes.  These do not assign target registers and can be
@@ -118,44 +118,44 @@ func reviseSafetyAssignment[W Word[W]](safeRegs bit.Set, env Environment[W], cod
 	// Mutating Bytecodes.  These assign target registers and must be examined.
 	// ========================================================================
 	case *bytecode.Arith[W]:
-		return reviseArithSafety(safeRegs, env, bc)
+		return reviseArithChecks(checkedRegs, env, bc)
 	case *bytecode.Call[W]:
 		var callee = env.Module(bc.Target).Unwrap().(*Function[W])
 		//
-		return reviseAssignmentsSafety(safeRegs, env, bc.Returns, callee.Outputs())
+		return reviseParallelAssignmentChecks(checkedRegs, env, bc.Returns, callee.Outputs())
 	case *bytecode.Cat[W]:
-		return reviseCatSafety(safeRegs, env, bc)
+		return reviseCatChecks(checkedRegs, env, bc)
 	case *bytecode.FieldToUint[W]:
-		return reviseFieldCastSafety(safeRegs, env, bc)
+		return reviseFieldCastChecks(checkedRegs, env, bc)
 	case *bytecode.ReadWrite[W]:
 		var callee = env.Module(bc.Id).Unwrap().(*descriptor.Memory[W])
 		// Only revise assignment for reads
 		if !bc.Write {
-			return reviseAssignmentsSafety(safeRegs, env, bc.Data, callee.Outputs())
+			return reviseParallelAssignmentChecks(checkedRegs, env, bc.Data, callee.Outputs())
 		}
 	case *bytecode.Intrinsic[W]:
-		return reviseIntrinsicSafety(safeRegs, env, bc)
+		return reviseIntrinsicChecks(checkedRegs, env, bc)
 	// ========================================================================
 	// Miscellaneous special cases
 	// ========================================================================
 	case *bytecode.FieldArith[W]:
-		// NOTE: since native registers are always considered unsafe, this
-		// instruction cannot impact the assignment of safe registers.
+		// NOTE: since native registers are always considered unchecked, this
+		// instruction cannot impact the assignment of checked registers.
 	case *bytecode.UintToField[W]:
-		// NOTE: since native registers are always considered unsafe, this
-		// instruction cannot impact the assignment of safe registers.
+		// NOTE: since native registers are always considered unchecked, this
+		// instruction cannot impact the assignment of checked registers.
 	case *bytecode.Bitwise[W]:
 		// NOTE: this cannot arise in the normal case of things, primarily
 		// because bitwise operations are compiled out before this point.
 		// However, this might not happen if the lowering is disabled (e.g. for
 		// debugging) and, instead, we want a simple (but safe) approach here.
-		return markAll(safeRegs, bc.Target)
+		return checkAll(checkedRegs, bc.Target)
 	case *bytecode.DivMod[W]:
 		// NOTE: this cannot arise in the normal case of things, primarily
 		// because divmod operations are compiled out before this point.
 		// However, this might not happen if the lowering is disabled (e.g. for
 		// debugging) and, instead, we want a simple (but safe) approach here.
-		return markAll(safeRegs, bc.Quotient, bc.Remainder)
+		return checkAll(checkedRegs, bc.Quotient, bc.Remainder)
 	default:
 		// Determine type of bytecode
 		var tn = reflect.TypeOf(bc).String()
@@ -163,10 +163,10 @@ func reviseSafetyAssignment[W Word[W]](safeRegs bit.Set, env Environment[W], cod
 		panic(fmt.Sprintf("unexpected bytecode encountered: %s", tn))
 	}
 	//
-	return safeRegs
+	return checkedRegs
 }
 
-func reviseArithSafety[W Word[W]](safeRegs bit.Set, env Environment[W], b *bytecode.Arith[W]) bit.Set {
+func reviseArithChecks[W Word[W]](checkedRegs bit.Set, env Environment[W], b *bytecode.Arith[W]) bit.Set {
 	var (
 		bits    util.Option[uint]
 		sources = b.Source
@@ -184,59 +184,60 @@ func reviseArithSafety[W Word[W]](safeRegs bit.Set, env Environment[W], b *bytec
 		panic("unknown arithmetic instruction")
 	}
 	//
-	return reviseAssignmentSafety(safeRegs, env, b.Target, bits)
+	return reviseAssignmentChecks(checkedRegs, env, b.Target, bits)
 }
 
-func reviseCatSafety[W Word[W]](safeRegs bit.Set, env Environment[W], b *bytecode.Cat[W]) bit.Set {
+func reviseCatChecks[W Word[W]](checkedRegs bit.Set, env Environment[W], b *bytecode.Cat[W]) bit.Set {
 	var (
 		// Determine size of rhs
 		bits = descriptor.BitwidthOf(env, b.Sources...)
 	)
 	//
-	return reviseAssignmentSafety(safeRegs, env, b.Targets, bits)
+	return reviseAssignmentChecks(checkedRegs, env, b.Targets, bits)
 }
 
-func reviseFieldCastSafety[W Word[W]](safeRegs bit.Set, env Environment[W], b *bytecode.FieldToUint[W],
+func reviseFieldCastChecks[W Word[W]](checkedRegs bit.Set, env Environment[W], b *bytecode.FieldToUint[W],
 ) bit.Set {
 	var (
 		// Determine size of rhs
 		bits = util.Some(env.Field().BitLen())
 	)
 	//
-	return reviseAssignmentSafety(safeRegs, env, b.Target, bits)
+	return reviseAssignmentChecks(checkedRegs, env, b.Target, bits)
 }
 
-func reviseIntrinsicSafety[W Word[W]](safeRegs bit.Set, _ Environment[W], b *bytecode.Intrinsic[W]) bit.Set {
+func reviseIntrinsicChecks[W Word[W]](checkedRegs bit.Set, _ Environment[W], b *bytecode.Intrinsic[W]) bit.Set {
 	util.Assert(b.Op == bytecode.DIV_HINT, "unexpected intrinsic bytecode")
 	// NOTE: the DIV_HINT intrinsic is a hint, meaning its assigned registers
-	// must be treated as requiring safety checks.
-	return markAll(safeRegs, b.Definitions()...)
+	// must be treated as requiring range checks.
+	return checkAll(checkedRegs, b.Definitions()...)
 }
 
-func reviseAssignmentsSafety[W Word[W]](safeRegs bit.Set, env Environment[W], lhs []RegisterId, rhs []Register[W],
-) bit.Set {
+func reviseParallelAssignmentChecks[W Word[W]](checkedRegs bit.Set, env Environment[W], lhs []RegisterId,
+	rhs []Register[W]) bit.Set {
 	//
 	for i := range lhs {
-		safeRegs = reviseAssignmentSafety(safeRegs, env, lhs[i:i+1], rhs[i].Bitwidth())
+		checkedRegs = reviseAssignmentChecks(checkedRegs, env, lhs[i:i+1], rhs[i].Bitwidth())
 	}
 	//
-	return safeRegs
+	return checkedRegs
 }
 
-// Update register safety after assigning some number of bits on the right-hand
-// side (RHS) across some number of registers on the left-hand side (LHS).
-func reviseAssignmentSafety[W Word[W]](safeRegs bit.Set, env Environment[W], lhs []RegisterId,
+// Update register checkedness after assigning some number of bits on the
+// right-hand side (RHS) across some number of registers on the left-hand side
+// (LHS).
+func reviseAssignmentChecks[W Word[W]](checkedRegs bit.Set, env Environment[W], lhs []RegisterId,
 	rhs util.Option[uint]) bit.Set {
 	// Destructuring assignments always force their target registers to require
-	// safety checks.
-	if len(lhs) == 1 && safeAssignment(env, lhs[0], rhs) {
-		return safeRegs
+	// range checks.
+	if len(lhs) == 1 && isUncheckedAssignment(env, lhs[0], rhs) {
+		return checkedRegs
 	}
-	// Mark all registers as safe (hence requiring safety checks)
-	return markAll(safeRegs, lhs...)
+	// Mark all registers as checked (hence requiring range checks)
+	return checkAll(checkedRegs, lhs...)
 }
 
-func safeAssignment[W Word[W]](rmap Environment[W], lhs RegisterId, rhs util.Option[uint]) bool {
+func isUncheckedAssignment[W Word[W]](rmap Environment[W], lhs RegisterId, rhs util.Option[uint]) bool {
 	var lhsWidth util.Option[uint]
 	//
 	if lhs == bytecode.DISCARD {
@@ -244,7 +245,7 @@ func safeAssignment[W Word[W]](rmap Environment[W], lhs RegisterId, rhs util.Opt
 		// required.
 		return true
 	} else if lhsWidth = rmap.Register(lhs).Bitwidth(); lhsWidth.IsEmpty() {
-		// Native registers never have safety checks.
+		// Native registers never have range checks.
 		return true
 	}
 	// Sanity check
@@ -253,11 +254,11 @@ func safeAssignment[W Word[W]](rmap Environment[W], lhs RegisterId, rhs util.Opt
 	return lhsWidth.Unwrap() >= rhs.Unwrap()
 }
 
-func markAll(safeRegs bit.Set, regs ...RegisterId) bit.Set {
-	// Mark all registers as safe (hence requiring safety checks)
+func checkAll(checkedRegs bit.Set, regs ...RegisterId) bit.Set {
+	// Mark all registers as checked (i.e. requiring bounds checks)
 	for _, lv := range regs {
-		safeRegs.Insert(uint(lv))
+		checkedRegs.Insert(uint(lv))
 	}
 	//
-	return safeRegs
+	return checkedRegs
 }

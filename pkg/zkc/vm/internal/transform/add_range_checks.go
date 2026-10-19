@@ -175,7 +175,7 @@ func neededRangeWidths[W Word[W]](modules []descriptor.Module[W], field field.Co
 		}
 		// Seed from every register of every module.
 		for _, r := range mod.Registers() {
-			if r.IsSafe() {
+			if r.IsRangeChecked() {
 				add(registerWidthOrZero(r))
 			}
 		}
@@ -334,10 +334,10 @@ func rangeCheck[W Word[W]](id uint, r bytecode.RegisterId, w uint,
 	return bytecode.CallFun[W](uint16(id), []bytecode.RegisterId{r}, nil)
 }
 
-// addRangeCalls range-checks every safe register of every function module: a
+// addRangeCalls range-checks every checked register of every function module: a
 // block of range-checks is inserted before each row-terminating bytecode (Ret
 // or Jmp — a Fail row is rejected so needs no check), so that every row of
-// every safe register column is checked.  Non-function modules carry no
+// every checked register column is checked.  Non-function modules carry no
 // bytecodes to host the checks and are left unchanged.
 func addRangeCalls[W Word[W]](modules []descriptor.Module[W],
 	rangeModules []descriptor.Module[W],
@@ -360,7 +360,7 @@ func addRangeCalls[W Word[W]](modules []descriptor.Module[W],
 	return out
 }
 
-// addRangeChecks inserts a range-check of each safe register before every Ret /
+// addRangeChecks inserts a range-check of each checked register before every Ret /
 // Jmp terminator in each vector of the given function.  Vector.Map remaps skip
 // offsets, so a skip which targeted the terminator instead lands on the first
 // check and falls through to it.
@@ -370,7 +370,7 @@ func addRangeChecks[W Word[W]](mod descriptor.Module[W], idOf map[string]uint,
 	if !ok || fn.IsNative() {
 		return mod
 	}
-	// Build the check block: one range-check per safe register.
+	// Build the check block: one range-check per checked register.
 	var checks []Bytecode[W]
 	//
 	for j, r := range fn.Registers() {
@@ -378,7 +378,7 @@ func addRangeChecks[W Word[W]](mod descriptor.Module[W], idOf map[string]uint,
 		// to populate the range module.
 		// For registers of width <= maxStaticWidth, the range check is done via a static table,
 		// and the lookup is added when generating constraints.
-		if w := registerWidthOrZero(r); r.IsSafe() && w > maxStaticWidth {
+		if w := registerWidthOrZero(r); r.IsRangeChecked() && w > maxStaticWidth {
 			mid, ok := idOf[rangeModuleName(w)]
 			// Sanity check module was found
 			util.Assert(ok, "missing range module for u%d", w)
