@@ -74,7 +74,41 @@ function.
 
 ## Register splitting
 
-(to be completed)
+Constraints are checked modulo a prime `p`, where numbers silently
+wrap around. If a checked quantity can reach `p`, a wrong value can
+satisfy the constraint. Two numbers from the field configuration
+(`pkg/util/field/field_config.go`) prevent this:
+
+- the **bandwidth**: the largest `b` with `2^b <= p`, so every `b`-bit
+  value is below `p`;
+- the **register width**: the size registers are split to, chosen
+  below the bandwidth to leave headroom for carries.
+
+| Field          | `p`               | Bandwidth | Register width |
+| -------------- | ----------------- | --------- | -------------- |
+| `GF_251`       | 251               | 7         | 4              |
+| `KOALABEAR_16` | `2^31 - 2^24 + 1` | 30        | 16             |
+
+`SplitRegisters` cuts any register wider than the register width into
+**limbs** (`x'1` high, `x'0` low) and rewrites arithmetic on limbs with
+explicit carries. For example, `out[0] = x + y` on two `u8` values
+with `--field GF_251`. Unsplit, the constraint would be
+`$5 = x + y`, and an overflowing `200 + 100` could pass as `49`
+(since `300 mod 251 = 49`). Split into 4-bit limbs (`zkc compile --mir --field GF_251`), it becomes:
+
+```
+(== (+ $5'0 (* 16 c$9)) (+ x'0 y'0))   ; low limb, carry c$9
+(== $5'1 (+ x'1 y'1 c$9))              ; high limb
+```
+
+Each limb is range-checked against `$range_u4` and the carry is a
+single bit, so no term exceeds `15 + 16 = 31 < 251` and equality
+modulo `p` implies real equality.
+
+Register splitting also happens for fast execution, against the Go
+word holding values (e.g. `Uint128` with 64-bit limbs) rather than
+the field (see [Execution and
+Tracing](ZKC_ARCHITECTURE_VM.md#two-programs-from-one-bytecode)).
 
 ## Vectorization
 
