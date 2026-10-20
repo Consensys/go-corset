@@ -13,9 +13,6 @@
 package split
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
@@ -120,7 +117,7 @@ func orderConcatAssignments[W word.Word[W]](chunks []partCat, alloc Allocator[W]
 	return codes
 }
 
-// initialiseAddChunks splits the addition sources and constant into
+// initialiseConcatChunks splits the addition sources and constant into
 // least-significant-first chunks, then assigns target limbs to each chunk
 // according to the number of bits the corresponding RHS can produce.
 func initialiseConcatChunks[W word.Word[W]](mapping descriptor.LimbsMap[W], alloc Allocator[W],
@@ -152,17 +149,10 @@ func initialiseConcatChunks[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 			// Calculate bitwidth of selected target registers
 			lhsBitwidth = descriptor.BitwidthOf(alloc, lhs...).Unwrap() + underhang
 		)
-		//fmt.Printf("overhang u%d; underhang u%d; rhs u%d, lhs u%d\n", overhang, underhang, rhsBitwidth, lhsBitwidth)
 		// Basic sanity checks
 		util.Assert(len(lhs) > 0 || len(rhs) > 0, "chunking failure")
-		util.Assert(mapping.BandWidth() > overhang, "overhang overflow")
-		util.Assert(rhsBitwidth >= underhang, "underhang overflow")
 		util.Assert(mapping.BandWidth() >= rhsBitwidth, "rhs overflow")
 		util.Assert(mapping.BandWidth() >= lhsBitwidth, "lhs overflow")
-		//
-		// fmt.Printf("[CHUNK %d] %s = %s\n", len(chunks),
-		// 	limbsToString(alloc, lhs...),
-		// 	limbsToString(alloc, rhs...))
 		// allocate selected targets
 		chunks = append(chunks, partCat{targets: lhs, sources: rhs})
 		// update overhang
@@ -268,19 +258,4 @@ func concatAssignment[W word.Word[W]](chunk partCat, alloc Allocator[W]) Bytecod
 	}
 	// Done
 	return bytecode.AssignV[W](targets, chunk.sources...)
-}
-
-// nolint
-func limbsToString[W word.Word[W]](mapping descriptor.RegisterMap[W], limbs ...RegisterId) string {
-	var builder strings.Builder
-	//
-	for i, limb := range limbs {
-		if i != 0 {
-			builder.WriteString("::")
-		}
-		//
-		fmt.Fprintf(&builder, "%s[%d]", mapping.Register(limb).Name(), limb)
-	}
-	//
-	return builder.String()
 }

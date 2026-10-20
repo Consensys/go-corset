@@ -160,10 +160,9 @@ func (p *RegisterStack[W]) SelectExact(nbits uint) (res []RegisterId) {
 func (p *RegisterStack[W]) SelectOneUpto(bitwidth uint) (res []RegisterId) {
 	// Sanity check that we cannot see any native registers here.
 	util.Assert(!descriptor.HasNativeRegisterId(p.stack, p.alloc), "native registers not supported here")
+	util.Assert(len(p.stack) > 0, "cannot select from empty stack")
 	//
-	if len(p.stack) == 0 {
-		return []RegisterId{p.alloc.ZeroRegister()}
-	} else if targetWidth(p.stack, p.alloc) > bitwidth {
+	if targetWidth(p.stack, p.alloc) > bitwidth {
 		// Always force at least one register to be selected
 		res = p.stack[0:1]
 		p.stack = p.stack[1:]
