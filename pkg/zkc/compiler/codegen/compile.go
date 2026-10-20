@@ -164,7 +164,7 @@ func (p *Compiler) Compile(declarations []Declaration) (vm.Program[vm.Uint], []s
 		return vm.Program[vm.Uint]{}, errors
 	}
 	// Construct bytecode program from descriptor modules.
-	program := vm.NewBytecodeProgram(p.config.field, p.config.maxStaticHeight, modules...)
+	program := vm.NewBytecodeProgram(false, p.config.field, p.config.maxStaticHeight, modules...)
 	// Validate program to catch any introduced corruption as early as possible.
 	if p.config.validation {
 		if err := vm.ValidateProgram(program); err != nil {

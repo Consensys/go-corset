@@ -92,13 +92,14 @@ func (p *Intrinsic[W]) Validate(env Environment[W]) ([]error, bool) {
 		extras     []error
 		errs, safe = validateOperands(env, p.Uses(), p.Definitions())
 	)
-	// Constant sources must be a  value of any width.
+	// NOTE: Intrinsic does not need to validate its target/source vectors since
+	// these are never actually translated as concatenations.
 	for _, s := range p.Sources {
 		if s.IsConstant() && len(s.AsConstants()) != 1 {
 			errs = append(errs, fmt.Errorf("%d constant operand(s) found, expected 1", len(s.AsConstants())))
 		}
 	}
-	//
+	// Operation-specific validation
 	switch p.Op {
 	case DIV_HINT:
 		if len(p.Sources) != 2 {

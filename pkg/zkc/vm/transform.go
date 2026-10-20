@@ -18,6 +18,7 @@ import (
 
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field"
+	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/transform"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
@@ -66,9 +67,7 @@ func TransformForExecutionRaw[W1 Word[W1], W2 Word[W2]](p Program[W1], word Word
 		panic(fmt.Sprintf("%s does not fit within u%d", word.Name, w2.Bandwidth()))
 	}
 	// Apply pipeline transformations
-	program := pipeline.Apply(p, config)
-	// Concretize the program
-	return transform.ProgramToProgram[W1, W2](program)
+	return pipeline.Apply[W2](p, config)
 }
 
 // TransformForTracing applies a transformation pipeline suitable for tracing,
@@ -95,10 +94,10 @@ func TransformForTracing[W1 Word[W1], W2 Word[W2]](p Program[W1], config transfo
 			AddRangeChecks[W1](),
 		)
 	)
+	// Ensure program flagged for tracing
+	p = descriptor.NewProgram(true, p.Field(), p.MaxStaticHeight(), p.Modules()...)
 	// Apply pipeline transformations
-	program := pipeline.Apply(p, config)
-	// Concretize the program
-	return transform.ProgramToProgram[W1, W2](program)
+	return pipeline.Apply[W2](p, config)
 }
 
 // Transform represents a single transformation in a transformation pipeline.
@@ -117,20 +116,20 @@ type Transform[W Word[W]] struct {
 // are applied in sequence to transform a program in one form into an equivalent
 // program in another form.  Example transformations would include register
 // splitting, register allocation, lowering divisions, etc.
-type TransformationPipeline[W Word[W]] struct {
+type TransformationPipeline[W1 Word[W1]] struct {
 	name string
 	// config encapsulates necessary information for transforms
 	//config transform.Config
 	// transforms provides the list of transforms in the order they should be
 	// applied.
-	transforms []Transform[W]
+	transforms []Transform[W1]
 }
 
 // NewTransformationPipeline validates and constructs a new pipeline from a
 // given set of transforms.  This will panic if the dependency requirements are
 // not met.
-func NewTransformationPipeline[W Word[W]](name string, transforms ...Transform[W],
-) TransformationPipeline[W] {
+func NewTransformationPipeline[W1 Word[W1]](name string, transforms ...Transform[W1],
+) TransformationPipeline[W1] {
 	// See holds those transforms seen in the pipeline so far.
 	var seen = make(map[string]bool)
 	//
@@ -141,14 +140,14 @@ func NewTransformationPipeline[W Word[W]](name string, transforms ...Transform[W
 		seen[t.name] = true
 	}
 	// Done
-	return TransformationPipeline[W]{name, transforms}
+	return TransformationPipeline[W1]{name, transforms}
 }
 
 // Ignore any requested pipeline stages
-func (p TransformationPipeline[W]) Ignore(ignores ...string) TransformationPipeline[W] {
+func (p TransformationPipeline[W1]) Ignore(ignores ...string) TransformationPipeline[W1] {
 	for _, ignore := range ignores {
 		var (
-			pred = func(t Transform[W]) bool {
+			pred = func(t Transform[W1]) bool {
 				return t.name == ignore
 			}
 		)
@@ -163,21 +162,23 @@ func (p TransformationPipeline[W]) Ignore(ignores ...string) TransformationPipel
 
 // Apply this transformation pipeline to a given program, producing a
 // transformed (but otherwise equivalent) program.
-func (p TransformationPipeline[W]) Apply(program Program[W], config transform.Config) Program[W] {
+func (p TransformationPipeline[W1]) Apply[W2 word.Word[W2]](program Program[W1], config transform.Config) Program[W2] {
 	// Identify stages to be ignored
 	p = p.Ignore(config.Ignores...)
 	// Apply each transformation in turn.
 	for _, t := range p.transforms {
 		program = t.transformer(program)
 	}
+	// Concretize program for target word
+	nProgram := transform.ProgramToProgram[W1, W2](program)
 	// Validate program to catch any introduced corruption as early as possible.
 	if config.Validation {
-		if err := ValidateProgram(program); err != nil {
+		if err := ValidateProgram(nProgram); err != nil {
 			panic(err)
 		}
 	}
 	//
-	return program
+	return nProgram
 }
 
 const (

@@ -1,0 +1,20 @@
+pub input data(address:u2) -> (word:u64)
+
+// Regression test: a downcast destructured into narrower targets.  The source
+// limbs above the target must be forced to zero.  On MAMABEAR_32 and
+// KOALABEAR_24 the leftover chunk (next source limb plus carry) exceeds the
+// field bandwidth, so the modular equation admits non-zero high bits.  The
+// rejects include x values for which that equation wraps to exactly p.
+fn main() {
+    var x:u64 = data[0]
+    var a_exp:u6 = data[1] as u6
+    var b_exp:u6 = data[2] as u6
+    var a:u6
+    var b:u6
+    //
+    b::a = x as u12
+    //
+    if a != a_exp || b != b_exp {
+        fail
+    }
+}

@@ -77,7 +77,7 @@ func InlineFunctions[W Word[W]](program descriptor.Program[W]) descriptor.Progra
 		remaining = slices.Delete(remaining, index, index+1)
 	}
 	// Remove now-dead targets, remapping module identifiers.
-	return descriptor.NewProgram(program.Field(),
+	return descriptor.NewProgram(program.IsTracing(), program.Field(),
 		program.MaxStaticHeight(), removeModules(modules, targets)...)
 }
 

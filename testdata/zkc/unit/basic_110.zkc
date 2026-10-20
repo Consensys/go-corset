@@ -1,0 +1,18 @@
+pub input data(address:u2) -> (word:u64)
+
+// Regression test: downcast of a concatenation with several operands.  The
+// discarded source limbs plus the carry from the last target chunk must still
+// fit within the register width (MAMABEAR_32 previously panicked with "register
+// exceeds maximum width (40 > 32)").
+fn main() {
+    var w:u8 = data[0] as u8
+    var x:u16 = data[1] as u16
+    var y:u32 = data[2] as u32
+    var t_exp:u8 = data[3] as u8
+    //
+    var t:u8 = (w::x::y) as u8
+    //
+    if t != t_exp {
+        fail
+    }
+}

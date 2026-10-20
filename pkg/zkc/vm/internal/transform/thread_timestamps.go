@@ -82,7 +82,7 @@ func ThreadTimestamps[W Word[W]](program descriptor.Program[W]) descriptor.Progr
 		out[i] = threadFunction(mods, fn, effects)
 	}
 	//
-	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
+	return descriptor.NewProgram(program.IsTracing(), program.Field(), program.MaxStaticHeight(), out...)
 }
 
 // stampState records, concretely, where the current timestamp of one memory

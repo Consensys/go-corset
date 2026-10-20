@@ -379,36 +379,6 @@ func Test_ZkcUnit_Basic_88(t *testing.T) {
 func Test_ZkcUnit_Basic_89(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_89", DEFAULT_UNIT_CONFIG)
 }
-func Test_ZkcUnit_Basic_101(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_101", DEFAULT_UNIT_CONFIG)
-}
-
-func Test_ZkcUnit_Basic_102(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_102", DEFAULT_UNIT_CONFIG)
-}
-
-func Test_ZkcUnit_Basic_103(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_103", DEFAULT_UNIT_CONFIG)
-}
-
-func Test_ZkcUnit_Basic_104(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_104", DEFAULT_UNIT_CONFIG)
-}
-func Test_ZkcUnit_Basic_105(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_105", DEFAULT_UNIT_CONFIG)
-}
-
-func Test_ZkcUnit_Basic_106(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_106", DEFAULT_UNIT_CONFIG)
-}
-
-func Test_ZkcUnit_Basic_107(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_107", DEFAULT_UNIT_CONFIG)
-}
-
-func Test_ZkcUnit_Basic_108(t *testing.T) {
-	checkZkcUnit(t, "zkc/unit/basic_108", DEFAULT_UNIT_CONFIG)
-}
 
 func Test_ZkcUnit_Basic_90(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_90", DEFAULT_UNIT_CONFIG)
@@ -454,6 +424,56 @@ func Test_ZkcUnit_Basic_99(t *testing.T) {
 
 func Test_ZkcUnit_Basic_100(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_100", DEFAULT_UNIT_CONFIG)
+}
+func Test_ZkcUnit_Basic_101(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_101", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_102(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_102", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_103(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_103", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_104(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_104", DEFAULT_UNIT_CONFIG)
+}
+func Test_ZkcUnit_Basic_105(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_105", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_106(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_106", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_107(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_107", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_108(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_108", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_109(t *testing.T) {
+	t.Skip("todo: fix concat splitting (MAMABEAR_32)")
+	checkZkcUnit(t, "zkc/unit/basic_109", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_110(t *testing.T) {
+	t.Skip("todo: fix concat splitting (MAMABEAR_32)")
+	checkZkcUnit(t, "zkc/unit/basic_110", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_111(t *testing.T) {
+	t.Skip("todo: fix concat splitting (MAMABEAR_32)")
+	checkZkcUnit(t, "zkc/unit/basic_111", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_112(t *testing.T) {
+	t.Skip("todo: fix concat splitting (KOALABEAR_16)")
+	checkZkcUnit(t, "zkc/unit/basic_112", DEFAULT_UNIT_CONFIG)
 }
 
 // ===================================================================

@@ -80,6 +80,8 @@ type BreakPointLabel struct {
 type Program[W word.Word[W]] struct {
 	// modules declared within this (uncompiled) program.
 	modules []Module[W]
+	// indicates whether or not this program is intended for tracing
+	tracing bool
 	// field configuration for the target prime field
 	field field.Config
 	// maximum permitted height of static reference tables.
@@ -91,9 +93,9 @@ type Program[W word.Word[W]] struct {
 }
 
 // NewProgram creates a new program descriptor.
-func NewProgram[W word.Word[W]](field field.Config, maxStaticHeight uint, modules ...Module[W],
+func NewProgram[W word.Word[W]](tracing bool, field field.Config, maxStaticHeight uint, modules ...Module[W],
 ) Program[W] {
-	return Program[W]{modules, field, maxStaticHeight, nil}
+	return Program[W]{modules, tracing, field, maxStaticHeight, nil}
 }
 
 // BreakPoint returns a copy of this program in which a breakpoint has been
@@ -112,7 +114,7 @@ func (p Program[W]) BreakPoint(fid uint16, pc uint) Program[W] {
 	//
 	breakpoints[BreakPointLabel{fid, pc}] = true
 	//
-	return Program[W]{p.modules, p.field, p.maxStaticHeight, breakpoints}
+	return Program[W]{p.modules, p.tracing, p.field, p.maxStaticHeight, breakpoints}
 }
 
 // BreakPoints returns the set of instruction locations at which a breakpoint
@@ -130,11 +132,29 @@ func (p Program[W]) BreakPoints() []BreakPointLabel {
 // EnvironmentOf returns an environment for the given module.  This is useful
 // for working with bytecodes enclosed by that module, etc.
 func (p Program[W]) EnvironmentOf(mid uint16) bytecode.Environment[W] {
+	var (
+		tmp       W
+		bandwidth uint
+	)
+	// Determine valid bandwidth
+	if p.tracing {
+		bandwidth = p.field.BandWidth
+	} else {
+		bandwidth = tmp.Bandwidth()
+	}
+	//
 	return &moduleEnvironment[W]{
+		bandwidth,
 		p.field,
 		mid,
 		p.modules,
 	}
+}
+
+// IsTracing indicates whether or not this program is intended for tracing or
+// fast-mode execution.
+func (p Program[W]) IsTracing() bool {
+	return p.tracing
 }
 
 // Field returns the field configuration for prime field associated with this
@@ -314,9 +334,15 @@ func (p *Program[W]) GobDecode(data []byte) error {
 // ============================================================================
 
 type moduleEnvironment[W word.Word[W]] struct {
-	field   field.Config
-	module  uint16
-	modules []Module[W]
+	bandwidth uint
+	field     field.Config
+	module    uint16
+	modules   []Module[W]
+}
+
+// Bandwidth returns the desired bandwidth for all instructions.
+func (p moduleEnvironment[W]) Bandwidth() uint {
+	return p.bandwidth
 }
 
 // Name returns the name of the enclosing function.

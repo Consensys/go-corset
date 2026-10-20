@@ -51,7 +51,7 @@ func LowerOrXorAnd[W Word[W]](program descriptor.Program[W]) descriptor.Program[
 		}
 	}
 	//
-	return descriptor.NewProgram(program.Field(),
+	return descriptor.NewProgram(program.IsTracing(), program.Field(),
 		program.MaxStaticHeight(), append(out, helpers.modules()...)...)
 }
 

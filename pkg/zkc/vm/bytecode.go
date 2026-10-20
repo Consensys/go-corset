@@ -172,8 +172,9 @@ func ValidateProgram[W word.Word[W]](p Program[W]) error {
 
 // NewBytecodeProgram assembles a bytecode program directly from pre-lowered
 // descriptor modules, bypassing the word-machine round trip.
-func NewBytecodeProgram[W word.Word[W]](field field.Config, maxStaticHeight uint, modules ...Module[W]) Program[W] {
-	return descriptor.NewProgram(field, maxStaticHeight, modules...)
+func NewBytecodeProgram[W word.Word[W]](tracing bool, field field.Config, maxStaticHeight uint,
+	modules ...Module[W]) Program[W] {
+	return descriptor.NewProgram(tracing, field, maxStaticHeight, modules...)
 }
 
 // NewBytecodeVector constructs a bytecode vector (single trace line) from the

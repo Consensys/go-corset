@@ -43,6 +43,7 @@ func LowerBitwise[W Word[W]](program descriptor.Program[W]) descriptor.Program[W
 	}
 
 	return descriptor.NewProgram(
+		program.IsTracing(),
 		program.Field(),
 		program.MaxStaticHeight(),
 		append(out, helpers.modules()...)...)

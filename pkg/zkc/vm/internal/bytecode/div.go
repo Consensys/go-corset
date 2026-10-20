@@ -57,6 +57,8 @@ func (p *DivMod[W]) Validate(env Environment[W]) ([]error, bool) {
 		if p.Divisor.AsConstant().Cmp64(0) == 0 {
 			errs = append(errs, fmt.Errorf("constant divisor is zero"))
 		}
+	} else if safe {
+		errs = append(errs, validateConcatBitwidth(env, p.Divisor.AsRegisters())...)
 	}
 	//
 	return errs, safe

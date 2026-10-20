@@ -53,7 +53,7 @@ func FlattenLookupAccess[W Word[W]](program descriptor.Program[W]) descriptor.Pr
 		}
 	}
 
-	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
+	return descriptor.NewProgram(program.IsTracing(), program.Field(), program.MaxStaticHeight(), out...)
 }
 
 func flattenLookupAccessFunction[W Word[W]](fn *Function[W]) *Function[W] {

@@ -48,6 +48,13 @@ func (p *Cat[W]) Validate(env Environment[W]) ([]error, bool) {
 		safe = false
 	}
 	//
+	if !safe {
+		return errors, false
+	}
+	// validate bitwidths
+	errors = append(errors, validateConcatBitwidth(env, p.Targets)...)
+	errors = append(errors, validateConcatBitwidth(env, p.Sources)...)
+	//
 	return errors, safe
 }
 

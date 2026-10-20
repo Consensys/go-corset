@@ -71,7 +71,7 @@ func ReduceRangeChecks[W Word[W]](program descriptor.Program[W]) descriptor.Prog
 		out[mid] = ith
 	}
 	//
-	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
+	return descriptor.NewProgram(program.IsTracing(), program.Field(), program.MaxStaticHeight(), out...)
 }
 
 func reduceFunctionRangeChecks[W Word[W]](f *Function[W], env Environment[W]) *Function[W] {

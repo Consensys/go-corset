@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/LFDT-Lineth/zkc/pkg/schema/register"
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field"
 	"github.com/LFDT-Lineth/zkc/pkg/util/math"
@@ -64,7 +63,7 @@ func AddRangeChecks[W Word[W]](program descriptor.Program[W]) descriptor.Program
 	modules = addRangeCalls(modules, extra, maxStaticWidth)
 
 	// Reassemble the program with the original modules plus the range modules.
-	return descriptor.NewProgram(program.Field(),
+	return descriptor.NewProgram(program.IsTracing(), program.Field(),
 		program.MaxStaticHeight(), append(slices.Clone(modules), extra...)...)
 }
 
@@ -168,7 +167,7 @@ func neededRangeWidths[W Word[W]](modules []descriptor.Module[W], field field.Co
 			// omitted from the memory descriptor, leading to awkward situations
 			// like this.  See #2106.
 			if width := mod.StampWidth(); width.HasValue() && mod.IsReadWrite() {
-				for _, w := range register.LimbWidths(field.RegisterWidth, width.Unwrap()) {
+				for _, w := range descriptor.LimbWidths(field.RegisterWidth, width.Unwrap()) {
 					add(w)
 				}
 			}

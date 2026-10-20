@@ -94,6 +94,7 @@ func fieldTestProgram[W vm.Word[W]]() vm.Program[W] {
 	)
 
 	return vm.NewBytecodeProgram(
+		false,
 		field.KOALABEAR_16,
 		codegen.DEFAULT_MAX_STATIC_HEIGHT,
 		vm.NewBytecodeMemory[W]("data", vm.PUBLIC_READ_ONLY_MEMORY, util.None[uint](), memRegs()),
