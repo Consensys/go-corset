@@ -671,7 +671,7 @@ func writeBytecodeFunction[W vm.Word[W]](listing *bytecodeListing, address uint3
 	f *vm.Function[W], bin [][]uint32, skips bool) (uint32, [][]uint32) {
 	for _, r := range f.Registers() {
 		if !r.IsInputOutput() {
-			listing.addDeclaration(fmt.Sprintf("  var %s:%s", r.Name(), regType(r)))
+			listing.addDeclaration(fmt.Sprintf("  var %s%s", r.Name(), regType(r)))
 		}
 	}
 	// First pass: gather each bytecode's display fields, and record the
@@ -746,12 +746,12 @@ type bytecodeRow struct {
 
 func regType[W vm.Word[W]](r vm.Register[W]) string {
 	if r.IsNative() {
-		return "𝔽"
-	} else if r.IsSafe() {
-		return fmt.Sprintf("u%d", r.Bitwidth().Unwrap())
+		return ":𝔽"
+	} else if r.IsRangeChecked() {
+		return fmt.Sprintf(":u%d", r.Bitwidth().Unwrap())
 	}
 	//
-	return fmt.Sprintf("u%d!", r.Bitwidth().Unwrap())
+	return fmt.Sprintf("!u%d", r.Bitwidth().Unwrap())
 }
 
 func writeBytecodeMemory[W vm.Word[W]](listing *bytecodeListing, m *vm.Memory[W]) {
@@ -805,13 +805,7 @@ func fnArgs[W vm.Word[W]](regs []vm.Register[W]) string {
 		}
 		//
 		builder.WriteString(r.Name())
-		builder.WriteString(":")
-		//
-		if r.IsNative() {
-			builder.WriteString("𝔽")
-		} else {
-			fmt.Fprintf(&builder, "u%d", r.Bitwidth().Unwrap())
-		}
+		builder.WriteString(regType(r))
 	}
 	//
 	return builder.String()

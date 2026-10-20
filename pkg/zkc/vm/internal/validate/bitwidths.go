@@ -33,9 +33,9 @@ type RegWidth = util.Option[uint]
 // indicates a native (field) register.  This structure maintains an invariant
 // which can be checked via the Invariant() method.
 type Bitwidth struct {
-	// safe registers use dedicated bounds checks to enforce bitwidth and, as
+	// rangeChecked registers use dedicated bounds checks to enforce bitwidth and, as
 	// such, can be assumed to be always within bounds.
-	safe bool
+	rangeChecked bool
 	// Declared bitwidth of this register.
 	bitwidth RegWidth
 	// Current bitwidth of this register, or none if is undefined.
@@ -54,20 +54,20 @@ func (p Bitwidth) Invariant() {
 }
 
 // Construct bitwidth for register which may not have been defined.
-func undefinedBitwidth(safe bool, bitwidth RegWidth) Bitwidth {
+func undefinedBitwidth(checked bool, bitwidth RegWidth) Bitwidth {
 	return Bitwidth{
-		safe:     safe,
-		bitwidth: bitwidth,
-		current:  util.None[RegWidth](),
+		rangeChecked: checked,
+		bitwidth:     bitwidth,
+		current:      util.None[RegWidth](),
 	}
 }
 
 // Construct bitwidth for register which has definitely been defined.
-func definedBitwidth(safe bool, bitwidth RegWidth) Bitwidth {
+func definedBitwidth(checked bool, bitwidth RegWidth) Bitwidth {
 	return Bitwidth{
-		safe:     safe,
-		bitwidth: bitwidth,
-		current:  util.Some(bitwidth),
+		rangeChecked: checked,
+		bitwidth:     bitwidth,
+		current:      util.Some(bitwidth),
 	}
 }
 
@@ -93,10 +93,10 @@ func (p Bitwidth) InBounds(bitwidth RegWidth) bool {
 
 // Assign the corresponding register a given width.
 func (p Bitwidth) Assign(width RegWidth) Bitwidth {
-	// We can assume that safe registers never overflow their bounds, as they
+	// We can assume that checked registers never overflow their bounds, as they
 	// are guaranteed to have range constraints.
-	if p.safe {
-		util.Assert(p.bitwidth.HasValue(), "native registers cannot be safe")
+	if p.rangeChecked {
+		util.Assert(p.bitwidth.HasValue(), "native registers cannot be checked")
 		//
 		width = minWidth(width, p.bitwidth)
 	}
@@ -139,10 +139,17 @@ func newBitwidths[W Word[W]](f descriptor.Function[W]) Bitwidths {
 	var bitwidths = make([]Bitwidth, f.Width())
 	//
 	for i, reg := range f.Registers() {
-		if reg.IsInput() || reg.IsZeroWidth() {
-			bitwidths[i] = definedBitwidth(reg.IsSafe(), reg.Bitwidth())
-		} else {
-			bitwidths[i] = undefinedBitwidth(reg.IsSafe(), reg.Bitwidth())
+		switch {
+		case reg.IsInput():
+			bitwidths[i] = definedBitwidth(reg.IsRangeChecked(), reg.Bitwidth())
+		case reg.IsZeroWidth() && reg.IsRangeChecked():
+			bitwidths[i] = definedBitwidth(true, reg.Bitwidth())
+		case reg.IsZeroWidth():
+			// TODO: this is a temporary fix until constant registers are
+			// available (#2236)
+			bitwidths[i] = undefinedBitwidth(false, reg.Bitwidth()).Assign(MAX_UINTWIDTH)
+		default:
+			bitwidths[i] = undefinedBitwidth(reg.IsRangeChecked(), reg.Bitwidth())
 		}
 	}
 	//
@@ -210,7 +217,7 @@ func (p Bitwidths) AssignAll(lhs []RegisterId, rhs RegWidth) Bitwidths {
 		bitwidths[lhs[0]] = p.bitwidths[lhs[0]].Assign(rhs)
 	} else {
 		// NOTE: for a destructuring assignment, all target registers are taken
-		// to their maximum width.  This is necessary to ensure only safe
+		// to their maximum width.  This is necessary to ensure only checked
 		// registers are used in destructuring assignments.
 		for _, l := range lhs {
 			bitwidths[l] = p.bitwidths[l].Assign(MAX_UINTWIDTH)
