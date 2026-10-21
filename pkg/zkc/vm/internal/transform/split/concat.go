@@ -13,6 +13,8 @@
 package split
 
 import (
+	"strings"
+
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
@@ -176,9 +178,11 @@ func initialiseConcatChunks[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 	// to zero.
 	for sourceStack.Size() > 0 {
 		// Select upto bandwidth registers
-		var chunk = sourceStack.SelectOneUpto(mapping.BandWidth())
+		var chunk = sourceStack.SelectUpto(mapping.BandWidth() - overhang)
 		// Combine into a single assignment to zero
 		chunks = append(chunks, partCat{sources: chunk})
+		// Reset overhang
+		overhang = 0
 	}
 	// Assert that we never create bytecodes for source registers.
 	util.Assert(len(sourceStack.post) == 0, "internal failure")
@@ -258,4 +262,19 @@ func concatAssignment[W word.Word[W]](chunk partCat, alloc Allocator[W]) Bytecod
 	}
 	// Done
 	return bytecode.AssignV[W](targets, chunk.sources...)
+}
+
+// nolint
+func chunk2str[W word.Word[W]](mapping bytecode.RegisterMap[W], regs []RegisterId) string {
+	var builder strings.Builder
+	//
+	for i, reg := range regs {
+		if i != 0 {
+			builder.WriteString("::")
+		}
+		//
+		builder.WriteString(mapping.Register(reg).Name())
+	}
+	//
+	return builder.String()
 }

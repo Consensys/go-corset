@@ -128,9 +128,12 @@ func runCompileCmd[F field.Element[F], W vm.Word[W]](cmd *cobra.Command, args []
 	config.build = build
 	// Build all artifacts
 	ast, binfile := Build[F, W](build, args...)
-	// Perform validation.  This comes before anything is printed or written, so
-	// that an invalid set of constraints cannot leave a binary file behind.
-	validateArtifacts(binfile)
+	// Perform validation (unless disabled).  This comes before anything is
+	// printed or written, so that an invalid set of constraints cannot leave a
+	// binary file behind.
+	if config.build.transformConfig.Validation {
+		validateArtifacts(binfile)
+	}
 	//
 	if output != "" {
 		// Write to disk

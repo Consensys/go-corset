@@ -457,22 +457,20 @@ func Test_ZkcUnit_Basic_108(t *testing.T) {
 }
 
 func Test_ZkcUnit_Basic_109(t *testing.T) {
-	t.Skip("todo: fix concat splitting (MAMABEAR_32)")
 	checkZkcUnit(t, "zkc/unit/basic_109", DEFAULT_UNIT_CONFIG)
 }
 
 func Test_ZkcUnit_Basic_110(t *testing.T) {
-	t.Skip("todo: fix concat splitting (MAMABEAR_32)")
+	t.Skip("todo: register exceeds maximum width (MAMABEAR_32)")
 	checkZkcUnit(t, "zkc/unit/basic_110", DEFAULT_UNIT_CONFIG)
 }
 
 func Test_ZkcUnit_Basic_111(t *testing.T) {
-	t.Skip("todo: fix concat splitting (MAMABEAR_32)")
 	checkZkcUnit(t, "zkc/unit/basic_111", DEFAULT_UNIT_CONFIG)
 }
 
 func Test_ZkcUnit_Basic_112(t *testing.T) {
-	t.Skip("todo: fix concat splitting (KOALABEAR_16)")
+	t.Skip("todo: register exceeds maximum width (MAMABEAR_32)")
 	checkZkcUnit(t, "zkc/unit/basic_112", DEFAULT_UNIT_CONFIG)
 }
 
