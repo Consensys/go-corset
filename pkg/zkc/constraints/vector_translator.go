@@ -134,6 +134,18 @@ func (p *VectorInsnTranslator[W, F]) translate() Expr[F] {
 				} else {
 					local = it.translateSub(c.Target, c.Source, c.Constant)
 				}
+			case vm.OP_CSUB:
+				var (
+					// Determine whether this is a subtract with borrow
+					isSbb        = vm.IsSubtractWithBorrow(*c, p.enclosing)
+					hasSignedBit = hasSignedBit(c.Target, p.enclosing)
+				)
+				// Rebalance only when splitting appended a u1 borrow
+				if isSbb && hasSignedBit {
+					local = it.translateSignedCSub(c.Target, c.Source, c.Constant)
+				} else {
+					local = it.translateCSub(c.Target, c.Source, c.Constant)
+				}
 			default:
 				panic("unknown arithmetic operation")
 			}
