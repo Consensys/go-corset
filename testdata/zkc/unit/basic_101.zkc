@@ -11,9 +11,12 @@ fn main() {
 
     // CSUB_nm cases
     var csub_2n1m:u32 = 3 - a - b
+    var csub_1n2m:u32
     var csub_1n2m_0:u16
     var csub_1n2m_1:u16
     csub_1n2m_1::csub_1n2m_0 = 171 - a
+    csub_1n2m = csub_1n2m_1::csub_1n2m_0
+
     //
     if csub_1c1n_case0 != data[2] {
         fail
@@ -21,9 +24,7 @@ fn main() {
         fail
     } else if csub_2n1m != data[4] {
         fail
-    } else if (csub_1n2m_1 as u32) != data[5] {
-        fail
-    } else if (csub_1n2m_0 as u32) != data[6] {
+    } else if csub_1n2m != data[5] {
         fail
     }
 }
