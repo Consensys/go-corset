@@ -17,10 +17,12 @@ import (
 	"slices"
 
 	"github.com/LFDT-Lineth/zkc/pkg/util"
+	"github.com/LFDT-Lineth/zkc/pkg/util/collection/stack"
 	"github.com/LFDT-Lineth/zkc/pkg/util/field"
 	"github.com/LFDT-Lineth/zkc/pkg/util/math"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
+	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
 // Register names used within generated range modules.  The "value" column is
@@ -125,42 +127,20 @@ type rangeSplit struct {
 func neededRangeWidths[W Word[W]](modules []descriptor.Module[W], field field.Config,
 	maxStaticWidth uint) map[uint]rangeSplit {
 	var (
-		// Final decompositions, keyed by width (one entry per dequeued width).
-		splits = make(map[uint]rangeSplit)
-		// Every width discovered so far, whether still queued or already decided.
-		seen = make(map[uint]bool)
-		// Widths discovered but not yet processed.
-		queue []uint
+		// Worklist of bitwidths needing to be processed
+		worklist = NewBitwidthSet(maxStaticWidth)
 	)
-	// We don't construct a module for range_u1 and range_u2, since a register r
-	// of width w in {1, 2} is instead range-checked by the vanishing constraint
-	// Product_{i=0}^{2^w - 1} (r - i) == 0. So 1 and 2 are always considered
-	// "seen" and never queued for processing.
-	// Note that for w == 3 it would create a degree 8 constraints,
-	// above the target of max_degree == 4.
-	seen[1] = true
-	seen[2] = true
 	//
-	add := func(w uint) {
-		// Note: width == 0 comes from native registers, which are not range-checked.
-		//
-		// w == 1 and w == 2 are not range proven with a call to a static table,
-		//  but uses a vanishing constraints.
-		if w > 2 && !seen[w] {
-			seen[w] = true
-			queue = append(queue, w)
-		}
-	}
-
 	for _, mod := range modules {
-		// Seed from the PC register, which is added later while lowering to mir
-		// (see translateFunction). It exists only for non-atomic, non-native
-		// functions, and the PC bit width must match the one chosen there.
 		switch mod := mod.(type) {
 		case *Function[W]:
+			// Seed from the PC register, which is added later while lowering to
+			// mir (see translateFunction).
 			if !mod.IsNative() && !mod.IsOneLine() {
-				add(mod.PcWidth())
+				worklist.AddWidth(mod.PcWidth())
 			}
+			// Seed from every checked register.
+			worklist.AddChecked(mod.Registers()...)
 		case *descriptor.Memory[W]:
 			// TODO: the need for this highlights some problems with the current
 			// implementation of memory.  Specifically, that some columns are
@@ -168,31 +148,34 @@ func neededRangeWidths[W Word[W]](modules []descriptor.Module[W], field field.Co
 			// like this.  See #2106.
 			if width := mod.StampWidth(); width.HasValue() && mod.IsReadWrite() {
 				for _, w := range descriptor.LimbWidths(field.RegisterWidth, width.Unwrap()) {
-					add(w)
+					worklist.AddStaticWidth(w)
 				}
 			}
-		}
-		// Seed from every register of every module.
-		for _, r := range mod.Registers() {
-			if r.IsRangeChecked() {
-				add(registerWidthOrZero(r))
-			}
+			// NOTE: memory registers are only range checked when their width is
+			// maxStaticWidth or less.  Registers above this are currently not
+			// range-proved at all; closing that gap is tracked by #2106.
+			worklist.AddStatic(mod.Registers()...)
 		}
 	}
 	// Destructure each width wider than the static limit, pulling in its halves.
-	for len(queue) > 0 {
-		var n = queue[0]
+	return decomposeAll(worklist)
+}
 
-		queue = queue[1:]
+func decomposeAll(worklist *BitwidthSet) map[uint]rangeSplit {
+	// Final decompositions, keyed by width (one entry per dequeued width).
+	var splits = make(map[uint]rangeSplit)
+	//
+	for worklist.Size() > 0 {
+		var n = worklist.Pop()
 		//
-		if n <= maxStaticWidth {
+		if n <= worklist.MaxStaticWidth() {
 			// Leaf width: handled by a static table, no decomposition.
 			splits[n] = rangeSplit{}
 		} else {
-			lo, hi := decompose(n, seen)
+			lo, hi := decompose(n, worklist)
 			splits[n] = rangeSplit{lo: lo, hi: hi}
-			add(lo)
-			add(hi)
+			worklist.AddWidth(lo)
+			worklist.AddWidth(hi)
 		}
 	}
 	//
@@ -206,10 +189,10 @@ func neededRangeWidths[W Word[W]](modules []descriptor.Module[W], field field.Co
 // that, it peels off the highest power of two below n, leaving the (smaller)
 // remainder as the low half.  A width counts as reusable if it has already been
 // discovered (whether still queued or already decided).
-func decompose(n uint, seen map[uint]bool) (lo, hi uint) {
+func decompose(n uint, bitwidths *BitwidthSet) (lo, hi uint) {
 	// Try to reuse an existing pair of widths.
 	for lo := uint(1); lo+lo <= n; lo++ {
-		if seen[lo] && seen[n-lo] {
+		if bitwidths.Visited(lo) && bitwidths.Visited(n-lo) {
 			return lo, n - lo
 		}
 	}
@@ -407,4 +390,68 @@ func addRangeChecks[W Word[W]](mod descriptor.Module[W], idOf map[string]uint,
 	}
 	//
 	return descriptor.NewFunction(fn.Name(), fn.Registers(), fn.Kind(), fn.Effects(), nvecs)
+}
+
+// BitwidthSet is a worklist data structure used to assist with decomposing
+// bitwidths.
+type BitwidthSet struct {
+	stack.Worklist
+	maxStaticWidth uint
+}
+
+// NewBitwidthSet constructs the initial set of bitwidths.
+func NewBitwidthSet(maxStaticWidth uint) *BitwidthSet {
+	var worklist stack.Worklist
+	// We don't construct a module for range_u1 and range_u2, since a register r
+	// of width w in {1, 2} is instead range-checked by the vanishing constraint
+	// Product_{i=0}^{2^w - 1} (r - i) == 0. So 1 and 2 are always considered
+	// "seen" and never queued for processing.
+	worklist.Mark(0)
+	worklist.Mark(1)
+	worklist.Mark(2)
+	//
+	return &BitwidthSet{worklist, maxStaticWidth}
+}
+
+// MaxStaticWidth returns the maximum permitted width for a static range check.
+func (p *BitwidthSet) MaxStaticWidth() uint {
+	return p.maxStaticWidth
+}
+
+// AddWidth adds a given bitwidth to this worklist
+func (p *BitwidthSet) AddWidth(width uint) {
+	p.Push(width)
+}
+
+// AddChecked adds the bitwidth of all checked registers to this worklist
+func (p *BitwidthSet) AddChecked[W word.Word[W]](registers ...descriptor.Register[W]) {
+	for _, reg := range registers {
+		if reg.IsRangeChecked() {
+			// NOTE: a native registers cannot be range checked, hence Unwrap()
+			// here is safe.
+			p.Push(reg.Bitwidth().Unwrap())
+		}
+	}
+}
+
+// AddStaticWidth adds a given bitwidth to this worklist, except when it is
+// above the maximum static width.  This function should be eliminated by #2106.
+func (p *BitwidthSet) AddStaticWidth(width uint) {
+	if width <= p.maxStaticWidth {
+		p.Push(width)
+	}
+}
+
+// AddStatic adds the bitwidth of all checked registers to this worklist, except
+// when that width is above the maximum static width.  This function should be
+// eliminated by #2106.
+func (p *BitwidthSet) AddStatic[W word.Word[W]](registers ...descriptor.Register[W]) {
+	for _, reg := range registers {
+		bitwidth := reg.Bitwidth()
+		// NOTE: a native registers cannot be range checked, hence Unwrap()
+		// here is safe.
+		if reg.IsRangeChecked() && bitwidth.Unwrap() <= p.maxStaticWidth {
+			p.Push(bitwidth.Unwrap())
+		}
+	}
 }

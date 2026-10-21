@@ -189,8 +189,6 @@ func (p *RegisterStack[W]) SelectUpto(bitwidth uint) (res []RegisterId) {
 		p.stack = p.stack[1:]
 		bitwidth = bitwidth - width
 	}
-	//
-	//util.Assert(descriptor.BitwidthOf(p.alloc, res...).Unwrap() <= nbits, "select upto failed")
 	// Done
 	return res
 }

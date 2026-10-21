@@ -99,6 +99,8 @@ type Register[W word.Word[W]] struct {
 func NewRegister[W word.Word[W]](kind Type, name string, bitwidth util.Option[uint], padding W) Register[W] {
 	if bitwidth.HasValue() && bitwidth.Unwrap() == math.MaxUint {
 		panic("invalid register bitwidth")
+	} else if kind.rangeChecked && bitwidth.IsEmpty() {
+		panic("native registers cannot be ranged checked")
 	}
 	//
 	return Register[W]{kind, name, bitwidth, padding}

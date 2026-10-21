@@ -162,7 +162,7 @@ Test fixtures are in `testdata/`:
 
 Each test case consists of a `.lisp` (or `.zkc`) source file plus `.accepts` / `.rejects` JSON trace files. Tests run against multiple fields simultaneously (e.g. `BLS12_377`, `KOALABEAR_16`, `GF_8209`).
 
-The `FIELD_REGEX` environment variable (in `pkg/test/util/check_legacy.go`) can restrict which fields are tested — useful in CI pipelines.
+The `ZKC_FIELD` environment variable (in `pkg/test/util/check_legacy.go`) can restrict which fields are tested — useful in CI pipelines.
 
 When adding tests, always prefer end-to-end tests (a source fixture in
 `testdata/` plus `.accepts` / `.rejects` trace files, registered in the

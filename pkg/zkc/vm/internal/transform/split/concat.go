@@ -13,8 +13,6 @@
 package split
 
 import (
-	"strings"
-
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
@@ -110,7 +108,7 @@ func orderConcatAssignments[W word.Word[W]](chunks []partCat, alloc Allocator[W]
 		}
 		// Emit run in reverse
 		for i := end; i >= start; i-- {
-			codes = append(codes, concatAssignment[W](chunks[i], alloc))
+			codes = append(codes, concatAssignment(chunks[i], alloc))
 		}
 		//
 		start = end + 1
@@ -219,21 +217,22 @@ func insertConcatCarryLines[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 				// allocate new carry line
 				carry = alloc.Allocate("c", util.Some(bitwidth))
 			)
-			// Sanity check
-			util.Assert(bitwidth < mapping.BandWidth(), "carry overflow")
 			// insert carry line.  Observe that, since the carry holds the
 			// overflowing (most significant) bits of this chunk, it becomes
 			// the least significant limb of the next chunk.
 			chunks[i].targets = append(chunks[i].targets, carry)
 			chunks[i+1].sources = array.Prepend(carry, chunks[i+1].sources)
+			// Sanity check the next chunk still fits.  This holds because
+			// initialiseConcatChunks reserved exactly this many bits
+			// (the overhang) when selecting its sources.
+			util.Assert(descriptor.BitwidthOf(alloc, chunks[i+1].sources...).Unwrap() <= mapping.BandWidth(),
+				"carry overflow")
 		} else if lhs > rhs && i+1 < len(chunks) && len(chunks[i+1].sources) > 0 {
 			var (
 				bitwidth = lhs - rhs
 				// allocate new borrow line
 				borrow = alloc.Allocate("b", util.Some(bitwidth))
 			)
-			// Sanity check
-			util.Assert(bitwidth < mapping.BandWidth(), "borrow overflow")
 			// insert borrow line.  Observe that, since the borrow supplies the
 			// missing (most significant) bits of this chunk, it is assigned
 			// from the least significant bits of the next chunk.  The next
@@ -242,6 +241,11 @@ func insertConcatCarryLines[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 			chunks[i].sources = append(chunks[i].sources, borrow)
 			chunks[i].borrows = true
 			chunks[i+1].targets = array.Prepend(borrow, chunks[i+1].targets)
+			// Sanity check the next chunk still fits.  This holds because
+			// initialiseConcatChunks reserved exactly this many bits
+			// (the underhang) when selecting its targets.
+			util.Assert(descriptor.BitwidthOf(alloc, chunks[i+1].targets...).Unwrap() <= mapping.BandWidth(),
+				"borrow overflow")
 		}
 	}
 	//
@@ -262,19 +266,4 @@ func concatAssignment[W word.Word[W]](chunk partCat, alloc Allocator[W]) Bytecod
 	}
 	// Done
 	return bytecode.AssignV[W](targets, chunk.sources...)
-}
-
-// nolint
-func chunk2str[W word.Word[W]](mapping bytecode.RegisterMap[W], regs []RegisterId) string {
-	var builder strings.Builder
-	//
-	for i, reg := range regs {
-		if i != 0 {
-			builder.WriteString("::")
-		}
-		//
-		builder.WriteString(mapping.Register(reg).Name())
-	}
-	//
-	return builder.String()
 }

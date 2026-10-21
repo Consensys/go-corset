@@ -56,8 +56,8 @@ func (p *SkipIf[W]) Definitions() []RegisterId {
 
 // Validate implementation for Bytecode interface.
 func (p *SkipIf[W]) Validate(env Environment[W]) ([]error, bool) {
-	// NOTE: SkipIf does not need validate its lhs/rhs vectors since these are
-	// never actually translated as concatenations.
+	// NOTE: SkipIf does not need to validate its lhs/rhs vectors since these
+	// are never actually translated as concatenations.
 	if p.Right.IsRegisterVector() {
 		return validateOperands(env, p.Left.Registers(), p.Right.AsRegisterVector().Registers())
 	}

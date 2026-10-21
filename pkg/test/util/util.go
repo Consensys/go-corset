@@ -28,6 +28,8 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/util/source"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/compiler"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/compiler/ast"
+	"github.com/LFDT-Lineth/zkc/pkg/zkc/compiler/ast/decl"
+	"github.com/LFDT-Lineth/zkc/pkg/zkc/compiler/ast/symbol"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/compiler/codegen"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/constraints"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm"
@@ -73,12 +75,10 @@ func CompileZkcWith(config codegen.Config, srcfile source.File) []source.SyntaxE
 }
 
 // checkZkcModuleReachability generates the AIR-level constraints of the given
-// (successfully compiled) program and reports, as a syntax error anchored on
-// the offending declaration, every module unreachable via lookups from the
-// entry point "main".  Unreachable modules without a matching declaration
-// (i.e. compiler-generated modules, such as $range_uN) are skipped, since they
-// can only be unreachable as a knock-on effect of an unreachable user module,
-// which is itself reported.
+// (successfully compiled) program and reports, as a syntax error, every module
+// unreachable via lookups from the entry point "main".  The error is anchored
+// on the offending declaration or, for a compiler-generated module (such as
+// $range_uN) which has none, on the entry point itself.
 func checkZkcModuleReachability(program ast.Program, srcmaps source.Maps[any],
 	vmProgram vm.Program[vm.Uint]) []source.SyntaxError {
 	// Dispatch based on field config
@@ -112,15 +112,31 @@ func checkZkcModuleReachabilityFor[F field.Element[F], W vm.Word[W]](program ast
 	)
 	//
 	for _, name := range constraints.UnreachableModules(binf.AirConstraints()) {
-		for _, d := range program.Components() {
-			if d.Name() == name {
-				msg := fmt.Sprintf("module \"%s\" unreachable via lookups from entry point \"main\"", name)
-				errors = append(errors, srcmaps.SyntaxErrors(d, msg)...)
-			}
-		}
+		var (
+			msg = fmt.Sprintf("module \"%s\" unreachable via lookups from entry point \"main\"", name)
+			// Compiler-generated modules have no declaration of their own; report
+			// them against the entry point.
+			d = lookupModuleOrDefault(program, name, "main")
+		)
+		//
+		errors = append(errors, srcmaps.SyntaxErrors(d, msg)...)
 	}
 	//
 	return errors
+}
+
+func lookupModuleOrDefault(program ast.Program, name, def string) decl.Declaration[symbol.Resolved] {
+	for _, d := range program.Components() {
+		if d.Name() == name {
+			return d
+		}
+	}
+	//
+	if def != "" {
+		return lookupModuleOrDefault(program, def, "")
+	}
+	//
+	panic(fmt.Sprintf("invalid module: %s", name))
 }
 
 func failNow(t *testing.T, errs ...error) {
