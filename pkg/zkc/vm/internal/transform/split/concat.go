@@ -108,7 +108,7 @@ func orderConcatAssignments[W word.Word[W]](chunks []partCat, alloc Allocator[W]
 		}
 		// Emit run in reverse
 		for i := end; i >= start; i-- {
-			codes = append(codes, concatAssignment(chunks[i], alloc))
+			codes = append(codes, concatAssignment(chunks[i], alloc)...)
 		}
 		//
 		start = end + 1
@@ -188,19 +188,24 @@ func initialiseConcatChunks[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 	return chunks, targetStack.post
 }
 
-// insertConcatCarryLines resolves width mismatches between each chunk's LHS
-// and RHS by threading an intermediate register into the next chunk.  When the
-// RHS produces more bits than the LHS can hold, a carry takes the overflowing
-// (most significant) bits of the RHS and passes them up as the least
-// significant source of the next chunk.  When the LHS is wider than the RHS, a
-// borrow fills the missing (most significant) bits of the RHS, and is written
-// by the next chunk as its least significant target.  The final chunk is
-// skipped, since there is no next chunk: overflow there is the discarded top
-// bits, and a shortfall is zero-filled.
+// insertConcatCarryLines resolves width mismatches between each chunk's LHS and
+// RHS by threading an intermediate register into the next chunk.  When the RHS
+// produces more bits than the LHS can hold, a carry takes the overflowing (most
+// significant) bits of the RHS and passes them up as the least significant
+// source of the next chunk.  When the LHS is wider than the RHS, a borrow fills
+// the missing (most significant) bits of the RHS, and is written by the next
+// chunk as its least significant target.  The last real chunk (and everything
+// after it) is skipped, since there is no value in adding carry lines: overflow
+// there is the discarded top bits, and a shortfall is zero-filled.
 func insertConcatCarryLines[W word.Word[W]](mapping descriptor.LimbsMap[W], alloc Allocator[W], chunks []partCat,
 ) []partCat {
+	var (
+		nChunks = uint(len(chunks))
+		// Count number of chunks for which a carry line makes sense.
+		nRealChunks = determineRealChunks(chunks)
+	)
 	//
-	for i := range len(chunks) {
+	for i := uint(0); i < nChunks; i++ {
 		var (
 			// Determine bitwidth of left-hand side
 			lhs = descriptor.BitwidthOf(alloc, chunks[i].targets...).Unwrap()
@@ -211,7 +216,7 @@ func insertConcatCarryLines[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 		// exhausted has a zero-width left-hand side.  In such case, there is no
 		// value in adding carry lines.  Furthermore, doing so doesn't make
 		// sense since the carry lines would be as wide the rhs anyway.
-		if lhs > 0 && lhs < rhs && i+1 < len(chunks) {
+		if lhs > 0 && lhs < rhs && i+1 < nRealChunks {
 			var (
 				bitwidth = rhs - lhs
 				// allocate new carry line
@@ -227,7 +232,7 @@ func insertConcatCarryLines[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 			// (the overhang) when selecting its sources.
 			util.Assert(descriptor.BitwidthOf(alloc, chunks[i+1].sources...).Unwrap() <= mapping.BandWidth(),
 				"carry overflow")
-		} else if lhs > rhs && i+1 < len(chunks) && len(chunks[i+1].sources) > 0 {
+		} else if lhs > rhs && i+1 < nChunks && len(chunks[i+1].sources) > 0 {
 			var (
 				bitwidth = lhs - rhs
 				// allocate new borrow line
@@ -252,18 +257,34 @@ func insertConcatCarryLines[W word.Word[W]](mapping descriptor.LimbsMap[W], allo
 	return chunks
 }
 
+func determineRealChunks(chunks []partCat) (num uint) {
+	var nChunks = uint(len(chunks))
+	//
+	for i := nChunks; i > 0; i-- {
+		if len(chunks[i-1].targets) > 0 {
+			return i
+		}
+	}
+	// No trailing targetless chunks
+	return nChunks
+}
+
 // concatAssignment lowers a chunk back into a concrete assignment instruction.
-func concatAssignment[W word.Word[W]](chunk partCat, alloc Allocator[W]) Bytecode[W] {
+func concatAssignment[W word.Word[W]](chunk partCat, alloc Allocator[W]) (codes []Bytecode[W]) {
 	var (
-		zero    W
-		targets = chunk.targets
+		zero      W
+		targets   = chunk.targets
+		noSources = len(chunk.sources) == 0
+		noTargets = len(chunk.targets) == 0
 	)
 
-	if len(chunk.sources) == 0 {
-		return bytecode.LoadConstVec(chunk.targets, zero)
-	} else if len(targets) == 0 {
+	if noSources && noTargets {
+		return codes
+	} else if noSources {
+		return append(codes, bytecode.LoadConstVec(chunk.targets, zero))
+	} else if noTargets {
 		targets = []RegisterId{alloc.ZeroRegister()}
 	}
 	// Done
-	return bytecode.AssignV[W](targets, chunk.sources...)
+	return append(codes, bytecode.AssignV[W](targets, chunk.sources...))
 }
