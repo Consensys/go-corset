@@ -23,15 +23,6 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm"
 )
 
-func newLimbsMap[W vm.Word[W]](config field.Config, modules ...vm.Module[W]) module.LimbsMap {
-	var ms []register.Map = array.Map(modules, func(_ uint, m vm.Module[W]) register.Map {
-		return register.ArrayMap(m.Name(), toRegisters(m.Registers())...)
-	})
-	// NOTE: generic parameter is meaningless, and only retained for backwards
-	// compatibility.
-	return module.NewLimbsMap[uint](config, ms...)
-}
-
 // ToRegisters converts an array of register descriptors into an array of scheme
 // registers.
 func toRegisters[W vm.Word[W]](registers []vm.Register[W]) []register.Register {
@@ -73,7 +64,7 @@ func foldContents[F field.Element[F]](inputs, outputs []register.Register, conte
 	//
 	rows := make([][]F, nRows)
 	//
-	for i := 0; i < len(contents); i++ {
+	for i := range len(contents) {
 		var (
 			// Determine table row
 			row = uint64(i / nOutputs)
@@ -131,4 +122,24 @@ func fillAddressLines[F field.Element[F]](address uint64, row []F, lines []regis
 		// Shift down address
 		acc = acc.Shr64(bitwidth)
 	}
+}
+
+// newLimbsMap constructs the register → limb mapping for a given (pre-split)
+// program, mirroring exactly how register splitting lays out limbs within each
+// module.
+func newLimbsMap[W vm.Word[W]](config field.Config, modules ...vm.Module[W]) module.LimbsMap {
+	var ms []register.LimbsMap = array.Map(modules, func(_ uint, m vm.Module[W]) register.LimbsMap {
+		var (
+			regs  = m.Registers()
+			limbs = make([][]register.Limb, len(regs))
+		)
+		// Split registers into limbs
+		for i, r := range regs {
+			limbs[i] = toRegisters(vm.SplitIntoLimbs(config.RegisterWidth, r))
+		}
+		// Construct limbs map
+		return register.NewLimbsMap(m.Name(), toRegisters(regs), limbs)
+	})
+	//
+	return module.NewLimbsMap(ms...)
 }

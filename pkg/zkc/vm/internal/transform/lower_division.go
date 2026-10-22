@@ -43,7 +43,7 @@ func LowerDivisions[W Word[W]](program descriptor.Program[W]) descriptor.Program
 		}
 	}
 
-	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
+	return descriptor.NewProgram(program.IsTracing(), program.Field(), program.MaxStaticHeight(), out...)
 }
 
 func lowerDivisionFunction[W Word[W]](fn *Function[W]) *Function[W] {

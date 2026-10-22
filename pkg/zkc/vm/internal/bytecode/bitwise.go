@@ -70,6 +70,8 @@ func (p *Bitwise[W]) Validate(env Environment[W]) ([]error, bool) {
 		if !p.Right.AsConstant().FitsWithin(uint(p.Bitwidth)) {
 			errors = append(errors, fmt.Errorf("constant operand exceeds u%d", p.Bitwidth))
 		}
+	} else if safe {
+		errors = append(errors, validateConcatBitwidth(env, p.Right.AsRegisters())...)
 	}
 	//
 	return errors, safe

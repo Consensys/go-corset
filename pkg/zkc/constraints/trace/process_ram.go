@@ -13,7 +13,6 @@
 package trace
 
 import (
-	"github.com/LFDT-Lineth/zkc/pkg/schema/register"
 	"github.com/LFDT-Lineth/zkc/pkg/trace"
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/util/collection/array"
@@ -78,7 +77,7 @@ func initReadWriteMemory[W Word[W], F Element[F]](cfg field.Config, m vm.Memory[
 		// Timestamp limb widths, most-significant first: the memory's declared
 		// timestamp width splits exactly as on the constraint side
 		// (constraints.computeRamLayout).
-		tsWidths = array.Reverse(register.LimbWidths(cfg.RegisterWidth, m.StampWidth().Unwrap()))
+		tsWidths = array.Reverse(vm.LimbWidths(cfg.RegisterWidth, m.StampWidth().Unwrap()))
 		u1       = util.Some[uint](1)
 	)
 	// EXEC, IS_WRITE.
@@ -129,7 +128,7 @@ func traceReadWriteMemory[W Word[W], F Element[F]](m vm.RuntimeReadWriteMemory[W
 		nAddr    = int(geometry.NumInputs())
 		nData    = int(geometry.NumOutputs())
 		// Timestamp limb widths, most-significant first (matches computeRamLayout).
-		tsWidths = array.Reverse(register.LimbWidths(cfg.RegisterWidth, geometry.StampWidth().Unwrap()))
+		tsWidths = array.Reverse(vm.LimbWidths(cfg.RegisterWidth, geometry.StampWidth().Unwrap()))
 		layout   = newRamTraceLayout(nAddr, nData, len(tsWidths))
 		accesses = groupRamAccesses[W](m.AccessLog(), nData)
 		//

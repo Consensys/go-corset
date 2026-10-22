@@ -205,6 +205,12 @@ type RegisterMap[W word.Word[W]] interface {
 // registers in the enclosing function, etc.
 type Environment[W word.Word[W]] interface {
 	RegisterMap[W]
+	// Bandwidth returns the desired bandwidth for all bytecode instructions.
+	// For a tracing program, this will match the field bandwidth.  However, for
+	// a fast-mode program this will match the machine's word bandwidth.
+	Bandwidth() uint
+	// Name returns the name of the enclosing function.
+	Name() string
 	// Field returns the target field
 	Field() field.Config
 	// HasModule checks whether a module with the given name exists and, if so,
@@ -267,6 +273,35 @@ func validateOperands[W word.Word[W]](env Environment[W], operands ...[]Register
 	}
 	//
 	return errors, len(errors) == 0
+}
+
+// validateConcatBitwidth validates the combined bitwidth of a given set of registers
+func validateConcatBitwidth[W word.Word[W]](env Environment[W], regs []RegisterId) []error {
+	var (
+		bitwidth uint
+		errors   []error
+	)
+	// Sanity check no registers are field elements.
+	util.Assert(len(regs) == 1 || !array.ContainsMatching(regs, func(id RegisterId) bool {
+		return env.Register(id).Bitwidth().IsEmpty()
+	}), "native registers cannot be concatenated")
+	// Sum combined bitwidth
+	for _, r := range regs {
+		var reg = env.Register(r)
+		// Sanity check for native register
+		if reg.Bitwidth().IsEmpty() {
+			return nil
+		}
+		// Accumulate bitwidth
+		bitwidth += reg.Bitwidth().Unwrap()
+	}
+	// Check bitwidth
+	if bitwidth > env.Bandwidth() {
+		chunk := RegistersToString(regs, env, "::")
+		errors = append(errors, fmt.Errorf("%s exceeds bandwidth", chunk))
+	}
+	//
+	return errors
 }
 
 // ============================================================================

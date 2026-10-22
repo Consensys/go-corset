@@ -200,3 +200,26 @@ func SplitIntoLimbs[W word.Word[W]](maxWidth uint, r Register[W]) []Register[W] 
 	//
 	return limbs
 }
+
+// LimbWidths determines the limb widths which would be determined for a
+// register of the given size, assuming a maximum register width.  Observe that
+// this does not support native registers.  For the resulting array, the least
+// significant register is first. Since registers are always split to the
+// maximum width as much as possible, it is only the most significant register
+// which may (in some cases) have fewer bits than the maximum allowed.
+func LimbWidths(maxWidth, registerWidth uint) []uint {
+	var (
+		bitwidth = registerWidth
+		limbs    []uint
+	)
+	//
+	for i := 0; bitwidth > 0; i++ {
+		var ith_width = min(maxWidth, bitwidth)
+		// construct limt
+		limbs = append(limbs, ith_width)
+		//
+		bitwidth -= ith_width
+	}
+	// Done
+	return limbs
+}

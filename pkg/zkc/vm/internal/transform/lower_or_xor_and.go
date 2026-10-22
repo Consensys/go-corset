@@ -17,6 +17,7 @@ import (
 	"slices"
 
 	"github.com/LFDT-Lineth/zkc/pkg/util"
+	"github.com/LFDT-Lineth/zkc/pkg/util/field"
 	util_math "github.com/LFDT-Lineth/zkc/pkg/util/math"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/bytecode"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
@@ -41,7 +42,7 @@ func LowerOrXorAnd[W Word[W]](program descriptor.Program[W]) descriptor.Program[
 		// maxStaticWidth is floor(log2(maxStaticHeight)); a bitwise table indexes
 		// two w-bit operands, so it fits only when 2w <= maxStaticWidth.
 		bitwiseStaticWidth = util_math.FloorLog2(program.MaxStaticHeight()) / 2
-		helpers            = newBitwiseHelpers[W](uint(len(out)), bitwiseStaticWidth)
+		helpers            = newBitwiseHelpers[W](uint(len(out)), bitwiseStaticWidth, program.Field())
 	)
 	for i, mod := range out {
 		if fn, ok := mod.(*Function[W]); ok {
@@ -51,7 +52,7 @@ func LowerOrXorAnd[W Word[W]](program descriptor.Program[W]) descriptor.Program[
 		}
 	}
 	//
-	return descriptor.NewProgram(program.Field(),
+	return descriptor.NewProgram(program.IsTracing(), program.Field(),
 		program.MaxStaticHeight(), append(out, helpers.modules()...)...)
 }
 
@@ -83,13 +84,16 @@ type bitwiseHelpers[W Word[W]] struct {
 	// is realised as a static lookup table rather than a recursive helper (see
 	// ensureNary).
 	bitwiseStaticWidth uint
+	// Target field
+	field field.Config
 }
 
-func newBitwiseHelpers[W Word[W]](baseID uint, bitwiseStaticWidth uint) *bitwiseHelpers[W] {
+func newBitwiseHelpers[W Word[W]](baseID uint, bitwiseStaticWidth uint, field field.Config) *bitwiseHelpers[W] {
 	return &bitwiseHelpers[W]{
 		baseID:             baseID,
 		ids:                make(map[bitwiseHelperKey]uint),
 		bitwiseStaticWidth: bitwiseStaticWidth,
+		field:              field,
 	}
 }
 
@@ -209,22 +213,16 @@ func lowerBitwiseAndOrXor[W Word[W]](
 
 	// TODO: constant register, see: https://github.com/LFDT-Lineth/zkc/issues/1838
 	right, pre := materialiseRight(b, registers)
-	//
-	origWidth, isPowerOfTwo := maxBitwidthOf(registers.Registers(), b.Left, right)
-	//
-	p := origWidth
-	if !isPowerOfTwo {
-		p = util_math.NextPowerOfTwo(origWidth)
-	}
-
+	// Determine suitable bitwidth for bitwise operation
+	p := alignedBitwidthOf(registers.Registers(), helpers.field, b.Left, right)
 	// Single-bit operations are cheap arithmetic (a&b = a*b, etc.);
 	// inline them rather than calling a (static or not) table.
 	if p == 1 {
 		return append(pre, emitUnitBitwise(b.Op, registers, b.Target, b.Left, right)...)
 	}
-	// Both operands are now registers, so lowering only needs the
-	// (power-of-two) operand width p: a table read when p is small enough,
-	// otherwise a recursive helper.
+	// Both operands are now registers, so lowering only needs the operand
+	// width p: a table read when p is small enough, otherwise a recursive
+	// helper.
 	id, isTable := helpers.ensureNary(p, 2)
 	targets := []bytecode.RegisterId{bytecode.DISCARD, bytecode.DISCARD, bytecode.DISCARD}
 	targets[bitwiseOpIndex(b.Op)] = b.Target
@@ -248,6 +246,26 @@ func materialiseRight[W Word[W]](b *bytecode.Bitwise[W], registers split.Allocat
 	reg := registers.Allocate("loxa", util.Some(uint(b.Bitwidth)))
 	//
 	return reg, []Bytecode[W]{bytecode.LoadConst(reg, b.Right.AsConstant())}
+}
+
+// alignedBitwidthOf determines the operand width for a bitwise operation over
+// the given argument registers.  The maximum argument width is rounded up to
+// the next power of two so that operations of similar widths share the same
+// helper (and hence the same range tables), except where rounding up would
+// exceed the maximum register width of the target field.  In that case the
+// original width is used, since every register introduced by the lowering must
+// fit within a register (and, hence, within the available bandwidth).
+func alignedBitwidthOf[W word.Word[W]](regs []Register[W], field field.Config, args ...bytecode.RegisterId) uint {
+	var (
+		w  = maxBitwidthOf(regs, args...)
+		nw = util_math.NextPowerOfTwo(w)
+	)
+	//
+	if nw > field.RegisterWidth {
+		return w
+	}
+	//
+	return nw
 }
 
 // emitUnitBitwise inlines a single-bit AND/OR/XOR of left and right into target,
@@ -346,18 +364,23 @@ func newDecomposedNaryHelper[W Word[W]](
 			b.emit(bytecode.Assign[W](b.outputs[i], agg))
 		}
 	} else {
-		// Recursive case: low and high halves share the same sub-helper
-		// (which may be a static table or a narrower recursive helper) because
-		// the body no longer depends on a caller-side constant.
-		half := key.width / 2
-		subID, isTable := helpers.ensureNary(half, key.arity)
+		// Recursive case: destructure each operand into a low and a high half
+		// and delegate each half to a narrower sub-helper (which may be a
+		// static table or another recursive helper).  Widths need not be a
+		// power of two (see alignedBitwidthOf), so for an odd width the halves
+		// differ in size: the low half takes the floor and the high half the
+		// remainder, ensuring the two together cover every bit.
+		loWidth := key.width / 2
+		hiWidth := key.width - loWidth
+		loID, loIsTable := helpers.ensureNary(loWidth, key.arity)
+		hiID, hiIsTable := helpers.ensureNary(hiWidth, key.arity)
 
 		lowSrcs := make([]bytecode.RegisterId, key.arity)
 		highSrcs := make([]bytecode.RegisterId, key.arity)
 
 		for i, arg := range b.inputs {
-			lo := b.newComputedWidth(fmt.Sprintf("arg_%d_lo", i+1), half)
-			hi := b.newComputedWidth(fmt.Sprintf("arg_%d_hi", i+1), half)
+			lo := b.newComputedWidth(fmt.Sprintf("arg_%d_lo", i+1), loWidth)
+			hi := b.newComputedWidth(fmt.Sprintf("arg_%d_hi", i+1), hiWidth)
 			// UintDestruct: split arg into [lo, hi] (little-endian limbs).
 			b.emit(bytecode.AddVec[W]([]bytecode.RegisterId{lo, hi}, []bytecode.RegisterId{arg}))
 			lowSrcs[i] = lo
@@ -367,15 +390,15 @@ func newDecomposedNaryHelper[W Word[W]](
 		resLow := make([]bytecode.RegisterId, len(bitwiseOps))
 		resHigh := make([]bytecode.RegisterId, len(bitwiseOps))
 
-		resLow[0] = b.newComputedWidth("resLow_AND", half)
-		resHigh[0] = b.newComputedWidth("resHigh_AND", half)
-		resLow[1] = b.newComputedWidth("resLow_OR", half)
-		resHigh[1] = b.newComputedWidth("resHigh_OR", half)
-		resLow[2] = b.newComputedWidth("resLow_XOR", half)
-		resHigh[2] = b.newComputedWidth("resHigh_XOR", half)
+		resLow[0] = b.newComputedWidth("resLow_AND", loWidth)
+		resHigh[0] = b.newComputedWidth("resHigh_AND", hiWidth)
+		resLow[1] = b.newComputedWidth("resLow_OR", loWidth)
+		resHigh[1] = b.newComputedWidth("resHigh_OR", hiWidth)
+		resLow[2] = b.newComputedWidth("resLow_XOR", loWidth)
+		resHigh[2] = b.newComputedWidth("resHigh_XOR", hiWidth)
 
-		b.emit(invokeNary[W](subID, isTable, lowSrcs, resLow))
-		b.emit(invokeNary[W](subID, isTable, highSrcs, resHigh))
+		b.emit(invokeNary[W](loID, loIsTable, lowSrcs, resLow))
+		b.emit(invokeNary[W](hiID, hiIsTable, highSrcs, resHigh))
 
 		for i := range bitwiseOps {
 			b.emit(bytecode.AssignV[W]([]bytecode.RegisterId{b.outputs[i]}, resLow[i], resHigh[i]))

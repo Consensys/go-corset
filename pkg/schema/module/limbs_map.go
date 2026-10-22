@@ -17,7 +17,6 @@ import (
 	"strings"
 
 	"github.com/LFDT-Lineth/zkc/pkg/schema/register"
-	"github.com/LFDT-Lineth/zkc/pkg/util/field"
 )
 
 // LimbsMap provides a high-level mapping of all registers across all
@@ -27,15 +26,8 @@ type LimbsMap = Map[register.LimbsMap]
 // NewLimbsMap constructs a new schema mapping for a given schema and
 // parameter combination.  This determines, amongst other things,  the
 // composition of limbs for all registers in the schema.
-func NewLimbsMap[F any, M register.Map](field field.Config, modules ...M) LimbsMap {
-	var mappings []register.LimbsMap
-	//
-	for _, m := range modules {
-		regmap := register.NewLimbsMap[F](field, m)
-		mappings = append(mappings, regmap)
-	}
-	//
-	return limbsMap[register.LimbsMap]{mappings}
+func NewLimbsMap(modules ...register.LimbsMap) LimbsMap {
+	return limbsMap[register.LimbsMap]{modules}
 }
 
 // IdentityMap constructs a "identity" mapping which maps each register to

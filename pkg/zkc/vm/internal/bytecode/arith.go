@@ -64,7 +64,13 @@ func (p *Arith[W]) Definitions() []RegisterId {
 
 // Validate implementation for Bytecode interface.
 func (p *Arith[W]) Validate(env Environment[W]) ([]error, bool) {
-	return validateOperands(env, p.Source, p.Target)
+	errors, safe := validateOperands(env, p.Source, p.Target)
+	//
+	if safe {
+		errors = append(errors, validateConcatBitwidth(env, p.Target)...)
+	}
+	//
+	return errors, safe
 }
 
 func (p *Arith[W]) String(env Environment[W]) string {

@@ -41,6 +41,13 @@ func (p *Worklist) Push(n uint) {
 	}
 }
 
+// Mark an an item on the stack as visited, but do not place it on the worklist
+// itself.  This essentially prevents the given item from ever being placed on
+// the stack.
+func (p *Worklist) Mark(n uint) {
+	p.visited.Insert(n)
+}
+
 // Visited checks whether the given value has (at some point) been pushed onto
 // this stack, or not.
 func (p *Worklist) Visited(n uint) bool {

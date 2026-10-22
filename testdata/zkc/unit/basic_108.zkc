@@ -1,0 +1,13 @@
+pub input data(address:u2) -> (word:u64)
+
+fn main() {
+    var x:u64 = data[0]
+    var r:u64 = data[1]
+    var lo:u16, hi:u16
+    //
+    hi::lo = x as u32
+    //
+    if r != (hi::lo) as u64 {
+        fail
+    }
+}

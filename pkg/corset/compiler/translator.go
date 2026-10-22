@@ -288,15 +288,11 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 		srcContext, tgtContext ast.Context
 		sources                []lookup.Vector
 		targets                []lookup.Vector
-		// Bitwidths of the registers making up each source / target vector.
-		srcWidths [][]uint
-		tgtWidths [][]uint
 	)
 	// Translate sources
 	for i, ith := range decl.Targets {
-		ith_targets, widths, ctx, errs := t.translateDefLookupSources(decl.TargetSelectors[i], ith)
+		ith_targets, _, ctx, errs := t.translateDefLookupSources(decl.TargetSelectors[i], ith)
 		targets = append(targets, ith_targets)
-		tgtWidths = append(tgtWidths, widths)
 		errors = append(errors, errs...)
 		//
 		if i == 0 {
@@ -305,19 +301,13 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 	}
 	// Translate targets
 	for i, ith := range decl.Sources {
-		ith_sources, widths, ctx, errs := t.translateDefLookupSources(decl.SourceSelectors[i], ith)
+		ith_sources, _, ctx, errs := t.translateDefLookupSources(decl.SourceSelectors[i], ith)
 		sources = append(sources, ith_sources)
-		srcWidths = append(srcWidths, widths)
 		errors = append(errors, errs...)
 		//
 		if i == 0 {
 			srcContext = ctx
 		}
-	}
-	// Sanity check this is not an irregular lookup (since these are not
-	// currently supported) and, if so, provide a useful error message.
-	if len(errors) == 0 {
-		errors = t.checkForIrregularLookup(tgtWidths, srcWidths, decl.Targets, decl.Sources)
 	}
 	// Sanity check whether we can construct the constraint, or not.
 	if len(errors) == 0 {
@@ -337,7 +327,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 // translateDefLookupSources translates one side of a lookup (i.e. either its
 // sources or its targets) into a corresponding lookup vector.  Since a lookup
 // vector is made up of registers, this also returns the bitwidth of each
-// register in the vector (as needed for detecting irregular lookups).
+// register in the vector.
 func (t *translator) translateDefLookupSources(selector ast.TypedSymbol,
 	sources []ast.TypedSymbol) (lookup.Vector, []uint, ast.Context, []SyntaxError) {
 	// Determine context of ith set of targets
@@ -474,16 +464,6 @@ func (t *translator) translateBus(busName string, ports []busPort) []SyntaxError
 			//
 			continue
 		}
-		// Check limb decompositions align (mirrors lookup regularity).  With
-		// no register width configured there is no splitting, hence nothing
-		// to misalign.
-		for k := range first.widths {
-			if t.config.Field.RegisterWidth == 0 {
-				break
-			} else if t.isIrregularLookup(ith.widths[k], first.widths[k]) != 0 {
-				errors = append(errors, *t.srcmap.SyntaxError(ith.decl.Columns[k], "irregular bus port detected"))
-			}
-		}
 		//
 		if ith.decl.IsSend {
 			sends = append(sends, ith.port)
@@ -568,62 +548,6 @@ func (t *translator) checkLookupVector(sel *mirRegisterAccess, selector ast.Type
 	}
 	// Done
 	return errors
-}
-
-// An irregular lookup is an awkward scenario where a source/target pairing does
-// not align properly.  This scenario is not currently supported and, hence, a
-// suitable error message must be returned.  For example, support a pairing of
-// u160 (source) into u256 (target) with a maximum register size of u160.  Then,
-// the source will decompose into a single u160 limb, whilst the target will
-// decompose into a two u128 limbs.
-func (t *translator) checkForIrregularLookup(tgtWidths [][]uint, srcWidths [][]uint,
-	tgtTerms [][]ast.TypedSymbol, srcTerms [][]ast.TypedSymbol) []SyntaxError {
-	//
-	var (
-		n      = len(srcWidths[0])
-		errors []SyntaxError
-	)
-	//
-	for i, ith := range srcWidths {
-		for j, jth := range tgtWidths {
-			for k := range n {
-				// Check for error
-				switch t.isIrregularLookup(ith[k], jth[k]) {
-				case -1:
-					// source failure
-					errors = append(errors, *t.srcmap.SyntaxError(srcTerms[i][k], "irregular lookup detected"))
-				case 1:
-					// target failure
-					errors = append(errors, *t.srcmap.SyntaxError(tgtTerms[j][k], "irregular lookup detected"))
-				}
-			}
-		}
-	}
-	//
-	return errors
-}
-
-func (t *translator) isIrregularLookup(srcWidth, tgtWidth uint) int {
-	var (
-		srcLimbWidths = register.LimbWidths(t.config.Field.RegisterWidth, srcWidth)
-		tgtLimbWidths = register.LimbWidths(t.config.Field.RegisterWidth, tgtWidth)
-		n             = min(len(srcLimbWidths), len(tgtLimbWidths))
-	)
-	//
-	for i := range n {
-		var (
-			srcLast = i+1 == len(srcLimbWidths)
-			tgtLast = i+1 == len(tgtLimbWidths)
-		)
-		// Check limbs
-		if srcLimbWidths[i] > tgtLimbWidths[i] && !tgtLast {
-			return -1
-		} else if tgtLimbWidths[i] > srcLimbWidths[i] && !srcLast {
-			return 1
-		}
-	}
-	//
-	return 0
 }
 
 // Translate a "definrange" declaration.

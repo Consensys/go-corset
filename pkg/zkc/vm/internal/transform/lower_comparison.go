@@ -36,7 +36,7 @@ func LowerComparisons[W Word[W]](program descriptor.Program[W]) descriptor.Progr
 		}
 	}
 
-	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
+	return descriptor.NewProgram(program.IsTracing(), program.Field(), program.MaxStaticHeight(), out...)
 }
 
 func lowerComparisonFunction[W Word[W]](fn *Function[W]) *Function[W] {

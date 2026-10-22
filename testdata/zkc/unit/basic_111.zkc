@@ -1,0 +1,20 @@
+pub input data(address:u2) -> (word:u64)
+
+fn main() {
+    var x:u64 = data[0]
+    var y:u64 = data[1]
+    var tmp:u64
+    var hi:u6, lo:u6
+    // call target fn
+    hi, lo = f(x)
+    // reassemble
+    tmp = (hi::lo) as u64
+    // check
+    if tmp != y {
+        fail
+    }
+}
+
+fn f(x:u64) -> (hi:u6, lo:u6) {
+    hi::lo = x as u12
+}

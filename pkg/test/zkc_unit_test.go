@@ -425,6 +425,56 @@ func Test_ZkcUnit_Basic_99(t *testing.T) {
 func Test_ZkcUnit_Basic_100(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/basic_100", DEFAULT_UNIT_CONFIG)
 }
+func Test_ZkcUnit_Basic_101(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_101", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_102(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_102", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_103(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_103", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_104(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_104", DEFAULT_UNIT_CONFIG)
+}
+func Test_ZkcUnit_Basic_105(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_105", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_106(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_106", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_107(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_107", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_108(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_108", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_109(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_109", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_110(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_110", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_111(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_111", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_112(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_112", DEFAULT_UNIT_CONFIG)
+}
+
+func Test_ZkcUnit_Basic_113(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/basic_113", DEFAULT_UNIT_CONFIG)
+}
 
 // ===================================================================
 // If-Else-If Tests
@@ -804,6 +854,13 @@ func Test_ZkcUnit_Bitwise_20(t *testing.T) {
 // BIT/AND/XOR module
 func Test_ZkcUnit_Bitwise_21(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/bitwise_21", DEFAULT_UNIT_CONFIG)
+}
+
+// This tests AND/OR/XOR on operands of odd (non-power-of-two) width, which on a
+// 24bit field configuration (e.g. KOALABEAR_24) cannot be rounded up to a power
+// of two without exceeding the register width.
+func Test_ZkcUnit_Bitwise_22(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_22", DEFAULT_UNIT_CONFIG)
 }
 
 // ===================================================================

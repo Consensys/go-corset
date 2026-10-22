@@ -128,9 +128,12 @@ func runCompileCmd[F field.Element[F], W vm.Word[W]](cmd *cobra.Command, args []
 	config.build = build
 	// Build all artifacts
 	ast, binfile := Build[F, W](build, args...)
-	// Perform validation.  This comes before anything is printed or written, so
-	// that an invalid set of constraints cannot leave a binary file behind.
-	validateArtifacts(binfile)
+	// Perform validation (unless disabled).  This comes before anything is
+	// printed or written, so that an invalid set of constraints cannot leave a
+	// binary file behind.
+	if config.build.transformConfig.Validation {
+		validateArtifacts(binfile)
+	}
 	//
 	if output != "" {
 		// Write to disk
@@ -226,7 +229,7 @@ func printArtifacts[F field.Element[F], W vm.Word[W]](ast *ast.Program, bf *cons
 		// the only field-specific transform that changes register widths, so
 		// transform program with splitting disabled to recover the pre-split widths.
 		preSplit := vm.TransformForTracing[vm.Uint, vm.Uint](bf.RawProgram(),
-			vm.DEFAULT_TRANSFORMS.Ignore("split-registers"))
+			vm.DEFAULT_TRANSFORMS.Ignore("split-registers").Validate(false))
 		// Print stats
 		PrintCompileStats(bf.AirConstraints(), preSplit, config.order, config.packedLookups, config.statsMatrix)
 	}

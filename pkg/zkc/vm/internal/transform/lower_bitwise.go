@@ -43,6 +43,7 @@ func LowerBitwise[W Word[W]](program descriptor.Program[W]) descriptor.Program[W
 	}
 
 	return descriptor.NewProgram(
+		program.IsTracing(),
 		program.Field(),
 		program.MaxStaticHeight(),
 		append(out, helpers.modules()...)...)
@@ -160,9 +161,9 @@ func lowerBitwiseShlShr[W Word[W]](
 // stream, where MASK = 2^width - 1.  No helper module is created.
 func inlineBitwiseNot[W Word[W]](b *bytecode.Bitwise[W], registers split.Allocator[W]) []Bytecode[W] {
 	var (
-		width, _ = maxBitwidthOf(registers.Registers(), b.Uses()...)
-		zero     W
-		mask     = zero.Not(width)
+		width = maxBitwidthOf(registers.Registers(), b.Uses()...)
+		zero  W
+		mask  = zero.Not(width)
 	)
 
 	maskReg := registers.Allocate("lbw", util.Some(width))
@@ -173,7 +174,7 @@ func inlineBitwiseNot[W Word[W]](b *bytecode.Bitwise[W], registers split.Allocat
 	}
 }
 
-func maxBitwidthOf[W Word[W]](regs []Register[W], targets ...bytecode.RegisterId) (uint, bool) {
+func maxBitwidthOf[W Word[W]](regs []Register[W], targets ...bytecode.RegisterId) uint {
 	var w uint
 	//
 	for _, src := range targets {
@@ -188,7 +189,7 @@ func maxBitwidthOf[W Word[W]](regs []Register[W], targets ...bytecode.RegisterId
 		w = max(w, reg.Bitwidth().Unwrap())
 	}
 
-	return w, w&(w-1) == 0
+	return w
 }
 
 // bitwiseOpName is the short name used in helper module names for a bitwise

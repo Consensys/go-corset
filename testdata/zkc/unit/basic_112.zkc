@@ -1,0 +1,20 @@
+pub input data(address:u2) -> (word:u64)
+
+fn main() {
+    var x:u64 = data[0]
+    var y:u8 = data[1] as u8
+    var tmp:u8
+    var a:u8, b:u16, c:u32
+    // disassemble
+    a::b::c = x as u56
+    // apply target fn
+    tmp = f(a, b, c)
+    // check
+    if tmp != y {
+        fail
+    }
+}
+
+fn f(a:u8, b:u16, c:u32) -> (r:u8) {
+    r = (a::b::c) as u8
+}

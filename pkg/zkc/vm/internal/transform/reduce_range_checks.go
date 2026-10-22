@@ -71,7 +71,7 @@ func ReduceRangeChecks[W Word[W]](program descriptor.Program[W]) descriptor.Prog
 		out[mid] = ith
 	}
 	//
-	return descriptor.NewProgram(program.Field(), program.MaxStaticHeight(), out...)
+	return descriptor.NewProgram(program.IsTracing(), program.Field(), program.MaxStaticHeight(), out...)
 }
 
 func reduceFunctionRangeChecks[W Word[W]](f *Function[W], env Environment[W]) *Function[W] {
@@ -91,7 +91,7 @@ func reduceFunctionRangeChecks[W Word[W]](f *Function[W], env Environment[W]) *F
 		//
 		// TODO: include zero-width registers here is a temporary fix until
 		// constant registers are available (#2236)
-		var checked = checkedRegs.Contains(i) || r.IsInput() || r.IsZeroWidth()
+		var checked = !r.IsNative() && (checkedRegs.Contains(i) || r.IsInput() || r.IsZeroWidth())
 		// Construct identical register with corresponding checked status.
 		return bytecode.NewRegister(r.Kind().WithRangeCheck(checked), r.Name(), r.Bitwidth(), r.Padding())
 	})
