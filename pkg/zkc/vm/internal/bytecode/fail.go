@@ -53,15 +53,7 @@ func (p *Fail[W]) Definitions() []RegisterId {
 
 // Validate implementation for Bytecode interface.
 func (p *Fail[W]) Validate(env Environment[W]) ([]error, bool) {
-	var errors, safe = validateOperands(env, p.Uses())
-	//
-	if safe {
-		for _, chunk := range p.Sources {
-			errors = append(errors, validateConcatBitwidth(env, chunk.Registers())...)
-		}
-	}
-	//
-	return errors, safe
+	return validateOperands(env, p.Uses())
 }
 
 func (p *Fail[W]) String(env Environment[W]) string {

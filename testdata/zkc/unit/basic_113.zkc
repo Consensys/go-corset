@@ -1,0 +1,14 @@
+pub input data(address:u2) -> (word:u64)
+
+fn main() {
+    var x:u64 = data[0]
+    //
+    f(x)
+}
+
+fn f(num:u64) {
+    //
+    if num == 0 {
+        fail "EXIT = %d\n", num
+    }
+}
