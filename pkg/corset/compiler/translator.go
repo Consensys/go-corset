@@ -327,7 +327,7 @@ func (t *translator) translateDefLookup(decl *ast.DefLookup) []SyntaxError {
 // translateDefLookupSources translates one side of a lookup (i.e. either its
 // sources or its targets) into a corresponding lookup vector.  Since a lookup
 // vector is made up of registers, this also returns the bitwidth of each
-// register in the vector (as needed for detecting irregular lookups).
+// register in the vector.
 func (t *translator) translateDefLookupSources(selector ast.TypedSymbol,
 	sources []ast.TypedSymbol) (lookup.Vector, []uint, ast.Context, []SyntaxError) {
 	// Determine context of ith set of targets
@@ -463,16 +463,6 @@ func (t *translator) translateBus(busName string, ports []busPort) []SyntaxError
 			errors = append(errors, *t.srcmap.SyntaxError(ith.decl, msg))
 			//
 			continue
-		}
-		// Check limb decompositions align (mirrors lookup regularity).  With
-		// no register width configured there is no splitting, hence nothing
-		// to misalign.
-		for k := range first.widths {
-			if t.config.Field.RegisterWidth == 0 {
-				break
-			} else if ith.widths[k] != first.widths[k] {
-				errors = append(errors, *t.srcmap.SyntaxError(ith.decl.Columns[k], "irregular bus port detected"))
-			}
 		}
 		//
 		if ith.decl.IsSend {

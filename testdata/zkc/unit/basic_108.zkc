@@ -1,6 +1,3 @@
-// Truncating cast whose result is destructured: with u16 limbs on
-// KOALABEAR_16, "x as u32" discards the top two u16 limbs of x, and the
-// chunking in split.Concat produces a chunk with neither targets nor sources.
 pub input data(address:u2) -> (word:u64)
 
 fn main() {

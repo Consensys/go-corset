@@ -155,24 +155,6 @@ func (p *RegisterStack[W]) SelectExact(nbits uint) (res []RegisterId) {
 	return res
 }
 
-// SelectOneUpto selects one register from the stack, and continues selecting
-// registers upto a maximum of n bits.
-func (p *RegisterStack[W]) SelectOneUpto(bitwidth uint) (res []RegisterId) {
-	// Sanity check that we cannot see any native registers here.
-	util.Assert(!descriptor.HasNativeRegisterId(p.stack, p.alloc), "native registers not supported here")
-	util.Assert(len(p.stack) > 0, "cannot select from empty stack")
-	//
-	if targetWidth(p.stack, p.alloc) > bitwidth {
-		// Always force at least one register to be selected
-		res = p.stack[0:1]
-		p.stack = p.stack[1:]
-		//
-		return res
-	}
-	// Add more registers only if there is space.
-	return p.SelectUpto(bitwidth)
-}
-
 // SelectUpto selects upto n bits from the stack, but it does not need to be
 // exact.
 func (p *RegisterStack[W]) SelectUpto(bitwidth uint) (res []RegisterId) {
