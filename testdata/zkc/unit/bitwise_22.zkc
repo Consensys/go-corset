@@ -1,0 +1,27 @@
+pub input data(address:u3) -> (w:u17)
+
+// Operands of odd width which is not a power of two.  On a 24bit field
+// configuration (e.g. KOALABEAR_24) a u17 operand is a single limb whose
+// width cannot be rounded up to a power of two without exceeding the
+// register width, so the bitwise helper must handle the odd width directly.
+fn main() {
+    var x:u17 = data[0]
+    var y:u17 = data[1]
+    var exp_res_and:u17 = data[2]
+    var exp_res_or:u17 = data[3]
+    var exp_res_xor:u17 = data[4]
+
+    var res_and:u17 = x & y
+    var res_or:u17 = x | y
+    var res_xor:u17 = x ^ y
+
+    if (exp_res_and != res_and) {
+        fail
+    }
+    if (exp_res_or != res_or) {
+        fail
+    }
+    if (exp_res_xor != res_xor) {
+        fail
+    }
+}

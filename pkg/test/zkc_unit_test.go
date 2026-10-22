@@ -854,6 +854,13 @@ func Test_ZkcUnit_Bitwise_21(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/bitwise_21", DEFAULT_UNIT_CONFIG)
 }
 
+// This tests AND/OR/XOR on operands of odd (non-power-of-two) width, which on a
+// 24bit field configuration (e.g. KOALABEAR_24) cannot be rounded up to a power
+// of two without exceeding the register width.
+func Test_ZkcUnit_Bitwise_22(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/bitwise_22", DEFAULT_UNIT_CONFIG)
+}
+
 // ===================================================================
 // Shift Tests
 // ===================================================================
