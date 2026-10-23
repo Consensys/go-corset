@@ -13,6 +13,8 @@
 package interpreter
 
 import (
+	"errors"
+
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/checkpoint"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
@@ -29,8 +31,14 @@ type WriteOnce[W word.Word[W]] struct {
 
 // Write implementation for Memory interface.
 func (p *WriteOnce[W]) Write(address uint64, value W) error {
-	// ensure sufficient space
+	var n = uint64(len(p.data))
+	// Ensure sufficient space
 	p.data = expand(p.data, address+1)
+	// Sanity check
+	if address < n && p.data[address].Cmp(value) != 0 {
+		return errors.New("write not permitted")
+	}
+	// Write data
 	p.data[address] = value
 	//
 	return nil
@@ -46,11 +54,6 @@ func (p *WriteOnce[W]) Initialise(contents []W) {
 // Read implementation for Memory interface.
 func (p *WriteOnce[W]) Read(address uint64) (W, error) {
 	panic("unsupported operation for write-once memory")
-}
-
-// CanWrite determines whether a given address can be written (or not).
-func (p *WriteOnce[W]) CanWrite(address uint64) bool {
-	return address >= uint64(len(p.data))
 }
 
 // Checkpoint implementation for memory interface
