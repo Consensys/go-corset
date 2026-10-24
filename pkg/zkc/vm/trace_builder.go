@@ -20,6 +20,7 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/util/field"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/checkpoint"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/descriptor"
+	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/interpreter"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 	log "github.com/sirupsen/logrus"
 )
@@ -171,6 +172,10 @@ func (p TraceBuilder[W, F, T, E]) traceCheckPoints(checkpoints []CheckPoint, out
 	return futures
 }
 
+// replicateOutputs overwrites the checkpointed contents of every output memory
+// with the (final) replicated output, so that each shard observes the complete
+// output from the start.  The outputs must already be in checkpoint page
+// format (see indexOutputs).
 func replicateOutputs(cp CheckPoint, outputs [][]byte) {
 	var memories = cp.Memories()
 	// Overwrite contents of output memories replicated output.
@@ -184,12 +189,20 @@ func replicateOutputs(cp CheckPoint, outputs [][]byte) {
 	}
 }
 
+// indexOutputs converts the (byte-encoded) outputs produced by EncodeOutputs
+// into checkpoint page format, indexed by module identifier.  The two encodings
+// differ: EncodeBytes packs cells tightly by bitwidth, whereas checkpoint pages
+// (see WriteOnce.Checkpoint / Pack) use a whole number of bytes per cell.
+// Hence, the outputs are decoded back into words and repacked.
 func indexOutputs[W word.Word[W]](p Program[W], outputs map[string][]byte) [][]byte {
 	var indexed = make([][]byte, len(p.Modules()))
 
 	for mid, m := range p.Modules() {
 		if m, ok := m.(*descriptor.Memory[W]); ok && m.IsWriteOnly() {
-			indexed[mid] = outputs[m.Name()]
+			if bytes, ok := outputs[m.Name()]; ok {
+				words := DecodeBytes(bytes, *m)
+				indexed[mid] = interpreter.Pack(p.Field(), m.DataRegisters(), words)
+			}
 		}
 	}
 	//
