@@ -2,30 +2,33 @@
 
 ## Compilation
 
-The arithmetization pass (`pkg/asm/compiler/`) converts each function's
+The arithmetization pass (`pkg/zkc/constraints/`) converts each function's
 vectorized instruction sequence into a MIR module of vanishing constraints,
 range constraints, and lookup arguments.
 
 ### Modules and columns
 
 Each function becomes one MIR module.  The module contains one column per
-register (inputs, outputs, and locals), plus — for functions with more than
-one vector bundle — a **program counter** (`PC`) column and a **return line**
-(`RET`) column.  Each row of the module represents one execution step (one
-vector bundle) of one invocation of the function.  Range constraints are
-added automatically for every column to enforce its declared bit-width.
+register (inputs, outputs, and locals), a **return line** (`$ret`) column
+and — for functions with more than one vector bundle — a **program
+counter** (`$pc`) column plus one selector column `$is_pc_k` per bundle.
+Each row of the module represents one execution step (one vector bundle)
+of one invocation of the function.  Range constraints are added
+automatically for every column to enforce its declared bit-width.
 
 Functions that vectorize to a single bundle are called _atomic_.  They need
-no `PC` or `RET` columns because every row is unconditionally one complete
-invocation.
+no `$pc` column because every row is one complete invocation.  Instead,
+their constraints are guarded by `$ret != 0`, so that padding rows (where
+`$ret == 0`) are unconstrained.
 
 ### One vanishing constraint per bundle
 
-For each vector bundle at program counter `k`, the compiler emits a single
-vanishing constraint guarded by `PC[i] == k` (i.e. the constraint need only
-hold on rows where the current step is `k`).  The body of the constraint is
-the conjunction of the constraints generated for each micro-instruction in
-the bundle:
+For each vector bundle `k`, the compiler emits a single vanishing
+constraint guarded by the selector `$is_pc_k` (i.e. the constraint need only
+hold on rows where the current step is `k`; the selector is `1` exactly when
+`$pc == k+1`, since `$pc == 0` is reserved for padding).  The body of the
+constraint is the conjunction of the constraints generated for each
+micro-instruction in the bundle:
 
 - **`Add` / `Mul`** — an equality `lhs = rhs` where the left-hand side is the
   target register on the current row, and the right-hand side is the
@@ -42,8 +45,8 @@ the bundle:
   later micro-instruction in the bundle is wrapped in that condition, so only
   the constraints on the active path are enforced.
 
-- **`Jmp`** — emits `PC[i+1] = target`, constraining the program counter
-  transition.
+- **`Jmp`** — emits `PC[i+1] = target + 1`, constraining the program
+  counter transition.
 
 - **`Return`** — emits `RET[i] = 1`, marking the row as a return step.  The
   return line is used as the enable signal for the lookup argument that
@@ -68,6 +71,9 @@ Each call site (bus) in a function generates a **lookup argument**: the tuple
 of argument and return columns at the call site must appear as a row in the
 callee's module.  For multi-line callees the lookup is filtered to rows where
 `RET == 1`, ensuring that only complete, returning invocations are looked up.
+Calls into `#[global]` functions are the exception: they are placed on a
+**bus** instead, which balances across modules (and shards), since caller and
+callee may reside in different shards.
 
 ## Branch Table Optimisation
 
