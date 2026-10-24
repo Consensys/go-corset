@@ -13,7 +13,7 @@
 package interpreter
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/LFDT-Lineth/zkc/pkg/util"
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/checkpoint"
@@ -21,32 +21,39 @@ import (
 	"github.com/LFDT-Lineth/zkc/pkg/zkc/vm/internal/word"
 )
 
-// WriteOnce (WOM) represents a form of memory where each cell can be
-// written exactly once and, furthermore, cells must be written consecutively
-// starting from zero.  Thus, a WOM can be viewed as an output stream (which is
-// exactly what they are typically used for).
+// WriteOnce (WOM) represents a form of memory where each cell holds at most
+// one value: a write to a cell which already holds a different value fails,
+// whilst a write which agrees with the existing value is permitted (and has no
+// effect).  This matches exactly what the constraints enforce, where every
+// write is bound (by lookup) to a single table row per address, since the
+// constraints cannot distinguish a repeated (agreeing) write from the original.
+//
+// Agreeing rewrites also arise naturally during sharded tracing, where the
+// complete (final) output is replicated into every shard's checkpoint (see
+// Restore) such that each shard's trace carries the whole output table.  The
+// writes a shard then performs land on cells which already hold their final
+// value.
 type WriteOnce[W word.Word[W]] struct {
 	StaticArray[W, W]
 }
 
-// Write implementation for Memory interface.
+// Write implementation for Memory interface.  This fails if the cell already
+// holds a different value.
 func (p *WriteOnce[W]) Write(address uint64, value W) error {
-	var n = uint64(len(p.data))
+	if address < uint64(len(p.data)) && p.data[address].Cmp(value) != 0 {
+		return fmt.Errorf("address %x already written for write-only memory %s", address, p.descriptor.Name())
+	}
 	// Ensure sufficient space
 	p.data = expand(p.data, address+1)
-	// Sanity check
-	if address < n && p.data[address].Cmp(value) != 0 {
-		return errors.New("write not permitted")
-	}
 	// Write data
 	p.data[address] = value
 	//
 	return nil
 }
 
-// Initialise implementation for Memory interface.  Resets the backing array
-// and the set of written addresses, so write-once tracking starts fresh on
-// every execution (Boot calls Initialise on each memory before running).
+// Initialise implementation for Memory interface.  Resets the backing array so
+// write-once tracking starts fresh on every execution (Boot calls Initialise on
+// each memory before running).
 func (p *WriteOnce[W]) Initialise(contents []W) {
 	p.StaticArray.Initialise(contents)
 }
@@ -66,7 +73,8 @@ func (p *WriteOnce[W]) Checkpoint(mid uint16, field word.Config) checkpoint.Memo
 	return checkpoint.NewMemory(mid, 0, page)
 }
 
-// Restore implementation for memory interface
+// Restore implementation for memory interface.  Restored cells may be rewritten
+// by the resumed execution provided the values agree (see Write).
 func (p *WriteOnce[W]) Restore(m checkpoint.Memory, field word.Config) {
 	var pages = m.Pages()
 	// Sanity check

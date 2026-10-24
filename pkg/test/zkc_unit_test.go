@@ -948,6 +948,10 @@ func Test_ZkcUnit_WriteOnceMemory_05(t *testing.T) {
 	checkZkcUnit(t, "zkc/unit/wom_05", DEFAULT_UNIT_CONFIG)
 }
 
+func Test_ZkcUnit_WriteOnceMemory_06(t *testing.T) {
+	checkZkcUnit(t, "zkc/unit/wom_06", DEFAULT_UNIT_CONFIG)
+}
+
 // ===================================================================
 // Read-Write Memory (RAM) Tests
 // ===================================================================
